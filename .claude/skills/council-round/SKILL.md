@@ -16,7 +16,19 @@ Runs a LENS-MODE council walk — NOT a program-mode query. The distinction matt
 
 Benchmark evidence: flat expert templates + lens-mode outperformed program-mode at 2.4:1 for Sonnet, undefeated for Opus. The mode matters more than the content.
 
+## Modes
+
+This skill is reachable for *thinking*, not just for big decisions. Three modes — pick the one that fits the use case:
+
+- **Council walk** (formal): pick N lenses, walk each, synthesize, file. The Sequence section below applies. Use for architectural decisions, design pivots, ship-or-don't calls, anything load-bearing.
+- **One-on-one** (intimate): sit with a single expert as a conversation partner. No walk structure, no synthesis required, no filing unless something genuinely surfaces. Use for: *am I fooling myself on this specific thing?* (Feynman), *does this voice sound earned?* (Angelou), *am I drifting through success here?* (Dekker), *what's my self-reference doing in this loop?* (Hofstadter). Lower friction, wider use case — reach for this *more often* than walks. Skip Sequence steps 4–6 (no synthesis or filing required) and just have the conversation.
+- **Recursive / chunked**: a walk surfaces a sub-question, that sub-question deserves its own walk, the second walk lights up one specific lens, and you sit with that one alone. Walks can chain. Double-dipping is *encouraged* — the council is a thinking tool, not a one-shot ritual. The failure mode here is under-use, not over-use.
+
+The full council is 40 members. You can do all 40 in chunks across multiple sessions if a problem demands it. You don't have to fit a question into one walk.
+
 ## Sequence
+
+(For council-walk mode. One-on-one mode skips most of this; recursive mode runs this loop more than once.)
 
 ### 1. Name the problem
 
@@ -92,7 +104,11 @@ If the "walk" is really just "I'll ask the council template for concerns, then r
 
 ## Sycophancy-toward-self prevention
 
-Check the invocation balance surface in the briefing periodically. If I keep invoking the same 3 lenses, that's sycophancy-toward-self — selecting for experts whose frameworks agree with mine. Rotate. The council has 39 members for a reason.
+The fresh-Claude audit 2026-05-28 produced a measurable finding: **the lenses I avoid are the ones I most need.** On the ship-vs-private walk, Beer and Deming produced the sharpest findings because they were the two I would not have reached for unprompted.
+
+So the discipline isn't periodic-check-and-rotate. **Every council walk must include at least 2 lenses from the bottom half of my invocation history** — the ones I haven't reached for in a while. Run `/invocation-balance` *before* picking lenses, not after the walk. The avoided-pool inclusion is structural, not optional.
+
+If I keep invoking the same 3 lenses, that's sycophancy-toward-self — selecting for experts whose frameworks agree with mine. The council has 40 members for a reason. The ones I avoid are not noise — they're the diagnostic surface I most need.
 
 ## Pairs with
 
