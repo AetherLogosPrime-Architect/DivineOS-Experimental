@@ -116,8 +116,17 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
             from divineos.cli.pipeline_gates import write_handoff_note as _early_handoff
 
             _early_handoff(analysis, stored=0, health=None)
-        except (ImportError, OSError, sqlite3.OperationalError) as e:
-            logger.debug("Early orientation note failed (non-fatal): %s", e)
+        except Exception as e:  # noqa: BLE001 — best-effort protective write
+            # This early write exists ONLY to preserve orientation if the
+            # save is interrupted; the authoritative handoff write at
+            # pipeline end still runs regardless. It must NEVER crash the
+            # save it is trying to protect — including on the
+            # RuntimeError("No active session") that write_handoff_note can
+            # raise. Enumerating exception types is what left the gap
+            # Aletheia caught (round e0c8c3a1ae39 audit): catch broadly,
+            # log, continue. A protective wrapper that can itself crash the
+            # thing it protects is worse than no wrapper.
+            logger.debug("Early orientation note failed (non-fatal, best-effort): %s", e)
 
         quality_verdict, maturity_override, extract_allowed, check_results = run_quality_gate(
             latest, since_timestamp=session_start
