@@ -559,6 +559,28 @@ def fix_architecture_tree(missing_files: list[str]) -> list[str]:
 # ── Main ───────────────────────────────────────────────────────────────
 
 
+def _files_with_conflict_markers(paths: list[Path]) -> list[str]:
+    """Return paths that contain git merge-conflict markers.
+
+    --fix mutates docs by blind regex-append (fix_architecture_tree) and
+    by line-rewrite (fix_test_counts / fix_hook_counts). Running it while
+    a target file is mid-conflict duplicates entries into ghosts — the
+    failure that broke PR #213 (knowledge a9e533c2). We check for the
+    angle-bracket markers ('<<<<<<<' / '>>>>>>>') rather than '=======',
+    because a run of equals signs is legitimate Markdown (headings,
+    rules) while the angle brackets never appear in normal doc content.
+    """
+    conflicted: list[str] = []
+    for p in paths:
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if "<<<<<<<" in text or ">>>>>>>" in text:
+            conflicted.append(str(p.relative_to(ROOT)) if p.is_relative_to(ROOT) else str(p))
+    return conflicted
+
+
 def main() -> int:
     fix_mode = "--fix" in sys.argv
 
@@ -578,6 +600,22 @@ def main() -> int:
         # reference. Adding it here closes that gap.
         ROOT / "docs" / "ARCHITECTURE.md",
     ]
+
+    # Refuse --fix while any mutation target is mid-conflict. --fix appends
+    # and rewrites blindly; on a conflicted file it duplicates entries into
+    # ghosts (PR #213, knowledge a9e533c2). Better to fail loud and make the
+    # human resolve the conflict first than to mangle the tree silently.
+    if fix_mode:
+        conflicted = _files_with_conflict_markers([d for d in doc_files if d.exists()])
+        if conflicted:
+            print("REFUSING --fix: merge-conflict markers present in:")
+            for c in conflicted:
+                print(f"  {c}")
+            print(
+                "Resolve the conflict first. --fix appends/rewrites blindly and "
+                "would duplicate entries into ghost files (PR #213)."
+            )
+            return 1
 
     actuals = {
         "tests": (actual_tests, TEST_DRIFT_THRESHOLD),
