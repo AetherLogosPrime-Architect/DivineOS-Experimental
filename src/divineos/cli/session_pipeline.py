@@ -101,6 +101,24 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
         enforce_briefing_gate()
         enforce_engagement_gate()
 
+        # ── Early orientation capture (prereg-abb5a786fe94) ──────
+        # Write the orientation/handoff note NOW — before the heavy
+        # extraction phases that can be killed mid-run (hook timeout,
+        # crash, compaction). The note derives intent + next-steps from
+        # the freshly-extracted goals, so an interrupted save still leaves
+        # the next session with "where I was." save_handoff_note overwrites
+        # a single file, so the enriched final write at pipeline end
+        # supersedes this cleanly — no duplication. This addresses the
+        # measured failure (2026-05-29): the handoff was written LAST, so
+        # an interrupted save lost the orientation note and the next
+        # session woke blind.
+        try:
+            from divineos.cli.pipeline_gates import write_handoff_note as _early_handoff
+
+            _early_handoff(analysis, stored=0, health=None)
+        except (ImportError, OSError, sqlite3.OperationalError) as e:
+            logger.debug("Early orientation note failed (non-fatal): %s", e)
+
         quality_verdict, maturity_override, extract_allowed, check_results = run_quality_gate(
             latest, since_timestamp=session_start
         )

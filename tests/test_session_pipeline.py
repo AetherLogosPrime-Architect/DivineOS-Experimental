@@ -140,6 +140,66 @@ class TestQualityGateBlock:
             pass  # Expected in test environment without full DB
 
 
+class TestEarlyOrientationCapture:
+    """prereg-abb5a786fe94: the orientation/handoff note is written EARLY,
+    before the heavy extraction phases, so an interrupted save (hook timeout,
+    compaction, crash) still leaves the next session with 'where I was.'
+
+    Regression guard against the note drifting back to the end of the pipeline
+    — the measured 2026-05-29 wake-blind bug, where extraction completed but
+    the orientation note (written LAST) was lost to an interrupted save.
+    """
+
+    def test_orientation_survives_interruption_after_early_write(
+        self, tmp_path, monkeypatch, hud_dir, session_file
+    ):
+        # A real active goal so the early note carries intent + next_steps
+        # (prereg falsifier: "the early note is too sparse to orient").
+        goals_path = hud_dir / "active_goals.json"
+        goals_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "text": "wire the context governor",
+                        "status": "active",
+                        "added_at": time.time(),
+                    }
+                ]
+            )
+        )
+
+        from divineos.cli import session_pipeline as sp
+
+        monkeypatch.setattr(sp._discovery_mod, "find_sessions", lambda: [session_file])
+        monkeypatch.setattr(sp._analyzer_mod, "analyze_session", lambda *a, **k: _make_analysis())
+        monkeypatch.setattr(sp, "run_goal_extraction", lambda *a, **k: None)
+        monkeypatch.setattr(sp, "enforce_briefing_gate", lambda *a, **k: None)
+        monkeypatch.setattr(sp, "enforce_engagement_gate", lambda *a, **k: None)
+
+        # Simulate the save being killed right AFTER the early orientation
+        # write: the next phase (quality gate) blows up mid-pipeline.
+        def _boom(*a, **k):
+            raise RuntimeError("simulated interruption after early orientation write")
+
+        monkeypatch.setattr(sp, "run_quality_gate", _boom)
+
+        try:
+            sp._run_session_end_pipeline()
+        except RuntimeError:
+            pass  # the interruption is the point; assert the note survived it
+
+        handoff_path = hud_dir / "handoff_note.json"
+        assert handoff_path.exists(), (
+            "Orientation note must exist after an interruption — it must be "
+            "written BEFORE the heavy phases, not after"
+        )
+        note = json.loads(handoff_path.read_text())
+        assert note.get("next_steps"), "Early orientation note must carry next_steps, not be sparse"
+        assert any("governor" in s for s in note["next_steps"]), (
+            "Orientation note must reflect the active goal so the next session is oriented"
+        )
+
+
 class TestQualityGateAssessment:
     """Test the quality verdict decision logic."""
 
