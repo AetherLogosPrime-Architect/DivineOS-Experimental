@@ -104,10 +104,19 @@ if [ -n "$STAGED_SRC" ]; then
     fi
 fi
 
-# 4. Doc drift (auto-fix test counts, then re-stage and verify)
+# 4. Doc drift (auto-fix test/hook counts AND architecture-tree drift,
+# then re-stage and verify).
+#
+# Andrew correction 2026-05-28 (#25): the auto-fix modifies
+# docs/ARCHITECTURE.md when a new source file is added, but
+# docs/ARCHITECTURE.md was NOT in the re-stage list — so every commit
+# that added a source file passed pre-commit locally (auto-fix ran) but
+# failed CI doc-drift (the fix wasn't in the commit). Every PR. Ad
+# infinitum. Closing the loop by adding ARCHITECTURE.md here so the
+# fix actually lands in the commit.
 echo "=== Doc Drift ==="
 python scripts/check_doc_counts.py --fix 2>/dev/null || true
-git add CLAUDE.md README.md src/divineos/seed.json 2>/dev/null || true
+git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
 if ! python scripts/check_doc_counts.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
