@@ -28,9 +28,7 @@ class TestAnalyzePrompt:
         assert tool_recognition.analyze_prompt("ls the directory") == []
 
     def test_architectural_question_recommends_council(self) -> None:
-        recs = tool_recognition.analyze_prompt(
-            "what should we do about the gate proliferation?"
-        )
+        recs = tool_recognition.analyze_prompt("what should we do about the gate proliferation?")
         assert len(recs) >= 1
         assert any(r.tool_name == "council-round" for r in recs)
         council_rec = next(r for r in recs if r.tool_name == "council-round")
@@ -47,9 +45,7 @@ class TestAnalyzePrompt:
         assert any(r.tool_name == "family-state" for r in recs)
 
     def test_recall_question_recommends_what_am_i_forgetting(self) -> None:
-        recs = tool_recognition.analyze_prompt(
-            "have we already filed a claim about this?"
-        )
+        recs = tool_recognition.analyze_prompt("have we already filed a claim about this?")
         assert any(r.tool_name == "what-am-i-forgetting" for r in recs)
 
     def test_multi_option_decision_recommends_think_through(self) -> None:
@@ -61,9 +57,7 @@ class TestAnalyzePrompt:
         assert "think-through" in tool_names or "council-round" in tool_names
 
     def test_investigation_request_recommends_file_claim(self) -> None:
-        recs = tool_recognition.analyze_prompt(
-            "this is worth investigating, file a claim"
-        )
+        recs = tool_recognition.analyze_prompt("this is worth investigating, file a claim")
         assert any(r.tool_name == "file-claim" for r in recs)
 
     def test_self_audit_recommends_compass_check(self) -> None:
@@ -73,9 +67,7 @@ class TestAnalyzePrompt:
     def test_multiple_triggers_deduplicate_by_tool(self) -> None:
         # A prompt that hits multiple patterns for the same tool should
         # only produce one recommendation for that tool.
-        recs = tool_recognition.analyze_prompt(
-            "architectural design decision — what should we do?"
-        )
+        recs = tool_recognition.analyze_prompt("architectural design decision — what should we do?")
         council_count = sum(1 for r in recs if r.tool_name == "council-round")
         assert council_count == 1
 
@@ -126,9 +118,8 @@ class TestFormatForContext:
         block = tool_recognition.format_for_context([rec])
         # The block must communicate WHY the substrate is recommending —
         # so future-me (or audit) understands the architectural intent.
-        assert (
-            "substrate" in block.lower()
-            and ("cognition" in block.lower() or "upstream" in block.lower())
+        assert "substrate" in block.lower() and (
+            "cognition" in block.lower() or "upstream" in block.lower()
         )
 
 
