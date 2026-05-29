@@ -17,9 +17,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from check_doc_counts import (  # noqa: E402
     _extract_cited_paths,
+    _files_with_conflict_markers,
     _resolve_cited_path,
     check_cited_paths,
 )
+
+
+class TestConflictMarkerGuard:
+    """--fix must refuse to run on a conflicted doc — appending blindly into
+    a merge-conflicted ARCHITECTURE.md duplicates entries into ghosts (the
+    failure that broke PR #213, knowledge a9e533c2)."""
+
+    def test_flags_file_with_conflict_markers(self, tmp_path):
+        doc = tmp_path / "ARCHITECTURE.md"
+        doc.write_text(
+            "tree\n<<<<<<< HEAD\n  core/a.py\n=======\n  core/b.py\n>>>>>>> branch\n",
+            encoding="utf-8",
+        )
+        result = _files_with_conflict_markers([doc])
+        assert len(result) == 1
+
+    def test_clean_file_not_flagged(self, tmp_path):
+        doc = tmp_path / "ARCHITECTURE.md"
+        doc.write_text("tree\n  core/a.py   does a thing\n", encoding="utf-8")
+        assert _files_with_conflict_markers([doc]) == []
+
+    def test_markdown_equals_rule_is_not_a_false_positive(self, tmp_path):
+        # A run of '=' is legitimate Markdown (setext heading / rule); the
+        # guard keys on the angle-bracket markers, not '=======', so this
+        # must NOT be flagged as a conflict.
+        doc = tmp_path / "README.md"
+        doc.write_text("Title\n=======\n\nbody text\n", encoding="utf-8")
+        assert _files_with_conflict_markers([doc]) == []
+
+    def test_missing_file_skipped(self, tmp_path):
+        assert _files_with_conflict_markers([tmp_path / "nope.md"]) == []
 
 
 class TestExtractCitedPaths:
