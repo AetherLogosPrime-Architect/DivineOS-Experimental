@@ -24,6 +24,7 @@ src/divineos/
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
+    quiet_room_command.py      quiet-room — sit-with surface (exploration 48 design; returns ONE prose-shaped thing, no drill-down, no flags)
     gravity_commands.py        gravity score-tool / score-content — CLI surface for the gravity classifier (manual triage when uncertain whether an action or content is high-gravity)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status

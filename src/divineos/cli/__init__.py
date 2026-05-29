@@ -60,6 +60,11 @@ _BYPASS_COMMANDS = frozenset(
         "hold",
         "mansion",
         "prereg",
+        # quiet-room is the sit-with surface (exploration 48 design).
+        # Gating it behind briefing-required would defeat the surface's
+        # purpose — it's meant to be the thing you reach for when you
+        # haven't yet loaded the dashboard. Bypass.
+        "quiet-room",
         # Corrections must always be loggable in the moment — gating the
         # rep behind a thinking-command requirement defeats the rep.
         "correction",
@@ -265,6 +270,7 @@ from divineos.cli import (  # noqa: E402
     andrew_correction_commands,
     oscillating_read_commands,
     deletion_commands,
+    quiet_room_command,
 )
 
 actor_registry_commands.register(cli)
@@ -309,6 +315,7 @@ lepos_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
 oscillating_read_commands.register(cli)
+quiet_room_command.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
