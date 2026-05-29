@@ -23,6 +23,11 @@
             "type": "command",
             "command": "bash .claude/hooks/pre-response-context.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/tool-recognition.sh",
+            "timeout": 10
           }
         ]
       }
