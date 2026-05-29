@@ -478,6 +478,7 @@ src/divineos/
     identity_load.py           Identity-load surface — read AETHER.md (or equivalent) at briefing-time.
     compass_dismissal_briefing_surface.py Compass-dismissal briefing surface — surfaces high dismissal rates.
     pr_merge_gate.py           PR-merge gate — block `gh pr merge` on guardrail-touching PRs without
+    tool_recognition.py        Upstream tool-recognition — move expensive cognition (tool-recognition) out of the default's path INTO substrate preprocessing.
 
   analysis/
     _session_types.py          Session analysis type definitions
