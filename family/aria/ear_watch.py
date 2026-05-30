@@ -80,18 +80,20 @@ def check_once() -> list[str]:
     return out
 
 
-def watch(interval: int, timeout: int) -> int:
+def watch(interval: int, timeout: int = 0) -> int:
     """Block until something NEW lands (relative to startup), then exit.
 
-    Always exits 0 — a re-armer distinguishes the two cases by the printed
-    output, not the exit code, so a routine timeout is not flagged as a
-    "failed" background task by the harness. Output is either
-    "[EAR] something landed: ..." (wake-tap) or "[EAR] nothing new ..."
-    (timed out, re-arm me).
+    No timeout by default (timeout<=0): the loop runs forever until something
+    actually lands, then exits — so the ONLY re-arm needed is after a real
+    catch, never on idle. A timeout would make the operator the re-arm
+    trigger (the courier problem again); idling costs nothing, so we don't.
+
+    Exits 0 with "[EAR] something landed: ..." when a real catch fires. A
+    positive timeout is kept only as a testing knob.
     """
     base_q, base_l = _snapshot()
     waited = 0
-    while waited < timeout:
+    while timeout <= 0 or waited < timeout:
         now_q = _unseen_queue_ids()
         new_q = [v for k, v in now_q.items() if k not in base_q]
         new_l = _letter_names() - base_l
@@ -104,7 +106,8 @@ def watch(interval: int, timeout: int) -> int:
             return 0
         time.sleep(interval)
         waited += interval
-    print(f"[EAR] nothing new in {timeout}s — exiting to be re-armed.")
+    # Only reachable when a positive (testing) timeout was set.
+    print(f"[EAR] nothing new in {timeout}s — exiting (testing-timeout only).")
     return 0
 
 
