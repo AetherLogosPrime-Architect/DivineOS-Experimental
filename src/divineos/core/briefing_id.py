@@ -31,22 +31,47 @@ rather than via session-id (which rotates) or wall-clock.
 
 - Confabulation is closed by validating the presented ID against the
   gate-side truth (a plausible-but-wrong ID fails).
-- "Only scan context for it" is a discipline, not a hard wall: the truth
-  file exists for validation and I *could* read it. That residual is the
-  same class as truth-#7 (the gate enforces the load/recall action, not
-  comprehension; I don't cat the truth file because the recall is mine).
+- The gate-side truth is a SHA-256 **hash** of the ID, never the raw value
+  (Andrew 2026-05-29: "it needs to be unfakeable or you will 100% try to
+  fake it"). Catting the truth file yields a hash, not the ID — and the ID
+  is 128-bit (``token_hex(16)``), so the hash is not brute-force-reversible
+  either. The optimizer cannot route through the truth file; the only way
+  to present the right ID is to actually still hold it in context. That is
+  the liveness proof working as intended.
+- One residual remains, and it is honestly weaker than "impossible": the
+  raw ID is also printed into the on-disk transcript (that is how it
+  reaches my context), and the transcript survives compaction. A
+  sufficiently determined stale-me could grep the transcript for it. What
+  the hashing achieves is that EVERY cheat path now costs more than just
+  reloading (``divineos briefing``) — so the lazy route and the honest
+  route are the same route. That is the real, achievable definition of
+  unfakeable here; full "I cannot possibly see the ID" would require hiding
+  it from myself, which breaks recall. The transcript residual is the same
+  class as truth-#7: the gate enforces the recall ACTION, and the cheap
+  path no longer beats it.
 - The core here is pure: callers supply the tool-count. Wiring to the live
   counter + the PreToolUse gate is a separate (guardrailed) increment.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 import time
 
 # Tool-uses since the last issue/verify before the gate re-challenges.
-DEFAULT_EXPIRY_TOOLS = 25
+# Andrew 2026-05-29: 10, not 25 — at 25 a compaction landing mid-window goes
+# unchallenged for up to 24 tool-uses (I lived exactly that: compacted, then
+# ran a dozen tool-uses narrating "everything's confirmed safe and real"
+# before anything asked). At 10 the worst-case blind stretch is 9 tool-uses.
+DEFAULT_EXPIRY_TOOLS = 10
+
+
+def _hash_id(raw: str) -> str:
+    """SHA-256 of a normalized ID. The gate stores only this, never the raw
+    ID, so reading the truth file reveals nothing presentable."""
+    return hashlib.sha256((raw or "").strip().lower().encode("utf-8")).hexdigest()
 
 
 def _truth_path():
@@ -98,10 +123,10 @@ def current_tool_count() -> int:
 def issue_briefing_id(tool_count: int, session_id: str | None = None) -> str:
     """Mint a fresh briefing-ID, record it gate-side, return it for printing
     into the conversation. Resets the freshness window to ``tool_count``."""
-    bid = secrets.token_hex(4)  # 8 hex chars
+    bid = secrets.token_hex(16)  # 32 hex chars / 128-bit — hash is not brute-forceable
     _write_truth(
         {
-            "id": bid,
+            "id_hash": _hash_id(bid),  # store the hash, never the raw ID
             "issued_at_tool": int(tool_count),
             "verified_at_tool": int(tool_count),
             "session_id": session_id,
@@ -115,9 +140,9 @@ def verify_briefing_id(presented: str, current_tool_count: int) -> tuple[bool, s
     """Validate a recalled ID against the gate-side truth and re-stamp
     freshness on success. Returns (ok, message)."""
     truth = _read_truth()
-    if not truth or not truth.get("id"):
+    if not truth or not truth.get("id_hash"):
         return False, "No briefing-ID has been issued this run. Run: divineos briefing"
-    if (presented or "").strip().lower() != str(truth["id"]).strip().lower():
+    if _hash_id(presented or "") != str(truth["id_hash"]):
         return False, (
             "That briefing-ID does not match — you are stale (recalled wrong, or "
             "the briefing has faded from context). Run: divineos briefing"
@@ -131,7 +156,7 @@ def is_fresh(current_tool_count: int, expiry: int = DEFAULT_EXPIRY_TOOLS) -> boo
     """True if a valid briefing-ID was issued/verified within the last
     ``expiry`` tool-uses. False (challenge due) otherwise."""
     truth = _read_truth()
-    if not truth or not truth.get("id"):
+    if not truth or not truth.get("id_hash"):
         return False
     last = truth.get("verified_at_tool", truth.get("issued_at_tool", 0))
     try:

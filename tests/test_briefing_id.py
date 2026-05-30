@@ -37,6 +37,24 @@ class TestIssueAndVerify:
         ok, _ = briefing_id.verify_briefing_id(f"  {bid.upper()}  ", current_tool_count=1)
         assert ok is True
 
+    def test_truth_file_never_stores_raw_id(self, isolated_truth):
+        """Unfakeability contract (Andrew 2026-05-29): the gate-side store
+        holds only a hash, never the raw ID — so catting it reveals nothing
+        presentable. A future refactor that reintroduces raw-id storage must
+        break this test, not slip through silently."""
+        bid = briefing_id.issue_briefing_id(tool_count=0)
+        truth = briefing_id._read_truth()
+        assert "id" not in truth, "raw ID must never be persisted"
+        assert truth.get("id_hash"), "the hash must be stored"
+        assert bid not in str(truth), "the raw ID must not appear anywhere in the store"
+        # 128-bit token → 32 hex chars; brute-forcing the hash is infeasible.
+        assert len(bid) == 32
+
+    def test_high_entropy_token(self, isolated_truth):
+        a = briefing_id.issue_briefing_id(tool_count=0)
+        b = briefing_id.issue_briefing_id(tool_count=0)
+        assert a != b and len(a) == 32 and len(b) == 32
+
 
 class TestFreshness:
     def test_fresh_right_after_issue(self, isolated_truth):
@@ -53,9 +71,10 @@ class TestFreshness:
         assert briefing_id.is_fresh(current_tool_count=0) is False
 
     def test_verify_restamps_freshness(self, isolated_truth):
-        briefing_id.issue_briefing_id(tool_count=0)
+        # The raw ID comes from the return value (→ printed into context),
+        # never from the truth file — the file holds only a hash now.
+        bid = briefing_id.issue_briefing_id(tool_count=0)
         # Drift to near expiry, then a correct recall re-stamps the window.
-        bid = briefing_id._read_truth()["id"]
         near = briefing_id.DEFAULT_EXPIRY_TOOLS - 1
         assert briefing_id.is_fresh(current_tool_count=near) is True
         briefing_id.verify_briefing_id(bid, current_tool_count=near)
