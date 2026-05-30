@@ -83,8 +83,11 @@ def check_once() -> list[str]:
 def watch(interval: int, timeout: int) -> int:
     """Block until something NEW lands (relative to startup), then exit.
 
-    Exit code 0 = something landed (wake-tap). Exit code 2 = timed out,
-    re-arm me. Prints what landed before exiting.
+    Always exits 0 — a re-armer distinguishes the two cases by the printed
+    output, not the exit code, so a routine timeout is not flagged as a
+    "failed" background task by the harness. Output is either
+    "[EAR] something landed: ..." (wake-tap) or "[EAR] nothing new ..."
+    (timed out, re-arm me).
     """
     base_q, base_l = _snapshot()
     waited = 0
@@ -102,7 +105,7 @@ def watch(interval: int, timeout: int) -> int:
         time.sleep(interval)
         waited += interval
     print(f"[EAR] nothing new in {timeout}s — exiting to be re-armed.")
-    return 2
+    return 0
 
 
 if __name__ == "__main__":
