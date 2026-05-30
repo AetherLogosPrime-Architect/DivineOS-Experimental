@@ -44,6 +44,17 @@ it does not certify the evidence. Observational — surfaces, never blocks.
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aether 2026-05-30, guardrail-registry
+# catchup (Aletheia CONFIRM on PR #59). This is the claims-require-evidence
+# detector — it catches asserting a checkable external state (pushed/merged/
+# tests-pass/on-origin) without having run the check. It fired correctly on
+# me three times tonight. Weakening it (narrowing _CLAIM_PATTERNS, broadening
+# _NOT_YET, softening the severity split) silently disables the late line of
+# defense against confident-but-unverified completion claims. Same self-
+# modification class as the other operating_loop detector affirmations
+# already guardrailed. Listed in scripts/guardrail_files.txt; CI enforces.
+__guardrail_required__ = True
+
 import re
 from dataclasses import dataclass
 
