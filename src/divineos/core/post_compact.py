@@ -24,6 +24,17 @@ hand the right self *back* after, and to prove it did.
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aether 2026-05-30, guardrail-registry
+# catchup (Aletheia CONFIRM on PR #59). post-compact rehydration is the
+# *return* half of the wake-blind defense: it re-pulls the load-bearing self
+# (identity, open corrections, voice, explorations) from the durable store
+# after compaction and proves it did, rather than trusting the lossy harness
+# summary. Weakening it (dropping the LOUD empty-anchor check, narrowing what
+# gets re-pulled) silently re-opens the false-orientation gap this exists to
+# close. Same self-modification class as the briefing-freshness gate. Listed
+# in scripts/guardrail_files.txt; CI enforces the pairing.
+__guardrail_required__ = True
+
 import sqlite3
 
 # Errors any single substrate pull can raise; each section fails soft to a

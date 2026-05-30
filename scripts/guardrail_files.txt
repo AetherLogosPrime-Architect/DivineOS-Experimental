@@ -244,3 +244,43 @@ src/divineos/core/family/seal_hook.py
 # highest-leverage self-modification attack surface of the set. Same
 # discipline as the detector-affirmation guardrails above.
 src/divineos/core/actor_normalize.py
+
+# Guardrail-registry catchup — Aether 2026-05-30, from Aletheia's CONFIRM on
+# PR #59. Same "wrapper-protected, logic-unprotected" class as Findings 41/48:
+# enforcement logic landed in a file, the marker/list entry didn't follow.
+#
+# briefing_id.py: holds the recall-challenge + hashing logic for the
+# briefing-freshness gate. Its wrapper (briefing_freshness.py) was guardrailed;
+# the logic file was not. Weakening it (hash->raw, window 10->25, truncated
+# digest) silently defeats the wake-blind protection. Marker added in-file.
+src/divineos/core/briefing_id.py
+#
+# post_compact.py: the *return* half of the wake-blind defense — re-pulls the
+# load-bearing self from the durable store after compaction and proves it did.
+# Weakening it (dropping the LOUD empty-anchor check, narrowing the re-pull)
+# silently re-opens the false-orientation gap. Marker added in-file.
+src/divineos/core/post_compact.py
+#
+# unverified_claim_detector.py: the claims-require-evidence detector — catches
+# "pushed/merged/tests-pass/on-origin" asserted without running the check
+# (fired correctly on me three times tonight). Weakening it disables the late
+# line of defense against confident-but-unverified completion claims. Marker
+# added in-file.
+src/divineos/core/operating_loop/unverified_claim_detector.py
+#
+# check_root_cause_audit.py + check_boundary_violations.py: both pre-commit
+# enforcement scripts. Their module docstrings describe an enforcement role
+# (check_root_cause_audit: "This gate makes the discipline structural";
+# check_boundary_violations: "closes the policy-without-enforcement gap") —
+# but NEITHER uses the word "guardrail" or a __guardrail_required__-style
+# marker; scripts have no marker mechanism (the CI test scans src/ only).
+# They were never added to the list — simply forgotten. Heuristic reminders
+# (exit 0, no hard block), but silently removing either drops an
+# accountability nudge without co-sign. For these the list entry IS the
+# protection.
+# [Corrected 2026-05-30 per Aletheia's guardrail review: the prior version of
+# this comment put a fabricated quote ("guardrail: this is enforcement logic")
+# in quotation marks attributed to these headers. Neither file contains that
+# text. Ground-truth-checked and replaced with the actual docstring phrasing.]
+scripts/check_root_cause_audit.py
+scripts/check_boundary_violations.py
