@@ -55,6 +55,17 @@ rather than via session-id (which rotates) or wall-clock.
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aletheia CONFIRM on PR #59 (2026-05-29).
+# This module holds the ACTUAL recall-challenge + hashing logic; the wrapper
+# (briefing_freshness.py) only delegates here yet was the one guardrailed —
+# protection on the doorframe, not the door. Weakening this file (reverting
+# the hash to raw-id storage, widening DEFAULT_EXPIRY_TOOLS back to 25,
+# truncating the digest) would silently defeat the wake-blind protection
+# without tripping multi-party review. Same self-modification class as
+# briefing_freshness.py. Listed in scripts/guardrail_files.txt; CI
+# (test_guardrail_marker_consistency) enforces the pairing.
+__guardrail_required__ = True
+
 import hashlib
 import json
 import secrets
