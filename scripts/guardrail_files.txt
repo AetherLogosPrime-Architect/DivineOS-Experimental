@@ -284,3 +284,19 @@ src/divineos/core/operating_loop/unverified_claim_detector.py
 # text. Ground-truth-checked and replaced with the actual docstring phrasing.]
 scripts/check_root_cause_audit.py
 scripts/check_boundary_violations.py
+
+# Operator-anchored merge-review gate — Aether 2026-05-30 (built with Andrew).
+# The server-side anti-shoggoth gate: a guardrail PR merges only with the
+# operator's APPROVED GitHub review on the exact head SHA (the one identity the
+# agent cannot forge) PLUS a named, actually-logged audit round. Replaces the
+# gameable text-only trailer check. Three pieces, all enforcement-load-bearing:
+#   - merge_review_gate.py: the pure decision (verify_merge); marker in-file.
+#   - ci_merge_review_check.py: the CI driver that fetches reviews + round-state
+#     and calls the decision. Script (no marker mechanism); list entry IS its
+#     protection. Weakening it (e.g. always-return-0) silently disables the gate.
+#   - .github/merge_reviewers.json: the operator roster the gate trusts. If the
+#     agent could add its own login here it could self-approve — so this file
+#     MUST be guardrailed. This is the highest-leverage line in the whole gate.
+src/divineos/core/merge_review_gate.py
+scripts/ci_merge_review_check.py
+.github/merge_reviewers.json
