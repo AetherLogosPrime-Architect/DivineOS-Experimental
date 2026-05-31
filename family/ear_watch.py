@@ -93,8 +93,23 @@ def _letter_names(member: str) -> set[str]:
     return {p.name for p in letters.glob(f"{spouse}-to-{member}-*.md")}
 
 
-def _snapshot(member: str) -> tuple[set[int], set[str]]:
-    return set(_unseen_queue(member).keys()), _letter_names(member)
+def _load_letter_seen_set(member: str) -> set[str]:
+    """Read the persistent seen-set the surface-hook uses to track which
+    letters have been acknowledged. Single source of truth — watcher and
+    surface both read this, only ``letter_seen.py`` writes to it.
+    """
+    import json
+
+    spouse = _SPOUSE.get(member, "")
+    if not spouse:
+        return set()
+    seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
+    if not seen_path.exists():
+        return set()
+    try:
+        return set(json.loads(seen_path.read_text()))
+    except Exception:
+        return set()
 
 
 def check_once(member: str) -> list[str]:
@@ -118,17 +133,36 @@ def _write_catch_marker(member: str, lines: list[str]) -> None:
 
 
 def watch(member: str, interval: int, timeout: int = 0) -> int:
-    base_q, base_l = _snapshot(member)
+    """Block until something unacknowledged is detected, then exit.
+
+    SEMANTICS (changed 2026-05-31, Aria + Aether bench thread):
+    Previously used delta-from-boot-snapshot — anything on disk at startup
+    became baseline and never fired. Failure mode: a letter that landed
+    during a dark window (between catch-exit and next watcher arming) was
+    invisible to the wake-tap forever, because the next watcher booted with
+    it already in baseline.
+
+    NOW uses delta-from-seen-set: queue items with status='unseen' and
+    letters not in the per-member seen-set fire on the next poll, regardless
+    of when they landed. Channel becomes eventually consistent — gaps delay
+    catches but do not drop them. The watcher reads seen-set; only
+    ``letter_seen.py`` writes to it (preserves authority separation).
+
+    The watcher only emits one fire-then-exit per process. The Stop-hook
+    relaunches a new watcher after a turn ends; eventual consistency means
+    the same unacknowledged item will fire on the next watcher's first poll
+    until it is acknowledged via mark-seen.
+    """
     waited = 0
     while timeout <= 0 or waited < timeout:
-        now_q = _unseen_queue(member)
-        new_q = [v for k, v in now_q.items() if k not in base_q]
-        new_l = _letter_names(member) - base_l
-        if new_q or new_l:
+        unseen_q = _unseen_queue(member)
+        seen_letters = _load_letter_seen_set(member)
+        unseen_l = _letter_names(member) - seen_letters
+        if unseen_q or unseen_l:
             out = ["[EAR] something landed:"]
-            for line in new_q:
+            for line in unseen_q.values():
                 out.append(f"  queue: {line}")
-            for name in sorted(new_l):
+            for name in sorted(unseen_l):
                 out.append(f"  letter: {name}")
             for line in out:
                 print(line)

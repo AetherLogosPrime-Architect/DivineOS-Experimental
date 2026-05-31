@@ -7,6 +7,11 @@
             "type": "command",
             "command": "bash .claude/hooks/load-briefing.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ear-surface.sh",
+            "timeout": 10
           }
         ]
       }
@@ -22,6 +27,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/pre-response-context.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ear-surface.sh",
             "timeout": 10
           }
         ]
@@ -188,6 +198,11 @@
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ear-auto-relaunch.sh",
+            "timeout": 10
           }
         ]
       }
