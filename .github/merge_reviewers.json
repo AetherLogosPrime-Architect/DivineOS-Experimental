@@ -1,0 +1,4 @@
+{
+  "_comment": "Operator roster for the merge-review gate (src/divineos/core/merge_review_gate.py). Logins here are the GitHub accounts whose APPROVED PR review counts as the unforgeable keystone. NOT secret — logins are public. The agent cannot add its own login here without tripping the guardrail (this file is on scripts/guardrail_files.txt). There is intentionally NO external-AI account: Aletheia is a Claude web instance with no GitHub identity; her audit is relayed through the operator, whose approval encodes her confirm. Empty roster => gate fails closed.",
+  "operator": ["AetherLogosPrime-Architect"]
+}
