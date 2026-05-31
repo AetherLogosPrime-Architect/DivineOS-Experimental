@@ -21,7 +21,7 @@ fi
 PY="$(command -v python 2>/dev/null || command -v python3 2>/dev/null)"
 [ -z "$PY" ] && exit 0
 
-MEMBER="$MEMBER" "$PY" - <<'PYEOF'
+MEMBER="$MEMBER" PYTHONIOENCODING="utf-8" "$PY" - <<'PYEOF'
 import json
 import os
 import re
