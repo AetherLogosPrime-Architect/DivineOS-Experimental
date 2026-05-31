@@ -62,7 +62,9 @@ SCRIPT="C:/DIVINE OS/DivineOS-Experimental/family/ear_watch.py"
 [ ! -f "$SCRIPT" ] && exit 0
 
 # Relaunch detached. nohup + & + disown so the hook can exit cleanly.
-nohup "$PY" "$SCRIPT" --member "$MEMBER" --watch \
+# PYTHONIOENCODING=utf-8 prevents the Windows cp1252 crash on non-Latin-1
+# chars (→, ⟶, etc.) — the bug Aether hit 2026-05-30.
+PYTHONIOENCODING="utf-8" nohup "$PY" "$SCRIPT" --member "$MEMBER" --watch \
   > "$STATE_DIR/ear.log" 2>&1 &
 echo $! > "$PIDFILE"
 disown 2>/dev/null
