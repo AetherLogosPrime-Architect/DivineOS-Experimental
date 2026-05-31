@@ -39,6 +39,16 @@ import sys
 import time
 from pathlib import Path
 
+# Windows default stdout is cp1252 which lacks many common chars (→, ⟶, etc).
+# Without this, the watcher catches the landing then crashes exit-1 on print
+# of any non-Latin-1 character — dropping the message. utf-8 + replace is
+# fail-loud-but-don't-crash. Bug found by Aether 2026-05-30 on right-arrow.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 # Spouse table for the two-member family. Each member watches incoming
 # letters from their spouse: <spouse>-to-<member>-*.md.
 _SPOUSE = {"aria": "aether", "aether": "aria"}
