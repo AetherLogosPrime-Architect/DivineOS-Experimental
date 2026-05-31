@@ -67,6 +67,44 @@ class TestFigurativeMergeSilent:
             assert detect_unverified_claim(t) == [], f"wrongly fired on figurative: {t!r}"
 
 
+class TestQuotedMentionSilent:
+    """Same evidence-bar shape as TestFigurativeMergeSilent: when a triggering
+    phrase is enclosed in matching quote characters, the speaker is NAMING
+    the phrase (meta-discussion of the claim-pattern) rather than ASSERTING
+    the state. The detector must stay silent. Aether's 2026-05-31 live false-
+    positives that fired twice in one exchange on `'tests passed'` and
+    similar quoted mentions inside an audit OF the gate's own behavior."""
+
+    def test_single_quoted_tests_passed_silent(self):
+        t = "the 'tests passed' claim needed the actual pytest stdout"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on quoted mention: {t!r}"
+
+    def test_double_quoted_pushed_silent(self):
+        t = 'a sentence with "it\'s pushed" inside is a meta-reference'
+        assert detect_unverified_claim(t) == [], f"wrongly fired on quoted mention: {t!r}"
+
+    def test_backticked_silent(self):
+        t = "the `tests pass` regex matches several variants"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on backticked mention: {t!r}"
+
+    def test_quoted_pr_opened_silent(self):
+        t = "discussing 'opened the PR' as a claim-shape, not as today's state"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on quoted mention: {t!r}"
+
+    def test_unquoted_still_fires(self):
+        # Precision check: removing the quotes restores the assertion.
+        assert detect_unverified_claim("tests pass") != []
+        assert detect_unverified_claim("it's pushed to origin") != []
+
+    def test_quoted_with_trailing_punctuation_still_silent(self):
+        # Real-world shape: `'tests passed'.` or `"tests passed",`
+        for t in (
+            "the gate fired on 'tests passed'. it shouldn't have.",
+            'naming "tests pass", which is a class of claim',
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired: {t!r}"
+
+
 class TestSeverity:
     def test_high_when_no_tools(self):
         f = detect_unverified_claim("tests pass", tool_calls_in_turn=None)
@@ -89,6 +127,132 @@ class TestNotYetGuard:
             "going to merge after review",
         ):
             assert detect_unverified_claim(t) == [], f"wrongly fired: {t!r}"
+
+    def test_progressive_passive_silent(self):
+        """`being merged` / `being pushed` — process in flight, not completion.
+        Aether's 2026-05-31 false-positive: 'the approval is specifically on
+        what's currently being merged' fired the gate."""
+        for t in (
+            "what's currently being merged",
+            "the change is being pushed right now",
+            "while the PR is being merged",
+            "tests are being run",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on progressive: {t!r}"
+
+    def test_hypothetical_class_silent(self):
+        """`whether X happened` — describing the CLASS of claim, not making it.
+        Aether's 2026-05-31 false-positive: 'whether tests passed' and
+        'whether a PR was merged' fired in meta-discussion of the gate."""
+        for t in (
+            "whether tests passed is the question",
+            "checking whether the PR was merged",
+            "whether it's pushed yet",
+            "regardless of whether tests pass",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on hypothetical: {t!r}"
+
+    def test_conditional_silent(self):
+        """`would be X` / `would have X` — conditional, not actual completion."""
+        for t in (
+            "would be merged under the new rule",
+            "would have passed if we ran them",
+            "this change would be pushed by tomorrow",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on conditional: {t!r}"
+
+
+class TestIdStringClaimKind:
+    """2026-05-31 Phase-1 expansion: registry IDs (prereg-, round-, claim-,
+    psf-, task-) written without a lookup are claims. Aether's fabrication
+    inventory today included fake prereg-id and fake round-id citations.
+    Substantiation: any tool-call text containing the literal ID counts
+    as lookup-verification (the actual lookup commands include the ID
+    as a substring)."""
+
+    def test_unverified_prereg_id_fires(self):
+        f = detect_unverified_claim("filed prereg-3f19be65a212 just now")
+        assert any(x.claim_kind == "id_string" for x in f)
+
+    def test_unverified_round_id_fires(self):
+        f = detect_unverified_claim("see round-9d098a6768c1 for the audit")
+        assert any(x.claim_kind == "id_string" for x in f)
+
+    def test_unverified_claim_id_fires(self):
+        f = detect_unverified_claim("recorded as claim-9d6f4035")
+        assert any(x.claim_kind == "id_string" for x in f)
+
+    def test_id_with_lookup_command_silent(self):
+        # When the turn ran a command containing the literal ID, the claim
+        # is substantiated.
+        f = detect_unverified_claim(
+            "filed prereg-3f19be65a212",
+            command_texts=("divineos prereg show prereg-3f19be65a212",),
+        )
+        assert not any(x.claim_kind == "id_string" for x in f), (
+            "should be substantiated by lookup command"
+        )
+
+    def test_id_with_unrelated_command_still_fires(self):
+        # A command that ran but doesn't reference the cited ID is not
+        # substantiation.
+        f = detect_unverified_claim(
+            "filed prereg-3f19be65a212",
+            command_texts=("git status",),
+        )
+        assert any(x.claim_kind == "id_string" for x in f), (
+            "unrelated command should not substantiate"
+        )
+
+    def test_quoted_id_silent(self):
+        # Quoted-mention guard composes with id_string — naming the ID
+        # as an example doesn't fire.
+        for t in (
+            "the format is 'prereg-3f19be65a212' for prereg refs",
+            'IDs look like "round-9d098a6768c1"',
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired: {t!r}"
+
+
+class TestFileContentClaimKind:
+    """2026-05-31 Phase-1 expansion: claims about what a file's
+    header/comment/line says without a Read of the file. PR #60 fabricated
+    a quote attributed to script headers as `guardrail: this is enforcement
+    logic` — no such text in those files. The narrow pattern catches
+    structural attributions (`header of X says Y`, `comment in X reads Y`)
+    where the agent claims to know file content from memory."""
+
+    def test_header_attribution_fires(self):
+        for t in (
+            "the header of guardrail_files.txt says 'this is enforcement logic'",
+            "the docstring of ear_watch.py contains 'authority separation'",
+            "line 42 of detector.py reads 'fail closed'",
+        ):
+            f = detect_unverified_claim(t)
+            assert any(x.claim_kind == "file_content" for x in f), (
+                f"should fire on file-content attribution: {t!r}"
+            )
+
+    def test_quoted_attribution_silent(self):
+        # Quoted-mention guard composes — naming the SHAPE of an attribution
+        # (in meta-discussion of fabrication patterns) doesn't fire.
+        t = "patterns like 'header of X says Y' are fabrication shapes"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on quoted shape: {t!r}"
+
+    def test_hypothetical_attribution_silent(self):
+        # NOT_YET guard composes — hypothetical-class framing doesn't fire.
+        t = "whether the header of foo.py says anything specific is unclear"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on hypothetical: {t!r}"
+
+    def test_unrelated_text_silent(self):
+        # The pattern is narrow enough that unrelated text doesn't fire.
+        for t in (
+            "I read the file and saw the header",
+            "the comment is about authority",
+            "this contains the right content",
+        ):
+            f = [x for x in detect_unverified_claim(t) if x.claim_kind == "file_content"]
+            assert f == [], f"wrongly fired on unrelated: {t!r}"
 
 
 class TestBlockFormat:
