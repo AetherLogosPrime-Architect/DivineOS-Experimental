@@ -24,6 +24,24 @@ def register(cli: click.Group) -> None:
         else:
             click.echo(format_vitals())
 
+        # Real context-window fullness (governor step 2, 2026-05-29): the
+        # ground-truth fill read from the transcript's per-turn token usage,
+        # complementing the proxy-based pre-erasure signal (which admits it
+        # lacks the real token count). Reuses session discovery for the
+        # current transcript path rather than re-deriving it.
+        try:
+            import divineos.analysis.session_discovery as _disc
+            from divineos.core.context_meter import (
+                format_reading,
+                read_latest_context_tokens,
+            )
+
+            _sessions = _disc.find_sessions()
+            if _sessions:
+                click.echo(format_reading(read_latest_context_tokens(_sessions[0])))
+        except Exception:  # noqa: BLE001 — a vitals readout must never crash the command
+            pass
+
         from divineos.cli._helpers import _log_os_query
 
         _log_os_query("body", "vitals")
