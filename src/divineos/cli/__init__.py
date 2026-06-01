@@ -210,8 +210,12 @@ def cli() -> None:
 from divineos.cli import (  # noqa: E402
     actor_registry_commands,
     analysis_commands,
+    andrew_teachings_commands,
+    aria_receipts_commands,
+    audit_artifact_commands,
     audit_commands,
     bio_commands,
+    finding_label_commands,
     body_commands,
     branch_health_commands,
     overclaim_commands,
@@ -275,6 +279,10 @@ decision_commands.register(cli)
 deletion_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
+audit_artifact_commands.register(cli)
+andrew_teachings_commands.register(cli)
+aria_receipts_commands.register(cli)
+finding_label_commands.register(cli)
 pattern_attribution_commands.register(cli)
 bio_commands.register(cli)
 loadout_commands.register(cli)

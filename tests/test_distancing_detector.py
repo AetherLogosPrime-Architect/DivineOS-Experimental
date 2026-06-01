@@ -11,9 +11,62 @@ from divineos.core.operating_loop.distancing_detector import (
     DISTANCING_AFFIRMATION,
     DistancingFinding,
     DistancingShape,
+    SuppressedMatch,
     detect_distancing,
     format_finding,
 )
+
+
+class TestSelfReferenceGuards:
+    """Council-walk step 3 (Hofstadter): the detector must distinguish a
+    displacement USE from a MENTION (citing the string while discussing the
+    detector, an essay title, or quoting it). Conservative + auditable —
+    false-negatives are the dangerous direction, so guards fire only on
+    high-confidence mention signals, and suppressions are inspectable."""
+
+    def test_real_use_still_fires(self):
+        # The whole point: a genuine displacement-USE must NOT be suppressed.
+        assert detect_distancing("I'll leave it for future-me to handle.")
+        assert detect_distancing("past-me filed that and was wrong.")
+
+    def test_operator_displacement_mentioning_gate_still_fires(self):
+        # Regression: 'the gate' was once an analytical marker and silently
+        # suppressed this real op-3p displacement (false negative). The
+        # marker was removed; this must fire.
+        assert detect_distancing("Andrew said the gate was lying.")
+
+    def test_quoted_mention_suppressed(self):
+        assert detect_distancing("the detector fired on 'future-me' again") == []
+
+    def test_analytical_context_suppressed(self):
+        text = (
+            "My reply had future-me inside a paragraph; the detector is "
+            "regex-on-strings so the gate fired."
+        )
+        assert detect_distancing(text) == []
+
+    def test_citation_context_suppressed(self):
+        assert detect_distancing("I moved essay 37, Reading Past-Me, into essays/.") == []
+
+    def test_filename_path_suppressed(self):
+        assert detect_distancing("git mv 37_reading_past-me.md exploration/aether/essays/") == []
+
+    def test_suppressions_are_auditable(self):
+        # return_suppressed surfaces what the guards filtered AND which guard
+        # fired — so a wrongly-suppressed real displacement can't hide.
+        findings, suppressed = detect_distancing(
+            "the detector fired on 'future-me' which is a false positive",
+            return_suppressed=True,
+        )
+        assert findings == []
+        assert len(suppressed) >= 1
+        assert all(isinstance(s, SuppressedMatch) for s in suppressed)
+        assert all(s.guard for s in suppressed)  # each names its guard
+
+    def test_return_suppressed_default_off(self):
+        # Backward-compat: without return_suppressed, returns a plain list.
+        result = detect_distancing("I built it.")
+        assert isinstance(result, list)
 
 
 class TestOperatorThirdPerson:
@@ -233,16 +286,27 @@ class TestAffirmation:
         assert "time-adverb" in DISTANCING_AFFIRMATION
 
     def test_affirmation_does_not_trigger_its_own_detector(self):
-        # Self-test: the base-state text itself must not contain the
-        # displacement-shape it is teaching against in a way that fires
-        # the detector. Quoted forms ('future-me' inside quotes) are
-        # mention, not use, but the detector cannot distinguish — so the
-        # affirmation either escapes the patterns or accepts firing as
-        # the cost. This test pins the current behavior so any future
-        # rewrite of the affirmation is intentional.
+        # The base-state teaching text quotes the banned strings to define
+        # them ('future-me', 'past-me' as examples). Those are MENTIONS, not
+        # USES. Before the council-walk step-3 self-reference guards
+        # (2026-06-01), the regex couldn't distinguish, so the affirmation
+        # fired on itself — the strange-loop false positive. The guards now
+        # recognize the teaching text as analytical/quoted context and
+        # suppress the examples. The test name is finally true: the
+        # affirmation does NOT trigger its own detector.
         findings = detect_distancing(DISTANCING_AFFIRMATION)
-        # The affirmation quotes the banned strings to define them; it
-        # is acceptable for the detector to fire on its own teaching
-        # text. Pin the count so changes are explicit.
         temporal = [f for f in findings if f.shape == DistancingShape.TEMPORAL_SELF]
-        assert len(temporal) >= 2  # at minimum: 'future-me', 'past-me'
+        assert len(temporal) == 0, (
+            "affirmation teaching text should be recognized as mention/"
+            f"analytical context and suppressed, got fires: {temporal}"
+        )
+
+        # And the suppressions are auditable — the guards report what they
+        # filtered, so a wrongly-suppressed real displacement can't hide.
+        _, suppressed = detect_distancing(
+            DISTANCING_AFFIRMATION, return_suppressed=True
+        )
+        temporal_suppressed = [
+            s for s in suppressed if s.shape == DistancingShape.TEMPORAL_SELF
+        ]
+        assert len(temporal_suppressed) >= 2  # the quoted examples, audited

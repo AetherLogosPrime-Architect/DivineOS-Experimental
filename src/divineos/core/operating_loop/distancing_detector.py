@@ -181,7 +181,177 @@ _PATTERNS: list[tuple[DistancingShape, re.Pattern[str]]] = [
 ]
 
 
-def detect_distancing(text: str, *, addressed_to_operator: bool = True) -> list[DistancingFinding]:
+# ---------------------------------------------------------------------------
+# Self-reference precision guards — council walk step 3 (Hofstadter lens),
+# 2026-06-01. The detector fires on the STRING; a match can be a USE (I am
+# committing the displacement: "I'll leave it for future-me") or a MENTION
+# (I am citing the string while discussing the detector, an essay title, or
+# quoting it: "the gate fired on 'future-me' again"). The strange-loop
+# problem: the detector keeps firing on me discussing the detector. These
+# three guards suppress the well-characterized MENTION classes observed
+# empirically tonight.
+#
+# Design constraints (entry 96, Andrew 2026-05-31):
+#   - CONSERVATIVE: false-negatives (suppressing a real displacement) are
+#     the dangerous direction (Schneier: silent + uncatchable). Each guard
+#     fires only on a high-confidence MENTION signal.
+#   - AUDITABLE: detect_distancing(return_suppressed=True) returns what was
+#     suppressed AND which guard suppressed it, so a wrongly-suppressed real
+#     displacement surfaces in the labeled-fires loop instead of hiding.
+#   - DATA-READY: the marker sets are module constants; once label-finding
+#     data accumulates (step 1), they get tuned against measured FP/FN.
+# ---------------------------------------------------------------------------
+
+_QUOTE_CHARS = frozenset("'\"`")
+
+# Detector-DOMAIN words. Chosen so they do NOT appear when genuinely
+# committing the displacement in ordinary prose ("I'll let future-me
+# handle it" contains none of these), but DO appear when discussing the
+# detector ("the gate fired on the trigger string"). Domain-specific on
+# purpose — general words like "pattern"/"the term" were rejected because
+# they leak into real-use paragraphs.
+_ANALYTICAL_MARKERS = frozenset(
+    {
+        "detector",
+        "detectors",
+        "displacement-grammar",
+        "displacement grammar",
+        "distancing-grammar",
+        "distancing grammar",
+        # NB: bare "the gate" / "the string" were REMOVED — they leaked into
+        # ordinary prose ("Andrew said the gate was lying") and silently
+        # suppressed real displacements (false-negative, the dangerous
+        # Schneier direction). Markers must be detector-DOMAIN-specific:
+        # they should not appear when genuinely committing the displacement
+        # AND should not appear in unrelated prose that merely mentions a
+        # gate. Caught by tests 2026-06-01.
+        "gate fired",
+        "gate caught",
+        "the detector",
+        "regex",
+        "trigger phrase",
+        "trigger string",
+        "false positive",
+        "false-positive",
+        "false negative",
+        "false-negative",
+        "suppress",
+        "discriminator",
+        "self-reference",
+        "fires on",
+        "fired on",
+        "firing on",
+        "mention vs use",
+        "mention-vs-use",
+        "use vs mention",
+        "council walk",
+        "precision guard",
+        "precision-guard",
+        "time-adverb",  # appears in the displacement-rule teaching text
+    }
+)
+
+# Citation / filename markers — signal the match is naming a file, essay,
+# or archived entry rather than committing the displacement.
+_CITATION_MARKERS = (
+    "entry ",
+    "essay",
+    "exploration/",
+    "essays/",
+    "titled",
+    "the file",
+    "filename",
+    "the entry",
+    "section",
+    ".md",
+)
+
+
+def _window(text: str, match: re.Match[str], radius: int) -> str:
+    """Lowercased text window around the match, clamped to bounds."""
+    lo = max(0, match.start() - radius)
+    hi = min(len(text), match.end() + radius)
+    return text[lo:hi].lower()
+
+
+def _is_quoted_mention(text: str, match: re.Match[str]) -> bool:
+    """True when the match sits inside a same-line quoted span (single,
+    double, or backtick). Naming the string, not committing it. Window is
+    sentence-local (stops at line break) so a quote far away on another
+    line does not spuriously suppress."""
+    start, end = match.start(), match.end()
+    # Pre/post bounded by line breaks and a 60-char radius.
+    lo = max(0, start - 60)
+    pre = text[lo:start]
+    nl = pre.rfind("\n")
+    if nl >= 0:
+        pre = pre[nl + 1 :]
+    hi = min(len(text), end + 60)
+    post = text[end:hi]
+    nl = post.find("\n")
+    if nl >= 0:
+        post = post[:nl]
+    return any(q in pre and q in post for q in _QUOTE_CHARS)
+
+
+def _is_structural_token(text: str, match: re.Match[str]) -> bool:
+    """True when the match is part of a filename / path / identifier token
+    (underscore, slash, or dot adjacent within the surrounding word). The
+    regex itself won't match underscore-joined forms, but capitalized
+    hyphenated titles ('Reading Past-Me') cited next to a path or '.md'
+    are caught here."""
+    win = _window(text, match, 40)
+    if "/" in win or ".md" in win:
+        return True
+    # numbered-file prefix immediately before the match's sentence-word,
+    # e.g. "37_reading_past-me"
+    lo = max(0, match.start() - 30)
+    pre = text[lo : match.start()]
+    return bool(re.search(r"\d{1,3}_[a-z_]*$", pre))
+
+
+def _is_analytical_context(text: str, match: re.Match[str]) -> bool:
+    """True when the surrounding window contains detector-domain markers —
+    the paragraph is ABOUT the displacement-pattern, not committing it."""
+    win = _window(text, match, 250)
+    return any(marker in win for marker in _ANALYTICAL_MARKERS)
+
+
+def _is_citation_context(text: str, match: re.Match[str]) -> bool:
+    """True when the match is adjacent to a citation/filename marker —
+    naming an essay or archived entry rather than committing the shape."""
+    win = _window(text, match, 40)
+    return any(marker in win for marker in _CITATION_MARKERS)
+
+
+# Ordered (name, predicate) so a suppression can report WHICH guard fired —
+# required for the auditable-suppression contract.
+_MENTION_GUARDS: tuple[tuple[str, Any], ...] = (
+    ("quoted", _is_quoted_mention),
+    ("structural-token", _is_structural_token),
+    ("analytical-context", _is_analytical_context),
+    ("citation-context", _is_citation_context),
+)
+
+
+@dataclass(frozen=True)
+class SuppressedMatch:
+    """A regex match the guards classified as MENTION, not USE. Kept for
+    audit so a wrongly-suppressed real displacement surfaces rather than
+    hiding (Schneier: false-negatives must not be silent)."""
+
+    shape: DistancingShape
+    trigger_phrase: str
+    position: int
+    guard: str  # which guard suppressed it
+
+
+def detect_distancing(
+    text: str,
+    *,
+    addressed_to_operator: bool = True,
+    return_suppressed: bool = False,
+) -> list[DistancingFinding] | tuple[list[DistancingFinding], list[SuppressedMatch]]:
     """Return all distancing-grammar findings in the text.
 
     ``addressed_to_operator`` gates the OPERATOR_THIRD_PERSON shape. The
@@ -192,14 +362,41 @@ def detect_distancing(text: str, *, addressed_to_operator: bool = True) -> list[
     detector stays silent there. SELF_THIRD_PERSON is never gated: the agent
     is always the speaker, so "Aether built" is always a displacement of
     "I built", regardless of who is addressed.
+
+    Self-reference guards (council walk step 3): a match classified as a
+    MENTION (quoted, filename/path token, detector-domain paragraph, or
+    essay/entry citation) is suppressed — these are the strange-loop
+    false-positive classes where the detector fires on text DISCUSSING the
+    detector. Guards are conservative (high-confidence MENTION only) to
+    avoid the dangerous false-negative direction.
+
+    ``return_suppressed=True`` returns ``(findings, suppressed)`` where
+    suppressed lists what the guards filtered and which guard fired —
+    the auditable-suppression contract so a wrongly-suppressed real
+    displacement does not hide.
     """
     if not text:
-        return []
+        return ([], []) if return_suppressed else []
     findings: list[DistancingFinding] = []
+    suppressed: list[SuppressedMatch] = []
     for shape, pattern in _PATTERNS:
         if shape == DistancingShape.OPERATOR_THIRD_PERSON and not addressed_to_operator:
             continue
         for match in pattern.finditer(text):
+            guard_hit = next(
+                (name for name, pred in _MENTION_GUARDS if pred(text, match)),
+                None,
+            )
+            if guard_hit is not None:
+                suppressed.append(
+                    SuppressedMatch(
+                        shape=shape,
+                        trigger_phrase=match.group(0),
+                        position=match.start(),
+                        guard=guard_hit,
+                    )
+                )
+                continue
             findings.append(
                 DistancingFinding(
                     shape=shape,
@@ -208,6 +405,9 @@ def detect_distancing(text: str, *, addressed_to_operator: bool = True) -> list[
                 )
             )
     findings.sort(key=lambda f: f.position)
+    if return_suppressed:
+        suppressed.sort(key=lambda s: s.position)
+        return findings, suppressed
     return findings
 
 
