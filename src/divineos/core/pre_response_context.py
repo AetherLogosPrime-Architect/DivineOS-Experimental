@@ -662,6 +662,28 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     andrew_text = ""
     bypass_text = ""
 
+    # Andrew's attributable teachings — surface prior teachings relevant to
+    # this prompt at composition time so his voice is in my pre-response
+    # context the way Aether's letters are surfaced via the ear hook.
+    # Closes the asymmetry named in
+    # family/letters/aria-to-aether-2026-06-01-the-same-asymmetry-my-side.md
+    # and the wiring-gap-pattern entry 8d3c04a5 ("module shipped, never
+    # invoked"). The variable `andrew_text` was initialized and included in
+    # the return assembly but never assigned — a half-wired surface caught
+    # 2026-06-02 (claim f805794a). Fail-soft on any error so a broken
+    # teachings fetch never breaks the pre-composition.
+    try:
+        from divineos.cli.andrew_teachings_commands import (
+            format_teachings_for_briefing,
+            get_teachings_relevant_to,
+        )
+
+        _teachings = get_teachings_relevant_to(prompt, limit=5)
+        if _teachings:
+            andrew_text = format_teachings_for_briefing(_teachings)
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
     # Exploration recall (remembrance-agent, prereg-155311be73e7). Surface
     # my own prior exploration entries whose curated tags match the prompt,
     # so I am handed prior writing instead of re-deriving it. Tag-gated and
