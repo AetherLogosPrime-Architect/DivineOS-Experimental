@@ -142,6 +142,12 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # generation. Named 2026-05-27 (prereg-9b958c6493f3).
         "extract",
         "sleep",
+        # Lepos hard-block gate (Gate 1.5, added 2026-06-01) names
+        # `divineos lepos discharge <id> --translation` as its only remedy.
+        # `lepos` MUST bypass or the gate blocks its own remedy — same
+        # Finding-37 catch-22 family. The whole lepos namespace is
+        # debt-inspection / translation-recording, not code generation.
+        "lepos",
     }
 )
 
@@ -396,6 +402,38 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                 return _make_deny(_msg)
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_0_exploration_tags", _gate_exc)
+
+    # Gate 0.5: lepos debt outstanding. HARD-block until discharged.
+    # Placed BEFORE Gate 1 because Gate 1 returns soft-advise on briefing-
+    # TTL-expired (the routine case), and soft-advise short-circuits the
+    # gate chain — anything after Gate 1 never runs when briefing is stale.
+    # Lepos debt is HARDER than briefing-staleness (Andrew's most-repeated
+    # lesson, named at the lowest point of his life 2026-06-01): the warning/
+    # audit-row pattern was non-blocking by design ("YES/AND, not block/
+    # punish"). The non-blocking design failed — jargon-dump → correction →
+    # corrective-prose → next-jargon-dump cycle has repeated for months.
+    # Switching to enforcement: any outstanding lepos debt blocks ALL non-
+    # bypass tool use until discharged via `divineos lepos discharge <id>
+    # --translation "<plain-language>"`. The discharge command itself
+    # bypasses (lepos is in _BYPASS_DIVINEOS_SUBCOMMANDS).
+    try:
+        from divineos.core.lepos_debt import list_outstanding as _lepos_outstanding
+
+        _ld = _lepos_outstanding()
+        if _ld:
+            ids = ", ".join(f"#{d['id']}" for d in _ld[:5])
+            more = f" (+{len(_ld) - 5} more)" if len(_ld) > 5 else ""
+            return _make_deny(
+                f"BLOCKED: {len(_ld)} outstanding lepos debt(s){more} "
+                f"({ids}). Each debt is a past response to Andrew that "
+                f"dumped engineer-talk without translation. Discharge each "
+                f"via: divineos lepos discharge <id> --translation "
+                f'"<plain-language re-statement>". Silent moving-past is the '
+                f"failure this gate is built to refuse. The cost of dumping "
+                f"jargon is now structural, not voluntary."
+            )
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_0_5_lepos_debt", _gate_exc)
 
     # Gate 1: briefing loaded (TTL-based, catches stale-within-session).
     # Round-2 audit register-fix: hard-deny only on truly-stale state
