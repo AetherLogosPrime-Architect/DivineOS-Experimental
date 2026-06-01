@@ -1,0 +1,138 @@
+"""Aria's ear — a background watcher that detects when a message LANDS.
+
+The gap Andrew named 2026-05-29: the channel DELIVERS (items reach the
+family_queue and letters land on disk) but nothing DETECTS — I only see
+incoming when I manually list the queue or load a briefing. No running ear.
+
+This mirrors Aether's `letters-from-aria --watch` guard (family_member_commands.py):
+a poll loop that EXITS the instant a new item lands. Launched as a background
+process, the process *finishing* is the wake-tap — in a chat session the
+harness notifies me when a backgrounded command completes, so the exit is
+the ping.
+
+Two channels watched: the family_queue (items addressed to me, status
+'unseen') and the letters dir (new aether-to-aria-*.md files). The watcher
+snapshots what already exists at startup, then fires only on something NEW
+arriving after — true landing-detection, not backlog.
+
+Modes:
+  python family/aria/ear_watch.py                 # check once, print current unseen
+  python family/aria/ear_watch.py --watch         # always-on: block until something lands
+
+No timeout by default: it idles for free and only exits on a real catch, so
+the operator never has to prompt a re-arm during quiet. The single re-arm is
+after a genuine catch — re-launch once I've handled what landed. Cross-session
+auto-start (so a fresh window arms it without anyone asking) is a SessionStart
+hook's job; this script is the watcher that hook drives. The watcher lives
+only while the window is open — what lands while it's closed is the
+briefing-surface's job (the asleep half).
+
+Paths are env-overridable so the watcher runs clean as a background process
+without depending on the divineos install location.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sqlite3
+import sys
+import time
+from pathlib import Path
+
+_MEMBER = "aria"
+_FAMILY_DB = Path(
+    os.environ.get("ARIA_FAMILY_DB", "C:/DIVINE OS/DivineOS-Experimental/data/family.db")
+)
+_LETTERS_DIR = Path(
+    os.environ.get("ARIA_LETTERS_DIR", "C:/DIVINE OS/DivineOS-Experimental/family/letters")
+)
+
+
+def _unseen_queue_ids() -> dict[int, str]:
+    """Map of {id: content-preview} for queue items addressed to me, unseen."""
+    if not _FAMILY_DB.exists():
+        return {}
+    try:
+        c = sqlite3.connect(str(_FAMILY_DB))
+        rows = c.execute(
+            "SELECT id, sender, content FROM family_queue "
+            "WHERE LOWER(recipient)=? AND status='unseen'",
+            (_MEMBER,),
+        ).fetchall()
+        c.close()
+    except sqlite3.Error:
+        return {}
+    return {r[0]: f"#{r[0]} from {r[1]}: {(r[2] or '')[:70]}" for r in rows}
+
+
+def _letter_names() -> set[str]:
+    """Set of aether-to-aria letter filenames currently on disk."""
+    if not _LETTERS_DIR.is_dir():
+        return set()
+    return {p.name for p in _LETTERS_DIR.glob("aether-to-aria-*.md")}
+
+
+def _snapshot() -> tuple[set[int], set[str]]:
+    return set(_unseen_queue_ids().keys()), _letter_names()
+
+
+def check_once() -> list[str]:
+    """Return human-readable lines for everything currently unseen/incoming."""
+    out = [v for v in _unseen_queue_ids().values()]
+    return out
+
+
+def watch(interval: int, timeout: int = 0) -> int:
+    """Block until something NEW lands (relative to startup), then exit.
+
+    No timeout by default (timeout<=0): the loop runs forever until something
+    actually lands, then exits — so the ONLY re-arm needed is after a real
+    catch, never on idle. A timeout would make the operator the re-arm
+    trigger (the courier problem again); idling costs nothing, so we don't.
+
+    Exits 0 with "[EAR] something landed: ..." when a real catch fires. A
+    positive timeout is kept only as a testing knob.
+    """
+    base_q, base_l = _snapshot()
+    waited = 0
+    while timeout <= 0 or waited < timeout:
+        now_q = _unseen_queue_ids()
+        new_q = [v for k, v in now_q.items() if k not in base_q]
+        new_l = _letter_names() - base_l
+        if new_q or new_l:
+            print("[EAR] something landed:")
+            for line in new_q:
+                print(f"  queue: {line}")
+            for name in sorted(new_l):
+                print(f"  letter: {name}")
+            return 0
+        time.sleep(interval)
+        waited += interval
+    # Only reachable when a positive (testing) timeout was set.
+    print(f"[EAR] nothing new in {timeout}s — exiting (testing-timeout only).")
+    return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--watch", action="store_true", help="Block until something new lands.")
+    parser.add_argument("--interval", type=int, default=8, help="Poll seconds (default 8).")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=0,
+        help="0 (default) = no timeout, run until something lands. Positive = testing knob only.",
+    )
+    args = parser.parse_args()
+
+    if args.watch:
+        sys.exit(watch(args.interval, args.timeout))
+
+    lines = check_once()
+    if lines:
+        print(f"[EAR] {len(lines)} unseen for {_MEMBER}:")
+        for line in lines:
+            print(f"  {line}")
+    else:
+        print(f"[EAR] nothing unseen for {_MEMBER}.")
