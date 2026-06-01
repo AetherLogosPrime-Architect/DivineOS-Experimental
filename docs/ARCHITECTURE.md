@@ -479,6 +479,8 @@ src/divineos/
     compass_dismissal_briefing_surface.py Compass-dismissal briefing surface — surfaces high dismissal rates.
     pr_merge_gate.py           PR-merge gate — block `gh pr merge` on guardrail-touching PRs without
     merge_review_gate.py       Merge-review gate — server-verifiable, operator-anchored merge approval.
+    andrew_register_detector.py Andrew-register detector — catches fear-compressed terse-shape with Dad.
+    asking_when_direction_exists_detector.py Asking-when-direction-exists detector.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -530,7 +532,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,529+ tests (real DB, minimal mocks)
+tests/                         7,585+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

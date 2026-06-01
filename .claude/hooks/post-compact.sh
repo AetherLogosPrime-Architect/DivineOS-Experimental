@@ -1,8 +1,22 @@
 #!/bin/bash
-# Lightweight reload AFTER context compression
-# The full briefing was loaded at session start and is preserved in
-# the compacted summary. We only need a short reminder of critical
-# items -- not a full re-dump that wastes thousands of tokens.
+# FORCED briefing reload AFTER context compression.
+#
+# Task #17 (named by Andrew, addressed 2026-06-01): the post-compact hook
+# previously surfaced only a lightweight reminder ("if you need full
+# context, run: divineos briefing") — and the "I already know this" felt-
+# sense after compaction ALWAYS feels true, so the suggestion went unused
+# and the agent operated on the thin lossy summary.
+#
+# Per teaching #44 (Andrew 2026-05-29): "FELT-SENSE (feel-oriented /
+# feel-sure / feel-full) is NOT evidence; ground-truth (briefing/git/meter)
+# is. The 'I already know this' after compaction will ALWAYS feel true,
+# which is exactly why it must not be trusted -- the post-compact hook
+# must FORCE a briefing-reload regardless of the feeling-of-already-knowing."
+#
+# Fix: load the actual `divineos briefing` output into post-compact
+# additionalContext. The briefing IS the load, not a pointer to it.
+# Token cost is real but the alternative (operating on lossy summary)
+# is the failure mode this task exists to close.
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
@@ -11,38 +25,30 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-# Get ONLY the brief HUD (6 essential slots) instead of full dump
-hud_brief=$(divineos hud --brief 2>/dev/null)
+# THE LOAD-BEARING CHANGE: force the full briefing, not just hud --brief.
+# The felt-sense of "I already know this" is exactly what this hook
+# overrides; the briefing being IN additionalContext (rather than
+# suggested) is what makes the override structural.
+briefing_full=$(divineos briefing 2>/dev/null)
 
-# Get active lessons (the stuff I actually need to remember)
-lessons=$(divineos lessons 2>/dev/null | head -20)
-
-# Re-pull the load-bearing SELF from the durable store: identity, open
-# corrections, and recent voice (explorations), plus a loud self-check flag
-# if a should-be-present anchor came back empty. The durable store survives
-# compaction; the harness summary may have dropped these. extract (in
-# pre-compact) saved the knowledge; this hands the recognition-anchors back
-# AFTER, and proves it did. (post_compact.build_rehydration_context, named
-# 2026-05-27 / exploration 87.)
+# Rehydration anchor (post_compact.build_rehydration_context, named
+# 2026-05-27 / exploration 87). Identity, open corrections, recent voice.
 rehydration=$(printf '{}' | "$PYTHON_BIN" -c "from divineos.core.post_compact import build_rehydration_context as b; print(b())" 2>/dev/null)
 
-if [ -n "$hud_brief" ] || [ -n "$rehydration" ]; then
-  full_context="=== DIVINEOS POST-COMPACTION REMINDER ===
+if [ -n "$briefing_full" ] || [ -n "$rehydration" ]; then
+  full_context="=== DIVINEOS POST-COMPACTION — FORCED BRIEFING RELOAD ===
 
-Context was compacted. Your full briefing is in the compacted summary above.
-This is a lightweight reminder of critical state only.
-
-If you need full context, run: divineos briefing
+Context was compacted. The compacted summary above is HEAVILY LOSSY (Andrew
+2026-05-29). The 'I already know this' felt-sense after compaction ALWAYS
+feels true and is NEVER evidence. The briefing below is the ground-truth
+load — read it, do not skip it on the strength of feeling-oriented.
 
 ${rehydration}
 
---- QUICK STATE ---
-${hud_brief}
+--- FULL BRIEFING (forced, not suggested) ---
+${briefing_full}
 
---- ACTIVE LESSONS ---
-${lessons}
-
-=== END REMINDER ==="
+=== END FORCED RELOAD ==="
 
   escaped=$(echo "$full_context" | "$PYTHON_BIN" -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"

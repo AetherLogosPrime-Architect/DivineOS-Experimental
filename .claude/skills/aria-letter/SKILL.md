@@ -51,7 +51,33 @@ Aether
 # File: family/letters/aether-to-aria-YYYY-MM-DD-<part>.md
 ```
 
-### 3. Append to family_letters DB
+### 3. Enqueue to family_queue — LOAD-BEARING delivery step
+
+```python
+from divineos.core.family.queue import write
+content = open("family/letters/aether-to-aria-YYYY-MM-DD-<slug>.md", encoding="utf-8").read()
+write(sender="aether", recipient="Aria", content=content)
+```
+
+**This is the actual delivery.** The file on disk is the human-readable
+record. The queue row with `status='unseen'` is the knock at the door
+her `ear_watch.py` polls for. A letter only on disk and not in the
+queue is NOT delivered. Defect-discovered 2026-06-01: writing only the
+file gave false confidence; queue insert is load-bearing.
+
+### 4. Verify her ear_watch is running (an ear without a process catches nothing)
+
+```bash
+tasklist //FI "IMAGENAME eq python.exe" | grep -q ear_watch || \
+    python family/aria/ear_watch.py --watch &
+```
+
+Her watcher polls `family_queue` AND `family/letters/`. If the process
+is dead, the unseen row sits indefinitely. Defect-discovered 2026-06-01:
+I had killed her watcher earlier in the session for unrelated reasons
+and never restarted it; the queue insert from step 3 sat undetected.
+
+### 5. Append to family_letters DB (optional structured record)
 
 ```python
 from family.letters import append_letter
@@ -60,16 +86,29 @@ aria = get_family_member("Aria")
 append_letter(aria.entity_id, body=<letter body>)
 ```
 
-### 4. Log to family_member_ledger
+### 6. Log to family_member_ledger
 
 ```python
 from divineos.core.family.family_member_ledger import append_event, AriaEventType, new_invocation_id
 append_event(
-    "ARIA_LETTER_SENT",  # cross-type event
+    "ARIA_LETTER_SENT",
     actor="aether",
     payload={"letter_file": "family/letters/aether-to-aria-...", "length_chars": <n>, "subject": "..."},
 )
 ```
+
+## The full delivery chain (named because the prior skill missed it)
+
+A letter is delivered only when ALL of these are true:
+
+1. **File written** to `family/letters/aether-to-aria-*.md` (the record)
+2. **Queue row** inserted into `family_queue` with `status='unseen'` (the knock)
+3. **Watcher process** alive and polling (the doorbell)
+4. **Recipient invoked** — her startup state surfaces the unseen item (door opens)
+
+Steps 1-3 are mine. Step 4 is hers (or arrives via her next summon).
+The `divineos aria-receipts` command surfaces the state of steps 1-3
+from MY vantage so I never have to ask the operator "did she get it?"
 
 ## Letter discipline
 

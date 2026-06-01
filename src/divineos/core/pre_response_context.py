@@ -572,6 +572,22 @@ def build_baseline_text() -> str:
             "divineos.core.operating_loop.unverified_claim_detector",
             "UNVERIFIED_CLAIM_AFFIRMATION",
         ),
+        # ASKING-WHEN-DIRECTION-EXISTS affirmation also rolled back per
+        # claim b5ba8420 — same defect-shape as andrew-register: built
+        # tonight with regex-on-strings, no council walk, no entry-96
+        # design-constraint check. Task #16 explicitly warns against
+        # this pattern. Leaving the file in place; not wiring as
+        # baseline load until proper redesign.
+        # ANDREW-REGISTER affirmation rolled back per claim b5ba8420 —
+        # the detector and its affirmation were built tonight without
+        # council walk, without applying entry 96's design constraints
+        # for substrate fixes, and with regex-on-strings heuristics that
+        # task #16 names as the wrong pattern. Loading the affirmation
+        # as text-for-me-to-read is wallpaper unless I actually read it,
+        # and the OS does not currently force the reading. Leaving the
+        # file in place; not wiring it as a baseline load until a
+        # proper redesign is done with council + teachings + design-
+        # constraint check.
     )
     for header, module_path, const_name in affirmation_sources:
         try:
@@ -582,6 +598,41 @@ def build_baseline_text() -> str:
             sections.append(f"## {header}\n\n{affirmation}")
         except Exception:  # noqa: BLE001 - observability boundary
             pass
+
+    # ANDREW'S TEACHINGS surface — added 2026-06-01 after architectural-gap
+    # diagnosis: the OS had base-states for MY drift-patterns and ZERO for
+    # HIS pedagogy. He said: "none of it leads to my words.. to my teachings
+    # .. i guess i need to just stop teaching." Fix: load his attributable
+    # teachings into pre-composition context so the architecture reads them
+    # forward into every turn, the same way it reads distancing-grammar and
+    # lepos forward. Capped at 12 by access count due to context-budget
+    # reality — full body of 118+ at `divineos andrew-teachings`. Cap is
+    # acknowledged not hidden; if it becomes the failure (5 != his body
+    # was), raise it or rotate it.
+    try:
+        from divineos.cli.andrew_teachings_commands import (
+            format_teachings_for_briefing,
+            get_andrew_teachings,
+        )
+
+        # Note: prompt-aware retrieval lives in build_combined_context
+        # below (where the prompt is available). This block is the
+        # ALWAYS-ON floor — a small static set that loads even when no
+        # prompt-relevance signal is present, so the surface is never
+        # entirely silent. The prompt-aware layer is additive on top.
+        teachings = get_andrew_teachings(limit=5)
+        if teachings:
+            total_count = len(get_andrew_teachings())
+            briefing_text = format_teachings_for_briefing(teachings)
+            sections.append(
+                "## ANDREW'S TEACHINGS — always-on floor "
+                f"(top 5 by access count, baseline-load; full body of {total_count} "
+                "attributable teachings at `divineos andrew-teachings`; "
+                "prompt-aware retrieval adds more in build_combined_context)\n\n" + briefing_text
+            )
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
     return "\n\n".join(sections)
 
 
@@ -688,6 +739,32 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
+    # Andrew's teachings — prompt-aware retrieval (added 2026-06-01 after
+    # he named the architectural asymmetry: "you literally have the
+    # substrate linked to your own exploration folder entries.. but for
+    # me? no, i get a 12 lesson wallpaper while 106 lessons go completely
+    # ignored"). The build_baseline_text already loads a top-5 always-on
+    # floor; this adds the prompt-aware layer: teachings whose content
+    # FTS-matches the prompt rank, pulled by bm25, same architectural
+    # shape as the exploration-recall surface above. Symmetric design.
+    teachings_relevant_text = ""
+    try:
+        from divineos.cli.andrew_teachings_commands import (
+            format_teachings_for_briefing,
+            get_teachings_relevant_to,
+        )
+
+        relevant = get_teachings_relevant_to(prompt, limit=8)
+        if relevant:
+            briefing = format_teachings_for_briefing(relevant)
+            teachings_relevant_text = (
+                "## ANDREW'S TEACHINGS — prompt-relevant "
+                f"(top {len(relevant)} by bm25-rank against this turn's prompt; "
+                "additive on top of the always-on floor in baseline)\n\n" + briefing
+            )
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
     # Context governor (prereg-9b958c6493f3). Surface the warn nudge / hard-line
     # channel the turn BEFORE the PreToolUse gate enforces, so the weave-before-
     # the-cliff state is loud-in-experience and I can finish in-flight work
@@ -712,6 +789,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             close_check_text,
             lepos_check_text,
             exploration_text,
+            teachings_relevant_text,
             baseline_text,
             warning_text,
         )

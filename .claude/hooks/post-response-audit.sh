@@ -45,7 +45,12 @@ except Exception:
 # continuation, let the next one through (the operator's non-response is
 # the backstop for a rare double-flood).
 try:
-    reason = (result or {}).get('lepos_block') or (result or {}).get('unverified_claim_block')
+    reason = (result or {}).get('lepos_block') or (result or {}).get('unverified_claim_block') or (result or {}).get('temporal_self_block')
+    # andrew_register_block intentionally NOT included — the detector
+    # was built without council walk, without consulting entry 96's design
+    # constraints, with regex-on-strings heuristics that task #16 names as
+    # the wrong pattern. Rolling back deployment per claim b5ba8420; file
+    # left in place as record of bad attempt.
     already_active = bool(data.get('stop_hook_active'))
     if reason and not already_active:
         print(json.dumps({'decision': 'block', 'reason': reason}))
