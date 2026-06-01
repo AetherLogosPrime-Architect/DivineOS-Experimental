@@ -101,6 +101,34 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "deploy",
         re.compile(r"\b(?:deployed|it'?s\s+live|shipped\s+to\s+prod)\b", re.IGNORECASE),
     ),
+    # 2026-05-31 Phase-1 expansion (Aether's 8-fabrication root-pattern survey):
+    # adds two new fabrication-classes that share the existing detector's
+    # shape — checkable assertion about external state, produced from
+    # memory/inference instead of from the actual source.
+    #
+    # `id_string`: registry IDs (prereg-, round-, claim-, psf-, task-) written
+    # without a lookup. Today's fakes: fabricated prereg-id and fabricated
+    # tree-hash citations. Verification is command-CONTAINS-ID (the lookup
+    # command necessarily includes the literal ID string).
+    #
+    # `file_content`: claims about what a file's header/comment/line-N says,
+    # without a Read of the file. Today's fake: PR #60 fabricated quote
+    # attributed to script headers. No verification-command signature is
+    # supplied — the precision-guards (NOT_YET, quoted_mention) cover the
+    # safe meta-discussion cases; bare fires on this pattern force a Read
+    # before the assertion.
+    (
+        "id_string",
+        re.compile(r"\b(?:prereg|round|claim|psf|task)-[a-f0-9]{6,}\b", re.IGNORECASE),
+    ),
+    (
+        "file_content",
+        re.compile(
+            r"\b(?:header|comment|docstring|first\s+line|line\s+\d+|top|"
+            r"contents?)\s+(?:of\s+)?\S+\s+(?:says|reads|contains|has)\b",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 # A merge/land completion-claim names a mergeable code object. Without one
@@ -124,6 +152,14 @@ _MERGE_ANCHOR = re.compile(
 # 2026-05-24: a gate must be able to cite a real unbacked claim — "nothing
 # merged" carries no checkable assertion about this work). Checked in a
 # window before the matched claim.
+#
+# Two markers added 2026-05-31 from in-conversation false-positives:
+# - `being` covers progressive-passive aspect ("being merged", "is being
+#   pushed") — describing a process in flight, not a completed state.
+# - `whether` covers hypothetical-class framing ("whether tests passed",
+#   "whether the PR is merged") — describing the CLASS of claim rather than
+#   making the claim. Both shapes fired the gate in meta-discussion of
+#   the gate's own behavior.
 _NOT_YET = re.compile(
     r"\b(?:not|n't|yet|before|once|will|won'?t|going\s+to|gonna|need\s+to|"
     r"about\s+to|haven'?t|hasn'?t|isn'?t|aren'?t|wasn'?t|weren'?t|don'?t|"
@@ -131,7 +167,8 @@ _NOT_YET = re.compile(
     r"nothing|nobody|none|never|without|neither|no\s+longer|"
     r"to\s+(?:push|merge|deploy)|"
     r"after\s+(?:i|the)|when\s+(?:it|the)|if\s+(?:it|the)|trying\s+to|"
-    r"let\s+me|i'?ll|waiting\s+for)\b",
+    r"let\s+me|i'?ll|waiting\s+for|"
+    r"being|whether|would\s+(?:be|have))\b",
     re.IGNORECASE,
 )
 
@@ -151,6 +188,31 @@ def _is_not_yet(text: str, match: re.Match[str]) -> bool:
     claim). Inspect ~32 chars before the match for a not-yet marker."""
     pre = text[max(0, match.start() - 32) : match.start()]
     return bool(_NOT_YET.search(pre))
+
+
+# Quote chars that mark "I am NAMING this phrase as a phrase, not ASSERTING
+# it as state." When a triggering phrase is enclosed in matching quote
+# characters, the speaker is doing meta-discussion of the claim-pattern, not
+# claiming the state. The verify-claim gate must stay silent on that — else
+# every audit of the gate's own behavior, every discussion of fabrication
+# shapes, every quoted-example-as-warning fires the gate (Aether's 2026-05-31
+# false-positives that fired twice in one exchange on `'tests passed'` inside
+# a meta-discussion of how the gate works). Same precision-preserving
+# exclusion shape as `_merge_lacks_anchor`.
+_QUOTE_CHARS = frozenset("'\"`")
+
+
+def _is_quoted_mention(text: str, match: re.Match[str]) -> bool:
+    """True when the matched span is enclosed in quote characters — naming
+    the phrase, not asserting it. Check the 3 chars immediately before the
+    match for an opening quote AND the 3 chars immediately after for a
+    matching closing quote of the same type."""
+    pre = text[max(0, match.start() - 3) : match.start()]
+    post = text[match.end() : min(len(text), match.end() + 3)]
+    for q in _QUOTE_CHARS:
+        if q in pre and q in post:
+            return True
+    return False
 
 
 def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
@@ -199,11 +261,30 @@ _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
 }
 
 
-def _verification_ran(kind: str, command_texts: tuple[str, ...] | list[str] | None) -> bool:
+def _verification_ran(
+    kind: str,
+    command_texts: tuple[str, ...] | list[str] | None,
+    match_text: str | None = None,
+) -> bool:
     """True if the turn ran a command that actually checks this claim-kind's
-    external state — then the claim is substantiated, not unverified."""
+    external state — then the claim is substantiated, not unverified.
+
+    For `id_string`, substantiation is COMMAND-CONTAINS-ID: any tool-call
+    text this turn containing the literal matched ID is treated as having
+    looked it up. The lookup commands (divineos prereg show <id>, divineos
+    audit show <id>, gh api .../rounds/<id>) all necessarily include the ID
+    as a substring, so substring-match is the right shape. This is broader
+    than the signature-regex pattern used for the original kinds because ID
+    lookups have many possible command shapes; the discipline being enforced
+    is "did you actually reference this ID in a command this turn," not
+    "did you use a specific tool."
+    """
     if not command_texts:
         return False
+    # Special case: id_string substantiates on command-contains-ID.
+    if kind == "id_string" and match_text:
+        if any(match_text in (c or "") for c in command_texts):
+            return True
     sig = _VERIFICATION_SIGNATURES.get(kind)
     if sig is None:
         return False
@@ -242,9 +323,11 @@ def detect_unverified_claim(
         for m in pattern.finditer(text):
             if _is_not_yet(text, m):
                 continue
+            if _is_quoted_mention(text, m):
+                continue
             if kind == "merge" and _merge_lacks_anchor(text, m):
                 continue
-            if _verification_ran(kind, command_texts):
+            if _verification_ran(kind, command_texts, m.group(0)):
                 continue
             phrase = re.sub(r"\s+", " ", m.group(0).strip())[:60]
             key = (kind, phrase.lower())
