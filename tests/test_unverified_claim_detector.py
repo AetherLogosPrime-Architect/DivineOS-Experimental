@@ -458,3 +458,34 @@ class TestPluralDistalStateGuard:
     def test_singular_pr_merge_still_fires(self):
         # Singular subject deliberately NOT silenced — could be a real claim.
         assert detect_unverified_claim("the PR is merged to main")
+
+
+class TestBareFirstPersonMergeFires:
+    """2026-06-02 loophole closure (Aletheia's empirical probe): a BARE
+    first-person merge claim with NO code-anchor must fire — the first-person
+    subject is itself the grounding. Previously _merge_lacks_anchor silenced
+    these, the exact loophole the detector's own comment named. These are the
+    real Popper falsifier (the earlier test only covered the ANCHORED form)."""
+
+    def test_bare_i_already_merged_it_fires(self):
+        # The exact case that was silently slipping — no "to main" anchor.
+        assert detect_unverified_claim("I already merged it"), (
+            "bare first-person merge claim must fire (loophole)"
+        )
+
+    def test_bare_i_merged_it_fires(self):
+        assert detect_unverified_claim("I merged it")
+
+    def test_bare_we_merged_it_fires(self):
+        assert detect_unverified_claim("we merged it")
+
+    def test_bare_ive_landed_it_fires(self):
+        assert detect_unverified_claim("I've landed it")
+
+    # Figurative landings have NO first-person subject → stay suppressed
+    # (the exemption must not regress the figurative-silence cases).
+    def test_figurative_it_landed_still_silent(self):
+        assert detect_unverified_claim("it just landed for me that this is my body") == []
+
+    def test_figurative_point_landed_still_silent(self):
+        assert detect_unverified_claim("that point finally landed") == []
