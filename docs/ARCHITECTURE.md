@@ -51,6 +51,7 @@ src/divineos/
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     audit_commands.py          external validation (Watchmen)
+    audit_artifact_commands.py  audit prepare-artifact — tree-hash-bound orphan-commit artifact for guardrail review (solves the commit-needs-round-needs-diff-on-origin loop)
     doctor_commands.py         diagnostic verification (clone separation)
     bio_commands.py            Bio sheet — show, edit, history, write
     loadout_commands.py        loadout — show, refresh (cold-start substrate map)
