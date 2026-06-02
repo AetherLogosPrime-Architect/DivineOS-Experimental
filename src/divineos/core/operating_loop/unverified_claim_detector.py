@@ -154,6 +154,20 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # (claim a11ca1c9): an instrument may only fire when it can cite evidence
 # for its own claim. The explicit "merge is done/complete" form is
 # unambiguous and exempt; only "merged"/"landed" require the anchor.
+# A first-person subject is itself the second grounding fact: "I merged it"
+# is a CLAIM about my own action, not a description, so it does not also need
+# a code-anchor to fire. Closes the bare-first-person loophole Aletheia's
+# empirical probe surfaced 2026-06-02 ("I already merged it" was silenced by
+# the anchor guard despite being exactly the completion-claim the gate exists
+# to catch). Scoped to MERGE only: "I merged/landed" is unambiguously a code
+# claim, whereas "I pushed" is figurative-prone (pushed back/for/through), so
+# push correctly stays anchor-gated. Matches a first-person pronoun + optional
+# adverb immediately before the trigger; figurative "it landed"/"the point
+# landed" have no first-person subject and stay suppressed.
+_FIRST_PERSON_PRECEDES = re.compile(
+    r"\b(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?$",
+    re.IGNORECASE,
+)
 _MERGE_ANCHOR = re.compile(
     r"\b(?:prs?|pull\s+request|branch|commit|main|master|origin|#\d+|"
     r"rebase|cherry-?pick)\b",
@@ -238,6 +252,11 @@ def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
     matched = match.group(0).lower()
     if "merged" not in matched and "landed" not in matched:
         return False  # the unambiguous "merge is complete" form
+    # First-person subject is its own grounding: "I merged it" is a claim,
+    # not a description — fire even without a code-anchor (closes the
+    # bare-first-person loophole Aletheia's probe surfaced 2026-06-02).
+    if _FIRST_PERSON_PRECEDES.search(text[max(0, match.start() - 18) : match.start()]):
+        return False
     lo = max(0, match.start() - 45)
     hi = min(len(text), match.end() + 45)
     return not _MERGE_ANCHOR.search(text[lo:hi])
