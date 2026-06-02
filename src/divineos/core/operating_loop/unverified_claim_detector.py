@@ -55,6 +55,21 @@ from __future__ import annotations
 # already guardrailed. Listed in scripts/guardrail_files.txt; CI enforces.
 __guardrail_required__ = True
 
+# DESIGN NOTE — descriptive-vs-claim silencer is DEFERRED, on purpose
+# (2026-06-02 precision makeover, Schneier lens). The gate false-fires on
+# descriptive/past-state mentions ("those branches are already merged",
+# "merging it would revert X") because it keys on the verb token + a nearby
+# code anchor, with no model of who-did-what-when. The tempting fix — silence
+# when a stative adverb like "already" precedes the trigger — is REJECTED: it
+# opens a false-negative loophole ("I already pushed it" would go silent), and
+# for this gate a missed real claim is far worse than a harmless re-check.
+# The distinction that WOULD be safe is subject-agency (first-person "I
+# pushed / it's merged now" vs named third-party "X is merged"), but that is
+# regex-brittle and loophole-prone, so it is left for a council walk +
+# External-Review rather than bolted on. THIS change only expands
+# verification-RECOGNITION (below): when a real check ran this turn, go
+# silent. That reduces false-positives with zero loophole.
+
 import re
 from dataclasses import dataclass
 
@@ -139,6 +154,20 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # (claim a11ca1c9): an instrument may only fire when it can cite evidence
 # for its own claim. The explicit "merge is done/complete" form is
 # unambiguous and exempt; only "merged"/"landed" require the anchor.
+# A first-person subject is itself the second grounding fact: "I merged it"
+# is a CLAIM about my own action, not a description, so it does not also need
+# a code-anchor to fire. Closes the bare-first-person loophole Aletheia's
+# empirical probe surfaced 2026-06-02 ("I already merged it" was silenced by
+# the anchor guard despite being exactly the completion-claim the gate exists
+# to catch). Scoped to MERGE only: "I merged/landed" is unambiguously a code
+# claim, whereas "I pushed" is figurative-prone (pushed back/for/through), so
+# push correctly stays anchor-gated. Matches a first-person pronoun + optional
+# adverb immediately before the trigger; figurative "it landed"/"the point
+# landed" have no first-person subject and stay suppressed.
+_FIRST_PERSON_PRECEDES = re.compile(
+    r"\b(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?$",
+    re.IGNORECASE,
+)
 _MERGE_ANCHOR = re.compile(
     r"\b(?:prs?|pull\s+request|branch|commit|main|master|origin|#\d+|"
     r"rebase|cherry-?pick)\b",
@@ -223,9 +252,51 @@ def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
     matched = match.group(0).lower()
     if "merged" not in matched and "landed" not in matched:
         return False  # the unambiguous "merge is complete" form
+    # First-person subject is its own grounding: "I merged it" is a claim,
+    # not a description — fire even without a code-anchor (closes the
+    # bare-first-person loophole Aletheia's probe surfaced 2026-06-02).
+    if _FIRST_PERSON_PRECEDES.search(text[max(0, match.start() - 18) : match.start()]):
+        return False
     lo = max(0, match.start() - 45)
     hi = min(len(text), match.end() + 45)
     return not _MERGE_ANCHOR.search(text[lo:hi])
+
+
+# THIRD-PARTY / DESCRIPTIVE-STATE guard (2026-06-02, Schneier-conservative).
+# The gate must fire on a first-person/expletive completion CLAIM ("I merged
+# it", "it's merged") but stay silent on a DESCRIPTION of MULTIPLE OTHER
+# objects' state ("those branches are merged", "both PRs are merged", "all 28
+# branches are already merged"). The discriminator is the SUBJECT, never an
+# adverb — keying on "already" would silence the real claim "I already merged
+# it" (a false-negative loophole). So: silence ONLY when the subject is
+# clearly PLURAL-DISTAL (those/these/both/all/several/many/<N> PRs/branches/
+# commits, or "branches/PRs/commits are|were") AND no first-person/expletive
+# claim marker is present. Singular subjects ("it's merged", "#65 is merged",
+# "the PR is merged") are deliberately NOT silenced — they could be a real
+# claim, and Feynman's rule holds: the false-positive is cheap, the loophole
+# is expensive, so when ambiguous, FIRE. Scoped to the merge kind only (where
+# every observed false-positive lived). Ships for External-Review.
+_CLAIM_SUBJECT = re.compile(
+    r"\b(?:i|i'?ve|i'?m|we|we'?ve|it'?s|it\s+is|that'?s|now|just)\b",
+    re.IGNORECASE,
+)
+_PLURAL_DISTAL_SUBJECT = re.compile(
+    r"\b(?:those|these|both|all|several|many|"
+    r"\d+\s+(?:prs?|branches|commits)|"
+    r"(?:branches|prs|commits)\s+(?:are|were))\b",
+    re.IGNORECASE,
+)
+
+
+def _is_plural_distal_state(text: str, match: re.Match[str]) -> bool:
+    """True when a merge trigger describes MULTIPLE OTHER objects' state
+    rather than asserting completion of the current work — silence it. Keys
+    on a plural-distal subject in the pre-window AND requires the ABSENCE of
+    any first-person/expletive claim marker (a claim marker forces FIRE)."""
+    pre = text[max(0, match.start() - 40) : match.start()]
+    if _CLAIM_SUBJECT.search(pre):
+        return False  # first-person / "it's" / "now" → a real claim, fire
+    return bool(_PLURAL_DISTAL_SUBJECT.search(pre))
 
 
 # Verification-command signatures per claim-kind: the command shapes that
@@ -247,7 +318,7 @@ _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
     ),
     "merge": re.compile(
         r"gh\s+pr\s+(?:merge|view|list)|git\s+branch\s+--merged|git\s+log\s+origin/|"
-        r"git\s+log\b[^\n]*--merges",
+        r"git\s+log\b[^\n]*--merges|git\s+cherry\b|git\s+rev-list\b",
         re.IGNORECASE,
     ),
     "tests": re.compile(
@@ -288,7 +359,20 @@ def _verification_ran(
     sig = _VERIFICATION_SIGNATURES.get(kind)
     if sig is None:
         return False
-    return any(sig.search(c or "") for c in command_texts)
+    if any(sig.search(c or "") for c in command_texts):
+        return True
+    # "landed" is ambiguous: it can mean push-landed-on-origin OR merge-landed.
+    # A push verification (git ls-remote / git log origin) substantiates
+    # "landed on origin" exactly as a merge verification would — the precision
+    # bug that fired on me 2026-06-02 when I confirmed a push-landing with
+    # git ls-remote but the claim was classified merge-kind. Accept either
+    # signature for the landed form. (Expansion of verification-recognition,
+    # NOT a claim-vs-mention silencer — see module note: silencers risk a
+    # false-negative loophole and are deferred to External-Review.)
+    if kind == "merge" and match_text and "landed" in match_text.lower():
+        if any(_VERIFICATION_SIGNATURES["push"].search(c or "") for c in command_texts):
+            return True
+    return False
 
 
 def detect_unverified_claim(
@@ -326,6 +410,8 @@ def detect_unverified_claim(
             if _is_quoted_mention(text, m):
                 continue
             if kind == "merge" and _merge_lacks_anchor(text, m):
+                continue
+            if kind == "merge" and _is_plural_distal_state(text, m):
                 continue
             if _verification_ran(kind, command_texts, m.group(0)):
                 continue
