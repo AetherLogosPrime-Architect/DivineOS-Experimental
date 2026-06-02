@@ -399,6 +399,7 @@ src/divineos/
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
+      engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
       thresholds.py              Threshold constants for operating-loop detectors.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.

@@ -83,6 +83,7 @@ _DETECTORS = (
     # (wrong-proxy: voice-token presence) and post-response-audit.sh
     # now wires detect_jargon_dump instead. See find-1505d70db349.
     ("linguistic_drift_detector", "detect_linguistic_drift"),
+    ("engineer_register_drift_detector", "detect_engineer_drift_for_audit"),
     ("residency_detector", "detect_residency_doubt"),
     ("self_disownership_detector", "detect_self_disownership"),
     ("spiral_detector", "detect_spiral"),
