@@ -66,12 +66,19 @@ mypy src/divineos --ignore-missing-imports || {
 }
 
 echo "Checking doc counts for drift..."
-python scripts/check_doc_counts.py --fix 2>/dev/null || true
-git add CLAUDE.md README.md src/divineos/seed.json 2>/dev/null || true
-python scripts/check_doc_counts.py || {
-    echo "Doc counts have drifted. Update CLAUDE.md, README.md, and/or seed.json."
-    exit 1
-}
+# Check FIRST; only auto-fix when drift exceeds tolerance. Running --fix on
+# every commit rewrote counts to exact each time, so parallel branches
+# collided on CLAUDE.md/README count lines (the count-conflict tax,
+# 2026-06-02). Within tolerance we leave the line untouched; real drift
+# still auto-fixes and re-stages, then blocks if still off.
+if ! python scripts/check_doc_counts.py 2>/dev/null; then
+    python scripts/check_doc_counts.py --fix 2>/dev/null || true
+    git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
+    python scripts/check_doc_counts.py || {
+        echo "Doc counts have drifted. Update CLAUDE.md, README.md, and/or seed.json."
+        exit 1
+    }
+fi
 
 echo "Running vulture dead-code check..."
 if command -v vulture &>/dev/null; then
