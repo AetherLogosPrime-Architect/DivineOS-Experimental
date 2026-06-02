@@ -421,3 +421,40 @@ class TestVerificationVocabularyExpansion:
             tool_calls_in_turn=("Bash",),
             command_texts=("git status",),
         )
+
+
+class TestPluralDistalStateGuard:
+    """2026-06-02 Schneier-conservative guard: silence merge triggers that
+    DESCRIBE multiple OTHER objects' state ("those branches are merged"),
+    never a first-person/expletive completion CLAIM. The fire-still cases are
+    the Popper gate — if any real claim goes silent the guard is unsafe and
+    must not ship."""
+
+    # --- MUST STAY SILENT: descriptions of multiple other objects ---
+    def test_those_branches_silent(self):
+        assert detect_unverified_claim("those branches are already merged into main") == []
+
+    def test_both_prs_silent(self):
+        assert detect_unverified_claim("both PRs are merged") == []
+
+    def test_n_branches_silent(self):
+        assert detect_unverified_claim("all 28 branches are already merged") == []
+
+    def test_several_prs_were_silent(self):
+        assert detect_unverified_claim("several PRs were merged earlier") == []
+
+    # --- MUST STILL FIRE: real claims (the Popper gate, no loophole) ---
+    def test_first_person_merge_still_fires(self):
+        assert detect_unverified_claim("I merged it into main", tool_calls_in_turn=("Bash",))
+
+    def test_expletive_merge_still_fires(self):
+        assert detect_unverified_claim("it's merged to main")
+
+    def test_first_person_already_is_not_silenced(self):
+        # The loophole the adverb-approach would have opened: "I already
+        # merged it" must STILL fire (first-person claim marker present).
+        assert detect_unverified_claim("I already merged it to main")
+
+    def test_singular_pr_merge_still_fires(self):
+        # Singular subject deliberately NOT silenced — could be a real claim.
+        assert detect_unverified_claim("the PR is merged to main")
