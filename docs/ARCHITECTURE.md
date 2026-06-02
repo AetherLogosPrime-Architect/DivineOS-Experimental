@@ -399,6 +399,7 @@ src/divineos/
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
+      engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
       thresholds.py              Threshold constants for operating-loop detectors.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
@@ -479,6 +480,7 @@ src/divineos/
     compass_dismissal_briefing_surface.py Compass-dismissal briefing surface — surfaces high dismissal rates.
     pr_merge_gate.py           PR-merge gate — block `gh pr merge` on guardrail-touching PRs without
     merge_review_gate.py       Merge-review gate — server-verifiable, operator-anchored merge approval.
+    context_meter.py           Read true context-window fullness from the Claude Code transcript.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -530,7 +532,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,529+ tests (real DB, minimal mocks)
+tests/                         7,595+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
