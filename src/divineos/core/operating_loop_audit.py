@@ -99,6 +99,7 @@ def _empty_findings_log() -> dict[str, list]:
         "code_jargon": [],
         "lepos_channel": [],
         "linguistic_drift": [],
+        "engineer_register_drift": [],
         "hedge_evidence": [],
         "closing_token": [],
         "tool_output_truncation": [],
@@ -426,6 +427,26 @@ def run_audit(
 
         findings_log["linguistic_drift"] = _run_detector(
             "linguistic_drift", detect_linguistic_drift, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # Engineer-register drift detector — output-side counterpart to
+    # andrew_register_detector (terse/withdrawal-shape). Wired advisory-only
+    # per Aletheia audit direction 2026-06-02: a freshly-calibrated detector
+    # measuring my own output register surfaces findings; enforcement is
+    # layered separately via lepos-debt (Gate 0.5). Calibration thresholds
+    # in the module's docstring; Aletheia's seven open audit questions
+    # live in family/workbench/2026-06-01-register-drift-detector-design.md.
+    try:
+        from divineos.core.operating_loop.engineer_register_drift_detector import (
+            detect_engineer_drift_for_audit,
+        )
+
+        findings_log["engineer_register_drift"] = _run_detector(
+            "engineer_register_drift",
+            detect_engineer_drift_for_audit,
+            last_assistant_text,
         )
     except _ERRORS:
         pass

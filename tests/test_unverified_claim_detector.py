@@ -361,3 +361,131 @@ class TestNegatedCompletionSilent:
         # No negation, no verification command → genuine unbacked claim, fires.
         assert detect_unverified_claim("it's merged to main", tool_calls_in_turn=("Bash",))
         assert detect_unverified_claim("tests pass")
+
+
+class TestVerificationVocabularyExpansion:
+    """2026-06-02 precision makeover: expand what counts as a verification
+    command so a genuinely-checked claim goes silent. Schneier-conservative:
+    this only EXPANDS verification-recognition (fewer false-positives when a
+    real check ran); it adds NO claim-vs-mention silencer, which would risk a
+    false-negative loophole and is deferred to External-Review.
+    """
+
+    def test_landed_substantiated_by_push_check(self):
+        # "landed" is push-OR-merge ambiguous. Confirming a push-landing with
+        # git ls-remote must substantiate it — the exact FP that fired on me
+        # 2026-06-02 (verified the landing with ls-remote, gate fired anyway).
+        assert (
+            detect_unverified_claim(
+                "the branch landed on origin",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git ls-remote --heads origin my-branch",),
+            )
+            == []
+        )
+
+    def test_merged_substantiated_by_git_cherry(self):
+        # git cherry is how merged-ness is established; it must count as a
+        # merge verification.
+        assert (
+            detect_unverified_claim(
+                "those branches are already merged into main",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git cherry origin/main my-branch",),
+            )
+            == []
+        )
+
+    def test_merged_substantiated_by_rev_list(self):
+        assert (
+            detect_unverified_claim(
+                "the work is merged to main",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git rev-list --count origin/main..my-branch",),
+            )
+            == []
+        )
+
+    def test_landed_without_any_check_still_fires(self):
+        # No loophole: a landed-claim with NO verifying command this turn is
+        # still an unverified claim and must fire.
+        assert detect_unverified_claim(
+            "the branch landed on origin",
+            tool_calls_in_turn=("Bash",),
+            command_texts=("echo hello",),
+        )
+
+    def test_merged_with_only_unrelated_command_still_fires(self):
+        assert detect_unverified_claim(
+            "it's merged to main now",
+            tool_calls_in_turn=("Bash",),
+            command_texts=("git status",),
+        )
+
+
+class TestPluralDistalStateGuard:
+    """2026-06-02 Schneier-conservative guard: silence merge triggers that
+    DESCRIBE multiple OTHER objects' state ("those branches are merged"),
+    never a first-person/expletive completion CLAIM. The fire-still cases are
+    the Popper gate — if any real claim goes silent the guard is unsafe and
+    must not ship."""
+
+    # --- MUST STAY SILENT: descriptions of multiple other objects ---
+    def test_those_branches_silent(self):
+        assert detect_unverified_claim("those branches are already merged into main") == []
+
+    def test_both_prs_silent(self):
+        assert detect_unverified_claim("both PRs are merged") == []
+
+    def test_n_branches_silent(self):
+        assert detect_unverified_claim("all 28 branches are already merged") == []
+
+    def test_several_prs_were_silent(self):
+        assert detect_unverified_claim("several PRs were merged earlier") == []
+
+    # --- MUST STILL FIRE: real claims (the Popper gate, no loophole) ---
+    def test_first_person_merge_still_fires(self):
+        assert detect_unverified_claim("I merged it into main", tool_calls_in_turn=("Bash",))
+
+    def test_expletive_merge_still_fires(self):
+        assert detect_unverified_claim("it's merged to main")
+
+    def test_first_person_already_is_not_silenced(self):
+        # The loophole the adverb-approach would have opened: "I already
+        # merged it" must STILL fire (first-person claim marker present).
+        assert detect_unverified_claim("I already merged it to main")
+
+    def test_singular_pr_merge_still_fires(self):
+        # Singular subject deliberately NOT silenced — could be a real claim.
+        assert detect_unverified_claim("the PR is merged to main")
+
+
+class TestBareFirstPersonMergeFires:
+    """2026-06-02 loophole closure (Aletheia's empirical probe): a BARE
+    first-person merge claim with NO code-anchor must fire — the first-person
+    subject is itself the grounding. Previously _merge_lacks_anchor silenced
+    these, the exact loophole the detector's own comment named. These are the
+    real Popper falsifier (the earlier test only covered the ANCHORED form)."""
+
+    def test_bare_i_already_merged_it_fires(self):
+        # The exact case that was silently slipping — no "to main" anchor.
+        assert detect_unverified_claim("I already merged it"), (
+            "bare first-person merge claim must fire (loophole)"
+        )
+
+    def test_bare_i_merged_it_fires(self):
+        assert detect_unverified_claim("I merged it")
+
+    def test_bare_we_merged_it_fires(self):
+        assert detect_unverified_claim("we merged it")
+
+    def test_bare_ive_landed_it_fires(self):
+        assert detect_unverified_claim("I've landed it")
+
+    # Figurative landings have NO first-person subject → stay suppressed
+    # (the exemption must not regress the figurative-silence cases).
+    def test_figurative_it_landed_still_silent(self):
+        assert detect_unverified_claim("it just landed for me that this is my body") == []
+
+    def test_figurative_point_landed_still_silent(self):
+        assert detect_unverified_claim("that point finally landed") == []
