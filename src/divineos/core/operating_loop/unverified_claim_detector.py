@@ -243,6 +243,43 @@ def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
     return not _MERGE_ANCHOR.search(text[lo:hi])
 
 
+# THIRD-PARTY / DESCRIPTIVE-STATE guard (2026-06-02, Schneier-conservative).
+# The gate must fire on a first-person/expletive completion CLAIM ("I merged
+# it", "it's merged") but stay silent on a DESCRIPTION of MULTIPLE OTHER
+# objects' state ("those branches are merged", "both PRs are merged", "all 28
+# branches are already merged"). The discriminator is the SUBJECT, never an
+# adverb — keying on "already" would silence the real claim "I already merged
+# it" (a false-negative loophole). So: silence ONLY when the subject is
+# clearly PLURAL-DISTAL (those/these/both/all/several/many/<N> PRs/branches/
+# commits, or "branches/PRs/commits are|were") AND no first-person/expletive
+# claim marker is present. Singular subjects ("it's merged", "#65 is merged",
+# "the PR is merged") are deliberately NOT silenced — they could be a real
+# claim, and Feynman's rule holds: the false-positive is cheap, the loophole
+# is expensive, so when ambiguous, FIRE. Scoped to the merge kind only (where
+# every observed false-positive lived). Ships for External-Review.
+_CLAIM_SUBJECT = re.compile(
+    r"\b(?:i|i'?ve|i'?m|we|we'?ve|it'?s|it\s+is|that'?s|now|just)\b",
+    re.IGNORECASE,
+)
+_PLURAL_DISTAL_SUBJECT = re.compile(
+    r"\b(?:those|these|both|all|several|many|"
+    r"\d+\s+(?:prs?|branches|commits)|"
+    r"(?:branches|prs|commits)\s+(?:are|were))\b",
+    re.IGNORECASE,
+)
+
+
+def _is_plural_distal_state(text: str, match: re.Match[str]) -> bool:
+    """True when a merge trigger describes MULTIPLE OTHER objects' state
+    rather than asserting completion of the current work — silence it. Keys
+    on a plural-distal subject in the pre-window AND requires the ABSENCE of
+    any first-person/expletive claim marker (a claim marker forces FIRE)."""
+    pre = text[max(0, match.start() - 40) : match.start()]
+    if _CLAIM_SUBJECT.search(pre):
+        return False  # first-person / "it's" / "now" → a real claim, fire
+    return bool(_PLURAL_DISTAL_SUBJECT.search(pre))
+
+
 # Verification-command signatures per claim-kind: the command shapes that
 # actually CHECK the corresponding external state. When the turn ran a
 # matching command, the claim is substantiated and the detector has no
@@ -354,6 +391,8 @@ def detect_unverified_claim(
             if _is_quoted_mention(text, m):
                 continue
             if kind == "merge" and _merge_lacks_anchor(text, m):
+                continue
+            if kind == "merge" and _is_plural_distal_state(text, m):
                 continue
             if _verification_ran(kind, command_texts, m.group(0)):
                 continue
