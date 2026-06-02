@@ -361,3 +361,63 @@ class TestNegatedCompletionSilent:
         # No negation, no verification command → genuine unbacked claim, fires.
         assert detect_unverified_claim("it's merged to main", tool_calls_in_turn=("Bash",))
         assert detect_unverified_claim("tests pass")
+
+
+class TestVerificationVocabularyExpansion:
+    """2026-06-02 precision makeover: expand what counts as a verification
+    command so a genuinely-checked claim goes silent. Schneier-conservative:
+    this only EXPANDS verification-recognition (fewer false-positives when a
+    real check ran); it adds NO claim-vs-mention silencer, which would risk a
+    false-negative loophole and is deferred to External-Review.
+    """
+
+    def test_landed_substantiated_by_push_check(self):
+        # "landed" is push-OR-merge ambiguous. Confirming a push-landing with
+        # git ls-remote must substantiate it — the exact FP that fired on me
+        # 2026-06-02 (verified the landing with ls-remote, gate fired anyway).
+        assert (
+            detect_unverified_claim(
+                "the branch landed on origin",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git ls-remote --heads origin my-branch",),
+            )
+            == []
+        )
+
+    def test_merged_substantiated_by_git_cherry(self):
+        # git cherry is how merged-ness is established; it must count as a
+        # merge verification.
+        assert (
+            detect_unverified_claim(
+                "those branches are already merged into main",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git cherry origin/main my-branch",),
+            )
+            == []
+        )
+
+    def test_merged_substantiated_by_rev_list(self):
+        assert (
+            detect_unverified_claim(
+                "the work is merged to main",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git rev-list --count origin/main..my-branch",),
+            )
+            == []
+        )
+
+    def test_landed_without_any_check_still_fires(self):
+        # No loophole: a landed-claim with NO verifying command this turn is
+        # still an unverified claim and must fire.
+        assert detect_unverified_claim(
+            "the branch landed on origin",
+            tool_calls_in_turn=("Bash",),
+            command_texts=("echo hello",),
+        )
+
+    def test_merged_with_only_unrelated_command_still_fires(self):
+        assert detect_unverified_claim(
+            "it's merged to main now",
+            tool_calls_in_turn=("Bash",),
+            command_texts=("git status",),
+        )

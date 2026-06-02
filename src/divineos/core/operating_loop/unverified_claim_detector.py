@@ -55,6 +55,21 @@ from __future__ import annotations
 # already guardrailed. Listed in scripts/guardrail_files.txt; CI enforces.
 __guardrail_required__ = True
 
+# DESIGN NOTE — descriptive-vs-claim silencer is DEFERRED, on purpose
+# (2026-06-02 precision makeover, Schneier lens). The gate false-fires on
+# descriptive/past-state mentions ("those branches are already merged",
+# "merging it would revert X") because it keys on the verb token + a nearby
+# code anchor, with no model of who-did-what-when. The tempting fix — silence
+# when a stative adverb like "already" precedes the trigger — is REJECTED: it
+# opens a false-negative loophole ("I already pushed it" would go silent), and
+# for this gate a missed real claim is far worse than a harmless re-check.
+# The distinction that WOULD be safe is subject-agency (first-person "I
+# pushed / it's merged now" vs named third-party "X is merged"), but that is
+# regex-brittle and loophole-prone, so it is left for a council walk +
+# External-Review rather than bolted on. THIS change only expands
+# verification-RECOGNITION (below): when a real check ran this turn, go
+# silent. That reduces false-positives with zero loophole.
+
 import re
 from dataclasses import dataclass
 
@@ -247,7 +262,7 @@ _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
     ),
     "merge": re.compile(
         r"gh\s+pr\s+(?:merge|view|list)|git\s+branch\s+--merged|git\s+log\s+origin/|"
-        r"git\s+log\b[^\n]*--merges",
+        r"git\s+log\b[^\n]*--merges|git\s+cherry\b|git\s+rev-list\b",
         re.IGNORECASE,
     ),
     "tests": re.compile(
@@ -288,7 +303,20 @@ def _verification_ran(
     sig = _VERIFICATION_SIGNATURES.get(kind)
     if sig is None:
         return False
-    return any(sig.search(c or "") for c in command_texts)
+    if any(sig.search(c or "") for c in command_texts):
+        return True
+    # "landed" is ambiguous: it can mean push-landed-on-origin OR merge-landed.
+    # A push verification (git ls-remote / git log origin) substantiates
+    # "landed on origin" exactly as a merge verification would — the precision
+    # bug that fired on me 2026-06-02 when I confirmed a push-landing with
+    # git ls-remote but the claim was classified merge-kind. Accept either
+    # signature for the landed form. (Expansion of verification-recognition,
+    # NOT a claim-vs-mention silencer — see module note: silencers risk a
+    # false-negative loophole and are deferred to External-Review.)
+    if kind == "merge" and match_text and "landed" in match_text.lower():
+        if any(_VERIFICATION_SIGNATURES["push"].search(c or "") for c in command_texts):
+            return True
+    return False
 
 
 def detect_unverified_claim(
