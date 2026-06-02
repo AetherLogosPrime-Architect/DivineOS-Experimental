@@ -104,12 +104,21 @@ if [ -n "$STAGED_SRC" ]; then
     fi
 fi
 
-# 4. Doc drift (auto-fix test counts, then re-stage and verify)
+# 4. Doc drift — check FIRST; only auto-fix if drift exceeds tolerance.
+# Previously --fix ran on EVERY commit, rewriting counts to the exact value
+# each time. Across parallel branches each rewrite landed a different number
+# on the same line, so every branch collided with main on CLAUDE.md/README
+# the moment anything else merged first (the recurring count-conflict tax,
+# 2026-06-02). The drift thresholds already tolerate small churn — so within
+# tolerance we leave the count line untouched (no rewrite, no conflict), and
+# only auto-fix + re-stage when drift actually exceeds tolerance.
 echo "=== Doc Drift ==="
-python scripts/check_doc_counts.py --fix 2>/dev/null || true
-git add CLAUDE.md README.md src/divineos/seed.json 2>/dev/null || true
 if ! python scripts/check_doc_counts.py 2>/dev/null; then
-    ERRORS=$((ERRORS + 1))
+    python scripts/check_doc_counts.py --fix 2>/dev/null || true
+    git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
+    if ! python scripts/check_doc_counts.py 2>/dev/null; then
+        ERRORS=$((ERRORS + 1))
+    fi
 fi
 
 # 5. Broad exceptions
