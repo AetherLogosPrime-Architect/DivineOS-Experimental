@@ -32,6 +32,203 @@ _STATUS_COLORS = {
     "DUPLICATE": "bright_black",
 }
 
+# Canonical external-AI actor roster. Must match check_multi_party_review.py
+# and the prepare-merge gate. Hoisted to module level so file-external-confirm
+# and prepare-merge share one source of truth instead of two drifting copies.
+_EXTERNAL_AI_ACTORS = frozenset(
+    {
+        "grok",
+        "gemini",
+        "aletheia",
+        "claude-3.5-sonnet",
+        "claude-3-opus",
+        "claude-sonnet-4",
+        "claude-sonnet-4-5",
+        "claude-opus-4",
+        "claude-opus-4-1",
+    }
+)
+
+
+def validate_external_confirm_inputs(
+    *,
+    actor: str,
+    claimed_tree: str = "",
+    actual_tree: str | None = None,
+    claimed_patch_id: str = "",
+    actual_patch_id: str | None = None,
+    claimed_tip: str = "",
+    actual_tip: str | None = None,
+    valid_actors: frozenset[str] = _EXTERNAL_AI_ACTORS,
+) -> tuple[bool, str, str]:
+    """Pure validation for filing/holding a relayed external-AI CONFIRM.
+
+    Binds a confirm to BOTH the tree-hash and the change's patch-id, and
+    validates on a ladder (Aletheia's correction 2026-06-02 — replacing
+    tree-hash outright would recreate the diff-hash cross-vantage trap,
+    claim 1d0f9e7b):
+
+      1. tree-hash matches  -> 'tree-exact': the auditor read EXACTLY this
+         content. Strongest; cross-vantage reproducible (git write-tree).
+         No catch-up happened.
+      2. tree differs, patch-id matches -> 'patch-id-after-catchup': a clean
+         base-move (GitHub 'require up to date' catch-up) changed the tree but
+         the reviewed CHANGE is identical. Valid, no re-sign. The treadmill-
+         killer.
+      3. patch-id differs -> refuse: the change itself changed (e.g. a
+         conflict-resolution touched a guardrail file). Re-sign required.
+         The safety property.
+
+    patch-id is base-move-stable and tamper-sensitive, BUT only when computed
+    over merge-base(main,branch)..branch with default context (never -U0), and
+    only after a one-time cross-vantage reproduction check (git versions can
+    differ). tree-hash stays primary precisely so the cure is strictly
+    additive over tree-only signing — never weaker, just catch-up-stable.
+
+    Does NOT prove the auditor genuinely reviewed (forgeability-by-relay
+    remains named-not-solved; needs an authenticated auditor write-path).
+
+    Returns (ok, reason, basis). basis is 'tree-exact' or
+    'patch-id-after-catchup' when ok, '' when refused.
+    """
+    if actor.lower() not in valid_actors:
+        return (
+            False,
+            f"actor '{actor}' is not an external-AI actor. This command files "
+            f"only external-AI CONFIRMs (operator confirms go via 'audit submit "
+            f"--actor user'). Valid: " + ", ".join(sorted(valid_actors)),
+            "",
+        )
+
+    ct = (claimed_tree or "").strip().lower()
+    at = (actual_tree or "").strip().lower()
+    cp = (claimed_patch_id or "").strip().lower()
+    ap = (actual_patch_id or "").strip().lower()
+
+    if not ct and not cp:
+        return (
+            False,
+            "no --claimed-tree and no --claimed-patch-id; need at least one "
+            "anchor (tree-hash for exact-content, patch-id for catch-up).",
+            "",
+        )
+
+    # Rung 1: exact-content match. Strongest, cross-vantage reproducible.
+    if ct and at and ct == at:
+        if claimed_tip:
+            cti = claimed_tip.strip().lower()
+            ati = (actual_tip or "").strip().lower()
+            if ati and cti != ati:
+                return (
+                    False,
+                    f"tree matched but claimed tip {cti} != remote tip {ati} "
+                    "(unexpected; refusing out of caution).",
+                    "",
+                )
+        return (True, "", "tree-exact")
+
+    # Rung 2: clean catch-up — tree moved, reviewed change unchanged.
+    if cp and ap and cp == ap:
+        return (
+            True,
+            f"tree differs (catch-up) but patch-id matches ({cp}) — the "
+            "reviewed change is unchanged; no re-sign needed.",
+            "patch-id-after-catchup",
+        )
+
+    # Rung 3: refuse. Distinguish the two failure shapes for a clear message.
+    if cp and ap and cp != ap:
+        return (
+            False,
+            f"patch-id differs: claimed {cp} vs actual {ap}. The reviewed "
+            "CHANGE changed (e.g. a conflict-resolution touched a guardrail "
+            "file) — re-sign required.",
+            "",
+        )
+    return (
+        False,
+        f"no anchor matched: claimed tree {ct or '(none)'} vs actual "
+        f"{at or '(unresolved)'}; claimed patch-id {cp or '(none)'} vs actual "
+        f"{ap or '(unresolved)'}. Refusing to file.",
+        "",
+    )
+
+
+def _git_capture(args: list[str], timeout: int = 30) -> str | None:
+    """Run a git command; return stripped stdout, or None on any failure."""
+    import subprocess
+
+    try:
+        p = subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode != 0:
+        return None
+    return p.stdout.strip()
+
+
+def _git_version() -> str:
+    """The local git version string (e.g. '2.43.0'), or '' if unknown.
+
+    patch-id is version-conditioned (Aletheia 2026-06-02): the algorithm could
+    shift across git versions, so a confirm records the version it was computed
+    under, and confirm-holds warns if the current version has drifted — the
+    signal to re-run the cross-vantage reproduction check.
+    """
+    import re as _re
+
+    raw = _git_capture(["git", "--version"]) or ""
+    m = _re.search(r"(\d+\.\d+\.\d+)", raw)
+    return m.group(1) if m else ""
+
+
+def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> str | None:
+    """Patch-id of a branch's cumulative change — the stable identity of the
+    reviewed diff, invariant to base-moves (catch-up) but sensitive to any
+    real change to the diff.
+
+    Aletheia's load-bearing specifics (2026-06-02), baked in so they can't be
+    forgotten:
+      * Range MUST be merge-base(main, branch)..branch (the cumulative branch
+        diff). The naive tip-commit range breaks after a merge-based catch-up
+        (the tip becomes a merge commit), which is exactly the path GitHub's
+        'require up to date' uses.
+      * DEFAULT diff context — never -U0 (which yields a different patch-id).
+      * Trust patch-id cross-vantage only after a one-time reproduction check
+        (git versions can differ); tree-hash stays the primary anchor.
+
+    Returns the 40-hex patch-id, or None if it cannot be computed.
+    """
+    import subprocess
+
+    base = _git_capture(["git", "merge-base", main_ref, branch_ref])
+    if not base:
+        return None
+    try:
+        diff = subprocess.run(
+            ["git", "diff", base, branch_ref],  # default context; NEVER -U0
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        if diff.returncode != 0:
+            return None
+        pid = subprocess.run(
+            ["git", "patch-id", "--stable"],
+            input=diff.stdout,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if pid.returncode != 0 or not pid.stdout.strip():
+        return None
+    # Output line: "<patch-id> <commit-id>" — first token is the patch-id.
+    return pid.stdout.split()[0].strip()
+
 
 def register(cli: click.Group) -> None:
     """Register audit commands."""
@@ -776,6 +973,267 @@ def register(cli: click.Group) -> None:
             fg="cyan",
         )
 
+    @audit_group.command("file-external-confirm")
+    @click.option(
+        "--round", "round_id", required=True, help="Round to file the external-AI CONFIRM into."
+    )
+    @click.option(
+        "--actor", required=True, help="External-AI actor (aletheia, grok, gemini, claude-*)."
+    )
+    @click.option("--branch", required=True, help="Remote branch the audited code lives on.")
+    @click.option(
+        "--claimed-tree",
+        default="",
+        help="Tree-hash the auditor read (exact-content anchor, strongest).",
+    )
+    @click.option(
+        "--claimed-patch-id",
+        default="",
+        help="patch-id the auditor reviewed (catch-up-stable anchor). At least one of "
+        "--claimed-tree / --claimed-patch-id is required.",
+    )
+    @click.option(
+        "--claimed-tip",
+        default="",
+        help="Optional commit tip the auditor named (cross-checked on the tree-exact rung).",
+    )
+    @click.option("--pr", default="", help="PR number, for the finding title.")
+    @click.option("--remote", default="origin", help="Remote to validate against. Default origin.")
+    @click.option(
+        "--main-ref",
+        default="origin/main",
+        help="Main ref for the patch-id merge-base. Default origin/main.",
+    )
+    @click.option("--basis", default="", help="The auditor's stated review basis/finding.")
+    def audit_file_external_confirm(
+        round_id: str,
+        actor: str,
+        branch: str,
+        claimed_tree: str,
+        claimed_patch_id: str,
+        claimed_tip: str,
+        pr: str,
+        remote: str,
+        main_ref: str,
+        basis: str,
+    ) -> None:
+        """File a relayed external-AI CONFIRM into a round — validated on the
+        both-bind ladder (tree-hash + patch-id), so a clean catch-up does NOT
+        require a re-sign while any real change to the diff still does.
+
+        Closes the 'confirm relayed as text, never written down' gap — the
+        audit's committed-but-never-pushed (Aletheia, 2026-06-02). An
+        external-AI auditor is a clone-and-read chat instance with no store-
+        write path; their CONFIRM is text until a human/agent files it.
+
+        Validation ladder (Aletheia's correction — replacing tree-hash with
+        patch-id would recreate the diff-hash cross-vantage trap, 1d0f9e7b):
+          1. tree-hash matches            -> filed (tree-exact). Strongest.
+          2. tree differs, patch-id match -> filed (patch-id-after-catchup):
+             a clean base-move; the reviewed change is unchanged. No re-sign.
+          3. patch-id differs             -> REFUSED: the change changed;
+             re-audit and relay a fresh confirm.
+
+        Does NOT prove the auditor genuinely reviewed (forgeability-by-relay
+        is named, not solved — needs an authenticated auditor write-path).
+
+        Usage:
+            divineos audit file-external-confirm --round round-xxx \\
+              --actor aletheia --branch protect-off-switch \\
+              --claimed-tree c853630... --claimed-patch-id 7466992... \\
+              --pr 77 --basis "registers corrigibility.py in guardrail registry"
+        """
+        from divineos.core.watchmen.store import get_round, submit_finding
+
+        if get_round(round_id) is None:
+            click.secho(f"[!] Round '{round_id}' not found.", fg="red")
+            raise click.exceptions.Exit(1)
+        if not claimed_tree and not claimed_patch_id:
+            click.secho(
+                "[!] Need at least one anchor: --claimed-tree (exact content) "
+                "or --claimed-patch-id (catch-up-stable).",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        # Resolve the remote branch's actual tree, tip, and patch-id.
+        _git_capture(["git", "fetch", remote, branch], timeout=60)
+        actual_tip = _git_capture(["git", "rev-parse", f"{remote}/{branch}"])
+        actual_tree = _git_capture(["git", "rev-parse", f"{remote}/{branch}^{{tree}}"])
+        actual_patch_id = compute_branch_patch_id(f"{remote}/{branch}", main_ref)
+
+        ok, reason, sbasis = validate_external_confirm_inputs(
+            actor=actor,
+            claimed_tree=claimed_tree,
+            actual_tree=actual_tree,
+            claimed_patch_id=claimed_patch_id,
+            actual_patch_id=actual_patch_id,
+            claimed_tip=claimed_tip,
+            actual_tip=actual_tip,
+        )
+        if not ok:
+            click.secho(f"[!] Refusing to file external CONFIRM: {reason}", fg="red")
+            raise click.exceptions.Exit(1)
+
+        pr_label = f"PR #{pr} " if pr else ""
+        title = f"CONFIRMS {pr_label}(external-AI review, {actor}) — {sbasis}"
+        catchup_note = f" ({reason})" if sbasis == "patch-id-after-catchup" else ""
+        description = (
+            f"External-AI CONFIRM by {actor}. Validated rung: {sbasis}{catchup_note}. "
+            f"Tip {actual_tip} / Tree {actual_tree} / patch-id {actual_patch_id} "
+            f"(git-version {_git_version() or 'unknown'}) — "
+            f"verified against {remote}/{branch} at file-time over "
+            f"merge-base({main_ref})..branch (default context). "
+            f"Basis: {basis or '(none provided)'}. "
+            f"PROVENANCE: {actor} has no store-write path; this genuine confirm was "
+            f"relayed as text and filed via 'audit file-external-confirm', which "
+            f"validated tree-hash + patch-id before writing. Honest relay, not forgery. "
+            f"(Forgeability-by-relay remains named-not-solved.)"
+        )
+        try:
+            fid = submit_finding(
+                round_id=round_id,
+                actor=actor.lower(),
+                severity="INFO",
+                category="INTEGRITY",
+                title=title,
+                description=description,
+                tags=["external-confirm", sbasis, "relay-filed"],
+            )
+        except ValueError as e:
+            click.secho(f"[!] {e}", fg="red")
+            raise click.exceptions.Exit(1) from e
+
+        click.secho(f"[+] External-AI CONFIRM filed: {fid} (rung: {sbasis})", fg="green")
+        if sbasis == "patch-id-after-catchup":
+            click.secho(f"    {reason}", fg="bright_black")
+        click.secho(
+            f"    tree {actual_tree} / patch-id {actual_patch_id} verified against "
+            f"{remote}/{branch}.",
+            fg="bright_black",
+        )
+        click.secho(f"    Now run: divineos audit prepare-merge {round_id}", fg="cyan")
+
+    @audit_group.command("patch-id")
+    @click.option("--branch", required=True, help="Branch to compute the tree-hash + patch-id for.")
+    @click.option("--remote", default="origin", help="Remote. Default origin.")
+    @click.option("--main-ref", default="origin/main", help="Main ref for the merge-base.")
+    @click.option("--fetch/--no-fetch", default=True, help="Fetch the branch first. Default on.")
+    def audit_patch_id_cmd(branch: str, remote: str, main_ref: str, fetch: bool) -> None:
+        """Print a branch's tree-hash + patch-id — the cross-vantage reproduction
+        check.
+
+        Run this in BOTH vantages (the auditor's sandbox AND the merge copy) on
+        the same branch. If the patch-ids match, patch-id is safe to sign with
+        here (git versions can differ, so this must be confirmed once). tree-hash
+        is the always-trusted primary anchor; patch-id is the catch-up-survival
+        layer that this check validates.
+        """
+        ref = f"{remote}/{branch}"
+        if fetch:
+            _git_capture(["git", "fetch", remote, branch], timeout=60)
+        tip = _git_capture(["git", "rev-parse", ref])
+        tree = _git_capture(["git", "rev-parse", f"{ref}^{{tree}}"])
+        pid = compute_branch_patch_id(ref, main_ref)
+        click.echo(f"branch:    {ref}")
+        click.echo(f"tip:       {tip or '(unresolved)'}")
+        click.echo(f"tree-hash: {tree or '(unresolved)'}")
+        click.echo(
+            f"patch-id:  {pid or '(uncomputed)'}   "
+            f"(over merge-base({main_ref})..branch, default context)"
+        )
+        click.echo(f"git:       {_git_version() or 'unknown'}   (patch-id is version-conditioned)")
+        if not pid:
+            click.secho(
+                "[!] patch-id could not be computed — check the branch/main-ref "
+                "are fetched and the merge-base resolves.",
+                fg="yellow",
+            )
+
+    @audit_group.command("confirm-holds")
+    @click.option(
+        "--round", "round_id", required=True, help="Round whose external CONFIRM to re-check."
+    )
+    @click.option("--branch", required=True, help="Branch to re-check the CONFIRM against.")
+    @click.option("--remote", default="origin", help="Remote. Default origin.")
+    @click.option("--main-ref", default="origin/main", help="Main ref for the merge-base.")
+    def audit_confirm_holds_cmd(round_id: str, branch: str, remote: str, main_ref: str) -> None:
+        """Does the external-AI CONFIRM already in this round STILL hold for the
+        branch's current (possibly caught-up) state?
+
+        Reads the recorded tree-hash + patch-id from the round's external-AI
+        CONFIRM, recomputes the branch's current values, and applies the same
+        ladder. 'HOLDS' via the patch-id rung means a catch-up moved the base
+        but the reviewed change is unchanged — no re-sign needed. The
+        treadmill-killer in operation.
+        """
+        import re as _re
+
+        from divineos.core.watchmen.store import list_findings
+
+        findings = list_findings(round_id=round_id, limit=200)
+        ext = [
+            f
+            for f in findings
+            if (getattr(f, "actor", "") or "").lower() in _EXTERNAL_AI_ACTORS
+            and "CONFIRMS" in (getattr(f, "title", "") or "")
+        ]
+        if not ext:
+            click.secho(f"[!] No external-AI CONFIRM found in round {round_id}.", fg="red")
+            raise click.exceptions.Exit(1)
+        finding = ext[-1]
+        desc = getattr(finding, "description", "") or ""
+        m_tree = _re.search(r"Tree ([0-9a-f]{40})", desc)
+        m_pid = _re.search(r"patch-id ([0-9a-f]{40})", desc)
+        m_ver = _re.search(r"git-version ([0-9.]+)", desc)
+        rec_tree = m_tree.group(1) if m_tree else ""
+        rec_pid = m_pid.group(1) if m_pid else ""
+        rec_ver = m_ver.group(1) if m_ver else ""
+
+        _git_capture(["git", "fetch", remote, branch], timeout=60)
+        cur_tree = _git_capture(["git", "rev-parse", f"{remote}/{branch}^{{tree}}"])
+        cur_pid = compute_branch_patch_id(f"{remote}/{branch}", main_ref)
+
+        ok, reason, sbasis = validate_external_confirm_inputs(
+            actor=getattr(finding, "actor", ""),
+            claimed_tree=rec_tree,
+            actual_tree=cur_tree,
+            claimed_patch_id=rec_pid,
+            actual_patch_id=cur_pid,
+        )
+        if ok:
+            click.secho(f"[+] CONFIRM HOLDS (rung: {sbasis}).", fg="green")
+            if reason:
+                click.secho(f"    {reason}", fg="bright_black")
+            # Version-conditioning guard (Aletheia point 4): the patch-id rung is
+            # only trustworthy if the git version that computed it still matches.
+            cur_ver = _git_version()
+            if sbasis == "patch-id-after-catchup" and rec_ver and cur_ver and rec_ver != cur_ver:
+                click.secho(
+                    f"    [!] git version drifted (signed under {rec_ver}, now {cur_ver}). "
+                    "patch-id is version-conditioned — re-run the cross-vantage "
+                    "reproduction check (divineos audit patch-id --branch ...) before "
+                    "trusting this rung.",
+                    fg="yellow",
+                )
+            click.secho(
+                f"    No re-sign needed. Proceed: divineos audit prepare-merge {round_id}",
+                fg="cyan",
+            )
+        else:
+            click.secho(f"[!] CONFIRM NO LONGER HOLDS: {reason}", fg="red")
+            if not rec_pid:
+                click.secho(
+                    "    (This confirm predates patch-id binding — tree-only, so a "
+                    "catch-up invalidates it. Re-file with --claimed-patch-id to make "
+                    "it catch-up-stable.)",
+                    fg="yellow",
+                )
+            click.secho(
+                "    Re-audit against the current change and relay a fresh confirm.",
+                fg="yellow",
+            )
+
     @audit_group.command("prepare-merge")
     @click.argument("round_id")
     @click.option(
@@ -827,17 +1285,8 @@ def register(cli: click.Group) -> None:
         # check_multi_party_review.py's gate.
         findings = list_findings(round_id=round_id, limit=500)
         # External-AI actor set matches check_multi_party_review.py.
-        external_ai_actors = {
-            "grok",
-            "gemini",
-            "aletheia",
-            "claude-3.5-sonnet",
-            "claude-3-opus",
-            "claude-sonnet-4",
-            "claude-sonnet-4-5",
-            "claude-opus-4",
-            "claude-opus-4-1",
-        }
+        # Shared module constant so file-external-confirm and this gate can't drift.
+        external_ai_actors = _EXTERNAL_AI_ACTORS
 
         def _actor_of(f: object) -> str:
             val = getattr(f, "actor", "") or ""
