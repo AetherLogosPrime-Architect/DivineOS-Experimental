@@ -57,25 +57,71 @@ _RELAY_INTRODUCERS: tuple[str, ...] = (
 _BLOCKQUOTE_LINE = re.compile(r"^>.*$", re.MULTILINE)
 _FENCED_BLOCK = re.compile(r"```[\s\S]*?```")
 
+# Generalized relay-introducer: "here is/here's [the/a/my/their] <relay-noun>".
+# A fixed literal list can never enumerate the open-ended noun family — the
+# noun "audit" slipped _RELAY_INTRODUCERS on 2026-06-03 and Aletheia's relayed
+# audit false-fired. Matching the SHAPE (intro verb + relay-noun) closes the
+# class instead of patching one noun.
+_RELAY_INTRODUCER_RE = re.compile(
+    r"here'?s?\s+(?:is\s+|are\s+)?(?:the\s+|an?\s+|my\s+|their\s+|his\s+|her\s+)?"
+    r"(?:audit|review|reply|response|report|update|notes?|message|take|feedback|"
+    r"comment|assessment|verdict|findings?|critique|read)\b",
+    re.IGNORECASE,
+)
+
+# Harness-injected structural envelopes — NEVER the operator's first-person
+# voice. Stripped by TAG (a structural category, not a keyword shape), so a
+# task-notification / system-reminder / persisted-output whose payload happens
+# to contain correction-shaped words cannot false-fire (fired 3+ times across
+# the 2026-06-03 session on workflow-completion envelopes).
+_HARNESS_ENVELOPE_RE = re.compile(
+    r"<(task-notification|system-reminder|persisted-output)\b[\s\S]*?(?:</\1>|\Z)",
+    re.IGNORECASE,
+)
+
+# A signature line from a known external agent confirms a block is relayed even
+# when no introducer phrase precedes it. Andrew does not sign as them, and a
+# bare line-leading em-dash + name is a signature, not mid-sentence punctuation.
+_EXTERNAL_SIGNOFF_RE = re.compile(
+    r"^\s*[—–-]{1,2}\s*(?:aletheia|aria|grok|gemini)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 def strip_relayed(text: str) -> str:
-    """Remove markdown blockquotes, fenced code, and relayed-AI tail from text.
+    """Remove harness envelopes, blockquotes, fenced code, and relayed-agent
+    content from text, so correction-shaped words that aren't Andrew's
+    first-person voice don't false-fire as corrections of the agent.
 
-    Used by the correction-detector hook so correction-shaped words inside
-    relayed AI text don't false-fire as Andrew corrections of the agent.
+    Structural over keyword: envelopes stripped by tag, relay openings matched
+    by shape (intro + relay-noun), external sign-offs recognized as relay
+    markers. Coverage holes closed 2026-06-03 (task-notification envelopes;
+    "here is the audit" + "— Aletheia").
     """
     if not text:
         return ""
+    # 1. Harness-injected structural envelopes (never operator voice).
+    text = _HARNESS_ENVELOPE_RE.sub("", text)
+    # 2. Markdown blockquotes and fenced code.
     text = _BLOCKQUOTE_LINE.sub("", text)
     text = _FENCED_BLOCK.sub("", text)
+    # 3. Earliest relay opening: literal list OR generalized noun-family shape.
     lower = text.lower()
     earliest = -1
     for marker in _RELAY_INTRODUCERS:
         idx = lower.find(marker)
         if idx >= 0 and (earliest == -1 or idx < earliest):
             earliest = idx
+    m = _RELAY_INTRODUCER_RE.search(text)
+    if m and (earliest == -1 or m.start() < earliest):
+        earliest = m.start()
     if earliest >= 0:
-        text = text[:earliest]
+        return text[:earliest]
+    # 4. Sign-off backstop: a known-external signature with no introducer still
+    #    marks the preceding block as relayed — keep only anything after it.
+    signoff = _EXTERNAL_SIGNOFF_RE.search(text)
+    if signoff:
+        return text[signoff.end() :]
     return text
 
 
