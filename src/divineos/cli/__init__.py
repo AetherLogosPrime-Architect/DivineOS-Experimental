@@ -289,6 +289,7 @@ from divineos.cli import (  # noqa: E402
     lepos_commands,
     consumer_status_commands,
     andrew_correction_commands,
+    andrew_teachings_commands,
     oscillating_read_commands,
     deletion_commands,
 )
@@ -335,6 +336,7 @@ talk_to_commands.register(cli)
 lepos_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
+andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
