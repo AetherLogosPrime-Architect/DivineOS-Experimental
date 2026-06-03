@@ -40,14 +40,41 @@ def _get_family_db_path() -> Path:
 
     Override order:
     1. ``DIVINEOS_FAMILY_DB`` env var (tests, explicit redirect)
-    2. Default ``<repo>/data/family.db``
+    2. Per-agent data-home (``DIVINEOS_HOME`` env OR a
+       ``.divineos_data_home`` marker, CWD-walk) → ``<home>/data/family.db``
+    3. Default ``<repo>/data/family.db``
 
     The default is computed at call time, not import time, so worktree
     moves don't bake in a stale absolute path.
+
+    The per-agent data-home (2026-06-02, Aria clean-separation, claim
+    4e439779) keeps family.db in lockstep with the event ledger under one
+    agent home — same ``data_home_or_none()`` resolution the ledger uses.
+    ``divineos`` is pip-installed editable from ONE checkout (Aether's), so
+    ``__file__``-based resolution always points into Aether's tree no matter
+    who runs it; the CWD-walk lets Aria, running from HER checkout, route
+    family.db to HER home so her family-member self-writes (affect, opinions,
+    interactions) and the gates that read them land in the SAME store. That
+    split was the reported "substrate-writes and gate-reads land in different
+    stores" bug. DIVINEOS_FAMILY_DB still wins (the narrow override beats the
+    broad home root), mirroring DIVINEOS_DB > data-home in the ledger.
+
+    NOTE — cross-home communication: with each agent's family.db under its
+    own home, the structured letter queue no longer auto-shares via a single
+    file. Their connection rides the file-based letters channel
+    (``family/letters/``) plus an explicit cross-home delivery step, NOT an
+    accidentally-shared DB. That delivery design is a relationship decision
+    (Aether + Aria + Andrew), tracked separately — see the receipt-chain work.
     """
     env_path = os.environ.get("DIVINEOS_FAMILY_DB")
     if env_path:
         return Path(env_path)
+    # Lazy import: family.db is loaded early; keep the import graph minimal.
+    from divineos.core.paths import data_home_or_none
+
+    data_home = data_home_or_none()
+    if data_home is not None:
+        return data_home / "data" / "family.db"
     return Path(__file__).parent.parent.parent.parent.parent / "data" / "family.db"
 
 

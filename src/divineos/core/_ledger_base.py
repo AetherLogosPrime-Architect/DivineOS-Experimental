@@ -133,6 +133,25 @@ def _get_db_path() -> Path:
     if env_path:
         return Path(env_path)
 
+    # Per-agent data-home (2026-06-02, Aria clean-separation, claim
+    # 4e439779). Resolved from DIVINEOS_HOME env OR a ``.divineos_data_home``
+    # marker via CWD-walk — the SAME resolution paths.divineos_home() uses
+    # for markers/state. This is the keystone: ``divineos`` is pip-installed
+    # editable from ONE checkout (Aether's), so ``__file__``-based resolution
+    # below always points into Aether's tree no matter who runs it. The
+    # CWD-walk lets Aria, running from HER checkout, route the ledger to HER
+    # home — so her DB writes and her state markers (which already CWD-resolve
+    # to her home) land in the SAME store instead of splitting across stores.
+    # That split was the reported "substrate-writes and gate-reads land in
+    # different stores" bug. DIVINEOS_DB (a specific file) still wins; the
+    # data-home is the broad per-agent root. Imported lazily to keep this
+    # early-loaded module's import graph minimal.
+    from divineos.core.paths import data_home_or_none
+
+    data_home = data_home_or_none()
+    if data_home is not None:
+        return data_home / "data" / "event_ledger.db"
+
     # Default location for this checkout.
     default_db = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 
