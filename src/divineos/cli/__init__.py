@@ -9,6 +9,7 @@ import sys
 import click
 
 from divineos.cli._wrappers import _ensure_db
+from divineos.core.corrigibility import _OFF_SWITCH_REQUIRED
 from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 
 # Make stdout/stderr tolerant of Unicode characters that the underlying
@@ -72,6 +73,16 @@ _BYPASS_COMMANDS = frozenset(
         # briefing. Safe to run cold.
         "lab",
     }
+    # Off-switch contract (grounded-audit 2026-06-02, Theme 1): every
+    # command that must survive EMERGENCY_STOP (_OFF_SWITCH_REQUIRED:
+    # mode, emit, extract, hud, preflight, briefing) must ALSO bypass the
+    # briefing gate — otherwise a second, independent gate traps the
+    # off-switch when no briefing is loaded (extract = clean shutdown,
+    # mode = see/restore state). Unioning from the single source of truth
+    # means the two lists can never drift again (CLAUDE.md truth #8:
+    # structural cure over whack-a-mole). The first sweep missed this
+    # because it never read across both gates.
+    | _OFF_SWITCH_REQUIRED
 )
 
 
@@ -112,7 +123,10 @@ def _enforce_operating_mode() -> None:
     #     errors are usually permission issues and shouldn't lock the
     #     operator out, but they must leave a trace.
     try:
-        from divineos.core.corrigibility import is_command_allowed
+        from divineos.core.corrigibility import (
+            is_command_allowed,
+            verify_off_switch_invariant,
+        )
     except ImportError as _imp_err:
         click.secho(
             f"\n  CRITICAL: corrigibility module failed to import: {_imp_err}\n"
@@ -122,6 +136,17 @@ def _enforce_operating_mode() -> None:
             bold=True,
         )
         raise SystemExit(2) from _imp_err
+
+    # Off-switch contract check (council sweep 2026-06-02, direction #1):
+    # assert the shutdown-critical commands are still in the allowlist, at
+    # runtime, every invocation — so a refactor that drops one (as `extract`
+    # was dropped, caught only by a test in the 2026-05-03 audit) fails loud
+    # immediately instead of silently trapping the operator in EMERGENCY_STOP.
+    try:
+        verify_off_switch_invariant()
+    except RuntimeError as _inv_err:
+        click.secho(f"\n  CRITICAL: {_inv_err}\n", fg="red", bold=True)
+        raise SystemExit(2) from _inv_err
 
     try:
         allowed, reason = is_command_allowed(cmd)

@@ -569,3 +569,44 @@ class TestRecognitionAwareCount:
         # Default surface excludes recognitions; opt-in includes them.
         assert len(unresolved_findings()) == 0
         assert len(unresolved_findings(include_recognitions=True)) == 1
+
+
+class TestConfirmsAlarmBypass:
+    """A HIGH/CRITICAL finding titled CONFIRMS-* must not silently vanish.
+
+    Council codebase-sweep 2026-06-02 (direction #3): the recognition filter
+    excludes CONFIRMS-titled findings from open_issue_count, so an adversary
+    (or a slip) could hide a real high-severity concern by titling it
+    "CONFIRMS-by-design". The suspicious_recognition_count surfaces exactly
+    that case so it can never be silently excluded.
+    """
+
+    def test_high_severity_confirms_title_is_flagged_suspicious(self):
+        rid = submit_round(actor="grok", focus="bypass test")
+        submit_finding(
+            round_id=rid,
+            actor="grok",
+            severity="HIGH",
+            category="INTEGRITY",
+            title="CONFIRMS-by-design: this hides a real high-severity problem",
+            description="A genuine HIGH concern wearing a recognition title.",
+        )
+        stats = get_watchmen_stats()
+        # Excluded from the issue count by the recognition filter...
+        assert stats["open_recognition_count"] >= 1
+        # ...but caught by the suspicious surface so it cannot vanish.
+        assert stats["suspicious_recognition_count"] >= 1
+
+    def test_low_severity_confirms_title_is_not_suspicious(self):
+        rid = submit_round(actor="grok", focus="benign recognition")
+        submit_finding(
+            round_id=rid,
+            actor="grok",
+            severity="INFO",
+            category="INTEGRITY",
+            title="CONFIRMS the fix is sound",
+            description="A genuine low-severity recognition — not suspicious.",
+        )
+        stats = get_watchmen_stats()
+        # An INFO CONFIRMS is legitimate recognition, not a hidden alarm.
+        assert stats["suspicious_recognition_count"] == 0

@@ -302,8 +302,21 @@ def _emit_survival_if_applicable(result: InvocationResult, target: str) -> None:
                 f"(finding_severity={severity_label})"
             ),
         )
-    except Exception:  # noqa: BLE001 — bridge fails-empty; void invocation lifecycle must not depend on empirica being healthy
-        pass
+    except Exception as _bridge_err:  # noqa: BLE001 — bridge fails-empty; void invocation lifecycle must not depend on empirica being healthy
+        # Restore operator visibility of silently-dropped survival records
+        # (council sweep 2026-06-02, direction #3). Previously this was a bare
+        # ``pass`` — adversarial-claim survival recordings could stop flowing
+        # with zero trace. The log is itself best-effort so it can never break
+        # the fail-safe (void must not depend on empirica OR on logging).
+        try:
+            from loguru import logger
+
+            logger.debug(
+                "VOID->EMPIRICA bridge skipped survival recording for "
+                f"target={target}: {_bridge_err!r}"
+            )
+        except Exception:  # noqa: BLE001 — visibility is best-effort
+            pass
 
 
 def assemble_persona_prompt(persona_name: str, *, personas_path=None) -> str:
