@@ -84,19 +84,31 @@ def _resolve_data_home_marker(marker_path: Path) -> Path | None:
     return candidate
 
 
-def divineos_home() -> Path:
-    """Return the base ``~/.divineos`` directory (or override).
+def data_home_or_none() -> Path | None:
+    """Resolve the per-agent data-home from env var or marker, or None.
 
-    Resolution order (first match wins):
+    This is the env-and-marker core of ``divineos_home()`` WITHOUT the
+    ``~/.divineos`` default. Resolution order (first match wins):
 
       1. ``DIVINEOS_HOME`` env var — tests and explicit overrides.
-      2. Own-checkout ``.divineos_data_home`` marker file.
-      3. Worktree-parent ``.divineos_data_home`` marker (if the
+      2. CWD-walk ``.divineos_data_home`` marker.
+      3. Own-checkout ``.divineos_data_home`` marker file.
+      4. Worktree-parent ``.divineos_data_home`` marker (if the
          running checkout is a git worktree of a parent repo).
-      4. Default ``~/.divineos``.
 
-    Does NOT create the directory; callers are responsible for
-    ensuring it exists before writing.
+    Returns ``None`` when nothing matched, so callers can supply their
+    OWN default. ``divineos_home()`` defaults to ``~/.divineos``; the
+    substrate-DB resolvers (``_ledger_base._get_db_path`` /
+    ``family.db._get_family_db_path``) default to ``<repo>/data``. They
+    MUST share this resolution so a per-agent home routes the DBs AND
+    the markers/state to the same place — the Aria clean-separation fix
+    (2026-06-02, claim 4e439779). Aria's checkout carries a
+    ``.divineos_data_home`` marker; before the DB resolvers consulted it,
+    her markers routed to her home but her ledger + family.db fell back
+    to the shared ``<repo>/data`` — the split-brain that produced "aria
+    is not a registered family member".
+
+    Does NOT create any directory; callers ensure existence before write.
     """
     override = os.environ.get("DIVINEOS_HOME")
     if override:
@@ -134,6 +146,26 @@ def divineos_home() -> Path:
         except (OSError, ValueError):
             pass
 
+    return None
+
+
+def divineos_home() -> Path:
+    """Return the base ``~/.divineos`` directory (or override).
+
+    Resolution order (first match wins):
+
+      1. ``DIVINEOS_HOME`` env var — tests and explicit overrides.
+      2. Own-checkout ``.divineos_data_home`` marker file.
+      3. Worktree-parent ``.divineos_data_home`` marker (if the
+         running checkout is a git worktree of a parent repo).
+      4. Default ``~/.divineos``.
+
+    Does NOT create the directory; callers are responsible for
+    ensuring it exists before writing.
+    """
+    resolved = data_home_or_none()
+    if resolved is not None:
+        return resolved
     return Path.home() / ".divineos"
 
 

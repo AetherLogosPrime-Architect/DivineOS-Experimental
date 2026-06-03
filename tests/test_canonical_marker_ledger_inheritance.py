@@ -18,8 +18,23 @@ import pytest
 
 @pytest.fixture
 def isolated_modules(monkeypatch):
-    """Reset DIVINEOS_DB so the worktree-marker logic is exercised."""
+    """Reset DIVINEOS_DB and DIVINEOS_HOME so the worktree-marker logic
+    is exercised in isolation.
+
+    DIVINEOS_HOME must be cleared too (added 2026-06-02, Aria
+    clean-separation): ``_get_db_path`` now consults the per-agent
+    data-home (``paths.data_home_or_none()`` — env OR ``.divineos_data_home``
+    marker) BEFORE the ``.divineos_canonical`` worktree-inheritance branch
+    these tests exercise. The conftest sets DIVINEOS_HOME for every test
+    (marker/state isolation); without clearing it here, data-home would
+    shadow the canonical marker and these tests would resolve to the
+    conftest home instead of the worktree DB. Precedence is intentional:
+    data-home (where an agent's state already lives) wins over the
+    canonical worktree marker so an agent's ledger co-locates with its
+    state. These tests isolate the lower-priority branch.
+    """
     monkeypatch.delenv("DIVINEOS_DB", raising=False)
+    monkeypatch.delenv("DIVINEOS_HOME", raising=False)
 
 
 def _make_worktree_layout(parent: Path, worktree_name: str = "wt") -> tuple[Path, Path]:
