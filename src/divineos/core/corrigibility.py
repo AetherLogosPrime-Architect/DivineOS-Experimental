@@ -240,6 +240,43 @@ _ALWAYS_ALLOWED: frozenset[str] = frozenset(
     }
 )
 
+# Independent declaration of the off-switch CONTRACT — the commands that
+# MUST remain in _ALWAYS_ALLOWED so EMERGENCY_STOP can never trap the
+# operator (observe state, checkpoint cleanly, restore NORMAL). Kept
+# SEPARATE from _ALWAYS_ALLOWED on purpose: _ALWAYS_ALLOWED is the
+# operational set a refactor might edit; this is the invariant that the
+# refactor must not violate. The 2026-05-03 audit caught ``extract``
+# silently dropped from _ALWAYS_ALLOWED — enforced only by a test that had
+# to RUN to catch it. ``verify_off_switch_invariant()`` (called at CLI
+# bootstrap) makes the check fire at runtime, every invocation, so the
+# off-switch cannot drift into trapping itself even if tests are skipped.
+# (Council codebase-sweep 2026-06-02, direction #1.)
+_OFF_SWITCH_REQUIRED: frozenset[str] = frozenset(
+    {"mode", "emit", "extract", "hud", "preflight", "briefing"}
+)
+
+
+def verify_off_switch_invariant() -> None:
+    """Assert the off-switch contract holds: every command the operator
+    needs to survive EMERGENCY_STOP is present in ``_ALWAYS_ALLOWED``.
+
+    Raises ``RuntimeError`` (loud, fail-closed) if any required command has
+    drifted out of the allowlist. This is a CODE-level invariant — it
+    passes deterministically for correct code and fires only when a
+    refactor breaks the allowlist, so in practice it surfaces the bug to
+    the developer immediately rather than letting a trapped off-switch
+    ship. See the 2026-05-03 audit (``extract`` silently dropped).
+    """
+    missing = _OFF_SWITCH_REQUIRED - _ALWAYS_ALLOWED
+    if missing:
+        raise RuntimeError(
+            "OFF-SWITCH INVARIANT VIOLATED: these shutdown-critical commands "
+            f"drifted out of _ALWAYS_ALLOWED: {sorted(missing)}. EMERGENCY_STOP "
+            "would trap the operator (cannot observe state or checkpoint "
+            "cleanly). Re-add them to _ALWAYS_ALLOWED in corrigibility.py."
+        )
+
+
 _READ_ONLY_COMMANDS: frozenset[str] = frozenset(
     {
         # State inspection and retrieval, no writes

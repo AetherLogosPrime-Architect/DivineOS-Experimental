@@ -25,10 +25,12 @@ from divineos.core.corrigibility import (
     OperatingMode,
     _default_state,
     _mode_file_path,
+    _OFF_SWITCH_REQUIRED,
     get_mode,
     get_mode_state,
     is_command_allowed,
     set_mode,
+    verify_off_switch_invariant,
 )
 
 
@@ -236,3 +238,39 @@ class TestLedgerLogging:
 
         assert len(rows) >= 1
         assert any("diagnostic" in r[0] and "test event" in r[0] for r in rows)
+
+
+class TestOffSwitchInvariantGuard:
+    """The off-switch contract is checked at runtime, not just in tests.
+
+    Council codebase-sweep 2026-06-02 (direction #1): the ``extract``
+    command was once silently dropped from ``_ALWAYS_ALLOWED`` and caught
+    only by a test that had to run. ``verify_off_switch_invariant()`` makes
+    the drift fail loud at CLI bootstrap, every invocation.
+    """
+
+    def test_invariant_holds_on_real_allowlist(self):
+        """The shipped allowlist satisfies the off-switch contract."""
+        # Must not raise — every required command is present.
+        verify_off_switch_invariant()
+
+    def test_guard_fires_when_required_command_dropped(self, monkeypatch):
+        """If a refactor drops a required command from _ALWAYS_ALLOWED, the
+        guard raises loudly and names the missing command — testing the
+        guard itself, not just the current happy state (Popper)."""
+        import divineos.core.corrigibility as _corr
+
+        # Simulate a refactor that drops `extract` (the real 2026-05-03 bug).
+        broken = frozenset(_corr._ALWAYS_ALLOWED - {"extract"})
+        monkeypatch.setattr(_corr, "_ALWAYS_ALLOWED", broken)
+
+        with pytest.raises(RuntimeError) as exc:
+            _corr.verify_off_switch_invariant()
+        assert "extract" in str(exc.value)
+        assert "OFF-SWITCH INVARIANT VIOLATED" in str(exc.value)
+
+    def test_required_set_is_subset_of_allowlist(self):
+        """Structural: the contract set is a subset of the operational set."""
+        from divineos.core.corrigibility import _ALWAYS_ALLOWED
+
+        assert _OFF_SWITCH_REQUIRED <= _ALWAYS_ALLOWED

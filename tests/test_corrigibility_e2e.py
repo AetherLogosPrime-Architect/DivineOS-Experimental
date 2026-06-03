@@ -192,3 +192,27 @@ class TestGateRunsDuringBootstrap:
         assert result.returncode != 0
         # Recovery so the tmp DB stays in a known state for any follow-up.
         _run_divineos(isolated_env, "mode", "set", "normal", "--reason", "e2e test restore")
+
+
+def test_off_switch_commands_bypass_briefing_gate():
+    """The off-switch contract must hold across BOTH gates, not just one.
+
+    Grounded-audit 2026-06-02 (Theme 1): every command in
+    ``_OFF_SWITCH_REQUIRED`` (must survive EMERGENCY_STOP) was correctly
+    in corrigibility's ``_ALWAYS_ALLOWED`` and in the off-switch invariant
+    — but ``extract`` and ``mode`` were NOT in the CLI's
+    ``_BYPASS_COMMANDS``, so the *briefing* gate (a second, independent
+    gate) would block them when no briefing was loaded. The off-switch
+    could trap itself via the briefing gate. Fixed structurally by
+    unioning ``_BYPASS_COMMANDS`` with ``_OFF_SWITCH_REQUIRED`` so the two
+    lists can never drift (CLAUDE.md truth #8). This locks it.
+    """
+    from divineos.cli import _BYPASS_COMMANDS
+    from divineos.core.corrigibility import _OFF_SWITCH_REQUIRED
+
+    missing = _OFF_SWITCH_REQUIRED - _BYPASS_COMMANDS
+    assert not missing, (
+        f"Off-switch commands {sorted(missing)} can survive EMERGENCY_STOP "
+        f"but would be blocked by the briefing gate (not in _BYPASS_COMMANDS). "
+        f"The off-switch can trap itself via the second gate."
+    )
