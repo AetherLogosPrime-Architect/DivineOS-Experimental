@@ -26,6 +26,7 @@
 scripts/guardrail_files.txt
 scripts/check_multi_party_review.py
 src/divineos/core/compliance_audit.py
+src/divineos/core/corrigibility.py
 src/divineos/core/compass_rudder.py
 src/divineos/core/compass_required_marker.py
 src/divineos/core/pr_merge_gate.py
