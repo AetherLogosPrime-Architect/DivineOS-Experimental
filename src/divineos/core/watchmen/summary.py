@@ -69,6 +69,19 @@ def get_watchmen_stats() -> dict[str, Any]:
         open_total = by_status.get("OPEN", 0)
         open_issue_count = open_total - open_recognition_count
 
+        # Alarm-bypass sanity check (council sweep 2026-06-02, direction #3).
+        # The recognition filter excludes CONFIRMS-titled findings from
+        # open_issue_count — but an adversary (or a slip) could hide a real
+        # HIGH/CRITICAL concern by titling it "CONFIRMS-by-design", silencing
+        # the alarm. A recognition that is ALSO high-severity and still OPEN
+        # is suspicious by construction; we count it separately so it can
+        # never silently vanish, and surface it.
+        suspicious_recognition_count = conn.execute(
+            f"SELECT COUNT(*) FROM audit_findings "  # nosec B608 — fixed literals
+            f"WHERE status = 'OPEN' AND {_RECOGNITION_SQL} "
+            f"AND severity IN ('HIGH', 'CRITICAL')"
+        ).fetchone()[0]
+
         return {
             "total_rounds": rounds,
             "total_findings": total,
@@ -78,6 +91,7 @@ def get_watchmen_stats() -> dict[str, Any]:
             "open_count": open_total,
             "open_issue_count": open_issue_count,
             "open_recognition_count": open_recognition_count,
+            "suspicious_recognition_count": suspicious_recognition_count,
             "resolved_count": by_status.get("RESOLVED", 0),
         }
     except sqlite3.OperationalError:
@@ -90,6 +104,7 @@ def get_watchmen_stats() -> dict[str, Any]:
             "open_count": 0,
             "open_issue_count": 0,
             "open_recognition_count": 0,
+            "suspicious_recognition_count": 0,
             "resolved_count": 0,
         }
     finally:
