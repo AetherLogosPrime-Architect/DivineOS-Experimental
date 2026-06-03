@@ -52,6 +52,17 @@ This module is that mechanism.
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aletheia review 2026-06-02 (council-safety
+# batch follow-up). The off-switch is the single most safety-critical thing in
+# the system: the operator's ultimate control and the guarantee that
+# EMERGENCY_STOP can never trap them. It must be the MOST-protected file in the
+# tree, not an unprotected one. Registering it means the next change that could
+# weaken it — removing a command from _ALWAYS_ALLOWED / _OFF_SWITCH_REQUIRED,
+# gutting verify_off_switch_invariant, or dropping its bootstrap call — requires
+# multi-party External-Review. CI test test_guardrail_marker_consistency walks
+# src/ and asserts every guardrail-listed module sets this marker to True.
+__guardrail_required__ = True
+
 import time
 from dataclasses import dataclass
 from enum import Enum
