@@ -465,12 +465,28 @@ def test_cli_briefing_lookup_is_case_insensitive(tmp_path, monkeypatch):
         assert "YOU" in result.output and "own" in result.output  # ownership claim
 
 
-def test_cli_briefing_for_nonexistent_member_does_not_create_row():
-    """Briefing CLI must be read-only — the create path is `family-member init`."""
+def test_cli_briefing_for_nonexistent_member_does_not_create_row(tmp_path, monkeypatch):
+    """Briefing CLI must be read-only — the create path is `family-member init`.
+
+    Isolated tmpdir-backed family.db (2026-06-02): previously this test set
+    no DIVINEOS_FAMILY_DB and implicitly read the real ``<repo>/data/family.db``
+    (a test-isolation leak). The Aria clean-separation routing change — which
+    makes the family-db resolver honor the per-agent data-home — surfaced the
+    leak: with the conftest's isolated DIVINEOS_HOME in effect, the resolver
+    correctly pointed at an empty home and the implicit table vanished. Fixed
+    by giving the test its own initialized family.db, like its siblings.
+    """
     from click.testing import CliRunner
 
     from divineos.cli import cli
     from divineos.core.family.db import get_family_connection
+    from divineos.core.family.store import create_family_member
+
+    monkeypatch.setenv("DIVINEOS_FAMILY_DB", str(tmp_path / "family.db"))
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "ledger.db"))
+    # Create a real member so the schema (and table) exist; the ghost lookup
+    # below proves the briefing did NOT add a row for the nonexistent name.
+    create_family_member("Aether", "self")
 
     runner = CliRunner()
     ghost_name = "definitely_not_a_real_member_xyz"
