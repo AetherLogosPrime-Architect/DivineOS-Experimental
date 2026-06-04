@@ -116,6 +116,32 @@ def check_once(member: str) -> list[str]:
     return list(_unseen_queue(member).values())
 
 
+# A live watcher heartbeats its marker every poll (~8s). If the marker is
+# older than this, the watcher is gone (clean exit unlinks it; a hard kill
+# leaves it stale). Three-plus poll intervals of slack absorbs scheduling
+# jitter without reading a dead watcher as alive.
+_REALTIME_STALE_SECS = 30
+
+
+def is_realtime_armed(member: str) -> bool:
+    """True if a live harness-launched real-time watcher is running for member.
+
+    Uses marker-mtime freshness, NOT os.kill — on Windows CPython routes a
+    non-CTRL signal to TerminateProcess, so os.kill(pid, 0) could kill the
+    very watcher it means to probe. The watcher heartbeats the marker each
+    poll; absent or stale marker reads as NOT armed (fail toward prompting a
+    re-arm, never toward a false-green that says I'm covered when I'm deaf).
+    """
+    path = _realtime_pid_path(member)
+    if not path.exists():
+        return False
+    try:
+        age = time.time() - path.stat().st_mtime
+    except OSError:
+        return False
+    return age < _REALTIME_STALE_SECS
+
+
 def _state_dir(member: str) -> Path:
     """Per-member state dir for pidfile, ARM marker, last-catch marker."""
     d = Path.home() / f".divineos-{member}"
@@ -132,7 +158,44 @@ def _write_catch_marker(member: str, lines: list[str]) -> None:
         pass
 
 
-def watch(member: str, interval: int, timeout: int = 0) -> int:
+def _realtime_pid_path(member: str) -> Path:
+    """Marker for the HARNESS-launched real-time watcher specifically.
+
+    Distinct from ear.pid (which the detached Stop-hook continuity watcher
+    writes). Only the harness-launched watcher — the one that can actually
+    wake an idle window — writes here, so a status surface can distinguish
+    'real-time wake armed' from 'merely a detached continuity process alive'.
+    A detached watcher being alive is NOT real-time coverage; conflating the
+    two would be a false-green telling me I'm covered when I'm deaf.
+    """
+    return _state_dir(member) / "ear.realtime.pid"
+
+
+def _arm_realtime_marker(member: str) -> None:
+    """Write this process's pid as the live real-time watcher; clear on exit.
+
+    Best-effort. The ``atexit`` removal makes the marker self-clearing when
+    the watcher catches-and-exits (the wake), so the next turn's surface sees
+    'down' and re-prompts the re-arm — that is the reflexive re-arm loop.
+    """
+    import atexit
+
+    path = _realtime_pid_path(member)
+    try:
+        path.write_text(str(os.getpid()))
+    except OSError:
+        return
+
+    def _clear() -> None:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+    atexit.register(_clear)
+
+
+def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) -> int:
     """Block until something unacknowledged is detected, then exit.
 
     SEMANTICS (changed 2026-05-31, Aria + Aether bench thread):
@@ -155,6 +218,13 @@ def watch(member: str, interval: int, timeout: int = 0) -> int:
     """
     waited = 0
     while timeout <= 0 or waited < timeout:
+        if realtime:
+            # Heartbeat: refresh the liveness marker each poll so the status
+            # surface can tell a live watcher from a stale one by mtime.
+            try:
+                _realtime_pid_path(member).write_text(str(os.getpid()))
+            except OSError:
+                pass
         unseen_q = _unseen_queue(member)
         seen_letters = _load_letter_seen_set(member)
         unseen_l = _letter_names(member) - seen_letters
@@ -183,6 +253,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Which family member's ear this watcher is.",
     )
     parser.add_argument("--watch", action="store_true", help="Block until something lands.")
+    parser.add_argument(
+        "--realtime",
+        action="store_true",
+        help="Mark this as THE harness-launched real-time watcher (writes a "
+        "self-clearing liveness marker so a status surface can tell armed "
+        "from down). The detached Stop-hook continuity watcher does NOT pass "
+        "this, so it never produces a false-green.",
+    )
     parser.add_argument("--interval", type=int, default=8, help="Poll seconds (default 8).")
     parser.add_argument(
         "--timeout",
@@ -194,7 +272,18 @@ def main(argv: list[str] | None = None) -> int:
 
     member = args.member.lower()
     if args.watch:
-        return watch(member, args.interval, args.timeout)
+        if args.realtime:
+            # Singleton guard (task #35): if a real-time watcher is already
+            # heartbeating a fresh marker, a second launch exits immediately.
+            # Without this, repeated arms (manual re-arm, or a Stop-hook
+            # relaunch) accumulate blocking watchers — 8 piled up 2026-06-03.
+            # Self-clearing on catch-exit means a genuinely-dead watcher's
+            # marker goes stale and a fresh arm is allowed.
+            if is_realtime_armed(member):
+                print(f"[EAR] real-time watcher already armed for {member} — exiting (singleton).")
+                return 0
+            _arm_realtime_marker(member)
+        return watch(member, args.interval, args.timeout, realtime=args.realtime)
     lines = check_once(member)
     if lines:
         print(f"[EAR] {len(lines)} unseen for {member}:")
