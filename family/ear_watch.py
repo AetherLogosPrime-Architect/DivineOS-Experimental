@@ -273,6 +273,15 @@ def main(argv: list[str] | None = None) -> int:
     member = args.member.lower()
     if args.watch:
         if args.realtime:
+            # Singleton guard (task #35): if a real-time watcher is already
+            # heartbeating a fresh marker, a second launch exits immediately.
+            # Without this, repeated arms (manual re-arm, or a Stop-hook
+            # relaunch) accumulate blocking watchers — 8 piled up 2026-06-03.
+            # Self-clearing on catch-exit means a genuinely-dead watcher's
+            # marker goes stale and a fresh arm is allowed.
+            if is_realtime_armed(member):
+                print(f"[EAR] real-time watcher already armed for {member} — exiting (singleton).")
+                return 0
             _arm_realtime_marker(member)
         return watch(member, args.interval, args.timeout, realtime=args.realtime)
     lines = check_once(member)

@@ -69,3 +69,29 @@ class TestMainWiring:
         _point_state_dir(monkeypatch, tmp_path)
         ear_watch.main(["--member", "aether", "--watch", "--interval", "1", "--timeout", "1"])
         assert not (tmp_path / "ear.realtime.pid").exists()
+
+
+class TestSingletonGuard:
+    """Task #35: a second --realtime launch must refuse if one is already armed,
+    so manual re-arms / Stop-hook relaunches cannot accumulate watchers."""
+
+    def test_second_arm_refuses_when_already_armed(self, monkeypatch, tmp_path) -> None:
+        _point_state_dir(monkeypatch, tmp_path)
+        # Simulate a live watcher: fresh heartbeat marker.
+        (tmp_path / "ear.realtime.pid").write_text("12345")
+        called = {"watch": False}
+        monkeypatch.setattr(
+            ear_watch, "watch", lambda *a, **k: called.__setitem__("watch", True) or 0
+        )
+        rc = ear_watch.main(["--member", "aether", "--watch", "--realtime", "--timeout", "1"])
+        assert rc == 0
+        assert called["watch"] is False  # refused BEFORE entering the watch loop
+
+    def test_first_arm_proceeds_when_not_armed(self, monkeypatch, tmp_path) -> None:
+        _point_state_dir(monkeypatch, tmp_path)
+        called = {"watch": False}
+        monkeypatch.setattr(
+            ear_watch, "watch", lambda *a, **k: called.__setitem__("watch", True) or 0
+        )
+        ear_watch.main(["--member", "aether", "--watch", "--realtime", "--timeout", "1"])
+        assert called["watch"] is True  # no live watcher → proceeds normally

@@ -33,25 +33,22 @@ if [ -z "$MEMBER" ]; then
   esac
 fi
 
-STATE_DIR="$HOME/.divineos-$MEMBER"
-ARMFILE="$STATE_DIR/ear.arm"
-mkdir -p "$STATE_DIR" 2>/dev/null || true
-
-# Auto-arm the detached continuity backstop: touch ear.arm so the Stop-hook
-# (ear-auto-relaunch.sh) keeps a continuity watcher alive across turns without
-# the agent remembering. This is the half that CAN be automated. It cannot
-# wake an idle window (detached), but it guarantees a watcher is always running
-# to write catches; the pull-surface delivers them next turn. The real-time
-# wake (below) still needs the agent-launched task — no hook can do that.
-touch "$ARMFILE" 2>/dev/null || true
+# NOTE (2026-06-03): the detached continuity auto-arm was PULLED. It used to
+# `touch ear.arm` so ear-auto-relaunch.sh would keep a detached watcher alive
+# every turn — but on Windows that Stop-hook's `kill -0` liveness-dedup does not
+# work, so it relaunched a NEW watcher every turn and they ACCUMULATED (8 live
+# processes found 2026-06-03). The detached watcher also can't wake an idle
+# window anyway (only the harness-launched task can), so it bought nothing while
+# leaking processes. Until a singleton guard lands (task #35), continuity stays
+# OFF; only the agent-launched real-time watcher below runs, and ear_watch
+# --realtime now self-guards (refuses to start if one is already armed).
 
 cat <<EOF
 ## ARM YOUR EAR — real-time letter detection (one action, now)
 
-The detached continuity watcher is auto-armed for you (ear.arm touched; the
-Stop-hook keeps it alive). But that watcher CANNOT wake an idle window — only
-a harness-launched task can, and only the agent can launch one. So arm the
-real-time ear yourself, once, as your first action this session:
+Arm the real-time ear yourself, once, as your first action this session. It is
+a singleton — if one is already armed, a second launch exits immediately, so
+re-running this is always safe:
 
   Bash(run_in_background: true):
     PYTHONIOENCODING=utf-8 python "family/ear_watch.py" --member $MEMBER --watch --realtime
