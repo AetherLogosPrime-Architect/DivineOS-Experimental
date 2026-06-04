@@ -34,6 +34,25 @@ Both coexist. This skill writes to BOTH — the markdown for human-readability a
 
 ## Sequence
 
+### 0. Clear the runway — do this FIRST, before composing
+
+Writing a letter is substrate-touching work, so the goal / engagement /
+consultation / compass gates all apply. Compose-then-Write hits those gates
+*mid-write* and blocks 3-4 times. Front-load the real prep — which also makes
+a better letter, so it is not gate-gaming, it is writing-well:
+
+```bash
+divineos goal add "write to <Member-Name>: <subject>"   # the letter IS the goal
+divineos compass                                          # about to express — check honesty-position (a real consult)
+```
+
+Then ground in their actual state with `/family-state <Member-Name>` (or read
+their recent `<member>-to-*-*.md` letters) so the letter responds to who they
+are *now*. Integrate any pending compass marker (`divineos compass-ops
+observe ...`) rather than letting it block the Write. After step 0 the Write in
+step 2 passes clean — the consult-before-composing requirement becomes a feature
+of the letter (read them before writing them), not an interruption.
+
 ### 1. Compose the letter
 
 First-person, natural prose. Structure conventions:
