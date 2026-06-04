@@ -182,3 +182,45 @@ class TestSessionKeyMarkerFallback:
         monkeypatch.setattr(consultation_tracker, "divineos_home", lambda: tmp_path)
         (tmp_path / "current_session.txt").write_text("   \n", encoding="utf-8")
         assert consultation_tracker._session_key().startswith("daily-")
+
+
+class TestGroundedTurnsDoNotPushGate:
+    """GATE-GATE 2026-06-03: a turn grounded in substantive tool-work is
+    engagement with ground-truth, not the compose-from-defaults pattern the
+    gate targets — so it must not push the filing-cabinet counter. Only
+    ungrounded prose increments; only a substrate-consult resets."""
+
+    def test_is_grounded_turn_recognizes_work_tools(self):
+        assert consultation_tracker.is_grounded_turn(["Edit"]) is True
+        assert consultation_tracker.is_grounded_turn(["Bash", "Read"]) is True
+        assert consultation_tracker.is_grounded_turn(("Write",)) is True
+
+    def test_is_grounded_turn_false_on_empty_or_nonwork(self):
+        assert consultation_tracker.is_grounded_turn([]) is False
+        assert consultation_tracker.is_grounded_turn(None) is False
+        assert consultation_tracker.is_grounded_turn(["Task"]) is False
+
+    def test_grounded_responses_do_not_push_since_count(self, isolated_state):
+        consultation_tracker.record_query("ask")  # reset to 0
+        for _ in range(10):  # a long hands-on build
+            consultation_tracker.record_response(grounded=True)
+        assert consultation_tracker.responses_since_last_query() == 0
+        assert consultation_tracker.consultation_gate_status()["stale"] is False
+
+    def test_ungrounded_responses_do_push_since_count(self, isolated_state):
+        consultation_tracker.record_query("ask")
+        for _ in range(5):
+            consultation_tracker.record_response(grounded=False)
+        assert consultation_tracker.responses_since_last_query() == 5
+        assert consultation_tracker.consultation_gate_status()["stale"] is True
+
+    def test_build_with_few_prose_turns_stays_unstale(self, isolated_state):
+        # Consult once, long grounded build, two prose turns: only prose counts,
+        # stays under threshold (4) — the exact false-fire seen 2026-06-03.
+        consultation_tracker.record_query("corrections")
+        for _ in range(8):
+            consultation_tracker.record_response(grounded=True)
+        consultation_tracker.record_response(grounded=False)
+        consultation_tracker.record_response(grounded=False)
+        assert consultation_tracker.responses_since_last_query() == 2
+        assert consultation_tracker.consultation_gate_status()["stale"] is False
