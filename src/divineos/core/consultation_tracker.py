@@ -91,15 +91,48 @@ def record_query(tool: str) -> None:
     _save(state)
 
 
-def record_response() -> None:
-    """Record that a response was produced."""
+# A turn that used any of these engaged ground-truth — the repo, the files,
+# the test runner, the shell. That is WORK, not the compose-from-defaults
+# pattern the consultation gate exists to catch. GATE-GATE 2026-06-03: the
+# gate counted the wrong event (ALL responses) instead of the real one
+# (ungrounded prose), so a focused hands-on build tripped it every few steps
+# even while deeply engaged with ground-truth. Grounded turns no longer push
+# the counter; only a substrate-consult resets it; only ungrounded prose
+# increments it. (This widens the SENSOR's notion of engagement without
+# weakening the ACTUATOR — a long run of pure prose with no consult still fires.)
+_GROUNDING_TOOLS: frozenset[str] = frozenset(
+    {"Edit", "Write", "MultiEdit", "NotebookEdit", "Read", "Grep", "Glob", "Bash"}
+)
+
+
+def is_grounded_turn(tool_names) -> bool:
+    """True if the turn engaged substantive tool-work (ground-truth), so it
+    must not count toward the consultation gate's filing-cabinet counter."""
+    if not tool_names:
+        return False
+    return bool(_GROUNDING_TOOLS & set(tool_names))
+
+
+def record_response(grounded: bool = False) -> None:
+    """Record that a response was produced.
+
+    ``grounded=True`` (the turn used Edit/Read/Bash/etc. — see ``is_grounded_turn``)
+    marks engagement with ground-truth, NOT the compose-from-defaults pattern
+    the gate targets. A grounded turn is recorded for telemetry only and does
+    not push the responses-since-consult counter. Only ungrounded prose-turns
+    increment it; only a substrate-consult resets it.
+    """
     state = _load()
     sk = _session_key()
     sess = state.setdefault(sk, {"queries": [], "responses": 0})
+    if grounded:
+        sess["grounded_responses"] = int(sess.get("grounded_responses", 0)) + 1
+        _save(state)
+        return
     sess["responses"] = int(sess.get("responses", 0)) + 1
     # Timestamps let the gate compute responses-SINCE-last-consult, so a
     # single stale consult at session-start can't cover a long unconsulted
-    # run (the count climbs again after each query). Bounded to last 50.
+    # run (the count climbs again after each ungrounded response). Bounded to 50.
     times = sess.setdefault("response_times", [])
     times.append(time.time())
     sess["response_times"] = times[-50:]
