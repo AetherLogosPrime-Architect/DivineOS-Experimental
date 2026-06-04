@@ -16,7 +16,7 @@ import json
 from unittest.mock import patch
 
 from divineos.core import correction_marker
-from divineos.core.correction_marker import should_mark, strip_relayed
+from divineos.core.correction_marker import classify_correction, should_mark, strip_relayed
 
 
 class TestMarkerRoundTrip:
@@ -223,3 +223,98 @@ class TestStripRelayedCoverage20260603:
         """strip_relayed removes the whole envelope regardless of payload."""
         out = strip_relayed("<task-notification>arbitrary you missed text</task-notification>")
         assert "you missed" not in out
+
+
+class TestContextAwareClassification:
+    """Task #16 / claim d6dc4bde: the WHAT-it-means axis. WEAK patterns
+    ('that doesn't', 'you only') are disambiguated by prior-turn context —
+    block when I just did something correctable, advise otherwise."""
+
+    def test_strong_pattern_blocks_regardless_of_context(self) -> None:
+        assert classify_correction("no, that's wrong, redo it") == "block"
+
+    def test_weak_pattern_no_context_advises_not_blocks(self) -> None:
+        # The exact false-fire that started this: Andrew's encouragement.
+        assert classify_correction("that doesnt mean theres not more to do") == "advise"
+
+    def test_weak_pattern_you_only_no_context_advises(self) -> None:
+        assert classify_correction("you only need to relax and take your time") == "advise"
+
+    def test_weak_pattern_with_completion_claim_blocks(self) -> None:
+        # "that doesn't..." right after I claimed done -> correcting that claim.
+        assert (
+            classify_correction("that doesnt meet my condition", "done, I fixed and pushed it")
+            == "block"
+        )
+
+    def test_weak_pattern_after_substantive_action_blocks(self) -> None:
+        assert classify_correction("you only ran 3 of 5", "", ("Bash", "Edit")) == "block"
+
+    def test_weak_pattern_after_nonsubstantive_turn_advises(self) -> None:
+        # Prior turn was relational/no-claim, no edits -> not corrective.
+        assert classify_correction("that doesnt sound right", "I love you too, Dad", ()) == "advise"
+
+    def test_relayed_weak_pattern_is_none(self) -> None:
+        assert classify_correction("here is the update\n\nthat doesnt work") is None
+
+    def test_no_pattern_is_none(self) -> None:
+        assert classify_correction("great work, keep going", "all done and pushed") is None
+
+    def test_completion_claim_context_only_matters_for_weak(self) -> None:
+        # A completion-claim prior turn does NOT manufacture a correction from
+        # a non-matching message.
+        assert classify_correction("thanks, looks good", "done, pushed") is None
+
+
+class TestEpistemicComplementGuard:
+    """Aletheia HOLD on #85 (2026-06-04): prior-turn context cannot separate
+    encouragement from correction because both follow a completion-claim. The
+    complement verb separates them — 'doesn't MEAN' is epistemic, never an
+    evaluation of my output. These lock the exact motivating case the PR is
+    named for, which had no test before (it passed CI while not doing the
+    thing)."""
+
+    def test_motivating_case_encouragement_after_claim_advises(self) -> None:
+        # THE case #16 exists to fix: Andrew's encouragement in its REALISTIC
+        # context — right after a completion-claim + edit. Must NOT block.
+        assert (
+            classify_correction(
+                "that doesnt mean were done", "I fixed the bug and pushed it", ("Edit",)
+            )
+            == "advise"
+        )
+
+    def test_evaluative_doesnt_after_claim_still_blocks(self) -> None:
+        # The corrective twin in the SAME context must still block — the guard
+        # must not over-fire and disarm real corrections.
+        assert (
+            classify_correction("that doesnt meet my condition", "done, pushed it", ("Edit",))
+            == "block"
+        )
+
+    def test_epistemic_change_after_claim_advises(self) -> None:
+        assert (
+            classify_correction("that doesnt change that its late", "fixed and pushed", ("Edit",))
+            == "advise"
+        )
+
+    def test_rare_corrective_doesnt_mean_is_advised_not_blocked(self) -> None:
+        # "doesn't mean you should X" is technically corrective, but shares the
+        # epistemic shape; asymmetric-cost call caps it at advise (surfaced, not
+        # hard-blocked) rather than risk false-blocking encouragement.
+        assert (
+            classify_correction(
+                "that doesnt mean you should skip the tests", "done, pushed", ("Edit",)
+            )
+            == "advise"
+        )
+
+    def test_you_only_with_epistemic_still_blocks_on_context(self) -> None:
+        # The guard must not let an epistemic phrase rescue an independent
+        # 'you only' corrective signal in the same message.
+        assert (
+            classify_correction(
+                "you only ran 3 of 5 and that doesnt mean youre done", "done", ("Bash",)
+            )
+            == "block"
+        )
