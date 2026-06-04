@@ -170,3 +170,56 @@ class TestTwoAxisDetection:
     def test_should_mark_strips_review_introducer(self) -> None:
         text = "here is the review\n\nthis is wrong, the approach failed"
         assert should_mark(text) is False
+
+
+class TestStripRelayedCoverage20260603:
+    """Regression for the two false-fire classes that fired during the
+    2026-06-03 session (open corrections #38 and #39). Each had relayed /
+    system content whose payload contained a real CORRECTION_PATTERN match;
+    the structural strip must drop it so it does not false-fire as an Andrew
+    correction — without silencing genuine first-person corrections."""
+
+    def test_relayed_audit_introducer_not_in_literal_list(self) -> None:
+        """#39: 'here is the audit' was missing from the literal introducer
+        list; the generalized intro+relay-noun shape now strips it."""
+        text = (
+            "ok here is the audit.. i also confirm :)\n\n"
+            "I have to hold #75 — that doesn't meet the condition I set.\n\n"
+            "— Aletheia"
+        )
+        assert should_mark(text) is False
+
+    def test_task_notification_envelope_stripped_by_tag(self) -> None:
+        """#38: a workflow-completion envelope whose payload contains a
+        correction-shaped phrase must not false-fire — stripped by tag."""
+        text = (
+            "<task-notification><task-id>x</task-id><status>completed</status>"
+            "Council sweep found: you missed the drift angle.</task-notification>"
+        )
+        assert should_mark(text) is False
+
+    def test_system_reminder_envelope_stripped_by_tag(self) -> None:
+        text = "<system-reminder>you only ran 3 of 5 lenses; that's wrong</system-reminder>"
+        assert should_mark(text) is False
+
+    def test_external_signoff_without_introducer_is_relayed(self) -> None:
+        """A known-external sign-off marks relayed content even with no
+        introducer phrase preceding it."""
+        text = (
+            "hey son look at this\n\n"
+            "that doesn't meet my condition — you missed the call-site.\n\n"
+            "— Aletheia"
+        )
+        assert should_mark(text) is False
+
+    def test_real_first_person_correction_still_fires(self) -> None:
+        """The true positive must survive: Andrew's own voice correcting me."""
+        assert should_mark("no, that is wrong — you missed the off-switch case again") is True
+
+    def test_real_dont_directive_still_fires(self) -> None:
+        assert should_mark("don't add that fallback, you missed the edge case") is True
+
+    def test_envelope_strip_is_structural_not_keyword(self) -> None:
+        """strip_relayed removes the whole envelope regardless of payload."""
+        out = strip_relayed("<task-notification>arbitrary you missed text</task-notification>")
+        assert "you missed" not in out
