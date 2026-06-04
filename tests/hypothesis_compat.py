@@ -24,7 +24,24 @@ except ImportError:
     # raises a clear error naming the gap (not a silent AttributeError that
     # gets eaten by the import machinery).
     class DummyStrategy:
+        # Strategies in real hypothesis are chainable — .filter(), .map(), and
+        # .flatmap() each return a derived strategy. The dummy needs the same
+        # surface so tests that use chained-strategy idioms (e.g. .filter(...))
+        # still resolve at collection time. Each chained method returns self
+        # so further chaining also no-ops.
         def __call__(self, *args, **kwargs):
+            return self
+
+        def filter(self, *args, **kwargs):
+            return self
+
+        def map(self, *args, **kwargs):
+            return self
+
+        def flatmap(self, *args, **kwargs):
+            return self
+
+        def example(self, *args, **kwargs):
             return self
 
     _DUMMY = DummyStrategy()
@@ -46,6 +63,8 @@ except ImportError:
         none = _DUMMY
         binary = _DUMMY
         composite = _DUMMY
+        characters = _DUMMY
+        tuples = _DUMMY
 
         def __getattr__(self, name: str):  # type: ignore[no-untyped-def]
             raise AttributeError(
