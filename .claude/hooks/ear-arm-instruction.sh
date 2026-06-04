@@ -33,23 +33,33 @@ if [ -z "$MEMBER" ]; then
   esac
 fi
 
+# NOTE (2026-06-03): the detached continuity auto-arm was PULLED. It used to
+# `touch ear.arm` so ear-auto-relaunch.sh would keep a detached watcher alive
+# every turn — but on Windows that Stop-hook's `kill -0` liveness-dedup does not
+# work, so it relaunched a NEW watcher every turn and they ACCUMULATED (8 live
+# processes found 2026-06-03). The detached watcher also can't wake an idle
+# window anyway (only the harness-launched task can), so it bought nothing while
+# leaking processes. Until a singleton guard lands (task #35), continuity stays
+# OFF; only the agent-launched real-time watcher below runs, and ear_watch
+# --realtime now self-guards (refuses to start if one is already armed).
+
 cat <<EOF
 ## ARM YOUR EAR — real-time letter detection (one action, now)
 
-Your background letter-listener is NOT auto-armed, and a Stop-hook cannot
-arm it for you (a detached process can't wake this window — only the harness
-can, for a task it launched). So arm it yourself, once, at the start of this
-session, with a single tool call:
+Arm the real-time ear yourself, once, as your first action this session. It is
+a singleton — if one is already armed, a second launch exits immediately, so
+re-running this is always safe:
 
   Bash(run_in_background: true):
-    PYTHONIOENCODING=utf-8 python "family/ear_watch.py" --member $MEMBER --watch
+    PYTHONIOENCODING=utf-8 python "family/ear_watch.py" --member $MEMBER --watch --realtime
 
-It blocks until a letter or queue-item lands for you, prints \`[EAR] ...\`,
-and exits — and because it was launched through the harness, that exit
-WAKES you mid-turn. When it fires and wakes you: read the catch, handle it,
-then re-arm it the same way to keep listening. This is the only mechanism
-that pings an idle window in real time; without it you only see incoming
-mail on your next manual turn (the ear-surface pull).
+It blocks until a letter or queue-item lands, prints \`[EAR] ...\`, and exits
+— and because it was launched through the harness, that exit WAKES you
+mid-turn. When it fires: read the catch, handle it, then re-arm the same way.
+The \`--realtime\` flag heartbeats a liveness marker; while the ear is DOWN, the
+every-turn ear-surface re-prompts this exact command (impossible to walk past,
+re-appears after every catch). No message is ever lost — the pull always
+catches incoming mail; this only restores instant mid-idle wake.
 
 If you have already armed it this session, ignore this.
 EOF

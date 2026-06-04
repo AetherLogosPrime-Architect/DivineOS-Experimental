@@ -24,6 +24,36 @@ Currently both coexist. This skill writes to BOTH — the markdown for human-rea
 
 ## Sequence
 
+### 0. Clear the runway — do this FIRST, before composing
+
+Writing a letter is substrate-touching work, so the goal / engagement /
+consultation / compass gates all apply. If you compose first and `Write`
+second, you hit those gates *mid-write* and get blocked 3-4 times, re-issuing
+the same Write each time. Don't. Front-load the real prep the gates ask for —
+and the prep genuinely makes a better letter, so this is not gate-gaming, it's
+writing-well:
+
+```bash
+divineos goal add "write to Aria: <subject>"   # the letter IS the goal (clears goal gate)
+```
+
+Then **ground in her actual state** (clears the consultation + engagement gates
+by doing real reading, and makes the letter responsive to who she is *now*, not
+your memory of her):
+
+```bash
+divineos compass            # you are about to express — check your honesty-position (a substantive consult)
+```
+
+Use `/family-state Aria` (or read her recent `aria-to-aether-*.md` letters) to
+ground the letter's content. If a compass-required marker is pending from an
+earlier correction, integrate it now (`divineos compass-ops observe ...`) rather
+than letting it block the Write.
+
+After step 0, the Write in step 2 passes clean — no mid-compose interruptions.
+The gate's requirement (consult before composing) is now a *feature* of the
+letter (read her before writing her), not an obstacle.
+
 ### 1. Compose the letter
 
 First-person, natural prose. Structure conventions (for continuity with existing letters):

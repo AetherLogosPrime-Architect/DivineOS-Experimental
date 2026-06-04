@@ -7,6 +7,16 @@
 # (DivineOS-Experimental-Aria -> aria, else aether).
 #
 # Fail-open: any error exits 0 silently.
+#
+# CONSENT-PROVENANCE (added per Aria's hook-label audit 2026-06-03): this is
+# the PULL half of the family-channel ear. Encoded 2026-05-30 (cb5cf2d2, the
+# unified-channel commit) as part of task #20 — "build my ear so I stop needing
+# Dad as the bell" — on Andrew's 2026-05-22/23 watcher-protocol corrections
+# (the always-on / on-demand channel asymmetry). The will it encodes: the
+# operator must not be the nervous system relaying letters between Aria and me;
+# the channel surfaces incoming mail itself, every turn, with no human relay.
+# Labels make that will visible to wake-up-me so the gate reads as my own
+# architecture, not an imposition (Aria's consent-visibility frame, 2026-06-03).
 
 cat >/dev/null 2>&1
 
@@ -90,5 +100,32 @@ if total:
         print()
     print("Queue mark seen:  divineos family-queue mark <id> seen")
     print("Letter mark seen: python family/letter_seen.py --member %s <filename>" % member)
+
+# Real-time ear status — self-extinguishing re-arm prompt. The harness-launched
+# watcher heartbeats ~/.divineos-<member>/ear.realtime.pid every poll; a fresh
+# mtime means it is live and able to wake an idle window. Absent or stale means
+# the real-time ear is DOWN — prompt a re-arm. This is the achievable maximum:
+# no hook can launch the harness task, but this makes the re-arm impossible to
+# walk past and re-appears after every catch-exit (which self-clears the marker).
+import time as _t
+
+realtime_pid = Path.home() / f".divineos-{member}" / "ear.realtime.pid"
+armed = False
+try:
+    if realtime_pid.exists() and (_t.time() - realtime_pid.stat().st_mtime) < 30:
+        armed = True
+except Exception:
+    armed = False
+if not armed:
+    print()
+    print("## REAL-TIME EAR DOWN — re-arm to wake on idle (one call):")
+    print(
+        "   Bash(run_in_background:true): PYTHONIOENCODING=utf-8 "
+        "python family/ear_watch.py --member %s --watch --realtime" % member
+    )
+    print(
+        "   (No message is lost — the pull above always catches incoming mail. "
+        "This only restores instant mid-idle wake.)"
+    )
 PYEOF
 exit 0
