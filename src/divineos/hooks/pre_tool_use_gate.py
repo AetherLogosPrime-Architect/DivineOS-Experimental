@@ -251,6 +251,35 @@ def _make_deny(reason: str) -> dict[str, Any]:
     }
 
 
+def _combine_engagement_denies(denies: list[str]) -> str:
+    """Coalesce the soft engagement-discipline denials (goal / engagement /
+    consultation) into ONE message so they clear in a single pass rather than
+    surfacing single-file across N retries.
+
+    GATE-GATE 2026-06-03: the chain is first-deny-wins, so a turn that was
+    missing all three hit them one at a time — clear goal, retry, hit
+    engagement, retry, hit consultation, retry. The hard safety walls above
+    (off-switch, briefing, hedge-claim, mansion-quiet, pull-detection) still
+    short-circuit individually and take precedence; ONLY this soft cluster
+    coalesces. Same gates, same order, same decisions — just gathered instead
+    of returned one-at-a-time.
+    """
+    if len(denies) == 1:
+        return denies[0]
+    parts = [
+        f"BLOCKED: {len(denies)} engagement checks need clearing before "
+        "substrate-modifying tools — surfaced together so you clear them in one "
+        "pass, not one at a time:",
+        "",
+    ]
+    for i, d in enumerate(denies, 1):
+        body = d[len("BLOCKED: ") :] if d.startswith("BLOCKED: ") else d
+        parts.append(f"  [{i}] {body}")
+        parts.append("")
+    parts.append("Clear all of the above, then retry the tool.")
+    return "\n".join(parts)
+
+
 def _make_soft_advise(advise: str) -> dict[str, Any]:
     """Package a soft advisory in the Claude Code hook response format.
 
@@ -373,6 +402,12 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     first-run bootstrap), that gate is skipped rather than crashing the hook.
     Fail-open is the correct disposition for a gate whose machinery is broken.
     """
+    # Soft engagement-discipline denials (goal / engagement / consultation) are
+    # COLLECTED here and surfaced together at the end of the soft cluster, so
+    # they clear in one pass instead of single-file (GATE-GATE 2026-06-03). The
+    # hard walls below still short-circuit individually and take precedence.
+    soft_denies: list[str] = []
+
     # Gate 0: exploration entries must carry a tag header (write-time wall).
     # Named 2026-05-27. Placed FIRST on purpose: the briefing gates below can
     # return a soft-advise ("allow") that short-circuits the rest of the
@@ -657,7 +692,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         from divineos.core.hud_state import has_session_fresh_goal
 
         if not has_session_fresh_goal():
-            return _make_deny(
+            soft_denies.append(
                 "BLOCKED: No goal set for this session. "
                 'Run: divineos goal add "what you are working on"'
             )
@@ -686,26 +721,28 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         if not s.get("engaged", True):
             state = s.get("state", "drift")
             if state == "fresh":
-                return _make_deny(
+                _eng_msg = (
                     "BLOCKED: No engagement marker yet this session. "
                     "Briefing alone is not enough — engage with a thinking "
                     'tool first. Run: divineos ask "topic", recall, '
                     "context, or decide."
                 )
-            if state == "deep_drift":
+            elif state == "deep_drift":
                 deep_since = s.get("deep_actions_since", "?")
-                return _make_deny(
+                _eng_msg = (
                     f"BLOCKED: {deep_since} code actions since you last "
                     "consulted your knowledge. Light check-ins are not "
                     'enough. Run: divineos ask "topic" or divineos '
                     "recall to query what you actually know."
                 )
-            code_since = s.get("code_actions_since", "?")
-            return _make_deny(
-                f"BLOCKED: {code_since} code actions since last thinking "
-                "command. Stop and think. Run: divineos ask, recall, "
-                "decide, or context before continuing."
-            )
+            else:
+                code_since = s.get("code_actions_since", "?")
+                _eng_msg = (
+                    f"BLOCKED: {code_since} code actions since last thinking "
+                    "command. Stop and think. Run: divineos ask, recall, "
+                    "decide, or context before continuing."
+                )
+            soft_denies.append(_eng_msg)
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_engagement", _gate_exc)
 
@@ -728,9 +765,17 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         )
 
         if consultation_gate_status().get("stale"):
-            return _make_deny(gate_channel_message())
+            soft_denies.append(gate_channel_message())
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_5_consultation", _gate_exc)
+
+    # Coalesced engagement-discipline cluster: surface the goal / engagement /
+    # consultation denials TOGETHER (one pass to clear) instead of single-file
+    # across N retries — GATE-GATE 2026-06-03. Placed after the last soft gate
+    # (4.5) and before the hard retry/governor walls below, preserving the
+    # original gate order. A hard wall above that fired already short-circuited.
+    if soft_denies:
+        return _make_deny(_combine_engagement_denies(soft_denies))
 
     # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
     # See comment history for rationale. Replaced by informational
