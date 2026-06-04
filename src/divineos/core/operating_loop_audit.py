@@ -314,9 +314,12 @@ def run_audit(
     # Andrew 2026-05-18: the read-and-forget pattern needs to be visible
     # in the briefing turn-over-turn, not just named in a knowledge entry.
     try:
-        from divineos.core.consultation_tracker import record_response
+        from divineos.core.consultation_tracker import is_grounded_turn, record_response
 
-        record_response()
+        # A turn grounded in substantive tool-work (edit/read/test/run) is
+        # engagement with ground-truth, not composing-from-defaults — it must
+        # not push the consultation gate (GATE-GATE 2026-06-03).
+        record_response(grounded=is_grounded_turn(tool_calls_in_turn))
     except _ERRORS:
         pass
 
