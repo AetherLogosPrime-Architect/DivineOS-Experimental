@@ -125,24 +125,102 @@ def strip_relayed(text: str) -> str:
     return text
 
 
-def should_mark(prompt: str) -> bool:
-    """True if prompt contains a correction directed at the agent.
+# Prior-turn context for disambiguating WEAK patterns (#16). A WEAK correction
+# pattern ("that doesn't", "you only") is a real correction only when my PRIOR
+# turn was something correctable — I claimed completion, or I took substantive
+# action. The prior turn is the REFERENT of a correction, not a side signal.
+_COMPLETION_CLAIM_RE = re.compile(
+    r"\b(?:done|fixed|complete(?:d)?|landed|merged|pushed|works|working|"
+    r"ready|finished|all set|should work|that'?s it|verified)\b",
+    re.IGNORECASE,
+)
+_SUBSTANTIVE_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash"})
 
-    Two-axis check: strip relayed content (target axis), then match
-    CORRECTION_PATTERNS (surface axis). Returns False on empty or
-    relay-only input even if correction-shaped words appear in the
-    relayed section.
+# Epistemic-complement guard (Aletheia HOLD on #85, 2026-06-04). The prior-turn
+# context signal CANNOT separate encouragement from correction for "that
+# doesn't...", because both occur in the SAME context — right after a completion
+# claim ("that doesn't mean we're done" and "that doesn't meet the bar" both
+# follow "I fixed it"). The COMPLEMENT VERB separates them where context can't:
+# "doesn't MEAN/IMPLY/CHANGE/MATTER" is epistemic (about implication), never an
+# evaluation of my output. So an epistemic "that doesn't" is capped at advise
+# regardless of context — false-blocking the operator's encouragement is the
+# exact harm #16 exists to fix; the rarer corrective "doesn't mean you should X"
+# is still surfaced (advised), just not hard-blocked (asymmetric-cost call).
+_EPISTEMIC_DOESNT_RE = re.compile(
+    r"\bdoes(?:n'?t| not)\s+(?:mean|imply|change|matter)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_corrective_context(prior_text: str, prior_tool_calls: tuple[str, ...]) -> bool:
+    """True if my prior turn was something a WEAK pattern could be correcting.
+
+    Two cheap, high-signal features: (1) I made a completion-claim the operator
+    might be rebutting ("that doesn't... [meet the bar]" after I said "done");
+    (2) I took substantive action (edit/write/command) he might be pushing back
+    on. Either flips a WEAK match from advise to block.
+    """
+    if prior_text and _COMPLETION_CLAIM_RE.search(prior_text):
+        return True
+    return any(t in _SUBSTANTIVE_TOOLS for t in (prior_tool_calls or ()))
+
+
+def classify_correction(
+    prompt: str,
+    prior_assistant_text: str = "",
+    prior_tool_calls: tuple[str, ...] = (),
+) -> str | None:
+    """Classify a user message: 'block', 'advise', or None.
+
+    - STRONG pattern match -> 'block' (high precision; blocks regardless).
+    - WEAK pattern match    -> 'block' if prior-turn context is corrective,
+                               else 'advise' (surface, do NOT block).
+    - no match              -> None.
+
+    The WHO axis (relay-stripping) runs first; this WHAT-it-means axis runs on
+    the operator's own first-person voice. Task #16 / claim d6dc4bde. The
+    block-vs-advise tier is the industry-standard confidence-tiering pattern;
+    context-awareness (prior turn) is the disambiguator production NLU uses.
     """
     if not prompt:
-        return False
+        return None
     try:
-        from divineos.analysis.session_analyzer import CORRECTION_PATTERNS
+        from divineos.analysis.session_analyzer import (
+            STRONG_CORRECTION_PATTERNS,
+            WEAK_CORRECTION_PATTERNS,
+        )
     except ImportError:
-        return False
+        return None
     scan_text = strip_relayed(prompt)
     if not scan_text.strip():
-        return False
-    return any(re.search(pat, scan_text, re.IGNORECASE) for pat in CORRECTION_PATTERNS)
+        return None
+    if any(re.search(p, scan_text, re.IGNORECASE) for p in STRONG_CORRECTION_PATTERNS):
+        return "block"
+    if any(re.search(p, scan_text, re.IGNORECASE) for p in WEAK_CORRECTION_PATTERNS):
+        # Epistemic "that doesn't mean/imply/change/matter" is encouragement-
+        # shaped and cannot evaluate my output — cap at advise even with
+        # corrective context (Aletheia HOLD #85). Guard does NOT apply when
+        # "you only" is also present, since that is an independent corrective
+        # weak signal the epistemic complement does not cover.
+        if _EPISTEMIC_DOESNT_RE.search(scan_text) and not re.search(
+            r"\byou only\b", scan_text, re.IGNORECASE
+        ):
+            return "advise"
+        return (
+            "block" if _has_corrective_context(prior_assistant_text, prior_tool_calls) else "advise"
+        )
+    return None
+
+
+def should_mark(prompt: str) -> bool:
+    """True if prompt should set the BLOCKING correction marker.
+
+    Backcompat wrapper over ``classify_correction`` with no prior-turn context:
+    STRONG patterns block; a WEAK pattern alone (no corrective context) does NOT
+    block — it would advise. Callers that can supply the prior turn should call
+    ``classify_correction`` directly for the full block/advise tiering.
+    """
+    return classify_correction(prompt) == "block"
 
 
 def marker_path() -> Path:
