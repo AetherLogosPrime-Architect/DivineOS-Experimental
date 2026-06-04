@@ -9,7 +9,9 @@ from typing import Any
 
 # --- Patterns for detecting user intent ---
 
-CORRECTION_PATTERNS: tuple[str, ...] = (
+# STRONG patterns: high-precision, reliably corrective regardless of context.
+# A match here blocks (sets the correction marker) on its own.
+STRONG_CORRECTION_PATTERNS: tuple[str, ...] = (
     r"^no[\s,.]",  # "no" at start of message = rejection
     r"\bwrong\b",
     r"\bthat'?s not\b",
@@ -18,8 +20,6 @@ CORRECTION_PATTERNS: tuple[str, ...] = (
     r"\bnot what i\b",
     r"\bwhy did you\b",
     r"\bwhy were they\b",
-    r"\byou only\b",
-    r"\bthat doesn'?t\b",
     r"\bthis is wrong\b",
     r"\bactually[,] (?:i|you|we|it|the)\b",
     r"\binstead (?:of that|do|use)\b",
@@ -27,6 +27,23 @@ CORRECTION_PATTERNS: tuple[str, ...] = (
     r"\bplease don'?t\b",
     r"\bi (?:said|asked|meant|wanted) (?:to |you |that you |we |for you )",
 )
+
+# WEAK patterns: semantically AMBIGUOUS — they match corrective uses ("that
+# doesn't meet my bar", "you only ran 3 of 5") AND non-corrective ones ("that
+# doesn't mean we're done", "you only need to relax"). The string alone can't
+# tell them apart (confirmed dead-end: NegEx 2001 — negation cues are often not
+# true negations). So a WEAK match does NOT block on its own; it is disambiguated
+# by PRIOR-TURN context (was I just doing something correctable?) in
+# correction_marker.classify_correction. Task #16 / claim d6dc4bde.
+WEAK_CORRECTION_PATTERNS: tuple[str, ...] = (
+    r"\byou only\b",
+    r"\bthat doesn'?t\b",
+)
+
+# Backcompat union: existing callers that scan for "any correction-shaped
+# language" (e.g. session analysis signal-counting) keep the full set. The
+# block-vs-advise tiering lives in correction_marker, not here.
+CORRECTION_PATTERNS: tuple[str, ...] = STRONG_CORRECTION_PATTERNS + WEAK_CORRECTION_PATTERNS
 
 ENCOURAGEMENT_PATTERNS: tuple[str, ...] = (
     r"\bperfect\b",

@@ -35,13 +35,35 @@ prompt = data.get('prompt', '') or ''
 if not prompt:
     sys.exit(0)
 
+# Prior-turn context (#16): the correction is a RESPONSE to what I just did.
+# At UserPromptSubmit, the transcript's last assistant turn is that prior turn.
+transcript = data.get('transcript_path', '') or ''
+prior_text, prior_calls = '', ()
+if transcript:
+    try:
+        from divineos.core.operating_loop.turn_extraction import extract_turn
+        tt = extract_turn(transcript)
+        prior_text = tt.last_assistant_text or ''
+        prior_calls = tuple(tt.tool_calls_in_turn or ())
+    except Exception:
+        pass
+
 try:
-    from divineos.core.correction_marker import set_marker, should_mark
+    from divineos.core.correction_marker import classify_correction, set_marker
 except Exception:
     sys.exit(0)
 
-if should_mark(prompt):
+verdict = classify_correction(prompt, prior_text, prior_calls)
+if verdict == 'block':
     set_marker(prompt)
+elif verdict == 'advise':
+    # Non-blocking: a weak/ambiguous pattern with no corrective prior-turn
+    # context. Surface it (so a real correction is never silently dropped) but
+    # do NOT block the tool. UserPromptSubmit stdout is injected as context.
+    print('ADVISORY (correction-detector): an ambiguous correction-shaped '
+          'phrase was detected, but the prior turn does not look corrected '
+          '(no completion-claim, no substantive edit) - NOT blocking. If it '
+          'was a real correction, log it via: divineos learn')
 " 2>/dev/null
 
 exit 0
