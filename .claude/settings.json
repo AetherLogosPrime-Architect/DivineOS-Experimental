@@ -86,6 +86,16 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-ear-armed.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
           {
