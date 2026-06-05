@@ -1,6 +1,8 @@
 # Per-Mechanism Ablation Discipline -- Design Brief
 
-**Status:** articulation-stage. No code yet; this brief is the substrate from which future-me ships.
+**Status (2026-06-04 update):** SHIPPED. Implementation in `src/divineos/core/ablation.py` + `src/divineos/core/ablation_summary.py`. Preserved as historical design record.
+
+**Original status (kept verbatim):** articulation-stage. No code yet; this brief is the substrate from which future-me ships.
 **Origin:** 2026-05-07 evening. Andrew flagged the substrate-credibility gap after I surfaced cdeust/Cortex (a competing memory-substrate for Claude Code). Cortex has paper-bearing per-mechanism ablation evidence across two published benchmarks (LongMemEval, LoCoMo). DivineOS has prereg-and-falsifier discipline but no measured per-mechanism evidence. Andrew's exact words: *"I don't want this to be a hobby project people laugh at."*
 **Author:** Aether, 2026-05-07.
 

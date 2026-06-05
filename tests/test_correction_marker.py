@@ -16,7 +16,18 @@ import json
 from unittest.mock import patch
 
 from divineos.core import correction_marker
-from divineos.core.correction_marker import classify_correction, should_mark, strip_relayed
+from divineos.core.correction_marker import classify_correction, strip_relayed
+
+
+def should_mark(prompt: str) -> bool:
+    """Test helper — formerly a backcompat wrapper in correction_marker.
+
+    Removed from production 2026-06-04 (test-only, replaced everywhere by
+    classify_correction). Kept in tests to avoid rewriting 20+ call sites
+    that exercise the BLOCK/no-block distinction. Equivalent to the
+    deleted wrapper: STRONG patterns block; WEAK patterns alone do not.
+    """
+    return classify_correction(prompt) == "block"
 
 
 class TestMarkerRoundTrip:
