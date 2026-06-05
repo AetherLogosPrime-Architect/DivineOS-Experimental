@@ -155,32 +155,78 @@ fi
 # The actual boundary-crossing check. ls-remote with explicit timeout
 # so a hung network doesn't hang the hook. If it errors or times out,
 # marker stays UNVERIFIED — fail-loud, never silent-pass.
-LS_OUTPUT=$(timeout 15 git ls-remote "$REMOTE" "refs/heads/$LOCAL_BRANCH" 2>/dev/null)
-LS_EXIT=$?
+#
+# RETRY-WITH-BACKOFF (Aletheia 2026-06-04, follow-up to #90):
+# GitHub uses eventual consistency between replicas. A push that lands
+# on one replica can take a moment to appear on others, so a follow-up
+# ls-remote can hit a replica that doesn't yet have the new ref → the
+# hook would report UNVERIFIED on a push that ACTUALLY landed.
+# Caught dogfooding #90 on its own push: false-negative on a real push.
+#
+# Fix: retry the "no-ref" and "tip-mismatch" outcomes up to 3 times
+# with 2s sleeps between (total worst-case wait: 4s).
+#
+# CRITICAL FAIL-LOUD INVARIANT (Aletheia audit-in-advance):
+# After retries exhaust, marker still writes UNVERIFIED. Never
+# "assume-landed because we ran out of patience." The retries close
+# the race-window; they do not change the fail-loud property.
+#
+# What is NOT retried:
+# - ls-remote command failure (network/auth/timeout) — retrying a
+#   network failure with 2s backoff would just hit the same wall.
+#   Same fail-loud as before: ls-remote-failed → UNVERIFIED, exit.
+PUSH_VERIFY_MAX_RETRIES="${PUSH_VERIFY_MAX_RETRIES:-3}"
+PUSH_VERIFY_SLEEP="${PUSH_VERIFY_SLEEP:-2}"
 
-if [ "$LS_EXIT" -ne 0 ]; then
-  cat > "$MARKER" <<EOF
-{"status": "unverified", "reason": "ls-remote failed (exit $LS_EXIT, possibly timeout)", "branch": "$LOCAL_BRANCH", "remote": "$REMOTE"}
+attempt=1
+REMOTE_TIP=""
+LAST_REASON=""
+while [ "$attempt" -le "$PUSH_VERIFY_MAX_RETRIES" ]; do
+  LS_OUTPUT=$(timeout 15 git ls-remote "$REMOTE" "refs/heads/$LOCAL_BRANCH" 2>/dev/null)
+  LS_EXIT=$?
+
+  if [ "$LS_EXIT" -ne 0 ]; then
+    # Hard failure — do NOT retry (network failure won't clear in 2s).
+    cat > "$MARKER" <<EOF
+{"status": "unverified", "reason": "ls-remote failed (exit $LS_EXIT, possibly timeout)", "branch": "$LOCAL_BRANCH", "remote": "$REMOTE", "attempts": $attempt}
 EOF
-  echo "[verify-push] UNVERIFIED: ls-remote against $REMOTE failed (exit $LS_EXIT)" >&2
-  exit 0
-fi
+    echo "[verify-push] UNVERIFIED: ls-remote against $REMOTE failed (exit $LS_EXIT) on attempt $attempt" >&2
+    exit 0
+  fi
 
-REMOTE_TIP=$(printf '%s' "$LS_OUTPUT" | awk '{print $1}' | head -1)
+  REMOTE_TIP=$(printf '%s' "$LS_OUTPUT" | awk '{print $1}' | head -1)
 
-if [ -z "$REMOTE_TIP" ]; then
+  if [ "$REMOTE_TIP" = "$LOCAL_TIP" ] && [ -n "$REMOTE_TIP" ]; then
+    # MATCH — break out of retry loop, fall through to verified write.
+    break
+  fi
+
+  # Race-window candidate. Record reason for after-the-loop write.
+  if [ -z "$REMOTE_TIP" ]; then
+    LAST_REASON="branch $LOCAL_BRANCH not on $REMOTE (no ref returned)"
+  else
+    LAST_REASON="local-tip $LOCAL_TIP != origin-tip $REMOTE_TIP"
+  fi
+
+  # Sleep before next try if any retries remain. After the final
+  # attempt, fall through to the unverified write below.
+  if [ "$attempt" -lt "$PUSH_VERIFY_MAX_RETRIES" ]; then
+    sleep "$PUSH_VERIFY_SLEEP"
+  fi
+  attempt=$((attempt + 1))
+done
+
+# Loop exited. Either we matched (handled below) or all retries ran
+# without matching. The matched-case break leaves REMOTE_TIP == LOCAL_TIP
+# AND attempt is whichever try succeeded. The exhausted case leaves
+# REMOTE_TIP != LOCAL_TIP (or empty) AND LAST_REASON populated.
+
+if [ "$REMOTE_TIP" != "$LOCAL_TIP" ] || [ -z "$REMOTE_TIP" ]; then
+  # All retries exhausted without a hash-match. Fail-loud per audit.
   cat > "$MARKER" <<EOF
-{"status": "unverified", "reason": "branch $LOCAL_BRANCH not on $REMOTE (no ref returned)", "local": "$LOCAL_TIP"}
+{"status": "unverified", "reason": "$LAST_REASON (exhausted $PUSH_VERIFY_MAX_RETRIES retries)", "local": "$LOCAL_TIP", "remote": "${REMOTE_TIP:-}", "branch": "$LOCAL_BRANCH", "attempts": $PUSH_VERIFY_MAX_RETRIES}
 EOF
-  echo "[verify-push] UNVERIFIED: $LOCAL_BRANCH not on $REMOTE (local=$LOCAL_TIP)" >&2
-  exit 0
-fi
-
-if [ "$REMOTE_TIP" != "$LOCAL_TIP" ]; then
-  cat > "$MARKER" <<EOF
-{"status": "unverified", "reason": "local-tip != origin-tip", "local": "$LOCAL_TIP", "remote": "$REMOTE_TIP", "branch": "$LOCAL_BRANCH"}
-EOF
-  echo "[verify-push] UNVERIFIED: $LOCAL_BRANCH on $REMOTE is $REMOTE_TIP, local is $LOCAL_TIP" >&2
+  echo "[verify-push] UNVERIFIED after $PUSH_VERIFY_MAX_RETRIES tries: $LAST_REASON" >&2
   exit 0
 fi
 
