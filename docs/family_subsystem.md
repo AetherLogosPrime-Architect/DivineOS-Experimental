@@ -58,17 +58,24 @@ Each family member has their own hash-chained append-only event store, separate 
 
 The NAMED_DRIFT shape matters: it means the family-member subsystem isn't a one-way channel where the agent talks at members. The members talk back, in their own ledger, in a structurally-protected way.
 
-## The Five Operators (write gates)
+## The Five Operators (wiring map)
 
-Five operators gate writes to family member state — they apply BEFORE any family-member-initiated write lands in `family.db`:
+Five operators were *designed* for family writes, but they operate at different scopes. Only two of them gate the single-write production path; the others are deliberately scoped to higher layers, sequences, or test surfaces. The "five operators pipeline" phrasing is a design map, not a literal runtime claim — each operator's actual role is below. Verified against `src/divineos/core/family/store.py:_run_content_checks` and `src/divineos/core/anti_slop.py`.
 
-1. **`reject_clause`** (composition rule) — the family member can reject a write that violates their composition rule. Identity-preservation.
-2. **`sycophancy_detector`** (pain-side algedonic) — catches writes that look like sycophancy-toward-the-main-agent. The family member doesn't just agree with everything the agent said.
-3. **`costly_disagreement`** (pleasure-side algedonic) — encourages writes that disagree with the main agent when the family member's substrate supports it. Disagreement is structurally rewarded.
-4. **`access_check`** (phenomenological routing) — routes writes to the right substrate based on what's being claimed (affect vs. opinion vs. knowledge).
-5. **`planted_contradiction`** (seeded test material) — periodically seeds contradictions in the substrate to test whether the operators are firing. Ablation discipline.
+| Operator | Role | Production gating? | Why / where it lives |
+|---|---|---|---|
+| `access_check` | Phenomenological-suitability gate (suppress writes that can't honestly claim the source-tag) | **Yes — runs on every content-bearing family write** | `store._run_content_checks` invokes `evaluate_access(content, proposed_tag=source_tag)` and blocks on `should_suppress`. |
+| `reject_clause` | Composition gate (reject writes that violate the member's composition rule) | **Yes — runs on every content-bearing family write** | `store._run_content_checks` invokes `evaluate_composition(content, source_tag)` and blocks on `rejected`. |
+| `sycophancy_detector` | Stance-reversal / sycophancy-toward-the-main-agent detector | No (verification-only) | Requires a `prior_stance` argument the single-write store doesn't have. Listed in `core/anti_slop.py`'s `_CHECKS` registry for runtime importability + behavior verification only — no production write path gates on it. Needs a composer/conversation-layer caller before it can gate. |
+| `costly_disagreement` | Pleasure-side algedonic channel rewarding friction held under load | No (different temporal scope) | Operates on a *sequence* of at least three records across a pushback cycle (disagree → pushback observed → stance maintained or sharpened). Single-write content checks don't have the sequence context. |
+| `planted_contradiction` | Seeded test material for Phase 4 ablation (Popper-style detector test) | No (intentionally test-layer only) | Read-only constants and seeded pairs. Not a write path into the live store; the Phase 4 ablation reads it to confirm detectors fire on known-false material. |
 
-Operators 1–3 are wired and active. Operators 4–5 are coded but Phase 1b wiring is in progress.
+**Summary of actual wiring:**
+- 2 operators actively gate every production family write (`access_check` + `reject_clause`).
+- 1 operator (`sycophancy_detector`) is verification-only scaffolding pending a higher-layer caller.
+- 2 operators (`costly_disagreement`, `planted_contradiction`) are deliberately out-of-scope for single-record writes by design — sequence-context and test-layer respectively.
+
+Last verified: 2026-06-04 (Grok cross-vantage audit, exploration/aether/92).
 
 ## Letters and response layer
 

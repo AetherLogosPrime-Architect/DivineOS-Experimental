@@ -1,6 +1,8 @@
 # Item 8 PR-1b Design Addendum
 
-> **Status:** v1.1, post-review. CONFIRMS from fresh-Claude round-1 with ten tightening refinements, folded in below. Implementation proceeds.
+> **Status (2026-06-04 update):** SHIPPED. PR-1b compliance-audit emission lives in `src/divineos/core/compliance_audit.py` (`compliance_audit_emission` surface). Preserved as historical design record.
+>
+> **Original status (kept verbatim):** v1.1, post-review. CONFIRMS from fresh-Claude round-1 with ten tightening refinements, folded in below. Implementation proceeds.
 
 **Revision history:**
 - v1 (2026-04-24 morning): initial addendum, three decisions (TOOL_CALL source, per-window run, single emission point), six review questions.

@@ -68,6 +68,16 @@ import uuid
 # sycophancy_detector, costly_disagreement, access_check,
 # planted_contradiction) + handshake landed together on 2026-04-18.
 # Lock 2 remains: the reject_clause module must be importable.
+#
+# Wiring map (verified 2026-06-04 / Grok audit round-c849aeaede0a):
+# Of the five named above, only TWO production-gate writes here in
+# _run_content_checks: access_check and reject_clause. The other three
+# are deliberately scoped elsewhere (sycophancy_detector needs a
+# composer-layer prior_stance; costly_disagreement is sequence-scope;
+# planted_contradiction is Phase 4 ablation seed data). The wiring
+# contract test tests/test_family_operator_wiring_contract.py pins
+# both sides — the two that must gate AND the three that must not.
+# See docs/family_subsystem.md for the operator-by-operator table.
 _PRODUCTION_WRITES_GATED: bool = False
 # ══════════════════════════════════════════════════════════════════════
 
