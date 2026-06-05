@@ -279,6 +279,18 @@ if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     fi
 fi
 
+# 8. Wiring-gap (informational, non-blocking) — surface any new public
+#    function in core/ that has zero callers across src/, tests/, scripts/,
+#    or hooks. Documented as informational in the script's docstring; runs
+#    here so the report is in front of the agent's eyes BEFORE the commit
+#    lands, not after the next external audit catches it.
+#    Andrew 2026-05-29: "the inspector who would condemn the dead lightbulbs
+#    has no current either." This is the current.
+if [ $ERRORS -eq 0 ]; then
+    echo "=== Wiring-gap (informational) ==="
+    python3 scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+fi
+
 echo ""
 if [ $ERRORS -eq 0 ]; then
     echo "All clear. git commit will succeed."
