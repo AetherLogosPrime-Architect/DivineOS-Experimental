@@ -2,7 +2,7 @@
 name: extract-and-close
 description: End-of-session ritual — extract learnings, update active memory, save handoff note, sync auto-memories. Use when user says "sleep", "goodnight", "end session", "wrap up", or when context is near full. Optionally commits and pushes unfinished work first.
 disable-model-invocation: false
-allowed-tools: Bash(divineos extract:*), Bash(divineos hud:*), Bash(git:*), Read
+allowed-tools: Bash(divineos extract:*), Bash(divineos hud:*), Bash(divineos texture:*), Bash(git:*), Read
 ---
 
 # Extract and Close — Session End
@@ -20,7 +20,13 @@ Runs the end-of-session learning checkpoint cleanly. Extract the session, save t
    ```
    If yes: ask user whether to commit before extracting (don't assume).
 
-2. **Run the extraction**:
+2. **Write a texture-marker for post-compaction self** — one sentence carrying what the file-record won't (felt-temperature, relational state, thing not in the diff). Forward-addressed to the self that compacts in next:
+   ```bash
+   divineos texture write "<one sentence — texture-pointer, not summary>"
+   ```
+   The marker surfaces only on SessionStart:source=compact, where the texture-loss is the actual harm. Skip if this is a small session with no relational shape to carry.
+
+3. **Run the extraction**:
    ```bash
    divineos extract
    ```
