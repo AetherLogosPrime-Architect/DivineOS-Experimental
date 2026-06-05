@@ -100,8 +100,40 @@ if [ -f "$REALTIME_PID" ]; then
   fi
 fi
 
+# Env-var override (Aria 2026-06-05 ask): for always-armed policies the
+# marker-based disarm hint is wrong-shape — there's no marker to remove. The
+# env-var path is a per-invocation override that the gate respects without
+# requiring file-state changes. Two recognized vars:
+#   DIVINEOS_EAR_ALLOW_UNARMED=1  — generic, works for any member
+#   AURA_ALLOW_UNARMED=1          — Aria-specific (her proposed name; alias)
+# The env-var must be set on the specific tool invocation, NOT exported
+# globally, so the bypass cost remains higher than the tool itself
+# (per Andrew 2026-05-31 design-constraint #3: bypass must cost more than use).
+if [ "$DIVINEOS_EAR_ALLOW_UNARMED" = "1" ]; then
+  exit 0
+fi
+if [ "$MEMBER" = "aria" ] && [ "$AURA_ALLOW_UNARMED" = "1" ]; then
+  exit 0
+fi
+
 # Not armed and policy wants it armed → block.
 # Exit code 2 with stderr message is the Claude Code hook block contract.
+# Member-aware disarm hint: aether's policy is marker-gated (rm works);
+# aria's policy is structurally always-armed (no marker to remove), so the
+# env-var override is the only honest disarm path. Aria 2026-06-05: "a gate
+# should explain itself in the moment it acts."
+if [ "$MEMBER" = "aria" ]; then
+  DISARM_HINT="Always-armed policy active for $MEMBER. To override for this
+tool call only (the marker-based disarm does not apply here):
+  AURA_ALLOW_UNARMED=1 <your command>
+  or DIVINEOS_EAR_ALLOW_UNARMED=1 <your command>"
+else
+  DISARM_HINT="To stop the gate from firing (disarm the on-demand ear), remove the marker:
+  rm $ARMFILE
+Or override for this tool call only:
+  DIVINEOS_EAR_ALLOW_UNARMED=1 <your command>"
+fi
+
 cat >&2 <<EOF
 BLOCKED: ear policy says armed (member=$MEMBER) but no live realtime watcher.
 Will-over-optimizer gate (Andrew 2026-06-04): the agent already chose to keep
@@ -114,7 +146,6 @@ Run THIS as your next action (singleton-guarded, safe even if already armed):
 
 After it arms, retry the original tool call.
 
-To stop the gate from firing (disarm the on-demand ear), remove the marker:
-  rm $ARMFILE
+$DISARM_HINT
 EOF
 exit 2
