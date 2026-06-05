@@ -33,6 +33,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+# Windows default stdout is cp1252 which lacks many common chars (→, ⟶, etc).
+# Without this, the script crashes with UnicodeEncodeError on `print(output)`
+# when _render emits a Unicode arrow. utf-8 + replace is fail-loud-but-don't-
+# crash: chars that can't be encoded become ?, but the report still prints.
+# Caught dogfooding 2026-06-04 (Andrew + Grok audit follow-through pass).
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CORE_REL = "src/divineos/core/"
@@ -154,6 +165,13 @@ def _scan_callers(functions: list[NewFunction]) -> None:
         _scan_file(py_file, by_name, is_test=False)
     for py_file in REPO_ROOT.glob("tests/**/*.py"):
         _scan_file(py_file, by_name, is_test=True)
+    # scripts/ — CI integration shims, pre/post-commit checks, and other
+    # production-effective Python that lives outside src/. Without this,
+    # functions wired ONLY via scripts/ (e.g. core/merge_review_gate's
+    # verify_merge called from scripts/ci_merge_review_check.py) falsely
+    # surface as test-only. Caught 2026-06-04 (Grok audit follow-through).
+    for py_file in REPO_ROOT.glob("scripts/**/*.py"):
+        _scan_file(py_file, by_name, is_test=False)
     # Hook files (.claude/hooks/*.sh, *.py) — these call Python functions
     # via subprocess/inline import. Without scanning them, modules wired only
     # through hook layer would falsely surface as wiring-gap candidates.
@@ -177,12 +195,42 @@ def _scan_file(
         return
     rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
     for name, fns in by_name.items():
-        pattern = re.compile(rf"(?:^|\W){re.escape(name)}\s*\(")
+        # Three call shapes recognized as wiring:
+        # (1) DIRECT call — function name followed by opening paren:
+        #         func_name(arg)
+        # (2) INDIRECT pass single-line — function name in callable-argument
+        #     position on one line, preceded by `(`/`,` and followed by
+        #     `,`/`)`:
+        #         _run_detector("label", func_name, arg)
+        # (3) INDIRECT pass multi-line — function name alone on its own line
+        #     followed by `,` (the canonical formatter-shape for long
+        #     argument lists):
+        #         _run_detector(
+        #             "label",
+        #             func_name,
+        #             arg,
+        #         )
+        #     Without (2)+(3), functions wired via a dispatch wrapper
+        #     falsely surface as zero-callers. Caught 2026-06-04 when
+        #     detect_engineer_drift_for_audit surfaced as orphan despite
+        #     being passed to _run_detector at operating_loop_audit.py:445.
+        direct_pattern = re.compile(rf"(?:^|\W){re.escape(name)}\s*\(")
+        indirect_pattern = re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]")
+        multiline_pattern = re.compile(rf"^\s*{re.escape(name)}\s*,\s*$")
         found = False
         for line in text.splitlines():
-            if line.lstrip().startswith(f"def {name}"):
+            stripped = line.lstrip()
+            if stripped.startswith(f"def {name}"):
                 continue
-            if pattern.search(line):
+            # Skip import lines — they bind a name but aren't a call site.
+            # The actual call site (if any) will be picked up elsewhere.
+            if stripped.startswith(("import ", "from ")):
+                continue
+            if (
+                direct_pattern.search(line)
+                or indirect_pattern.search(line)
+                or multiline_pattern.search(line)
+            ):
                 found = True
                 break
         if not found:
