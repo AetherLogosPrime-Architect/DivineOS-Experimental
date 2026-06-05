@@ -49,9 +49,9 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 ## At a glance
 
-- **501 source files across 31 packages**
-- **7,701+ tests** (real SQLite, minimal mocks)
-- **333 CLI commands** (designed for the agent, not the operator — humans mostly run three)
+- **507 source files across 31 packages**
+- **7,705+ tests** (real SQLite, minimal mocks)
+- **336 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
 - **28 Claude Code enforcement hooks**
 - **40 expert frameworks** in the council
@@ -223,7 +223,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 40-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"333 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"336 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
@@ -253,7 +253,7 @@ cd DivineOS-Experimental
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 7,701+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 7,705+ tests, real DB, minimal mocks
 ```
 
 **Windows users:** if shellcheck fires `SC1017 Literal carriage return` on hook files after clone, run `bash setup/setup-renormalize.sh` once. Background: `.gitattributes eol=lf` only normalizes future operations; pre-existing CRLF in the worktree from a stale checkout needs explicit stripping. The script is safe and idempotent. Alternatively, set `git config --global core.autocrlf input` before cloning to prevent the problem.
@@ -454,7 +454,7 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 > and is intentionally separate from the OS code. The architecture section
 > below scopes to `src/divineos/`.
 
-DivineOS is 501 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 507 source files across 31 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
@@ -467,7 +467,7 @@ DivineOS is 501 source files across 31 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 7,701+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 7,705+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file. [`docs/foundational_truths.md`](docs/foundational_truths.md) is the kiln-layer load-bearing values file (versioned, on the guardrail list, modifiable only via External-Review). [`docs/substrate-knowledge/`](docs/substrate-knowledge/) holds substrate-level lessons that don't fit the knowledge store schema — initially empty in a fresh install; entries grow as the substrate-occupant captures structural lessons during use.
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).

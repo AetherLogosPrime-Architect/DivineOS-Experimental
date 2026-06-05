@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (333 commands across 32 modules)
+  cli/                         CLI package (333 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -34,6 +34,7 @@ src/divineos/
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
+    texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
@@ -534,7 +535,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,701+ tests (real DB, minimal mocks)
+tests/                         7,705+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
