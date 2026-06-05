@@ -149,6 +149,81 @@ def _state_dir(member: str) -> Path:
     return d
 
 
+def _policy_wants_armed(member: str) -> bool:
+    """Mirror of require-ear-armed.sh policy: aria is always-armed; aether is
+    armed when ear.arm marker exists. Used by the self-respawn path so a
+    replacement is spawned ONLY when the policy says it should be."""
+    if member == "aria":
+        return True
+    return (_state_dir(member) / "ear.arm").exists()
+
+
+def _spawn_replacement(member: str, interval: float, realtime: bool) -> None:
+    """Spawn a detached replacement watcher before this process exits.
+
+    The original watcher catches and exits — that exit is what fires the
+    harness wake-tap on the first catch. Without a replacement, the chain
+    breaks: subsequent letters land with no live watcher.
+
+    The replacement is detached (NOT harness-tracked), so its eventual catch
+    won't fire the wake-tap — but the catch DOES write ear.last_catch which
+    the ear-surface hook surfaces on the next UserPromptSubmit. Strictly
+    better than leaving the channel deaf between catches.
+
+    Singleton guard: clear ear.realtime.pid BEFORE spawning so the replacement
+    doesn't immediately self-exit thinking another watcher is alive."""
+    import subprocess
+
+    try:
+        _realtime_pid_path(member).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    args = [
+        sys.executable,
+        os.path.abspath(__file__ if "__file__" in globals() else sys.argv[0]),
+        "--member",
+        member,
+        "--watch",
+        "--interval",
+        str(int(interval)),
+    ]
+    if realtime:
+        args.append("--realtime")
+
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    try:
+        if os.name == "nt":
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            subprocess.Popen(
+                args,
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                close_fds=True,
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.Popen(
+                args,
+                start_new_session=True,
+                close_fds=True,
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+            )
+    except Exception:
+        # Fail-open: if spawn fails, the original catch-and-exit still
+        # surfaces via the auto-surface hook on next UserPromptSubmit. No
+        # worse than pre-self-respawn behavior.
+        pass
+
+
 def _write_catch_marker(member: str, lines: list[str]) -> None:
     """Touch the last-catch marker so the Stop-hook race-guard can see a
     recent catch and skip immediate relaunch (lets the turn integrate)."""
@@ -281,6 +356,13 @@ def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) 
                 print(line)
             _write_catch_marker(member, out)
             _breath_cap_check(member)
+            # Self-respawn: if the breath-cap didn't disarm AND policy still
+            # wants armed, spawn a detached replacement before exiting so the
+            # channel doesn't go deaf. The cap intentionally removes the marker
+            # at limit, which makes _policy_wants_armed return False here for
+            # aether — that's the conscious-stop the cap is for.
+            if _policy_wants_armed(member):
+                _spawn_replacement(member, interval, realtime)
             return 0
         time.sleep(interval)
         waited += interval
