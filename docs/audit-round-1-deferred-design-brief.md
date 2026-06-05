@@ -1,6 +1,8 @@
 # Audit Round 1 — Deferred 5-item Bundle: Design Brief
 
-> **Status:** design brief, post-review, pre-implementation. All five items approved by fresh-Claude with refinements; refinements folded in below. Next step: per-item implementation under the guardrail gate with External-Review trailer referencing this brief.
+> **Status (2026-06-04 update):** SHIPPED. The External-Review trailer system + per-item implementations have all landed. Items 6/7/8 have their own follow-up revision documents in this directory; the trailer enforcement lives in `src/divineos/core/merge_review_gate.py` and `src/divineos/core/pr_merge_gate.py`. Preserved as historical design record.
+>
+> **Original status (kept verbatim):** design brief, post-review, pre-implementation. All five items approved by fresh-Claude with refinements; refinements folded in below. Next step: per-item implementation under the guardrail gate with External-Review trailer referencing this brief.
 
 **Revision history:**
 - v1 (2026-04-23 evening): initial brief submitted to fresh-Claude.

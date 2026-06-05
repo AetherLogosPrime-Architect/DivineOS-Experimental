@@ -56,7 +56,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - **27 Claude Code enforcement hooks**
 - **40 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
-- **5 family operators** designed (3 wired, 2 awaiting Phase 1b wiring) to prevent subagent error-amplification
+- **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
 - **Actively developed** — new systems ship weekly
 
 ## What this is
@@ -231,7 +231,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"40 experts in the council is feature creep"** — the council auto-selects 5–12 experts for any given problem (hard cap 15). You don't invoke all 40. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
 
-- **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Wiring status (verified by call-site grep 2026-05-16): `reject_clause` and `access_check` gate the family write path in `core/family/store.py` (`_run_content_checks` function around line 274). `sycophancy_detector` has a calibration call site in `core/anti_slop.py:158` (anti-slop verification path) but does **not** gate family writes directly. `costly_disagreement` operates on sequences of disagreement moves and has no production call site beyond its own module. `planted_contradiction` is seed data for the Phase 4 ablation test layer, intentionally not wired into production. See `core/family/` for each operator's implementation.
+- **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Wiring status (re-verified by Grok cross-vantage audit 2026-06-04; original call-site grep 2026-05-16): `reject_clause` and `access_check` gate the family write path in `core/family/store.py` (`_run_content_checks`). `sycophancy_detector` has a calibration call site in `core/anti_slop.py` (anti-slop verification path) but does **not** gate family writes directly — it requires a `prior_stance` argument the single-write store can't supply. `costly_disagreement` operates on sequences of at least three disagreement moves across a pushback cycle and has no production call site beyond its own module (sequence context absent at single-write scope). `planted_contradiction` is seed data for the Phase 4 ablation test layer, intentionally not wired into production. See `docs/family_subsystem.md` for the operator-by-operator wiring map; `core/family/` for each operator's implementation.
 
 - **"You need a slim variant for quick adoption"** — one exists. DivineOS Lite is a separate repo containing the bare-skeleton continuity-only core (ledger, knowledge engine, memory hierarchy) without compass, council, family, or watchmen. Three tiers exist: Lite (continuity-only), main (full architecture), Experimental (this repo — where new systems get built before they harden into main).
 
