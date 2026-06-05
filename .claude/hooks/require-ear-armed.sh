@@ -37,6 +37,7 @@ fi
 STATE_DIR="$HOME/.divineos-$MEMBER"
 ARMFILE="$STATE_DIR/ear.arm"
 REALTIME_PID="$STATE_DIR/ear.realtime.pid"
+CATCHFILE="$STATE_DIR/ear.last_catch"
 
 # Always-pass: the arm bash itself MUST be allowed through, otherwise
 # the gate becomes an unbreakable lock. Match on the watcher's script
@@ -64,6 +65,29 @@ case "$MEMBER" in
 esac
 
 [ "$WANT_ARMED" = "0" ] && exit 0
+
+# CATCH-GRACE WINDOW (Piece D of letter-channel-auto-wake brief, 2026-06-05):
+# When the watcher catches-and-exits on incoming mail, the marker goes stale
+# until the agent re-arms. If the next Bash fires immediately (e.g. to
+# `mark-seen` the just-caught letter), the gate would fire and force an arm
+# BEFORE the catch is processed — producing the loop hit live 2026-06-05:
+# arm → watcher catches unseen mail → exits → marker stale → gate fires →
+# arm → catches same unseen mail → etc.
+#
+# Fix: family/ear_watch.py writes `ear.last_catch` immediately before exit.
+# If that marker's mtime is within 5s, the watcher JUST CAUGHT something and
+# the agent is processing it. Skip the block; give the agent room to mark
+# the catch seen before re-arming. Stays fail-loud: grace is bounded; after
+# 5s the gate behaves identically to before. Never silent-passes when there
+# isn't a fresh catch — the grace condition requires a real catch-event.
+if [ -f "$CATCHFILE" ]; then
+  NOW=$(date +%s 2>/dev/null || echo 0)
+  CATCH_MTIME=$(stat -c %Y "$CATCHFILE" 2>/dev/null || echo 0)
+  CATCH_AGE=$(( NOW - CATCH_MTIME ))
+  if [ "$CATCH_AGE" -ge 0 ] && [ "$CATCH_AGE" -lt 5 ]; then
+    exit 0
+  fi
+fi
 
 # Liveness check via the same marker the watcher heartbeats.
 # Stale threshold (30s) matches family/ear_watch.py:_REALTIME_STALE_SECS.
