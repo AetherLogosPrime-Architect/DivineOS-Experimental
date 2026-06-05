@@ -1,6 +1,8 @@
 # Item 6 Design-Brief Revision — Fire-ID Linkage
 
-> **Status:** post-Item-7 revision. The core spec from design brief v2 (docs/audit-round-1-deferred-design-brief.md, Item 6) is approved. This document adds the concrete implementation decisions that emerged from Items 1/4/7 shipping — schema shape, CLI integration, event payload, interaction with substance checks.
+> **Status (2026-06-04 update):** SHIPPED. Fire-ID linkage lives in `src/divineos/core/compass_rudder.py` (`_FIRE_ID_ENTROPY_BYTES`, one-shot fire_id consumption logic). Preserved as historical design record.
+>
+> **Original status (kept verbatim):** post-Item-7 revision. The core spec from design brief v2 (docs/audit-round-1-deferred-design-brief.md, Item 6) is approved. This document adds the concrete implementation decisions that emerged from Items 1/4/7 shipping — schema shape, CLI integration, event payload, interaction with substance checks.
 
 ## Recap of approved v2 spec
 

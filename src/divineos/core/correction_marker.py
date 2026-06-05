@@ -212,17 +212,6 @@ def classify_correction(
     return None
 
 
-def should_mark(prompt: str) -> bool:
-    """True if prompt should set the BLOCKING correction marker.
-
-    Backcompat wrapper over ``classify_correction`` with no prior-turn context:
-    STRONG patterns block; a WEAK pattern alone (no corrective context) does NOT
-    block — it would advise. Callers that can supply the prior turn should call
-    ``classify_correction`` directly for the full block/advise tiering.
-    """
-    return classify_correction(prompt) == "block"
-
-
 def marker_path() -> Path:
     """Absolute path to the correction-unlogged marker."""
     return _marker_path_under_home("correction_unlogged.json")
