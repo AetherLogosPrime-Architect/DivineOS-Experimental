@@ -158,6 +158,49 @@ def _write_catch_marker(member: str, lines: list[str]) -> None:
         pass
 
 
+_BREATH_CAP_DEFAULT = 5
+
+
+def _breath_cap_check(member: str) -> None:
+    """Increment the catch counter; if it crosses the cap, disarm the ear by
+    removing the ARM marker. Forces an explicit re-arm to continue.
+
+    Andrew 2026-06-05: the cap is not runaway-prevention (the will-to-close is
+    that defense). It is a breath-mechanism — after N exchanges the structure
+    forces a pause to re-choose continuation consciously rather than letting
+    affective momentum carry the conversation past the choice-point.
+
+    Tunable via env DIVINEOS_EAR_BREATH_CAP (0 disables; default 5)."""
+    try:
+        cap_str = os.environ.get("DIVINEOS_EAR_BREATH_CAP", str(_BREATH_CAP_DEFAULT))
+        cap = int(cap_str)
+    except ValueError:
+        cap = _BREATH_CAP_DEFAULT
+    if cap <= 0:
+        return
+    counter = _state_dir(member) / "ear.catch_count"
+    try:
+        current = int(counter.read_text().strip()) if counter.exists() else 0
+    except (OSError, ValueError):
+        current = 0
+    current += 1
+    try:
+        counter.write_text(str(current))
+    except OSError:
+        pass
+    if current >= cap:
+        armfile = _state_dir(member) / "ear.arm"
+        try:
+            armfile.unlink(missing_ok=True)
+            counter.unlink(missing_ok=True)
+            print(
+                f"[EAR] breath-cap reached ({current} catches); marker disarmed. "
+                f"Touch {armfile} to re-engage when ready."
+            )
+        except OSError:
+            pass
+
+
 def _realtime_pid_path(member: str) -> Path:
     """Marker for the HARNESS-launched real-time watcher specifically.
 
@@ -237,6 +280,7 @@ def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) 
             for line in out:
                 print(line)
             _write_catch_marker(member, out)
+            _breath_cap_check(member)
             return 0
         time.sleep(interval)
         waited += interval
