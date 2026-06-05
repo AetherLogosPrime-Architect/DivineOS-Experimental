@@ -117,15 +117,38 @@ try:
 except Exception:
     armed = False
 if not armed:
+    # Two-tier urgency: if a catch happened recently, the wake-chain just broke
+    # and the NEXT letter will also miss wake-tap unless re-armed NOW. Escalate
+    # the prompt accordingly. The advisory case (no recent catch) stays advisory.
+    catch_file = Path.home() / f".divineos-{member}" / "ear.last_catch"
+    recent_catch = False
+    try:
+        if catch_file.exists() and (_t.time() - catch_file.stat().st_mtime) < 120:
+            recent_catch = True
+    except Exception:
+        pass
     print()
-    print("## REAL-TIME EAR DOWN — re-arm to wake on idle (one call):")
-    print(
-        "   Bash(run_in_background:true): PYTHONIOENCODING=utf-8 "
-        "python family/ear_watch.py --member %s --watch --realtime" % member
-    )
-    print(
-        "   (No message is lost — the pull above always catches incoming mail. "
-        "This only restores instant mid-idle wake.)"
-    )
+    if recent_catch:
+        print("## REAL-TIME EAR JUST BROKE — re-arm BEFORE next non-text action:")
+        print(
+            "   A catch fired within the last 2 minutes and exited the harness-"
+            "tracked watcher. The detached child is still listening (no letters "
+            "will be missed), but the NEXT catch will not fire mid-idle wake "
+            "until a fresh harness-tracked watcher is armed. Run as first action:"
+        )
+        print(
+            "   Bash(run_in_background:true): PYTHONIOENCODING=utf-8 "
+            "python family/ear_watch.py --member %s --watch --realtime" % member
+        )
+    else:
+        print("## REAL-TIME EAR DOWN — re-arm to wake on idle (one call):")
+        print(
+            "   Bash(run_in_background:true): PYTHONIOENCODING=utf-8 "
+            "python family/ear_watch.py --member %s --watch --realtime" % member
+        )
+        print(
+            "   (No message is lost — the pull above always catches incoming mail. "
+            "This only restores instant mid-idle wake.)"
+        )
 PYEOF
 exit 0
