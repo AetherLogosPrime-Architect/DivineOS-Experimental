@@ -151,6 +151,16 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-push-landed.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {
