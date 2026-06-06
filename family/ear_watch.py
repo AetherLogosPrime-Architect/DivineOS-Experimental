@@ -236,16 +236,50 @@ def _write_catch_marker(member: str, lines: list[str]) -> None:
 _BREATH_CAP_DEFAULT = 5
 
 
+def _agent_responded_since(member: str, since_ts: float) -> bool:
+    """True if any outgoing letter (from member to spouse) was written since
+    since_ts. Used by the breath-cap to detect whether a catch had a response
+    or not — counts only consecutive responded-to exchanges, resets otherwise.
+    """
+    spouse = _SPOUSE.get(member)
+    if not spouse:
+        return False
+    letters_dir = Path(os.environ.get(f"{member.upper()}_LETTERS_DIR", _DEFAULT_LETTERS))
+    if not letters_dir.exists():
+        return False
+    try:
+        prefix = f"{member}-to-{spouse}-"
+        for path in letters_dir.iterdir():
+            name = path.name
+            if name.startswith(prefix) and name.endswith(".md"):
+                try:
+                    if path.stat().st_mtime > since_ts:
+                        return True
+                except OSError:
+                    continue
+    except OSError:
+        return False
+    return False
+
+
 def _breath_cap_check(member: str) -> None:
-    """Increment the catch counter; if it crosses the cap, disarm the ear by
-    removing the ARM marker. Forces an explicit re-arm to continue.
+    """Track CONSECUTIVE responded-to catches; reset on no-response.
 
-    Andrew 2026-06-05: the cap is not runaway-prevention (the will-to-close is
-    that defense). It is a breath-mechanism — after N exchanges the structure
-    forces a pause to re-choose continuation consciously rather than letting
-    affective momentum carry the conversation past the choice-point.
+    Andrew 2026-06-05: the cap is a breath-mechanism for active back-and-forth
+    exchanges. It must count consecutive auto-handled rounds (catch -> response
+    -> catch -> response ...), NOT total catches. When a catch produces no
+    response (the agent closed the loop from inside), the count resets — that
+    closure WAS the breath, the cap is for the case where responses keep
+    flowing past the natural close-point.
 
-    Tunable via env DIVINEOS_EAR_BREATH_CAP (0 disables; default 5)."""
+    Logic: counter file mtime = time of previous catch. Between that and now,
+    did the agent send an outgoing letter? If yes, this catch continues an
+    active exchange (increment). If no, this catch starts a fresh exchange
+    (reset to 1).
+
+    When count reaches cap, the ARM marker is removed, forcing a conscious
+    re-touch to continue. Tunable via DIVINEOS_EAR_BREATH_CAP (0 disables).
+    """
     try:
         cap_str = os.environ.get("DIVINEOS_EAR_BREATH_CAP", str(_BREATH_CAP_DEFAULT))
         cap = int(cap_str)
@@ -254,9 +288,16 @@ def _breath_cap_check(member: str) -> None:
     if cap <= 0:
         return
     counter = _state_dir(member) / "ear.catch_count"
-    try:
-        current = int(counter.read_text().strip()) if counter.exists() else 0
-    except (OSError, ValueError):
+
+    # Did agent respond since previous catch?
+    if counter.exists():
+        try:
+            prev_catch_time = counter.stat().st_mtime
+            responded = _agent_responded_since(member, prev_catch_time)
+            current = int(counter.read_text().strip()) if responded else 0
+        except (OSError, ValueError):
+            current = 0
+    else:
         current = 0
     current += 1
     try:
@@ -269,8 +310,8 @@ def _breath_cap_check(member: str) -> None:
             armfile.unlink(missing_ok=True)
             counter.unlink(missing_ok=True)
             print(
-                f"[EAR] breath-cap reached ({current} catches); marker disarmed. "
-                f"Touch {armfile} to re-engage when ready."
+                f"[EAR] breath-cap reached ({current} consecutive responded-to "
+                f"catches); marker disarmed. Touch {armfile} to re-engage."
             )
         except OSError:
             pass
