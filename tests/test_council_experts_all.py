@@ -3,7 +3,7 @@
 Built 2026-05-14 to close the test-coverage gap surfaced by the
 completion_check probe. Each expert module exports a
 ``create_<name>_wisdom()`` function returning an ``ExpertWisdom``
-instance. Rather than 40 one-off test files (theater), this one
+instance. Rather than 42 one-off test files (theater), this one
 parametrized file walks the registered factory functions and
 asserts uniform invariants across all of them:
 
@@ -23,7 +23,7 @@ refactor that breaks one expert without breaking the others.
 
 The probe ``completion_check.unfinished_mechanisms`` recognizes
 test coverage via stem-name reference anywhere under tests/, so
-this single file closes the test gap on all 40 experts.
+this single file closes the test gap on all 42 experts.
 """
 
 from __future__ import annotations
@@ -139,11 +139,11 @@ def test_expert_factory_returns_expert_wisdom(module_name: str, factory_name: st
 
 
 def test_discovery_finds_expected_count() -> None:
-    """LOAD-BEARING: at least 40 experts registered. A regression
+    """LOAD-BEARING: at least 42 experts registered. A regression
     that silently drops experts from the registry would otherwise
     not break any specific test."""
     assert len(_FACTORIES) >= 40, (
-        f"Only {len(_FACTORIES)} expert factories discovered; expected at least 40"
+        f"Only {len(_FACTORIES)} expert factories discovered; expected at least 42"
     )
 
 

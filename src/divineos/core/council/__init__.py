@@ -30,7 +30,7 @@ from divineos.core.council.engine import CouncilEngine, CouncilResult, get_counc
 # Audit finding 2026-05-03: this number had drifted across 15 places
 # in the codebase with 4 different wrong values (25, 28, 29, 32). One
 # constant + one test prevents that drift class.
-EXPECTED_EXPERT_COUNT: int = 40
+EXPECTED_EXPERT_COUNT: int = 42
 
 __all__ = [
     "EXPECTED_EXPERT_COUNT",

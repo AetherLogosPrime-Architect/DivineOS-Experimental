@@ -382,6 +382,7 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_aristotle_wisdom,
         create_beer_wisdom,
         create_bengio_wisdom,
+        create_carmack_wisdom,
         create_dawkins_wisdom,
         create_dekker_wisdom,
         create_deming_wisdom,
@@ -416,6 +417,7 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_tannen_wisdom,
         create_turing_wisdom,
         create_watts_wisdom,
+        create_wayne_wisdom,
         create_wittgenstein_wisdom,
         create_yudkowsky_wisdom,
     )
@@ -425,6 +427,7 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_aristotle_wisdom,
         create_beer_wisdom,
         create_bengio_wisdom,
+        create_carmack_wisdom,
         create_dawkins_wisdom,
         create_dekker_wisdom,
         create_deming_wisdom,
@@ -459,6 +462,7 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_tannen_wisdom,
         create_turing_wisdom,
         create_watts_wisdom,
+        create_wayne_wisdom,
         create_wittgenstein_wisdom,
         create_yudkowsky_wisdom,
     ]
