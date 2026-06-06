@@ -293,6 +293,7 @@ from divineos.cli import (  # noqa: E402
     oscillating_read_commands,
     deletion_commands,
     texture_commands,
+    calibration_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -302,6 +303,7 @@ journal_commands.register(cli)
 decision_commands.register(cli)
 deletion_commands.register(cli)
 texture_commands.register(cli)
+calibration_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
 audit_artifact_commands.register(cli)  # MUST be after audit_commands (attaches to its group)

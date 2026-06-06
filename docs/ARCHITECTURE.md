@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (337 commands across 33 modules)
+  cli/                         CLI package (341 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -35,6 +35,7 @@ src/divineos/
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
+    calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
@@ -486,6 +487,9 @@ src/divineos/
     pr_merge_gate.py           PR-merge gate — block `gh pr merge` on guardrail-touching PRs without
     merge_review_gate.py       Merge-review gate — server-verifiable, operator-anchored merge approval.
     context_meter.py           Read true context-window fullness from the Claude Code transcript.
+    calibration/               Confidence-vs-outcome scoring (Brier score)
+      __init__.py              Package init
+      brier.py                 Brier-score calibration — the auditor's "by what measure does this work" answer
 
   analysis/
     _session_types.py          Session analysis type definitions
