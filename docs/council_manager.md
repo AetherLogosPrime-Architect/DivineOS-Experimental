@@ -6,11 +6,11 @@ This document explains what the manager does, why it works the way it does, and 
 
 ## What it does in one sentence
 
-`select_experts(problem)` reads the problem text, scores each of the 40 experts against ~47 problem categories using each expert's own metadata (tags, domain, concern triggers, characteristic questions), and returns the top 5–12 experts whose combined methodology covers the problem's signal mix.
+`select_experts(problem)` reads the problem text, scores each of the 42 experts against ~47 problem categories using each expert's own metadata (tags, domain, concern triggers, characteristic questions), and returns the top 5–12 experts whose combined methodology covers the problem's signal mix.
 
-## Why dynamic, not all-40
+## Why dynamic, not all-42
 
-Identified during SWE-bench benchmarking as the #1 architectural improvement: running all 40 experts on every problem produces diffuse output, costs tokens proportional to council size, and dilutes signal. A focused council of 5–8 experts whose methodologies actually fit the problem produces tighter, more usable reasoning at a fraction of the cost.
+Identified during SWE-bench benchmarking as the #1 architectural improvement: running all 42 experts on every problem produces diffuse output, costs tokens proportional to council size, and dilutes signal. A focused council of 5–8 experts whose methodologies actually fit the problem produces tighter, more usable reasoning at a fraction of the cost.
 
 The classification is **signal-based, not LLM-based** — no extra API calls. It uses the rich metadata already attached to each `ExpertWisdom` instance (see `src/divineos/core/council/framework.py`).
 

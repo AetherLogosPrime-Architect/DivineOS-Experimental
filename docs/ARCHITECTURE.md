@@ -139,11 +139,12 @@ src/divineos/
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 40 expert wisdom profiles
+      experts/                 42 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
+        carmack.py             Minimalist engineering, subtractive design, concrete real-time reasoning, ship-and-measure discipline
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
         dawkins.py             Replicator dynamics, selfish gene, memes, extended phenotype
@@ -179,6 +180,7 @@ src/divineos/
         tannen.py              Sociolinguistics, register, framing, conversational style
         turing.py              Computation, testability, operational definition
         watts.py               Self-reference, introspection paradoxes, non-aiming
+        wayne.py               Formal methods, spec-vs-reality discipline, known-bug architecture, failure-mode enumeration
         wittgenstein.py        Language games, meaning as use, dissolution
         yudkowsky.py           Alignment, Goodhart, specification gaming
     logic/                     Formal logic sub-package
