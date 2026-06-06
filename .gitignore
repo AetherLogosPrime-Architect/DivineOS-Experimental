@@ -74,6 +74,7 @@ pytestdebug.log
 data/*
 !data/.gitkeep
 !data/README.md
+!data/traffic_archive/
 **/data/*.db
 **/data/reports/
 **/data/hud/
