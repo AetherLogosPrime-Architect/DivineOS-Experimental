@@ -51,6 +51,20 @@ SOURCE_INFERENTIAL = "inferential"  # inferred from observable effects
 SOURCE_EXPERIENTIAL = "experiential"  # personal/observed experience
 SOURCE_RESONANCE = "resonance"  # AI functional affect signal
 
+# Confidence-basis values — distinguishes uncommitted defaults from real credences.
+# Aletheia found 2026-05-12: 108 of 109 claims stuck at default 0.5 because evidence
+# rarely got filed AND there was no path to encode filer's prior or assessor's judgment
+# without quantified evidence. The 2024 belief-updating literature (arxiv 2412.10662)
+# names showing 0.5 as "the worst possible default" — it reads as "considered and
+# uncertain," which actively suppresses downstream updating versus a marked-as-
+# uncommitted state. Distinguishing by basis makes "no credence yet" visibly different
+# from "I made a 0.5 judgment" without redesigning the scalar column.
+BASIS_UNCOMMITTED = "uncommitted"  # default at file-time; signals "no credence yet"
+BASIS_FILER_PRIOR = "filer-prior"  # explicit prior at file time, basis text required
+BASIS_ASSESSOR_JUDGMENT = "assessor-judgment"  # set during assess, judgment not evidence
+BASIS_EVIDENCE_DERIVED = "evidence-derived"  # computed from claim_evidence rows
+BASIS_LEGACY_DEFAULT = "legacy-default"  # back-fill marker for pre-migration 0.5 rows
+
 
 def init_claim_tables() -> None:
     """Create claims and claim_evidence tables."""
@@ -65,6 +79,9 @@ def init_claim_tables() -> None:
                 tier                INTEGER NOT NULL DEFAULT 4,
                 status              TEXT NOT NULL DEFAULT 'OPEN',
                 confidence          REAL NOT NULL DEFAULT 0.5,
+                confidence_basis    TEXT NOT NULL DEFAULT 'uncommitted',
+                confidence_basis_text TEXT NOT NULL DEFAULT '',
+                confidence_set_at   REAL,
                 context             TEXT NOT NULL DEFAULT '',
                 assessment          TEXT NOT NULL DEFAULT '',
                 promotion_criteria  TEXT NOT NULL DEFAULT '',
@@ -73,6 +90,7 @@ def init_claim_tables() -> None:
                 session_id          TEXT NOT NULL DEFAULT ''
             )
         """)
+        _migrate_add_confidence_basis(conn)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS claim_evidence (
                 evidence_id     TEXT PRIMARY KEY,
@@ -120,6 +138,29 @@ def init_claim_tables() -> None:
         conn.close()
 
 
+def _migrate_add_confidence_basis(conn: Any) -> None:
+    """Idempotent migration: add confidence_basis columns and backfill semantics.
+
+    Pre-migration rows have confidence in {0.5 (untouched), other (evidence-derived)}.
+    The basis backfill distinguishes the untouched default from real credences so
+    list/display logic can render them differently after the migration lands.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(claims)").fetchall()}
+    if "confidence_basis" not in cols:
+        conn.execute(
+            "ALTER TABLE claims ADD COLUMN confidence_basis TEXT NOT NULL DEFAULT 'uncommitted'"
+        )
+        conn.execute("ALTER TABLE claims ADD COLUMN confidence_basis_text TEXT NOT NULL DEFAULT ''")
+        conn.execute("ALTER TABLE claims ADD COLUMN confidence_set_at REAL")
+        # Backfill: untouched 0.5 → legacy-default; anything else came from
+        # _recalculate_confidence (the only writer pre-migration) → evidence-derived.
+        conn.execute("UPDATE claims SET confidence_basis = 'legacy-default' WHERE confidence = 0.5")
+        conn.execute(
+            "UPDATE claims SET confidence_basis = 'evidence-derived' WHERE confidence != 0.5"
+        )
+        conn.commit()
+
+
 def file_claim(
     statement: str,
     tier: int = TIER_SPECULATIVE,
@@ -128,20 +169,47 @@ def file_claim(
     demotion_criteria: str = "",
     tags: list[str] | None = None,
     session_id: str = "",
+    confidence: float | None = None,
+    confidence_basis_text: str = "",
 ) -> str:
-    """File a new claim for investigation. Returns claim ID."""
+    """File a new claim for investigation. Returns claim ID.
+
+    confidence/confidence_basis_text default to None/empty → claim filed as
+    'uncommitted'. Supplying confidence requires basis_text (else ValueError) —
+    a credence without basis is what produced the stuck-at-default pattern.
+    """
     init_claim_tables()
     claim_id = str(uuid.uuid4())
     now = time.time()
     tier = max(TIER_EMPIRICAL, min(TIER_METAPHYSICAL, tier))
+
+    if confidence is not None:
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
+        if not confidence_basis_text.strip():
+            raise ValueError(
+                "confidence_basis_text required when confidence is supplied — "
+                "a credence without basis is the stuck-at-default pattern this "
+                "is designed to prevent (Aletheia 2026-05-12 finding)."
+            )
+        stored_confidence = round(confidence, 3)
+        stored_basis = BASIS_FILER_PRIOR
+        stored_basis_text = confidence_basis_text.strip()
+        confidence_set_at: float | None = now
+    else:
+        stored_confidence = 0.5
+        stored_basis = BASIS_UNCOMMITTED
+        stored_basis_text = ""
+        confidence_set_at = None
 
     conn = _get_connection()
     try:
         conn.execute(
             "INSERT INTO claims "
             "(claim_id, created_at, updated_at, statement, tier, status, confidence, "
+            "confidence_basis, confidence_basis_text, confidence_set_at, "
             "context, assessment, promotion_criteria, demotion_criteria, tags, session_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 claim_id,
                 now,
@@ -149,7 +217,10 @@ def file_claim(
                 statement,
                 tier,
                 STATUS_OPEN,
-                0.5,
+                stored_confidence,
+                stored_basis,
+                stored_basis_text,
+                confidence_set_at,
                 context,
                 "",
                 promotion_criteria,
@@ -162,6 +233,58 @@ def file_claim(
     finally:
         conn.close()
     return claim_id
+
+
+def set_claim_confidence_judgment(
+    claim_id: str,
+    confidence: float,
+    basis_text: str,
+) -> None:
+    """Record an assessor-judgment confidence override (not evidence-derived).
+
+    Used when the assessor has a structural reason for the credence that does
+    not reduce to quantified evidence rows (e.g. analogous-case prior, expert
+    framework match). basis_text is required — see file_claim() for why.
+    Recorded with BASIS_ASSESSOR_JUDGMENT so list/display can distinguish from
+    evidence-derived computed values.
+    """
+    if not 0.0 <= confidence <= 1.0:
+        raise ValueError(f"confidence must be in [0.0, 1.0], got {confidence}")
+    if not basis_text.strip():
+        raise ValueError("basis_text required for assessor-judgment confidence")
+
+    init_claim_tables()
+    conn = _get_connection()
+    try:
+        # Prefix → full claim_id resolution (parity with get_claim/update_claim).
+        resolved = conn.execute(
+            "SELECT claim_id FROM claims WHERE claim_id = ?", (claim_id,)
+        ).fetchone()
+        if resolved is None:
+            resolved = conn.execute(
+                "SELECT claim_id FROM claims WHERE claim_id LIKE ?",
+                (f"{claim_id}%",),
+            ).fetchone()
+        if resolved is None:
+            raise ValueError(f"claim_id {claim_id!r} not found")
+        claim_id = resolved[0]
+        now = time.time()
+        conn.execute(
+            "UPDATE claims SET confidence = ?, confidence_basis = ?, "
+            "confidence_basis_text = ?, confidence_set_at = ?, updated_at = ? "
+            "WHERE claim_id = ?",
+            (
+                round(confidence, 3),
+                BASIS_ASSESSOR_JUDGMENT,
+                basis_text.strip(),
+                now,
+                now,
+                claim_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def add_evidence(
@@ -219,6 +342,19 @@ def update_claim(
     init_claim_tables()
     conn = _get_connection()
     try:
+        # Resolve prefix → full claim_id (parity with get_claim's prefix lookup
+        # so the assess CLI handles 8-char prefixes like list output does).
+        resolved = conn.execute(
+            "SELECT claim_id FROM claims WHERE claim_id = ?", (claim_id,)
+        ).fetchone()
+        if resolved is None:
+            resolved = conn.execute(
+                "SELECT claim_id FROM claims WHERE claim_id LIKE ?",
+                (f"{claim_id}%",),
+            ).fetchone()
+        if resolved is None:
+            return False
+        claim_id = resolved[0]
         # Read prior values for any field being changed, so the diff can be
         # captured in the audit-trail event before the row is overwritten.
         prior_row = conn.execute(
@@ -311,14 +447,16 @@ def get_claim(claim_id: str) -> dict[str, Any] | None:
         row = conn.execute(
             "SELECT claim_id, created_at, updated_at, statement, tier, status, "
             "confidence, context, assessment, promotion_criteria, demotion_criteria, "
-            "tags, session_id FROM claims WHERE claim_id = ?",
+            "tags, session_id, confidence_basis, confidence_basis_text, "
+            "confidence_set_at FROM claims WHERE claim_id = ?",
             (claim_id,),
         ).fetchone()
         if not row:
             row = conn.execute(
                 "SELECT claim_id, created_at, updated_at, statement, tier, status, "
                 "confidence, context, assessment, promotion_criteria, demotion_criteria, "
-                "tags, session_id FROM claims WHERE claim_id LIKE ?",
+                "tags, session_id, confidence_basis, confidence_basis_text, "
+                "confidence_set_at FROM claims WHERE claim_id LIKE ?",
                 (f"{claim_id}%",),
             ).fetchone()
         if not row:
@@ -349,7 +487,8 @@ def list_claims(
         query = (
             "SELECT claim_id, created_at, updated_at, statement, tier, status, "
             "confidence, context, assessment, promotion_criteria, demotion_criteria, "
-            "tags, session_id FROM claims"
+            "tags, session_id, confidence_basis, confidence_basis_text, "
+            "confidence_set_at FROM claims"
         )
         conditions: list[str] = []
         params: list[Any] = []
@@ -367,6 +506,44 @@ def list_claims(
         params.append(limit)
 
         rows = conn.execute(query, params).fetchall()
+    finally:
+        conn.close()
+    return [_claim_row_to_dict(r) for r in rows]
+
+
+def list_uncommitted_claims(
+    limit: int = 50,
+    include_legacy: bool = True,
+) -> list[dict[str, Any]]:
+    """List claims with no real credence — the gap Aletheia named 2026-05-12.
+
+    Returns claims whose confidence_basis is 'uncommitted' or (optionally)
+    'legacy-default'. Sorted oldest-first so the highest-staleness items
+    surface first. Surfacing this is the visibility-half of the fix; the
+    flagged claims still need filer or assessor action to actually commit
+    a credence.
+    """
+    init_claim_tables()
+    bases: tuple[str, ...]
+    if include_legacy:
+        bases = (BASIS_UNCOMMITTED, BASIS_LEGACY_DEFAULT)
+    else:
+        bases = (BASIS_UNCOMMITTED,)
+    placeholders = ",".join("?" * len(bases))
+    # nosec B608 — placeholders is a constant '?' repetition built from the
+    # length of the bases tuple (an internal-constant set); basis values
+    # themselves are parameter-bound via the (*bases, limit) tuple below.
+    sql = (
+        "SELECT claim_id, created_at, updated_at, statement, tier, status, "
+        "confidence, context, assessment, promotion_criteria, demotion_criteria, "
+        "tags, session_id, confidence_basis, confidence_basis_text, "
+        "confidence_set_at FROM claims "
+        f"WHERE confidence_basis IN ({placeholders}) "  # nosec B608
+        "ORDER BY created_at ASC LIMIT ?"
+    )
+    conn = _get_connection()
+    try:
+        rows = conn.execute(sql, (*bases, limit)).fetchall()
     finally:
         conn.close()
     return [_claim_row_to_dict(r) for r in rows]
@@ -397,7 +574,8 @@ def search_claims(query: str, limit: int = 10) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT c.claim_id, c.created_at, c.updated_at, c.statement, c.tier, "
             "c.status, c.confidence, c.context, c.assessment, c.promotion_criteria, "
-            "c.demotion_criteria, c.tags, c.session_id "
+            "c.demotion_criteria, c.tags, c.session_id, c.confidence_basis, "
+            "c.confidence_basis_text, c.confidence_set_at "
             "FROM claim_fts f JOIN claims c ON f.rowid = c.rowid "
             "WHERE claim_fts MATCH ? ORDER BY rank LIMIT ?",
             (safe_query, limit),
@@ -462,9 +640,19 @@ def _recalculate_confidence(conn: Any, claim_id: str) -> None:
     else:
         confidence = support_weight / total
 
+    now = time.time()
     conn.execute(
-        "UPDATE claims SET confidence = ?, updated_at = ? WHERE claim_id = ?",
-        (round(confidence, 3), time.time(), claim_id),
+        "UPDATE claims SET confidence = ?, confidence_basis = ?, "
+        "confidence_basis_text = ?, confidence_set_at = ?, updated_at = ? "
+        "WHERE claim_id = ?",
+        (
+            round(confidence, 3),
+            BASIS_EVIDENCE_DERIVED,
+            f"{int(support_weight * 10) / 10} support / {int(contra_weight * 10) / 10} contradict",
+            now,
+            now,
+            claim_id,
+        ),
     )
 
 
@@ -484,6 +672,9 @@ def _claim_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "demotion_criteria": row[10],
         "tags": json.loads(row[11]) if row[11] else [],
         "session_id": row[12],
+        "confidence_basis": row[13] if len(row) > 13 else BASIS_UNCOMMITTED,
+        "confidence_basis_text": row[14] if len(row) > 14 else "",
+        "confidence_set_at": row[15] if len(row) > 15 else None,
     }
 
 
