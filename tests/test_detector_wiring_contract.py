@@ -311,6 +311,12 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # so it is correctly absent from operating_loop_audit.py — same shape
         # as the pre-response surfacers above. Added 2026-05-19.
         "mirror_exit_detector.py": "pre-response detector invoked via pre_response_context.py, not post-response audit",
+        # mention_context is a SHARED UTILITY imported by detectors (residency,
+        # distancing, etc.) to filter use-vs-mention false positives. It is
+        # not itself a detector — it provides is_mention_context(text, pos)
+        # as a pre-filter the detectors call before counting matches. Added
+        # 2026-06-06 per arxiv 2404.01651 + council walk.
+        "mention_context.py": "shared use-vs-mention filter imported by detectors, not a detector itself",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))
