@@ -1,0 +1,101 @@
+name: Traffic Archive
+
+# Archives GitHub's repo traffic data to data/traffic_archive/ so we can see
+# more than 14 days of history. GitHub's dashboard only shows a rolling 14-day
+# window; this workflow captures it daily and commits the snapshots so they
+# accumulate forever in the repo itself.
+#
+# Why this exists (Andrew 2026-06-05): "I wish it showed more than just the last
+# 14 days." The dashboard is a GitHub product limit, not a data limit. The API
+# returns the same 14-day window but we can capture it daily and build the
+# archive ourselves.
+
+on:
+  schedule:
+    # 01:00 UTC daily — quiet hour for most timezones, low chance of CI contention.
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    # Manual trigger button in the GitHub Actions UI — useful for testing
+    # and for one-off captures whenever interesting.
+
+permissions:
+  # Read traffic API + write to commit the snapshot back.
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history so the commit lands cleanly even if the workflow
+          # runs concurrently with a push (shallow can cause non-fast-forward).
+          fetch-depth: 0
+
+      - name: Capture traffic snapshot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          DIR="data/traffic_archive"
+          OUT="${DIR}/${DATE}.json"
+          mkdir -p "$DIR"
+
+          # Pull each metric. gh api inherits GH_TOKEN automatically.
+          # Each returns a JSON object; we wrap them in a combined snapshot.
+          VIEWS=$(gh api "repos/${REPO}/traffic/views")
+          CLONES=$(gh api "repos/${REPO}/traffic/clones")
+          PATHS=$(gh api "repos/${REPO}/traffic/popular/paths")
+          REFERRERS=$(gh api "repos/${REPO}/traffic/popular/referrers")
+
+          # jq -n constructs a new object; --argjson injects raw JSON
+          # (vs --arg which would stringify). captured_at_utc is ISO 8601.
+          jq -n \
+            --arg captured_at_utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg date "$DATE" \
+            --argjson views "$VIEWS" \
+            --argjson clones "$CLONES" \
+            --argjson popular_paths "$PATHS" \
+            --argjson referrers "$REFERRERS" \
+            '{
+              captured_at_utc: $captured_at_utc,
+              date: $date,
+              views: $views,
+              clones: $clones,
+              popular_paths: $popular_paths,
+              referrers: $referrers
+            }' > "$OUT"
+
+          echo "Wrote $OUT"
+          jq '{date, views: .views.count, uniques: .views.uniques, clones: .clones.count, unique_cloners: .clones.uniques}' "$OUT"
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/traffic_archive/
+          # If nothing changed (e.g., workflow ran twice the same UTC day),
+          # exit cleanly without an empty commit.
+          if git diff --cached --quiet; then
+            echo "No new snapshot to commit (already have today's file)."
+            exit 0
+          fi
+          git commit -m "chore(traffic): daily snapshot $(date -u +%Y-%m-%d)"
+          # Retry-with-backoff for eventual consistency on the remote — same
+          # discipline the verify-push-landed hook applies on agent-side pushes.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "Pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "Push attempt $attempt failed; rebasing and retrying"
+            git fetch origin main
+            git rebase origin/main || true
+            sleep $((attempt * 2))
+          done
+          echo "Push failed after 3 attempts"
+          exit 1
