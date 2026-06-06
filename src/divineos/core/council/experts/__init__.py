@@ -8,6 +8,7 @@ from divineos.core.council.experts.angelou import create_angelou_wisdom
 from divineos.core.council.experts.aristotle import create_aristotle_wisdom
 from divineos.core.council.experts.beer import create_beer_wisdom
 from divineos.core.council.experts.bengio import create_bengio_wisdom
+from divineos.core.council.experts.carmack import create_carmack_wisdom
 from divineos.core.council.experts.dawkins import create_dawkins_wisdom
 from divineos.core.council.experts.dekker import create_dekker_wisdom
 from divineos.core.council.experts.deming import create_deming_wisdom
@@ -42,6 +43,7 @@ from divineos.core.council.experts.taleb import create_taleb_wisdom
 from divineos.core.council.experts.tannen import create_tannen_wisdom
 from divineos.core.council.experts.turing import create_turing_wisdom
 from divineos.core.council.experts.watts import create_watts_wisdom
+from divineos.core.council.experts.wayne import create_wayne_wisdom
 from divineos.core.council.experts.wittgenstein import create_wittgenstein_wisdom
 from divineos.core.council.experts.yudkowsky import create_yudkowsky_wisdom
 
@@ -50,6 +52,7 @@ __all__ = [
     "create_aristotle_wisdom",
     "create_beer_wisdom",
     "create_bengio_wisdom",
+    "create_carmack_wisdom",
     "create_dawkins_wisdom",
     "create_dekker_wisdom",
     "create_deming_wisdom",
@@ -84,6 +87,7 @@ __all__ = [
     "create_tannen_wisdom",
     "create_turing_wisdom",
     "create_watts_wisdom",
+    "create_wayne_wisdom",
     "create_wittgenstein_wisdom",
     "create_yudkowsky_wisdom",
 ]

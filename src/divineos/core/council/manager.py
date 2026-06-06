@@ -1,6 +1,6 @@
 """Dynamic Council Manager — select the right experts for the problem.
 
-Instead of running all 40 experts on every problem (expensive, unfocused),
+Instead of running all 42 experts on every problem (expensive, unfocused),
 classify the problem and select 5-8 experts whose methodologies are most
 relevant. This was identified as the #1 architectural improvement from
 the SWE-bench benchmark: reducing token cost while focusing reasoning.
