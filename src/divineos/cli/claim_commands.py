@@ -30,6 +30,22 @@ def register(cli: click.Group) -> None:
     @click.option("--promotes", "promotion", default="", help="What evidence would promote this")
     @click.option("--demotes", "demotion", default="", help="What evidence would demote this")
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
+    @click.option(
+        "--confidence",
+        type=click.FloatRange(0.0, 1.0),
+        default=None,
+        help="Initial filer-prior credence [0.0-1.0]. Default: file as uncommitted "
+        "(no credence yet) rather than 0.5-as-default. Requires --confidence-basis.",
+    )
+    @click.option(
+        "--confidence-basis",
+        "confidence_basis_text",
+        default="",
+        help="Required when --confidence is supplied. Names the reasoning "
+        "(e.g. 'expert judgment from analogous case'). Encodes WHY the credence "
+        "is what it is — without basis a credence is what produced the stuck-"
+        "at-default pattern.",
+    )
     def claim_cmd(
         statement: str,
         tier: int,
@@ -37,6 +53,8 @@ def register(cli: click.Group) -> None:
         promotion: str,
         demotion: str,
         tags: tuple[str, ...],
+        confidence: float | None,
+        confidence_basis_text: str,
     ) -> None:
         """File a claim for investigation."""
         # Outgoing-claim methodology check (Andrew 2026-05-18 evening,
@@ -85,14 +103,29 @@ def register(cli: click.Group) -> None:
 
         from divineos.core.claim_store import file_claim
 
-        claim_id = file_claim(
-            statement=statement,
-            tier=tier,
-            context=context,
-            promotion_criteria=promotion,
-            demotion_criteria=demotion,
-            tags=list(tags) if tags else None,
-        )
+        if confidence is not None and not confidence_basis_text.strip():
+            click.secho(
+                "[!] BLOCKED — --confidence supplied without --confidence-basis. "
+                "A credence without named basis is the stuck-at-default pattern "
+                "this is designed to prevent (Aletheia 2026-05-12 finding).",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        try:
+            claim_id = file_claim(
+                statement=statement,
+                tier=tier,
+                context=context,
+                promotion_criteria=promotion,
+                demotion_criteria=demotion,
+                tags=list(tags) if tags else None,
+                confidence=confidence,
+                confidence_basis_text=confidence_basis_text,
+            )
+        except ValueError as e:
+            click.secho(f"[!] {e}", fg="red")
+            raise click.exceptions.Exit(1) from e
         label = TIER_LABELS.get(tier, "unknown")
         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
 
@@ -341,14 +374,41 @@ def register(cli: click.Group) -> None:
         type=click.Choice(["OPEN", "INVESTIGATING", "SUPPORTED", "CONTESTED", "REFUTED"]),
     )
     @click.option("--tier", type=click.IntRange(1, 5), default=None)
+    @click.option(
+        "--confidence",
+        type=click.FloatRange(0.0, 1.0),
+        default=None,
+        help="Set assessor-judgment confidence [0.0-1.0]. Different from "
+        "evidence-derived (which sums claim_evidence rows); use this when the "
+        "credence comes from a structural argument, analogous case, or framework "
+        "match that doesn't reduce to quantified evidence. Requires --basis.",
+    )
+    @click.option(
+        "--basis",
+        "confidence_basis_text",
+        default="",
+        help="Required when --confidence is supplied. Names the reasoning for the "
+        "judgment so future readers can interrogate it.",
+    )
     def claims_assess_cmd(
         claim_id: str,
         assessment: str,
         status: str | None,
         tier: int | None,
+        confidence: float | None,
+        confidence_basis_text: str,
     ) -> None:
         """Update a claim's assessment, status, or tier."""
-        from divineos.core.claim_store import update_claim
+        from divineos.core.claim_store import set_claim_confidence_judgment, update_claim
+
+        if confidence is not None and not confidence_basis_text.strip():
+            click.secho(
+                "[!] BLOCKED — --confidence supplied without --basis. "
+                "An assessor-judgment credence without named basis is the "
+                "stuck-at-default pattern this is designed to prevent.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
 
         if update_claim(claim_id, status=status, tier=tier, assessment=assessment):
             click.secho(f"[+] Claim {claim_id[:8]}... updated.", fg="green")
@@ -356,8 +416,67 @@ def register(cli: click.Group) -> None:
                 click.secho(f"    Status to {status}", fg="bright_black")
             if tier:
                 click.secho(f"    Tier to {TIER_LABELS.get(tier, '?')}", fg="bright_black")
+            if confidence is not None:
+                try:
+                    set_claim_confidence_judgment(claim_id, confidence, confidence_basis_text)
+                    click.secho(
+                        f"    Confidence to {confidence:.0%} (assessor-judgment): "
+                        f"{confidence_basis_text}",
+                        fg="bright_black",
+                    )
+                except ValueError as e:
+                    click.secho(f"    [!] confidence update failed: {e}", fg="red")
         else:
             click.secho(f"[-] Claim {claim_id} not found.", fg="red")
+
+    @claims_group.command("uncommitted")
+    @click.option("--limit", default=50, type=int)
+    @click.option(
+        "--include-legacy/--exclude-legacy",
+        default=True,
+        help="Include claims back-filled as 'legacy-default' from the pre-migration "
+        "schema (default 0.5 with no basis recorded). Default: include them, since "
+        "they represent the same gap as 'uncommitted'.",
+    )
+    def claims_uncommitted_cmd(limit: int, include_legacy: bool) -> None:
+        """List claims with no real credence — the gap Aletheia named 2026-05-12.
+
+        Surfaces claims whose confidence_basis is 'uncommitted' (filed without
+        a credence) or 'legacy-default' (pre-migration default 0.5 with no
+        basis recorded). Oldest-first so the highest-staleness items lead.
+
+        These claims have a confidence value of 0.5 in storage but the value
+        is NOT a credence — it's an unmade choice rendered as if it were one.
+        """
+        from divineos.core.claim_store import list_uncommitted_claims
+
+        claims = list_uncommitted_claims(limit=limit, include_legacy=include_legacy)
+        if not claims:
+            click.secho("[+] No uncommitted claims. The gap is closed.", fg="green")
+            return
+
+        click.secho(
+            f"=== Uncommitted claims ({len(claims)}, oldest first) ===",
+            fg="yellow",
+        )
+        click.echo()
+        import time as _time
+
+        now = _time.time()
+        for c in claims:
+            age_days = int((now - c["created_at"]) / 86400)
+            basis_marker = "uncommitted" if c["confidence_basis"] == "uncommitted" else "0.5*"
+            click.secho(
+                f"  [{c['claim_id'][:8]}] {basis_marker:>12} | "
+                f"{age_days:>4}d old | T{c['tier']} | {c['statement'][:60]}",
+                fg="bright_black",
+            )
+        click.echo()
+        click.secho(
+            "  Each entry shows an unmade choice rendered as a 0.5 credence. "
+            "Fix: divineos claims assess <id> '...' --confidence 0.X --basis '...'",
+            fg="bright_black",
+        )
 
     @claims_group.command("search")
     @click.argument("query")
