@@ -262,7 +262,7 @@ pytest tests/ -q --tb=short   # 7,705+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (333 commands)
+## CLI Surface (337 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -458,7 +458,7 @@ DivineOS is 507 source files across 31 packages, structured as a CLI surface ove
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 333 commands across 65 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/cli/`** — 337 commands across 65 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (42 expert lenses), self-model, corrigibility, body awareness. Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
