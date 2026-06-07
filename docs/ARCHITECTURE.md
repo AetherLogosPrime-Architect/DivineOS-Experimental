@@ -490,6 +490,7 @@ src/divineos/
     calibration/               Confidence-vs-outcome scoring (Brier score)
       __init__.py              Package init
       brier.py                 Brier-score calibration — the auditor's "by what measure does this work" answer
+    obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -541,7 +542,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,705+ tests (real DB, minimal mocks)
+tests/                         7,767+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
