@@ -523,7 +523,7 @@ def run_audit(
                 letter_contents = _load_letter_contents(letter_paths)
                 if not letter_contents:
                     letter_contents = None
-        except Exception:
+        except _ERRORS:
             letter_contents = None
 
         findings_log["unverified_claim"] = _run_detector(
@@ -813,7 +813,7 @@ def run_audit(
 
         debts_auto_discharged = auto_discharge_outstanding(last_assistant_text)
         lepos_debt_block = debt_block_reason(last_assistant_text, addressed_to_operator)
-    except Exception:
+    except _ERRORS:
         # Fail-soft: any error in the lepos-auto layer leaves the audit
         # result unchanged. Cannot break the Stop hook.
         pass

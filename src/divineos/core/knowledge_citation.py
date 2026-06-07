@@ -38,6 +38,10 @@ from __future__ import annotations
 
 import re
 
+# Per project convention: broad-catch uses module-level _ERRORS tuple so
+# the lint gate test_check_broad_exceptions can verify it.
+_ERRORS = (Exception,)
+
 # Match an 8-char-or-longer hex run. Looser than the id_string pattern
 # in unverified_claim_detector (which requires a registered prefix
 # like prereg-/claim-/round-) because knowledge_ids are bare hex.
@@ -88,7 +92,7 @@ def find_cited_knowledge_ids(text: str) -> list[str]:
         return []
     try:
         from divineos.core.knowledge._base import get_connection
-    except Exception:
+    except _ERRORS:
         return []
     out: list[str] = []
     try:
@@ -114,7 +118,7 @@ def find_cited_knowledge_ids(text: str) -> list[str]:
                     if len(rows) == 1:
                         out.append(rows[0][0])
                     # Ambiguous → drop. Better no-link than wrong-link.
-    except Exception:
+    except _ERRORS:
         return []
     # Dedup while preserving order (a token could match the same id more
     # than once if it appears twice in text — extract_id_citations already

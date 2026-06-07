@@ -42,6 +42,10 @@ from __future__ import annotations
 
 import re
 
+# Per project convention: broad-catch uses module-level _ERRORS tuple so
+# the lint gate test_check_broad_exceptions can verify it.
+_ERRORS = (Exception,)
+
 # Plain-section pattern recognition. Looks for the shapes I actually
 # use when translating jargon to plain language for Andrew. NOT a
 # strict format check — anything that walks like a translation
@@ -119,7 +123,7 @@ def auto_discharge_outstanding(text: str) -> int:
         from divineos.core.lepos_debt import discharge, list_outstanding
 
         outstanding = list_outstanding()
-    except Exception:
+    except _ERRORS:
         return 0
     if not outstanding:
         return 0
@@ -131,7 +135,7 @@ def auto_discharge_outstanding(text: str) -> int:
                 continue
             if discharge(int(debt_id), section):
                 discharged += 1
-        except Exception:
+        except _ERRORS:
             continue
     return discharged
 
@@ -153,7 +157,7 @@ def debt_block_reason(text: str, addressed_to_operator: bool) -> str | None:
         from divineos.core.lepos_debt import list_outstanding
 
         outstanding = list_outstanding()
-    except Exception:
+    except _ERRORS:
         return None
     if not outstanding:
         return None
