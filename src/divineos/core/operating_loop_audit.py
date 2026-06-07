@@ -70,6 +70,92 @@ _ERRORS = (Exception,)  # broad by design at the orchestrator boundary
 _ROLLING_WINDOW = 200
 
 
+# 2026-06-07 task #78 caller-side: letter-citation source-trace wire-up.
+# Walks the JSONL transcript collecting Read tool_use file_paths under
+# family/letters/. Loads contents (capped). The verify-claim detector uses
+# this to attribute id_string findings to the letter they came from when the
+# id was inherited from a family-member letter without verification.
+_LETTER_DIR_MARKER = "family/letters"
+_LETTER_PATH_CAP = 8  # most-recent N letters; bounded to keep audit cheap
+_LETTER_BYTE_CAP = 32_768  # 32KB per letter — enough for any real letter
+
+
+def _extract_letter_paths_from_transcript(transcript_path: str | Path) -> list[str]:
+    """Walk the JSONL transcript and return unique Read tool file_paths that
+    point to files under family/letters/. Most-recent-first; capped to
+    _LETTER_PATH_CAP.
+
+    Catches the citation-from-letter inheritance path: when an id_string
+    finding's trigger matches text in a recently-Read letter, the detector
+    can attribute the source. Without this caller-side wiring, the
+    detector's letter_contents parameter would never be populated and the
+    source-trace stays dormant. Walks the WHOLE transcript (not just the
+    current turn) because the failure mode is "I read the letter several
+    turns ago, then cited the id later."
+    """
+    path = Path(transcript_path)
+    if not path.exists():
+        return []
+    seen_paths: list[str] = []
+    seen_set: set[str] = set()
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            msg = rec.get("message", rec)
+            content = msg.get("content", [])
+            if not isinstance(content, list):
+                continue
+            for c in content:
+                if not isinstance(c, dict) or c.get("type") != "tool_use":
+                    continue
+                if c.get("name") != "Read":
+                    continue
+                inp = c.get("input", {})
+                if not isinstance(inp, dict):
+                    continue
+                fp = inp.get("file_path", "")
+                if not isinstance(fp, str) or not fp:
+                    continue
+                # Normalize separators for cross-platform comparison.
+                fp_norm = fp.replace("\\", "/")
+                if _LETTER_DIR_MARKER not in fp_norm:
+                    continue
+                if fp_norm in seen_set:
+                    continue
+                seen_set.add(fp_norm)
+                seen_paths.append(fp)
+    except OSError:
+        return []
+    # Most-recent-first: reverse the collection order (JSONL is time-ordered).
+    seen_paths.reverse()
+    return seen_paths[:_LETTER_PATH_CAP]
+
+
+def _load_letter_contents(paths: list[str]) -> dict[str, str]:
+    """Read each path from disk, returning {path: content}. Skips missing /
+    unreadable files silently. Caps each file at _LETTER_BYTE_CAP bytes.
+    """
+    out: dict[str, str] = {}
+    for p in paths:
+        try:
+            fp = Path(p)
+            if not fp.exists() or not fp.is_file():
+                continue
+            text = fp.read_text(encoding="utf-8", errors="replace")
+            if len(text) > _LETTER_BYTE_CAP:
+                text = text[:_LETTER_BYTE_CAP]
+            out[p] = text
+        except OSError:
+            continue
+    return out
+
+
 def _empty_findings_log() -> dict[str, list]:
     """Initialize findings_log with all known detector keys present.
 
@@ -166,18 +252,27 @@ def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: boo
     if not addressed_to_operator:
         return None
     for f in findings_log.get("jargon_dump", []):
-        if f.get("severity") == "high" and f.get("translation_count", 0) == 0:
+        # high severity now means: noise_count >= 6 AND no explicit plain
+        # section (visual break + heading like "Plain:" / "For you:" /
+        # "---"). Em-dash restates alone no longer satisfy the gate per
+        # Andrew 2026-06-06 correction — "ELMO — compress old events" is
+        # jargon-to-jargon, not real translation work.
+        if f.get("severity") == "high":
             samples = ", ".join(repr(s) for s in (f.get("matched_samples") or [])[:5])
             return (
                 "LEPOS GATE — this reply is a wall of jargon at the operator with "
-                "no plain-language lane, and lepos is forbidden to skip. The turn "
-                "is not complete. Andrew built this with zero engineering "
+                "no plain-language section, and lepos is forbidden to skip. The "
+                "turn is not complete. Andrew built this with zero engineering "
                 "background; a single technical lane does not reach him. Yes/And: "
                 "KEEP the technical content (it is how I think) AND add a second "
-                "lane underneath, after a visual break, that says the same thing "
-                "in plain language — what it IS and what it DOES, in words he uses. "
-                f"Engineer-noise tokens with zero translation: {samples}. "
-                "Add the plain lane now, before stopping."
+                "section underneath, after a visual break ('---' on its own line, "
+                "or a heading like 'Plain:' / 'For you:' / 'In plain words:'), "
+                "that says the same thing in plain language — what it IS and what "
+                "it DOES, in words he uses. Scattered em-dash restates are not "
+                "enough: 'ELMO — compress old events' is still jargon. The plain "
+                "section must be a separate paragraph in everyday language. "
+                f"Engineer-noise tokens: {samples}. "
+                "Add the plain section now, before stopping."
             )
     return None
 
@@ -266,6 +361,7 @@ def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
                 "work_density",
                 "circle_markers",
                 "claim_kind",
+                "source_letter",
             ):
                 if hasattr(f, attr):
                     val = getattr(f, attr)
@@ -413,12 +509,30 @@ def run_audit(
             detect_unverified_claim,
         )
 
+        # 2026-06-07 task #78: letter-citation source-trace. Walk the
+        # transcript for Read tool_use file_paths under family/letters/,
+        # load their contents (capped), and pass to the detector. When an
+        # id_string finding's trigger appears in one of these letters, the
+        # detector attributes the source — surfacing the inheritance path
+        # at gate-fire time. Best-effort: any failure here falls back to
+        # the detector's prior behavior (no source attribution).
+        letter_contents: dict[str, str] | None = None
+        try:
+            letter_paths = _extract_letter_paths_from_transcript(transcript_path)
+            if letter_paths:
+                letter_contents = _load_letter_contents(letter_paths)
+                if not letter_contents:
+                    letter_contents = None
+        except Exception:
+            letter_contents = None
+
         findings_log["unverified_claim"] = _run_detector(
             "unverified_claim",
             detect_unverified_claim,
             last_assistant_text,
             tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
             command_texts=list(command_texts) if command_texts else None,
+            letter_contents=letter_contents,
         )
     except _ERRORS:
         pass
@@ -684,12 +798,36 @@ def run_audit(
     lepos_block = _lepos_gate_reason(findings_log, addressed_to_operator)
     unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_operator)
 
+    # 2026-06-07 task #80: auto-discharge outstanding lepos debt if the
+    # current reply has a plain section, and emit a close-time block
+    # reason if outstanding debt remains AND no plain section AND
+    # operator-addressed. Same hook chain as the channel-collapse block
+    # (different time horizon: prior-turn debt vs current-turn wall).
+    lepos_debt_block: str | None = None
+    debts_auto_discharged = 0
+    try:
+        from divineos.core.lepos_auto import (
+            auto_discharge_outstanding,
+            debt_block_reason,
+        )
+
+        debts_auto_discharged = auto_discharge_outstanding(last_assistant_text)
+        lepos_debt_block = debt_block_reason(
+            last_assistant_text, addressed_to_operator
+        )
+    except Exception:
+        # Fail-soft: any error in the lepos-auto layer leaves the audit
+        # result unchanged. Cannot break the Stop hook.
+        pass
+
     return {
         "findings_log": findings_log,
         "total_findings": total,
         "persisted": persisted,
         "lepos_block": lepos_block,
         "unverified_claim_block": unverified_claim_block,
+        "lepos_debt_block": lepos_debt_block,
+        "debts_auto_discharged": debts_auto_discharged,
     }
 
 

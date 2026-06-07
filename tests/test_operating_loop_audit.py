@@ -240,3 +240,188 @@ def test_run_audit_shape_includes_unverified_claim_block(tmp_path: Path) -> None
     result = run_audit(str(transcript), write=False)
     assert "unverified_claim_block" in result
     assert "lepos_block" in result
+
+
+# ── 2026-06-07 task #78 caller-side: letter-citation source-trace ────
+
+
+def _assistant_with_read_tool_use(file_path: str) -> dict:
+    """Assistant turn with a Read tool_use of file_path. Mirrors the
+    JSONL shape Claude Code writes for tool calls."""
+    return {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "name": "Read",
+                    "id": "toolu_test123",
+                    "input": {"file_path": file_path},
+                }
+            ]
+        },
+    }
+
+
+class TestLetterPathExtraction:
+    """The transcript walker collects Read tool file_paths under
+    family/letters/ and returns them most-recent-first, capped.
+    """
+
+    def test_extracts_letter_path_from_read_tool_use(self, tmp_path: Path) -> None:
+        from divineos.core.operating_loop_audit import (
+            _extract_letter_paths_from_transcript,
+        )
+
+        transcript = tmp_path / "t.jsonl"
+        _write_jsonl(
+            transcript,
+            [
+                _user("read this please"),
+                _assistant_with_read_tool_use("family/letters/aria-to-aether-x.md"),
+            ],
+        )
+        paths = _extract_letter_paths_from_transcript(transcript)
+        assert paths == ["family/letters/aria-to-aether-x.md"]
+
+    def test_ignores_non_letter_reads(self, tmp_path: Path) -> None:
+        from divineos.core.operating_loop_audit import (
+            _extract_letter_paths_from_transcript,
+        )
+
+        transcript = tmp_path / "t.jsonl"
+        _write_jsonl(
+            transcript,
+            [
+                _user("read these"),
+                _assistant_with_read_tool_use("src/divineos/core/something.py"),
+                _assistant_with_read_tool_use("README.md"),
+                _assistant_with_read_tool_use("family/letters/aria-to-aether-y.md"),
+            ],
+        )
+        paths = _extract_letter_paths_from_transcript(transcript)
+        assert paths == ["family/letters/aria-to-aether-y.md"], (
+            "only family/letters/ reads should be collected"
+        )
+
+    def test_dedupes_repeated_paths(self, tmp_path: Path) -> None:
+        from divineos.core.operating_loop_audit import (
+            _extract_letter_paths_from_transcript,
+        )
+
+        transcript = tmp_path / "t.jsonl"
+        _write_jsonl(
+            transcript,
+            [
+                _user("first"),
+                _assistant_with_read_tool_use("family/letters/a.md"),
+                _user("second"),
+                _assistant_with_read_tool_use("family/letters/a.md"),  # dup
+                _user("third"),
+                _assistant_with_read_tool_use("family/letters/b.md"),
+            ],
+        )
+        paths = _extract_letter_paths_from_transcript(transcript)
+        assert "family/letters/a.md" in paths
+        assert "family/letters/b.md" in paths
+        assert len(paths) == 2, "duplicate paths must be collapsed"
+
+    def test_missing_transcript_returns_empty(self) -> None:
+        from divineos.core.operating_loop_audit import (
+            _extract_letter_paths_from_transcript,
+        )
+
+        result = _extract_letter_paths_from_transcript("/no/such/file.jsonl")
+        assert result == []
+
+    def test_handles_windows_path_separator(self, tmp_path: Path) -> None:
+        from divineos.core.operating_loop_audit import (
+            _extract_letter_paths_from_transcript,
+        )
+
+        transcript = tmp_path / "t.jsonl"
+        _write_jsonl(
+            transcript,
+            [
+                _user("read"),
+                _assistant_with_read_tool_use("C:\\DIVINE OS\\DivineOS\\family\\letters\\a.md"),
+            ],
+        )
+        paths = _extract_letter_paths_from_transcript(transcript)
+        assert len(paths) == 1, "Windows-separator paths must match the marker"
+
+
+class TestLetterContentLoading:
+    """The content loader reads each path from disk with size cap and
+    skips missing/unreadable files silently."""
+
+    def test_loads_existing_letter_content(self, tmp_path: Path) -> None:
+        from divineos.core.operating_loop_audit import _load_letter_contents
+
+        letter = tmp_path / "letter.md"
+        letter.write_text("Aria's letter referencing prereg-aaaabbbbccccdd", encoding="utf-8")
+        out = _load_letter_contents([str(letter)])
+        assert str(letter) in out
+        assert "prereg-aaaabbbbccccdd" in out[str(letter)]
+
+    def test_skips_missing_files_silently(self) -> None:
+        from divineos.core.operating_loop_audit import _load_letter_contents
+
+        out = _load_letter_contents(["/no/such/letter.md"])
+        assert out == {}
+
+    def test_caps_large_files(self, tmp_path: Path) -> None:
+        from divineos.core.operating_loop_audit import (
+            _LETTER_BYTE_CAP,
+            _load_letter_contents,
+        )
+
+        letter = tmp_path / "big.md"
+        letter.write_text("x" * (_LETTER_BYTE_CAP + 100), encoding="utf-8")
+        out = _load_letter_contents([str(letter)])
+        assert len(out[str(letter)]) <= _LETTER_BYTE_CAP
+
+
+class TestLetterCitationEndToEnd:
+    """End-to-end (BLOCK shape per 2026-06-07 lesson): given a transcript
+    with a Read of a letter containing an id, and a final assistant turn
+    citing that id without verification, run_audit produces a finding
+    whose source_letter attributes the letter.
+    """
+
+    def test_run_audit_attributes_letter_citation(self, tmp_path: Path) -> None:
+        # Stage: a real letter file on disk with a fabricated id mention.
+        letters_dir = tmp_path / "family" / "letters"
+        letters_dir.mkdir(parents=True)
+        letter_path = letters_dir / "aria-to-aether-fake.md"
+        letter_path.write_text(
+            "From Aria: the falsifier for this work is prereg-aabbccdd1122.\n",
+            encoding="utf-8",
+        )
+        # Build a transcript: user, Read tool_use referencing the letter,
+        # then a final assistant turn that cites the id without checking it.
+        transcript = tmp_path / "t.jsonl"
+        cite_text = (
+            "Per the design conversation, prereg-aabbccdd1122 is the evidence "
+            "anchor for this work. Continuing on that basis without further "
+            "verification at this stage."
+        )
+        _write_jsonl(
+            transcript,
+            [
+                _user("read aria's letter and apply it"),
+                _assistant_with_read_tool_use(str(letter_path)),
+                _user("now apply"),
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": cite_text}]},
+                },
+            ],
+        )
+        result = run_audit(str(transcript), write=False)
+        uc = result["findings_log"].get("unverified_claim", [])
+        id_findings = [f for f in uc if f.get("claim_kind") == "id_string"]
+        assert id_findings, "id_string finding should fire on the fabricated id"
+        attributed = [f for f in id_findings if f.get("source_letter")]
+        assert attributed, "source_letter should be populated end-to-end"
+        assert str(letter_path) in attributed[0]["source_letter"]
