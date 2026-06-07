@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (341 commands across 33 modules)
+  cli/                         CLI package (345 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -61,6 +61,7 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    obligation_commands.py     obligations check / is-write / list / disabled — surface for the obligation gate (blocks substrate-write CLI commands when unbacked will-shape promises + unpaired correction observations exceed threshold; tasks #33 + #42)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
@@ -491,6 +492,7 @@ src/divineos/
       __init__.py              Package init
       brier.py                 Brier-score calibration — the auditor's "by what measure does this work" answer
     obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
+    push_detection.py          Detect whether a shell command is a `git push` invocation.
 
   analysis/
     _session_types.py          Session analysis type definitions
