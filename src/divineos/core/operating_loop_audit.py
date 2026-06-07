@@ -812,9 +812,7 @@ def run_audit(
         )
 
         debts_auto_discharged = auto_discharge_outstanding(last_assistant_text)
-        lepos_debt_block = debt_block_reason(
-            last_assistant_text, addressed_to_operator
-        )
+        lepos_debt_block = debt_block_reason(last_assistant_text, addressed_to_operator)
     except Exception:
         # Fail-soft: any error in the lepos-auto layer leaves the audit
         # result unchanged. Cannot break the Stop hook.
