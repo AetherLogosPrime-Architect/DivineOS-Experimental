@@ -35,7 +35,16 @@ jobs:
 
       - name: Capture traffic snapshot
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The auto-issued GITHUB_TOKEN CANNOT access the /repos/.../traffic/*
+          # endpoints. Per GitHub docs the traffic API requires either a
+          # classic PAT with 'repo' scope or a fine-grained PAT with
+          # 'Administration: read'. Using GITHUB_TOKEN here produces:
+          #   gh: Resource not accessible by integration (HTTP 403)
+          # Repo secret TRAFFIC_ARCHIVE_PAT must hold a token with the right
+          # scope. Create it under Settings → Secrets and variables → Actions.
+          # (Push step below still uses default GITHUB_TOKEN via the runner's
+          # checkout — contents: write covers that and doesn't need the PAT.)
+          GH_TOKEN: ${{ secrets.TRAFFIC_ARCHIVE_PAT }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
