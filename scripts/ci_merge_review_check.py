@@ -149,6 +149,20 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     # Emergency bypass — expensive, logged, never silent.
+    #
+    # The env var triggers the bypass attempt, but `record_emergency_use`
+    # enforces the cost: the operator MUST supply a substantive REASON
+    # (>= 20 chars naming the malfunction / hotfix context). Without
+    # that, the bypass refuses to fire.
+    #
+    # Prior shape (2026-06-08 fix, task #97): a broad `except Exception`
+    # caught the ValueError that record_emergency_use raises for short
+    # reasons, printed "logging failed", and `return 0`'d ANYWAY — so
+    # `DIVINEOS_MERGE_REVIEW_EMERGENCY_BYPASS=x` was a free silent escape.
+    # New shape splits exceptions: ValueError (reason rejected) fails the
+    # gate with a clear message; other exceptions (infra failure) keep
+    # the bypass firing but report loudly so post-incident cleanup can
+    # file the missed artifacts manually.
     bypass_reason = os.environ.get(_EMERGENCY_ENV, "").strip()
     if bypass_reason:
         try:
@@ -164,9 +178,38 @@ def main(argv: list[str]) -> int:
                 f"(claim={report.claim_id}, psf={report.psf_id}). "
                 "Gate passes under bypass; obligation surfaces until fixed."
             )
-        except Exception as exc:  # noqa: BLE001 — bypass must not crash CI
-            print(f"[merge-review] emergency bypass requested but logging failed: {exc}")
-        return 0
+            return 0
+        except ValueError as exc:
+            # Reason rejected (too short / missing). Per task #97:
+            # bypass-cost-must-exceed-tool-use. Setting the env var to
+            # `x` should NOT be a free escape — the cost is naming WHY.
+            # Gate FAILS as if the bypass weren't set, with a visible
+            # diagnostic naming the rejection.
+            print(
+                f"[merge-review] EMERGENCY BYPASS REJECTED: {exc}\n"
+                f"  Set {_EMERGENCY_ENV} to a substantive reason "
+                f"(>= 20 chars) naming the malfunction or hotfix "
+                f"context. One-word or empty reasons are not accepted — "
+                f"the bypass cost is naming WHY this emergency was real.\n"
+                f"  Gate FAILS until either a valid reason is supplied "
+                f"or the underlying audit is completed.",
+                file=sys.stderr,
+            )
+            return 1
+        except Exception as exc:  # noqa: BLE001 — infra failures: stay loud, don't crash CI
+            # Genuine logging-infrastructure failure (DB unavailable,
+            # import error, etc). The operator supplied a valid reason,
+            # so the bypass still fires — but the failed-to-log condition
+            # is REPORTED loudly so post-incident cleanup can manually
+            # file the claim + structural-fix obligation.
+            print(
+                f"[merge-review] EMERGENCY BYPASS fired but LOGGING FAILED: {exc}\n"
+                f"  Reason recorded only in CI output: {bypass_reason[:200]}\n"
+                f"  Manually file the emergency-bypass claim + "
+                f"structural-fix obligation post-incident, because the "
+                f"automated LOGGED/REPORTED/ADDRESSED chain did not complete."
+            )
+            return 0
 
     if not _pr_touches_guardrail(args.repo, args.pr):
         print("[merge-review] PR touches no guardrail files; gate does not apply.")
