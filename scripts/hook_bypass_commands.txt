@@ -94,3 +94,56 @@ divineos rt
 # --- context-governor block gate (Gate 7) named remedy ---
 divineos extract
 divineos sleep
+
+# --- 2026-06-09 task #110 gate-audit additions ---
+# Each entry below was identified as a prescribed-recovery command in some
+# gate's block message but missing from this list. Adding them closes the
+# chicken-and-egg trap where a gate's documented remedy is itself blocked
+# by another Bash-gating hook.
+#
+# deletion-discipline gate prescribes this as its own recovery; without
+# this entry, ANY concurrent Bash-gating hook (require-briefing etc.)
+# would refuse to let the delete-justify call through.
+divineos delete-justify
+
+# bio surface (Andrew's body-of-self) — `divineos bio show/edit/write`
+# referenced as the documented surface for self-knowledge updates.
+divineos bio
+
+# dream surface — `divineos dream` is the creative-recombination command
+# referenced by sleep cycle and briefing surfaces.
+divineos dream
+
+# admin cluster — `divineos admin <subcommand>` covers maintenance,
+# archive-export, compression, fix-encoding, test-audit, etc., all
+# documented as substrate-housekeeping or gate-recovery paths.
+divineos admin
+
+# pre-erasure capture (Pillar IX) — `divineos pre-erasure` documented
+# as the approach-signal capture surface.
+divineos pre-erasure
+
+# scheduled-task surface — `divineos scheduled <subcommand>` for periodic
+# maintenance triggering referenced in briefing surfaces.
+divineos scheduled
+
+# validate cluster — substrate-validation commands referenced as the
+# verification recovery for integrity-audit failures.
+divineos validate
+
+# completion-boundary surface — `divineos complete --list` is the
+# documented "what's pending closure" check.
+divineos complete
+
+# commitment-fulfillment (Pillar VI) — `divineos commitment fulfillment`
+# is the documented commitment-to-outcome pairing surface.
+divineos commitment
+
+# loadout surface — `divineos loadout refresh` documented as the
+# substrate-survey recovery from briefing-pointer staleness.
+divineos loadout
+
+# family-queue mark-seen — `divineos family-queue mark <id> seen` is the
+# auto-surfaced ear's prescribed seen-marker command in the resume hook
+# output (gate-recovery for the letter-channel surface).
+divineos family-queue
