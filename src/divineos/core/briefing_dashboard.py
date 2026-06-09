@@ -160,6 +160,54 @@ def _row_audit_findings() -> DashboardRow | None:
         return None
 
 
+def _row_audit_surprises() -> DashboardRow | None:
+    """Task #116 (2026-06-09): surface the surprise-rate of audit findings.
+
+    A "surprise" is a finding tagged ``surprise`` — something the audit
+    turned up that wasn't covered by any pre-existing claim or prereg,
+    i.e. a genuine unknown-unknown. The unknown-unknown rate is a
+    maturity signal:
+
+    - High rate → epistemic humility warranted; the substrate's
+      predictive coverage has gaps the audits are finding for me.
+    - Low or decreasing rate → the substrate is catching things before
+      they're surprises.
+
+    Row stays silent when no findings have ever been tagged surprise.
+    """
+    try:
+        from divineos.core.watchmen.store import list_findings
+
+        all_findings = list_findings()
+        surprises = [f for f in all_findings if "surprise" in (getattr(f, "tags", None) or [])]
+        if not surprises:
+            return None
+        total = len(all_findings)
+        rate = (len(surprises) / total) if total else 0.0
+        # Preview top-3 most-recent surprises.
+        ordered = sorted(
+            surprises,
+            key=lambda f: f.created_at if isinstance(f.created_at, (int, float)) else 0,
+            reverse=True,
+        )[:3]
+        preview: list[str] = []
+        for f in ordered:
+            sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+            title = (f.title or f.description or "").replace("\n", " ").strip()
+            short = title[:90] + ("..." if len(title) > 90 else "")
+            preview.append(f"[{sev}] {short}")
+        return DashboardRow(
+            area="Audit surprises",
+            count=len(surprises),
+            stale_count=0,
+            drill_down="divineos audit list --tag surprise",
+            detail=f"unknown-unknown rate: {rate:.1%}",
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_preregs() -> DashboardRow | None:
     try:
         from divineos.core.pre_registrations.store import list_pre_registrations
@@ -885,6 +933,7 @@ _ROW_FNS = [
     _row_directives,
     _row_claims,
     _row_audit_findings,
+    _row_audit_surprises,
     _row_preregs,
     _row_prereg_candidates,
     _row_gate_failures,
