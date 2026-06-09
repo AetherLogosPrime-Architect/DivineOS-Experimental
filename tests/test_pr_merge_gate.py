@@ -113,3 +113,104 @@ class TestGuardrailIntersection:
             touches, files = pr_merge_gate.audit_pr_for_guardrail_touches(99)
             assert touches is False
             assert files == []
+
+
+class TestEmbeddedAuditBody:
+    """Task #114 (2026-06-09): when a valid audit round exists, the
+    gate's block message must embed the ready-to-paste merge body inline
+    rather than just naming the command to run. Same gate-self-unblocks
+    discipline as PR #117 — when the gate can compute its own remedy,
+    it hands it over."""
+
+    def test_embeds_merge_body_when_valid_round_exists(self) -> None:
+        """A valid round → block message includes the merge body with
+        the External-Review trailer, ready to paste."""
+        with (
+            patch.object(
+                pr_merge_gate,
+                "audit_pr_for_guardrail_touches",
+                return_value=(True, ["src/divineos/core/moral_compass.py"]),
+            ),
+            patch.object(
+                pr_merge_gate,
+                "_find_usable_audit_round",
+                return_value=(
+                    "round-abc123",
+                    "PR title\n\nReviewed via audit round round-abc123 (operator-CONFIRMS + "
+                    "external-AI-CONFIRMS, age 0.5d, within 14d recency window).\n\n"
+                    "External-Review: round-abc123",
+                    "",
+                ),
+            ),
+        ):
+            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
+            assert reason is not None
+            assert "BLOCKED" in reason
+            assert "round-abc123" in reason
+            assert "External-Review: round-abc123" in reason
+            # The body should appear inline as a paste-ready snippet.
+            assert "gh pr merge 99 --squash --body" in reason
+
+    def test_embeds_diagnosis_when_round_missing_user_confirm(self) -> None:
+        """An invalid recent round → block message names the SPECIFIC
+        gap (missing user-CONFIRMS / missing AI-CONFIRMS / stale)."""
+        diagnosis = "Most recent round 'round-xyz789' is missing a user-CONFIRMS finding."
+        with (
+            patch.object(
+                pr_merge_gate,
+                "audit_pr_for_guardrail_touches",
+                return_value=(True, ["src/divineos/core/moral_compass.py"]),
+            ),
+            patch.object(
+                pr_merge_gate,
+                "_find_usable_audit_round",
+                return_value=(None, "", diagnosis),
+            ),
+        ):
+            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
+            assert reason is not None
+            assert "Diagnosis:" in reason
+            assert "round-xyz789" in reason
+            assert "missing a user-CONFIRMS" in reason
+            # Should still include the long-form instructions as the fallback path.
+            assert "pr-merge-check 99" in reason
+
+    def test_falls_back_to_long_form_when_no_round_at_all(self) -> None:
+        """No rounds available → no diagnosis, just the original long-form
+        instructions. Preserves the previous behavior as the fallback."""
+        with (
+            patch.object(
+                pr_merge_gate,
+                "audit_pr_for_guardrail_touches",
+                return_value=(True, ["src/divineos/core/moral_compass.py"]),
+            ),
+            patch.object(
+                pr_merge_gate,
+                "_find_usable_audit_round",
+                return_value=(None, "", ""),
+            ),
+        ):
+            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
+            assert reason is not None
+            assert "Diagnosis:" not in reason
+            assert "pr-merge-check 99" in reason
+
+    def test_lookup_helper_failure_falls_back_gracefully(self) -> None:
+        """Any exception in _find_usable_audit_round must not break the
+        gate — fall back to the long-form instructions."""
+        with (
+            patch.object(
+                pr_merge_gate,
+                "audit_pr_for_guardrail_touches",
+                return_value=(True, ["src/divineos/core/moral_compass.py"]),
+            ),
+            patch.object(
+                pr_merge_gate,
+                "_find_usable_audit_round",
+                side_effect=RuntimeError("audit store unavailable"),
+            ),
+        ):
+            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
+            assert reason is not None
+            assert "BLOCKED" in reason
+            assert "pr-merge-check 99" in reason

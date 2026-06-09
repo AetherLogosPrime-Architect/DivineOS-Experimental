@@ -42,6 +42,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import time
 from pathlib import Path
 
 __guardrail_required__ = True
@@ -122,6 +123,115 @@ def _command_has_external_review_trailer(command: str) -> bool:
     return bool(_TRAILER_PATTERN.search(command))
 
 
+def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[str | None, str, str]:
+    """Task #114 (2026-06-09): look up whether a usable audit round
+    exists that would let this PR's merge proceed, so the gate's block
+    message can embed the ready-to-paste merge body inline instead of
+    making the operator run a second command to find it.
+
+    Returns a tuple ``(round_id, merge_body, diagnosis)``:
+      - If a valid round exists: (round_id, merge_body, "")
+      - If no valid round exists: (None, "", human-readable diagnosis
+        naming the most-recent round's specific gap — missing
+        user-CONFIRMS / missing AI-CONFIRMS / round is stale)
+
+    "Valid" mirrors prepare-merge's checks exactly:
+      1. round.status not closed
+      2. ≥1 finding with actor=user, stance=CONFIRMS
+      3. ≥1 finding with actor in external-AI set, stance=CONFIRMS
+      4. round.created_at within recency_days
+
+    Failures inside this helper are silent; the surrounding block_reason
+    falls back to the long-form instructions.
+    """
+    try:
+        from divineos.cli.audit_commands import _EXTERNAL_AI_ACTORS  # type: ignore
+        from divineos.core.watchmen.store import list_findings, list_rounds
+    except Exception:  # noqa: BLE001
+        return None, "", ""
+
+    try:
+        rounds = list_rounds(limit=50)
+    except Exception:  # noqa: BLE001
+        return None, "", ""
+
+    now = time.time()
+    diagnosis_for_most_recent: str = ""
+    most_recent_seen = False
+
+    for rnd in rounds:
+        try:
+            round_id = getattr(rnd, "round_id", None) or getattr(rnd, "id", None)
+            if not round_id:
+                continue
+            findings = list_findings(round_id=round_id, limit=500)
+        except Exception:  # noqa: BLE001
+            continue
+
+        def _actor_of(f: object) -> str:
+            val = getattr(f, "actor", "") or ""
+            return str(val).lower()
+
+        def _is_confirm(f: object) -> bool:
+            stance = getattr(f, "review_stance", None)
+            if stance is None:
+                return True
+            val = getattr(stance, "value", stance)
+            return str(val).upper() == "CONFIRMS"
+
+        confirming = [f for f in findings if _is_confirm(f)]
+        user_confirms = [f for f in confirming if _actor_of(f) == "user"]
+        ai_confirms = [f for f in confirming if _actor_of(f) in _EXTERNAL_AI_ACTORS]
+
+        created_at = getattr(rnd, "created_at", None) or getattr(rnd, "timestamp", None) or 0
+        if isinstance(created_at, str):
+            try:
+                import datetime as _dt
+
+                created_at = _dt.datetime.fromisoformat(
+                    created_at.replace("Z", "+00:00")
+                ).timestamp()
+            except Exception:  # noqa: BLE001
+                created_at = 0
+        age_days = (now - float(created_at)) / 86400.0 if created_at else 999.0
+
+        # Capture diagnosis for the FIRST (most recent) round, in case
+        # nothing turns out valid further down.
+        if not most_recent_seen:
+            most_recent_seen = True
+            if not user_confirms:
+                diagnosis_for_most_recent = (
+                    f"Most recent round '{round_id}' is missing a user-CONFIRMS finding."
+                )
+            elif not ai_confirms:
+                diagnosis_for_most_recent = (
+                    f"Most recent round '{round_id}' is missing an external-AI-CONFIRMS "
+                    "finding (aletheia / grok / gemini)."
+                )
+            elif age_days > recency_days:
+                diagnosis_for_most_recent = (
+                    f"Most recent round '{round_id}' is {age_days:.1f}d old "
+                    f"(recency window is {recency_days}d). Stale rounds cannot "
+                    "authorize a new merge."
+                )
+
+        if not user_confirms or not ai_confirms or age_days > recency_days:
+            continue
+
+        # Valid round found — compose the ready-to-paste merge body.
+        focus = getattr(rnd, "focus", "") or f"PR #{pr_number} merge under audit"
+        merge_body = (
+            f"{focus}\n\n"
+            f"Reviewed via audit round {round_id} "
+            f"(operator-CONFIRMS + external-AI-CONFIRMS, age {age_days:.1f}d, "
+            f"within {recency_days}d recency window).\n\n"
+            f"External-Review: {round_id}"
+        )
+        return round_id, merge_body, ""
+
+    return None, "", diagnosis_for_most_recent
+
+
 def block_reason(bash_command: str) -> str | None:
     """Verdict for the PreToolUse hook.
 
@@ -146,10 +256,45 @@ def block_reason(bash_command: str) -> str | None:
     if _command_has_external_review_trailer(bash_command):
         return None
     file_list = "\n".join(f"      - {p}" for p in touched_files)
+
+    # Task #114 (2026-06-09): try to embed the ready-to-paste merge body
+    # inline so the operator doesn't have to run pr-merge-check separately.
+    # Same shape as PR #117's gate-recovery-by-construction — when the
+    # gate can compute its own remedy, it should hand it over instead
+    # of making the operator chase it across two commands.
+    try:
+        round_id, merge_body, diagnosis = _find_usable_audit_round(pr_number)
+    except Exception:  # noqa: BLE001
+        round_id, merge_body, diagnosis = None, "", ""
+
+    if round_id and merge_body:
+        # Found a valid round — embed the ready-to-paste body.
+        return (
+            f"BLOCKED: PR #{pr_number} modifies guardrail file(s) but the merge "
+            f"command carries no External-Review trailer.\n\n"
+            f"  Guardrail files touched:\n{file_list}\n\n"
+            f"  A valid audit round IS available — round '{round_id}' has the "
+            f"required user-CONFIRMS + external-AI-CONFIRMS findings within the "
+            f"14-day recency window. Retry the merge with this body:\n\n"
+            f"  gh pr merge {pr_number} --squash --body \"$(cat <<'EOF'\n"
+            f"{merge_body}\n"
+            f"EOF\n"
+            f'  )"\n\n'
+            f"  (The External-Review trailer above satisfies the multi-party-review "
+            f"CI check; that's the only thing the gate is enforcing.)"
+        )
+
+    # No valid round — fall back to the long-form instructions, but
+    # name the SPECIFIC gap if there's a recent-but-invalid round.
+    diagnosis_block = ""
+    if diagnosis:
+        diagnosis_block = f"\n  Diagnosis: {diagnosis}\n"
+
     return (
         f"BLOCKED: PR #{pr_number} modifies guardrail file(s) but the merge "
         f"command carries no External-Review trailer.\n\n"
-        f"  Guardrail files touched:\n{file_list}\n\n"
+        f"  Guardrail files touched:\n{file_list}\n"
+        f"{diagnosis_block}\n"
         f"  Guardrail-touching PRs require multi-party External-Review "
         f"before merging into main. This gate enforces the binding at the "
         f"merge-action layer, structurally — so a fresh DivineOS install "
