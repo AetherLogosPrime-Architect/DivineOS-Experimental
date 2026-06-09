@@ -386,15 +386,31 @@ class TestSoftGateLowFrictionExemption:
         ],
     )
     def test_low_friction_write_passes_soft_gates(self, file_path, all_soft_gates_would_fire):
-        """A Write to a low-friction path returns None even when all
+        """A Write to a low-friction path is not denied even when all
         soft gates would otherwise fire — proves the routing works.
+
+        "Not denied" can be either:
+        - result is None (gate-stack stayed silent), OR
+        - result has permissionDecision == "allow" (an upstream gate
+          emitted informational context like briefing-session-rotation
+          but still allows the write through)
+
+        In CI the briefing-staleness gate often adds allow-context due
+        to session_id rotation between pytest workers — that's still
+        a pass for the routing test, since it's not a deny.
         """
         input_data = {
             "tool_name": "Write",
             "tool_input": {"file_path": file_path},
         }
         result = pre_hook._check_gates(input_data)
-        assert result is None, f"low-friction write to {file_path} should not be denied"
+        if result is None:
+            return
+        decision = (result.get("hookSpecificOutput") or {}).get("permissionDecision")
+        assert decision == "allow", (
+            f"low-friction write to {file_path} should not be denied; "
+            f"got {decision!r} with result {result!r}"
+        )
 
     @pytest.mark.parametrize(
         "file_path",
