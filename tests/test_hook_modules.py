@@ -262,6 +262,103 @@ class TestExplorationWriteExemption:
         assert isinstance(pre_hook._THEATER_EXEMPT_PATH_SEGMENTS, tuple)
 
 
+class TestCanonicalBypassList:
+    """Regression-pin for the shared bypass-list mechanism (task #98 / 2026-06-09).
+
+    The canonical bypass-list lives in scripts/hook_bypass_commands.txt
+    and is loaded by BOTH pre_tool_use_gate.py (Python) AND
+    .claude/hooks/_lib.sh's is_bypass_command (Bash). If they drift,
+    the locked-box trap re-emerges. These tests pin that the file is
+    parseable, contains bootstrap-essentials, and pre_tool_use_gate
+    loads it correctly.
+    """
+
+    def test_canonical_bypass_loads_nonempty(self):
+        """The loader must return a non-empty set. If the canonical file
+        disappears, the loader's fail-soft fallback still produces
+        something; this asserts the loader works.
+
+        (Earlier version walked the filesystem from ``__file__`` which
+        was brittle under test-order changes that mutated CWD. The
+        load-result is the actual property both Python and Bash depend on.)
+        """
+        loaded = pre_hook._load_bypass_subcommands()
+        assert len(loaded) > 0, (
+            "Canonical bypass-list loader returned empty set. Both "
+            "pre_tool_use_gate.py and .claude/hooks/_lib.sh's "
+            "is_bypass_command depend on this loader returning data. "
+            "Removing the canonical file re-introduces task #98 trap."
+        )
+
+    def test_canonical_bypass_loads_bootstrap_essentials(self):
+        """Bootstrap-essential subcommands MUST be loaded from the
+        canonical file. Without these, a fresh session cannot orient
+        itself: every gate with a 'run: divineos briefing' remedy would
+        point at a blocked command. Structural minimum to be bootable.
+        """
+        loaded = pre_hook._load_bypass_subcommands()
+        # Subcommands stored WITHOUT the "divineos " prefix in the loader.
+        required_subcommands = [
+            "briefing",
+            "ask",
+            "recall",
+            "hud",
+            "context",
+            "init",
+            "preflight",
+            "compass",
+            "compass-ops",
+            "directives",
+            "active",
+            "correction",
+            "corrections",
+            "learn",
+            "claim",
+            "claims",
+            "audit",
+            "prereg",
+            "extract",
+            "sleep",
+            "rt",
+        ]
+        for sub in required_subcommands:
+            assert sub in loaded, (
+                f"Bootstrap-essential bypass subcommand missing from loaded "
+                f"canonical: {sub!r}. Removing this from "
+                f"scripts/hook_bypass_commands.txt re-introduces a "
+                f"Finding-37-class catch-22."
+            )
+
+    def test_pre_tool_use_gate_has_canonical_loader(self):
+        """pre_tool_use_gate must have _load_bypass_subcommands loader.
+
+        Pins source-of-truth: if someone re-inlines the list, the
+        canonical file becomes ignored and bash hooks (which still
+        read the file) drift away from the Python view.
+        """
+        assert hasattr(pre_hook, "_load_bypass_subcommands"), (
+            "pre_tool_use_gate must have _load_bypass_subcommands loader. "
+            "If removed, the canonical-file mechanism is broken."
+        )
+        loaded = pre_hook._load_bypass_subcommands()
+        for essential in ("briefing", "ask", "recall", "claim", "rt", "extract"):
+            assert essential in loaded, (
+                f"Canonical loader missing essential bypass: {essential!r}. "
+                "Bash hooks reading the same file would still see it; drift "
+                "between Python and bash views recreates task #98 trap."
+            )
+
+    def test_module_bypass_set_matches_canonical_loader(self):
+        """The module-level _BYPASS_DIVINEOS_SUBCOMMANDS must equal what
+        the loader returns. Regression-pin against re-inlining."""
+        loaded = pre_hook._load_bypass_subcommands()
+        assert pre_hook._BYPASS_DIVINEOS_SUBCOMMANDS == loaded, (
+            "Module-level bypass set diverged from canonical loader. "
+            "Either the file changed mid-session, or someone re-inlined "
+            "the set ignoring the loader. Single-source-of-truth broken."
+        )
+
+
 class TestPreToolUseEntryPoint:
     """Integration-style tests of the main() entry point."""
 
