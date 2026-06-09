@@ -25,6 +25,10 @@ name: Integrity Audit
 on:
   pull_request:
     branches: [main]
+    # ready_for_review needed so the workflow fires when a draft PR is
+    # promoted out of draft state. Default activity types
+    # (opened/synchronize/reopened) skip the draft→ready transition.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -32,6 +36,12 @@ jobs:
   guardrail-trailer-check:
     name: multi-party-review
     runs-on: ubuntu-latest
+    # Draft PRs skip CI so pre-audit visibility doesn't accumulate red marks
+    # on the Actions page. The check still runs on push to main and on the
+    # ready_for_review transition (when audit is complete and the PR is
+    # promoted out of draft). Aletheia 2026-06-08 confirmed this is the
+    # mechanism — delay the run, don't defang the check.
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     steps:
       - name: Check out PR with full history
         uses: actions/checkout@v4
