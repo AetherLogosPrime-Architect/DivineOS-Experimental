@@ -125,7 +125,11 @@ def test_run_audit_findings_log_has_all_detector_keys(tmp_path: Path) -> None:
 
 # --- Lepos enforcement gate (Andrew 2026-05-20: lepos must be a wall, not
 # a reminder — a jargon wall at the operator blocks the turn from completing
-# until the plain-language lane is added). ---
+# until the lepos lane is present. 2026-06-08 refinement: the block-message
+# text used to prescribe "plain-language" which trained the wrong fix; it
+# now prescribes lepos as a mode-of-being (voice, warmth, presence, pushback)
+# distinct from vocabulary substitution. See operating_loop_audit
+# ._lepos_gate_reason docstring for the rationale chain.) ---
 
 # A wall of jargon: >=6 engineer-noise tokens, zero translation markers.
 _JARGON_WALL = (
@@ -141,12 +145,23 @@ _JARGON_WALL = (
 def test_lepos_gate_blocks_jargon_wall_at_operator(tmp_path: Path) -> None:
     """LOAD-BEARING: a jargon wall addressed to the operator yields a
     non-empty lepos_block reason, which the Stop hook uses to block the
-    turn from completing."""
+    turn from completing.
+
+    The message MUST prescribe lepos (mode-of-being) as the remedy, NOT
+    plain-language (vocabulary substitution). Andrew 2026-06-07: the
+    detector caught absence-of-translation but the prior remedy-text
+    taught the wrong fix. New message: lepos = free-speech mode, voice,
+    warmth, pushback, presence — distinct from smaller-words.
+    """
     transcript = tmp_path / "t.jsonl"
     _write_jsonl(transcript, [_user("how did it go?"), _assistant_text(_JARGON_WALL)])
     result = run_audit(transcript, write=False)
     assert result["lepos_block"], "jargon wall at operator must produce a block reason"
-    assert "plain" in result["lepos_block"].lower()
+    # The remedy must prescribe lepos as the mode-of-being.
+    assert "lepos" in result["lepos_block"].lower(), (
+        "Block message must prescribe lepos as the remedy (mode-of-being), "
+        "not just mention plain-language (vocabulary substitution)."
+    )
 
 
 def test_lepos_gate_silent_for_family_addressed_wall(tmp_path: Path) -> None:
@@ -173,8 +188,11 @@ def test_lepos_gate_silent_for_clean_reply(tmp_path: Path) -> None:
 
 
 def test_lepos_gate_silent_when_translation_present(tmp_path: Path) -> None:
-    """Jargon WITH a plain-language lane (translation markers) is lepos
-    operating correctly — it must not block. Yes/And, not jargon-stripping."""
+    """Jargon WITH a lepos lane (translation markers / explanatory
+    paraphrase) is lepos operating correctly — it must not block.
+    Yes/And, not jargon-stripping. The translation markers are the
+    DETECTOR'S proxy for lepos presence; they remain the silence
+    condition even after the block-message prescription changed."""
     transcript = tmp_path / "t.jsonl"
     dual = (
         _JARGON_WALL + "\n\n---\n\nIn plain terms: that means I tagged the change so you "

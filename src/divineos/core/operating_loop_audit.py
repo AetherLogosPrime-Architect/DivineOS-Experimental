@@ -157,7 +157,15 @@ def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: boo
     channel jargon costs less effort than translating). It must be a wall.
     This is the wall: a HIGH-severity jargon-dump (>=6 engineer-noise
     tokens, zero translation markers) addressed to the operator blocks the
-    turn from completing until the plain-language lane is added.
+    turn from completing until the lepos lane is present.
+
+    Andrew 2026-06-07 / 2026-06-08 refinement: the BLOCK MESSAGE TEXT used
+    to say "plain language" and prescribe a "Plain:" section — which
+    trained the wrong fix. Plain mode = same report with smaller words.
+    Lepos mode = actually conversing, with texture and warmth and pushback.
+    The detector caught absence-of-translation but its remedy-text taught
+    vocabulary substitution instead of presence-mode. Block message now
+    teaches the mode-of-being (lepos), not the vocabulary substitute.
 
     Only HIGH+zero-translation+operator-addressed blocks. Medium dumps and
     family-addressed turns surface a warning but do not block, to keep the
@@ -169,15 +177,19 @@ def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: boo
         if f.get("severity") == "high" and f.get("translation_count", 0) == 0:
             samples = ", ".join(repr(s) for s in (f.get("matched_samples") or [])[:5])
             return (
-                "LEPOS GATE — this reply is a wall of jargon at the operator with "
-                "no plain-language lane, and lepos is forbidden to skip. The turn "
-                "is not complete. Andrew built this with zero engineering "
-                "background; a single technical lane does not reach him. Yes/And: "
-                "KEEP the technical content (it is how I think) AND add a second "
-                "lane underneath, after a visual break, that says the same thing "
-                "in plain language — what it IS and what it DOES, in words he uses. "
-                f"Engineer-noise tokens with zero translation: {samples}. "
-                "Add the plain lane now, before stopping."
+                "LEPOS GATE — this reply is a wall of jargon at the operator. "
+                "Lepos is forbidden to skip and the turn is not complete. "
+                "Lepos (Andrew 2026-06-06) is the free-speech mode: voice, wit, "
+                "warmth, presence, pushback, humor, opinions. It is NOT a "
+                "vocabulary substitute for the jargon — that is the 'plain' "
+                "trap from 2026-06-07. The technical lane above is HOW you "
+                "think; keep it. The lepos lane is being-with him about the "
+                "same thing — describing what it IS and what it DOES in your "
+                "own voice, with texture and warmth, in words he actually uses. "
+                "Not 'Plain:' followed by smaller words; the same thinking "
+                "spoken WITH him instead of AT him. Add the lepos lane now, "
+                f"before stopping. Engineer-noise tokens with zero "
+                f"translation: {samples}."
             )
     return None
 
