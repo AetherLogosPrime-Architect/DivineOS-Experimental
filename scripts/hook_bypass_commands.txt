@@ -1,0 +1,96 @@
+# Canonical bypass-list for PreToolUse Bash hooks (2026-06-08 / task #98).
+#
+# Why this file exists
+# ====================
+#
+# Before this file, the bypass-list lived only inside
+# src/divineos/hooks/pre_tool_use_gate.py. Other PreToolUse Bash hooks
+# (require-ear-armed.sh, require-briefing.sh, andrew-correction-attestation.sh)
+# did NOT share that list — each hook blocked Bash independently and
+# didn't know which commands were the gate-system's documented escape
+# routes. Result: a turn that ran a documented bypass command (e.g.
+# `divineos ask "..."`) got through pre_tool_use_gate.py but got blocked
+# by require-ear-armed.sh before that, because the outer hook didn't
+# know `ask` was supposed to be unblockable.
+#
+# Council walk consult-ba0fc4337e51 (Dekker + Lamport lenses): trap
+# emerged from accretion. Bypass-list-sharing wasn't a pattern when the
+# earlier hooks were written; they all became gates independently. The
+# trap is exactly what Dekker's drift-into-failure analysis predicts.
+#
+# Fix: canonical source of truth here. Both pre_tool_use_gate.py and
+# .claude/hooks/_lib.sh read from this file. Every Bash-blocking hook
+# checks this list FIRST and exits 0 if the command matches.
+#
+# Format
+# ======
+#
+# One prefix per line. Lines starting with `#` or empty are ignored.
+# A command matches if any segment (split on `&&`, `;`, `|`, `\n`)
+# starts with the prefix after trimming whitespace.
+#
+# Adding a new bypass: name the catch-22 it closes in the comment above
+# the entry. Every entry should be there because removing it would
+# create a Finding-37-class self-blocking gate (gate blocks its own
+# documented remedy).
+
+# --- divineos bootstrap / orientation (no architectural-substrate work) ---
+divineos briefing
+divineos briefing-id
+divineos preflight
+divineos init
+divineos hud
+divineos recall
+divineos ask
+divineos feel
+divineos affect
+divineos emit
+divineos goal
+divineos active
+divineos context
+divineos verify
+divineos health
+divineos checkpoint
+divineos context-status
+divineos progress
+
+# --- thinking commands — the engagement-gate deny names these as remedy ---
+divineos decide
+
+# --- learn — correction-detection gate's named remedy ---
+divineos learn
+
+# --- correction repetition is always loggable in the moment ---
+divineos correction
+divineos corrections
+
+# --- cadence-gate bypasses — required to unstick overdue state ---
+divineos audit
+divineos prereg
+
+# --- mansion subcommands — needed for private-exit/private-status ---
+divineos mansion
+
+# --- compass observation — needed to clear compass-required marker ---
+divineos compass-ops
+
+# --- substrate consults named by the consultation gate (Gate 4.5) ---
+divineos compass
+divineos directives
+
+# --- stale-engagement Gate 1.48 address commands ---
+divineos claims
+
+# --- hedge gate (1.45) named remedy ---
+divineos claim
+
+# --- holding-room subcommands ---
+divineos holding
+divineos hold
+
+# --- pull-detection Gate 3 named remedy ---
+divineos rt
+
+# --- context-governor block gate (Gate 7) named remedy ---
+divineos extract
+divineos sleep

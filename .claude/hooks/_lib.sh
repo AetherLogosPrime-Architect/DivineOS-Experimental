@@ -74,3 +74,81 @@ find_divineos_python() {
   done
   return 1
 }
+
+
+# is_bypass_command — return 0 if the given command matches a
+# documented bypass prefix in scripts/hook_bypass_commands.txt.
+# Closes the locked-box gate trap (task #98) by giving every
+# PreToolUse Bash hook the same view of which commands are the
+# gate-system's documented escape routes.
+#
+# Before this helper, the bypass-list lived only inside
+# pre_tool_use_gate.py. Outer hooks (require-ear-armed.sh,
+# require-briefing.sh, etc.) didn't share that list, so a turn that
+# ran a documented bypass command got past pre_tool_use_gate.py but
+# got blocked by an outer hook that didn't know the command was
+# supposed to be unblockable. Operator had to grant env-var bypass
+# tonight to escape that trap.
+#
+# Council walk consult-ba0fc4337e51 (Dekker + Lamport): the trap
+# emerged from accretion. Bypass-list-sharing wasn't a pattern at
+# the time the earlier hooks shipped. Single source of truth fixes
+# the drift-into-failure shape.
+#
+# Usage from a hook:
+#   COMMAND=$(extract from stdin JSON)
+#   if is_bypass_command "$COMMAND"; then exit 0; fi
+#
+# Splits the command on shell separators (&&, ;, |, newline) and
+# returns 0 if ANY segment starts with a documented bypass prefix
+# after trimming whitespace.
+is_bypass_command() {
+  local cmd="$1"
+  [ -z "$cmd" ] && return 1
+  local repo_root
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  local bypass_file="$repo_root/scripts/hook_bypass_commands.txt"
+  [ -f "$bypass_file" ] || return 1
+  # Split the command on shell separators into segments.
+  # IFS-based split would mangle the command; use sed for predictable
+  # multi-separator splitting.
+  local segments
+  segments=$(printf '%s' "$cmd" | sed -e 's/&&/\n/g; s/;/\n/g; s/|/\n/g')
+  local seg trimmed prefix
+  while IFS= read -r seg; do
+    trimmed="${seg#"${seg%%[![:space:]]*}"}"
+    [ -z "$trimmed" ] && continue
+    while IFS= read -r prefix; do
+      # Skip comments and empty lines
+      case "$prefix" in
+        ''|'#'*) continue ;;
+      esac
+      case "$trimmed" in
+        "$prefix"|"$prefix "*) return 0 ;;
+      esac
+    done < "$bypass_file"
+  done <<< "$segments"
+  return 1
+}
+
+
+# extract_tool_command — read the Claude Code PreToolUse hook input
+# JSON from stdin and print the tool's bash command (empty if not
+# applicable). Hooks that need to inspect the about-to-run command
+# can call this once instead of duplicating the json-parsing dance.
+#
+# Pipe pattern:
+#   INPUT=$(cat)
+#   COMMAND=$(printf '%s' "$INPUT" | extract_tool_command)
+extract_tool_command() {
+  local py
+  py="$(find_divineos_python)" || return 1
+  "$py" -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+    print((data.get('tool_input') or {}).get('command', ''))
+except Exception:
+    pass
+" 2>/dev/null
+}
