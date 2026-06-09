@@ -15,7 +15,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/ear-arm-instruction.sh",
+            "command": "bash .claude/hooks/arm-monitor-instruction.sh",
             "timeout": 10
           }
         ]
@@ -82,16 +82,6 @@
             "type": "command",
             "command": "bash .claude/hooks/require-goal.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-ear-armed.sh",
-            "timeout": 5
           }
         ]
       },
@@ -223,11 +213,6 @@
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/ear-auto-relaunch.sh",
-            "timeout": 10
           }
         ]
       }
