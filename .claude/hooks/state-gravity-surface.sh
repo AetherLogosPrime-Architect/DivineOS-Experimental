@@ -52,7 +52,10 @@ elif tool_name in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
         file_paths = (str(fp),)
 
 try:
-    from divineos.core.gravity_classifier import score_substrate_modification
+    from divineos.core.gravity_classifier import (
+        borderline_indicator_substrate,
+        score_substrate_modification,
+    )
     gravity = score_substrate_modification(
         tool_name=tool_name,
         file_paths=file_paths,
@@ -63,6 +66,12 @@ except Exception:
 
 if not gravity.is_high_gravity:
     sys.exit(0)
+
+# Task #111: borderline-classification surface so the agent and operator
+# can sanity-check the routing before the gate fires its state-block dump.
+# score == 1 with one feature is fragile (single-feature flip silences it);
+# score >= 2 is well-supported.
+indicator = borderline_indicator_substrate(gravity)
 
 # High gravity: load and emit state blocks as additional context
 parts = []
@@ -84,10 +93,18 @@ for mod, fn in loaders:
 if not parts:
     sys.exit(0)
 
-# Emit as additionalContext via the Claude Code hook JSON shape
+# Emit as additionalContext via the Claude Code hook JSON shape.
+# Task #111: include borderline-classification + total-score so the
+# reasoning is sanity-checkable. \"borderline-single-feature\" means
+# score == 1 (any one feature flip would silence the gate); \"strong-
+# multi-feature\" means score >= 2 (well-supported routing decision).
+feature_list = ', '.join(gravity.fired_features)
+reasoning_line = (
+    f'score={gravity.score} ({indicator}); features fired: {feature_list}'
+)
 header = (
-    f'## SUBSTRATE-MODIFICATION-GRAVITY GATE FIRED '
-    f'({\", \".join(gravity.fired_features)})\n\n'
+    f'## SUBSTRATE-MODIFICATION-GRAVITY GATE FIRED ({feature_list})\n\n'
+    f'Routing reasoning: {reasoning_line}\n\n'
     'You are about to do substrate-touching work. The state blocks below '
     'load only when a substrate-modifying tool is about to fire — they did '
     'NOT load at UserPromptSubmit. Read them now; they hold what the '
