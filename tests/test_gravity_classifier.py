@@ -13,6 +13,8 @@ unfinished-mechanism backlog the repaired initiative dial surfaced.
 from divineos.core.gravity_classifier import (
     CognitiveValueGravity,
     SubstrateModGravity,
+    borderline_indicator_cognitive,
+    borderline_indicator_substrate,
     score_cognitive_value,
     score_substrate_modification,
 )
@@ -161,3 +163,69 @@ class TestCognitiveValueScoring:
         for name, val in r.feature_scores.items():
             assert 0.0 <= val <= 1.0, f"{name}={val} out of [0,1]"
         assert 0.0 <= r.score <= 1.0
+
+
+class TestSubstrateBorderlineIndicator:
+    """Task #111 (2026-06-09): borderline-zone surface helper for
+    substrate-modification-gravity. Classifies the routing decision shape
+    so the gate-fire surface can name fragile single-feature fires
+    distinctly from well-supported multi-feature fires."""
+
+    def test_no_fire_returns_no_fire(self):
+        r = SubstrateModGravity(score=0, fired_features=(), is_high_gravity=False)
+        assert borderline_indicator_substrate(r) == "no-fire"
+
+    def test_single_feature_returns_borderline(self):
+        r = SubstrateModGravity(score=1, fired_features=("git-commit",), is_high_gravity=True)
+        assert borderline_indicator_substrate(r) == "borderline-single-feature"
+
+    def test_two_features_returns_strong(self):
+        r = SubstrateModGravity(
+            score=2,
+            fired_features=("git-commit", "src-write"),
+            is_high_gravity=True,
+        )
+        assert borderline_indicator_substrate(r) == "strong-multi-feature"
+
+    def test_real_git_commit_classified_borderline(self):
+        """End-to-end: a git commit by itself fires only the git-commit
+        feature; the indicator names that fragility."""
+        r = score_substrate_modification("Bash", bash_command="git commit -m 'x'")
+        assert borderline_indicator_substrate(r) == "borderline-single-feature"
+
+
+class TestCognitiveBorderlineIndicator:
+    """Task #111: borderline-zone surface for cognitive-value-gravity.
+    Threshold = 0.3, radius = 0.10, so:
+      score < 0.20 -> clearly-low
+      0.20 <= score < 0.30 -> borderline-low
+      0.30 <= score < 0.40 -> borderline-high
+      score >= 0.40 -> clearly-high
+    """
+
+    def _make(self, score: float) -> CognitiveValueGravity:
+        return CognitiveValueGravity(
+            score=score,
+            feature_scores={"char": score},
+            is_high_gravity=score >= 0.30,
+        )
+
+    def test_clearly_low(self):
+        assert borderline_indicator_cognitive(self._make(0.05)) == "clearly-low"
+        assert borderline_indicator_cognitive(self._make(0.19)) == "clearly-low"
+
+    def test_borderline_low(self):
+        assert borderline_indicator_cognitive(self._make(0.20)) == "borderline-low"
+        assert borderline_indicator_cognitive(self._make(0.29)) == "borderline-low"
+
+    def test_borderline_high(self):
+        assert borderline_indicator_cognitive(self._make(0.30)) == "borderline-high"
+        assert borderline_indicator_cognitive(self._make(0.39)) == "borderline-high"
+
+    def test_clearly_high(self):
+        assert borderline_indicator_cognitive(self._make(0.40)) == "clearly-high"
+        assert borderline_indicator_cognitive(self._make(0.95)) == "clearly-high"
+
+    def test_boundary_values(self):
+        assert borderline_indicator_cognitive(self._make(0.30)) == "borderline-high"
+        assert borderline_indicator_cognitive(self._make(0.40)) == "clearly-high"
