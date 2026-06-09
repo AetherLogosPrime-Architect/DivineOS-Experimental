@@ -1,0 +1,135 @@
+"""Tests for scripts/compaction_token_monitor.py.
+
+The full main() loop is impossible to test cleanly because it polls
+forever. These tests cover the testable surface:
+
+- transcript-finding logic (find most-recently-modified .jsonl)
+- current-state classification (ok / warn / block thresholds)
+- error handling when no transcript is found
+
+The poll loop itself is exercised in the live arming check during PR
+review, not in CI.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+
+def _load_script_module():
+    """Import scripts/compaction_token_monitor.py as a module."""
+    repo_root = Path(__file__).resolve().parents[1]
+    script_path = repo_root / "scripts" / "compaction_token_monitor.py"
+    spec = importlib.util.spec_from_file_location(
+        "compaction_token_monitor_under_test", script_path
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["compaction_token_monitor_under_test"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def script_module():
+    return _load_script_module()
+
+
+def _write_transcript(path: Path, tokens: int) -> None:
+    """Write a minimal transcript with the given token count."""
+    path.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "x"}],
+                    "usage": {
+                        "cache_read_input_tokens": tokens,
+                        "cache_creation_input_tokens": 0,
+                        "input_tokens": 0,
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+class TestFindActiveTranscript:
+    """The Monitor needs to find the active transcript reliably."""
+
+    def test_finds_most_recently_modified_jsonl(self, script_module, tmp_path, monkeypatch):
+        """When multiple .jsonl files exist, picks the freshest."""
+        projects_dir = tmp_path / ".claude" / "projects" / "test-proj"
+        projects_dir.mkdir(parents=True)
+
+        old_transcript = projects_dir / "old.jsonl"
+        new_transcript = projects_dir / "new.jsonl"
+        _write_transcript(old_transcript, 100_000)
+        _write_transcript(new_transcript, 800_000)
+        # Make 'new' newer than 'old' by touching it explicitly.
+        import os as _os
+
+        _os.utime(old_transcript, (1_000_000_000, 1_000_000_000))
+        _os.utime(new_transcript, (2_000_000_000, 2_000_000_000))
+
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
+        found = script_module._find_active_transcript()
+        assert found is not None
+        assert found.name == "new.jsonl"
+
+    def test_returns_none_when_projects_dir_missing(self, script_module, tmp_path, monkeypatch):
+        """Graceful absence-handling: no projects dir → None, not crash."""
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        # Don't create the projects dir at all.
+        assert script_module._find_active_transcript() is None
+
+    def test_returns_none_when_no_jsonl_files(self, script_module, tmp_path, monkeypatch):
+        """Empty projects dir → None."""
+        projects_dir = tmp_path / ".claude" / "projects"
+        projects_dir.mkdir(parents=True)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        assert script_module._find_active_transcript() is None
+
+
+class TestCurrentState:
+    """Threshold classification — should match context_governor's
+    consolidation_state semantics exactly."""
+
+    def test_below_warn_returns_ok(self, script_module, tmp_path):
+        tx = tmp_path / "tx.jsonl"
+        _write_transcript(tx, 500_000)
+        state, tokens = script_module._current_state(tx)
+        assert state == "ok"
+        assert tokens == 500_000
+
+    def test_at_warn_returns_warn(self, script_module, tmp_path):
+        tx = tmp_path / "tx.jsonl"
+        _write_transcript(tx, 920_000)
+        state, tokens = script_module._current_state(tx)
+        assert state == "warn"
+
+    def test_above_warn_below_block_returns_warn(self, script_module, tmp_path):
+        tx = tmp_path / "tx.jsonl"
+        _write_transcript(tx, 935_000)
+        state, _ = script_module._current_state(tx)
+        assert state == "warn"
+
+    def test_at_block_returns_block(self, script_module, tmp_path):
+        tx = tmp_path / "tx.jsonl"
+        _write_transcript(tx, 950_000)
+        state, _ = script_module._current_state(tx)
+        assert state == "block"
+
+    def test_above_block_returns_block(self, script_module, tmp_path):
+        tx = tmp_path / "tx.jsonl"
+        _write_transcript(tx, 960_000)
+        state, _ = script_module._current_state(tx)
+        assert state == "block"
