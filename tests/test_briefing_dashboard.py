@@ -144,3 +144,54 @@ class TestDirectivesRow:
         output = render_dashboard()
         assert "Directives: 1" in output
         assert "law" not in output.split("Directives:")[1].split("\n")[0]
+
+
+class TestAdvicePendingRow:
+    """Task #113 (2026-06-09): the advice-pending row surfaces in the
+    briefing when there's pending advice, stays silent otherwise.
+    Respects no-track-records — informational, never a gate."""
+
+    def test_silent_when_no_pending_advice(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        output = render_dashboard()
+        # When there's no pending advice the row simply doesn't render.
+        assert "Advice Pending" not in output
+
+    def test_surfaces_pending_count(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.advice_tracking import record_advice
+
+        record_advice(
+            content="Use the gravity classifier surface to flag borderline calls",
+            category="diagnostic",
+        )
+        record_advice(
+            content="Always pair preregs with a falsifier",
+            category="discipline",
+        )
+        output = render_dashboard()
+        assert "Advice Pending" in output
+        assert "divineos advice pending" in output
+
+    def test_row_function_returns_none_when_empty(self, tmp_path, monkeypatch):
+        """The _row_advice_pending helper itself returns None when
+        nothing's pending — pins the contract the dashboard relies on."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.briefing_dashboard import _row_advice_pending
+
+        assert _row_advice_pending() is None
+
+    def test_row_function_returns_row_when_present(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.advice_tracking import record_advice
+        from divineos.core.briefing_dashboard import DashboardRow, _row_advice_pending
+
+        record_advice(
+            content="Surface pending advice in briefing",
+            category="diagnostic",
+        )
+        row = _row_advice_pending()
+        assert isinstance(row, DashboardRow)
+        assert row.area == "Advice Pending"
+        assert row.count == 1
+        assert row.drill_down == "divineos advice pending"
