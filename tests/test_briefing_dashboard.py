@@ -144,3 +144,90 @@ class TestDirectivesRow:
         output = render_dashboard()
         assert "Directives: 1" in output
         assert "law" not in output.split("Directives:")[1].split("\n")[0]
+
+
+class TestAuditSurprisesRow:
+    """Task #116 (2026-06-09): the audit-surprises row surfaces the
+    unknown-unknown rate — findings tagged ``surprise`` against the
+    total finding count. Surface stays silent when no surprises exist."""
+
+    def test_silent_when_no_findings(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        output = render_dashboard()
+        # No findings → no row.
+        assert "Audit surprises" not in output
+
+    def test_silent_when_no_surprise_tagged_finding(self, tmp_path, monkeypatch):
+        """Findings exist but none are tagged surprise → row stays silent."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.watchmen.store import submit_finding, submit_round
+        from divineos.core.watchmen.types import FindingCategory, Severity
+
+        round_id = submit_round(actor="user", focus="test round")
+        submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity=Severity.LOW,
+            category=FindingCategory.ARCHITECTURE,
+            title="plain non-surprise finding",
+            description="not a surprise",
+        )
+        output = render_dashboard()
+        assert "Audit surprises" not in output
+
+    def test_surfaces_when_surprise_tagged(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.watchmen.store import submit_finding, submit_round
+        from divineos.core.watchmen.types import FindingCategory, Severity
+
+        round_id = submit_round(actor="user", focus="test round")
+        submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity=Severity.MEDIUM,
+            category=FindingCategory.ARCHITECTURE,
+            title="something genuinely unexpected",
+            description="this caught us off guard",
+            tags=["surprise"],
+        )
+        output = render_dashboard()
+        assert "Audit surprises" in output
+        assert "divineos audit list --tag surprise" in output
+
+    def test_helper_returns_none_when_no_surprises(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.briefing_dashboard import _row_audit_surprises
+
+        assert _row_audit_surprises() is None
+
+    def test_helper_returns_row_with_rate_when_surprises_exist(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.briefing_dashboard import DashboardRow, _row_audit_surprises
+        from divineos.core.watchmen.store import submit_finding, submit_round
+        from divineos.core.watchmen.types import FindingCategory, Severity
+
+        round_id = submit_round(actor="user", focus="test round")
+        # 1 surprise out of 4 → 25% rate.
+        submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity=Severity.HIGH,
+            category=FindingCategory.ARCHITECTURE,
+            title="the surprise one",
+            description="unexpected finding",
+            tags=["surprise"],
+        )
+        for i in range(3):
+            submit_finding(
+                round_id=round_id,
+                actor="user",
+                severity=Severity.LOW,
+                category=FindingCategory.ARCHITECTURE,
+                title=f"plain finding {i}",
+                description="not a surprise",
+            )
+        row = _row_audit_surprises()
+        assert isinstance(row, DashboardRow)
+        assert row.area == "Audit surprises"
+        assert row.count == 1
+        assert "25" in row.detail  # 25.0%
