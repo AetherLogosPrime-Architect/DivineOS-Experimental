@@ -178,6 +178,40 @@ _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
 )
 
 
+# Code-file extensions that disqualify a path from the leisure-writing
+# exemption even if it lives under an exempt directory. Fable 5 audit
+# Finding 5 / 2026-06-09: the previous matcher had no such guard, so
+# `exploration/gates.py` qualified for the exemption that's supposed to
+# encode "this is non-code writing." If the intent is relational
+# expression, the file is virtually never source code.
+_CODE_FILE_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".py",
+        ".pyi",
+        ".pyx",
+        ".sh",
+        ".bash",
+        ".js",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".go",
+        ".rs",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".java",
+        ".rb",
+        ".php",
+        ".sql",
+        ".toml",
+        ".yaml",
+        ".yml",
+    }
+)
+
+
 def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
     """True if the tool is a Write/Edit to a low-friction exemption path.
 
@@ -200,21 +234,73 @@ def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
     to a family member is not code work — it's a relational expression
     whose discipline lives elsewhere (the family-letter skill itself
     requires a goal and grounds in the recipient's state).
+
+    Fable 5 audit Finding 5 fix (2026-06-09): the previous matcher used
+    unanchored substring matching, which meant ``exploration/../core/
+    ledger.py`` (path traversal landing in core) and ``data/mansion/
+    config.py`` (a code file under a substring-matching directory) both
+    silently received the exemption. The fix:
+      1. Resolve ``..`` via PurePosixPath so traversal collapses.
+      2. Match low-friction segments against directory ancestors, not
+         arbitrary substrings of the path.
+      3. Reject code-file extensions (.py / .sh / .ts / .yml / etc) —
+         a code file under an exempt directory is still code work.
     """
     try:
+        from pathlib import PurePosixPath
+
         tool_name = input_data.get("tool_name", "") or ""
         if tool_name not in {"Write", "Edit", "MultiEdit", "NotebookEdit"}:
             return False
         file_path = input_data.get("tool_input", {}).get("file_path", "") or ""
         if not file_path:
             return False
+
+        # Normalize separators + resolve ``..`` segments. PurePosixPath
+        # collapses ``a/b/../c`` to ``a/c`` without touching the disk.
         normalized = file_path.replace("\\", "/")
+        try:
+            resolved_parts: list[str] = []
+            for part in PurePosixPath(normalized).parts:
+                if part == "..":
+                    if resolved_parts:
+                        resolved_parts.pop()
+                    # ``..`` past the root drops it — paths like
+                    # ``exploration/../core/x.py`` resolve to
+                    # ``core/x.py`` which won't match any exempt dir.
+                elif part != ".":
+                    resolved_parts.append(part)
+            resolved = "/" + "/".join(p.strip("/") for p in resolved_parts if p)
+            # Empty after resolution → can't be exempt.
+            if resolved == "/":
+                return False
+        except (ValueError, IndexError):
+            return False
+
+        # Code-file extensions disqualify regardless of directory.
+        # A .py under exploration/ is still code work.
+        ext = ""
+        if "." in resolved_parts[-1]:
+            ext = "." + resolved_parts[-1].rsplit(".", 1)[-1].lower()
+        if ext in _CODE_FILE_SUFFIXES:
+            return False
+
+        # Now check: does any segment appear as a true directory ancestor?
+        # Segments are stored as "/exploration/" etc; we want the segment
+        # without trailing slash to appear as a *component* of the path,
+        # not anywhere in the path string.
+        path_components = set(resolved_parts[:-1])  # excludes filename
         for segment in _LOW_FRICTION_PATH_SEGMENTS:
-            # Segment is "/exploration/" — match if it appears anywhere
-            # in the path OR if the path starts with the segment minus
-            # leading slash (relative path case).
-            if segment in normalized or normalized.startswith(segment.lstrip("/")):
-                return True
+            seg_name = segment.strip("/")
+            # Multi-component segment like "family/letters" — match the
+            # joined chain.
+            if "/" in seg_name:
+                joined = "/" + "/".join(resolved_parts[:-1])
+                if "/" + seg_name + "/" in joined + "/":
+                    return True
+            else:
+                if seg_name in path_components:
+                    return True
         return False
     except (AttributeError, TypeError):
         return False
