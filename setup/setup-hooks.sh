@@ -44,7 +44,11 @@ ruff format --check src/ tests/ || {
     echo "Auto-staging formatted .py files that were already staged..."
     # Only re-stage already-staged files. Working-tree-only changes
     # stay unstaged so the operator's intent is preserved.
-    git diff --cached --name-only --diff-filter=ACM | grep -E '\.py\$' | xargs --no-run-if-empty git add
+    # 2026-06-09: was '\.py\$' (escaped dollar) which matched literal
+    # backslash-dollar instead of files ending in .py. The grep returned
+    # empty, xargs got nothing, re-staging silently did nothing, and CI
+    # ate the ruff failure on every PR. The fix is one character: '\.py$'.
+    git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' | xargs --no-run-if-empty git add
     echo "Re-checking format after auto-stage..."
     ruff format --check src/ tests/ || {
         echo "Format still failing after auto-format — investigate manually."
