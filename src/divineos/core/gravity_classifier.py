@@ -230,9 +230,70 @@ def score_cognitive_value(
     )
 
 
+# Borderline-zone bounds for cognitive-value-gravity surface reasoning.
+# Within +/- _COG_BORDERLINE_RADIUS of _COG_VALUE_THRESHOLD, the routing
+# decision is fragile — small input differences flip the gate behavior.
+# Surface the score + feature breakdown for sanity-check.
+_COG_BORDERLINE_RADIUS = 0.10
+
+
+def borderline_indicator_substrate(gravity: SubstrateModGravity) -> str:
+    """Classify substrate-mod-gravity by reasoning shape for surface display.
+
+    Returns a short label so the operator (and the agent reading the surface)
+    can sanity-check the routing decision before it fires gates.
+
+    - "no-fire": score == 0, no feature fired; gate does NOT fire.
+    - "borderline-single-feature": score == 1, exactly one feature fired;
+      gate fires but the call is fragile — one feature flip would silence it.
+      The fired feature's identity matters for sanity-check.
+    - "strong-multi-feature": score >= 2, multiple independent features fired;
+      gate fires with high confidence; the routing is well-supported.
+
+    Task #111 (2026-06-09): borderline cases benefit from reasoning surface
+    in the gate-fire context so the operator and agent can verify the
+    classification matches intent.
+    """
+    if gravity.score == 0:
+        return "no-fire"
+    if gravity.score == 1:
+        return "borderline-single-feature"
+    return "strong-multi-feature"
+
+
+def borderline_indicator_cognitive(gravity: CognitiveValueGravity) -> str:
+    """Classify cognitive-value-gravity by reasoning shape for surface display.
+
+    Returns a short label so the consumer can sanity-check the
+    oscillation-mode trigger decision.
+
+    - "clearly-low": score < threshold - radius; gate does NOT fire,
+      reasoning is decisive.
+    - "borderline-low": threshold - radius <= score < threshold; near the
+      cutoff but does NOT fire; one feature bump would flip it.
+    - "borderline-high": threshold <= score < threshold + radius; fires
+      but barely; the call is fragile.
+    - "clearly-high": score >= threshold + radius; fires decisively.
+
+    Task #111 (2026-06-09): the two "borderline" cases warrant feature-
+    breakdown surface for sanity-check.
+    """
+    low = _COG_VALUE_THRESHOLD - _COG_BORDERLINE_RADIUS
+    high = _COG_VALUE_THRESHOLD + _COG_BORDERLINE_RADIUS
+    if gravity.score < low:
+        return "clearly-low"
+    if gravity.score < _COG_VALUE_THRESHOLD:
+        return "borderline-low"
+    if gravity.score < high:
+        return "borderline-high"
+    return "clearly-high"
+
+
 __all__ = [
     "SubstrateModGravity",
     "CognitiveValueGravity",
     "score_substrate_modification",
     "score_cognitive_value",
+    "borderline_indicator_substrate",
+    "borderline_indicator_cognitive",
 ]

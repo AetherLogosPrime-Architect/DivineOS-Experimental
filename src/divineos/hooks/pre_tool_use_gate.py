@@ -60,90 +60,54 @@ import sys
 from typing import Any
 
 
-_BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
-    {
-        # Bootstrap / orientation — always allowed
-        "briefing",
-        "preflight",
-        "init",
-        "hud",
-        "recall",
-        "ask",
-        "feel",
-        "affect",
-        "emit",
-        "goal",
-        "active",
-        "context",
-        "verify",
-        "health",
-        "checkpoint",
-        "context-status",
-        "progress",
-        # Thinking commands — the engagement-gate deny message names these
-        # as the way to clear the block, so they must not themselves be blocked.
-        # (ask, recall, context are already above in bootstrap list.)
-        "decide",
-        # learn — named in the correction-detection gate deny message as
-        # the way to clear the marker. Must bypass or we get a catch-22:
-        # correction fires → learn blocked → marker can never be cleared.
-        # Discovered live 2026-04-23 when the gate blocked its own remedy.
-        "learn",
-        # Correction repetition is always loggable in the moment
-        "correction",
-        "corrections",
-        # Cadence-gate bypasses — required to unstick the overdue state
-        "audit",
-        "prereg",
-        # Mansion subcommands — needed for private-exit/private-status to
-        # work during a quiet period (otherwise the quiet gate would
-        # block the way to leave it). All mansion subcommands are
-        # inspection / state-management; none generate substantive code.
-        "mansion",
-        # Compass observation — needed during a quiet period both for
-        # honest position tracking and for clearing the compass-required
-        # marker if it fires. compass-ops observe is recording, not
-        # prose generation.
-        "compass-ops",
-        # Substrate consults named by the consultation gate (Gate 4.5) as
-        # the way to clear it. They MUST bypass or the gate blocks its own
-        # remedy (the catch-22 named 2026-04-23). `compass` and `directives`
-        # are read-only consults; ask/recall/active/corrections already above.
-        "compass",
-        "directives",
-        # Stale-engagement Gate 1.48 address commands (Aletheia
-        # round-5cdc2f48c642 Finding 37 — catch-22): the block message
-        # for Gate 1.48 instructs running these commands to clear stale
-        # areas. They MUST bypass or we replay the learn catch-22 from
-        # 2026-04-23 (gate blocks the way to leave it). The structural
-        # test test_stale_engagement_address_bypass.py auto-verifies
-        # every address-command in _AREA_ADDRESS_EVENTS is here.
-        "claims",
-        # Hedge gate (1.45) names `divineos claim "..."` (SINGULAR) as its
-        # remedy to discharge unresolved hedges, but only "claims" (plural,
-        # the browse command) was bypassed — so the hedge gate blocked the
-        # very command that clears it. Second instance of the same catch-22
-        # family found in the 2026-05-27 root-cause survey (round-75bc0b0ca922).
-        "claim",
-        "holding",
-        "hold",
-        # Pull-detection Gate 3 names `divineos rt pull-check` as its remedy
-        # ("Run: divineos rt pull-check to reassess"). The whole rt namespace
-        # is RT-protocol inspection/state — pull-check, pull-markers, status,
-        # load, invoke, deactivate, text — none generate substantive code, so
-        # bypassing it is safe and closes a Finding-37-class catch-22: a gate
-        # must never block its own remedy. Verified 2026-05-27 (rt --help).
-        "rt",
-        # Context-governor block gate (Gate 7) names `divineos extract` then
-        # `divineos sleep` as the channel that lifts the hard-line block. Both
-        # MUST bypass or the gate blocks its own remedy (Finding-37 class): at
-        # the hard line every substrate-write is denied, and extract/sleep ARE
-        # the way to weave-and-clear. Consolidation/recording, not code
-        # generation. Named 2026-05-27 (prereg-9b958c6493f3).
-        "extract",
-        "sleep",
-    }
-)
+def _load_bypass_subcommands() -> frozenset[str]:
+    """Load the canonical bypass-list from scripts/hook_bypass_commands.txt.
+
+    2026-06-09 fix (task #98 locked-box trap): the bypass-list used to be
+    inlined here, which meant other PreToolUse Bash hooks (require-
+    ear-armed.sh, etc.) couldn't share it — they'd block documented
+    bypass commands before they reached this Python module. Now BOTH
+    this module AND .claude/hooks/_lib.sh's is_bypass_command read from
+    the same canonical file. Single source of truth, no duplication
+    drift. Council walk consult-ba0fc4337e51 (Dekker + Lamport): the
+    trap was drift-into-failure from accreted-not-designed gate
+    layering.
+
+    File format: one ``divineos <subcommand>`` prefix per line, ``#``
+    for comments, blank lines ignored. We extract just the subcommand
+    after ``divineos `` for fast set-membership check on the matched
+    regex group.
+
+    Fail-soft: if the file is missing or unreadable, return the
+    bootstrap-essential minimum so the system stays bootable.
+    """
+    from pathlib import Path
+
+    # Walk up from this file to find repo root (src/divineos/hooks/<file>).
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "scripts" / "hook_bypass_commands.txt"
+        if candidate.exists():
+            try:
+                subs: set[str] = set()
+                for line in candidate.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    # Format: "divineos <subcommand>"
+                    parts = line.split(None, 1)
+                    if len(parts) == 2 and parts[0] == "divineos":
+                        subs.add(parts[1].strip())
+                if subs:
+                    return frozenset(subs)
+            except OSError:
+                pass
+            break
+    # Fail-soft minimum to keep bootstrap working.
+    return frozenset({"briefing", "ask", "recall", "hud", "context", "init", "preflight"})
+
+
+_BYPASS_DIVINEOS_SUBCOMMANDS = _load_bypass_subcommands()
 
 # Dev / read-only commands that don't require gates
 _DEV_PREFIXES = (
