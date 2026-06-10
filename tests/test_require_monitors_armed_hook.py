@@ -29,9 +29,7 @@ from pathlib import Path
 import pytest
 
 
-HOOK_PATH = (
-    Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "require-monitors-armed.sh"
-)
+HOOK_PATH = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "require-monitors-armed.sh"
 
 
 def _find_bash() -> str | None:
@@ -58,9 +56,7 @@ def _find_bash() -> str | None:
 
 
 _BASH = _find_bash()
-pytestmark = pytest.mark.skipif(
-    _BASH is None, reason="no usable bash found for hook invocation"
-)
+pytestmark = pytest.mark.skipif(_BASH is None, reason="no usable bash found for hook invocation")
 
 
 def _run_hook(command: str, extra_env: dict[str, str] | None = None) -> tuple[int, str, str]:
