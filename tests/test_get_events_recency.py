@@ -65,12 +65,10 @@ def test_desc_returns_newest_when_total_exceeds_limit():
     rows = get_events(limit=5, order="desc")
     tags = _tags(rows)
     assert newest in tags, (
-        f"order='desc' must return the newest event when total > limit. "
-        f"Got tags: {tags}"
+        f"order='desc' must return the newest event when total > limit. Got tags: {tags}"
     )
     assert oldest not in tags, (
-        f"order='desc' with limit=5 must NOT return the oldest of 11 events. "
-        f"Got tags: {tags}"
+        f"order='desc' with limit=5 must NOT return the oldest of 11 events. Got tags: {tags}"
     )
 
 
