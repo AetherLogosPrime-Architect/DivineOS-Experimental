@@ -251,6 +251,77 @@ class TestClaimCmd:
         assert result.exit_code == 0
         assert "Claim filed" in result.output
 
+    def test_claim_with_confidence_emits_calibration_anchor(self, initialized):
+        # 2026-06-07 task #68: when --confidence is supplied, the claim-
+        # filing flow auto-fires the calibration anchor BEFORE filing,
+        # so historical accuracy at that confidence is visible at the
+        # moment of decision. Will-over-optimizer pattern: the anchor
+        # was 0 invocations because it depended on me typing it; now it
+        # fires by structure.
+        result = initialized.invoke(
+            cli,
+            [
+                "claim",
+                "A confident assertion about something",
+                "--tier",
+                "4",
+                "--confidence",
+                "0.7",
+                "--confidence-basis",
+                "intuition from analogous case",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        # The anchor block must appear in the output, before the claim-
+        # filed line. Empty-history case prints the "(no historical data)"
+        # comparison line — either path counts as the wire firing.
+        assert "Calibration anchor" in result.output, (
+            "anchor wire did not fire — output:\n" + result.output
+        )
+        # And the claim still files normally after the anchor.
+        assert "Claim filed" in result.output
+
+    def test_claim_without_confidence_no_anchor_emitted(self, initialized):
+        # Backward-compat: filing WITHOUT --confidence (the default,
+        # uncommitted-credence path) must not emit the anchor block.
+        result = initialized.invoke(
+            cli,
+            ["claim", "Uncommitted statement", "--tier", "4"],
+        )
+        assert result.exit_code == 0
+        assert "Calibration anchor" not in result.output
+        assert "Claim filed" in result.output
+
+    def test_claim_anchor_fail_soft_does_not_block_filing(self, initialized, monkeypatch):
+        # BLOCK case (per 2026-06-07 broken-gate-all-day lesson): if the
+        # calibration anchor itself raises an exception, claim filing
+        # MUST proceed regardless. The anchor is observational, not a
+        # gate. Simulate the failure by monkeypatching the anchor function
+        # to raise; assert the claim still files.
+        from divineos.core.calibration import brier
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("simulated calibration store unavailable")
+
+        monkeypatch.setattr(brier, "historical_accuracy_at_confidence", boom)
+        result = initialized.invoke(
+            cli,
+            [
+                "claim",
+                "Still-files-on-anchor-failure",
+                "--tier",
+                "4",
+                "--confidence",
+                "0.5",
+                "--confidence-basis",
+                "guess",
+            ],
+        )
+        assert result.exit_code == 0, (
+            "anchor exception must not block claim filing — output:\n" + result.output
+        )
+        assert "Claim filed" in result.output
+
     def test_claim_with_tier(self, initialized):
         # Per outgoing-claim methodology gate (Andrew 2026-05-18 evening):
         # tier 1-3 claims must carry --promotes / --demotes evidence or

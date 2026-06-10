@@ -45,7 +45,7 @@ except Exception:
 # continuation, let the next one through (the operator's non-response is
 # the backstop for a rare double-flood).
 try:
-    reason = (result or {}).get('lepos_block') or (result or {}).get('unverified_claim_block')
+    reason = (result or {}).get('lepos_block') or (result or {}).get('unverified_claim_block') or (result or {}).get('lepos_debt_block')
     already_active = bool(data.get('stop_hook_active'))
     if reason and not already_active:
         print(json.dumps({'decision': 'block', 'reason': reason}))

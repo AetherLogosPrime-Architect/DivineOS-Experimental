@@ -106,6 +106,26 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-pending-obligations.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-branch-on-push.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
           {

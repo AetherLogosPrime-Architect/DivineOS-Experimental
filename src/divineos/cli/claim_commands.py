@@ -112,6 +112,52 @@ def register(cli: click.Group) -> None:
             )
             raise click.exceptions.Exit(1)
 
+        # 2026-06-07 task #68: auto-fire calibration anchor when --confidence
+        # is supplied. The Dunning-Kruger anchor — surfaces miscalibration
+        # BEFORE the claim commits to the substrate. Will-over-optimizer
+        # pattern: the choice "should I check my historical accuracy at
+        # this confidence" gets answered ONCE by deliberation, then structure
+        # carries it forward. Without this wire-up, the anchor sits dormant
+        # at 0 invocations (the walkthrough finding that surfaced this task).
+        #
+        # Surface, don't block — the anchor is INFORMATION, not a gate. The
+        # data itself is the structural change. If usage shows the anchor is
+        # being ignored, a future task can tighten to a soft-block on extreme
+        # miscalibration (e.g., asserting 0.9 when historical is 0.4).
+        if confidence is not None:
+            try:
+                from divineos.core.calibration.brier import (
+                    historical_accuracy_at_confidence,
+                )
+
+                anchor = historical_accuracy_at_confidence(confidence, tier=tier, window=0.1)
+                click.secho(
+                    f"=== Calibration anchor at {confidence:.0%} (tier {tier}) ===",
+                    fg="cyan",
+                )
+                if anchor.get("accuracy") is None:
+                    click.secho(
+                        f"  {anchor.get('comparison', '(no historical data)')}",
+                        fg="bright_black",
+                    )
+                else:
+                    click.secho(
+                        f"  n: {anchor['n']} prior similar claims",
+                        fg="white",
+                    )
+                    click.secho(
+                        f"  historical accuracy: {anchor['accuracy']:.0%}",
+                        fg="white",
+                    )
+                    click.secho(
+                        f"  {anchor['comparison']}",
+                        fg="bright_black",
+                    )
+            except Exception:  # noqa: BLE001 — anchor is observational
+                # Fail-soft: calibration data missing / new install /
+                # I/O error → silently skip. Never blocks claim filing.
+                pass
+
         try:
             claim_id = file_claim(
                 statement=statement,

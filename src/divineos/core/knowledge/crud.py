@@ -189,6 +189,7 @@ def get_knowledge(
     tags: list[str] | None = None,
     include_superseded: bool = False,
     integration_state: str | None = None,
+    source_entity: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """Query knowledge with optional filters.
@@ -197,6 +198,12 @@ def get_knowledge(
       - None (default): all states — used by ask/recall/search/audit/sleep
       - "active": foreground only — used by briefing/active-memory surfacers
       - "internalized" / "archived": filter to that specific state
+
+    source_entity:
+      - None (default): all sources
+      - "andrew" / "agent" / "aria" / "aletheia" / etc.: filter to that source
+      - Per prereg-902656c818d4 (Curator-borrowing: namespacing — islands keep
+        stores from contaminating, even though they share underlying schema).
     """
     conn = _get_connection()
     try:
@@ -220,6 +227,9 @@ def get_knowledge(
         if integration_state is not None:
             conditions.append("COALESCE(integration_state, 'active') = ?")
             params.append(integration_state)
+        if source_entity is not None:
+            conditions.append("source_entity = ?")
+            params.append(source_entity)
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -233,38 +243,62 @@ def get_knowledge(
         conn.close()
 
 
-def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
+def search_knowledge(
+    query: str,
+    limit: int = 50,
+    source_entity: str | None = None,
+) -> list[dict[str, Any]]:
     """Search knowledge using FTS5 full-text search with BM25 relevance ranking.
 
     Falls back to LIKE-based search if FTS5 table doesn't exist yet.
+
+    source_entity (per prereg-902656c818d4 — Curator-borrowing: namespacing):
+      Filter results to entries from a specific source ('andrew', 'agent',
+      'aria', 'aletheia', etc.). None (default) means all sources.
     """
     fts_query = _build_fts_query(query)
     conn = _get_connection()
     try:
+        extra_where = ""
+        params: list[Any] = [fts_query]
+        if source_entity is not None:
+            extra_where = " AND k.source_entity = ?"
+            params.append(source_entity)
+        params.append(limit)
         query_str = f"""SELECT {_KNOWLEDGE_COLS_K}
                FROM knowledge_fts fts
                JOIN knowledge k ON k.rowid = fts.rowid
                WHERE knowledge_fts MATCH ?
                  AND k.superseded_by IS NULL
-                 AND k.confidence >= {CONFIDENCE_RETRIEVAL_FLOOR}
+                 AND k.confidence >= {CONFIDENCE_RETRIEVAL_FLOOR}{extra_where}
                ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
                LIMIT ?"""  # nosec B608
-        rows = conn.execute(query_str, (fts_query, limit)).fetchall()
+        rows = conn.execute(query_str, tuple(params)).fetchall()
         return [_row_to_dict(row) for row in rows]
     except sqlite3.OperationalError:
         # FTS table doesn't exist yet — fall back to LIKE search
-        return _search_knowledge_legacy(query, limit)
+        return _search_knowledge_legacy(query, limit, source_entity=source_entity)
     finally:
         conn.close()
 
 
-def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
+def _search_knowledge_legacy(
+    keyword: str,
+    limit: int = 50,
+    source_entity: str | None = None,
+) -> list[dict[str, Any]]:
     """Legacy LIKE-based search. Used when FTS5 table doesn't exist."""
     conn = _get_connection()
     try:
+        extra_where = ""
+        params: list[Any] = [f"%{keyword}%", f"%{keyword}%"]
+        if source_entity is not None:
+            extra_where = " AND source_entity = ?"
+            params.append(source_entity)
+        params.append(limit)
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",  # nosec B608
-            (f"%{keyword}%", f"%{keyword}%", limit),
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} AND (content LIKE ? OR tags LIKE ?){extra_where} ORDER BY updated_at DESC LIMIT ?",  # nosec B608
+            tuple(params),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
     finally:

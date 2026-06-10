@@ -120,7 +120,12 @@ def register(cli: click.Group) -> None:
                 pass  # anticipation is best-effort
 
     @cli.command("active")
-    def active_cmd() -> None:
+    @click.option(
+        "--explain",
+        is_flag=True,
+        help="Show why each entry surfaced (Curator-borrowing: recall-explains-why).",
+    )
+    def active_cmd(explain: bool) -> None:
         """List active memory ranked by importance."""
         try:
             from divineos.core.consultation_tracker import record_query
@@ -161,6 +166,12 @@ def register(cli: click.Group) -> None:
                 f"         reason: {item['reason']} | surfaced: {item['surface_count']}x",
                 fg="bright_black",
             )
+            if explain:
+                from divineos.core.active_memory import explain_importance
+
+                why = explain_importance(item)
+                if why:
+                    click.secho(f"         why: {'; '.join(why)}", fg="bright_black")
             click.echo()
 
     @cli.command("remember")
