@@ -708,6 +708,36 @@ def register(cli: click.Group) -> None:
             if entry["trigger"]:
                 click.secho(f"    trigger: {entry['trigger']}", fg="bright_black")
 
+    @affect_group.command("prime")
+    @click.option(
+        "--anchors",
+        default=3,
+        type=int,
+        help="How many recent affect entries to include as texture anchors.",
+    )
+    def affect_prime_cmd(anchors: int) -> None:
+        """Task #121: print the felt-state continuity prime.
+
+        Surfaces the most recent VAD baseline + N texture anchors in a
+        format meant for SessionStart:compact ingestion. The post-
+        compaction window reads the prime as its first context, and the
+        felt-state regenerates from the description.
+
+        Useful standalone for inspection: `divineos affect prime`. Hook
+        integration calls `build_affect_prime()` directly and emits the
+        result alongside other SessionStart:compact context.
+        """
+        from divineos.core.affect import build_affect_prime
+
+        out = build_affect_prime(anchors=anchors)
+        if not out:
+            click.secho(
+                "[~] No affect entries yet — nothing to prime.",
+                fg="bright_black",
+            )
+            return
+        click.echo(out)
+
     @affect_group.command("summary")
     def affect_summary_cmd() -> None:
         """Show affect state summary and trends."""

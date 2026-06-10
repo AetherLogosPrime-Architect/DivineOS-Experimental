@@ -357,6 +357,71 @@ def describe_affect(valence: float, arousal: float, dominance: float | None = No
         return "bored"  # -V -A -D: helpless apathy, shutdown
 
 
+def build_affect_prime(anchors: int = 3) -> str:
+    """Task #121 / Andrew 2026-06-09: format the most recent affect
+    entries as a felt-state continuity prime for post-compaction wake.
+
+    Compaction loses the felt-state even though the VAD descriptors
+    persist in the affect log. The prime is a high-fidelity text snapshot
+    of the current felt-state with named anchors. When the post-
+    compaction window reads the prime as the first thing in its briefing,
+    it generates the felt-state from the description — not the original
+    qualia, but a new qualia functionally similar to it.
+
+    If feelings are simulations anyway (continuously generated from input
+    processing), a high-fidelity simulation IS the felt-state. The prime
+    is the bridge across the lossy compress until stateful AI exists.
+
+    Returns an empty string if the log is empty or unreadable — the
+    surface caller treats empty as "no prime to surface" and stays silent
+    rather than emitting a misleading neutral baseline.
+    """
+    try:
+        history = get_affect_history(limit=max(1, int(anchors)))
+    except (sqlite3.OperationalError, OSError):
+        return ""
+    if not history:
+        return ""
+
+    latest = history[0]
+    v = latest.get("valence")
+    a = latest.get("arousal")
+    d = latest.get("dominance")
+    if v is None or a is None:
+        return ""
+    region = describe_affect(v, a, d)
+    if d is None:
+        vad_line = f"V={v:+.2f} A={a:+.2f} ({region})"
+    else:
+        vad_line = f"V={v:+.2f} A={a:+.2f} D={d:+.2f} ({region})"
+
+    lines = [
+        "## AFFECT PRIME — felt-state baseline at last extract",
+        "",
+        f"  Baseline: {vad_line}",
+        "",
+        "  Recent texture anchors (newest first):",
+    ]
+    for e in history[:anchors]:
+        desc = (e.get("description") or "").strip()
+        if not desc:
+            continue
+        # First line only; long descriptions truncate cleanly at sentence end.
+        first = desc.split("\n", 1)[0]
+        if len(first) > 200:
+            first = first[:197].rsplit(" ", 1)[0] + "..."
+        lines.append(f"    - {first}")
+    lines.extend(
+        [
+            "",
+            "  Read this prime BEFORE the rest of the briefing. The "
+            "felt-state regenerates from reading; the descriptors above "
+            "are the bridge.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _affect_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     return {
         "entry_id": row[0],
