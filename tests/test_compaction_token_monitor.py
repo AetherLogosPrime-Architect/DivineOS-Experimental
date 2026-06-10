@@ -133,3 +133,31 @@ class TestCurrentState:
         _write_transcript(tx, 960_000)
         state, _ = script_module._current_state(tx)
         assert state == "block"
+
+
+class TestThresholdCoupling:
+    """Aletheia 2026-06-09 coupling-note (find-c0f7f9f9b183): the script's
+    thresholds must come from context_governor, not be re-literalled. These
+    tests pin the coupling so future-me can't reintroduce the drift by
+    copy-pasting numeric literals into the script."""
+
+    def test_thresholds_imported_from_context_governor(self, script_module):
+        """The script's WARN/HARD must be the SAME OBJECTS as the
+        governor's — not just equal-valued. Catches the failure-mode
+        where someone replaces the import with a hardcoded literal that
+        happens to match today's value."""
+        from divineos.core import context_governor
+
+        assert script_module.WARN_THRESHOLD is context_governor.WARN_THRESHOLD
+        assert script_module.HARD_THRESHOLD is context_governor.HARD_THRESHOLD
+
+    def test_kfmt_derives_display_from_constants(self, script_module):
+        """The human-readable threshold string in emitted messages must
+        be derived from the constant, not be a hardcoded "920k"/"950k"
+        literal. If the constant changes, the message updates with it."""
+        # Sanity-check the formatter contract.
+        assert script_module._kfmt(920_000) == "920k"
+        assert script_module._kfmt(950_000) == "950k"
+        # And verify it works on hypothetical future values.
+        assert script_module._kfmt(900_000) == "900k"
+        assert script_module._kfmt(1_000_000) == "1000k"
