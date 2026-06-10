@@ -184,12 +184,29 @@ def recent_questions(limit: int = 50) -> list[dict]:
 # Event types that can structurally back a rule (Phase A observation).
 # Looking only at KNOWLEDGE_STORED misses real backing that landed via
 # prereg/claim/audit channels — task #112 false-negative fix.
+#
+# 2026-06-10 calibration fix (Andrew correction in-session): the previous
+# list referenced event names that NO production code actually emits:
+#   - PREREG_FILED → real emit name is PRE_REGISTRATION_FILED
+#     (see core/pre_registrations/store.py:202)
+#   - CLAIM_FILED → claims emit CLAIM_UPDATED
+#     (see core/claim_store.py:428)
+#   - KNOWLEDGE_STORED → the `learn` CLI writes to the knowledge table
+#     directly without a ledger event, so no event of this name exists
+#   - AUDIT_FINDING_FILED → watchmen never emit this; AUDIT_ROUND_CREATED
+#     is the closest actual emit (core/watchmen/store.py:162)
+#   - GATE_FIRED → also not emitted by any production code
+# Result: ALL 10 pending obligations were unbackable because their backing
+# events had nowhere to land. Verified by querying the ledger for each
+# expected name (count was 0 across the last 5000 events). The fix is to
+# align the list with the names that actually fire. KNOWLEDGE_INTEGRATION_CHANGED
+# is added because that's the real signal that a learn-entry's integration
+# state moved (the closest "knowledge was authored" event the system emits).
 _BACKING_EVENT_TYPES: tuple[str, ...] = (
-    "KNOWLEDGE_STORED",
-    "PREREG_FILED",
-    "CLAIM_FILED",
-    "AUDIT_FINDING_FILED",
-    "GATE_FIRED",
+    "PRE_REGISTRATION_FILED",
+    "CLAIM_UPDATED",
+    "AUDIT_ROUND_CREATED",
+    "KNOWLEDGE_INTEGRATION_CHANGED",
 )
 
 
