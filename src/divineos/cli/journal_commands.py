@@ -26,8 +26,36 @@ def register(cli: click.Group) -> None:
             click.secho("[-] What do you want to remember?", fg="yellow")
             return
 
-        entry_id = journal_save(text, context=context)
+        # 2026-06-07 task #74: auto-link journal entries to knowledge
+        # citations in the text/context. The link is already in the
+        # language; bake it in. Same shape as the decisions auto-link.
+        # Fail-soft — never blocks the save.
+        linked_kid: str | None = None
+        extra_cited: list[str] = []
+        try:
+            from divineos.core.knowledge_citation import find_cited_knowledge_ids
+
+            citation_text = " ".join([text, context])
+            cited_ids = find_cited_knowledge_ids(citation_text)
+            if cited_ids:
+                linked_kid = cited_ids[0]
+                extra_cited = cited_ids[1:]
+        except Exception:  # noqa: BLE001
+            pass
+
+        entry_id = journal_save(text, context=context, linked_knowledge_id=linked_kid)
         click.secho(f"[+] Saved to journal: {entry_id[:8]}...", fg="green")
+        if linked_kid:
+            click.secho(
+                f"    Auto-linked knowledge {linked_kid[:8]}...",
+                fg="green",
+            )
+        if extra_cited:
+            click.secho(
+                f"    Note: {len(extra_cited)} additional cited entries "
+                "not linked (journal schema supports one link per entry)",
+                fg="bright_black",
+            )
 
     @journal_group.command("list")
     @click.option("--limit", default=20, type=int, help="Max entries to show")

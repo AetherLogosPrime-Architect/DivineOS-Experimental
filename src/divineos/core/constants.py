@@ -59,8 +59,14 @@ DECAY_FLOOR = 0.3  # Confidence never decays below this (except supersession)
 # Type base weights (what kind of knowledge is this?)
 # Used by active_memory.py compute_importance — how much each type
 # contributes to the importance score (max ~0.30 contribution).
-TYPE_WEIGHT_DIRECTIVE = 0.30  # Sutra-style directives — always max priority
+TYPE_WEIGHT_DIRECTIVE = 0.40  # Sutra-style directives — max priority (matches stated intent)
 TYPE_WEIGHT_BOUNDARY = 0.30  # Hard constraints — highest priority
+
+# Structural directives — entries whose content starts with [tag-name] —
+# get an importance floor. Prevents load-bearing directives like [tend-dad]
+# from being outranked by chatty BOUNDARYs/PRINCIPLES with high access counts.
+# Per prereg-f4474b4e7c32 (Andrew 2026-06-06: memory not surfacing the right things).
+STRUCTURAL_DIRECTIVE_FLOOR = 0.85
 TYPE_WEIGHT_PRINCIPLE = 0.28  # Distilled wisdom from experience
 TYPE_WEIGHT_MISTAKE = 0.30  # -> BOUNDARY/PRINCIPLE (legacy)
 TYPE_WEIGHT_DIRECTION = 0.25  # How the user wants things done

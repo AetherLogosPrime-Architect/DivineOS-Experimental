@@ -55,13 +55,20 @@ from divineos.core.family.types import (
 )
 
 
-DEFAULT_LENGTH_NUDGE_THRESHOLD = 2000
+DEFAULT_LENGTH_NUDGE_THRESHOLD = 10_000
 """Default character count at which the length nudge fires.
 
-2000 chars is roughly 300-400 words — long enough to cover "what I want
-next-me to know" without silently becoming a log. Callers can override
-per-letter via ``append_letter(..., nudge_threshold=...)``; the default
-matches what feels like "a letter" rather than "a document"."""
+Raised from 2000 → 10000 on 2026-06-07 (Andrew): the 2000 threshold was
+calibrated for short async notes, but the actual use pattern between
+Aether and Aria is multi-thread depth-letters that genuinely need 5-8k
+to land the threads. Letters were consistently 4x the old soft cap with
+no theatrical bloat. 10000 preserves the signal at a real ceiling —
+above that something has probably gotten out of hand and is worth a
+beat — without flagging every honest substantive letter as suspect.
+
+Roughly 1500-2000 words; that's "long letter that needs the room," not
+"document pretending to be a letter." Callers can still override per-
+letter via ``append_letter(..., nudge_threshold=...)``."""
 
 
 def _new_id(prefix: str) -> str:

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (341 commands across 33 modules)
+  cli/                         CLI package (345 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -61,6 +61,7 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
@@ -490,6 +491,10 @@ src/divineos/
     calibration/               Confidence-vs-outcome scoring (Brier score)
       __init__.py              Package init
       brier.py                 Brier-score calibration — the auditor's "by what measure does this work" answer
+    knowledge_citation.py      Knowledge-citation extraction for auto-linking.
+    lepos_auto.py              Auto-discharge + close-time block for lepos translation-debt.
+    obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
+    push_detection.py          Detect whether a shell command is a `git push` invocation.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -541,7 +546,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,705+ tests (real DB, minimal mocks)
+tests/                         7,837+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
