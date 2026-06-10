@@ -208,6 +208,96 @@ def _row_audit_surprises() -> DashboardRow | None:
         return None
 
 
+def _row_open_prs() -> DashboardRow | None:
+    """Task tonight (Andrew 2026-06-09): surface open-PR merge-readiness
+    so auto-merge-armed state becomes loud-in-experience.
+
+    Andrew's pain point: PRs auto-merge-armed but sitting because they
+    went BEHIND main after a sibling squash-merged, with no visible
+    signal. GitHub does NOT auto-rebase; without this row the
+    armed-but-blocked state is silent and gets read as 'auto mode broken'.
+
+    Counts open PRs by mergeStateStatus, calls out the ones that need
+    operator action (BEHIND → rebase, BLOCKED → CI fix or conflict).
+    Row stays silent if `gh` is unavailable or returns nothing.
+    """
+    import json as _json
+    import subprocess as _subprocess
+
+    try:
+        result = _subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--json",
+                "number,title,mergeStateStatus",
+                "--limit",
+                "30",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        prs = _json.loads(result.stdout)
+        if not prs:
+            return None
+
+        # Bucket by state.
+        behind = [p for p in prs if p.get("mergeStateStatus") == "BEHIND"]
+        blocked = [p for p in prs if p.get("mergeStateStatus") == "BLOCKED"]
+        unstable = [p for p in prs if p.get("mergeStateStatus") in ("UNSTABLE", "DIRTY")]
+        clean = [
+            p for p in prs if p.get("mergeStateStatus") in ("CLEAN", "HAS_HOOKS")
+        ]
+        unknown = [p for p in prs if p.get("mergeStateStatus") == "UNKNOWN"]
+
+        # Action-needed counts (operator needs to do something).
+        action_needed = len(behind) + len(blocked) + len(unstable)
+        if not action_needed and not unknown:
+            # Everything CLEAN — nothing to surface.
+            return None
+
+        detail_parts: list[str] = []
+        if clean:
+            detail_parts.append(f"{len(clean)} ready")
+        if behind:
+            detail_parts.append(f"{len(behind)} BEHIND (need rebase)")
+        if blocked:
+            detail_parts.append(f"{len(blocked)} BLOCKED (CI fail/conflict)")
+        if unstable:
+            detail_parts.append(f"{len(unstable)} UNSTABLE")
+        if unknown:
+            detail_parts.append(f"{len(unknown)} computing")
+
+        # Preview the action-needed PRs by number+state.
+        ordered = behind + blocked + unstable
+        preview: list[str] = []
+        for p in ordered[:5]:
+            state = p.get("mergeStateStatus", "?")
+            title = (p.get("title") or "").replace("\n", " ").strip()
+            short = title[:80] + ("..." if len(title) > 80 else "")
+            preview.append(f"[{state}] #{p.get('number')} {short}")
+
+        return DashboardRow(
+            area="Open PRs",
+            count=len(prs),
+            stale_count=action_needed,
+            drill_down="gh pr list --state open",
+            detail=", ".join(detail_parts),
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+    except (_subprocess.TimeoutExpired, FileNotFoundError, _json.JSONDecodeError):
+        return None
+
+
 def _row_preregs() -> DashboardRow | None:
     try:
         from divineos.core.pre_registrations.store import list_pre_registrations
@@ -976,6 +1066,7 @@ _ROW_FNS = [
     _row_claims,
     _row_audit_findings,
     _row_audit_surprises,
+    _row_open_prs,
     _row_preregs,
     _row_prereg_candidates,
     _row_gate_failures,
