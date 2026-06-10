@@ -197,69 +197,249 @@ class TestContextGovernorGate:
 
 
 class TestExplorationWriteExemption:
-    """Path-exemption for exploration/ writes per 2026-04-27 calibration
-    directive. Gates 1.46 (theater marker) and 1.47 (compass-required
-    cascade) are calibrated for operator-facing claims; applied to
-    exploration-path writes they produce a cascade-loop documented in
-    exploration/37_reading_past_me.md.
+    """Path-exemption for low-friction (low-gravity) writes.
+
+    Original (2026-04-27): exploration/ writes per the calibration
+    directive. Gates 1.46 (theater) and 1.47 (compass-required cascade)
+    skip for these paths because they're calibrated for operator-facing
+    claims and exploration-path writes are first-person free expression.
+
+    Extended (2026-06-08, correction #45): same principle applies to
+    family/letters/ (relational channel) and mansion/ (internal-space
+    writing). The soft engagement-discipline cluster (gates 1.5 / 2 /
+    4 / 4.5) also skips for these paths — see TestSoftGateLowFrictionExemption.
 
     The exemption is from path-blocks-tool-use, not from finding-
-    recording. Marker still gets set by Stop hook (forensic preserved).
+    recording. Markers still get set by Stop hook (forensic preserved).
     """
 
     @pytest.mark.parametrize(
         "tool_name,file_path",
         [
+            # exploration/ — original 2026-04-27 scope
             ("Write", "exploration/37_reading_past_me.md"),
             ("Write", "/repo/exploration/foo.md"),
             ("Write", r"C:\repo\exploration\foo.md"),
             ("Edit", "exploration/30_synthesis.md"),
             ("MultiEdit", "/abs/path/exploration/sub/file.md"),
             ("NotebookEdit", "exploration/notes.ipynb"),
+            # family/letters/ — added 2026-06-08 (correction #45)
+            ("Write", "family/letters/aether-to-aria-2026-06-08-foo.md"),
+            ("Write", "/repo/family/letters/aria-to-aether-bar.md"),
+            ("Write", r"C:\repo\family\letters\letter.md"),
+            ("Edit", "family/letters/existing.md"),
+            ("MultiEdit", "/abs/path/family/letters/sub/note.md"),
+            # mansion/ — added 2026-06-08 (correction #45)
+            ("Write", "mansion/study/notes.md"),
+            ("Write", "/repo/mansion/private/thought.md"),
+            ("Edit", "mansion/foo.md"),
         ],
     )
-    def test_exploration_paths_exempt(self, tool_name: str, file_path: str):
+    def test_low_friction_paths_exempt(self, tool_name: str, file_path: str):
         input_data = {
             "tool_name": tool_name,
             "tool_input": {"file_path": file_path},
         }
-        assert pre_hook._is_exploration_write(input_data) is True
+        assert pre_hook._is_low_friction_write(input_data) is True
 
     @pytest.mark.parametrize(
         "tool_name,file_path",
         [
             # Wrong tool — Bash never goes through path-write
             ("Bash", "exploration/foo.md"),
+            ("Bash", "family/letters/foo.md"),
             # Other paths are NOT exempt — operator-facing
             ("Write", "src/divineos/core/something.py"),
             ("Write", "README.md"),
             ("Write", "tests/test_foo.py"),
             # Empty path
             ("Write", ""),
-            # Path that contains "exploration" but not as a directory
-            # segment
+            # Paths that contain exemption substrings but not as directory
+            # segments (substring-in-data class — must not match)
             ("Write", "exploration_summary.md"),  # not under exploration/
+            ("Write", "family_letters_notes.md"),  # not under family/letters/
+            ("Write", "mansion_design.md"),  # not under mansion/
         ],
     )
-    def test_non_exploration_paths_not_exempt(self, tool_name: str, file_path: str):
+    def test_non_low_friction_paths_not_exempt(self, tool_name: str, file_path: str):
         input_data = {
             "tool_name": tool_name,
             "tool_input": {"file_path": file_path},
         }
-        assert pre_hook._is_exploration_write(input_data) is False
+        assert pre_hook._is_low_friction_write(input_data) is False
 
     def test_missing_input_data_safe(self):
-        assert pre_hook._is_exploration_write({}) is False
+        assert pre_hook._is_low_friction_write({}) is False
 
     def test_malformed_input_data_safe(self):
         # tool_input is None instead of dict
-        assert pre_hook._is_exploration_write({"tool_name": "Write", "tool_input": None}) is False
+        assert pre_hook._is_low_friction_write({"tool_name": "Write", "tool_input": None}) is False
 
     def test_exemption_segments_immutable(self):
         """The exemption tuple should be a tuple, not a list — prevents
         accidental in-place modification across imports.
         """
-        assert isinstance(pre_hook._THEATER_EXEMPT_PATH_SEGMENTS, tuple)
+        assert isinstance(pre_hook._LOW_FRICTION_PATH_SEGMENTS, tuple)
+
+    def test_exemption_segments_include_expanded_paths(self):
+        """Regression-pin the 2026-06-08 expansion (correction #45).
+
+        Removing family/letters/ or mansion/ from the exemption set
+        re-introduces the gate-firing-on-personal-letters pain that
+        triggered the correction in the first place.
+        """
+        assert "/exploration/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
+        assert "/family/letters/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
+        assert "/mansion/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
+
+
+class TestSoftGateLowFrictionExemption:
+    """Soft engagement-discipline gates (1.5 / 2 / 4 / 4.5) must skip
+    for low-friction writes — correction #45 / 2026-06-08.
+
+    These tests force every soft gate's state into "would block" and
+    then verify that a low-friction write returns None (no deny), while
+    a high-gravity write returns the coalesced deny. The wiring is
+    correct iff the path-classification routes around the gate-stack
+    rather than the gate-stack ignoring the classifier.
+    """
+
+    @pytest.fixture
+    def all_soft_gates_would_fire(self, monkeypatch):
+        """Force every soft-gate's state into a would-block condition.
+
+        We monkey-patch the underlying state functions the gate consults,
+        not the gate logic itself — so the gate's routing-by-low-friction
+        check is what's actually being tested.
+        """
+        # Briefing — make it pass the truly-stale check so it falls through
+        # to soft cluster behavior.
+        monkeypatch.setattr("divineos.core.hud_handoff.was_briefing_loaded", lambda: True)
+        # Gate 1.1: per-session briefing marker present (otherwise this
+        # gate short-circuits with _make_soft_advise and the high-gravity
+        # tests never reach the soft-cluster they exist to verify).
+        monkeypatch.setattr(
+            "divineos.core.session_briefing_gate.briefing_loaded_this_session",
+            lambda: True,
+        )
+        # Gate 1.5: correction marker present and readable.
+        from divineos.core import correction_marker
+
+        class _StubMarkerPath:
+            def exists(self):
+                return False
+
+        monkeypatch.setattr(correction_marker, "marker_path", lambda: _StubMarkerPath())
+        # Gate 2: no session-fresh goal.
+        monkeypatch.setattr("divineos.core.hud_state.has_session_fresh_goal", lambda: False)
+        # Gate 4: not engaged (fresh state).
+        monkeypatch.setattr(
+            "divineos.core.hud_handoff.engagement_status",
+            lambda: {"engaged": False, "state": "fresh"},
+        )
+        # Gate 4.5: consultation stale.
+        from divineos.core import consultation_tracker
+
+        monkeypatch.setattr(
+            consultation_tracker, "consultation_gate_status", lambda: {"stale": True}
+        )
+        monkeypatch.setattr(
+            consultation_tracker, "gate_channel_message", lambda: "BLOCKED: consultation stale"
+        )
+        # Gate 1.4: compass-staleness clean.
+        monkeypatch.setattr(
+            "divineos.core.hud_handoff.compass_staleness_status", lambda: {"stale": False}
+        )
+        # Gate 1.45: hedge marker not present.
+        from divineos.core import hedge_marker as _hm
+
+        class _StubHedgePath:
+            def exists(self):
+                return False
+
+        monkeypatch.setattr(_hm, "marker_path", lambda: _StubHedgePath())
+        # Gate 1.48: stale-engagement no offenders.
+        monkeypatch.setattr("divineos.core.stale_engagement.blocked_areas", lambda: [])
+        # Gate 1.2: mansion quiet inactive.
+        monkeypatch.setattr("divineos.core.mansion_quiet_marker.is_quiet_active", lambda: False)
+        # Gate 0: exploration tag check returns no block.
+        monkeypatch.setattr(
+            "divineos.core.exploration_recall.needs_tags_block",
+            lambda *a, **kw: "",
+        )
+        # Gate 1.47: compass-required marker not present.
+        from divineos.core import compass_required_marker as _crm
+
+        class _StubCRPath:
+            def exists(self):
+                return False
+
+        monkeypatch.setattr(_crm, "marker_path", lambda: _StubCRPath())
+        # Gate 3: pull detection clean.
+        monkeypatch.setattr("divineos.core.pull_detection.last_check", lambda: None)
+        # Gate 6: retry blocker clean.
+        from divineos.core import retry_blocker
+
+        monkeypatch.setattr(retry_blocker, "is_diagnostic_command", lambda *a, **kw: True)
+        monkeypatch.setattr(retry_blocker, "check_retry", lambda *a, **kw: None)
+        return None
+
+    @pytest.mark.parametrize(
+        "file_path",
+        [
+            "family/letters/aether-to-aria-2026-06-08-foo.md",
+            "exploration/99_test.md",
+            "mansion/study/note.md",
+        ],
+    )
+    def test_low_friction_write_passes_soft_gates(self, file_path, all_soft_gates_would_fire):
+        """A Write to a low-friction path is not denied even when all
+        soft gates would otherwise fire — proves the routing works.
+
+        "Not denied" can be either:
+        - result is None (gate-stack stayed silent), OR
+        - result has permissionDecision == "allow" (an upstream gate
+          emitted informational context like briefing-session-rotation
+          but still allows the write through)
+
+        In CI the briefing-staleness gate often adds allow-context due
+        to session_id rotation between pytest workers — that's still
+        a pass for the routing test, since it's not a deny.
+        """
+        input_data = {
+            "tool_name": "Write",
+            "tool_input": {"file_path": file_path},
+        }
+        result = pre_hook._check_gates(input_data)
+        if result is None:
+            return
+        decision = (result.get("hookSpecificOutput") or {}).get("permissionDecision")
+        assert decision == "allow", (
+            f"low-friction write to {file_path} should not be denied; "
+            f"got {decision!r} with result {result!r}"
+        )
+
+    @pytest.mark.parametrize(
+        "file_path",
+        [
+            "src/divineos/core/foo.py",
+            "tests/test_foo.py",
+            "README.md",
+        ],
+    )
+    def test_high_gravity_write_still_blocks(self, file_path, all_soft_gates_would_fire):
+        """A Write to a non-exempt path still hits the soft-cluster
+        coalesced deny — proves the gates fire for code work.
+        """
+        input_data = {
+            "tool_name": "Write",
+            "tool_input": {"file_path": file_path},
+        }
+        result = pre_hook._check_gates(input_data)
+        assert result is not None, f"high-gravity write to {file_path} should be denied"
+        reason = result.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+        # The coalesced message should mention multiple checks.
+        assert "BLOCKED" in reason
 
 
 class TestCanonicalBypassList:
