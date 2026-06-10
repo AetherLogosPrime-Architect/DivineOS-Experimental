@@ -181,6 +181,54 @@ def recent_questions(limit: int = 50) -> list[dict]:
     return out[:limit]
 
 
+# Event types that can structurally back a rule (Phase A observation).
+# Looking only at KNOWLEDGE_STORED misses real backing that landed via
+# prereg/claim/audit channels — task #112 false-negative fix.
+_BACKING_EVENT_TYPES: tuple[str, ...] = (
+    "KNOWLEDGE_STORED",
+    "PREREG_FILED",
+    "CLAIM_FILED",
+    "AUDIT_FINDING_FILED",
+    "GATE_FIRED",
+)
+
+
+def _is_backing(event: dict, question_wid: str, question_ts: float) -> bool:
+    """Return True if `event` structurally backs a rule whose
+    STRUCTURAL_PROMOTION_QUESTION had knowledge_id=question_wid.
+
+    Backing requires BOTH:
+    1. The event came AFTER the question fired (a prior event can't
+       address a later question).
+    2. The event references the question's knowledge_id (linkage proven)
+       AND its payload mentions a structural keyword (the linkage is
+       about structural backing, not arbitrary mention).
+
+    Task #112 (2026-06-09) fixed two bugs in the previous logic:
+    - The previous AND-vs-OR was wrong (`wid in content OR keyword in content`)
+      which let any unrelated learn that happened to mention "test" or
+      "gate" falsely address every pending question.
+    - The previous matcher only looked at KNOWLEDGE_STORED events,
+      missing real structural backing that landed via prereg/claim/audit.
+    """
+    if not question_wid:
+        return False
+    ts = float(event.get("timestamp") or 0)
+    if ts <= question_ts:
+        return False
+    payload = _coerce_payload(event.get("payload"))
+    # Concatenate all string-valued fields in the payload so the
+    # knowledge_id and structural-keyword check works regardless of
+    # whether the linkage lives in `content`, `description`, `claim_id`,
+    # etc.
+    text = " ".join(str(v) for v in payload.values() if isinstance(v, str)).lower()
+    if not text:
+        return False
+    if question_wid.lower() not in text:
+        return False
+    return any(kw in text for kw in _STRUCTURAL_KEYWORDS)
+
+
 def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
     """Dual-monitor verification surface.
 
@@ -193,6 +241,13 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
     this report and judge whether the auto-prompt is calibrated. The
     only way to know the check is working is to investigate output
     vs. actuality in the ledger (Andrew 2026-05-14).
+
+    Task #112 (2026-06-09) fix: the prior link-detector had two real
+    bugs — (1) `wid in content OR keyword in content` falsely addressed
+    every pending question whenever any unrelated learn mentioned
+    "test"/"gate"; (2) the matcher only scanned KNOWLEDGE_STORED events,
+    missing structural backing that landed via prereg/claim/audit.
+    See _is_backing() for the corrected logic.
     """
     import time
 
@@ -203,30 +258,24 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
 
     cutoff = time.time() - window_seconds
     fired = [q for q in recent_questions(limit=500) if float(q.get("timestamp") or 0) >= cutoff]
-    # For each fired question, search for a follow-up that mentions
-    # the knowledge_id + a structural keyword.
+    # Pull candidate backing events from ALL backing-event types, not
+    # just KNOWLEDGE_STORED.
+    candidates: list[dict] = []
+    for et in _BACKING_EVENT_TYPES:
+        try:
+            candidates.extend(get_events(limit=500, event_type=et))
+        except Exception:  # noqa: BLE001
+            continue
+
     follow_ups: list[dict] = []
     no_follow_ups: list[dict] = []
-    try:
-        learns = get_events(limit=500, event_type="KNOWLEDGE_STORED")
-    except Exception:  # noqa: BLE001
-        learns = []
     for q in fired:
         wid = q.get("knowledge_id") or ""
         if not wid:
             no_follow_ups.append(q)
             continue
-        addressed = False
-        for learn in learns:
-            ts = float(learn.get("timestamp") or 0)
-            if ts <= float(q.get("timestamp") or 0):
-                continue
-            payload = _coerce_payload(learn.get("payload"))
-            content = (payload.get("content") or "").lower()
-            if wid.lower() in content or any(kw in content for kw in _STRUCTURAL_KEYWORDS):
-                addressed = True
-                break
-        if addressed:
+        question_ts = float(q.get("timestamp") or 0)
+        if any(_is_backing(ev, wid, question_ts) for ev in candidates):
             follow_ups.append(q)
         else:
             no_follow_ups.append(q)
