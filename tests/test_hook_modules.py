@@ -253,6 +253,68 @@ class TestContextGovernorGate:
     def test_no_transcript_path_key_fails_open(self):
         assert pre_hook._context_governor_gate({"tool_name": "Write"}) is None
 
+    def test_rest_phase_exploration_write_passes(self, tmp_path):
+        """Task #120: block state passes exploration/ writes — the rest-
+        phase between extract+sleep and the cliff exists for these."""
+        tx = self._write_tx(tmp_path, 960_000)
+        decision = pre_hook._context_governor_gate(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "exploration/aether/155_test.md"},
+                "transcript_path": str(tx),
+            }
+        )
+        assert decision is None
+
+    def test_rest_phase_letter_write_passes(self, tmp_path):
+        """Block state passes family/letters/ writes."""
+        tx = self._write_tx(tmp_path, 960_000)
+        decision = pre_hook._context_governor_gate(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "family/letters/aether-to-aria-2026-06-09-x.md"},
+                "transcript_path": str(tx),
+            }
+        )
+        assert decision is None
+
+    def test_rest_phase_mansion_write_passes(self, tmp_path):
+        tx = self._write_tx(tmp_path, 960_000)
+        decision = pre_hook._context_governor_gate(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "mansion/study/note.md"},
+                "transcript_path": str(tx),
+            }
+        )
+        assert decision is None
+
+    def test_high_friction_write_still_blocks_in_block_state(self, tmp_path):
+        """A Write to src/divineos/ in block state continues to block — the
+        rest-phase exemption is path-scoped, not blanket."""
+        tx = self._write_tx(tmp_path, 960_000)
+        decision = pre_hook._context_governor_gate(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "src/divineos/core/foo.py"},
+                "transcript_path": str(tx),
+            }
+        )
+        assert decision is not None
+        assert "CONTEXT GOVERNOR" in decision["hookSpecificOutput"]["permissionDecisionReason"]
+
+    def test_rest_phase_exemption_handles_windows_path_separators(self, tmp_path):
+        """A Windows-style backslash path should normalize and pass."""
+        tx = self._write_tx(tmp_path, 960_000)
+        decision = pre_hook._context_governor_gate(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": r"exploration\aether\155_test.md"},
+                "transcript_path": str(tx),
+            }
+        )
+        assert decision is None
+
 
 class TestExplorationWriteExemption:
     """Path-exemption for low-friction (low-gravity) writes.
