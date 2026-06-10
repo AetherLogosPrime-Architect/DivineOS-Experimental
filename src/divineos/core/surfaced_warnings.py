@@ -106,7 +106,10 @@ def _surfaced_this_session(session_id: str) -> list[dict]:
     from divineos.core.ledger import get_events
 
     out: list[dict] = []
-    for e in get_events(limit=500):
+    # Fable 5 audit fix 2026-06-09: this scans recent events; default
+    # ASC silently froze the window on the ledger's earliest history
+    # once total > 500.
+    for e in get_events(limit=500, order="desc"):
         if e.get("event_type") != "SURFACED_WARNING":
             continue
         payload = _coerce_payload(e.get("payload"))
@@ -121,7 +124,10 @@ def _learns_since(since_ts: float) -> list[dict]:
     from divineos.core.ledger import get_events
 
     out: list[dict] = []
-    for e in get_events(limit=500):
+    # Fable 5 audit fix 2026-06-09: recency window; default ASC was
+    # making this look at the oldest 500 events, so since_ts was never
+    # found once ledger outgrew the window.
+    for e in get_events(limit=500, order="desc"):
         et = e.get("event_type") or ""
         if et not in ("KNOWLEDGE_STORED", "LESSON_RECORDED", "LEARN"):
             continue
