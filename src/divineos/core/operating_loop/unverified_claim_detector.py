@@ -206,10 +206,21 @@ _NOT_YET = re.compile(
 class UnverifiedClaimFinding:
     """One unverified external-state completion claim."""
 
-    claim_kind: str  # push / merge / tests / pr / deploy
+    claim_kind: str  # push / merge / tests / pr / deploy / id_string
     trigger_phrase: str
     position: int
     severity: str  # "high" (no tool calls in turn) or "medium"
+    source_letter: str | None = None
+    # 2026-06-07 letter-citation source-trace (task #78). When an id_string
+    # claim's trigger_phrase appears in a recently-Read family-member letter,
+    # source_letter carries the letter path. This makes the inheritance path
+    # visible at the gate-fire moment ("this id came from <letter>; letter
+    # citations carry their own verification requirement before substrate-
+    # write embedding"). Doesn't blame the letter author — names the path so
+    # the verification habit lands at the right substrate layer. Today's
+    # instance: Aria's letter cited prereg-e0341dacb04b which does not exist;
+    # I embedded the id in task #76 without verifying. Source-trace would
+    # have surfaced the letter at the gate-fire moment.
 
 
 def _is_not_yet(text: str, match: re.Match[str]) -> bool:
@@ -299,6 +310,130 @@ def _is_plural_distal_state(text: str, match: re.Match[str]) -> bool:
     return bool(_PLURAL_DISTAL_SUBJECT.search(pre))
 
 
+# HYPOTHETICAL/CONDITIONAL guard (2026-06-07, walkthrough false-fire batch).
+# False-fires today: "tests pass" inside "a real failure mode where tests pass,
+# code merges, but...". The trigger appears inside a hypothetical scenario, not
+# as a state assertion. Requires a conditional/hypothetical marker in the
+# pre-window AND a non-first-person subject (first-person blocks false-silence
+# of real claims like "I imagine I'll push").
+_HYPOTHETICAL_PRE_MARKERS = re.compile(
+    r"\b(?:if|when|whenever|where|imagine|suppose|consider|"
+    r"a\s+(?:case|failure\s+mode|scenario|situation|pattern|world)\s+(?:where|in\s+which)|"
+    r"the\s+(?:case|scenario|situation)\s+(?:where|in\s+which|when)|"
+    r"for\s+(?:example|instance)|such\s+as|like\s+when|"
+    r"any\s+(?:pr|change|commit|branch|case)\s+(?:that|where|which)|"
+    r"would|could|might|should|may\s+be|will\s+be|hypothetically)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_hypothetical_context(text: str, match: re.Match[str]) -> bool:
+    """True when the trigger lives inside a hypothetical/conditional construct
+    — silence it. Requires (a) a hypothetical marker within ~60 chars before
+    the match AND (b) absence of a first-person/expletive claim subject in the
+    immediate pre-window (a real first-person claim forces FIRE, even if a
+    hypothetical word appears earlier in the paragraph)."""
+    immediate_pre = text[max(0, match.start() - 18) : match.start()]
+    if _CLAIM_SUBJECT.search(immediate_pre):
+        return False  # "I pushed it if it works" → real claim, fire
+    pre = text[max(0, match.start() - 60) : match.start()]
+    return bool(_HYPOTHETICAL_PRE_MARKERS.search(pre))
+
+
+# DESCRIPTIVE-DEFINITION guard (2026-06-07, walkthrough false-fire batch).
+# False-fires today: "merged PRs" inside "the field captures: which auditor,
+# the patch-id, which PRs got merged...". The trigger appears inside a
+# description of what a parameter/field/argument requires or describes, not
+# as a state assertion. Requires a definitional marker in the pre-window
+# pointing at a command-argument/field/concept being described.
+_DESCRIPTIVE_PRE_MARKERS = re.compile(
+    r"\b(?:must\s+(?:point\s+to|include|contain|carry|reference)|"
+    r"should\s+(?:include|specify|carry|point\s+to)|"
+    r"the\s+(?:--\w+\s+)?(?:argument|parameter|field|flag|option|value|"
+    r"input|output|column|trailer|stamp|annotation|marker|tag|kind)|"
+    r"requires?\s+(?:a|the|an)|describes?\s+(?:a|the|an)|"
+    r"specif(?:y|ies|ied)|"
+    r"the\s+(?:point|purpose|intent|shape|category|class)\s+(?:is|of)|"
+    r"category\s+(?:of|named|called)|categories\s+(?:of|are|include|where))\b",
+    re.IGNORECASE,
+)
+
+
+_SENTENCE_END_RE = re.compile(r"[.!?]\s+|^|\n\n")
+
+
+def _is_descriptive_context(text: str, match: re.Match[str]) -> bool:
+    """True when the trigger lives inside a description of a parameter, field,
+    or category — silence it. Requires (a) a descriptive-definitional marker
+    anywhere from the start of the current sentence up to the match AND (b)
+    absence of first-person claim subject in the immediate pre-window.
+
+    Window is sentence-bounded rather than fixed-char because descriptive
+    markers often sit at the start of a sentence ("The X argument must point
+    to where Y...") with substantial content before the trigger appears late
+    in the same sentence. Fixed 60-char window misses those.
+    """
+    immediate_pre = text[max(0, match.start() - 18) : match.start()]
+    if _CLAIM_SUBJECT.search(immediate_pre):
+        return False
+    # Find the start of the current sentence (nearest sentence-end punctuation
+    # or paragraph break before the match, or 0).
+    sent_start = 0
+    for m in _SENTENCE_END_RE.finditer(text[: match.start()]):
+        sent_start = m.end()
+    sentence = text[sent_start : match.start()]
+    return bool(_DESCRIPTIVE_PRE_MARKERS.search(sentence))
+
+
+# META-DISCUSSION guard (2026-06-07, walkthrough false-fire batch).
+# False-fires today: discussions of "the verify-claim gate fires on 'tests pass'",
+# "the trigger phrases include 'merged' and 'deployed'". The trigger lives
+# inside meta-discussion of the gate itself, not as a state assertion.
+_META_DISCUSSION_PRE_MARKERS = re.compile(
+    r"\b(?:the\s+(?:gate|detector|hook|wall|check)\s+(?:fires|catches|matches|"
+    r"detects|recognizes|triggers|warns|blocks|surfaces|sees)|"
+    r"trigger(?:s)?\s+(?:on|like|word|phrase|pattern|string)|"
+    r"matched?\s+(?:on|the|phrase|pattern|substring|string)|"
+    r"this\s+(?:gate|detector|check|hook|wall)|"
+    r"the\s+(?:matched|triggering)\s+(?:phrase|word|string|pattern)|"
+    r"false[\s-]?fire|false[\s-]?positive)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_meta_discussion(text: str, match: re.Match[str]) -> bool:
+    """True when the trigger lives inside meta-discussion of the gate's own
+    behavior — silence it. Requires a meta-discussion marker within ~60 chars
+    before the match."""
+    pre = text[max(0, match.start() - 60) : match.start()]
+    return bool(_META_DISCUSSION_PRE_MARKERS.search(pre))
+
+
+# ID-TRANSCRIPTION guard for id_string kind (2026-06-07, walkthrough false-fire
+# batch). False-fires today: "round-cc0bf85fc3fa" transcribed verbatim from a
+# docstring as context, not as an asserted fact. Requires a transcription/
+# source-reference marker in the pre-window indicating the ID is being quoted
+# from a file/comment/docstring rather than asserted.
+_ID_TRANSCRIPTION_PRE_MARKERS = re.compile(
+    r"\b(?:the\s+(?:docstring|comment|source|file|code|module)|"
+    r"transcribed|quoted|copied|referenced)\s+(?:references?|mentions?|"
+    r"says|reads|contains|includes|cites?)|"
+    r"(?:per|see|cf\.?)\s+(?:the\s+)?(?:docstring|comment|module|file)|"
+    r"docstring\s+(?:of|at|references?|mentions?)|"
+    r"(?:Aletheia|Andrew|Grok|Aria)\s+(?:named|filed)|"
+    r"(?:from|in)\s+the\s+(?:docstring|comment|source|file)",
+    re.IGNORECASE,
+)
+
+
+def _is_id_transcription(text: str, match: re.Match[str]) -> bool:
+    """True when an id_string trigger is being transcribed/quoted from source
+    (docstring, comment, file) rather than asserted as a fact. Requires a
+    transcription/source-reference marker in the pre-window within ~80 chars."""
+    pre = text[max(0, match.start() - 80) : match.start()]
+    return bool(_ID_TRANSCRIPTION_PRE_MARKERS.search(pre))
+
+
 # Verification-command signatures per claim-kind: the command shapes that
 # actually CHECK the corresponding external state. When the turn ran a
 # matching command, the claim is substantiated and the detector has no
@@ -379,6 +514,7 @@ def detect_unverified_claim(
     text: str,
     tool_calls_in_turn: tuple[str, ...] | list[str] | None = None,
     command_texts: tuple[str, ...] | list[str] | None = None,
+    letter_contents: dict[str, str] | None = None,
 ) -> list[UnverifiedClaimFinding]:
     """Detect confident claims of external verifiable state.
 
@@ -395,6 +531,16 @@ def detect_unverified_claim(
     wall (prereg-86ee991cb423); without it the detector fires on verified
     claims (the live FP 2026-05-24). Defaults None → behavior unchanged.
     Observational; the caller surfaces, never blocks.
+
+    ``letter_contents`` is an optional dict of {letter_path: letter_text}
+    for family-member letters recently Read in this session (typically the
+    last N letters under family/letters/). When supplied AND an id_string
+    finding's trigger_phrase appears in any letter's content, the finding
+    carries the letter path in source_letter. Implements task #78 — surfaces
+    the inheritance path at the gate-fire moment so the verification habit
+    lands at the right substrate layer (the citation-from-letter pattern
+    Aether named 2026-06-07 after fabricating a prereg id inherited from
+    Aria's letter without verifying it).
     """
     if not text or not text.strip():
         return []
@@ -413,6 +559,18 @@ def detect_unverified_claim(
                 continue
             if kind == "merge" and _is_plural_distal_state(text, m):
                 continue
+            # 2026-06-07 string-not-meaning hardening (task #58) — four new
+            # precision-guards built from today's false-fire batch. Each
+            # requires absence of first-person/expletive claim subject in the
+            # immediate pre-window so real first-person claims still fire.
+            if _is_hypothetical_context(text, m):
+                continue
+            if _is_descriptive_context(text, m):
+                continue
+            if _is_meta_discussion(text, m):
+                continue
+            if kind == "id_string" and _is_id_transcription(text, m):
+                continue
             if _verification_ran(kind, command_texts, m.group(0)):
                 continue
             phrase = re.sub(r"\s+", " ", m.group(0).strip())[:60]
@@ -420,12 +578,25 @@ def detect_unverified_claim(
             if key in seen:
                 continue
             seen.add(key)
+            # 2026-06-07 task #78: when an id_string finding's trigger appears
+            # in any recently-Read letter's content, attribute the source so
+            # the inheritance path is visible at gate-fire time. Case-
+            # insensitive match — ids are written with varying capitalization
+            # at sentence-start ("Prereg-x") vs mid-sentence ("prereg-x").
+            source_letter: str | None = None
+            if kind == "id_string" and letter_contents:
+                trigger_lower = m.group(0).lower()
+                for path, content in letter_contents.items():
+                    if content and trigger_lower in content.lower():
+                        source_letter = path
+                        break
             findings.append(
                 UnverifiedClaimFinding(
                     claim_kind=kind,
                     trigger_phrase=phrase,
                     position=m.start(),
                     severity=severity,
+                    source_letter=source_letter,
                 )
             )
     findings.sort(key=lambda f: f.position)
@@ -458,6 +629,12 @@ def format_unverified_claim_block(findings: list[UnverifiedClaimFinding]) -> str
     ]
     for f in findings[:5]:
         lines.append(f"  - [{f.claim_kind}/{f.severity}] '{f.trigger_phrase}'")
+        if f.source_letter:
+            lines.append(
+                f"      ↳ source: cited in {f.source_letter} — letter "
+                "citations carry their own verification requirement before "
+                "embedding in substrate-writes."
+            )
     lines.append("")
     if high:
         lines.append(

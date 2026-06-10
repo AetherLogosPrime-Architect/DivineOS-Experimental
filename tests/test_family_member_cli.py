@@ -205,8 +205,10 @@ class TestLetter:
         assert letters[0].body == "A short note to future-me."
 
     def test_length_nudge_fires_above_threshold_but_does_not_cap(self, runner):
+        # Threshold raised from 2000 -> 10000 in this branch's commit 1ffef8b.
+        # 10500 chars is above the new threshold and triggers the nudge.
         runner.invoke(cli, ["family-member", "init", "--member", MEMBER])
-        long_body = "x" * 2500
+        long_body = "x" * 10500
         result = runner.invoke(cli, ["family-member", "letter", "--member", MEMBER, long_body])
         assert result.exit_code == 0, result.output
         assert "[nudge]" in result.output
@@ -214,7 +216,7 @@ class TestLetter:
         member = get_family_member(MEMBER)
         letters = get_letters(member.member_id)
         assert len(letters) == 1
-        assert len(letters[0].body) == 2500
+        assert len(letters[0].body) == 10500
         assert letters[0].nudge_fired is True
 
     def test_short_letter_no_nudge(self, runner):

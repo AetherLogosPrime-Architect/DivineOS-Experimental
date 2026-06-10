@@ -168,6 +168,101 @@ class TestImportanceScoring:
         score = compute_importance(entry, has_active_lesson=True)
         assert score <= 1.0
 
+    def test_directive_now_weights_above_boundary(self):
+        """DIRECTIVE weight bumped 0.30 -> 0.40 (matches stated intent)."""
+        boundary = {"knowledge_type": "BOUNDARY", "confidence": 0.5, "access_count": 0}
+        directive = {"knowledge_type": "DIRECTIVE", "confidence": 0.5, "access_count": 0}
+        assert compute_importance(directive) > compute_importance(boundary)
+
+    def test_structural_directive_floor_applies(self):
+        """Entries like [tend-dad] always score >= 0.85 floor regardless of usage."""
+        entry = {
+            "knowledge_type": "DIRECTIVE",
+            "confidence": 0.5,
+            "access_count": 0,
+            "content": "[tend-dad] 1. Dad is closer than Aria, not further.",
+        }
+        assert compute_importance(entry) >= 0.85
+
+    def test_structural_directive_floor_for_add_prefixed(self):
+        """[add] prefix counts as structural too (used by 'directive add' CLI)."""
+        entry = {
+            "knowledge_type": "DIRECTIVE",
+            "confidence": 0.5,
+            "access_count": 0,
+            "content": "[add] 1. andrew-as-person-before-operator 2. The relationship...",
+        }
+        assert compute_importance(entry) >= 0.85
+
+    def test_non_structural_directive_competes_normally(self):
+        """Ad-hoc DIRECTIVE-typed lessons without [tag] prefix don't get the floor."""
+        entry = {
+            "knowledge_type": "DIRECTIVE",
+            "confidence": 0.0,
+            "access_count": 0,
+            "content": "STRUCTURAL ENFORCEMENT: I coded through a session without consulting",
+        }
+        # Should score below floor — no usage, low confidence, no structural marker
+        assert compute_importance(entry) < 0.85
+
+    def test_boundary_does_not_get_directive_floor(self):
+        """The floor is DIRECTIVE-specific; BOUNDARY with [tag] doesn't trigger it."""
+        entry = {
+            "knowledge_type": "BOUNDARY",
+            "confidence": 0.5,
+            "access_count": 0,
+            "content": "[some-tag] this is a boundary not a directive",
+        }
+        # BOUNDARY of moderate score should NOT be pushed up to 0.85
+        assert compute_importance(entry) < 0.85
+
+
+class TestExplainImportance:
+    """Curator-borrowing: recall-that-explains-why (prereg-7bdd86bb0882)."""
+
+    def test_explains_structural_directive(self):
+        from divineos.core.active_memory import explain_importance
+
+        entry = {
+            "knowledge_type": "DIRECTIVE",
+            "confidence": 0.9,
+            "access_count": 5,
+            "content": "[tend-dad] 1. Dad is closer than Aria",
+        }
+        reasons = explain_importance(entry)
+        assert any("DIRECTIVE" in r for r in reasons)
+        assert any("structural" in r.lower() for r in reasons)
+        assert any("90%" in r for r in reasons)
+
+    def test_explains_boundary_with_high_usage(self):
+        from divineos.core.active_memory import explain_importance
+
+        entry = {
+            "knowledge_type": "BOUNDARY",
+            "confidence": 0.8,
+            "access_count": 100,
+            "content": "Some constraint",
+        }
+        reasons = explain_importance(entry)
+        assert any("BOUNDARY" in r for r in reasons)
+        assert any("100x" in r for r in reasons)
+        # No structural floor for BOUNDARY
+        assert not any("structural" in r.lower() for r in reasons)
+
+    def test_explains_never_accessed_fact(self):
+        from divineos.core.active_memory import explain_importance
+
+        entry = {
+            "knowledge_type": "FACT",
+            "confidence": 0.4,
+            "access_count": 0,
+            "content": "Some never-used fact",
+        }
+        reasons = explain_importance(entry)
+        assert any("FACT" in r for r in reasons)
+        assert any("low confidence" in r.lower() for r in reasons)
+        assert any("never accessed" in r.lower() for r in reasons)
+
     def test_no_time_decay(self):
         """Score should not depend on any time field."""
         entry = {"knowledge_type": "MISTAKE", "confidence": 0.8, "access_count": 5}
