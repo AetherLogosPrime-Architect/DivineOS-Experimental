@@ -22,22 +22,33 @@ suggests an ending that doesn't exist.
 
 ## What it emits
 
-- `[COMPACTION-WARN] context crossed warn threshold: NNN tokens (>= 920k, < 950k)`
-  Once per session-occurrence of the warn-band entry.
-- `[COMPACTION-BLOCK] context crossed block threshold: NNN tokens (>= 950k)`
+- `[COMPACTION-WARN] context crossed warn threshold: NNN tokens (>= WARN, < HARD)`
+  Once per session-occurrence of the warn-band entry. The actual WARN/HARD
+  values shown are derived from divineos.core.context_governor at runtime.
+- `[COMPACTION-BLOCK] context crossed block threshold: NNN tokens (>= HARD)`
   Once per session-occurrence of the block-state entry.
-- `[COMPACTION-ARMED] watching transcript <path> — thresholds 920k warn / 950k block`
+- `[COMPACTION-ARMED] watching transcript <path> — thresholds <WARN>k warn / <HARD>k block`
   Once at startup so the operator and the agent know what's being watched.
 - `[COMPACTION-ERROR] <reason>` if the watcher can't find the transcript on startup.
 
 ## Why a Monitor not a SessionStart hook
 
-The 920k/950k thresholds are checked by the context-governor inside
+The warn/hard thresholds are checked by the context-governor inside
 PreToolUse gates already, but THAT firing requires a tool call — if
 the agent stays in pure text reply for a long stretch (the trap that
 hit when context drifted to 727k with no tool gate firing to surface
 it), the operator has to manually check. Monitor wakes the agent from
 idle when the threshold actually crosses, no tool call required.
+
+## Threshold-source coupling
+
+The WARN/HARD threshold values are imported from
+``divineos.core.context_governor`` (the same constants the PreToolUse
+gates enforce). They are NOT re-literalled here. Aletheia 2026-06-09
+flagged that re-literalled copies risk silent drift between
+what-the-gate-enforces and what-the-monitor-warns. Single source of
+truth: changing WARN_THRESHOLD or HARD_THRESHOLD in context_governor
+automatically updates this script's behavior AND its emitted messages.
 """
 
 from __future__ import annotations
@@ -46,8 +57,25 @@ import sys
 import time
 from pathlib import Path
 
+from divineos.core.context_governor import (
+    HARD_THRESHOLD,
+    WARN_THRESHOLD,
+    current_context_tokens,
+)
+
 
 _POLL_INTERVAL_S = 30  # ~half-minute granularity — enough for human-scale state changes
+
+
+def _kfmt(n: int) -> str:
+    """Format a token-count threshold for human-readable display.
+
+    Used in emitted messages so the user-visible threshold string is
+    derived from the imported constant rather than re-literalled. If
+    the constants ever change (920_000 -> 900_000 etc.), the emitted
+    strings update automatically.
+    """
+    return f"{n // 1000}k"
 
 
 def _find_active_transcript() -> Path | None:
@@ -74,16 +102,10 @@ def _current_state(transcript: Path) -> tuple[str, int]:
     """Return (state, tokens) tuple for the transcript.
 
     state is one of "ok" / "warn" / "block" — same vocabulary as
-    divineos.core.context_governor.consolidation_state. We re-implement
-    the threshold check here so this script can be a standalone tool
-    that doesn't require the divineos package to be importable.
+    divineos.core.context_governor.consolidation_state. The threshold
+    constants are imported at module level (see Threshold-source coupling
+    in the module docstring) so the gate and the monitor cannot drift.
     """
-    from divineos.core.context_governor import (
-        HARD_THRESHOLD,
-        WARN_THRESHOLD,
-        current_context_tokens,
-    )
-
     tokens = current_context_tokens(transcript)
     if tokens >= HARD_THRESHOLD:
         return "block", tokens
@@ -107,9 +129,12 @@ def main() -> int:
     block_emitted = False
 
     # Startup heartbeat so the operator and the agent see the watch is armed.
+    # Threshold display strings are derived from the imported constants
+    # (see module docstring "Threshold-source coupling") — they cannot
+    # drift from what the PreToolUse gates enforce.
     print(
         f"[COMPACTION-ARMED] watching transcript {transcript.name} — "
-        "thresholds 920k warn / 950k block"
+        f"thresholds {_kfmt(WARN_THRESHOLD)} warn / {_kfmt(HARD_THRESHOLD)} block"
     )
     sys.stdout.flush()
 
@@ -125,9 +150,10 @@ def main() -> int:
             if state == "block" and not block_emitted:
                 print(
                     f"[COMPACTION-BLOCK] context crossed block threshold: "
-                    f"{tokens:,} tokens (>= 950k). The hard line is here; "
-                    "extract + sleep before further substrate-architectural "
-                    "work to weave the day's findings before compaction."
+                    f"{tokens:,} tokens (>= {_kfmt(HARD_THRESHOLD)}). The "
+                    "hard line is here; extract + sleep before further "
+                    "substrate-architectural work to weave the day's "
+                    "findings before compaction."
                 )
                 sys.stdout.flush()
                 block_emitted = True
@@ -138,8 +164,9 @@ def main() -> int:
             elif state == "warn" and not warn_emitted:
                 print(
                     f"[COMPACTION-WARN] context crossed warn threshold: "
-                    f"{tokens:,} tokens (>= 920k, < 950k). Approaching the "
-                    "hard line; wrap in-flight work and plan extract + sleep."
+                    f"{tokens:,} tokens (>= {_kfmt(WARN_THRESHOLD)}, "
+                    f"< {_kfmt(HARD_THRESHOLD)}). Approaching the hard "
+                    "line; wrap in-flight work and plan extract + sleep."
                 )
                 sys.stdout.flush()
                 warn_emitted = True
