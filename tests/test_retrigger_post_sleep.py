@@ -109,6 +109,32 @@ class TestPostSleepExtractTrigger:
         ]
         assert len(extract_calls) == 0
 
+    def test_full_sleep_prints_rest_phase_banner(self, runner):
+        """Task #118: full sleep prints the rest-phase banner so the
+        agent knows the window is open. Without it the agent routes back
+        to work-mode and misses the rest window (2026-06-09 lesson)."""
+        runner.invoke(cli, ["init"])
+        with patch("subprocess.run"):
+            result = runner.invoke(cli, ["sleep", "--skip-maintenance"])
+        assert result.exit_code == 0
+        assert "REST-PHASE OPEN" in result.output
+        assert "exploration/" in result.output
+        assert "family/letters/" in result.output
+
+    def test_dry_run_does_NOT_print_rest_phase_banner(self, runner):
+        runner.invoke(cli, ["init"])
+        with patch("subprocess.run"):
+            result = runner.invoke(cli, ["sleep", "--dry-run"])
+        assert result.exit_code == 0
+        assert "REST-PHASE OPEN" not in result.output
+
+    def test_single_phase_does_NOT_print_rest_phase_banner(self, runner):
+        runner.invoke(cli, ["init"])
+        with patch("subprocess.run"):
+            result = runner.invoke(cli, ["sleep", "--phase", "pruning"])
+        assert result.exit_code == 0
+        assert "REST-PHASE OPEN" not in result.output
+
     def test_extract_failure_does_NOT_fail_sleep(self, runner):
         """Sleep must complete successfully even if extract subprocess errors."""
         runner.invoke(cli, ["init"])
