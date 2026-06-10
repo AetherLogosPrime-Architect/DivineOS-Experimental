@@ -85,12 +85,23 @@ def register(cli: click.Group) -> None:
         help="Named reason for deferral (>= 20 chars). Deferred corrections "
         "stay visible in briefing.",
     )
-    def defer_cmd(correction_id: int, reason: str) -> None:
+    @click.option(
+        "--unblock-condition",
+        "unblock_condition",
+        default=None,
+        help="Optional auto-reopen trigger. Supported forms: "
+        "'pr_merged:<N>', 'time_elapsed:<days>', 'knowledge_stored:<keyword>'. "
+        "When the condition fires, check_and_reopen_unblocked() reopens the "
+        "correction at the next session-start sweep.",
+    )
+    def defer_cmd(correction_id: int, reason: str, unblock_condition: str | None) -> None:
         """Mark a correction DEFERRED with named reason."""
-        ok = defer(correction_id, reason)
+        ok = defer(correction_id, reason, unblock_condition=unblock_condition)
         if ok:
             click.secho(f"[*] Correction #{correction_id} marked DEFERRED.", fg="yellow")
             click.secho(f"    reason: {reason.strip()}", fg="bright_black")
+            if unblock_condition:
+                click.secho(f"    unblock_condition: {unblock_condition}", fg="bright_black")
         else:
             click.secho(
                 f"Refused: correction #{correction_id} not found, "
