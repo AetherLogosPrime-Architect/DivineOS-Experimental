@@ -251,7 +251,7 @@ class TestOpenPRsRow:
         from divineos.core.briefing_dashboard import DashboardRow, _row_open_prs
 
         stdout = (
-            '['
+            "["
             '{"number":1,"title":"a","mergeStateStatus":"BEHIND"},'
             '{"number":2,"title":"b","mergeStateStatus":"BLOCKED"},'
             '{"number":3,"title":"c","mergeStateStatus":"CLEAN"}'
@@ -283,9 +283,7 @@ class TestOpenPRsRow:
 
         from divineos.core.briefing_dashboard import _row_open_prs
 
-        stdout = (
-            '[{"number":9,"title":"x","mergeStateStatus":"UNKNOWN"}]'
-        )
+        stdout = '[{"number":9,"title":"x","mergeStateStatus":"UNKNOWN"}]'
         monkeypatch.setattr(
             subprocess,
             "run",

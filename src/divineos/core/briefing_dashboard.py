@@ -252,9 +252,7 @@ def _row_open_prs() -> DashboardRow | None:
         behind = [p for p in prs if p.get("mergeStateStatus") == "BEHIND"]
         blocked = [p for p in prs if p.get("mergeStateStatus") == "BLOCKED"]
         unstable = [p for p in prs if p.get("mergeStateStatus") in ("UNSTABLE", "DIRTY")]
-        clean = [
-            p for p in prs if p.get("mergeStateStatus") in ("CLEAN", "HAS_HOOKS")
-        ]
+        clean = [p for p in prs if p.get("mergeStateStatus") in ("CLEAN", "HAS_HOOKS")]
         unknown = [p for p in prs if p.get("mergeStateStatus") == "UNKNOWN"]
 
         # Action-needed counts (operator needs to do something).
