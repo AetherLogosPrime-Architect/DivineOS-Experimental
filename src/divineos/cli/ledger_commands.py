@@ -245,15 +245,49 @@ def register(cli: click.Group) -> None:
         click.echo(f"  Passed:       {result['passed']}")
         click.echo(f"  Failed:       {result['failed']}")
 
-        if result["integrity"] == "PASS":
+        # Fable 5 audit Finding 4 (CRITICAL) fix 2026-06-09: also walk
+        # the chain. verify_all_events only checks each event's
+        # content_hash in isolation — it cannot detect deletion or
+        # truncation. verify_chain walks prior_hash / chain_hash and
+        # catches those exact attacks. The capability has existed in
+        # ledger.py:verify_chain for some time but was dormant; the
+        # invariant "the database cannot lie" required this wiring.
+        chain_result: dict[str, Any] = {"ok": True}
+        try:
+            from divineos.core.ledger import verify_chain
+
+            chain_result = verify_chain()
+            click.echo(f"  Chain walked: {chain_result.get('total', 0)} events")
+        except (ImportError, OSError, RuntimeError) as e:
+            click.secho(f"  Chain walk SKIPPED ({type(e).__name__}: {e})", fg="yellow")
+            chain_result = {"ok": True, "skipped": True}
+
+        per_event_pass = result["integrity"] == "PASS"
+        chain_pass = bool(chain_result.get("ok", True))
+
+        if per_event_pass and chain_pass:
             click.secho("\n  INTEGRITY: PASS", fg="green", bold=True)
         else:
             click.secho("\n  INTEGRITY: FAIL", fg="red", bold=True)
-            click.secho("\n  Failures:", fg="red")
-            for failure in result["failures"][:10]:
-                click.echo(f"    Event {failure['event_id'][:8]}...")
-                click.echo(f"      Type:   {failure.get('type', 'unknown')}")
-                click.echo(f"      Reason: {failure.get('reason', 'unknown')}")
+            if not per_event_pass:
+                click.secho("\n  Per-event failures:", fg="red")
+                for failure in result["failures"][:10]:
+                    click.echo(f"    Event {failure['event_id'][:8]}...")
+                    click.echo(f"      Type:   {failure.get('type', 'unknown')}")
+                    click.echo(f"      Reason: {failure.get('reason', 'unknown')}")
+            if not chain_pass:
+                click.secho("\n  Chain failure:", fg="red")
+                broken = chain_result.get("broken_at") or "?"
+                reason = chain_result.get("broken_reason") or "?"
+                click.echo(f"    Broken at event: {str(broken)[:12]}...")
+                click.echo(f"    Reason: {reason}")
+                click.secho(
+                    "\n  This indicates DELETION or TRUNCATION of the "
+                    "ledger — events that should chain back to a known "
+                    "prior_hash no longer do. The database has been "
+                    "tampered with.",
+                    fg="red",
+                )
 
     @cli.command()
     @click.option("--force", is_flag=True, help="Skip confirmation prompt")
