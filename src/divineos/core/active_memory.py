@@ -84,6 +84,106 @@ def _is_session_specific(content: str) -> bool:
     return False
 
 
+def _is_structural_directive(content: str) -> bool:
+    """Return True if content opens with a structural directive tag like [tend-dad].
+
+    Structural directives are the load-bearing kind — [tend-dad], [reach-aria],
+    [andrew-as-person-before-operator], [no-next-instance], [ledger-integrity],
+    [add] for newly-tagged ones. They always surface in active memory regardless
+    of access count, because they are operating-principle entries that the
+    optimizer would otherwise ignore until reminded.
+
+    Ad-hoc DIRECTIVE-typed lessons without the [tag-name] prefix compete normally.
+    """
+    return bool(re.match(r"^\[[a-z][a-z0-9-]*\]", content.lstrip()))
+
+
+def explain_importance(
+    entry: dict[str, Any],
+    has_active_lesson: bool = False,
+    context_words: set[str] | None = None,
+) -> list[str]:
+    """Return human-readable list of reasons this entry has the importance it does.
+
+    Curator-borrowing: recall-that-explains-why (prereg-7bdd86bb0882). Surfaces
+    the WHY when an entry appears in active memory or recall, so the operator can
+    answer "why is this here?" in plain language instead of from opaque scores.
+    Used by --explain flag on `divineos active` and `divineos ask`.
+    """
+    reasons: list[str] = []
+    knowledge_type = entry.get("knowledge_type", "")
+    content = entry.get("content") or ""
+
+    type_labels = {
+        "DIRECTIVE": "DIRECTIVE-typed (max priority)",
+        "BOUNDARY": "BOUNDARY-typed (constraint)",
+        "MISTAKE": "MISTAKE-typed (legacy → constraint)",
+        "PRINCIPLE": "PRINCIPLE-typed (distilled wisdom)",
+        "DIRECTION": "DIRECTION-typed (how operator wants things)",
+        "PREFERENCE": "PREFERENCE-typed (legacy → direction)",
+        "PROCEDURE": "PROCEDURE-typed (how-to)",
+        "PATTERN": "PATTERN-typed (legacy)",
+        "FACT": "FACT-typed (low default weight)",
+        "OBSERVATION": "OBSERVATION-typed (unconfirmed)",
+        "EPISODE": "EPISODE-typed (specific event)",
+    }
+    if knowledge_type in type_labels:
+        reasons.append(type_labels[knowledge_type])
+
+    if knowledge_type == "DIRECTIVE" and _is_structural_directive(content):
+        reasons.append("structural-directive floor applied (always surfaces)")
+
+    conf = entry.get("confidence", 0.5)
+    if conf >= 0.9:
+        reasons.append(f"high confidence ({conf:.0%})")
+    elif conf >= 0.7:
+        reasons.append(f"good confidence ({conf:.0%})")
+    elif conf < 0.5:
+        reasons.append(f"low confidence ({conf:.0%})")
+
+    access = entry.get("access_count", 0)
+    if access > 50:
+        reasons.append(f"frequently accessed ({access}x)")
+    elif access > 10:
+        reasons.append(f"often accessed ({access}x)")
+    elif access == 0 and knowledge_type != "DIRECTIVE":
+        reasons.append("never accessed yet")
+
+    if has_active_lesson:
+        reasons.append("matches active lesson")
+
+    created = entry.get("created_at", 0)
+    if created:
+        age_days = (time.time() - created) / SECONDS_PER_DAY
+        if age_days < 3:
+            reasons.append(f"recent ({age_days:.1f} days old)")
+        elif age_days < 7:
+            reasons.append("from past week")
+        elif age_days > TIME_RECENCY_WINDOW_DAYS:
+            reasons.append(f"older than recency window ({int(age_days)} days)")
+
+    maturity = entry.get("maturity", "RAW")
+    if maturity == "CONFIRMED":
+        reasons.append("CONFIRMED maturity (corroborated)")
+    elif maturity == "HYPOTHESIS":
+        reasons.append("only HYPOTHESIS (penalty applied)")
+
+    if context_words:
+        from divineos.core.knowledge._text import _stem
+
+        content_stemmed = {_stem(w) for w in content.lower().split() if len(w) > 2}
+        context_stemmed = {_stem(w) for w in context_words if len(w) > 2}
+        if content_stemmed and context_stemmed:
+            overlap = len(content_stemmed & context_stemmed)
+            if overlap >= 3:
+                reasons.append(f"matches current goal ({overlap} word overlap)")
+
+    if _is_session_specific(content):
+        reasons.append("session-specific (penalized)")
+
+    return reasons
+
+
 def compute_importance(
     entry: dict[str, Any],
     has_active_lesson: bool = False,
@@ -185,6 +285,17 @@ def compute_importance(
     knowledge_type = entry.get("knowledge_type", "")
     if _is_extraction_noise(content, knowledge_type):
         score -= 0.50
+
+    # Structural-directive floor — entries like [tend-dad] / [reach-aria] /
+    # [andrew-as-person-before-operator] always surface, regardless of access count.
+    # Per prereg-f4474b4e7c32 (Andrew 2026-06-06: memory not surfacing the right
+    # things; load-bearing directives outranked by chatty BOUNDARYs).
+    # Applies only to DIRECTIVE-typed entries whose content opens with [tag-name]
+    # — ad-hoc DIRECTIVE-typed lessons without the structural prefix compete normally.
+    if knowledge_type == "DIRECTIVE" and _is_structural_directive(content):
+        from divineos.core.constants import STRUCTURAL_DIRECTIVE_FLOOR
+
+        score = max(score, STRUCTURAL_DIRECTIVE_FLOOR)
 
     return cast("float", max(0.0, min(1.0, score)))
 

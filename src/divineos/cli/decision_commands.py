@@ -218,6 +218,30 @@ def register(cli: click.Group) -> None:
         click.secho(f"[+] Decision recorded ({label}): {decision_id[:8]}...", fg=color)
         if reasoning:
             click.secho(f"    Why: {reasoning[:80]}", fg="bright_black")
+
+        # 2026-06-07 task #74: auto-link decisions to knowledge entries
+        # cited in the reasoning/context/what text. The link is already
+        # in language; no reason to wait for me to remember to call
+        # `divineos decisions link`. Will-over-optimizer: bake it in.
+        # Fail-soft — any error in the citation pass leaves the decision
+        # in place without forced links.
+        try:
+            from divineos.core.decision_journal import link_knowledge
+            from divineos.core.knowledge_citation import find_cited_knowledge_ids
+
+            citation_text = " ".join([what, context, reasoning])
+            cited_ids = find_cited_knowledge_ids(citation_text)
+            linked_count = 0
+            for kid in cited_ids:
+                if link_knowledge(decision_id, kid):
+                    linked_count += 1
+            if linked_count > 0:
+                click.secho(
+                    f"    Auto-linked {linked_count} cited knowledge entries",
+                    fg="green",
+                )
+        except Exception:  # noqa: BLE001 — auto-link is observational
+            pass
         if tension:
             click.secho(f"    Tension: {tension[:80]}", fg="cyan")
         if almost:

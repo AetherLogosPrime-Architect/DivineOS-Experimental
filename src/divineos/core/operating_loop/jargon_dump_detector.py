@@ -182,6 +182,28 @@ _TRANSLATION_MARKERS_RE = re.compile(
 # marker; pairs with translation_markers as evidence of pairing.
 _EMDASH_RESTATE_RE = re.compile(r"\s(?:—|--)\s+[a-z]")
 
+# Explicit plain-language section marker — a clear visual break followed
+# by everyday-language framing. The em-dash-restate pattern was too
+# generous: it counted "ELMO — compress old noise events" as translation
+# work when both sides are jargon. Andrew 2026-06-06: the failure shape
+# is a wall of jargon at the operator without a real plain channel; the
+# detector must catch this directly, not infer it from scattered restates.
+#
+# A real plain section is signaled by:
+#   - "---" or "***" horizontal rule on its own line, OR
+#   - a heading like "Plain:" / "Plain language:" / "Plain version:" /
+#     "In plain words:" / "Plain summary:" / "For you:" / "Translation:"
+_PLAIN_SECTION_RE = re.compile(
+    r"(?:"
+    r"\n[-*]{3,}\s*\n"  # horizontal rule on its own line
+    r"|"
+    r"\n\s*\*?\*?(?:Plain(?:\s+(?:language|version|summary|status|words))?|"
+    r"In\s+plain\s+(?:english|words|terms|language)|"
+    r"For\s+you|Translation|Plain\s+report)\*?\*?\s*[:.,—–-]"
+    r")",
+    re.IGNORECASE,
+)
+
 # NOTE (Aletheia round-cc0bf85fc3fa minor finding): a
 # `_PAREN_EXPLAIN_RE` pattern was defined here but never used. Removed.
 # Translation count deliberately does NOT include parens as a signal —
@@ -294,6 +316,14 @@ def detect_jargon_dump(
         _EMDASH_RESTATE_RE.findall(text)
     )
 
+    # Explicit plain-language section — the strong signal that lepos is
+    # actually operating (not just scattered em-dashes). Per Andrew 2026-06-06
+    # correction: a wall of jargon at the operator can have many em-dash-
+    # restates but no real plain channel (e.g. "ELMO — compress old noise"
+    # is jargon-to-jargon). The plain-section check requires a clear visual
+    # break or heading before the everyday-language paragraph.
+    has_plain_section = bool(_PLAIN_SECTION_RE.search(text))
+
     noise_count = len(unique_matches)
 
     # Firing rule:
@@ -305,15 +335,18 @@ def detect_jargon_dump(
     #   - everything else is clean. Jargon WITH translation is lepos
     #     operating; a single round-id in a short explanation is fine.
     if noise_count >= 5:
-        if translation_count > noise_count // 2:
+        if translation_count > noise_count // 2 and has_plain_section:
             return []
     else:
         if word_count < min_words or noise_count < noise_threshold:
             return []
-        if translation_count > 0:
+        if translation_count > 0 and has_plain_section:
             return []
 
-    severity = "high" if noise_count >= 6 and translation_count == 0 else "medium"
+    # Severity = "high" when noise is heavy AND no explicit plain section.
+    # The Stop-hook lepos gate blocks on "high" severity, so missing the
+    # plain section in a jargon-dense reply now blocks the turn.
+    severity = "high" if noise_count >= 6 and not has_plain_section else "medium"
 
     return [
         JargonDumpFinding(

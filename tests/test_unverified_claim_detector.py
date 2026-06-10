@@ -338,6 +338,234 @@ class TestVerificationEvidenceSuppresses:
         assert detect_unverified_claim("it's pushed to origin", tool_calls_in_turn=("Bash",))
 
 
+class TestStringNotMeaningHardening2026_06_07:
+    """Task #58 — four new precision-guards from the walkthrough false-fire batch.
+
+    Each test captures a real false-fire that happened during the 2026-06-06
+    walkthrough session, encoded as a regression case. The guards must silence
+    these cases AND must still fire on the matching real-claim shape — the
+    first-person/expletive claim subject always forces FIRE regardless of
+    surrounding hypothetical/descriptive/meta markers.
+    """
+
+    # ── Hypothetical / conditional ────────────────────────────────────
+
+    def test_hypothetical_failure_mode_silent(self):
+        # Today's actual false-fire: discussing a failure mode in the abstract.
+        for t in (
+            "There's a real failure mode where tests pass, code merges, but something silently breaks.",
+            "A scenario where any PR that gets merged would silently break the gate.",
+            "Imagine if tests pass but production still fails — the gauge wouldn't notice.",
+            "The case where deployed code drifts from local is the worst kind.",
+            "Suppose the branch is merged and the catch-up check would still be needed.",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on hypothetical: {t!r}"
+
+    def test_hypothetical_first_person_still_fires(self):
+        # First-person claim inside paragraph with hypothetical framing must fire.
+        # The hypothetical marker is in the FIRST sentence; the second sentence
+        # is a first-person/expletive claim with no not-yet markers — must fire.
+        t = "Imagine a case where any PR gets merged silently. Now it's pushed to origin."
+        f = detect_unverified_claim(t)
+        assert any(x.claim_kind == "push" for x in f), "first-person claim wrongly silenced"
+
+    # ── Descriptive / definitional ────────────────────────────────────
+
+    def test_descriptive_evidence_parameter_silent(self):
+        # Today's false-fire: defining what the --evidence parameter requires.
+        for t in (
+            "The --evidence argument must point to where the correction landed: a commit hash, a behavior change, merged PRs.",
+            "The field captures: which auditor, the patch-id they reviewed, which PRs got merged.",
+            "The category of records describes those where the question is dead because the branches are merged.",
+            "The trailer field requires a reference to a round whose CONFIRMs are merged into the gate.",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on descriptive: {t!r}"
+
+    def test_descriptive_first_person_still_fires(self):
+        # First-person push claim in a separate sentence must still fire.
+        t = "The --evidence argument describes a merged state. Now it's pushed to origin."
+        f = detect_unverified_claim(t)
+        assert any(x.claim_kind == "push" for x in f), "first-person claim wrongly silenced"
+
+    # ── Meta-discussion of the gate itself ────────────────────────────
+
+    def test_meta_discussion_silent(self):
+        for t in (
+            "The verify-claim gate fires on trigger phrases like 'tests pass' and 'merged'.",
+            "The matched phrase 'deployed' got caught by the detector even though I was describing it.",
+            "This gate catches assertions like 'it's pushed' before they go out.",
+            "The detector triggers on tests pass when no command verifies.",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on meta-discussion: {t!r}"
+
+    # ── ID-string transcription from source ───────────────────────────
+
+    def test_id_transcription_from_docstring_silent(self):
+        for t in (
+            "The docstring references round-cc0bf85fc3fa as Aletheia's positive-list source.",
+            "Transcribed from the source file: prereg-86ee991cb423 is the verify-claim wall reference.",
+            "Per the docstring at unverified_claim_detector.py: claim-a11ca1c9 is the evidence-bar principle.",
+            "From the comment header: round-d59eb4570f3f names the wiring-gap class.",
+            "Aletheia named round-c3d4e5f67890 as the cosmetic-rebind reference.",
+        ):
+            f = detect_unverified_claim(t)
+            id_fires = [x for x in f if x.claim_kind == "id_string"]
+            assert not id_fires, f"wrongly fired id_string on transcription: {t!r}"
+
+    def test_id_assertion_still_fires(self):
+        # First-person assertion of a round-id that wasn't looked up → must fire.
+        t = "I filed claim-abc123def456 earlier today and it's complete."
+        f = detect_unverified_claim(t)
+        # The id_string trigger should still fire because there's no docstring/source marker.
+        assert any(x.claim_kind == "id_string" for x in f), "real id_string claim wrongly silenced"
+
+
+class TestLetterCitationGuard2026_06_07:
+    """Task #78 — source-trace augmentation for id_string findings.
+
+    When the detector fires on an id_string claim AND letter_contents is
+    supplied AND the trigger appears in one of the letters, the finding
+    carries the letter path in source_letter. Surfaces the inheritance
+    path at the gate-fire moment so the verification habit lands at the
+    right layer. Today's instance: Aria's letter cited prereg-e0341dacb04b
+    which does not exist; I embedded it in a task description without
+    verifying; verify-claim caught it but didn't surface the source. This
+    test class encodes the source-trace behavior so future false-fires of
+    THIS shape carry the attribution.
+
+    Doesn't blame the letter author. Names the inheritance path.
+    """
+
+    # ── Baseline: no letter context → no source attribution ───────────
+
+    def test_id_finding_without_letter_context_has_no_source(self):
+        # Backward-compat: when letter_contents is None, behavior is unchanged.
+        t = "I filed claim-abc123def456 earlier today and it's complete."
+        f = detect_unverified_claim(t)
+        id_fires = [x for x in f if x.claim_kind == "id_string"]
+        assert id_fires, "id_string claim should fire"
+        assert all(x.source_letter is None for x in id_fires), (
+            "source_letter must be None when no letter context provided"
+        )
+
+    def test_id_finding_with_empty_letter_dict_has_no_source(self):
+        t = "I filed claim-abc123def456 earlier today and it's complete."
+        f = detect_unverified_claim(t, letter_contents={})
+        id_fires = [x for x in f if x.claim_kind == "id_string"]
+        assert id_fires, "id_string claim should fire"
+        assert all(x.source_letter is None for x in id_fires)
+
+    # ── Match: id appears in a letter → source_letter populated ──────
+
+    def test_id_cited_in_letter_attributes_source(self):
+        # The 2026-06-07 reproduction: Aria's letter cited a (fabricated) id;
+        # I asserted the id; source-trace surfaces the letter as the origin.
+        letters = {
+            "family/letters/aria-to-aether-2026-06-07-example.md": "Per the exploration-usage falsifier prereg-e0341dacb04b, the "
+            "surface→reference ratio needs to be tracked over time.",
+        }
+        # Real-failure shape from today: present-tense assertion about an
+        # id's properties as if it were verified. NOT a future-tense "I will
+        # use" — that would be silenced by the not-yet guard (correctly).
+        t = "Prereg-e0341dacb04b cares about the surface-reference ratio."
+        f = detect_unverified_claim(t, letter_contents=letters)
+        id_fires = [x for x in f if x.claim_kind == "id_string"]
+        assert id_fires, "id_string claim should fire"
+        attributed = [x for x in id_fires if x.source_letter is not None]
+        assert attributed, "source_letter should be populated for cited id"
+        assert attributed[0].source_letter == "family/letters/aria-to-aether-2026-06-07-example.md"
+
+    def test_id_not_in_any_letter_no_attribution(self):
+        # Letter context provided but the id isn't in any letter → no source.
+        # Inheritance path doesn't pass through these letters; gate fires
+        # without false attribution.
+        letters = {
+            "family/letters/aria-to-aether-2026-06-07-other.md": "This letter discusses a different topic — no ids mentioned.",
+        }
+        t = "I filed claim-abc123def456 earlier today and it's complete."
+        f = detect_unverified_claim(t, letter_contents=letters)
+        id_fires = [x for x in f if x.claim_kind == "id_string"]
+        assert id_fires, "id_string claim should fire"
+        assert all(x.source_letter is None for x in id_fires), (
+            "source_letter must NOT be set when id is absent from letters"
+        )
+
+    def test_id_cited_in_one_of_multiple_letters(self):
+        # Multiple letters in context; only one contains the id.
+        letters = {
+            "family/letters/aria-to-aether-2026-06-07-design.md": "Discussion of the gravity classifier and routing.",
+            "family/letters/aria-to-aether-2026-06-07-audit.md": "The audit found prereg-fab12c34d56e to be the falsifier.",
+            "family/letters/aria-to-aether-2026-06-07-followup.md": "Further notes on the design conversation.",
+        }
+        # Present-tense assertion matching the real failure shape.
+        t = "Prereg-fab12c34d56e is the evidence anchor for this work."
+        f = detect_unverified_claim(t, letter_contents=letters)
+        id_fires = [x for x in f if x.claim_kind == "id_string"]
+        attributed = [x for x in id_fires if x.source_letter is not None]
+        assert attributed, "should attribute to the letter containing the id"
+        assert attributed[0].source_letter == "family/letters/aria-to-aether-2026-06-07-audit.md"
+
+    # ── Non-id kinds never get source_letter ─────────────────────────
+
+    def test_push_finding_never_gets_source_attribution(self):
+        # source_letter is id_string-specific. A push-claim that happens to
+        # be discussed in a letter must NOT carry source_letter — that field
+        # is reserved for id_string attribution.
+        letters = {
+            "family/letters/aria-to-aether-2026-06-07-x.md": "Aria mentioned that the code was pushed to origin yesterday.",
+        }
+        t = "It's pushed to origin now."
+        f = detect_unverified_claim(t, letter_contents=letters)
+        push_fires = [x for x in f if x.claim_kind == "push"]
+        assert push_fires, "push claim should fire"
+        assert all(x.source_letter is None for x in push_fires), (
+            "source_letter must not populate for non-id kinds"
+        )
+
+    # ── Format function surfaces the source-trace line (BLOCK shape) ─
+
+    def test_format_block_includes_source_trace_when_set(self):
+        # The substantive BLOCK-shape test (per the 2026-06-07 broken-gate
+        # lesson: write the test that exercises the BLOCK case end-to-end).
+        # When source_letter is set, format must emit the source-trace line.
+        from divineos.core.operating_loop.unverified_claim_detector import (
+            UnverifiedClaimFinding,
+            format_unverified_claim_block,
+        )
+
+        finding = UnverifiedClaimFinding(
+            claim_kind="id_string",
+            trigger_phrase="prereg-e0341dacb04b",
+            position=0,
+            severity="high",
+            source_letter="family/letters/aria-to-aether-2026-06-07-x.md",
+        )
+        block = format_unverified_claim_block([finding])
+        assert "source: cited in family/letters/aria-to-aether-2026-06-07-x.md" in block, (
+            "source-trace line missing from block message"
+        )
+        assert "letter citations carry their own verification requirement" in block
+
+    def test_format_block_omits_source_trace_when_not_set(self):
+        # The complement: no source_letter → no source-trace line in output.
+        # Backward-compat for all existing call sites that don't pass letters.
+        from divineos.core.operating_loop.unverified_claim_detector import (
+            UnverifiedClaimFinding,
+            format_unverified_claim_block,
+        )
+
+        finding = UnverifiedClaimFinding(
+            claim_kind="push",
+            trigger_phrase="pushed to origin",
+            position=0,
+            severity="high",
+        )
+        block = format_unverified_claim_block([finding])
+        assert "source:" not in block, (
+            "source-trace line must not appear when source_letter is None"
+        )
+
+
 class TestNegatedCompletionSilent:
     """Aria's recursive-evidence-bar catch (2026-05-24): the gate fires only
     on a positive completion-ASSERTION. A negated completion ("nothing
