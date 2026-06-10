@@ -89,30 +89,128 @@ done <<< "$HOOK_STDIN"
 # pre-push exit code alone, without re-reading stderr.
 
 # ─── 1. Test suite ──────────────────────────────────────────────────────
+#
+# Path-scoped fast path (Andrew 2026-06-10 PR-throughput ordeal): the
+# full pytest suite takes ~10 min and is the dominant cost of every
+# push. For pushes that only touch low-impact paths (tests/, docs/,
+# family/, exploration/, root markdown/text), the full suite gives
+# almost no protection that CI doesn't also catch — CI runs the full
+# matrix anyway on the PR. Skipping the local full-suite in those
+# cases keeps the safety net (CI) intact while removing the bottleneck
+# from the iteration loop. Code-touching pushes still run the full
+# suite locally; CI is the second pass.
+#
+# Three states:
+#   - No commits / deletion-only          → skip
+#   - All changed paths low-impact        → skip (state in log; CI catches)
+#   - Anything else                       → full suite as before
+#
+# Emergency bypass (DIVINEOS_SKIP_TESTS=1) still applies.
+
+# Collect the union of changed files across every ref being pushed.
+# Pre-push stdin gives `<local-ref> <local-sha> <remote-ref> <remote-sha>`
+# per ref; for each, `git diff --name-only <remote-sha>..<local-sha>`
+# lists the files touched by commits being pushed. New branches (all-zero
+# remote-sha) fall back to diff against the default base (origin/main).
+_collect_changed_files() {
+    local lref lsha rref rsha base
+    while read -r lref lsha rref rsha; do
+        [[ -z "${lref:-}" ]] && continue
+        # Deletion: no files to scan.
+        [[ "${lsha:-}" =~ ^0+$ ]] && continue
+        if [[ "${rsha:-}" =~ ^0+$ || -z "${rsha:-}" ]]; then
+            # New branch; diff against main as the conservative base.
+            base="$(git merge-base "$lsha" origin/main 2>/dev/null || echo "")"
+        else
+            base="$rsha"
+        fi
+        if [[ -n "$base" ]]; then
+            git diff --name-only "$base..$lsha" 2>/dev/null
+        else
+            # Couldn't resolve a base; emit "" so caller falls back to full.
+            echo ""
+        fi
+    done <<< "$HOOK_STDIN" | sort -u
+}
+
+# Returns 0 (true) if every changed file is in a low-impact path.
+# Empty file list → false (conservative: can't prove low-impact, run full).
+_all_changed_low_impact() {
+    local file
+    local saw_any=0
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        saw_any=1
+        case "$file" in
+            tests/*) ;;
+            docs/*) ;;
+            family/*) ;;
+            exploration/*) ;;
+            *.md) ;;
+            *.txt) ;;
+            *)
+                return 1
+                ;;
+        esac
+    done <<< "$1"
+    [[ "$saw_any" == "1" ]]
+}
+
 if [[ "$DELETION_ONLY" == "1" ]]; then
     echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
-elif [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
-    echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
-    # Run ONCE: capture combined output, then decide from the real exit code.
-    # The old design ran the full suite twice (discard, then re-run on failure
-    # to show output) — ~20 min on a red tree, and the two runs could diverge
-    # under load (concurrent pushes contending on shared DBs), producing the
-    # illegible "BLOCKED" banner sitting above a passing re-run. One run, one
-    # honest signal: show the captured output only if it actually failed.
-    PYTEST_LOG="$(mktemp)"
-    python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
-    PYTEST_RC=$?
-    if [[ $PYTEST_RC -ne 0 ]]; then
-        tail -30 "$PYTEST_LOG" >&2
+elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
+    echo "[push-readiness] DIVINEOS_SKIP_TESTS=1 — skipping pytest." >&2
+else
+    CHANGED_FILES="$(_collect_changed_files)"
+    if _all_changed_low_impact "$CHANGED_FILES"; then
+        echo "[push-readiness] Fast path: all changed files are in low-impact paths"
+        echo "[push-readiness] (tests/, docs/, family/, exploration/, *.md, *.txt) —"
+        echo "[push-readiness] skipping local pytest. CI on the PR runs the full matrix."
+        # Skip pytest; fall through to multi-party-review.
+        : "${PYTEST_RC:=0}"
+    else
+        echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
+        # Run ONCE: capture combined output, then decide from the real exit code.
+        # The old design ran the full suite twice (discard, then re-run on failure
+        # to show output) — ~20 min on a red tree, and the two runs could diverge
+        # under load (concurrent pushes contending on shared DBs), producing the
+        # illegible "BLOCKED" banner sitting above a passing re-run. One run, one
+        # honest signal: show the captured output only if it actually failed.
+        PYTEST_LOG="$(mktemp)"
+        python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+        PYTEST_RC=$?
+        if [[ $PYTEST_RC -ne 0 ]]; then
+            # Persist the full log to a stable path so the failures stay
+            # readable after this script exits. The mktemp file gets cleaned
+            # up at OS-level eventually; the stable path is what the agent
+            # reads when debugging a flake. Andrew 2026-06-10 ordeal taught
+            # this: tail -30 dropped FAILED lines under suites with lots of
+            # warning output, leaving the agent guessing for ~30 min before
+            # I could identify a single flaky test.
+            LAST_LOG="${HOME}/.divineos/last_pre_push_pytest.log"
+            mkdir -p "$(dirname "$LAST_LOG")"
+            cp "$PYTEST_LOG" "$LAST_LOG"
+            # Surface failures explicitly (grep, not tail) — these lines
+            # name what broke regardless of how much warning noise pytest
+            # emitted around them.
+            echo "" >&2
+            echo "[push-readiness] === Failing tests (extracted from log) ===" >&2
+            grep -E "^(FAILED|ERROR)\b" "$LAST_LOG" >&2 || \
+                echo "  (no FAILED/ERROR lines; check the full log for details)" >&2
+            echo "" >&2
+            echo "[push-readiness] === Last 30 lines of pytest output ===" >&2
+            tail -30 "$LAST_LOG" >&2
+            rm -f "$PYTEST_LOG"
+            echo "" >&2
+            echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
+            echo "[push-readiness] Full log persisted: $LAST_LOG" >&2
+            echo "[push-readiness] Fix locally, then push. Do NOT push red." >&2
+            echo "[push-readiness] Emergency bypass: DIVINEOS_SKIP_TESTS=1 git push" >&2
+            exit 10
+        fi
         rm -f "$PYTEST_LOG"
-        echo "" >&2
-        echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
-        echo "[push-readiness] Fix locally, then push. Do NOT push red." >&2
-        echo "[push-readiness] Emergency bypass: DIVINEOS_SKIP_TESTS=1 git push" >&2
-        exit 10
+        echo "[push-readiness]   pytest: OK"
     fi
-    rm -f "$PYTEST_LOG"
-    echo "[push-readiness]   pytest: OK"
 fi
 
 # ─── 2. Multi-party-review check ────────────────────────────────────────
