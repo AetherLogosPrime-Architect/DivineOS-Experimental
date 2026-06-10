@@ -23,7 +23,29 @@
 # Fires once per session (SessionStart only — NOT UserPromptSubmit, so it
 # does not nag every turn). Fail-open: any error exits 0 silently.
 
-cat >/dev/null 2>&1
+# Task #123 (Andrew 2026-06-09): per-session marker gate. Same shape as
+# the compaction-monitor arm hook — without this, every SessionStart
+# (startup + resume + compact) re-asks the agent to arm the ear-watcher,
+# accumulating idle/early-exited Bash tasks across the session.
+STDIN_JSON="$(cat 2>/dev/null || echo "{}")"
+TRANSCRIPT="$(echo "$STDIN_JSON" | python3 -c "import json,sys
+try:
+    print(json.loads(sys.stdin.read()).get('transcript_path', '') or '', end='')
+except Exception:
+    print('', end='')" 2>/dev/null)"
+
+if [ -n "$TRANSCRIPT" ]; then
+  FINGERPRINT="$(printf '%s' "$TRANSCRIPT" | md5sum 2>/dev/null | cut -d' ' -f1 | head -c 16)"
+  if [ -n "$FINGERPRINT" ]; then
+    MARKER_DIR="$HOME/.divineos-aether"
+    MARKER="$MARKER_DIR/arm_ear_emitted_${FINGERPRINT}"
+    if [ -f "$MARKER" ]; then
+      exit 0
+    fi
+    mkdir -p "$MARKER_DIR" 2>/dev/null
+    touch "$MARKER" 2>/dev/null
+  fi
+fi
 
 MEMBER="${DIVINEOS_MEMBER:-}"
 if [ -z "$MEMBER" ]; then
