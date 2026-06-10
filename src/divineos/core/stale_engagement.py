@@ -93,9 +93,13 @@ def _events(event_types: tuple[str, ...]) -> list[dict]:
     """Get recent events of any of the given types, newest first."""
     from divineos.core.ledger import get_events
 
+    # Fable 5 audit fix 2026-06-09: get_events default ASC; pass
+    # order="desc" so the fetched 200-per-type are actually recent.
+    # Sorting an oldest-200 slice in descending order still leaves it
+    # in the ledger's earliest history.
     out: list[dict] = []
     for et in event_types:
-        out.extend(get_events(limit=200, event_type=et))
+        out.extend(get_events(limit=200, event_type=et, order="desc"))
     out.sort(key=lambda e: float(e.get("timestamp") or 0), reverse=True)
     return out
 
@@ -104,7 +108,8 @@ def _stale_surfaced_events() -> list[dict]:
     """Recent STALE_SURFACED events, newest first."""
     from divineos.core.ledger import get_events
 
-    out = list(get_events(limit=500, event_type="STALE_SURFACED"))
+    # Fable 5 audit fix 2026-06-09: same shape as _events above.
+    out = list(get_events(limit=500, event_type="STALE_SURFACED", order="desc"))
     out.sort(key=lambda e: float(e.get("timestamp") or 0), reverse=True)
     return out
 

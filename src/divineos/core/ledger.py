@@ -434,8 +434,9 @@ def get_events(
     offset: int = 0,
     event_type: str | list[str] | frozenset[str] | set[str] | None = None,
     actor: str | None = None,
+    order: str = "asc",
 ) -> list[dict[str, Any]]:
-    """Retrieves events ordered by timestamp ASC.
+    """Retrieves events ordered by timestamp.
 
     Args:
         limit: max rows to return
@@ -446,6 +447,15 @@ def get_events(
             CONSOLIDATION_EVENT_TYPES that match both historical
             SESSION_END rows and new CONSOLIDATION_CHECKPOINT rows.
         actor: optional filter
+        order: "asc" (oldest first, default for back-compat) or "desc"
+            (newest first). Fable 5 audit 2026-06-09 found four call
+            sites (correction_pairing, surfaced_warnings × 2,
+            stale_engagement) that wanted recent events but were
+            silently getting the oldest because this defaulted to ASC.
+            With LIMIT and the production ledger holding 28k+ events,
+            recency detectors were permanently frozen on the ledger's
+            earliest history. Callers wanting recent rows pass
+            order="desc".
 
     """
     conn = _get_connection()
@@ -472,7 +482,8 @@ def get_events(
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY timestamp ASC LIMIT ? OFFSET ?"
+        direction = "DESC" if str(order).lower() == "desc" else "ASC"
+        query += f" ORDER BY timestamp {direction} LIMIT ? OFFSET ?"  # nosec B608
         params.extend([limit, offset])
 
         cursor = conn.execute(query, params)

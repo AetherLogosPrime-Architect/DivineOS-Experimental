@@ -45,11 +45,22 @@ def _isolated_db(tmp_path):
     Also isolates DIVINEOS_HOME (per-user state dir for files like
     checkpoint_state.json) so xdist workers don't stomp on each other's
     counters under -n auto.
+
+    Fable 5 audit fix 2026-06-09: also pops DIVINEOS_SESSION_ID. Since
+    initialize_session() reuses an existing env-var session, any test
+    that didn't call clear_session() was leaking its session id into
+    every subsequent test in the same xdist worker — a flaky-test class
+    same as the May race-condition finding, new instance. Popping
+    both at setup and teardown guarantees each test starts with a
+    fresh session id namespace.
     """
     db_path = tmp_path / "test_ledger.db"
     home_path = tmp_path / "divineos_home"
     home_path.mkdir(parents=True, exist_ok=True)
 
+    # Clear leaked SESSION_ID BEFORE assigning the fresh DB so a stale
+    # session id can't reach the new ledger.
+    os.environ.pop("DIVINEOS_SESSION_ID", None)
     os.environ["DIVINEOS_DB"] = str(db_path)
     os.environ["DIVINEOS_HOME"] = str(home_path)
     os.environ["DIVINEOS_DISABLE_AUTO_REMEDIATE"] = "1"
@@ -61,6 +72,7 @@ def _isolated_db(tmp_path):
     os.environ.pop("DIVINEOS_DB", None)
     os.environ.pop("DIVINEOS_HOME", None)
     os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
+    os.environ.pop("DIVINEOS_SESSION_ID", None)
 
 
 @pytest.fixture

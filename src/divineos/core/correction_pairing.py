@@ -41,7 +41,9 @@ def _recent_user_corrections(limit: int = 50) -> list[dict]:
     """Recent CORRECTION-shaped ledger events, newest first."""
     from divineos.core.ledger import get_events
 
-    events = get_events(limit=limit * 4)  # over-fetch then filter
+    # Fable 5 audit fix 2026-06-09: get_events default is ASC; recency
+    # callers must pass order="desc" or this returns the OLDEST events.
+    events = get_events(limit=limit * 4, order="desc")  # over-fetch then filter
     out = []
     for e in events:
         et = (e.get("event_type") or "").upper()
@@ -86,7 +88,7 @@ def _recent_learn_entries(since_ts: float, until_ts: float) -> list[dict]:
     """Knowledge/lesson entries created in the time window."""
     from divineos.core.ledger import get_events
 
-    events = get_events(limit=200)
+    events = get_events(limit=200, order="desc")  # recency-window scan
     out = []
     for e in events:
         et = e.get("event_type") or ""
