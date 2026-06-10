@@ -114,6 +114,64 @@ class TestPreToolUseBypassCommands:
         assert pre_hook._is_bypass_command('divineos claim "uncertainty"') is True
         assert pre_hook._is_bypass_command("divineos claims list") is True
 
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # Task #110 gate-audit additions (2026-06-09). Each entry below
+            # was identified as a prescribed-recovery command in some gate's
+            # block message but missing from the canonical bypass list,
+            # creating a chicken-and-egg trap. Pinning each here so they
+            # cannot regress.
+            'divineos delete-justify "target" --why "x"',
+            "divineos bio show",
+            "divineos dream",
+            "divineos admin maintenance",
+            "divineos pre-erasure capture",
+            "divineos scheduled list",
+            "divineos validate",
+            "divineos complete --list",
+            "divineos commitment fulfillment",
+            "divineos loadout refresh",
+            "divineos family-queue mark abc seen",
+        ],
+    )
+    def test_task_110_audit_additions_are_bypass(self, cmd: str):
+        """Each prescribed-recovery command surfaced by the 2026-06-09
+        gate-audit (#110) must be bypass so the prescribing gate can't
+        block its own remedy. See scripts/hook_bypass_commands.txt for
+        the per-entry rationale."""
+        assert pre_hook._is_bypass_command(cmd) is True, (
+            f"{cmd!r} must be bypass — its prescribing gate (see "
+            "task #110 audit findings) would otherwise block its own remedy"
+        )
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # Prefix-leak guards: each new entry must NOT match against a
+            # different-command-that-starts-with-the-same-prefix.
+            "divineos delete-justifyx",  # not the real subcommand
+            "divineos biox show",
+            "divineos dreamboat",  # not even a real command
+            "divineos administrative",
+            "divineos pre-erasures",
+            "divineos scheduledtask",
+            "divineos validates",
+            "divineos completes-everything",
+            "divineos commitments",
+            "divineos loadouts",
+            "divineos family-queuex",
+        ],
+    )
+    def test_task_110_additions_no_prefix_leak(self, cmd: str):
+        """Each new bypass entry must require exact-match OR prefix-plus-
+        space — never partial-token-match. Catches the loose-prefix hole."""
+        assert pre_hook._is_bypass_command(cmd) is False, (
+            f"{cmd!r} should NOT bypass — it's a different command that "
+            "shares a prefix with a bypass entry; allowing it through would "
+            "open a loose-prefix hole"
+        )
+
     def test_extract_and_sleep_bypass_to_break_governor_catch22(self):
         """Regression guard: Gate 7 (context governor) names `divineos extract`
         then `divineos sleep` as the channel that lifts the hard-line block.
