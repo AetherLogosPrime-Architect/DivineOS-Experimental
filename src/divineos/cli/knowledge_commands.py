@@ -288,11 +288,19 @@ def register(cli: click.Group) -> None:
     @cli.command("ask")
     @click.argument("query")
     @click.option("--limit", default=10, type=int, help="Max results")
-    def ask_cmd(query: str, limit: int) -> None:
+    @click.option(
+        "--namespace",
+        "--source",
+        default=None,
+        help="Filter to one source: andrew, agent, aria, aletheia, etc. "
+        "(Curator-borrowing: namespacing — prereg-902656c818d4)",
+    )
+    def ask_cmd(query: str, limit: int, namespace: str | None) -> None:
         """Search what the system knows about a topic.
 
         Searches both the knowledge store and core memory.
         Example: divineos ask "testing"
+        With namespace: divineos ask "testing" --namespace=andrew
         """
         if not query.strip():
             click.secho("[-] Please provide a search query.", fg="yellow")
@@ -311,7 +319,7 @@ def register(cli: click.Group) -> None:
         from divineos.cli._anti_substitution import emit_label
 
         emit_label("ask")
-        results = search_knowledge(query, limit=limit)
+        results = search_knowledge(query, limit=limit, source_entity=namespace)
 
         query_lower = query.lower()
         query_words = {

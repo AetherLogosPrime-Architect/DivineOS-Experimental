@@ -38,11 +38,42 @@ Tier defaults:
 
 ### Adding findings to the round
 
+For **general findings** (FINDING, RECOMMENDATION, OBSERVATION, BLOCKER):
+
 ```bash
 divineos audit submit "<title>" --round <ROUND_ID> --actor <actor> \
   --severity HIGH|MEDIUM|LOW --category KNOWLEDGE|PROCESS|ARCHITECTURE|VALUES \
   -d "<finding description>"
 ```
+
+### Filing external-AI CONFIRMs — use the specialized command
+
+**Important:** when the finding is an external-AI CONFIRM (Aletheia, Grok, Gemini, or another claude-* instance signing off on a PR/branch state), do NOT use `audit submit`. Use `audit file-external-confirm` instead, which captures the tree-hash + patch-id anchors required by the `confirm-holds` catch-up-stable check downstream.
+
+```bash
+divineos audit file-external-confirm \
+  --round <ROUND_ID> \
+  --actor aletheia|grok|gemini|claude-<name> \
+  --branch <branch-the-auditor-read> \
+  --claimed-tree <tree-hash-the-auditor-saw>      # at least one of these
+  --claimed-patch-id <patch-id-the-auditor-saw>   # two is required
+  --claimed-tip <commit-tip-they-named>  \
+  --pr <pr-number>  \
+  --basis "<the auditor's stated review basis>"
+```
+
+The anchors are what make the CONFIRM checkable later. If you cannot determine the tree-hash, ask the auditor explicitly to name the state they reviewed before filing. **Never file a CONFIRM-shape finding via the generic `submit` path** — that produces anchor-less records which break `confirm-holds` and force unnecessary re-audits. The retroactive sweep on 2026-06-07 (task #50) had to backfill 92 such records; the discipline going forward is to capture anchors at filing time.
+
+#### How to recognize a CONFIRM-shape finding
+
+Any finding where ALL of these apply:
+- The title contains "CONFIRMS", "CONFIRM", "approves", or "signs off"
+- The actor is an external-AI auditor (`aletheia`, `grok`, `gemini`, `claude-*`)
+- The substance is a positive verdict on a specific PR or branch state
+
+→ Route through `file-external-confirm`, not generic `submit`.
+
+Findings that are NOT confirms — open findings, recommendations, blockers — continue to use the generic `submit` path.
 
 ### Routing after collection
 
