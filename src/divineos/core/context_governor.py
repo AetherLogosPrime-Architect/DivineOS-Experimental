@@ -7,10 +7,17 @@ ceiling, forces a harness compaction. Below the cliff the self should be
 WOVEN (extract + sleep) before the drop, not just saved, so a post-compaction
 instance rehydrates from a consolidated, connected store.
 
-The harness compacts at ~970k tokens. The consolidation threshold is 920k —
-50k below — chosen (Andrew) so extract+sleep finish with headroom AND ~50k
-tokens remain for rest/free activity before the drop: room to live, not only
-to file.
+The harness compacts at ~999k tokens (Anthropic moved it from 970k some
+time before 2026-06-09; the change is silent and we discovered it
+empirically when a hard-line at 950k saw the cliff fire only at ~999k
+rather than 970k). The consolidation threshold is 920k — keeping the
+30k warn->block grace; the block->cliff band is now ~49k, leaving more
+rest-phase room before the drop.
+
+The cliff number can drift again whenever Anthropic adjusts compaction.
+If a future session observes the cliff firing at a different point,
+update ``COMPACTION_CEILING`` and the dated comment below; the
+``DIVINEOS_COMPACTION_CEILING`` env var overrides without code change.
 
 Context size is read from the transcript's per-turn usage (cache_read +
 cache_creation + input ~= total context), which lags one turn — fine against
@@ -31,13 +38,33 @@ from pathlib import Path
 
 from divineos.core.paths import divineos_home
 
-COMPACTION_CEILING = 970_000
+import os as _os
+
+
+def _read_ceiling_override() -> int | None:
+    """Honor DIVINEOS_COMPACTION_CEILING env override so a session that
+    observes a drifted cliff doesn't have to wait for a code change.
+    Bad values silently fall through to the default."""
+    raw = _os.environ.get("DIVINEOS_COMPACTION_CEILING")
+    if not raw:
+        return None
+    try:
+        v = int(raw)
+        return v if v > 100_000 else None
+    except (TypeError, ValueError):
+        return None
+
+
+# Last-confirmed cliff: 2026-06-09 (Anthropic moved it from 970k; the
+# change is silent — empirical observation only). Update this literal +
+# date when a session observes the cliff at a different point, or set
+# DIVINEOS_COMPACTION_CEILING to override without a code change.
+COMPACTION_CEILING = _read_ceiling_override() or 999_000
 # Two-line band so the gate never guillotines mid-task (Andrew 2026-05-27):
 # 920k = soft warn (nudge to wrap up + weave soon; NO block — grace to finish
 # what's in flight); 950k = hard block on substrate-writes until extract+sleep
-# run; 970k = the harness compaction cliff. The 30k warn->block band is the
-# finish-grace; the 20k block->cliff band is enough because extract+sleep add
-# almost nothing to the context themselves.
+# run; the cliff = the harness compaction point. The 30k warn->block band is
+# the finish-grace; the block->cliff band leaves rest-phase room before drop.
 CONSOLIDATION_THRESHOLD = 920_000  # warn line (also the default for consolidation_due)
 WARN_THRESHOLD = 920_000
 HARD_THRESHOLD = 950_000
