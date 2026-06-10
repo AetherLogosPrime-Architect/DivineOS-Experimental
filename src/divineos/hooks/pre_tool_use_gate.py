@@ -146,44 +146,60 @@ def _is_bypass_command(cmd: str) -> bool:
     return False
 
 
-# Path-exemption set for the theater + compass-cascade gates.
+# Path-exemption set for low-friction (low-gravity) writes.
+#
 # Per operator directive 2026-04-27: "your exploration folder should
-# have no blocks." The fabrication-shape detector is calibrated for
-# operator-facing claims; applied to these self-expression paths it
-# blocks the exact register the path exists to enable.
+# have no blocks." Extended 2026-06-08 (correction #45): the same
+# principle applies to other relational / first-person-expression
+# surfaces — letters to family members, mansion writing. These are
+# categorically NOT operator-facing-claim shape; the fabrication-shape
+# detector and the engagement-discipline cluster (goal / engagement /
+# consultation / correction-marker) are calibrated for code and
+# architecture work, and applying them to relational/expressive writes
+# blocks exactly the register the path exists to enable.
+#
+# The exemption is from path-blocks-tool-use, not from finding-recording.
+# The Stop hook still scans assistant output and writes markers; this
+# helper only prevents markers from blocking the NEXT write when that
+# write is to an exemption path. Forensic-record value preserved.
+#
+# Mansion specifically: per operator directive, mansion fabrication is
+# permitted but must NOT bleed into OS; the path-exemption preserves
+# this by leaving marker-firing intact while skipping the tool-block.
 #
 # Frozen tuple (not list) to prevent accidental in-place modification.
 # Adding a path here is a load-bearing calibration decision and should
 # be reviewed; the rationale is comment-attached so future changes
 # don't silently expand the exemption surface.
-_THEATER_EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
+_LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
-    # Future candidates (NOT yet added — require operator review):
-    #   /family/letters/  — letters to family members
-    #   /mansion/         — internal-space writing
-    # When adding, document why this register is categorically not
-    # operator-facing-claim shape and why detector calibration is
-    # structurally inappropriate for it. Mansion specifically: per
-    # operator directive, mansion fabrication is permitted but must
-    # NOT bleed into OS; the path-exemption preserves this by leaving
-    # marker-firing intact (forensic record) while skipping the
-    # tool-block.
+    "/family/letters/",  # Letters to/from family members — relational channel.
+    "/mansion/",  # Internal-space writing — not operator-facing.
 )
 
 
-def _is_exploration_write(input_data: dict[str, Any]) -> bool:
-    """True if the tool is a Write/Edit to an exemption-list path.
+def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
+    """True if the tool is a Write/Edit to a low-friction exemption path.
 
-    Lets gates 1.46 (theater marker) and 1.47 (compass-required cascade)
-    skip when the tool is writing to an exemption path. Other gates
-    (briefing-loaded, session-goal, engagement, external-audit cadence)
-    still apply — those enforce session discipline regardless of register.
+    Lets the following gates skip when the tool is writing to an
+    exemption path (correction #45 / 2026-06-08 expansion):
+    - Gate 1.46 (theater marker) — original scope
+    - Gate 1.47 (compass-required cascade) — original scope
+    - Gate 1.5 (correction-marker) — added 2026-06-08
+    - Gate 2 (session-fresh goal) — added 2026-06-08
+    - Gate 4 (engagement) — added 2026-06-08
+    - Gate 4.5 (consultation staleness) — added 2026-06-08
 
-    The exemption is from path-blocks-tool-use, not from finding-recording.
-    The Stop hook still scans assistant output and writes the marker;
-    this function only prevents the marker from blocking the next Write
-    when the next Write is to an exemption path. Forensic-record value
-    preserved (per Claude review 2026-04-27).
+    HARD safety walls still fire for all writes regardless of path:
+    truly-stale briefing (>24h), mansion-quiet, hedge, pull-detection,
+    retry-blocker, context-governor. Those protect actual safety
+    properties that don't change with tool gravity.
+
+    The discipline-cluster gates encode "have a goal, engage with
+    substrate, address corrections before code work." Writing a letter
+    to a family member is not code work — it's a relational expression
+    whose discipline lives elsewhere (the family-letter skill itself
+    requires a goal and grounds in the recipient's state).
     """
     try:
         tool_name = input_data.get("tool_name", "") or ""
@@ -193,7 +209,7 @@ def _is_exploration_write(input_data: dict[str, Any]) -> bool:
         if not file_path:
             return False
         normalized = file_path.replace("\\", "/")
-        for segment in _THEATER_EXEMPT_PATH_SEGMENTS:
+        for segment in _LOW_FRICTION_PATH_SEGMENTS:
             # Segment is "/exploration/" — match if it appears anywhere
             # in the path OR if the path starts with the segment minus
             # leading slash (relative path case).
@@ -553,7 +569,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # count reaches threshold and denies), else dedup+grace degrade it to an
     # ignorable advisory.
     try:
-        if input_data is None or not _is_exploration_write(input_data):
+        if input_data is None or not _is_low_friction_write(input_data):
             from divineos.core.compass_required_marker import (
                 ESCALATION_THRESHOLD as _CR_ESC,
             )
@@ -627,41 +643,59 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # UserPromptSubmit hook (detect-correction.sh) sets the marker when a
     # user message matches CORRECTION_PATTERNS; `divineos learn` and
     # `divineos correction` clear it. Fail open on missing machinery.
+    #
+    # Low-friction-write exemption (correction #45 / 2026-06-08): writes to
+    # exploration/, family/letters/, mansion/ are relational/expressive,
+    # not architectural; the correction-discipline that this gate encodes
+    # applies to code work. The marker stays set; the next high-gravity
+    # write (src/divineos/, hooks, etc.) still gets blocked.
     try:
-        from divineos.core.correction_marker import (
-            format_gate_message,
-            marker_path,
-            read_marker,
-        )
-
-        # Same fail-closed-on-unreadable pattern as the hedge gate above.
-        if marker_path().exists():
-            marker = read_marker()
-            if marker is not None:
-                return _make_deny(format_gate_message(marker))
-            return _make_deny(
-                "BLOCKED: correction marker present at "
-                f"{marker_path()} but unreadable. "
-                'Clear manually with `divineos learn "lesson"` or '
-                '`divineos correction "description"` once the correction '
-                "has been named, or inspect the file if you suspect "
-                "corruption. Fail-closed by design: a corrupted marker "
-                "must not silently disable the gate."
+        if input_data is None or not _is_low_friction_write(input_data):
+            from divineos.core.correction_marker import (
+                format_gate_message,
+                marker_path,
+                read_marker,
             )
+
+            # Same fail-closed-on-unreadable pattern as the hedge gate above.
+            if marker_path().exists():
+                marker = read_marker()
+                if marker is not None:
+                    return _make_deny(format_gate_message(marker))
+                return _make_deny(
+                    "BLOCKED: correction marker present at "
+                    f"{marker_path()} but unreadable. "
+                    'Clear manually with `divineos learn "lesson"` or '
+                    '`divineos correction "description"` once the correction '
+                    "has been named, or inspect the file if you suspect "
+                    "corruption. Fail-closed by design: a corrupted marker "
+                    "must not silently disable the gate."
+                )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_5_correction", _gate_exc)
 
-    # Gate 2: session-fresh goal
-    try:
-        from divineos.core.hud_state import has_session_fresh_goal
+    # Low-friction-write check for the soft engagement-discipline cluster
+    # (gates 2 / 4 / 4.5). Writes to exploration/, family/letters/, mansion/
+    # are relational/expressive, not code-architecture; the discipline these
+    # gates encode (have a goal, engage with substrate, recently consulted)
+    # is calibrated for code work. For low-friction writes, skip them.
+    # Hard safety walls above (briefing-truly-stale, hedge, pull-detection,
+    # retry, context-governor) still apply unconditionally.
+    # Correction #45 / 2026-06-08.
+    _low_friction = input_data is not None and _is_low_friction_write(input_data)
 
-        if not has_session_fresh_goal():
-            soft_denies.append(
-                "BLOCKED: No goal set for this session. "
-                'Run: divineos goal add "what you are working on"'
-            )
-    except (ImportError, OSError, AttributeError) as _gate_exc:
-        _record_gate_failure("gate_2_goal", _gate_exc)
+    # Gate 2: session-fresh goal
+    if not _low_friction:
+        try:
+            from divineos.core.hud_state import has_session_fresh_goal
+
+            if not has_session_fresh_goal():
+                soft_denies.append(
+                    "BLOCKED: No goal set for this session. "
+                    'Run: divineos goal add "what you are working on"'
+                )
+        except (ImportError, OSError, AttributeError) as _gate_exc:
+            _record_gate_failure("gate_2_goal", _gate_exc)
 
     # Gate 3: pull detection (fabrication markers)
     try:
@@ -678,37 +712,38 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         _record_gate_failure("gate_3_pull_detection", _gate_exc)
 
     # Gate 4: engagement (light + deep tiers)
-    try:
-        from divineos.core.hud_handoff import engagement_status
+    if not _low_friction:
+        try:
+            from divineos.core.hud_handoff import engagement_status
 
-        s = engagement_status()
-        if not s.get("engaged", True):
-            state = s.get("state", "drift")
-            if state == "fresh":
-                _eng_msg = (
-                    "BLOCKED: No engagement marker yet this session. "
-                    "Briefing alone is not enough — engage with a thinking "
-                    'tool first. Run: divineos ask "topic", recall, '
-                    "context, or decide."
-                )
-            elif state == "deep_drift":
-                deep_since = s.get("deep_actions_since", "?")
-                _eng_msg = (
-                    f"BLOCKED: {deep_since} code actions since you last "
-                    "consulted your knowledge. Light check-ins are not "
-                    'enough. Run: divineos ask "topic" or divineos '
-                    "recall to query what you actually know."
-                )
-            else:
-                code_since = s.get("code_actions_since", "?")
-                _eng_msg = (
-                    f"BLOCKED: {code_since} code actions since last thinking "
-                    "command. Stop and think. Run: divineos ask, recall, "
-                    "decide, or context before continuing."
-                )
-            soft_denies.append(_eng_msg)
-    except (ImportError, OSError, AttributeError) as _gate_exc:
-        _record_gate_failure("gate_4_engagement", _gate_exc)
+            s = engagement_status()
+            if not s.get("engaged", True):
+                state = s.get("state", "drift")
+                if state == "fresh":
+                    _eng_msg = (
+                        "BLOCKED: No engagement marker yet this session. "
+                        "Briefing alone is not enough — engage with a thinking "
+                        'tool first. Run: divineos ask "topic", recall, '
+                        "context, or decide."
+                    )
+                elif state == "deep_drift":
+                    deep_since = s.get("deep_actions_since", "?")
+                    _eng_msg = (
+                        f"BLOCKED: {deep_since} code actions since you last "
+                        "consulted your knowledge. Light check-ins are not "
+                        'enough. Run: divineos ask "topic" or divineos '
+                        "recall to query what you actually know."
+                    )
+                else:
+                    code_since = s.get("code_actions_since", "?")
+                    _eng_msg = (
+                        f"BLOCKED: {code_since} code actions since last thinking "
+                        "command. Stop and think. Run: divineos ask, recall, "
+                        "decide, or context before continuing."
+                    )
+                soft_denies.append(_eng_msg)
+        except (ImportError, OSError, AttributeError) as _gate_exc:
+            _record_gate_failure("gate_4_engagement", _gate_exc)
 
     # Gate 4.5: consultation-staleness (gate + channel).
     # Andrew named the root 2026-05-23: the consultation tracker WARNED but
@@ -722,16 +757,17 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # this counts RESPONSES and clears only on substrate-surfacing consults
     # (ask/recall/corrections/directives/active/compass), which are bypassed
     # above so they can never be blocked by their own remedy.
-    try:
-        from divineos.core.consultation_tracker import (
-            consultation_gate_status,
-            gate_channel_message,
-        )
+    if not _low_friction:
+        try:
+            from divineos.core.consultation_tracker import (
+                consultation_gate_status,
+                gate_channel_message,
+            )
 
-        if consultation_gate_status().get("stale"):
-            soft_denies.append(gate_channel_message())
-    except (ImportError, OSError, AttributeError) as _gate_exc:
-        _record_gate_failure("gate_4_5_consultation", _gate_exc)
+            if consultation_gate_status().get("stale"):
+                soft_denies.append(gate_channel_message())
+        except (ImportError, OSError, AttributeError) as _gate_exc:
+            _record_gate_failure("gate_4_5_consultation", _gate_exc)
 
     # Coalesced engagement-discipline cluster: surface the goal / engagement /
     # consultation denials TOGETHER (one pass to clear) instead of single-file
