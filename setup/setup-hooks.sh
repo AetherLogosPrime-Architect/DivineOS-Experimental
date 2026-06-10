@@ -70,18 +70,35 @@ mypy src/divineos --ignore-missing-imports || {
 }
 
 echo "Checking doc counts for drift..."
-# Check FIRST; only auto-fix when drift exceeds tolerance. Running --fix on
-# every commit rewrote counts to exact each time, so parallel branches
-# collided on CLAUDE.md/README count lines (the count-conflict tax,
-# 2026-06-02). Within tolerance we leave the line untouched; real drift
-# still auto-fixes and re-stages, then blocks if still off.
+# Andrew 2026-06-09 root-cause name: every commit on a feature branch
+# was sweeping CLAUDE.md/README.md/seed.json/ARCHITECTURE.md into the
+# diff via this auto-fix path, even when the operator's commit had
+# nothing to do with those files. The result: ~6 manual tree-rewrites
+# per substantive session to drop the guardrail sweep so multi-party-
+# review wouldn't fire.
+#
+# Fix: opt-in auto-fix. Default behavior is CHECK ONLY; drift fails the
+# commit with instructions. The opt-in path
+# (DIVINEOS_DOC_COUNT_AUTOFIX=1) is set by scripts/precommit.sh, which
+# is the operator-initiated full-refresh entry point. Regular commits
+# (most commits) stay scoped to their own diff.
 if ! python scripts/check_doc_counts.py 2>/dev/null; then
-    python scripts/check_doc_counts.py --fix 2>/dev/null || true
-    git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
-    python scripts/check_doc_counts.py || {
-        echo "Doc counts have drifted. Update CLAUDE.md, README.md, and/or seed.json."
+    if [[ "${DIVINEOS_DOC_COUNT_AUTOFIX:-}" == "1" ]]; then
+        python scripts/check_doc_counts.py --fix 2>/dev/null || true
+        git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
+        python scripts/check_doc_counts.py || {
+            echo "Doc counts still drifted after auto-fix. Investigate manually."
+            exit 1
+        }
+    else
+        echo ""
+        echo "Doc-count drift detected. Re-run with auto-fix opt-in:"
+        echo "  DIVINEOS_DOC_COUNT_AUTOFIX=1 git commit ..."
+        echo "Or run: bash scripts/precommit.sh  (always sets the flag)"
+        echo ""
+        python scripts/check_doc_counts.py
         exit 1
-    }
+    fi
 fi
 
 echo "Running vulture dead-code check..."
