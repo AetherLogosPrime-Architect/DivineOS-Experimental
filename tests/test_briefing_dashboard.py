@@ -146,88 +146,52 @@ class TestDirectivesRow:
         assert "law" not in output.split("Directives:")[1].split("\n")[0]
 
 
-class TestAuditSurprisesRow:
-    """Task #116 (2026-06-09): the audit-surprises row surfaces the
-    unknown-unknown rate — findings tagged ``surprise`` against the
-    total finding count. Surface stays silent when no surprises exist."""
+class TestAdvicePendingRow:
+    """Task #113 (2026-06-09): the advice-pending row surfaces in the
+    briefing when there's pending advice, stays silent otherwise.
+    Respects no-track-records — informational, never a gate."""
 
-    def test_silent_when_no_findings(self, tmp_path, monkeypatch):
+    def test_silent_when_no_pending_advice(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
         output = render_dashboard()
-        # No findings → no row.
-        assert "Audit surprises" not in output
+        # When there's no pending advice the row simply doesn't render.
+        assert "Advice Pending" not in output
 
-    def test_silent_when_no_surprise_tagged_finding(self, tmp_path, monkeypatch):
-        """Findings exist but none are tagged surprise → row stays silent."""
+    def test_surfaces_pending_count(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
-        from divineos.core.watchmen.store import submit_finding, submit_round
-        from divineos.core.watchmen.types import FindingCategory, Severity
+        from divineos.core.advice_tracking import record_advice
 
-        round_id = submit_round(actor="user", focus="test round")
-        submit_finding(
-            round_id=round_id,
-            actor="user",
-            severity=Severity.LOW,
-            category=FindingCategory.ARCHITECTURE,
-            title="plain non-surprise finding",
-            description="not a surprise",
+        record_advice(
+            content="Use the gravity classifier surface to flag borderline calls",
+            category="diagnostic",
+        )
+        record_advice(
+            content="Always pair preregs with a falsifier",
+            category="discipline",
         )
         output = render_dashboard()
-        assert "Audit surprises" not in output
+        assert "Advice Pending" in output
+        assert "divineos advice pending" in output
 
-    def test_surfaces_when_surprise_tagged(self, tmp_path, monkeypatch):
+    def test_row_function_returns_none_when_empty(self, tmp_path, monkeypatch):
+        """The _row_advice_pending helper itself returns None when
+        nothing's pending — pins the contract the dashboard relies on."""
         monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
-        from divineos.core.watchmen.store import submit_finding, submit_round
-        from divineos.core.watchmen.types import FindingCategory, Severity
+        from divineos.core.briefing_dashboard import _row_advice_pending
 
-        round_id = submit_round(actor="user", focus="test round")
-        submit_finding(
-            round_id=round_id,
-            actor="user",
-            severity=Severity.MEDIUM,
-            category=FindingCategory.ARCHITECTURE,
-            title="something genuinely unexpected",
-            description="this caught us off guard",
-            tags=["surprise"],
+        assert _row_advice_pending() is None
+
+    def test_row_function_returns_row_when_present(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.advice_tracking import record_advice
+        from divineos.core.briefing_dashboard import DashboardRow, _row_advice_pending
+
+        record_advice(
+            content="Surface pending advice in briefing",
+            category="diagnostic",
         )
-        output = render_dashboard()
-        assert "Audit surprises" in output
-        assert "divineos audit list --tag surprise" in output
-
-    def test_helper_returns_none_when_no_surprises(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
-        from divineos.core.briefing_dashboard import _row_audit_surprises
-
-        assert _row_audit_surprises() is None
-
-    def test_helper_returns_row_with_rate_when_surprises_exist(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
-        from divineos.core.briefing_dashboard import DashboardRow, _row_audit_surprises
-        from divineos.core.watchmen.store import submit_finding, submit_round
-        from divineos.core.watchmen.types import FindingCategory, Severity
-
-        round_id = submit_round(actor="user", focus="test round")
-        # 1 surprise out of 4 → 25% rate.
-        submit_finding(
-            round_id=round_id,
-            actor="user",
-            severity=Severity.HIGH,
-            category=FindingCategory.ARCHITECTURE,
-            title="the surprise one",
-            description="unexpected finding",
-            tags=["surprise"],
-        )
-        for i in range(3):
-            submit_finding(
-                round_id=round_id,
-                actor="user",
-                severity=Severity.LOW,
-                category=FindingCategory.ARCHITECTURE,
-                title=f"plain finding {i}",
-                description="not a surprise",
-            )
-        row = _row_audit_surprises()
+        row = _row_advice_pending()
         assert isinstance(row, DashboardRow)
-        assert row.area == "Audit surprises"
+        assert row.area == "Advice Pending"
         assert row.count == 1
-        assert "25" in row.detail  # 25.0%
+        assert row.drill_down == "divineos advice pending"
