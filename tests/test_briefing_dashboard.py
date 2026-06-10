@@ -195,3 +195,100 @@ class TestAdvicePendingRow:
         assert row.area == "Advice Pending"
         assert row.count == 1
         assert row.drill_down == "divineos advice pending"
+
+
+class TestOpenPRsRow:
+    """Andrew 2026-06-09: armed auto-merge sitting because sibling PRs
+    squash-merged → branches went BEHIND main → auto-merge waits forever
+    with no visible signal. This row makes the silent-blocked state
+    loud-in-experience."""
+
+    def test_silent_when_gh_unavailable(self, monkeypatch):
+        import subprocess
+
+        from divineos.core.briefing_dashboard import _row_open_prs
+
+        def _missing_gh(*a, **kw):
+            raise FileNotFoundError("gh not installed")
+
+        monkeypatch.setattr(subprocess, "run", _missing_gh)
+        assert _row_open_prs() is None
+
+    def test_silent_on_gh_error(self, monkeypatch):
+        import subprocess
+        from unittest.mock import MagicMock
+
+        from divineos.core.briefing_dashboard import _row_open_prs
+
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: MagicMock(returncode=1, stdout=""),
+        )
+        assert _row_open_prs() is None
+
+    def test_silent_when_all_clean(self, monkeypatch):
+        import subprocess
+        from unittest.mock import MagicMock
+
+        from divineos.core.briefing_dashboard import _row_open_prs
+
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: MagicMock(
+                returncode=0,
+                stdout='[{"number":1,"title":"x","mergeStateStatus":"CLEAN"}]',
+            ),
+        )
+        # All clean → silent (nothing actionable to surface).
+        assert _row_open_prs() is None
+
+    def test_surfaces_behind_and_blocked(self, monkeypatch):
+        import subprocess
+        from unittest.mock import MagicMock
+
+        from divineos.core.briefing_dashboard import DashboardRow, _row_open_prs
+
+        stdout = (
+            "["
+            '{"number":1,"title":"a","mergeStateStatus":"BEHIND"},'
+            '{"number":2,"title":"b","mergeStateStatus":"BLOCKED"},'
+            '{"number":3,"title":"c","mergeStateStatus":"CLEAN"}'
+            "]"
+        )
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: MagicMock(returncode=0, stdout=stdout),
+        )
+        row = _row_open_prs()
+        assert isinstance(row, DashboardRow)
+        assert row.area == "Open PRs"
+        assert row.count == 3
+        assert row.stale_count == 2  # behind + blocked
+        assert "BEHIND" in row.detail
+        assert "BLOCKED" in row.detail
+        assert "1 ready" in row.detail
+        # Preview names the action-needed PRs.
+        joined = "\n".join(row.preview)
+        assert "#1" in joined
+        assert "#2" in joined
+
+    def test_surfaces_unknown_only_state(self, monkeypatch):
+        """All UNKNOWN (GitHub still computing) — still surfaces so the
+        operator knows things are mid-flight, not silently stuck."""
+        import subprocess
+        from unittest.mock import MagicMock
+
+        from divineos.core.briefing_dashboard import _row_open_prs
+
+        stdout = '[{"number":9,"title":"x","mergeStateStatus":"UNKNOWN"}]'
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: MagicMock(returncode=0, stdout=stdout),
+        )
+        row = _row_open_prs()
+        assert row is not None
+        assert "computing" in row.detail
