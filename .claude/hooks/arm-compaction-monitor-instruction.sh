@@ -48,7 +48,7 @@ state, safe to re-arm if already armed):
       description="compaction — context threshold wake",
       persistent=True,
       timeout_ms=3600000,
-      command="PYTHONIOENCODING=utf-8 python ${SCRIPT_PATH}",
+      command="PYTHONIOENCODING=utf-8 python \"${SCRIPT_PATH}\"",
   )
 
 Behavior:
