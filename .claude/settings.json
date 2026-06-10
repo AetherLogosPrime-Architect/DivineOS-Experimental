@@ -17,6 +17,16 @@
             "type": "command",
             "command": "bash .claude/hooks/ear-arm-instruction.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-cleanup-period.sh",
+            "timeout": 5
           }
         ]
       }

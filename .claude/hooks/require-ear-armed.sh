@@ -42,14 +42,25 @@ CATCHFILE="$STATE_DIR/ear.last_catch"
 # Always-pass: the arm bash itself MUST be allowed through, otherwise
 # the gate becomes an unbreakable lock. Match on the watcher's script
 # path + the --realtime flag; both must be present.
-COMMAND=$(printf '%s' "$INPUT" | python -c "
-import json, sys
-try:
-    data = json.loads(sys.stdin.read() or '{}')
-    print((data.get('tool_input') or {}).get('command', ''))
-except Exception:
-    pass
-" 2>/dev/null)
+#
+# 2026-06-09 fix (task #98 locked-box trap): ALSO honor the canonical
+# documented-bypass list from scripts/hook_bypass_commands.txt via the
+# shared _lib.sh helper. Before this fix, the bypass-list lived only
+# inside pre_tool_use_gate.py and outer hooks like this one didn't
+# share it — so commands documented as the gate-system's named
+# remedies (e.g. divineos ask, divineos directives) got blocked here
+# before they could reach the gate that would otherwise let them
+# through. Council walk consult-ba0fc4337e51 (Dekker + Lamport)
+# named the drift-into-failure shape; this is the structural fix.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null
+COMMAND=$(printf '%s' "$INPUT" | extract_tool_command)
+
+# Documented-bypass commands skip this gate (shared with all PreToolUse hooks).
+if is_bypass_command "$COMMAND"; then
+  exit 0
+fi
 
 case "$COMMAND" in
   *ear_watch.py*--realtime*|*--realtime*ear_watch.py*) exit 0 ;;
