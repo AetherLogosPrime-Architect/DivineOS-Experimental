@@ -30,6 +30,16 @@ dev = [
     "bandit==1.9.4",  # pinned exact: bandit's B608 line-attribution shifted across 1.x (the reported line moved from the conn.execute() call to the f-string-construction line), which silently orphaned every `# nosec B608` by one line and failed the strict gate on unchanged code (2026-05-24). nosec placement is version-coupled; bump deliberately + re-verify suppressions land in the same commit.
     "mutmut>=3.0",
 ]
+# Fable 5 audit 2026-06-09: three modules import these but pyproject
+# never declared them, so `pip install divineos` produced a runtime
+# ImportError on any code path that touched them. Folded into an
+# optional extras group so they install via `pip install divineos[ml]`
+# while a minimal install stays lean.
+ml = [
+    "scikit-learn>=1.0",        # core/sis_tiers.py — TF-IDF + cosine similarity
+    "sentence-transformers>=2.0",  # core/sis_tiers.py + core/knowledge/_text.py
+    "pillow-heif>=0.10",        # core/visual.py — HEIC/HEIF screenshot support
+]
 
 [project.scripts]
 divineos = "divineos.cli:cli"
