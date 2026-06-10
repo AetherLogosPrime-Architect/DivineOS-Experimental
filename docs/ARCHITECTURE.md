@@ -34,6 +34,7 @@ src/divineos/
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
+    backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     compass_commands.py        Moral compass reading and observations
@@ -546,7 +547,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,904+ tests (real DB, minimal mocks)
+tests/                         7,909+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
