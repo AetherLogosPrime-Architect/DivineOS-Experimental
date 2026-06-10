@@ -276,7 +276,26 @@ def clear_marker() -> None:
 
 
 def format_gate_message(marker: dict) -> str:
-    """Return the deny-reason string for the PreToolUse gate."""
+    """Return the deny-reason string for the PreToolUse gate.
+
+    The message names two paths:
+
+    1. The primary remedy — ``divineos learn`` / ``divineos correction`` —
+       which logs the correction and clears the marker. This is the
+       standard path; use it whenever the CLI is working.
+    2. The CLI-broken escape — ``scripts/clear_correction_marker.py`` —
+       a standalone script with no CLI dependency. Use ONLY when
+       ``divineos`` itself fails to import (mid-rebase ``cli/__init__.py``
+       SyntaxError, half-installed package, etc.). The escape requires a
+       named reason >= 30 chars and is logged to ``~/.divineos/
+       cli_broken_escapes.jsonl`` for audit. The original correction
+       must still be logged once the CLI is working again.
+
+    The escape path closes the Andrew 2026-06-08 "gate-trap structural
+    fix" correction (#2 in the queue at filing time): the remedy a gate
+    names cannot be blocked by the failure the gate is trying to catch,
+    or the gate is a cage rather than a keel.
+    """
     trigger = marker.get("trigger", "")
     ts = marker.get("ts")
     age_str = ""
@@ -292,5 +311,9 @@ def format_gate_message(marker: dict) -> str:
     return (
         f"BLOCKED: User correction detected{age_str}, not logged. "
         f'Trigger: "{preview}". '
-        f'Run: divineos learn "..." (or divineos correction "...") to clear.'
+        f'Run: divineos learn "..." (or divineos correction "...") to clear. '
+        "If divineos CLI is broken (mid-rebase, import error, etc.), use the "
+        "offline escape hatch: python scripts/clear_correction_marker.py "
+        '--reason "<why CLI is broken + plan to log the correction after>" '
+        "(>= 30 chars; logged to ~/.divineos/cli_broken_escapes.jsonl)."
     )
