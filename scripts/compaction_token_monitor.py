@@ -53,6 +53,7 @@ automatically updates this script's behavior AND its emitted messages.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -78,20 +79,53 @@ def _kfmt(n: int) -> str:
     return f"{n // 1000}k"
 
 
-def _find_active_transcript() -> Path | None:
-    """Find the most recently modified .jsonl under ~/.claude/projects/.
+def _find_active_transcript(
+    projects_dir: Path | None = None,
+    session_id: str | None = None,
+) -> Path | None:
+    """Resolve the launching session's transcript file.
 
-    The active session's transcript is being appended to in real time;
-    its mtime stays fresh. Looking for the freshest .jsonl across all
-    project subdirectories is reliable enough for the one-session-at-
-    a-time use case this Monitor is designed for.
+    Pinned-by-session-id, with mtime fallback. The Claude Code harness sets
+    ``CLAUDE_CODE_SESSION_ID`` to the active session UUID; the transcript
+    JSONL is named ``<session_id>.jsonl`` under ``~/.claude/projects/``.
+    Pinning is correct because the Monitor is launched FROM the active
+    session and must follow that session, not whichever JSONL happens to
+    have the freshest mtime.
 
-    Returns None if the projects directory doesn't exist or no .jsonl
-    files are found.
+    Root-cause fix 2026-06-10 (Andrew correction #50): the prior mtime-only
+    resolution false-fired a COMPACTION-BLOCK at 961k when actual context
+    was 136k. The freshest-mtime JSONL was a previously-abandoned 67MB
+    session in the same project folder, legitimately at 961k tokens. Pinning
+    to the launching session by ID prevents cross-session hijack regardless
+    of which other JSONL files exist or how recently they were touched.
+
+    Fallback (no ``CLAUDE_CODE_SESSION_ID``): max-mtime across all JSONLs,
+    same as the original behavior. Non-Claude-Code harnesses without the
+    env var still get a working monitor.
+
+    Parameters are injectable for tests — at runtime the defaults resolve
+    from ``Path.home()`` and the env vars. Passing directly lets tests
+    isolate from real ``~/.claude/projects/`` and from leaked env-var state
+    in shared pytest sessions (the failure mode that took 12 min of CI
+    to surface on the structural-fix branch's first push attempt).
+
+    Returns None if the projects directory doesn't exist or no JSONL files
+    are found.
     """
-    projects_dir = Path.home() / ".claude" / "projects"
+    if projects_dir is None:
+        projects_dir = Path.home() / ".claude" / "projects"
     if not projects_dir.exists():
         return None
+    if session_id is None:
+        session_id = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get(
+            "CLAUDE_SESSION_ID"
+        )
+    if session_id:
+        matches = list(projects_dir.rglob(f"{session_id}.jsonl"))
+        if matches:
+            return max(matches, key=lambda p: p.stat().st_mtime)
+        # Env var set but no matching JSONL yet (transcript not written
+        # at startup). Fall through to mtime fallback so the monitor arms.
     candidates = list(projects_dir.rglob("*.jsonl"))
     if not candidates:
         return None
