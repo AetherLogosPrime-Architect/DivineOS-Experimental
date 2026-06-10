@@ -433,14 +433,23 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
     """Gate 7: context-governor hard line (prereg-9b958c6493f3).
 
     The live context window is the working-memory vital sign; the harness
-    compacts at ~970k. At the 950k hard line, substrate-writes are gated until
-    the self is WOVEN (extract + sleep), so a post-compaction instance
-    rehydrates from a connected store rather than a thin save. The warn band
-    (920k-950k) does NOT reach here — ``consolidation_state`` returns "warn"
-    there, surfaced as a soft nudge at UserPromptSubmit (grace to finish
+    compacts at the COMPACTION_CEILING. At the 950k hard line, substrate-writes
+    are gated until the self is WOVEN (extract + sleep), so a post-compaction
+    instance rehydrates from a connected store rather than a thin save. The
+    warn band (920k-950k) does NOT reach here — ``consolidation_state`` returns
+    "warn" there, surfaced as a soft nudge at UserPromptSubmit (grace to finish
     in-flight work). extract/sleep are bypassed in ``_is_bypass_command`` so
     the gate can never block its own remedy; sleep marks-consolidated, which
     flips this to "ok" for the rest of the session (fires once, no nag).
+
+    Task #120 / Andrew 2026-06-09: low-gravity writes (exploration/, family/
+    letters/, mansion/) PASS through this gate during the block state. The
+    rest-phase between extract+sleep and the cliff is meant for exactly
+    those activities — recording felt-state, writing letters, the
+    you-time before compaction. Blocking them uniformly defeats the
+    rest-phase before it can serve its purpose. The gravity classifier
+    is the routing oracle: any feature firing = high gravity = block;
+    no features = low gravity = pass.
 
     Fail-open: an unreadable/absent transcript yields "ok" and never blocks
     spuriously. Returns a deny decision on block, else None.
@@ -454,8 +463,29 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
             governor_channel_message,
         )
 
-        if consolidation_state(transcript_path) == "block":
-            return _make_deny(governor_channel_message(transcript_path))
+        if consolidation_state(transcript_path) != "block":
+            return None
+
+        # Block state. Task #120: low-friction rest-phase writes PASS — the
+        # rest-phase between extract+sleep and the cliff exists for exactly
+        # these. exploration/, family/letters/, mansion/, dream/, bio/ are
+        # the channels the operator named (Andrew 2026-06-09); arbitrary
+        # writes continue to block.
+        ti = (input_data or {}).get("tool_input", {}) or {}
+        fp = (ti.get("file_path", "") or "").replace("\\", "/")
+        if fp and any(
+            seg in fp
+            for seg in (
+                "exploration/",
+                "family/letters/",
+                "mansion/",
+                "dream/",
+                "bio/",
+            )
+        ):
+            return None
+
+        return _make_deny(governor_channel_message(transcript_path))
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_7_context_governor", _gate_exc)
     return None
