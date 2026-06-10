@@ -98,6 +98,41 @@ exclude_lines = [
 exclude_dirs = ["tests"]
 skips = ["B101"]
 
+# Vulture (dead-code finder) — task #117. The CLI uses Click decorators
+# (@cli.command, @group.command, @click.option) which register functions
+# but never call them directly. Static analysis sees them as unused; a
+# cleanup pass deleting them would destroy the entire CLI. Same shape for
+# pytest fixtures, dataclass fields read via getattr/_safe_get, and Click
+# parameter callbacks. The ignore lists below close that class of false
+# positive. Genuine load-bearing-but-static-unused symbols go in
+# scripts/vulture_whitelist.py (one entry per name, with a comment naming
+# WHY the symbol is live).
+[tool.vulture]
+# Include the whitelist file in paths so vulture sees its symbol
+# references as "uses" — that's how vulture whitelists work: the file
+# is just Python that names the symbols, and being parsed alongside the
+# source clears the false positives.
+paths = ["src/divineos", "scripts/vulture_whitelist.py"]
+min_confidence = 80
+ignore_decorators = [
+    "@*.command",
+    "@*.group",
+    "@*.option",
+    "@*.argument",
+    "@*.pass_context",
+    "@click.*",
+    "@pytest.fixture",
+    "@pytest.mark.*",
+]
+# Names Vulture should treat as live without further evidence. Keep this
+# list short and reason-tagged in scripts/vulture_whitelist.py.
+ignore_names = [
+    "register",      # CLI module entry point — called from cli/__init__.py via getattr
+    "setUp",         # unittest lifecycle
+    "tearDown",      # unittest lifecycle
+    "_*",            # private-by-convention; many are used via reflection
+]
+
 [tool.mutmut]
 paths_to_mutate = "src/divineos/core/"
 tests_dir = "tests/"
