@@ -172,3 +172,36 @@ def test_governor_channel_message_names_extract_and_sleep(tmp_path):
 
 def test_governor_context_empty_on_unreadable_sensor(tmp_path):
     assert cg.build_governor_context(tmp_path / "missing.jsonl") == ""
+
+
+# --- task #119: ceiling is overridable + reflects last-confirmed cliff ------
+
+
+def test_compaction_ceiling_default_is_current_cliff():
+    """Last-confirmed value: 2026-06-09 (Anthropic moved it from 970k).
+    If this assertion fails, the cliff drifted again — update the
+    literal in context_governor.py and date the comment."""
+    assert cg.COMPACTION_CEILING == 999_000
+
+
+def test_compaction_ceiling_env_override(monkeypatch):
+    """A session that observes a drifted cliff can override without code
+    change via DIVINEOS_COMPACTION_CEILING."""
+    monkeypatch.setenv("DIVINEOS_COMPACTION_CEILING", "1050000")
+    assert cg._read_ceiling_override() == 1_050_000
+
+
+def test_compaction_ceiling_bad_override_falls_through(monkeypatch):
+    """Garbage values do not poison the ceiling — silent fall-through."""
+    monkeypatch.setenv("DIVINEOS_COMPACTION_CEILING", "not-a-number")
+    assert cg._read_ceiling_override() is None
+    monkeypatch.setenv("DIVINEOS_COMPACTION_CEILING", "50")  # below 100k floor
+    assert cg._read_ceiling_override() is None
+
+
+def test_block_channel_message_uses_dynamic_ceiling(tmp_path):
+    """The block message's cliff number must reflect COMPACTION_CEILING,
+    not a hardcoded literal — otherwise a future ceiling-update would
+    leave the operator-facing instruction stale."""
+    msg = cg.governor_channel_message(_tx_with(tmp_path, 955_000))
+    assert f"{cg.COMPACTION_CEILING:,}" in msg
