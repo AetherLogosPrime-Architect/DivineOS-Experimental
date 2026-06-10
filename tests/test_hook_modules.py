@@ -315,6 +315,13 @@ class TestSoftGateLowFrictionExemption:
         # Briefing — make it pass the truly-stale check so it falls through
         # to soft cluster behavior.
         monkeypatch.setattr("divineos.core.hud_handoff.was_briefing_loaded", lambda: True)
+        # Gate 1.1: per-session briefing marker present (otherwise this
+        # gate short-circuits with _make_soft_advise and the high-gravity
+        # tests never reach the soft-cluster they exist to verify).
+        monkeypatch.setattr(
+            "divineos.core.session_briefing_gate.briefing_loaded_this_session",
+            lambda: True,
+        )
         # Gate 1.5: correction marker present and readable.
         from divineos.core import correction_marker
 
