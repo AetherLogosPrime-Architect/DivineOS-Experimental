@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (345 commands across 33 modules)
+  cli/                         CLI package (349 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -35,6 +35,7 @@ src/divineos/
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
+    prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     compass_commands.py        Moral compass reading and observations
