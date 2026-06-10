@@ -924,8 +924,50 @@ def _row_consumer_status() -> DashboardRow | None:
     )
 
 
+def _row_advice_pending() -> DashboardRow | None:
+    """Task #113 (2026-06-09): surface pending advice count in briefing.
+
+    Advice that hasn't been assessed for outcome (successful / partial /
+    failed) accumulates as "pending." Surfaces the count + a stale
+    sub-count (pending > 7 days) + top-3 preview.
+
+    Respects the no-track-records principle — this is a gentle reminder,
+    not a gate. The row stays silent when there's nothing pending.
+    """
+    try:
+        from divineos.core.advice_tracking import get_pending_advice, get_stale_advice
+
+        pending = get_pending_advice(limit=200)
+        if not pending:
+            return None
+        try:
+            stale = get_stale_advice(days=7)
+        except _ERRORS:
+            stale = []
+        # Top-3 stalest by given_at ascending (oldest first).
+        ordered = sorted(pending, key=lambda a: a.get("given_at") or 0)
+        preview: list[str] = []
+        now = time.time()
+        for item in ordered[:3]:
+            text = (item.get("content") or item.get("advice_text") or "").replace("\n", " ").strip()
+            given = item.get("given_at") or 0
+            age_days = (now - float(given)) / _SECONDS_PER_DAY if given else 0
+            short = text[:100] + ("..." if len(text) > 100 else "")
+            preview.append(f"[{age_days:.0f}d] {short}")
+        return DashboardRow(
+            area="Advice Pending",
+            count=len(pending),
+            stale_count=len(stale),
+            drill_down="divineos advice pending",
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 _ROW_FNS = [
     _row_corrections,
+    _row_advice_pending,
     _row_handoff,
     _row_pending_structural_fixes,
     _row_pattern_fires,
