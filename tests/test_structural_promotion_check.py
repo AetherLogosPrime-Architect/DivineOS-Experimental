@@ -148,3 +148,129 @@ def test_verify_recent_returns_structured_report() -> None:
 def test_recent_questions_returns_list() -> None:
     out = recent_questions(limit=5)
     assert isinstance(out, list)
+
+
+# Task #112 (2026-06-09): link-detection bug fixes regression tests.
+# The previous logic had two bugs:
+#   1. `wid in content OR keyword in content` — let any unrelated learn
+#      that mentioned "test"/"gate" falsely address every pending question
+#   2. Only KNOWLEDGE_STORED events were scanned, missing real backing
+#      via PREREG_FILED, CLAIM_FILED, AUDIT_FINDING_FILED
+
+
+def _make_question(wid: str, ts: float) -> dict:
+    """Helper: shape of a STRUCTURAL_PROMOTION_QUESTION returned by recent_questions."""
+    return {"event_id": f"q-{wid}", "timestamp": ts, "knowledge_id": wid, "triggers": ["always x"]}
+
+
+def _make_event(event_type: str, payload: dict, ts: float) -> dict:
+    """Helper: shape of a ledger event."""
+    return {"event_type": event_type, "timestamp": ts, "payload": payload}
+
+
+def test_unrelated_learn_with_keyword_does_NOT_address_question() -> None:
+    """Regression: the false-positive bug. An unrelated KNOWLEDGE_STORED
+    that happens to mention 'test' or 'gate' must NOT count as addressing
+    a STRUCTURAL_PROMOTION_QUESTION about a different knowledge_id."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "knowledge-abc-rule-about-X"
+    question_ts = 100.0
+    unrelated_learn = _make_event(
+        "KNOWLEDGE_STORED",
+        {"content": "Some other lesson about Y. I should add a test for Z."},
+        ts=200.0,
+    )
+    # Has "test" keyword but no reference to question_wid → must NOT address.
+    assert _is_backing(unrelated_learn, question_wid, question_ts) is False
+
+
+def test_related_learn_with_wid_and_keyword_DOES_address_question() -> None:
+    """Affirmation: a learn entry that BOTH references the knowledge_id
+    AND mentions a structural keyword counts as addressing the question."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "knowledge-abc"
+    question_ts = 100.0
+    backing_learn = _make_event(
+        "KNOWLEDGE_STORED",
+        {"content": ("Backing the rule from knowledge-abc with a falsifier and a CI gate.")},
+        ts=200.0,
+    )
+    assert _is_backing(backing_learn, question_wid, question_ts) is True
+
+
+def test_wid_reference_alone_does_NOT_address() -> None:
+    """A learn entry that references the knowledge_id but offers no
+    structural keyword (e.g., just an aside referencing it) must NOT
+    count as backing — structural backing is the point."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "knowledge-xyz"
+    question_ts = 100.0
+    aside_learn = _make_event(
+        "KNOWLEDGE_STORED",
+        {"content": "Mentioned knowledge-xyz in passing without backing it."},
+        ts=200.0,
+    )
+    assert _is_backing(aside_learn, question_wid, question_ts) is False
+
+
+def test_prereg_filed_can_address_question() -> None:
+    """Regression: the false-negative bug. A PREREG_FILED event that
+    references the question's knowledge_id AND has structural backing
+    must count — previously only KNOWLEDGE_STORED was scanned."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "knowledge-rule"
+    question_ts = 100.0
+    prereg = _make_event(
+        "PREREG_FILED",
+        {
+            "claim": "Backing knowledge-rule with a prereg falsifier",
+            "mechanism": "Auto-verify via CI gate on the new test",
+        },
+        ts=200.0,
+    )
+    assert _is_backing(prereg, question_wid, question_ts) is True
+
+
+def test_claim_filed_can_address_question() -> None:
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "knowledge-rule"
+    question_ts = 100.0
+    claim = _make_event(
+        "CLAIM_FILED",
+        {"description": "Claim investigates knowledge-rule with a regression-pin test."},
+        ts=200.0,
+    )
+    assert _is_backing(claim, question_wid, question_ts) is True
+
+
+def test_event_before_question_does_NOT_address() -> None:
+    """Causal-ordering guard: a learn that fired BEFORE the question
+    cannot be its answer."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "knowledge-rule"
+    question_ts = 200.0
+    earlier = _make_event(
+        "KNOWLEDGE_STORED",
+        {"content": "knowledge-rule mentioned with falsifier."},
+        ts=100.0,
+    )
+    assert _is_backing(earlier, question_wid, question_ts) is False
+
+
+def test_empty_question_wid_never_addresses() -> None:
+    """A question with no knowledge_id can't be addressed by anything
+    because there's no anchor to link to."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    later = _make_event(
+        "KNOWLEDGE_STORED",
+        {"content": "Adding a falsifier and a gate."},
+        ts=200.0,
+    )
+    assert _is_backing(later, "", 100.0) is False
