@@ -12,7 +12,11 @@ and embedded data must NOT trigger the gate.
 
 from __future__ import annotations
 
-from divineos.core.obligations import is_substrate_write_command
+from divineos.core.obligations import (
+    Obligation,
+    command_references_open_obligation,
+    is_substrate_write_command,
+)
 
 
 class TestSubstrateWriteMatcher:
@@ -93,3 +97,112 @@ class TestSubstrateWriteMatcher:
 
     def test_whitespace_only_does_not_match(self) -> None:
         assert not is_substrate_write_command("   \n  ")
+
+
+class TestCommandReferencesOpenObligation:
+    """Locked-box-trap fix (Andrew 2026-06-11). When a substrate-write
+    command's payload contains a reference to one of the open obligation
+    kids, that write IS the structural backing landing — let it through.
+    The previous gate blocked the very writes that would have backed the
+    obligations (filing a prereg that names the kid; committing code that
+    references the kid in the message). Bypass-marker use was the
+    workaround; this is the structural cure.
+    """
+
+    def _ob(self, kid: str, kind: str = "will-shape") -> Obligation:
+        return Obligation(kind=kind, knowledge_id=kid, summary="", triggers=["MUST X"])
+
+    def test_matches_full_kid_in_command(self) -> None:
+        obs = {
+            "unbacked_promises": [self._ob("1d36be4f-1234-5678-9abc-def012345678")],
+            "unpaired_observations": [],
+        }
+        cmd = (
+            'divineos prereg file "structural backing for kid '
+            "1d36be4f-1234-5678-9abc-def012345678 "
+            'per Andrew 2026-06-11"'
+        )
+        matched = command_references_open_obligation(cmd, obs)
+        assert matched == "1d36be4f-1234-5678-9abc-def012345678"
+
+    def test_matches_short_kid_prefix(self) -> None:
+        obs = {
+            "unbacked_promises": [self._ob("ee96a4f7abcdef1234567890")],
+            "unpaired_observations": [],
+        }
+        cmd = 'divineos prereg file "backing for kid ee96a4f7 — optimizer-DUMB principle locks in"'
+        matched = command_references_open_obligation(cmd, obs)
+        assert matched == "ee96a4f7"
+
+    def test_matches_unpaired_observation_kid(self) -> None:
+        obs = {
+            "unbacked_promises": [],
+            "unpaired_observations": [self._ob("d69bba1d-xxxx", "correction-pairing")],
+        }
+        cmd = 'divineos audit submit "follow-up on kid d69bba1d"'
+        matched = command_references_open_obligation(cmd, obs)
+        assert matched == "d69bba1d"
+
+    def test_no_kid_in_command_returns_none(self) -> None:
+        obs = {
+            "unbacked_promises": [self._ob("1d36be4f-1234")],
+            "unpaired_observations": [],
+        }
+        cmd = 'divineos prereg file "some new thing unrelated to any open kid"'
+        assert command_references_open_obligation(cmd, obs) is None
+
+    def test_empty_obligations_returns_none(self) -> None:
+        obs = {"unbacked_promises": [], "unpaired_observations": []}
+        cmd = 'divineos prereg file "backing for kid 12345678"'
+        assert command_references_open_obligation(cmd, obs) is None
+
+    def test_empty_command_returns_none(self) -> None:
+        obs = {
+            "unbacked_promises": [self._ob("1d36be4f-1234")],
+            "unpaired_observations": [],
+        }
+        assert command_references_open_obligation("", obs) is None
+        assert command_references_open_obligation(None, obs) is None  # type: ignore[arg-type]
+
+    def test_short_kid_below_min_length_does_not_match(self) -> None:
+        # Conservative: prefix must be >= 8 hex chars. Shorter kids (test
+        # fixtures, edge cases) don't trigger a match on random tokens.
+        obs = {
+            "unbacked_promises": [self._ob("abc")],  # 3 chars only
+            "unpaired_observations": [],
+        }
+        cmd = "divineos prereg file abc def"
+        assert command_references_open_obligation(cmd, obs) is None
+
+    def test_skips_unknown_kid_marker(self) -> None:
+        # When obligation has knowledge_id='unknown' (lookup failed), the
+        # function ignores it rather than matching the literal word 'unknown'.
+        obs = {
+            "unbacked_promises": [self._ob("unknown")],
+            "unpaired_observations": [],
+        }
+        cmd = 'divineos prereg file "unknown territory"'
+        assert command_references_open_obligation(cmd, obs) is None
+
+    def test_handles_obligation_as_dict_not_dataclass(self) -> None:
+        # Defensive: get_pending_obligations may evolve to return dicts
+        # alongside dataclasses; the matcher tolerates both shapes.
+        obs = {
+            "unbacked_promises": [{"knowledge_id": "12345678-aaaa", "triggers": []}],
+            "unpaired_observations": [],
+        }
+        cmd = "divineos prereg file backing for kid 12345678"
+        matched = command_references_open_obligation(cmd, obs)
+        assert matched == "12345678"
+
+    def test_full_kid_match_preferred_over_prefix(self) -> None:
+        # If both forms appear (full id contains its own prefix), the full
+        # form should match first (it's the more specific signal).
+        full = "1d36be4f-1234-5678-9abc-def012345678"
+        obs = {
+            "unbacked_promises": [self._ob(full)],
+            "unpaired_observations": [],
+        }
+        cmd = f'divineos prereg file "backs {full} directly"'
+        matched = command_references_open_obligation(cmd, obs)
+        assert matched == full  # full, not just '1d36be4f'

@@ -99,6 +99,60 @@ def is_substrate_write_command(command: str) -> bool:
     return False
 
 
+def command_references_open_obligation(command: str, obligations: dict[str, Any]) -> str | None:
+    """Return the matched knowledge_id (full or short) if `command`
+    references any of the currently-open obligation kids, else None.
+
+    Why this exists (Andrew 2026-06-11): the gate had a locked-box trap
+    — to clear an obligation I needed to file a prereg / write a
+    commit / file a claim that referenced the source kid, but the
+    gate blocked the very write that would have carried that reference.
+    The structural fix: detect when the inbound substrate-write payload
+    CONTAINS one of the open kids, and let it through. That write IS
+    the structural backing landing in real time; blocking it makes the
+    gate fight its own remedy.
+
+    Matches either:
+    - full knowledge_id verbatim (UUID-style, 36 chars with dashes)
+    - kid prefix of 8+ hex chars, as the format_block_message renders
+      to the operator (e.g. ``kid=1d36be4f``). The CLI / commit
+      message can reference either form; both are valid backing-
+      signals.
+
+    Conservative — require at least 8 hex chars to avoid spurious
+    collisions with random hex tokens (commit shas, etc.). The
+    kid-prefix is unique-enough in this substrate at this scale.
+
+    Returns the matched kid string (whichever form was found) for
+    audit-logging purposes, or None if no match.
+    """
+    if not command or not obligations:
+        return None
+    kids: list[str] = []
+    for bucket in ("unbacked_promises", "unpaired_observations"):
+        for o in obligations.get(bucket, []) or []:
+            kid = getattr(o, "knowledge_id", None) or (
+                o.get("knowledge_id") if isinstance(o, dict) else None
+            )
+            if kid and kid != "unknown":
+                kids.append(kid)
+    if not kids:
+        return None
+    # 8-hex-char minimum at BOTH match layers — applied here, not just
+    # to the prefix fallback. Short kid strings (test fixtures, malformed
+    # data) must not match arbitrary 3-character tokens in the command.
+    _MIN_KID_LEN = 8
+    # Try full ids first (more specific signal), then 8-char prefixes.
+    for kid in kids:
+        if len(kid) >= _MIN_KID_LEN and kid in command:
+            return kid
+    for kid in kids:
+        prefix = kid[:_MIN_KID_LEN]
+        if len(prefix) >= _MIN_KID_LEN and prefix in command:
+            return prefix
+    return None
+
+
 def is_gate_disabled() -> bool:
     """Return True if the operator has dropped the kill-switch marker file.
 
