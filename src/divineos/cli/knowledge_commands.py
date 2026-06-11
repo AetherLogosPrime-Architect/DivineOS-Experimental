@@ -346,12 +346,21 @@ def register(cli: click.Group) -> None:
         help="Filter to one source: andrew, agent, aria, aletheia, etc. "
         "(Curator-borrowing: namespacing — prereg-902656c818d4)",
     )
-    def ask_cmd(query: str, limit: int, namespace: str | None) -> None:
+    @click.option(
+        "--explain",
+        is_flag=True,
+        help="For each result, show a one-line WHY-it-surfaced breakdown "
+        "(type weight, confidence band, access count, structural-directive "
+        "floor, recency, lesson match, goal overlap). "
+        "Curator-borrowing: recall-explains-why — prereg-7bdd86bb0882.",
+    )
+    def ask_cmd(query: str, limit: int, namespace: str | None, explain: bool) -> None:
         """Search what the system knows about a topic.
 
         Searches both the knowledge store and core memory.
         Example: divineos ask "testing"
         With namespace: divineos ask "testing" --namespace=andrew
+        With breakdown: divineos ask "testing" --explain
         """
         if not query.strip():
             click.secho("[-] Please provide a search query.", fg="yellow")
@@ -457,6 +466,19 @@ def register(cli: click.Group) -> None:
             if entry.get("related_to"):
                 meta_parts.append(f"related: {entry['related_to'][:20]}")
             click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
+            if explain:
+                # Per-entry WHY-breakdown — prereg-7bdd86bb0882. Uses
+                # query words as the context-overlap signal so goal-
+                # relevance shows up in the breakdown when search terms
+                # match the entry's content.
+                try:
+                    from divineos.core.active_memory import explain_importance
+
+                    reasons = explain_importance(entry, context_words=query_words)
+                except Exception:  # noqa: BLE001 — explain is observational; fail-soft
+                    reasons = []
+                if reasons:
+                    click.secho(f"         why: {' + '.join(reasons)}", fg="bright_black")
             # Show relationships if any
             try:
                 from divineos.core.knowledge.relationships import get_relationships
