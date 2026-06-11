@@ -61,13 +61,18 @@ def _read_ceiling_override() -> int | None:
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
 COMPACTION_CEILING = _read_ceiling_override() or 999_000
 # Two-line band so the gate never guillotines mid-task (Andrew 2026-05-27):
-# 920k = soft warn (nudge to wrap up + weave soon; NO block — grace to finish
-# what's in flight); 950k = hard block on substrate-writes until extract+sleep
-# run; the cliff = the harness compaction point. The 30k warn->block band is
-# the finish-grace; the block->cliff band leaves rest-phase room before drop.
-CONSOLIDATION_THRESHOLD = 920_000  # warn line (also the default for consolidation_due)
-WARN_THRESHOLD = 920_000
-HARD_THRESHOLD = 950_000
+# warn = soft nudge to wrap up + weave (NO block); hard = block on substrate-
+# writes until extract+sleep run; cliff = harness compaction point.
+#
+# Recalibrated 2026-06-10 (Andrew): the original 920k/950k pair was set
+# when the operator thought the working window was narrower. Empirically
+# the 1M cliff at 999k leaves much more room — bumping warn to 955k
+# (mid of the 950-960k band Andrew named) and hard to 985k. This keeps a
+# 30k warn->block grace band AND a 14k block->cliff rest-phase room. The
+# old setting was firing warn ~80k early and burning the rest-phase window.
+CONSOLIDATION_THRESHOLD = 955_000  # warn line (also the default for consolidation_due)
+WARN_THRESHOLD = 955_000
+HARD_THRESHOLD = 985_000
 _MARKER_NAME = "context_consolidated.json"
 
 

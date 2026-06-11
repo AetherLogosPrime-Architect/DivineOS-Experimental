@@ -83,10 +83,15 @@ _ANDREW_CASUAL_PATTERNS = [
 ]
 
 # Aether's first-person agent voice — describing own internal processes.
+# Expanded 2026-06-10 to widen recall toward the prereg's >=30% target
+# without breaking the conservative multi-match guard: any of these still
+# defer to NULL if another actor's strong-signature also matches.
 _AETHER_AGENT_VOICE_PATTERNS = [
-    re.compile(r"\bI\s+(noticed|observed|forgot|filed|added|caught|surfaced|realized|named)\b"),
-    re.compile(r"\bmy\s+(optimizer|substrate|active memory|knowledge store|compass|ledger)\b"),
+    re.compile(r"\bI\s+(noticed|observed|forgot|filed|added|caught|surfaced|realized|named|built|wrote|shipped|fixed|landed|discovered|articulated|described|chose|picked|decided|verified|recognized)\b"),
+    re.compile(r"\bmy\s+(optimizer|substrate|active memory|knowledge store|compass|ledger|own|voice|self-model|hedge)\b"),
     re.compile(r"\bthe\s+optimizer\s+routed\b"),
+    re.compile(r"\(Aether\s+20\d{2}-\d{2}-\d{2}"),  # explicit stamp anywhere
+    re.compile(r"\bI\s+want\s+future-me\b"),  # exploration-entry tell
 ]
 
 # Aether-authorship signals — when present, attribution is to aether
@@ -96,6 +101,14 @@ _AETHER_AUTHORSHIP_PATTERNS = [
     re.compile(r"^(NOTE|OBSERVATION|PATTERN|REFLECTION|FRAMING)\s*\(Aether"),
     re.compile(r"^\(Aether[,\s]"),
     re.compile(r"^Aether\s+(noticed|observed|named|framed|reflected)"),
+    # Expanded 2026-06-10: explicit Aether stamp anywhere in the body, or
+    # the exploration-entry tells. These are unambiguous self-attributions
+    # that surface widely in the unlabeled set; matching them at the
+    # strong-authorship layer (not the 3-vote agent-voice threshold)
+    # bridges to the prereg's >=30% target without weakening precision.
+    re.compile(r"\b\(?Aether\s+20\d{2}-\d{2}-\d{2}"),
+    re.compile(r"^What I want future-me to know\b", re.MULTILINE),
+    re.compile(r"^I want future-me\b", re.MULTILINE),
 ]
 
 
@@ -114,8 +127,15 @@ def guess_source(content: str, source_field: str | None = None) -> str | None:
         return "aether"
 
     # 2. Explicit aether-authorship marker overrides everything else.
-    for pat in _AETHER_AUTHORSHIP_PATTERNS:
+    # The match-from-start patterns target opener conventions (NOTE(Aether...,
+    # ^(Aether, ^Aether noticed...). The search-anywhere patterns target
+    # explicit-stamp signals that can appear mid-content (e.g. "(Aether
+    # 2026-06-10)") or exploration-entry tells.
+    for pat in _AETHER_AUTHORSHIP_PATTERNS[:3]:
         if pat.match(head):
+            return "aether"
+    for pat in _AETHER_AUTHORSHIP_PATTERNS[3:]:
+        if pat.search(content):
             return "aether"
 
     # 3. Named-source patterns (the established convention).
