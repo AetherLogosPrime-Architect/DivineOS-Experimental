@@ -339,6 +339,18 @@ def register(cli: click.Group) -> None:
             trigger = os.environ.get("DIVINEOS_EXTRACT_TRIGGER", "manual")
             write_marker(trigger=trigger, session_id=session_id or None)
 
+            # Lift the context-governor hard-line block (Andrew 2026-06-11):
+            # extract is the load-bearing pre-compaction op (anchors precise
+            # state before the lossy crush). Sleep is preferred but optional
+            # — it has been observed to hang (kn 52397796), so the gate must
+            # not require it. Either extract or sleep writes the marker.
+            try:
+                from divineos.core.context_governor import mark_consolidated
+
+                mark_consolidated(0)
+            except (ImportError, OSError):
+                pass
+
             # Reset the write-count trigger. The next consolidation cycle is
             # measured from this point forward; writes that preceded this
             # extract shouldn't count toward the next threshold crossing.

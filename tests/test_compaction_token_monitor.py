@@ -112,25 +112,30 @@ class TestCurrentState:
 
     def test_at_warn_returns_warn(self, script_module, tmp_path):
         tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, 920_000)
+        _write_transcript(tx, script_module.WARN_THRESHOLD)
         state, tokens = script_module._current_state(tx)
         assert state == "warn"
 
     def test_above_warn_below_block_returns_warn(self, script_module, tmp_path):
+        # Midpoint between warn and hard so future cliff-drift / threshold
+        # bumps don't desync this assertion (Andrew 2026-06-11 bumped warn
+        # 920k→935k after the cliff moved to 999k; tests previously hardcoded
+        # 935_000 which then collided with the new WARN floor).
+        midpoint = (script_module.WARN_THRESHOLD + script_module.HARD_THRESHOLD) // 2
         tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, 935_000)
+        _write_transcript(tx, midpoint)
         state, _ = script_module._current_state(tx)
         assert state == "warn"
 
     def test_at_block_returns_block(self, script_module, tmp_path):
         tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, 950_000)
+        _write_transcript(tx, script_module.HARD_THRESHOLD)
         state, _ = script_module._current_state(tx)
         assert state == "block"
 
     def test_above_block_returns_block(self, script_module, tmp_path):
         tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, 960_000)
+        _write_transcript(tx, script_module.HARD_THRESHOLD + 10_000)
         state, _ = script_module._current_state(tx)
         assert state == "block"
 
