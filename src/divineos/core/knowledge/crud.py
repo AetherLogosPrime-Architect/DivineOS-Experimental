@@ -152,13 +152,40 @@ def store_knowledge(
             if superseded:
                 return ""
 
+        # Compute embedding inline on write (Phase 2 wiring, 2026-06-11):
+        # new entries get their semantic-similarity fingerprint stored
+        # alongside the row. Backfill only catches pre-existing entries;
+        # this closes the gap so fresh writes don't accumulate as
+        # embedding=NULL and require a separate sweep later. Fail-soft:
+        # if the embedding model isn't installed (ml extras missing) or
+        # encoding fails, the row stores with embedding=NULL and the
+        # backfill helper can populate it later. The write never fails
+        # because of the embedding layer.
+        embedding_blob: bytes | None = None
+        embedding_model_name: str | None = None
+        try:
+            from divineos.core.semantic_store import (
+                _DEFAULT_MODEL_NAME,
+                embed,
+                serialize_embedding,
+            )
+
+            vec = embed(content)
+            if vec is not None:
+                embedding_blob = serialize_embedding(vec)
+                embedding_model_name = _DEFAULT_MODEL_NAME
+        except Exception:  # noqa: BLE001 — write must never fail on embedding
+            embedding_blob = None
+            embedding_model_name = None
+
         knowledge_id = str(uuid.uuid4())
         conn.execute(
             """INSERT INTO knowledge
                (knowledge_id, created_at, updated_at, knowledge_type, content,
                 confidence, source_events, tags, access_count, content_hash,
-                source, maturity, valid_from, source_entity, related_to, memory_kind)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)""",
+                source, maturity, valid_from, source_entity, related_to, memory_kind,
+                embedding, embedding_model)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 knowledge_id,
                 now,
@@ -175,6 +202,8 @@ def store_knowledge(
                 source_entity,
                 related_to,
                 memory_kind,
+                embedding_blob,
+                embedding_model_name,
             ),
         )
         conn.commit()
