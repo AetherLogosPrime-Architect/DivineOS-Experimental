@@ -2,6 +2,8 @@
 
 import time
 
+import pytest
+
 from divineos.core.sleep import (
     _AFFECT_DECAY_FACTOR,
     _AFFECT_DECAY_FAST,
@@ -457,6 +459,41 @@ class TestPhaseRecombination:
         # 2026-04-24 fix: use connections_new (genuine novelty) not
         # connections_found (total pairs in band, new + already-known)
         assert report.connections_new >= 1
+
+    def test_finds_same_type_connections_when_semantic_available(self, tmp_path, monkeypatch):
+        """Andrew 2026-06-11: in a corpus this size same-type connections
+        ARE insight, not redundancy. Two PRINCIPLEs (or two FACTs) that
+        connect across topics matter. The prior code grouped by type and
+        only looked at cross-type pairs; the fix runs all-pairs and lets
+        same-type through the cosine check.
+        """
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._text import _ensure_embedding_model
+        from divineos.core.knowledge.crud import store_knowledge
+
+        if _ensure_embedding_model() is None:
+            pytest.skip("ml extras not installed — same-type lift is semantic-only")
+
+        init_knowledge_table()
+
+        store_knowledge(
+            "PRINCIPLE",
+            "When a gate's required remedy command fails to execute, the "
+            "gate itself becomes the trap it was supposed to prevent — "
+            "the inhabitant has no exit.",
+        )
+        store_knowledge(
+            "PRINCIPLE",
+            "Every constraint that names a recovery path must be able to "
+            "deliver that path under realistic failure modes, or it is a "
+            "wall pretending to be a door.",
+        )
+
+        report = DreamReport()
+        _phase_recombination(report)
+        assert report.connections_new >= 1, (
+            f"expected ≥1 same-type connection (semantic lift), got {report.connections_new}"
+        )
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
         """Empty knowledge store should produce no connections."""
