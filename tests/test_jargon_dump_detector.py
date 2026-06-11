@@ -359,3 +359,106 @@ class TestOperatorRequestedTechnical:
             )
             == []
         )
+
+
+class TestVoiceDensitySignal:
+    """Andrew 2026-06-11 reframe — lepos is voice woven through, not an
+    appendix. The detector's severity now keys on voice-density across
+    the whole response, not the presence of a 'Plain:' section.
+    These tests pin the new behavior."""
+
+    def test_voice_density_helper_counts_first_person(self):
+        from divineos.core.operating_loop.jargon_dump_detector import (
+            _count_voice_tokens,
+        )
+
+        # Three first-person hits, one contraction. The function counts
+        # raw hits across all voice categories.
+        assert _count_voice_tokens("I think I'm here and I see you") >= 4
+
+    def test_voice_density_helper_empty(self):
+        from divineos.core.operating_loop.jargon_dump_detector import _count_voice_tokens
+
+        assert _count_voice_tokens("") == 0
+
+    def test_voice_density_zero_words_returns_zero(self):
+        from divineos.core.operating_loop.jargon_dump_detector import _voice_density
+
+        assert _voice_density("") == 0.0
+
+    def test_high_jargon_high_voice_no_appendix_passes(self):
+        """Voice woven through carries lepos — no appendix needed.
+        This is the load-bearing change: a response that's technical
+        but written IN voice (contractions, first-person, direct
+        address, questions) doesn't need a 'Plain:' section appended."""
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        reply = (
+            "I'm wiring the unverified_claim_detector.py into the operating "
+            "loop now — you can see what it does from the code shape, but "
+            "here's the gist in voice: when I'd otherwise say 'pushed' "
+            "without checking, the detector catches me. We're not just "
+            "logging things; we're making the catching automatic. Does "
+            "that read right to you? I think the round-abc1234567 case "
+            "is the regression-pin. What I'm tracking is whether "
+            "find-cbfb51192e3e fires when _is_self_predicated returns "
+            "True. It's the same shape we caught last week."
+        )
+        findings = detect_jargon_dump(reply)
+        # The detector may fire MEDIUM (mild signal of jargon-density)
+        # but should NOT fire HIGH — voice is operating across the
+        # response. HIGH would have blocked the turn.
+        if findings:
+            assert all(f.severity != "high" for f in findings), (
+                f"Voice-woven response should not fire HIGH: {findings}"
+            )
+
+    def test_high_jargon_low_voice_no_appendix_fires_high(self):
+        """The case the old detector was supposed to catch and the new
+        one still must: operator-channel report shape — jargon dense
+        with no voice and no appendix."""
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        reply = (
+            "Refactored unverified_claim_detector.py to add source_letter "
+            "field. Wired the operating_loop_audit.py caller layer. "
+            "Tests in test_unverified_claim_detector.py cover the BLOCK "
+            "case. The round-abc1234567 regression is locked in. "
+            "find-cbfb51192e3e fires when _is_self_predicated returns "
+            "True. linguistic_drift_detector.py untouched. "
+            "test_operating_loop_audit.py confirms BLOCK path."
+        )
+        findings = detect_jargon_dump(reply)
+        assert findings, "should fire on operator-channel report"
+        assert any(f.severity == "high" for f in findings), (
+            f"jargon-dense + low-voice should fire HIGH: {findings}"
+        )
+
+    def test_high_jargon_low_voice_with_appendix_downgrades(self):
+        """Backward-compat: a response written under the old prescription
+        (jargon wall + Plain: appendix with real translation) still passes
+        OR downgrades to MEDIUM. The appendix-shape is no longer prescribed
+        but is honored if present so replies-in-flight under the old rule
+        don't suddenly block."""
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        reply = (
+            "Refactored unverified_claim_detector.py to add source_letter "
+            "field threaded through operating_loop_audit.py. Tests in "
+            "test_unverified_claim_detector.py cover the BLOCK case. "
+            "round-abc1234567 regression locked. find-cbfb51192e3e fires "
+            "on _is_self_predicated true.\n\n"
+            "---\n\n"
+            "**Plain:**\n\n"
+            "I added a way for the system to remember where it got a fake "
+            "quote from. When someone wrote me a note and I pulled a "
+            "fake reference out of it, the system can now tell me which "
+            "note. So I can stop and fix instead of slipping past."
+        )
+        findings = detect_jargon_dump(reply)
+        # With both Plain: section AND real translation, the response may
+        # either pass (return []) or fire at MEDIUM. It must NOT fire HIGH.
+        if findings:
+            assert all(f.severity != "high" for f in findings), (
+                f"appendix backward-compat should downgrade: {findings}"
+            )
