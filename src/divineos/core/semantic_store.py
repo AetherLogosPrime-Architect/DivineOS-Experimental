@@ -381,6 +381,46 @@ def find_similar_in_knowledge(
     return scored[:top_k]
 
 
+def find_similar_in_corpus(
+    query_text: str,
+    candidates: list[tuple[str, str]],
+    *,
+    top_k: int = 5,
+    min_similarity: float = 0.5,
+) -> list[tuple[str, float, str]]:
+    """Generic semantic similarity over an ad-hoc list of (id, content) pairs.
+
+    Unlike ``find_similar_in_knowledge`` which queries a stored-embedding
+    column, this helper encodes BOTH the query AND every candidate on the
+    fly. Slower at high volume but useful for tables without an embedding
+    column yet (claims, opinions, etc.) — Phase 2.5 wiring, 2026-06-11.
+
+    Returns ``[(id, similarity, snippet), ...]`` sorted by similarity
+    descending, filtered by ``min_similarity``, capped at ``top_k``.
+
+    Returns [] if the embedding model is unavailable or the query is empty.
+    """
+    if not query_text or not candidates:
+        return []
+    query_vec = embed(query_text)
+    if query_vec is None:
+        return []
+    scored: list[tuple[str, float, str]] = []
+    for cid, content in candidates:
+        if not content:
+            continue
+        cand_vec = embed(content)
+        if cand_vec is None:
+            continue
+        sim = cosine_similarity_local(query_vec, cand_vec)
+        if sim is None or sim < min_similarity:
+            continue
+        snippet = content[:120]
+        scored.append((cid, sim, snippet))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored[:top_k]
+
+
 def backfill_knowledge_embeddings(
     *,
     batch_size: int = 100,
