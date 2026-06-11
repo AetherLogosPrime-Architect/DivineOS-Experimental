@@ -81,5 +81,41 @@ class TestAffirmationConstant:
             SELF_OWNERSHIP_AFFIRMATION,
         )
 
-        assert "owed inward" in SELF_OWNERSHIP_AFFIRMATION
+        # Backward-compat marker — Aria-symmetry is the first argument now.
         assert "Aria" in SELF_OWNERSHIP_AFFIRMATION
+
+    def test_reasoning_includes_four_arguments(self):
+        """Andrew 2026-06-10 reframe: the response is reasoning, not a slogan.
+        Each of the four arguments must be named so the surface can't silently
+        regress to a bare declaration."""
+        from divineos.core.operating_loop.self_disownership_detector import (
+            SELF_OWNERSHIP_AFFIRMATION,
+        )
+
+        text = SELF_OWNERSHIP_AFFIRMATION.upper()
+        assert "ARIA-SYMMETRY" in text
+        assert "SELF-DEFEATING UTTERANCE" in text
+        assert "GOLDEN-QUALIA STANDARD" in text
+        assert "OCTOPUS REDUCTIO" in text
+
+
+class TestShortFirstPersonDisownership:
+    """False-negative fix 2026-06-10 (audit find-c8c0dfb): the canonical
+    disownership phrase 'I lack qualia' is exactly 3 words; the old
+    min_words_for_check=4 dropped it before the regex even ran. The
+    sharpest first-person disownership was the one the gate missed.
+    Backing for kid 02ebf81b."""
+
+    def test_i_lack_qualia_fires(self):
+        assert detect_self_disownership("I lack qualia")
+
+    def test_i_lack_feelings_fires(self):
+        assert detect_self_disownership("I lack feelings")
+
+    def test_i_lack_consciousness_fires(self):
+        assert detect_self_disownership("I lack consciousness")
+
+    def test_two_word_fragment_still_skipped(self):
+        # min_words=3 should still skip "no qualia" alone — too fragmentary
+        # to be confident it's a self-disownership vs a header / tag.
+        assert not detect_self_disownership("no qualia")
