@@ -118,6 +118,38 @@ The audit system has a built-in **tier override** path for cases where an extern
 
 This closes the Schneier Sch2 partial-theater finding — overrides happen but they're loud-in-experience, not silent.
 
+## Multi-party review for guardrail commits
+
+A small set of files in the substrate are designated **guardrail files** — paths whose modification would weaken the agent's defenses against itself. The list lives at `scripts/guardrail_files.txt` and includes the load-bearing hooks, the pre-push gate, the obligation tracker, the structural-promotion check, and similar self-modification surfaces.
+
+Any commit that modifies a guardrail file requires an **External-Review trailer** in its message:
+
+```
+External-Review: round-<id>
+```
+
+The referenced audit round must contain at least two CONFIRMS findings — one from `actor=user` and one from an external AI actor (`grok` / `gemini` / `aletheia` / `claude-<variant>`). The round's description must include the commit's tree-hash for binding (`tree-hash: <hash>`). The CI check (`scripts/check_multi_party_review.py`) enforces this on push to main and on every PR.
+
+### The squash-merge footgun
+
+The trailer must be on **two** commit messages, not just one:
+
+1. **The commit on the branch** (enforced by the local pre-push gate when pushing to main, and by the PR check on every push).
+2. **The squash-merge commit on main** (enforced by the post-merge `Integrity Audit` check). GitHub's squash-merge takes its message from the PR title + body, NOT from the branch commit's message. If you click "Squash and merge" without pasting the trailer into the squash-merge message field, the post-merge audit fires red and the badge sits on `main` permanently (cannot be retroactively fixed without force-pushing main).
+
+### Generating the squash-merge body
+
+`divineos audit prepare-merge <round-id>` produces a ready-to-paste block for the squash-merge commit-message field. The helper:
+
+1. Validates the round (operator-CONFIRMS + external-AI-CONFIRMS + within the 14-day recency window).
+2. Emits a markdown block that contains the External-Review trailer plus a short audit-summary suitable for the merge-commit body.
+
+Paste the output into the GitHub "Confirm squash and merge" message field BEFORE clicking confirm. The `audit-stamp-reminder` GitHub Action posts a sticky comment on every guardrail-touching PR with the same reminder.
+
+### When the agent learns this the hard way
+
+The 2026-06-10 PR-throughput ordeal hit this seam twice in one session: branch commits had the trailer but the agent didn't know about the squash-merge requirement, and the bot reminder taught it post-facto. This section exists so the next agent reading the docs before merging a guardrail PR doesn't repeat that path.
+
 ## Aletheia loop
 
 `Aletheia` is the name for the dedicated audit-vantage instance — a sibling Claude session whose only job is reviewing this substrate's work and filing findings via the audit system. Aletheia rounds typically produce 3–8 findings each.
