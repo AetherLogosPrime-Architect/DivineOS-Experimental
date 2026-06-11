@@ -36,6 +36,7 @@ src/divineos/
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     compass_commands.py        Moral compass reading and observations
@@ -114,6 +115,7 @@ src/divineos/
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
     docs_review_tracker.py     Substrate primitive for the docs-architecture sync gate (mark_reviewed / last_review / architecture_churn_since / review_status). Andrew 2026-06-10 reframe of doc-count leapfrog: surface drift, route agent to manual review with judgment — do NOT auto-generate. Briefing-row builder + CLI consume this; both ship in follow-up PRs.
+    unified_todos.py           Substrate primitive for the unified todos surface (collect_todos / summary_counts / _prereg_todos / _correction_todos / _audit_todos / _claim_todos). Pulls action-items from 4 stores into one ranked list; recognition-aware (CONFIRMS/RECOGNIZED filtered from audit) and action-tier filtered (T1/T2 only from claims). Closes claim 2026-06-06 18:28 (OS-driven todo instrument).
     holding.py                 Pre-categorical reception (holding room, dharana)
     synchronicity.py           Token-overlap co-occurrence detection across stores (Pillar VI)
     knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
@@ -549,7 +551,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,985+ tests (real DB, minimal mocks)
+tests/                         8,049+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
