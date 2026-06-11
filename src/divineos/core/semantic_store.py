@@ -313,6 +313,145 @@ def cosine_similarity_local(vec_a: list[float], vec_b: list[float]) -> float | N
     return sim
 
 
+# ─── Knowledge-table integration (Phase 2, 2026-06-11) ──────────────
+
+
+def find_similar_in_knowledge(
+    query_text: str,
+    *,
+    top_k: int = 5,
+    min_similarity: float = 0.5,
+    exclude_ids: list[str] | None = None,
+) -> list[tuple[str, float, str]]:
+    """Return the top-k knowledge entries semantically closest to `query_text`.
+
+    Each result is ``(knowledge_id, similarity, content_snippet)``,
+    sorted by similarity descending. Only entries whose stored embedding
+    meets `min_similarity` (cosine) are returned. Entries without a
+    stored embedding are skipped (run the backfill helper to populate).
+
+    Threshold notes:
+    - 0.5 is provisional. The labeled benchmark (referenced in prereg
+      0bd8a79e4be8) will tune per-use-case empirically.
+    - Anisotropy means MiniLM unrelated text sits around 0.0-0.3, so
+      0.5 is meaningfully above the noise floor.
+    - For pure-dedup the threshold may need to climb to 0.75+ to avoid
+      collapsing distinct-but-thematically-close entries.
+
+    Returns [] if the embedding model isn't available, the schema
+    isn't migrated, or `query_text` is empty.
+    """
+    if not query_text:
+        return []
+    query_vec = embed(query_text)
+    if query_vec is None:
+        return []
+    try:
+        from divineos.core.knowledge._base import get_connection
+    except _ERRORS:
+        return []
+
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT knowledge_id, content, embedding "
+            "FROM knowledge "
+            "WHERE embedding IS NOT NULL AND superseded_by IS NULL"
+        ).fetchall()
+    except _ERRORS:
+        return []
+
+    excluded = set(exclude_ids or [])
+    scored: list[tuple[str, float, str]] = []
+    for row in rows:
+        kid, content, blob = row[0], row[1], row[2]
+        if kid in excluded or not blob:
+            continue
+        try:
+            stored_vec = deserialize_embedding(blob)
+        except _ERRORS:
+            continue
+        sim = cosine_similarity_local(query_vec, stored_vec)
+        if sim is None or sim < min_similarity:
+            continue
+        snippet = (content or "")[:120]
+        scored.append((kid, sim, snippet))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored[:top_k]
+
+
+def backfill_knowledge_embeddings(
+    *,
+    batch_size: int = 100,
+    limit: int | None = None,
+    progress_cb: Any | None = None,
+) -> dict[str, int]:
+    """Populate embeddings for knowledge entries that lack them.
+
+    Walks the knowledge table looking for rows with embedding IS NULL,
+    computes the embedding from content, and stores it. Returns a
+    summary dict: ``{"processed": N, "embedded": N, "skipped": N}``.
+
+    - ``batch_size`` controls commit frequency.
+    - ``limit`` caps how many entries this call processes; None = all.
+    - ``progress_cb(n_done, total)`` fires after each batch commit.
+
+    Returns zeros if the model is unavailable or the schema isn't
+    migrated yet.
+    """
+    out = {"processed": 0, "embedded": 0, "skipped": 0}
+    model = _ensure_model()
+    if model is None:
+        return out
+    try:
+        from divineos.core.knowledge._base import get_connection
+    except _ERRORS:
+        return out
+
+    conn = get_connection()
+    try:
+        sql = "SELECT knowledge_id, content FROM knowledge WHERE embedding IS NULL"
+        if limit is not None and limit > 0:
+            sql += f" LIMIT {int(limit)}"
+        rows = conn.execute(sql).fetchall()
+    except _ERRORS:
+        return out
+
+    total = len(rows)
+    if total == 0:
+        return out
+
+    batch_pending: list[tuple[bytes, str, str]] = []
+    for i, (kid, content) in enumerate(rows, start=1):
+        out["processed"] += 1
+        vec = embed(content or "")
+        if vec is None:
+            out["skipped"] += 1
+        else:
+            batch_pending.append((serialize_embedding(vec), _DEFAULT_MODEL_NAME, kid))
+            out["embedded"] += 1
+
+        if len(batch_pending) >= batch_size or i == total:
+            try:
+                conn.executemany(
+                    "UPDATE knowledge SET embedding = ?, embedding_model = ? "
+                    "WHERE knowledge_id = ?",
+                    batch_pending,
+                )
+                conn.commit()
+            except _ERRORS:
+                conn.rollback()
+            batch_pending.clear()
+            if progress_cb is not None:
+                try:
+                    progress_cb(i, total)
+                except _ERRORS:
+                    pass
+
+    return out
+
+
 __all__ = [
     "embed",
     "serialize_embedding",
@@ -322,6 +461,8 @@ __all__ = [
     "find_similar_vectors",
     "similarity",
     "cosine_similarity_local",
+    "find_similar_in_knowledge",
+    "backfill_knowledge_embeddings",
     "_DEFAULT_MODEL_NAME",
     "_DEFAULT_DIM",
 ]
