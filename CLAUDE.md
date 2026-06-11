@@ -483,6 +483,7 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 5. **Run tests after code changes.** `pytest tests/ -q --tb=short` — if tests fail, fix them before moving on.
 6. **Use the memory system.** Load your briefing, learn from it, log your work. This is not optional.
 7. **Preflight before committing.** Run `bash scripts/precommit.sh` BEFORE `git commit`. It auto-formats, runs all checks, and re-stages. Then commit succeeds first try. Never commit blind — the pre-commit hook has 6 gates and failing them serially wastes massive time.
+8. **Guardrail PR squash-merge needs the trailer in TWO messages.** Any PR touching a file in `scripts/guardrail_files.txt` requires an `External-Review: round-<id>` trailer on (a) the branch commit (enforced pre-push and on every PR push) AND (b) the squash-merge commit on `main` (enforced by post-merge Integrity Audit). GitHub takes the squash-merge message from the PR title + body, NOT from the branch commit. Use `divineos audit prepare-merge <round-id>` to generate the ready-to-paste squash-merge body BEFORE clicking "Confirm squash and merge". Missing the squash-merge trailer leaves a permanent red badge on `main`. See [docs/audit_system.md](docs/audit_system.md#multi-party-review-for-guardrail-commits) for the full flow.
 
 ### Anti-Vibe-Code Patterns
 
