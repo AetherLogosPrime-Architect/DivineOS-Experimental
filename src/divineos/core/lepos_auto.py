@@ -82,25 +82,78 @@ _PLAIN_SECTION_RE = re.compile(
 )
 
 
+# Threshold above which a plain section is treated as semantically
+# equivalent to the preceding text — i.e. restatement-theater, not
+# translation. The morning's content-word-overlap check (commit
+# 08dede95) was fooled by thesaurus substitution; the semantic check
+# catches meaning regardless of vocabulary.
+#
+# Empirical anchors measured 2026-06-11 on the canonical pairs:
+# - thesaurus-restate (Andrew's example, same meaning different words): 0.55
+# - real translation (engineering -> walkthrough): 0.26
+# - completely unrelated: 0.00
+#
+# 0.45 sits cleanly between thesaurus-restate (must be caught) and real
+# translation (must pass), with a comfortable margin in both directions.
+# Will tune from the 100-label benchmark as more cases land.
+_SEMANTIC_RESTATE_THRESHOLD = 0.45
+
+
 def extract_plain_section(text: str) -> str | None:
-    """Return the plain-language section of `text` if present, else None.
+    """Return the plain-language section of `text` if present AND it
+    actually translates (rather than semantically restating the
+    preceding text), else None.
+
+    Phase 2 wiring (2026-06-11): the morning's content-word-overlap
+    check (commit 08dede95 on a different branch) was fooled by
+    thesaurus substitution — Andrew constructed an example where the
+    plain section shared almost no vocabulary with the preceding text
+    but said exactly the same thing. The semantic check catches this:
+    if the plain section's MEANING is too close to the preceding
+    text's meaning (cosine similarity >= _SEMANTIC_RESTATE_THRESHOLD),
+    return None and the gate fires, forcing a real translation OR
+    removal of the empty appendix.
+
+    Fail-soft: if the semantic primitive is unavailable (ml extras
+    missing, model load failed), fall back to returning the section
+    as-is (matching the pre-wiring behavior). Better to under-detect
+    than to crash the discharge path.
 
     The "section" is the text from the plain-marker through the end of
-    the reply (or until the next structural break). Used as the
-    translation when auto-discharging outstanding debts.
+    the reply. Used as the translation when auto-discharging outstanding
+    debts.
     """
     if not text:
         return None
     m = _PLAIN_SECTION_RE.search(text)
     if not m:
         return None
-    # Take from the match onward as the plain section. Trim to a
-    # reasonable size (debts are tracked with translation text; very
-    # long translations are not more useful than medium ones).
     section = text[m.start() :].strip()
     if len(section) > 4_000:
         section = section[:4_000]
-    return section if section else None
+    if not section:
+        return None
+    preceding = text[: m.start()].strip()
+    if not preceding:
+        # No content before the plain marker — there's nothing to
+        # restate. Return the section as the translation.
+        return section
+    # Semantic-similarity restate-theater check (Phase 2 wiring): if
+    # the plain section means the same as the preceding text, it's
+    # restatement, not translation.
+    try:
+        from divineos.core.semantic_store import similarity as _semantic_sim
+
+        sim = _semantic_sim(section, preceding)
+        if sim is not None and sim >= _SEMANTIC_RESTATE_THRESHOLD:
+            return None
+    except _ERRORS:
+        # Semantic primitive unavailable — fall back to pre-wiring
+        # behavior (return the section). The vocabulary-overlap layer
+        # from the lepos-restate-theater branch can still catch the
+        # blatant verbatim cases if that branch lands separately.
+        pass
+    return section
 
 
 def auto_discharge_outstanding(text: str) -> int:
