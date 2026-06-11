@@ -1,6 +1,7 @@
 """Knowledge CRUD — store, get, search, update, supersede, record_access."""
 
 import json
+import os
 import sqlite3
 import time
 import uuid
@@ -157,26 +158,35 @@ def store_knowledge(
         # alongside the row. Backfill only catches pre-existing entries;
         # this closes the gap so fresh writes don't accumulate as
         # embedding=NULL and require a separate sweep later. Fail-soft:
-        # if the embedding model isn't installed (ml extras missing) or
-        # encoding fails, the row stores with embedding=NULL and the
-        # backfill helper can populate it later. The write never fails
-        # because of the embedding layer.
+        # any embedding failure leaves the column NULL and the row still
+        # persists; backfill picks up the NULLs later. The write never
+        # fails because of the embedding layer.
+        #
+        # Bulk-write opt-out: DIVINEOS_SKIP_EMBED_ON_WRITE=1 disables the
+        # inline compute for paths that write many entries in succession
+        # (seed loading, migration, large imports). The model-load cost
+        # (~10s first call) + per-entry compute (~50ms) can exceed
+        # subprocess timeouts on init flows. When the env var is set,
+        # the row stores with embedding=NULL and the operator runs
+        # backfill_knowledge_embeddings() after the bulk operation
+        # completes.
         embedding_blob: bytes | None = None
         embedding_model_name: str | None = None
-        try:
-            from divineos.core.semantic_store import (
-                _DEFAULT_MODEL_NAME,
-                embed,
-                serialize_embedding,
-            )
+        if not os.environ.get("DIVINEOS_SKIP_EMBED_ON_WRITE"):
+            try:
+                from divineos.core.semantic_store import (
+                    _DEFAULT_MODEL_NAME,
+                    embed,
+                    serialize_embedding,
+                )
 
-            vec = embed(content)
-            if vec is not None:
-                embedding_blob = serialize_embedding(vec)
-                embedding_model_name = _DEFAULT_MODEL_NAME
-        except Exception:  # noqa: BLE001 — write must never fail on embedding
-            embedding_blob = None
-            embedding_model_name = None
+                vec = embed(content)
+                if vec is not None:
+                    embedding_blob = serialize_embedding(vec)
+                    embedding_model_name = _DEFAULT_MODEL_NAME
+            except Exception:  # noqa: BLE001 — write must never fail on embedding
+                embedding_blob = None
+                embedding_model_name = None
 
         knowledge_id = str(uuid.uuid4())
         conn.execute(
