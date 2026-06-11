@@ -53,6 +53,7 @@ from divineos.core.obligations import (
     is_gate_disabled,
     is_substrate_write_command,
     get_pending_obligations,
+    command_references_open_obligation,
 )
 try:
     data = json.loads(sys.stdin.read() or '{}')
@@ -72,6 +73,17 @@ if not is_substrate_write_command(cmd):
 obligations = get_pending_obligations()
 if not obligations['should_block']:
     print('ALLOW_CLEAR')
+    sys.exit(0)
+# Locked-box fix (Andrew 2026-06-11): if this command's payload
+# REFERENCES one of the open obligation kids, it IS the structural
+# backing landing — let it through. The gate was previously blocking
+# the very writes that would have backed the obligations (filing a
+# prereg that names the kid; committing code that references the kid
+# in the message). That trap forced bypass-marker use for routine
+# work; the fix is to detect in-flight backing and allow it.
+matched_kid = command_references_open_obligation(cmd, obligations)
+if matched_kid:
+    print('ALLOW_REFERENCES_OPEN_KID')
     sys.exit(0)
 print('BLOCK')
 " 2>/dev/null)
