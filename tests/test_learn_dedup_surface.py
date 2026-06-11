@@ -63,6 +63,7 @@ def _invoke_learn(args: list[str]) -> tuple[int, str]:
 
 
 @_skip_no_semantic
+@pytest.mark.timeout(180)
 class TestDedupSurface:
     def test_surfaces_semantically_close_existing_entry(self, tmp_path, monkeypatch):
         _setup_isolated_db(tmp_path, monkeypatch)
