@@ -113,6 +113,7 @@ src/divineos/
     hud.py                     HUD slot builders and assembly
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
+    docs_review_tracker.py     Substrate primitive for the docs-architecture sync gate (mark_reviewed / last_review / architecture_churn_since / review_status). Andrew 2026-06-10 reframe of doc-count leapfrog: surface drift, route agent to manual review with judgment — do NOT auto-generate. Briefing-row builder + CLI consume this; both ship in follow-up PRs.
     holding.py                 Pre-categorical reception (holding room, dharana)
     synchronicity.py           Token-overlap co-occurrence detection across stores (Pillar VI)
     knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
