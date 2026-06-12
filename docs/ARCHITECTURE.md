@@ -263,6 +263,7 @@ src/divineos/
     ledger_compressor.py       ELMO ledger compression and archival
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
+    semantic_store.py          Semantic-similarity primitive — embed/store/top-k search via sqlite-vec; foundation for knowledge dedup, claims supersession, restatement detection, theme surfacing (Andrew nightclub-frame 2026-06-11)
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
     opinion_store.py           Structured opinions with evidence tracking and evolution
     user_model.py              User preference and skill level modeling
