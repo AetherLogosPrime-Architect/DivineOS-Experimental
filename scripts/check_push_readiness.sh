@@ -156,6 +156,57 @@ _all_changed_low_impact() {
     [[ "$saw_any" == "1" ]]
 }
 
+# Empty-branch detection (Andrew 2026-06-12): catch the failure mode hit
+# twice during the 2026-06-11 PR-batch — after rebasing a stacked branch
+# onto a main that absorbed the stack's commits, the branch can end up
+# with ZERO commits ahead of main while still being force-pushed. The
+# force-push "succeeds" (the ref moves) but the resulting PR is empty,
+# wasting ~10min of pre-push pytest + a CI run + cycles spent figuring
+# out why the merge button is greyed.
+#
+# Signal: for any push to a non-main feature branch where main exists
+# locally, `git log origin/main..<local-sha>` returns no commits → the
+# branch has nothing to add. Tell the operator to close the PR (or
+# rebase to recover dropped work) instead of pushing.
+#
+# Bypass: DIVINEOS_ALLOW_EMPTY_PUSH=1 (e.g. when intentionally pushing
+# a tag-only or note-only commit that the parser missed).
+_check_empty_branch() {
+    local lref lsha rref rsha
+    local has_main
+    has_main="$(git rev-parse --verify --quiet origin/main 2>/dev/null || echo "")"
+    [[ -z "$has_main" ]] && return 0  # No origin/main; can't measure.
+    while read -r lref lsha rref rsha; do
+        [[ -z "${lref:-}" ]] && continue
+        [[ "${lsha:-}" =~ ^0+$ ]] && continue  # deletion
+        # Skip the main branch itself — by definition main is "ahead of main".
+        if [[ "${rref:-}" =~ /main$ ]]; then
+            continue
+        fi
+        # Count commits the local sha has that origin/main doesn't.
+        local n
+        n="$(git rev-list --count "origin/main..$lsha" 2>/dev/null || echo "?")"
+        if [[ "$n" == "0" ]]; then
+            echo "[push-readiness] EMPTY-BRANCH detected: $lref has 0 commits ahead of origin/main."
+            echo "[push-readiness] Pushing this would produce an empty PR (nothing to merge)."
+            echo "[push-readiness] Likely cause: rebase absorbed the commits because main already has them."
+            echo "[push-readiness] Recommended: close the PR (gh pr close <n> --comment '...') or rebase to recover."
+            echo "[push-readiness] Bypass if intentional: DIVINEOS_ALLOW_EMPTY_PUSH=1 git push"
+            return 21
+        fi
+    done <<< "$HOOK_STDIN"
+    return 0
+}
+
+if [[ "${DIVINEOS_ALLOW_EMPTY_PUSH:-0}" != "1" ]]; then
+    if ! _check_empty_branch; then
+        # _check_empty_branch returns 21 when it detected an empty push and
+        # printed the diagnostic. Propagate that exit code so the operator
+        # can distinguish empty-branch from other failure modes.
+        exit 21
+    fi
+fi
+
 if [[ "$DELETION_ONLY" == "1" ]]; then
     echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
 elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
