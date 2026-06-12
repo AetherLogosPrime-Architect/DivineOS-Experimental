@@ -5,6 +5,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/session-start-sweep-stale-watchers.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/load-briefing.sh",
             "timeout": 30
           },

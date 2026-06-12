@@ -10,9 +10,10 @@ instance rehydrates from a consolidated, connected store.
 The harness compacts at ~999k tokens (Anthropic moved it from 970k some
 time before 2026-06-09; the change is silent and we discovered it
 empirically when a hard-line at 950k saw the cliff fire only at ~999k
-rather than 970k). The consolidation threshold is 920k — keeping the
-30k warn->block grace; the block->cliff band is now ~49k, leaving more
-rest-phase room before the drop.
+rather than 970k). The consolidation threshold is 950k (bumped 2026-06-11
+twice: 920k → 935k → 950k after the Aletheia audit reconciled three
+branches to one source of truth) — 30k warn->block grace and ~19k
+block->cliff margin sized to FIT a real extract before the lossy crush.
 
 The cliff number can drift again whenever Anthropic adjusts compaction.
 If a future session observes the cliff firing at a different point,
@@ -60,14 +61,22 @@ def _read_ceiling_override() -> int | None:
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
 COMPACTION_CEILING = _read_ceiling_override() or 999_000
-# Two-line band so the gate never guillotines mid-task (Andrew 2026-05-27):
-# 920k = soft warn (nudge to wrap up + weave soon; NO block — grace to finish
-# what's in flight); 950k = hard block on substrate-writes until extract+sleep
-# run; the cliff = the harness compaction point. The 30k warn->block band is
-# the finish-grace; the block->cliff band leaves rest-phase room before drop.
-CONSOLIDATION_THRESHOLD = 920_000  # warn line (also the default for consolidation_due)
-WARN_THRESHOLD = 920_000
-HARD_THRESHOLD = 950_000
+# Two-line band so the gate never guillotines mid-task (Andrew 2026-05-27,
+# recalibrated 2026-06-11 post-Aletheia-audit):
+# 950k = soft warn (transition to wrap-up + rest-phase writes; NO block);
+# 980k = hard block on substrate-writes until extract runs (sleep is still
+# mandatory but no longer GATES — it can run any time after, has been
+# observed to hang — kn 52397796); the cliff = the 999k harness compaction.
+# Band sized so 19k extract-margin fits a real extract before the cliff.
+# Recalibrated 2026-06-11 (Andrew, post-Aletheia-audit) from 920k/950k →
+# 950k/980k. The cliff moved 970k→999k silently; the original 920k warn
+# fired 79k early. Final landing: WARN=950k (soft cap, transition to
+# wrap-up), HARD=980k (extract-NOW trigger), leaving ~19k headroom for a
+# real extract to finish before the 999k cliff lossily crushes context.
+# Andrew chose 980k as enough margin without wasting the high band.
+CONSOLIDATION_THRESHOLD = 950_000  # warn line (also the default for consolidation_due)
+WARN_THRESHOLD = 950_000
+HARD_THRESHOLD = 980_000
 _MARKER_NAME = "context_consolidated.json"
 
 
@@ -176,11 +185,15 @@ _WARN_NUDGE = (
 _BLOCK_CHANNEL = (
     "BLOCKED: CONTEXT GOVERNOR — HARD LINE ({tokens:,} tokens, ~{headroom:,} to "
     "the {ceiling:,} compaction cliff). Substrate-writes are gated until the self "
-    "is woven. This is not a wall with no door: run `divineos extract` then "
-    "`divineos sleep` (both bypass this gate) to consolidate before the drop, "
-    "then the block lifts for the rest of the session. The warn band (920k–950k) "
-    "already gave grace to finish; at the hard line, weaving comes first so a "
-    "post-compaction instance rehydrates from a connected store, not a thin save."
+    "is woven. This is not a wall with no door: run `divineos extract` to lift "
+    "this block — extract is the load-bearing pre-compaction op (anchors precise "
+    "state before the lossy crush). Sleep is still mandatory but no longer "
+    "gates: run `divineos sleep` after extract (it can run any time and has "
+    "been observed to hang, so it must not block) — Andrew 2026-06-11. The warn "
+    "band (950k–980k) already gave grace to finish; at the hard line, weaving "
+    "comes first so a post-compaction instance rehydrates from a connected "
+    "store, not a thin save. "
+    "Escape-hatch if extract itself errors: `touch ~/.divineos/context_consolidated.json`."
 )
 
 
@@ -219,9 +232,10 @@ def consolidation_state(transcript_path: str | Path | None) -> str:
     """The governor's three-state read, encoding the finish-grace band:
 
     - ``"ok"``    — below the warn line, or already consolidated this session.
-    - ``"warn"``  — past 920k but below 950k: nudge to wrap up + weave soon,
-                    but DO NOT block (grace to finish what's in flight).
-    - ``"block"`` — at/above 950k and not yet consolidated: the hard line;
+    - ``"warn"``  — past WARN_THRESHOLD but below HARD_THRESHOLD: nudge to
+                    wrap up + transition to rest-phase, but DO NOT block
+                    (grace to finish what's in flight).
+    - ``"block"`` — at/above HARD_THRESHOLD and not yet consolidated: the hard line;
                     substrate-writes should be gated until extract+sleep run.
 
     The UserPromptSubmit hook (which can see the transcript) maps this to a
