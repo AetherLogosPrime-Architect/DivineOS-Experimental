@@ -52,6 +52,13 @@ def isolated_env(tmp_path, monkeypatch):
     env = os.environ.copy()
     env["DIVINEOS_DB"] = str(db_path)
     env["DIVINEOS_FAMILY_DB"] = str(family_db)
+    # Skip the inline embedding compute during e2e bootstrap — the
+    # embedding-model load (~10s first call) + per-seed-entry compute
+    # (~50ms each) can exceed the 30s subprocess timeout on init flows.
+    # Tests of corrigibility don't depend on knowledge embeddings; backfill
+    # is the right path for that data when it's needed (Phase 2 wiring,
+    # 2026-06-11).
+    env["DIVINEOS_SKIP_EMBED_ON_WRITE"] = "1"
     # Redirect ~/.divineos/ to the tmp path so session markers (briefing
     # loaded, engagement) don't contaminate between test runs.
     env["HOME"] = str(hud_home)

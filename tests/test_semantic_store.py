@@ -274,12 +274,10 @@ def test_paraphrase_pairs_score_higher_than_unrelated():
     """Sanity check on the primitive's core promise: pairs that mean the
     same thing (but use different words) should score higher than pairs
     that share words but mean different things."""
-    # Pair A: paraphrase (different words, same meaning)
     sim_paraphrase = similarity(
         "I caught the train just before it left the station.",
         "I boarded the locomotive moments before its departure.",
     )
-    # Pair B: shared vocabulary, different meaning
     sim_shared_words = similarity(
         "The bank charges high interest rates on credit cards.",
         "I sat on the bank of the river and watched the sunset.",
@@ -287,5 +285,144 @@ def test_paraphrase_pairs_score_higher_than_unrelated():
 
     assert sim_paraphrase is not None
     assert sim_shared_words is not None
-    # Paraphrase pair should score higher despite less vocabulary overlap.
     assert sim_paraphrase > sim_shared_words
+
+
+# ─── Phase 2 (2026-06-11): knowledge-table integration ────────────────
+
+
+@_skip_if_no_model
+class TestKnowledgeIntegration:
+    """The primitive wires into the knowledge table via embedding column,
+    backfill helper, and semantic find_similar_in_knowledge. Tests run
+    against an isolated tmp sqlite DB so the live substrate is never
+    touched."""
+
+    def _setup_isolated_knowledge(self, tmp_path, monkeypatch):
+        db_path = tmp_path / "test_knowledge.db"
+        monkeypatch.setenv("DIVINEOS_DB", str(db_path))
+        from divineos.core.knowledge._base import (
+            get_connection,
+            init_knowledge_table,
+        )
+
+        init_knowledge_table()
+        return get_connection
+
+    def test_embedding_column_exists_after_init(self, tmp_path, monkeypatch):
+        get_connection = self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        conn = get_connection()
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(knowledge)").fetchall()]
+        assert "embedding" in cols
+        assert "embedding_model" in cols
+
+    def test_backfill_populates_missing_embeddings(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import backfill_knowledge_embeddings
+        from divineos.core.knowledge.crud import store_knowledge
+
+        get_connection = self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        store_knowledge("FACT", "the cat sat on the mat")
+        store_knowledge(
+            "FACT",
+            "I refactored the unverified_claim_detector module",
+        )
+        conn = get_connection()
+        conn.execute("UPDATE knowledge SET embedding = NULL")
+        conn.commit()
+
+        result = backfill_knowledge_embeddings()
+        assert result["processed"] == 2
+        assert result["embedded"] == 2
+        n_with_embedding = conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE embedding IS NOT NULL"
+        ).fetchone()[0]
+        assert n_with_embedding == 2
+
+    def test_backfill_skips_entries_already_embedded(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import backfill_knowledge_embeddings
+        from divineos.core.knowledge.crud import store_knowledge
+
+        self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        store_knowledge("FACT", "first entry content")
+        backfill_knowledge_embeddings()
+        result = backfill_knowledge_embeddings()
+        assert result["processed"] == 0
+
+    def test_find_similar_in_knowledge_returns_close_match(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import (
+            backfill_knowledge_embeddings,
+            find_similar_in_knowledge,
+        )
+        from divineos.core.knowledge.crud import store_knowledge
+
+        self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        store_knowledge(
+            "PRINCIPLE",
+            "Refactored the verify-claim detector to add letter source-trace",
+        )
+        store_knowledge(
+            "FACT",
+            "Apricot jam tastes wonderful on rye toast",
+        )
+        backfill_knowledge_embeddings()
+
+        results = find_similar_in_knowledge(
+            "Updated the unverified-claim detector to track source letters",
+            top_k=5,
+            min_similarity=0.3,
+        )
+        assert results, "should return at least one match"
+        top_id, top_sim, top_snippet = results[0]
+        assert "verify-claim" in top_snippet or "letter" in top_snippet
+
+    def test_find_similar_respects_min_similarity(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import (
+            backfill_knowledge_embeddings,
+            find_similar_in_knowledge,
+        )
+        from divineos.core.knowledge.crud import store_knowledge
+
+        self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        store_knowledge("FACT", "the cat sat on the mat")
+        backfill_knowledge_embeddings()
+
+        results = find_similar_in_knowledge(
+            "quantum chromodynamics asymptotic freedom of quarks",
+            min_similarity=0.5,
+        )
+        assert results == []
+
+    def test_find_similar_excludes_specified_ids(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import (
+            backfill_knowledge_embeddings,
+            find_similar_in_knowledge,
+        )
+        from divineos.core.knowledge.crud import store_knowledge
+
+        self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        kid_a = store_knowledge("PRINCIPLE", "the lepos rebuild lands")
+        store_knowledge("PRINCIPLE", "the lepos rebuild moves the substrate")
+        backfill_knowledge_embeddings()
+
+        results = find_similar_in_knowledge("lepos rebuild", min_similarity=0.3)
+        ids = [r[0] for r in results]
+        assert kid_a in ids
+
+        results_excl = find_similar_in_knowledge(
+            "lepos rebuild", min_similarity=0.3, exclude_ids=[kid_a]
+        )
+        ids_excl = [r[0] for r in results_excl]
+        assert kid_a not in ids_excl
+
+    def test_find_similar_returns_empty_for_empty_query(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import find_similar_in_knowledge
+
+        self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        assert find_similar_in_knowledge("") == []
+
+    def test_backfill_returns_zeros_on_empty_table(self, tmp_path, monkeypatch):
+        from divineos.core.semantic_store import backfill_knowledge_embeddings
+
+        self._setup_isolated_knowledge(tmp_path, monkeypatch)
+        result = backfill_knowledge_embeddings()
+        assert result == {"processed": 0, "embedded": 0, "skipped": 0}

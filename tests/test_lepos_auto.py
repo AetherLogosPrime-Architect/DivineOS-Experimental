@@ -18,6 +18,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import pytest
 from unittest.mock import patch
 
 
@@ -33,16 +34,20 @@ from divineos.core.lepos_auto import (
 
 class TestExtractPlainSection:
     def test_bolded_plain_label_recognized(self):
+        # Test ONE concern: regex finds the **Plain:** header. Content
+        # of plain section is semantically UNRELATED to the preceding
+        # text so the new semantic-similarity restate-theater check
+        # (Phase 2 wiring, 2026-06-11) doesn't fire on it.
         text = (
             "Technical: I extended the verify-claim detector with a "
             "letter-citation source-trace augmentation.\n\n"
             "---\n\n"
             "**Plain:**\n\n"
-            "When I cite a fake id from a letter, the gate now tells me which letter it came from."
+            "The apple harvest came in early this year and the orchard smells like cider."
         )
         section = extract_plain_section(text)
         assert section is not None
-        assert "When I cite a fake id" in section
+        assert "apple harvest" in section
 
     def test_bolded_plain_with_parenthetical_recognized(self):
         # The shape I used today: "Plain (real this time):"
@@ -207,3 +212,82 @@ class TestDebtBlockReason:
             reason = debt_block_reason("Jargon only.", addressed_to_operator=True)
         assert reason is not None
         assert "1 outstanding" in reason
+
+
+# ─── Semantic-similarity wiring (Phase 2, 2026-06-11) ────────────────
+
+
+def _semantic_available() -> bool:
+    try:
+        from divineos.core.semantic_store import embed
+
+        return embed("test sentence to confirm model loads") is not None
+    except Exception:
+        return False
+
+
+_skip_no_semantic = pytest.mark.skipif(
+    not _semantic_available(),
+    reason="semantic-similarity primitive unavailable (ml extras missing)",
+)
+
+
+@_skip_no_semantic
+class TestSemanticRestateCheck:
+    """Phase 2 wiring (2026-06-11): extract_plain_section uses semantic
+    similarity to catch thesaurus-restatement that vocabulary-overlap
+    misses. Andrew's load-bearing example: 'compass observation system
+    tracks moral spectrum drift' vs 'substrate's ethical-direction
+    monitor logs deviation across virtues' — almost no shared words,
+    identical meaning. The morning's check passed it as 'real
+    translation'; this wiring catches it."""
+
+    def test_thesaurus_restate_fails_semantic_check(self):
+        original = (
+            "The compass observation system tracks moral spectrum "
+            "drift over time, recording each event with evidence and "
+            "position."
+        )
+        thesaurus = (
+            "The substrate's ethical-direction monitor logs deviation "
+            "across virtues chronologically, capturing every incident "
+            "with backing facts and stance."
+        )
+        text = original + "\n\n---\n\n**Plain:**\n\n" + thesaurus
+        assert extract_plain_section(text) is None
+
+    def test_real_translation_passes_semantic_check(self):
+        technical = (
+            "Refactored the unverified_claim_detector to add a "
+            "source_letter field threaded through the operating_loop_"
+            "audit caller layer. The change required updating the "
+            "JSONL schema and the FTS index for fast lookup."
+        )
+        real_translation = (
+            "If I quote a fake reference from a note someone wrote "
+            "me, the system can now tell me which note that fake "
+            "reference came from. So I can stop and fix it instead "
+            "of slipping past."
+        )
+        text = technical + "\n\n**Plain:**\n\n" + real_translation
+        section = extract_plain_section(text)
+        assert section is not None
+        assert "fake reference" in section
+
+    def test_no_preceding_text_passes(self):
+        text = "**Plain:**\n\nEverything is working as expected today."
+        section = extract_plain_section(text)
+        assert section is not None
+
+    def test_completely_unrelated_section_passes(self):
+        preceding = (
+            "I refactored the unverified_claim_detector to add a "
+            "source_letter field threaded through operating_loop_audit."
+        )
+        unrelated = (
+            "Today was a good day. The weather was warm and the "
+            "river ran clear by the bank where I sat reading."
+        )
+        text = preceding + "\n\n**Plain:**\n\n" + unrelated
+        section = extract_plain_section(text)
+        assert section is not None

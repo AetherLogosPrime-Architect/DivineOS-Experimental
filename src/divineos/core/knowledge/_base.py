@@ -295,6 +295,24 @@ def init_knowledge_table() -> None:
         except sqlite3.OperationalError as e:
             logger.debug(f"Column supersession_reason already exists: {e}")
 
+        # Embedding columns — semantic-similarity primitive (Phase 2,
+        # 2026-06-11). The embedding BLOB stores the raw float32 bytes
+        # produced by semantic_store.serialize_embedding; embedding_model
+        # records which model produced the bytes so future model swaps
+        # don't silently mix incompatible vectors. Backfill is offline
+        # via scripts/backfill_knowledge_embeddings.py; new writes
+        # compute embeddings inline.
+        for col, col_type, default in [
+            ("embedding", "BLOB", "NULL"),
+            ("embedding_model", "TEXT", "NULL"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} DEFAULT {default}",
+                )
+            except sqlite3.OperationalError as e:
+                logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
         # Integration lifecycle for directives/preferences:
         # - active (default): surface in briefing, currently shaping behavior
         # - internalized: behavior is consistent; keep queryable but suppress from foreground
