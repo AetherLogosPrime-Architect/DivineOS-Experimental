@@ -38,6 +38,7 @@ dev = [
 ml = [
     "scikit-learn>=1.0",        # core/sis_tiers.py — TF-IDF + cosine similarity
     "sentence-transformers>=2.0",  # core/sis_tiers.py + core/knowledge/_text.py
+    "sqlite-vec>=0.1.6",        # core/semantic_store.py — fast top-k vector search (replaces deprecated sqlite-vss; dependency-free C extension, sub-100ms at 100k vectors). Added 2026-06-11 for the semantic-similarity-primitive build per nightclub-frame correction.
     "pillow-heif>=0.10",        # core/visual.py — HEIC/HEIF screenshot support
 ]
 
