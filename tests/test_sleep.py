@@ -468,11 +468,24 @@ class TestPhaseRecombination:
         same-type through the cosine check.
         """
         from divineos.core.knowledge import init_knowledge_table
-        from divineos.core.knowledge._text import _ensure_embedding_model
+        from divineos.core.knowledge._text import _ensure_embedding_model, compute_similarity
         from divineos.core.knowledge.crud import store_knowledge
 
         if _ensure_embedding_model() is None:
             pytest.skip("ml extras not installed — same-type lift is semantic-only")
+
+        # Defense-in-depth (Aletheia 2026-06-11 sandbox-finding): some CI
+        # lanes have sentence-transformers half-installed — the model check
+        # returns non-None but compute_similarity silently fails to produce
+        # real values. Probe identical strings: if we can't get a near-1.0
+        # similarity, embeddings are broken in this env and the test
+        # cannot pass regardless of the fix being correct. Skip cleanly.
+        probe = compute_similarity("the cat sat on the mat", "the cat sat on the mat")
+        if probe is None or probe < 0.9:
+            pytest.skip(
+                f"embedding pipeline broken in this env (probe similarity={probe}) — "
+                "same-type test requires working embeddings"
+            )
 
         init_knowledge_table()
 
