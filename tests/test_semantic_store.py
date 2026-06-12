@@ -47,6 +47,25 @@ _skip_if_no_model = pytest.mark.skipif(
 )
 
 
+def _has_sqlite_vec() -> bool:
+    """True when the sqlite-vec C extension is installed AND loadable.
+    The ml-extras CI lane has sentence-transformers but NOT sqlite-vec
+    (Aletheia 2026-06-11 audit predicted this) — vec0 tests must skip
+    in that lane rather than fail with ModuleNotFoundError."""
+    try:
+        import sqlite_vec  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+_skip_if_no_sqlite_vec = pytest.mark.skipif(
+    not _has_sqlite_vec(),
+    reason="sqlite-vec C extension not installed (ml-extras CI lane lacks it)",
+)
+
+
 # ── embed() ──────────────────────────────────────────────────────────
 
 
@@ -122,6 +141,7 @@ def test_cosine_local_empty_returns_none():
 # ── sqlite-vec storage + search ──────────────────────────────────────
 
 
+@_skip_if_no_sqlite_vec
 def test_vec_table_creation_and_basic_search():
     """End-to-end smoke test on the vec0 layer — confirms sqlite-vec
     loads, init_vec_table creates the virtual table, upsert stores, and
@@ -144,6 +164,7 @@ def test_vec_table_creation_and_basic_search():
         conn.close()
 
 
+@_skip_if_no_sqlite_vec
 def test_upsert_replaces_existing_embedding():
     conn = _connect_with_vec()
     try:
@@ -161,6 +182,7 @@ def test_upsert_replaces_existing_embedding():
         conn.close()
 
 
+@_skip_if_no_sqlite_vec
 def test_find_similar_respects_top_k():
     conn = _connect_with_vec()
     try:
