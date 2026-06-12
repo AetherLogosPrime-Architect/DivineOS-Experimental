@@ -295,6 +295,31 @@ class TestVerificationEvidenceSuppresses:
             == []
         )
 
+    def test_tests_claim_with_bash_sh_test_runner_silent(self):
+        """The project has .sh test runners under tests/ (e.g.
+        test_divineos_push_wrapper.sh, test_empty_branch_detection.sh)
+        that are real test invocations. Before 2026-06-12 the signature
+        only matched pytest/tox/npm/cargo/go, so `bash tests/*.sh` ran
+        but didn't substantiate "tests pass" — the gate fired on me
+        multiple times after substantive bash-test verifications.
+        """
+        assert (
+            detect_unverified_claim(
+                "all tests pass",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("bash tests/test_divineos_push_wrapper.sh",),
+            )
+            == []
+        )
+        assert (
+            detect_unverified_claim(
+                "tests pass",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("bash tests/test_empty_branch_detection.sh 2>&1 | tail -10",),
+            )
+            == []
+        )
+
     def test_pr_claim_with_gh_pr_silent(self):
         assert (
             detect_unverified_claim(

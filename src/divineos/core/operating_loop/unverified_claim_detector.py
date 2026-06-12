@@ -457,7 +457,15 @@ _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
         re.IGNORECASE,
     ),
     "tests": re.compile(
-        r"pytest|python\s+-m\s+pytest|\btox\b|npm\s+(?:run\s+)?test|cargo\s+test|go\s+test",
+        # pytest + standard ecosystem runners.
+        r"pytest|python\s+-m\s+pytest|\btox\b|npm\s+(?:run\s+)?test|cargo\s+test|go\s+test|"
+        # Bash-based test runners — the project has several .sh test files
+        # under tests/ that are real test invocations (e.g. test_divineos_push_wrapper.sh,
+        # test_empty_branch_detection.sh). Without this branch the
+        # detector fires on "tests pass" even after a substantive bash
+        # tests/*.sh run that VERIFIED the claim (gate fired on me
+        # 2026-06-12 multiple times after bash-test verifications).
+        r"bash\s+tests/.*\.sh|\./tests/.*\.sh",
         re.IGNORECASE,
     ),
     "pr": re.compile(r"gh\s+pr\s+(?:create|view|list)", re.IGNORECASE),
