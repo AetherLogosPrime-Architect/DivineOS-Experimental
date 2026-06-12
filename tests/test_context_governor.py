@@ -74,7 +74,7 @@ def test_missing_or_empty_transcript_is_zero(tmp_path):
 
 def test_due_fires_over_threshold(tmp_path):
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(920000, 0, 0)])
+    _write_jsonl(tx, [_assistant_with_usage(cg.WARN_THRESHOLD, 0, 0)])
     assert cg.consolidation_due(tx) is True
 
 
@@ -113,23 +113,27 @@ def test_state_ok_below_warn(tmp_path):
 
 
 def test_state_warn_in_grace_band(tmp_path):
-    # 920k–950k: nudge to wrap up, but NOT a block — grace to finish.
-    assert cg.consolidation_state(_tx_with(tmp_path, 930_000)) == "warn"
-    assert cg.consolidation_state(_tx_with(tmp_path, 920_000)) == "warn"
-    assert cg.consolidation_state(_tx_with(tmp_path, 949_999)) == "warn"
+    # WARN_THRESHOLD–HARD_THRESHOLD: nudge to wrap up, but NOT a block —
+    # grace to finish. Constants used so the band is data, not a magic
+    # number that drifts with the cliff (Andrew 2026-06-11: 920k → 935k →
+    # 950k after the Aletheia audit reconciled three branches).
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.WARN_THRESHOLD)) == "warn"
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.WARN_THRESHOLD + 1)) == "warn"
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "warn"
 
 
 def test_state_block_at_hard_line(tmp_path):
-    # >=950k: hard line — substrate-writes get gated until extract+sleep.
-    assert cg.consolidation_state(_tx_with(tmp_path, 950_000)) == "block"
-    assert cg.consolidation_state(_tx_with(tmp_path, 965_000)) == "block"
+    # >=HARD_THRESHOLD: hard line — substrate-writes get gated until extract.
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD)) == "block"
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD + 15_000)) == "block"
 
 
 def test_state_ok_once_consolidated_even_when_high(tmp_path):
     # After the weave, no warn/block regardless of size — fires once.
-    tx = _tx_with(tmp_path, 960_000)
+    above_hard = cg.HARD_THRESHOLD + 10_000
+    tx = _tx_with(tmp_path, above_hard)
     assert cg.consolidation_state(tx) == "block"
-    cg.mark_consolidated(960_000)
+    cg.mark_consolidated(above_hard)
     assert cg.consolidation_state(tx) == "ok"
 
 
@@ -145,27 +149,28 @@ def test_governor_context_empty_when_ok(tmp_path):
 
 
 def test_governor_context_warn_is_nudge_not_block(tmp_path):
-    out = cg.build_governor_context(_tx_with(tmp_path, 930_000))
+    out = cg.build_governor_context(_tx_with(tmp_path, cg.WARN_THRESHOLD + 1))
     assert "WARN" in out
     assert "BLOCKED" not in out  # warn band is grace, not a block
     assert "extract" in out and "sleep" in out
 
 
 def test_governor_context_block_is_channel_message(tmp_path):
-    out = cg.build_governor_context(_tx_with(tmp_path, 955_000))
+    out = cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD + 5_000))
     assert "BLOCKED" in out
     # The channel out is named — never a dead end.
     assert "extract" in out and "sleep" in out
 
 
 def test_governor_context_silent_once_consolidated(tmp_path):
-    tx = _tx_with(tmp_path, 960_000)
-    cg.mark_consolidated(960_000)
+    above_hard = cg.HARD_THRESHOLD + 10_000
+    tx = _tx_with(tmp_path, above_hard)
+    cg.mark_consolidated(above_hard)
     assert cg.build_governor_context(tx) == ""
 
 
 def test_governor_channel_message_names_extract_and_sleep(tmp_path):
-    msg = cg.governor_channel_message(_tx_with(tmp_path, 960_000))
+    msg = cg.governor_channel_message(_tx_with(tmp_path, cg.HARD_THRESHOLD + 10_000))
     assert "extract" in msg and "sleep" in msg
     assert "BLOCKED" in msg
 
@@ -203,5 +208,5 @@ def test_block_channel_message_uses_dynamic_ceiling(tmp_path):
     """The block message's cliff number must reflect COMPACTION_CEILING,
     not a hardcoded literal — otherwise a future ceiling-update would
     leave the operator-facing instruction stale."""
-    msg = cg.governor_channel_message(_tx_with(tmp_path, 955_000))
+    msg = cg.governor_channel_message(_tx_with(tmp_path, cg.HARD_THRESHOLD + 5_000))
     assert f"{cg.COMPACTION_CEILING:,}" in msg
