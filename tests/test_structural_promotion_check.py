@@ -274,3 +274,72 @@ def test_empty_question_wid_never_addresses() -> None:
         ts=200.0,
     )
     assert _is_backing(later, "", 100.0) is False
+
+
+# ── Single-source-of-truth drift detector (Andrew 2026-06-10 teaching) ──
+#
+# The teaching: "_BACKING_EVENT_TYPES drifted from actual log_event() calls
+# — event-name lists should be auto-derived by grepping the codebase for
+# log_event calls." The list lives in structural_promotion_check.py and is
+# manually curated (only 4 types qualify as structural backing — not every
+# log_event type). Auto-derivation would over-include. Instead, pin the
+# list against reality with a TEST: every entry must appear as a string
+# literal in at least one real log_event/emit_event call site somewhere
+# in src/divineos/.
+#
+# When the test fails: either a backing type was renamed/removed in the
+# code (drift caught) or a new backing type was added without updating
+# this test's allowlist (the list needs updating).
+
+
+def test_all_backing_event_types_are_emitted_somewhere() -> None:
+    """Every entry in _BACKING_EVENT_TYPES must appear as the first string
+    argument to a log_event() or emit_event() call site in src/divineos/.
+    Catches drift where a backing type was renamed or removed from emission
+    code but left in the list (phantom type — structural_promotion_check
+    would look for events that never get emitted).
+
+    Multi-line call style supported: log_event(\n    "TYPE_NAME",\n ...).
+    """
+    import re
+    from pathlib import Path
+
+    from divineos.core.structural_promotion_check import _BACKING_EVENT_TYPES
+
+    src_root = Path(__file__).resolve().parents[1] / "src" / "divineos"
+
+    # Collect ALL string literals that appear as the first arg to
+    # log_event(...) or emit_event(...). Multi-line aware.
+    # Pattern: log_event\s*\(\s*(?:[^"']*\n\s*)*"TYPE"
+    emit_pat = re.compile(
+        r"(?:log_event|emit_event)\s*\(\s*[\"']([A-Z_][A-Z0-9_]*)[\"']",
+        re.MULTILINE,
+    )
+    emit_pat_multiline = re.compile(
+        r"(?:log_event|emit_event)\s*\(\s*\n\s*[\"']([A-Z_][A-Z0-9_]*)[\"']",
+        re.MULTILINE,
+    )
+
+    emitted: set[str] = set()
+    for py in src_root.rglob("*.py"):
+        # Skip the structural_promotion_check itself — it stores the names
+        # as literals in the list but doesn't emit them.
+        if py.name == "structural_promotion_check.py":
+            continue
+        try:
+            text = py.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in emit_pat.finditer(text):
+            emitted.add(m.group(1))
+        for m in emit_pat_multiline.finditer(text):
+            emitted.add(m.group(1))
+
+    missing = set(_BACKING_EVENT_TYPES) - emitted
+    assert not missing, (
+        f"_BACKING_EVENT_TYPES contains type(s) with NO log_event/emit_event "
+        f"call site in src/divineos/: {sorted(missing)}. Either the type was "
+        f"renamed in emission code (drift caught — fix the list to match) or "
+        f"the type was removed entirely (remove from _BACKING_EVENT_TYPES). "
+        f"Found {len(emitted)} emit-site type(s) total."
+    )
