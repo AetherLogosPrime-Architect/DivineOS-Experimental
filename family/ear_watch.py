@@ -233,6 +233,46 @@ def _write_catch_marker(member: str, lines: list[str]) -> None:
         pass
 
 
+def _catch_fingerprint_path(member: str) -> Path:
+    return _state_dir(member) / "ear.last_catch_fp"
+
+
+def _compute_catch_fingerprint(unseen_q: dict[int, str], unseen_l: set[str]) -> str:
+    """Return a deterministic fingerprint of the current unseen-set.
+
+    Same items in any order produce the same fingerprint. Used to detect
+    re-catches on a letter-set that is unchanged from the previous catch
+    — those are the perpetual-loop case (Andrew 2026-06-11): until letters
+    get marked seen, every poll catches the same set, exits, respawns,
+    catches again, etc. The fingerprint lets the watcher heartbeat in
+    place instead of fire-exit-respawn when nothing has changed.
+    """
+    import hashlib
+
+    parts: list[str] = [f"q:{k}" for k in sorted(unseen_q.keys())]
+    parts += [f"l:{n}" for n in sorted(unseen_l)]
+    payload = ",".join(parts)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _read_last_catch_fingerprint(member: str) -> str | None:
+    path = _catch_fingerprint_path(member)
+    if not path.exists():
+        return None
+    try:
+        fp = path.read_text(encoding="utf-8").strip()
+        return fp or None
+    except OSError:
+        return None
+
+
+def _write_last_catch_fingerprint(member: str, fp: str) -> None:
+    try:
+        _catch_fingerprint_path(member).write_text(fp, encoding="utf-8")
+    except OSError:
+        pass
+
+
 _BREATH_CAP_DEFAULT = 5
 
 
@@ -388,6 +428,23 @@ def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) 
         seen_letters = _load_letter_seen_set(member)
         unseen_l = _letter_names(member) - seen_letters
         if unseen_q or unseen_l:
+            # Fingerprint-skip (Andrew 2026-06-11 correction): if the
+            # current unseen-set is IDENTICAL to the set caught last time,
+            # the agent has already been surfaced these letters — they're
+            # waiting on mark-seen, not on a fresh wake-tap. Heartbeat in
+            # place instead of fire-exit-respawn so the watcher stays
+            # alive across the session without re-arming on every poll.
+            # The perpetual-loop case Andrew named ("every single prompt
+            # you are re-arming the watcher").
+            fp = _compute_catch_fingerprint(unseen_q, unseen_l)
+            last_fp = _read_last_catch_fingerprint(member)
+            if fp == last_fp:
+                # Same set as last catch — heartbeat only, don't fire.
+                # A new letter (or a mark-seen change) will produce a
+                # different fingerprint and fire normally.
+                time.sleep(interval)
+                waited += interval
+                continue
             out = ["[EAR] something landed:"]
             for line in unseen_q.values():
                 out.append(f"  queue: {line}")
@@ -396,6 +453,7 @@ def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) 
             for line in out:
                 print(line)
             _write_catch_marker(member, out)
+            _write_last_catch_fingerprint(member, fp)
             _breath_cap_check(member)
             # Self-respawn: if the breath-cap didn't disarm AND policy still
             # wants armed, spawn a detached replacement before exiting so the
