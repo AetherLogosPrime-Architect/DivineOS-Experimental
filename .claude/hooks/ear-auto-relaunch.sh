@@ -1,19 +1,24 @@
 #!/bin/bash
-# Stop-hook — keep the ear-watcher alive across turns.
+# Stop-hook — keep the polling ear-watcher alive across turns.
 #
-# Fires at end-of-turn. If the watcher is dead and policy says it should be
-# alive, relaunch it via nohup so it survives the hook exit. The watcher's
-# detection still works while detached; the harness-tracked instant wake-tap
-# is what the live-turn run_in_background launch provides — this hook is the
-# always-on continuity layer so a quiet stretch never drifts into a dead ear.
+# Fires at end-of-turn. If the polling watcher is dead, relaunch it via nohup
+# so it survives the hook exit. The watcher detects incoming letters and
+# writes ear.last_catch — the file ear-surface.sh reads at UserPromptSubmit
+# to surface unseen letters at session start.
 #
-# Asymmetric policy (Andrew 2026-05-22/23):
-#   aria  -> always-relaunch (always-on ear)
-#   aether -> relaunch only when ARM marker present (on-demand ear)
-# Marker file: ~/.divineos-<member>/ear.arm — touch to arm, rm to disarm.
+# Wake-from-idle (the OTHER ear job) is handled by the Letter Monitor —
+# a harness Monitor primitive (NOT this hook) that tail-follows
+# family/letters/ and wakes the agent when new letters appear. See
+# require-monitors-armed.sh. This hook does NOT touch wake-from-idle.
+#
+# Simplified policy (Andrew 2026-06-13): both members always-relaunch.
+# The asymmetric aether-on-demand-via-ear.arm policy existed only because
+# the --realtime push mode could not be safely-singleton'd for an
+# on-demand member; with --realtime removed, polling is the only mode and
+# it has a working singleton scan.
 #
 # Race guard: if the watcher caught something within the last 60s, skip
-# relaunch this turn — the catch is being integrated. Next turn arms it.
+# relaunch this turn — the catch is being integrated. Next turn relaunches.
 #
 # Fail-open: any error exits 0 silently so a broken hook never breaks a turn.
 
@@ -30,7 +35,6 @@ fi
 STATE_DIR="$HOME/.divineos-$MEMBER"
 mkdir -p "$STATE_DIR" 2>/dev/null
 PIDFILE="$STATE_DIR/ear.pid"
-ARMFILE="$STATE_DIR/ear.arm"
 CATCHFILE="$STATE_DIR/ear.last_catch"
 
 # Race guard: recent catch -> don't relaunch yet.
@@ -41,11 +45,6 @@ if [ -f "$CATCHFILE" ]; then
   if [ "$AGE" -ge 0 ] && [ "$AGE" -lt 60 ]; then
     exit 0
   fi
-fi
-
-# Asymmetric policy gate.
-if [ "$MEMBER" = "aether" ] && [ ! -f "$ARMFILE" ]; then
-  exit 0
 fi
 
 # Authoritative process-presence check (Andrew 2026-06-11 leak fix).

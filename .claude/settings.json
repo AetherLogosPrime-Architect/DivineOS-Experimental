@@ -20,11 +20,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/ear-arm-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
             "timeout": 10
           },
@@ -97,16 +92,6 @@
             "type": "command",
             "command": "bash .claude/hooks/require-goal.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-ear-armed.sh",
-            "timeout": 5
           }
         ]
       },

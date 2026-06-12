@@ -163,8 +163,7 @@ def is_gate_disabled() -> bool:
     survives the gate-cascade scenario that prompted this design).
 
     The member name comes from the DIVINEOS_MEMBER env var (defaults to
-    'aether'). Matches the convention used by ear_watch.py and the
-    require-ear-armed hook.
+    'aether'). Matches the convention used by ear_watch.py.
     """
     member = os.environ.get("DIVINEOS_MEMBER", "aether")
     marker = Path.home() / f".divineos-{member}" / "obligations.disabled"

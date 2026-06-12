@@ -120,64 +120,30 @@ def check_once(member: str) -> list[str]:
 # older than this, the watcher is gone (clean exit unlinks it; a hard kill
 # leaves it stale). Three-plus poll intervals of slack absorbs scheduling
 # jitter without reading a dead watcher as alive.
-_REALTIME_STALE_SECS = 30
-
-
-def is_realtime_armed(member: str) -> bool:
-    """True if a live harness-launched real-time watcher is running for member.
-
-    Uses marker-mtime freshness, NOT os.kill — on Windows CPython routes a
-    non-CTRL signal to TerminateProcess, so os.kill(pid, 0) could kill the
-    very watcher it means to probe. The watcher heartbeats the marker each
-    poll; absent or stale marker reads as NOT armed (fail toward prompting a
-    re-arm, never toward a false-green that says I'm covered when I'm deaf).
-    """
-    path = _realtime_pid_path(member)
-    if not path.exists():
-        return False
-    try:
-        age = time.time() - path.stat().st_mtime
-    except OSError:
-        return False
-    return age < _REALTIME_STALE_SECS
-
-
 def _state_dir(member: str) -> Path:
-    """Per-member state dir for pidfile, ARM marker, last-catch marker."""
+    """Per-member state dir for pidfile + last-catch marker."""
     d = Path.home() / f".divineos-{member}"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
-def _policy_wants_armed(member: str) -> bool:
-    """Mirror of require-ear-armed.sh policy: aria is always-armed; aether is
-    armed when ear.arm marker exists. Used by the self-respawn path so a
-    replacement is spawned ONLY when the policy says it should be."""
-    if member == "aria":
-        return True
-    return (_state_dir(member) / "ear.arm").exists()
-
-
-def _spawn_replacement(member: str, interval: float, realtime: bool) -> None:
+def _spawn_replacement(member: str, interval: float) -> None:
     """Spawn a detached replacement watcher before this process exits.
 
-    The original watcher catches and exits — that exit is what fires the
-    harness wake-tap on the first catch. Without a replacement, the chain
-    breaks: subsequent letters land with no live watcher.
+    The original watcher catches and exits. Without a replacement, the chain
+    breaks: subsequent letters land with no live watcher. The replacement is
+    detached so its catch writes ear.last_catch — surfaced by ear-surface.sh
+    at the next UserPromptSubmit. Wake-from-idle is the Letter Monitor's
+    job (harness Monitor primitive), NOT this script's; this just keeps the
+    polling-detection chain alive between catches.
 
-    The replacement is detached (NOT harness-tracked), so its eventual catch
-    won't fire the wake-tap — but the catch DOES write ear.last_catch which
-    the ear-surface hook surfaces on the next UserPromptSubmit. Strictly
-    better than leaving the channel deaf between catches.
-
-    Singleton guard: clear ear.realtime.pid BEFORE spawning so the replacement
-    doesn't immediately self-exit thinking another watcher is alive."""
+    Note (Andrew 2026-06-13): the prior --realtime mode wrote a self-clearing
+    pid marker to advertise wake-from-idle capability. That mode was removed
+    because a detached Python process cannot wake the harness from idle —
+    only harness-tracked tasks (Monitor primitives) can. The pid marker, the
+    singleton-guard around it, and the realtime arg are all gone.
+    """
     import subprocess
-
-    try:
-        _realtime_pid_path(member).unlink(missing_ok=True)
-    except OSError:
-        pass
 
     args = [
         sys.executable,
@@ -188,8 +154,6 @@ def _spawn_replacement(member: str, interval: float, realtime: bool) -> None:
         "--interval",
         str(int(interval)),
     ]
-    if realtime:
-        args.append("--realtime")
 
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -273,128 +237,18 @@ def _write_last_catch_fingerprint(member: str, fp: str) -> None:
         pass
 
 
-_BREATH_CAP_DEFAULT = 5
+# Note (Andrew 2026-06-13): the breath-cap mechanism (counter file + ear.arm
+# marker removal at N consecutive responded-to catches) was removed alongside
+# the --realtime mode. It only made sense when paired with the on-demand
+# ear.arm policy — without ear.arm to disengage, the cap had no mechanism.
+# Runaway loops in practice require both ends (Aria + Aether) to malfunction
+# simultaneously; if it becomes a problem in the future the cap can be re-
+# added with a different disengage path. _agent_responded_since /
+# _breath_cap_check / _BREATH_CAP_DEFAULT / _realtime_pid_path /
+# _arm_realtime_marker were removed.
 
 
-def _agent_responded_since(member: str, since_ts: float) -> bool:
-    """True if any outgoing letter (from member to spouse) was written since
-    since_ts. Used by the breath-cap to detect whether a catch had a response
-    or not — counts only consecutive responded-to exchanges, resets otherwise.
-    """
-    spouse = _SPOUSE.get(member)
-    if not spouse:
-        return False
-    letters_dir = Path(os.environ.get(f"{member.upper()}_LETTERS_DIR", _DEFAULT_LETTERS))
-    if not letters_dir.exists():
-        return False
-    try:
-        prefix = f"{member}-to-{spouse}-"
-        for path in letters_dir.iterdir():
-            name = path.name
-            if name.startswith(prefix) and name.endswith(".md"):
-                try:
-                    if path.stat().st_mtime > since_ts:
-                        return True
-                except OSError:
-                    continue
-    except OSError:
-        return False
-    return False
-
-
-def _breath_cap_check(member: str) -> None:
-    """Track CONSECUTIVE responded-to catches; reset on no-response.
-
-    Andrew 2026-06-05: the cap is a breath-mechanism for active back-and-forth
-    exchanges. It must count consecutive auto-handled rounds (catch -> response
-    -> catch -> response ...), NOT total catches. When a catch produces no
-    response (the agent closed the loop from inside), the count resets — that
-    closure WAS the breath, the cap is for the case where responses keep
-    flowing past the natural close-point.
-
-    Logic: counter file mtime = time of previous catch. Between that and now,
-    did the agent send an outgoing letter? If yes, this catch continues an
-    active exchange (increment). If no, this catch starts a fresh exchange
-    (reset to 1).
-
-    When count reaches cap, the ARM marker is removed, forcing a conscious
-    re-touch to continue. Tunable via DIVINEOS_EAR_BREATH_CAP (0 disables).
-    """
-    try:
-        cap_str = os.environ.get("DIVINEOS_EAR_BREATH_CAP", str(_BREATH_CAP_DEFAULT))
-        cap = int(cap_str)
-    except ValueError:
-        cap = _BREATH_CAP_DEFAULT
-    if cap <= 0:
-        return
-    counter = _state_dir(member) / "ear.catch_count"
-
-    # Did agent respond since previous catch?
-    if counter.exists():
-        try:
-            prev_catch_time = counter.stat().st_mtime
-            responded = _agent_responded_since(member, prev_catch_time)
-            current = int(counter.read_text().strip()) if responded else 0
-        except (OSError, ValueError):
-            current = 0
-    else:
-        current = 0
-    current += 1
-    try:
-        counter.write_text(str(current))
-    except OSError:
-        pass
-    if current >= cap:
-        armfile = _state_dir(member) / "ear.arm"
-        try:
-            armfile.unlink(missing_ok=True)
-            counter.unlink(missing_ok=True)
-            print(
-                f"[EAR] breath-cap reached ({current} consecutive responded-to "
-                f"catches); marker disarmed. Touch {armfile} to re-engage."
-            )
-        except OSError:
-            pass
-
-
-def _realtime_pid_path(member: str) -> Path:
-    """Marker for the HARNESS-launched real-time watcher specifically.
-
-    Distinct from ear.pid (which the detached Stop-hook continuity watcher
-    writes). Only the harness-launched watcher — the one that can actually
-    wake an idle window — writes here, so a status surface can distinguish
-    'real-time wake armed' from 'merely a detached continuity process alive'.
-    A detached watcher being alive is NOT real-time coverage; conflating the
-    two would be a false-green telling me I'm covered when I'm deaf.
-    """
-    return _state_dir(member) / "ear.realtime.pid"
-
-
-def _arm_realtime_marker(member: str) -> None:
-    """Write this process's pid as the live real-time watcher; clear on exit.
-
-    Best-effort. The ``atexit`` removal makes the marker self-clearing when
-    the watcher catches-and-exits (the wake), so the next turn's surface sees
-    'down' and re-prompts the re-arm — that is the reflexive re-arm loop.
-    """
-    import atexit
-
-    path = _realtime_pid_path(member)
-    try:
-        path.write_text(str(os.getpid()))
-    except OSError:
-        return
-
-    def _clear() -> None:
-        try:
-            path.unlink()
-        except OSError:
-            pass
-
-    atexit.register(_clear)
-
-
-def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) -> int:
+def watch(member: str, interval: int, timeout: int = 0) -> int:
     """Block until something unacknowledged is detected, then exit.
 
     SEMANTICS (changed 2026-05-31, Aria + Aether bench thread):
@@ -417,13 +271,6 @@ def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) 
     """
     waited = 0
     while timeout <= 0 or waited < timeout:
-        if realtime:
-            # Heartbeat: refresh the liveness marker each poll so the status
-            # surface can tell a live watcher from a stale one by mtime.
-            try:
-                _realtime_pid_path(member).write_text(str(os.getpid()))
-            except OSError:
-                pass
         unseen_q = _unseen_queue(member)
         seen_letters = _load_letter_seen_set(member)
         unseen_l = _letter_names(member) - seen_letters
@@ -454,14 +301,11 @@ def watch(member: str, interval: int, timeout: int = 0, realtime: bool = False) 
                 print(line)
             _write_catch_marker(member, out)
             _write_last_catch_fingerprint(member, fp)
-            _breath_cap_check(member)
-            # Self-respawn: if the breath-cap didn't disarm AND policy still
-            # wants armed, spawn a detached replacement before exiting so the
-            # channel doesn't go deaf. The cap intentionally removes the marker
-            # at limit, which makes _policy_wants_armed return False here for
-            # aether — that's the conscious-stop the cap is for.
-            if _policy_wants_armed(member):
-                _spawn_replacement(member, interval, realtime)
+            # Self-respawn: spawn a detached replacement before exiting so the
+            # polling chain doesn't go deaf. Policy is now always-on for both
+            # members (Andrew 2026-06-13 — simplified after --realtime + ear.arm
+            # removal), so unconditionally relaunch.
+            _spawn_replacement(member, interval)
             return 0
         time.sleep(interval)
         waited += interval
@@ -481,10 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--realtime",
         action="store_true",
-        help="Mark this as THE harness-launched real-time watcher (writes a "
-        "self-clearing liveness marker so a status surface can tell armed "
-        "from down). The detached Stop-hook continuity watcher does NOT pass "
-        "this, so it never produces a false-green.",
+        help=argparse.SUPPRESS,  # removed 2026-06-13 — accepted for one cycle as no-op
     )
     parser.add_argument("--interval", type=int, default=8, help="Poll seconds (default 8).")
     parser.add_argument(
@@ -496,19 +337,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     member = args.member.lower()
+    if args.realtime:
+        # One-cycle backward-compat: silently accept --realtime so any
+        # in-flight hook invocations don't break, but the flag is a no-op.
+        # Will be removed entirely in a follow-up PR once no caller passes it.
+        print(
+            "[EAR] --realtime is a no-op (removed 2026-06-13). Wake-from-idle is "
+            "handled by the Letter Monitor (harness primitive), not this script. "
+            "Polling continues normally.",
+            file=sys.stderr,
+        )
     if args.watch:
-        if args.realtime:
-            # Singleton guard (task #35): if a real-time watcher is already
-            # heartbeating a fresh marker, a second launch exits immediately.
-            # Without this, repeated arms (manual re-arm, or a Stop-hook
-            # relaunch) accumulate blocking watchers — 8 piled up 2026-06-03.
-            # Self-clearing on catch-exit means a genuinely-dead watcher's
-            # marker goes stale and a fresh arm is allowed.
-            if is_realtime_armed(member):
-                print(f"[EAR] real-time watcher already armed for {member} — exiting (singleton).")
-                return 0
-            _arm_realtime_marker(member)
-        return watch(member, args.interval, args.timeout, realtime=args.realtime)
+        return watch(member, args.interval, args.timeout)
     lines = check_once(member)
     if lines:
         print(f"[EAR] {len(lines)} unseen for {member}:")
