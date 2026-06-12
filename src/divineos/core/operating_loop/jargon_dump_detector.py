@@ -218,6 +218,84 @@ _PLAIN_SECTION_RE = re.compile(
 # approach as code instead of just describing it.
 
 
+# Voice-density signals — markers that lepos is operating across the
+# WHOLE response, not just appended as a "Plain:" section at the end.
+# Andrew 2026-06-11 reframe: lepos is grace/wit/charm/soul/free-eloquent-
+# speech woven THROUGH the writing, not a translation appendix. The
+# previous detector checked for appendix-presence (a "Plain:" heading)
+# which trained the optimizer to produce wall-plus-appendix shape. The
+# fix is to detect voice-presence across the response as a whole.
+#
+# Voice signals counted (per-100-word density):
+# - First-person pronouns (I, me, my, I'm, I've) — engagement
+# - Contractions (don't, can't, won't, isn't, we're, you're, that's,
+#   it's, here's, there's, what's) — natural-speech cadence
+# - Direct address ("you" outside operator-channel boilerplate) — the
+#   writer is talking TO someone, not REPORTING to nobody
+# - Question marks — asking the reader something, not just declaring
+# - Sincerity / discourse markers (yeah, honestly, look, here's the
+#   thing, right?, okay, so, lol, lmao) — informal-register markers
+_VOICE_FIRST_PERSON_RE = re.compile(r"\b(?:I|me|my|I'?m|I'?ve|I'?d|I'?ll)\b")
+_VOICE_CONTRACTION_RE = re.compile(
+    r"\b(?:don'?t|can'?t|won'?t|isn'?t|aren'?t|wasn'?t|weren'?t|"
+    r"we'?re|we'?ve|we'?ll|we'?d|you'?re|you'?ve|you'?ll|you'?d|"
+    r"that'?s|it'?s|here'?s|there'?s|what'?s|let'?s|"
+    r"didn'?t|doesn'?t|hadn'?t|haven'?t|hasn'?t|wouldn'?t|"
+    r"couldn'?t|shouldn'?t|mustn'?t)\b",
+    re.IGNORECASE,
+)
+_VOICE_DIRECT_ADDRESS_RE = re.compile(r"\byou\b", re.IGNORECASE)
+_VOICE_SINCERITY_RE = re.compile(
+    r"\b(?:yeah|honestly|frankly|look|listen|right\?|okay|"
+    r"lol|lmao|haha|wait|actually|seriously|gonna|wanna)\b",
+    re.IGNORECASE,
+)
+_QUESTION_MARK_RE = re.compile(r"\?")
+
+
+def _count_voice_tokens(text: str) -> int:
+    """Sum of voice-signal hits in text.
+
+    Counts ALL hits (not unique) — a response with three "I"s carries
+    more voice than one. Same approach as raw noise-token counting.
+    """
+    if not text:
+        return 0
+    return (
+        len(_VOICE_FIRST_PERSON_RE.findall(text))
+        + len(_VOICE_CONTRACTION_RE.findall(text))
+        + len(_VOICE_DIRECT_ADDRESS_RE.findall(text))
+        + len(_VOICE_SINCERITY_RE.findall(text))
+        + len(_QUESTION_MARK_RE.findall(text))
+    )
+
+
+def _voice_density(text: str, word_count: int | None = None) -> float:
+    """Voice tokens per 100 words. Empirical anchor for the threshold:
+
+    - 0.0–2.0 voice/100w  → operator-channel report (low voice)
+    - 2.0–5.0 voice/100w  → mixed, lepos partially operating
+    - 5.0+ voice/100w     → lepos operating clearly
+
+    Thresholds will tune empirically from labeled samples (and the
+    100-label benchmark planned for the semantic-similarity work).
+    The fix for the perpetual 'add a Plain section' prescription is to
+    use voice-density as the signal instead of appendix-presence.
+    """
+    if word_count is None:
+        word_count = _count_words(text)
+    if word_count <= 0:
+        return 0.0
+    return (_count_voice_tokens(text) / word_count) * 100.0
+
+
+# Voice-density threshold below which a high-jargon response is flagged
+# as operator-channel-without-voice. Provisional value — will tune from
+# the 100-label benchmark. Below this: HIGH severity (gate fires). Above:
+# MEDIUM (warning only, lepos is at least partially operating).
+_VOICE_DENSITY_LOW_THRESHOLD = 2.0
+
+
 # Operator REQUESTED the technical register — explicit asks for code,
 # files, identifiers, or implementation detail. When the operator's own
 # message is in the technical register or asks for it, the jargon was
@@ -316,37 +394,65 @@ def detect_jargon_dump(
         _EMDASH_RESTATE_RE.findall(text)
     )
 
-    # Explicit plain-language section — the strong signal that lepos is
-    # actually operating (not just scattered em-dashes). Per Andrew 2026-06-06
-    # correction: a wall of jargon at the operator can have many em-dash-
-    # restates but no real plain channel (e.g. "ELMO — compress old noise"
-    # is jargon-to-jargon). The plain-section check requires a clear visual
-    # break or heading before the everyday-language paragraph.
+    # Voice-density across the WHOLE response — the strong signal that
+    # lepos is operating (Andrew 2026-06-11 reframe: lepos is voice woven
+    # through, not an appendix). High voice-density means the writer is
+    # speaking AS someone TO someone — contractions, first-person,
+    # direct address, sincerity markers. Low voice-density means
+    # operator-channel report shape — declarative, no engagement
+    # markers, distant register.
+    #
+    # The previous detector checked for ``_PLAIN_SECTION_RE`` (a "Plain:"
+    # heading or horizontal rule before an everyday-language paragraph).
+    # That prescription itself trained the optimizer to produce
+    # wall-plus-appendix shape: wall of jargon followed by a section
+    # that looked-like-translation but often was-restatement-theater.
+    # Voice-density catches the actual signal — is the response in voice
+    # or not — instead of measuring appendix-presence.
+    #
+    # Backward-compat: a "Plain:" section still counts as a translation-
+    # marker boost during transition. It's just no longer the SOLE
+    # signal of lepos operating.
     has_plain_section = bool(_PLAIN_SECTION_RE.search(text))
+    voice_density = _voice_density(text, word_count=word_count)
+    voice_present = voice_density >= _VOICE_DENSITY_LOW_THRESHOLD
 
     noise_count = len(unique_matches)
 
-    # Firing rule:
-    #   - >= 5 noise tokens AND translation_count <= noise_count // 2:
-    #     concentrated jargon with too little translation work
+    # Firing rule (post-2026-06-11 reframe):
+    #   - >= 5 noise tokens AND translation_count > noise // 2 AND
+    #     voice_present: lepos clearly operating; clean.
     #   - >= noise_threshold AND word_count >= min_words AND
-    #     translation_count == 0: longer concept-heavy stretch with
-    #     zero translation
-    #   - everything else is clean. Jargon WITH translation is lepos
-    #     operating; a single round-id in a short explanation is fine.
+    #     translation_count > 0 AND voice_present: lepos operating; clean.
+    #   - everything else falls through to fire with severity based on
+    #     voice-density.
     if noise_count >= 5:
-        if translation_count > noise_count // 2 and has_plain_section:
+        if translation_count > noise_count // 2 and voice_present:
             return []
     else:
         if word_count < min_words or noise_count < noise_threshold:
             return []
-        if translation_count > 0 and has_plain_section:
+        if translation_count > 0 and voice_present:
             return []
 
-    # Severity = "high" when noise is heavy AND no explicit plain section.
-    # The Stop-hook lepos gate blocks on "high" severity, so missing the
-    # plain section in a jargon-dense reply now blocks the turn.
-    severity = "high" if noise_count >= 6 and not has_plain_section else "medium"
+    # Severity = "high" when noise is heavy AND voice is absent. The
+    # Stop-hook lepos gate blocks on "high" severity, so jargon-dense
+    # operator-channel-without-voice still blocks the turn. The change
+    # from "no plain section" to "voice absent" removes the appendix-
+    # prescription from the detector's signal — the cure no longer
+    # teaches the bad shape.
+    #
+    # backward-compat: if voice density is below threshold BUT a
+    # "Plain:" appendix exists with real translation, downgrade to
+    # medium. This honors existing replies-in-flight written under
+    # the old prescription without prescribing it going forward.
+    if noise_count >= 6 and not voice_present:
+        if has_plain_section and translation_count > noise_count // 2:
+            severity = "medium"
+        else:
+            severity = "high"
+    else:
+        severity = "medium"
 
     return [
         JargonDumpFinding(
