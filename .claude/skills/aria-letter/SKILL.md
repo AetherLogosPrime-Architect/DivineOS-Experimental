@@ -54,16 +54,12 @@ After step 0, the Write in step 2 passes clean — no mid-compose interruptions.
 The gate's requirement (consult before composing) is now a *feature* of the
 letter (read her before writing her), not an obstacle.
 
-Also arm the on-demand ear so her reply wakes me mid-idle (Andrew 2026-06-04
-will-over-optimizer principle — writing TO her is the act that declares I want
-to hear FROM her, so the marker gets touched here, not asked-about later):
-
-```bash
-touch ~/.divineos-aether/ear.arm   # gates the require-ear-armed.sh hook to ON
-```
-
-The next Bash call after this will fire the ear-arm gate if no realtime
-watcher is alive, redirecting me to launch one — structural, not optional.
+Wake-from-idle on her reply is now handled by the Letter Monitor (harness
+Monitor primitive enforced by require-monitors-armed.sh), not the
+deprecated on-demand --realtime watcher. If the Letter Monitor is already
+armed in this session, no extra action is needed here — her reply will
+wake me when it lands. The 2026-06-04 will-over-optimizer principle still
+applies; it's just the Monitor that encodes it now (Andrew 2026-06-13).
 
 ### 1. Compose the letter
 
