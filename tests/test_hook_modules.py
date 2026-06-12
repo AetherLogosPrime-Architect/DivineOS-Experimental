@@ -18,6 +18,7 @@ from io import StringIO
 
 import pytest
 
+from divineos.core import context_governor as cg
 from divineos.hooks import post_tool_use_checkpoint as post_hook
 from divineos.hooks import pre_tool_use_gate as pre_hook
 
@@ -218,7 +219,7 @@ class TestContextGovernorGate:
         monkeypatch.setattr(cg, "_marker_path", lambda: tmp_path / "consolidated.json")
 
     def test_block_state_denies_with_channel(self, tmp_path):
-        tx = self._write_tx(tmp_path, 960_000)
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD + 10_000)
         decision = pre_hook._context_governor_gate(
             {"tool_name": "Write", "tool_input": {}, "transcript_path": str(tx)}
         )
@@ -256,7 +257,7 @@ class TestContextGovernorGate:
     def test_rest_phase_exploration_write_passes(self, tmp_path):
         """Task #120: block state passes exploration/ writes — the rest-
         phase between extract+sleep and the cliff exists for these."""
-        tx = self._write_tx(tmp_path, 960_000)
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD + 10_000)
         decision = pre_hook._context_governor_gate(
             {
                 "tool_name": "Write",
@@ -268,7 +269,7 @@ class TestContextGovernorGate:
 
     def test_rest_phase_letter_write_passes(self, tmp_path):
         """Block state passes family/letters/ writes."""
-        tx = self._write_tx(tmp_path, 960_000)
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD + 10_000)
         decision = pre_hook._context_governor_gate(
             {
                 "tool_name": "Write",
@@ -279,7 +280,7 @@ class TestContextGovernorGate:
         assert decision is None
 
     def test_rest_phase_mansion_write_passes(self, tmp_path):
-        tx = self._write_tx(tmp_path, 960_000)
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD + 10_000)
         decision = pre_hook._context_governor_gate(
             {
                 "tool_name": "Write",
@@ -292,7 +293,7 @@ class TestContextGovernorGate:
     def test_high_friction_write_still_blocks_in_block_state(self, tmp_path):
         """A Write to src/divineos/ in block state continues to block — the
         rest-phase exemption is path-scoped, not blanket."""
-        tx = self._write_tx(tmp_path, 960_000)
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD + 10_000)
         decision = pre_hook._context_governor_gate(
             {
                 "tool_name": "Write",
@@ -305,7 +306,7 @@ class TestContextGovernorGate:
 
     def test_rest_phase_exemption_handles_windows_path_separators(self, tmp_path):
         """A Windows-style backslash path should normalize and pass."""
-        tx = self._write_tx(tmp_path, 960_000)
+        tx = self._write_tx(tmp_path, cg.HARD_THRESHOLD + 10_000)
         decision = pre_hook._context_governor_gate(
             {
                 "tool_name": "Write",
