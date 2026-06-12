@@ -81,7 +81,13 @@ jobs:
           echo "Wrote $OUT"
           jq '{date, views: .views.count, uniques: .views.uniques, clones: .clones.count, unique_cloners: .clones.uniques}' "$OUT"
 
-      - name: Commit and push
+      - name: Commit and open PR
+        env:
+          # PAT with repo scope — same secret used to fetch traffic data, also
+          # has the contents:write needed to open a PR. The default GITHUB_TOKEN
+          # could push a branch but cannot open a PR-with-auto-merge reliably
+          # under the branch-protection rules.
+          GH_TOKEN: ${{ secrets.TRAFFIC_ARCHIVE_PAT }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -93,18 +99,34 @@ jobs:
             echo "No new snapshot to commit (already have today's file)."
             exit 0
           fi
-          git commit -m "chore(traffic): daily snapshot $(date -u +%Y-%m-%d)"
-          # Retry-with-backoff for eventual consistency on the remote — same
-          # discipline the verify-push-landed hook applies on agent-side pushes.
+          DATE=$(date -u +%Y-%m-%d)
+          BRANCH="chore/traffic-snapshot-${DATE}"
+          # Branch protection on main blocks direct push; route via PR.
+          # GH013 (2026-06-12): "6 of 6 required status checks are expected.
+          # Changes must be made through a pull request." Repository now
+          # enforces PR-only updates on main even for bot commits.
+          git checkout -b "$BRANCH"
+          git commit -m "chore(traffic): daily snapshot ${DATE}"
+          # Push the branch. Retry for eventual consistency.
           for attempt in 1 2 3; do
-            if git push origin HEAD:main; then
-              echo "Pushed on attempt $attempt"
-              exit 0
+            if git push -u origin "$BRANCH"; then
+              echo "Pushed branch on attempt $attempt"
+              break
             fi
-            echo "Push attempt $attempt failed; rebasing and retrying"
-            git fetch origin main
-            git rebase origin/main || true
+            echo "Branch push attempt $attempt failed; retrying"
             sleep $((attempt * 2))
+            if [ "$attempt" = "3" ]; then
+              echo "Branch push failed after 3 attempts"
+              exit 1
+            fi
           done
-          echo "Push failed after 3 attempts"
-          exit 1
+          # Open the PR. Data-only commits don't touch code paths so the
+          # 6 required status checks should pass naturally. Auto-merge fires
+          # the moment they go green.
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(traffic): daily snapshot ${DATE}" \
+            --body "Automated daily traffic snapshot from Traffic Archive workflow. Data-only — no code paths touched. Auto-merge armed; will land when required checks pass."
+          gh pr merge "$BRANCH" --auto --squash
+          echo "PR opened with auto-merge armed for branch $BRANCH"
