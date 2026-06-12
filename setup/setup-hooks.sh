@@ -70,35 +70,37 @@ mypy src/divineos --ignore-missing-imports || {
 }
 
 echo "Checking doc counts for drift..."
-# Andrew 2026-06-09 root-cause name: every commit on a feature branch
-# was sweeping CLAUDE.md/README.md/seed.json/ARCHITECTURE.md into the
-# diff via this auto-fix path, even when the operator's commit had
-# nothing to do with those files. The result: ~6 manual tree-rewrites
-# per substantive session to drop the guardrail sweep so multi-party-
-# review wouldn't fire.
+# Andrew 2026-06-12: auto-fix flipped to DEFAULT ON, with opt-out via
+# DIVINEOS_DOC_COUNT_NO_AUTOFIX=1.
 #
-# Fix: opt-in auto-fix. Default behavior is CHECK ONLY; drift fails the
-# commit with instructions. The opt-in path
-# (DIVINEOS_DOC_COUNT_AUTOFIX=1) is set by scripts/precommit.sh, which
-# is the operator-initiated full-refresh entry point. Regular commits
-# (most commits) stay scoped to their own diff.
+# History: the 2026-06-09 opt-in design was a valid response to cross-
+# branch rebase conflicts on the count line — every branch auto-bumped
+# to slightly different numbers, then collided on rebase. But the
+# opt-in cost the operator a manual --fix step on every commit and bit
+# me multiple times during the 2026-06-12 structural-fix session.
+#
+# The better fix is monotonic-only-raise inside check_doc_counts.py:
+# two branches with different higher counts no longer conflict because
+# the lower-count branch becomes a no-op once main has the higher
+# count. With monotonic auto-fix safe, default ON removes the "remember
+# to opt in" tax that Andrew 2026-06-10 PR-marathon teaching called
+# out as the wrong structural shape ("auto-generate or remove, not
+# always run").
 if ! python scripts/check_doc_counts.py 2>/dev/null; then
-    if [[ "${DIVINEOS_DOC_COUNT_AUTOFIX:-}" == "1" ]]; then
-        python scripts/check_doc_counts.py --fix 2>/dev/null || true
-        git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
-        python scripts/check_doc_counts.py || {
-            echo "Doc counts still drifted after auto-fix. Investigate manually."
-            exit 1
-        }
-    else
+    if [[ "${DIVINEOS_DOC_COUNT_NO_AUTOFIX:-}" == "1" ]]; then
         echo ""
-        echo "Doc-count drift detected. Re-run with auto-fix opt-in:"
-        echo "  DIVINEOS_DOC_COUNT_AUTOFIX=1 git commit ..."
-        echo "Or run: bash scripts/precommit.sh  (always sets the flag)"
+        echo "Doc-count drift detected. Auto-fix suppressed via DIVINEOS_DOC_COUNT_NO_AUTOFIX=1."
+        echo "Re-run without the env var to auto-fix and re-stage."
         echo ""
         python scripts/check_doc_counts.py
         exit 1
     fi
+    python scripts/check_doc_counts.py --fix 2>/dev/null || true
+    git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
+    python scripts/check_doc_counts.py || {
+        echo "Doc counts still drifted after auto-fix (likely a non-count error). Investigate manually."
+        exit 1
+    }
 fi
 
 echo "Running vulture dead-code check..."
