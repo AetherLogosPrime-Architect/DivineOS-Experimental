@@ -46,6 +46,25 @@ def register(cli: click.Group) -> None:
         "is what it is — without basis a credence is what produced the stuck-"
         "at-default pattern.",
     )
+    @click.option(
+        "--no-overlap-check",
+        is_flag=True,
+        default=False,
+        help="Skip the semantic-overlap check (default: surface "
+        "semantically-similar existing claims before filing fresh). "
+        "Useful for scripted writes or when the caller has already "
+        "confirmed the claim is novel.",
+    )
+    @click.option(
+        "--overlap-threshold",
+        default=0.65,
+        type=float,
+        help="Cosine similarity above which an existing claim is treated "
+        "as a semantic overlap worth surfacing. Default 0.65 — claims "
+        "are typically longer and less paraphrase-shaped than knowledge "
+        "lessons, so the threshold sits slightly lower than the learn "
+        "command's 0.70.",
+    )
     def claim_cmd(
         statement: str,
         tier: int,
@@ -55,6 +74,8 @@ def register(cli: click.Group) -> None:
         tags: tuple[str, ...],
         confidence: float | None,
         confidence_basis_text: str,
+        no_overlap_check: bool,
+        overlap_threshold: float,
     ) -> None:
         """File a claim for investigation."""
         # Outgoing-claim methodology check (Andrew 2026-05-18 evening,
@@ -156,6 +177,51 @@ def register(cli: click.Group) -> None:
             except Exception:  # noqa: BLE001 — anchor is observational
                 # Fail-soft: calibration data missing / new install /
                 # I/O error → silently skip. Never blocks claim filing.
+                pass
+
+        # Semantic-overlap surface (Phase 2.5 wiring, 2026-06-11): before
+        # filing fresh, check whether the claims-engine already holds an
+        # entry that means the same thing in different words. Surfaces the
+        # close matches informationally — caller still gets a fresh claim
+        # filed; they can supersede manually after. --no-overlap-check
+        # disables. Uses find_similar_in_corpus (on-the-fly encoding) because
+        # the claims table doesn't have a stored-embedding column yet —
+        # smaller-scale tables don't justify the storage migration.
+        if not no_overlap_check:
+            try:
+                from divineos.core.claim_store import _get_connection as _claim_conn
+                from divineos.core.semantic_store import find_similar_in_corpus
+
+                conn = _claim_conn()
+                try:
+                    candidates = conn.execute(
+                        "SELECT claim_id, statement FROM claims "
+                        "WHERE status IS NULL OR status NOT IN ('DISMISSED', 'SUPERSEDED')"
+                    ).fetchall()
+                finally:
+                    try:
+                        conn.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                pairs = [(c[0], c[1]) for c in candidates if c[1]]
+                hits = find_similar_in_corpus(
+                    statement, pairs, top_k=3, min_similarity=overlap_threshold
+                )
+                if hits:
+                    click.secho(
+                        f"    [~] semantically close existing claims (threshold {overlap_threshold}):",
+                        fg="bright_black",
+                    )
+                    for hit_cid, sim, snippet in hits:
+                        click.secho(
+                            f"        {sim:.3f}  {hit_cid[:12]}  {snippet}",
+                            fg="bright_black",
+                        )
+                    click.secho(
+                        "    [~] filing fresh anyway; supersede via claim assess if duplicate",
+                        fg="bright_black",
+                    )
+            except Exception:  # noqa: BLE001 — fail-soft, never block filing
                 pass
 
         try:
