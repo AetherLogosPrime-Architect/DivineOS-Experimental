@@ -454,7 +454,9 @@ def _ensure_embedding_model() -> bool:
             warnings.filterwarnings("ignore", category=DeprecationWarning)
             from sentence_transformers import SentenceTransformer
 
-            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+            from divineos.core._embedding_device import select_device
+
+            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device=select_device())
         _embeddings_available = True
         return True
     except (ImportError, RuntimeError, OSError):

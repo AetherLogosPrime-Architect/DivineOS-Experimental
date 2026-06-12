@@ -152,7 +152,9 @@ def _ensure_model(model_name: str = _DEFAULT_MODEL_NAME) -> Any | None:
             warnings.filterwarnings("ignore", category=DeprecationWarning)
             from sentence_transformers import SentenceTransformer
 
-            _embedding_model = SentenceTransformer(model_name, device="cpu")
+            from divineos.core._embedding_device import select_device
+
+            _embedding_model = SentenceTransformer(model_name, device=select_device())
             _embedding_model_name = model_name
         return _embedding_model
     except _ERRORS:
