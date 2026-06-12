@@ -84,6 +84,24 @@ def register(cli: click.Group) -> None:
         help="Memory kind: EPISODIC (event) / SEMANTIC (rule/fact) / "
         "PROCEDURAL (how-to) / UNCLASSIFIED. Auto-classified if omitted.",
     )
+    @click.option(
+        "--no-dedup-check",
+        is_flag=True,
+        default=False,
+        help="Skip the semantic-duplicate check (default: surface "
+        "semantically-similar existing entries before filing fresh). "
+        "Useful for scripted writes, batch imports, or when the caller "
+        "has already confirmed the entry is novel.",
+    )
+    @click.option(
+        "--dedup-threshold",
+        default=0.70,
+        type=float,
+        help="Cosine similarity above which an existing entry is "
+        "treated as a semantic duplicate worth surfacing. Default 0.70 "
+        "is empirically anchored — paraphrases of the same meaning sit "
+        "above it, thematically-close-but-distinct entries sit below.",
+    )
     def learn(
         text: str | None,
         knowledge_type: str | None,
@@ -94,6 +112,8 @@ def register(cli: click.Group) -> None:
         source_entity: str | None,
         related: str,
         memory_kind: str | None,
+        no_dedup_check: bool,
+        dedup_threshold: float,
     ) -> None:
         """Store a piece of knowledge extracted from experience.
 
@@ -123,6 +143,37 @@ def register(cli: click.Group) -> None:
         related_to = (
             ",".join(r.strip() for r in related.split(",") if r.strip()) if related else None
         )
+
+        # Semantic-duplicate surface (Phase 2 wiring, 2026-06-11): before
+        # filing fresh, check whether the substrate already holds an
+        # entry that means the same thing in different words. The
+        # content_hash dedup (in store_knowledge itself) catches only
+        # EXACT duplicates; semantic-similarity catches paraphrases the
+        # optimizer would otherwise pile up as separate entries.
+        # Informational surface — fresh entry still gets filed; caller
+        # sees the close matches and can supersede manually after.
+        # --no-dedup-check disables (scripted writes, batch imports).
+        if not no_dedup_check:
+            try:
+                from divineos.core.semantic_store import find_similar_in_knowledge
+
+                hits = find_similar_in_knowledge(content, top_k=3, min_similarity=dedup_threshold)
+                if hits:
+                    click.secho(
+                        f"    [~] semantically close existing entries (threshold {dedup_threshold}):",
+                        fg="bright_black",
+                    )
+                    for hit_kid, sim, snippet in hits:
+                        click.secho(
+                            f"        {sim:.3f}  {hit_kid[:8]}  {snippet}",
+                            fg="bright_black",
+                        )
+                    click.secho(
+                        "    [~] filing fresh anyway; supersede via knowledge API if duplicate",
+                        fg="bright_black",
+                    )
+            except _KC_ERRORS:
+                pass  # fail-soft: dedup surface never blocks a learn
 
         kid = _wrapped_store_knowledge(
             knowledge_type=knowledge_type.upper(),
