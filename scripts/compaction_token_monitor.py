@@ -63,6 +63,7 @@ from divineos.core.context_governor import (
     WARN_THRESHOLD,
     current_context_tokens,
 )
+from divineos.core.monitor_singleton import acquire_or_exit
 
 
 _POLL_INTERVAL_S = 30  # ~half-minute granularity — enough for human-scale state changes
@@ -149,6 +150,12 @@ def _current_state(transcript: Path) -> tuple[str, int]:
 
 
 def main() -> int:
+    # Singleton guard FIRST. acquire_or_exit prints a named dedup line
+    # and exits cleanly if a sibling compaction monitor is alive.
+    # Holding the handle for the process lifetime keeps the kernel
+    # mutex live; the kernel releases it on exit (including crash).
+    _ = acquire_or_exit("compaction")  # noqa: F841 — held by reference
+
     transcript = _find_active_transcript()
     if transcript is None:
         print(
