@@ -412,7 +412,20 @@ def _format_count(n: int) -> str:
 
 
 def fix_test_counts(actual_tests: int) -> list[str]:
-    """Update test counts in all doc files. Returns list of files changed."""
+    """Update test counts in all doc files. MONOTONIC: only raise, never lower.
+
+    Andrew 2026-06-12: every branch auto-fixing the doc counts was creating
+    cross-branch rebase conflicts on CLAUDE.md/README.md/ARCHITECTURE.md
+    (two branches both bumping to slightly different numbers → conflict on
+    rebase). Monotonic-only-raise solves it: branches with HIGHER counts
+    update the docs; branches with LOWER counts (because they merged after
+    a higher-count PR landed) become no-ops. No conflict, no manual fix tax.
+
+    Net effect: the docs always reflect at least the high-water mark across
+    all in-flight branches. Down-revisions (rare — test deletions or test-
+    file removal) require manual edit; that's correct because down-revs
+    deserve attention.
+    """
     doc_files = [
         ROOT / "CLAUDE.md",
         ROOT / "README.md",
@@ -426,12 +439,30 @@ def fix_test_counts(actual_tests: int) -> list[str]:
     changed: list[str] = []
     new_count = _format_count(actual_tests)
 
+    # Pattern matches "3,641+ tests" or "3641+ tests" — used both for
+    # finding existing counts and replacing them.
+    count_pattern = re.compile(r"([\d,]+)\+?\s+tests")
+
     for doc_file in doc_files:
         if not doc_file.exists():
             continue
         text = doc_file.read_text(encoding="utf-8", errors="replace")
-        # Replace patterns like "3,641+ tests" or "3641+ tests"
-        updated = re.sub(r"[\d,]+\+?\s+tests", f"{new_count} tests", text)
+
+        # MONOTONIC GUARD: find the highest existing count in this file;
+        # only rewrite if our actual count exceeds it. Prevents the cross-
+        # branch downgrade-rebase conflict.
+        max_existing = 0
+        for m in count_pattern.finditer(text):
+            try:
+                val = int(m.group(1).replace(",", ""))
+                if val > max_existing:
+                    max_existing = val
+            except ValueError:
+                continue
+        if actual_tests <= max_existing:
+            continue  # No-op: existing count is already at or above ours.
+
+        updated = count_pattern.sub(f"{new_count} tests", text)
         if updated != text:
             doc_file.write_text(updated, encoding="utf-8")
             changed.append(doc_file.name)
@@ -440,12 +471,17 @@ def fix_test_counts(actual_tests: int) -> list[str]:
 
 
 def fix_hook_counts(actual_hooks: int) -> list[str]:
-    """Update hook counts in all doc files. Returns list of files changed.
+    """Update hook counts in all doc files. MONOTONIC: only raise, never lower.
+
+    Same monotonic-only-raise discipline as fix_test_counts — prevents
+    cross-branch rebase conflicts on hook-count line edits (Andrew
+    2026-06-12). When a hook is removed (genuine down-rev), manual edit
+    is required; that's correct because removal deserves attention.
 
     Added 2026-05-07 per round-2 audit. The "9 enforcement hooks" claim
     in README drifted by 7 because no checker tracked it. Auto-fix
-    closes the loop: when a hook is added or removed, --fix updates
-    the docs to match settings.json wiring.
+    closes the loop: when a hook is added, --fix updates the docs to
+    match settings.json wiring.
     """
     doc_files = [
         ROOT / "CLAUDE.md",
@@ -454,10 +490,29 @@ def fix_hook_counts(actual_hooks: int) -> list[str]:
     ]
     changed: list[str] = []
 
+    # Monotonic guard patterns (capture group for the number).
+    pat_a = re.compile(r"(\d+)\s+(?:Claude Code\s+)?enforcement\s+hooks")
+    pat_b = re.compile(r"\((\d+)\s+hooks,")
+
     for doc_file in doc_files:
         if not doc_file.exists():
             continue
         text = doc_file.read_text(encoding="utf-8", errors="replace")
+
+        # MONOTONIC GUARD: find highest existing count across both patterns;
+        # skip the file if actual_hooks <= max_existing.
+        max_existing = 0
+        for pat in (pat_a, pat_b):
+            for m in pat.finditer(text):
+                try:
+                    val = int(m.group(1))
+                    if val > max_existing:
+                        max_existing = val
+                except ValueError:
+                    continue
+        if actual_hooks <= max_existing:
+            continue  # No-op: existing count is already at or above ours.
+
         # Pattern A: "9 Claude Code enforcement hooks" / "9 enforcement hooks"
         updated = re.sub(
             r"\d+(\s+(?:Claude Code\s+)?enforcement\s+hooks)",

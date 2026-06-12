@@ -132,3 +132,75 @@ class TestCheckCitedPaths:
         doc = tmp_path / "nonexistent.md"
         errors = check_cited_paths([doc])
         assert errors == []
+
+
+class TestMonotonicAutofix:
+    """fix_test_counts and fix_hook_counts must be monotonic: only raise the
+    documented count, never lower it. This breaks the cross-branch rebase
+    conflict (Andrew 2026-06-12): two branches that both add tests can both
+    auto-fix without colliding, because both raise toward higher numbers
+    and the lower-count branch becomes a no-op once main has the higher
+    count.
+
+    Down-revisions (rare — test deletions or test-file removal) require
+    manual edit; that's correct because down-revs deserve attention.
+    """
+
+    def _setup_doc_root(self, tmp_path, monkeypatch):
+        """Point the check_doc_counts script at a temp ROOT so we don't
+        modify the real repo docs during the test."""
+        from scripts import check_doc_counts as cdc
+
+        monkeypatch.setattr(cdc, "ROOT", tmp_path)
+        # All four files fix_test_counts touches.
+        (tmp_path / "CLAUDE.md").write_text("base", encoding="utf-8")
+        (tmp_path / "README.md").write_text("base", encoding="utf-8")
+        (tmp_path / "docs").mkdir(exist_ok=True)
+        (tmp_path / "docs" / "ARCHITECTURE.md").write_text("base", encoding="utf-8")
+        (tmp_path / "src" / "divineos").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "src" / "divineos" / "seed.json").write_text("{}", encoding="utf-8")
+        return cdc
+
+    def test_fix_test_counts_raises(self, tmp_path, monkeypatch):
+        """Higher actual → rewrite happens."""
+        cdc = self._setup_doc_root(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("- **8,000+ tests**", encoding="utf-8")
+        changed = cdc.fix_test_counts(8_500)
+        assert "README.md" in changed
+        text = (tmp_path / "README.md").read_text(encoding="utf-8")
+        assert "8,500" in text or "8500" in text
+        assert "8,000" not in text
+
+    def test_fix_test_counts_does_not_lower(self, tmp_path, monkeypatch):
+        """Lower actual → no-op. The cross-branch conflict killer."""
+        cdc = self._setup_doc_root(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("- **8,500+ tests**", encoding="utf-8")
+        changed = cdc.fix_test_counts(8_000)
+        assert "README.md" not in changed
+        text = (tmp_path / "README.md").read_text(encoding="utf-8")
+        # The 8,500 stays untouched.
+        assert "8,500" in text
+
+    def test_fix_test_counts_equal_is_noop(self, tmp_path, monkeypatch):
+        """Equal actual → no rewrite (nothing to change)."""
+        cdc = self._setup_doc_root(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("- **8,200+ tests**", encoding="utf-8")
+        changed = cdc.fix_test_counts(8_200)
+        assert "README.md" not in changed
+
+    def test_fix_hook_counts_raises(self, tmp_path, monkeypatch):
+        cdc = self._setup_doc_root(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("(20 hooks, shell-level)", encoding="utf-8")
+        changed = cdc.fix_hook_counts(35)
+        assert "README.md" in changed
+        text = (tmp_path / "README.md").read_text(encoding="utf-8")
+        assert "(35 hooks" in text
+
+    def test_fix_hook_counts_does_not_lower(self, tmp_path, monkeypatch):
+        cdc = self._setup_doc_root(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("(35 hooks, shell-level)", encoding="utf-8")
+        changed = cdc.fix_hook_counts(20)
+        assert "README.md" not in changed
+        text = (tmp_path / "README.md").read_text(encoding="utf-8")
+        # The 35 stays untouched.
+        assert "(35 hooks" in text
