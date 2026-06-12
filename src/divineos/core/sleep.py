@@ -629,14 +629,29 @@ def _phase_recombination(report: DreamReport) -> None:
     if len(entries) < 2:
         return
 
-    # Group by type to find cross-type connections (same-type overlap
-    # is usually just redundancy, not insight)
-    by_type: dict[str, list[dict[str, Any]]] = {}
-    for entry in entries:
-        ktype = entry.get("knowledge_type", "UNKNOWN")
-        by_type.setdefault(ktype, []).append(entry)
-
-    types = list(by_type.keys())
+    # All-pairs scan (Andrew 2026-06-11): the prior version filtered
+    # candidates by (a) same-type skip and (b) MIN_WORD_OVERLAP lexical
+    # floor. Both gates dropped real connections:
+    #
+    # 1. Same-type skip: two PRINCIPLEs that connect (e.g. today's
+    #    gate-recalibration principle ↔ a 3-month-old principle about
+    #    thresholds-from-data) got dropped as "redundancy." In a
+    #    900+ entry corpus, same-type connections ARE insight, not
+    #    redundancy.
+    #
+    # 2. MIN_WORD_OVERLAP precondition: the same disease lepos had this
+    #    morning — using string-overlap as a gate on a semantic operation.
+    #    Two entries that mean the same thing in entirely different
+    #    vocabularies (the exact case the semantic primitive was built
+    #    to catch — kn 52397796) got dropped before the cosine check
+    #    even ran.
+    #
+    # Fix shape: flat all-pairs iteration; MAX_WORD_OVERLAP kept (catches
+    # same-text near-duplicates that aren't insight); MIN_WORD_OVERLAP
+    # dropped when semantic embeddings are available (cosine has its own
+    # noise floor — the 0.45 threshold already prevents shared-vocab
+    # false positives without needing lexical anchoring). Dice fallback
+    # still requires lexical floor because Dice IS the lexical metric.
     connections: list[dict[str, str]] = []
     already_known_count = 0
     strengthened_count = 0  # subset of already_known whose confidence grew via Hebbian
@@ -649,108 +664,105 @@ def _phase_recombination(report: DreamReport) -> None:
                 return text[: idx + 1]
         return text[:cap] + "..." if len(text) > cap else text
 
-    # Full-scan: examine every type-cross pair. The previous version
-    # broke out of the loops when len(connections) hit the display cap,
-    # which left most of the pair-space unexamined and biased toward
-    # whichever type-cross came first in iteration order. Now the scan
-    # runs to completion; the display cap is applied at report time.
-    for i, type_a in enumerate(types):
-        for type_b in types[i + 1 :]:
-            for entry_a in by_type[type_a]:
-                content_a = entry_a.get("content", "")
-                if len(content_a) < 30:
-                    continue
-                for entry_b in by_type[type_b]:
-                    content_b = entry_b.get("content", "")
-                    if len(content_b) < 30:
-                        continue
+    semantic_available = _ensure_embedding_model() is not None
 
-                    # Skip pairs that share too many key words -- these are
-                    # the same topic wearing different type labels, not
-                    # creative connections.
-                    word_overlap = _compute_overlap(content_a, content_b)
-                    if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
-                        continue
-                    # 2026-05-01: also require minimum lexical anchoring.
-                    # Semantic similarity alone produces false positives via
-                    # shared common-vocabulary; some word overlap proves the
-                    # match has real lexical grounding.
-                    if word_overlap < _RECOMBINATION_MIN_WORD_OVERLAP:
-                        continue
+    # Filter to long-enough entries once before the O(n²) loop.
+    eligible = [e for e in entries if len((e.get("content") or "")) >= 30]
 
-                    similarity = compute_similarity(content_a, content_b)
-                    if _min_similarity <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
-                        total_band_pairs += 1
-                        aid = entry_a.get("knowledge_id", "?")
-                        bid = entry_b.get("knowledge_id", "?")
+    for ai in range(len(eligible)):
+        entry_a = eligible[ai]
+        content_a = entry_a.get("content", "")
+        for bi in range(ai + 1, len(eligible)):
+            entry_b = eligible[bi]
+            content_b = entry_b.get("content", "")
 
-                        # 2026-04-24 honesty fix: skip pairs that
-                        # already have a RELATED_TO edge from a prior
-                        # sleep. These are "re-encountered," not
-                        # "new." Count them separately so the report
-                        # can distinguish saturation (mostly already-
-                        # known) from genuine novelty (mostly new).
-                        try:
-                            existing = find_edge(aid, bid, "RELATED_TO")
-                        except Exception:  # noqa: BLE001
-                            existing = None
-                        if existing is None and aid != "?" and bid != "?":
-                            # Also check the reverse direction — edges
-                            # are direction-neutral for RELATED_TO.
-                            try:
-                                existing = find_edge(bid, aid, "RELATED_TO")
-                            except Exception:  # noqa: BLE001
-                                existing = None
-                        if existing is not None:
-                            already_known_count += 1
-                            # Hebbian update (prereg-e36b567a6959): bump
-                            # confidence on the re-discovered edge. Edges
-                            # proven by repeated structural similarity
-                            # accumulate evidence weight; one-time matches
-                            # stay at their initial confidence.
-                            try:
-                                from divineos.core.knowledge.edges import strengthen_edge
+            # MAX_WORD_OVERLAP — same-topic near-duplicates aren't
+            # insight, just restatement. Kept under both metrics.
+            word_overlap = _compute_overlap(content_a, content_b)
+            if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
+                continue
+            # MIN_WORD_OVERLAP — required ONLY when falling back to
+            # Dice (which IS lexical). When embeddings are available,
+            # the cosine threshold provides its own noise floor and
+            # lexical anchoring becomes a false-negative gate.
+            if not semantic_available and word_overlap < _RECOMBINATION_MIN_WORD_OVERLAP:
+                continue
 
-                                edge_id_attr = getattr(existing, "edge_id", None)
-                                if edge_id_attr:
-                                    new_conf = strengthen_edge(edge_id_attr)
-                                    if new_conf is not None and new_conf > float(
-                                        getattr(existing, "confidence", 0.0) or 0.0
-                                    ):
-                                        strengthened_count += 1
-                            except Exception as exc:  # noqa: BLE001
-                                # Hebbian update is opportunistic; failures
-                                # must never block recombination itself.
-                                # But: log at debug so operational issues
-                                # surface without blocking the path.
-                                # Audit finding 2026-05-04 (auditor 4th
-                                # pass, lesson 37d0ea3b): silent exception
-                                # swallowing was the exact shape audit
-                                # r9-21 round-1 lessons named. Apply the
-                                # discipline here too — opportunistic
-                                # semantics PLUS visibility, not
-                                # opportunistic semantics ALONE.
-                                logger.debug(
-                                    "Hebbian strengthen failed for edge %s: %s",
-                                    edge_id_attr,
-                                    exc,
-                                )
-                            continue
+            similarity = compute_similarity(content_a, content_b)
+            if _min_similarity <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
+                total_band_pairs += 1
+                aid = entry_a.get("knowledge_id", "?")
+                bid = entry_b.get("knowledge_id", "?")
 
-                        connections.append(
-                            {
-                                "entry_a_id": aid,
-                                "entry_b_id": bid,
-                                "type_a": type_a,
-                                "type_b": type_b,
-                                "similarity": f"{similarity:.0%}",
-                                "summary": (
-                                    f"({similarity:.0%}) {type_a}+{type_b}: "
-                                    f"{_first_sentence(content_a)} <> "
-                                    f"{_first_sentence(content_b)}"
-                                ),
-                            }
+                # 2026-04-24 honesty fix: skip pairs that
+                # already have a RELATED_TO edge from a prior
+                # sleep. These are "re-encountered," not
+                # "new." Count them separately so the report
+                # can distinguish saturation (mostly already-
+                # known) from genuine novelty (mostly new).
+                try:
+                    existing = find_edge(aid, bid, "RELATED_TO")
+                except Exception:  # noqa: BLE001
+                    existing = None
+                if existing is None and aid != "?" and bid != "?":
+                    # Also check the reverse direction — edges
+                    # are direction-neutral for RELATED_TO.
+                    try:
+                        existing = find_edge(bid, aid, "RELATED_TO")
+                    except Exception:  # noqa: BLE001
+                        existing = None
+                if existing is not None:
+                    already_known_count += 1
+                    # Hebbian update (prereg-e36b567a6959): bump
+                    # confidence on the re-discovered edge. Edges
+                    # proven by repeated structural similarity
+                    # accumulate evidence weight; one-time matches
+                    # stay at their initial confidence.
+                    try:
+                        from divineos.core.knowledge.edges import strengthen_edge
+
+                        edge_id_attr = getattr(existing, "edge_id", None)
+                        if edge_id_attr:
+                            new_conf = strengthen_edge(edge_id_attr)
+                            if new_conf is not None and new_conf > float(
+                                getattr(existing, "confidence", 0.0) or 0.0
+                            ):
+                                strengthened_count += 1
+                    except Exception as exc:  # noqa: BLE001
+                        # Hebbian update is opportunistic; failures
+                        # must never block recombination itself.
+                        # But: log at debug so operational issues
+                        # surface without blocking the path.
+                        # Audit finding 2026-05-04 (auditor 4th
+                        # pass, lesson 37d0ea3b): silent exception
+                        # swallowing was the exact shape audit
+                        # r9-21 round-1 lessons named. Apply the
+                        # discipline here too — opportunistic
+                        # semantics PLUS visibility, not
+                        # opportunistic semantics ALONE.
+                        logger.debug(
+                            "Hebbian strengthen failed for edge %s: %s",
+                            edge_id_attr,
+                            exc,
                         )
+                    continue
+
+                type_a = entry_a.get("knowledge_type", "UNKNOWN")
+                type_b = entry_b.get("knowledge_type", "UNKNOWN")
+                connections.append(
+                    {
+                        "entry_a_id": aid,
+                        "entry_b_id": bid,
+                        "type_a": type_a,
+                        "type_b": type_b,
+                        "similarity": f"{similarity:.0%}",
+                        "summary": (
+                            f"({similarity:.0%}) {type_a}+{type_b}: "
+                            f"{_first_sentence(content_a)} <> "
+                            f"{_first_sentence(content_b)}"
+                        ),
+                    }
+                )
 
     # (Early-break removed 2026-05-03 — see comment at top of function.
     # The two outer-loop breaks that depended on the connection count
