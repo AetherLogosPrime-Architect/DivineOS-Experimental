@@ -190,16 +190,30 @@ else
             LAST_LOG="${HOME}/.divineos/last_pre_push_pytest.log"
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
-            # Surface failures explicitly (grep, not tail) — these lines
-            # name what broke regardless of how much warning noise pytest
-            # emitted around them.
+            # Surface failures explicitly — multiple patterns because pytest
+            # exits non-zero for several distinct reasons, each leaving a
+            # different marker shape in the log:
+            #   - FAILED / ERROR: normal assertion / exception failures
+            #   - Timeout / Aborted / Killed: subprocess died (e.g. fixture
+            #     hit pytest-timeout; this is the shape that bit me 2026-06-12
+            #     when a test_corrigibility_e2e fixture timed out at subprocess
+            #     setup and the FAILED-only grep returned nothing — burned ~10
+            #     min diagnosing a "silent" failure)
+            #   - ImportError / ModuleNotFoundError at collection time
+            #   - INTERNALERROR from pytest itself
+            # The -B 2 context catches the test name that appears on the line
+            # before the marker (especially for timeouts).
             echo "" >&2
             echo "[push-readiness] === Failing tests (extracted from log) ===" >&2
-            grep -E "^(FAILED|ERROR)\b" "$LAST_LOG" >&2 || \
-                echo "  (no FAILED/ERROR lines; check the full log for details)" >&2
+            grep -E "^(FAILED|ERROR)\b|\+{2,} Timeout \+{2,}|Aborted|Killed|^ImportError|^ModuleNotFoundError|^INTERNALERROR" -B 2 "$LAST_LOG" >&2 || \
+                echo "  (no failure markers found; check the full log for details)" >&2
             echo "" >&2
-            echo "[push-readiness] === Last 30 lines of pytest output ===" >&2
-            tail -30 "$LAST_LOG" >&2
+            echo "[push-readiness] === Last 100 lines of pytest output ===" >&2
+            # Bumped from 30 to 100: pytest's "short test summary info" section
+            # can sit 30+ lines deep when there are many warnings, so tail -30
+            # missed it on dirty trees. 100 covers the typical warning-summary
+            # tail without burying signal under pure noise.
+            tail -100 "$LAST_LOG" >&2
             rm -f "$PYTEST_LOG"
             echo "" >&2
             echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
