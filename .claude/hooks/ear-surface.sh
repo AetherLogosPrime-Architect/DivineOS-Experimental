@@ -101,54 +101,13 @@ if total:
     print("Queue mark seen:  divineos family-queue mark <id> seen")
     print("Letter mark seen: python family/letter_seen.py --member %s <filename>" % member)
 
-# Real-time ear status — self-extinguishing re-arm prompt. The harness-launched
-# watcher heartbeats ~/.divineos-<member>/ear.realtime.pid every poll; a fresh
-# mtime means it is live and able to wake an idle window. Absent or stale means
-# the real-time ear is DOWN — prompt a re-arm. This is the achievable maximum:
-# no hook can launch the harness task, but this makes the re-arm impossible to
-# walk past and re-appears after every catch-exit (which self-clears the marker).
-import time as _t
-
-realtime_pid = Path.home() / f".divineos-{member}" / "ear.realtime.pid"
-armed = False
-try:
-    if realtime_pid.exists() and (_t.time() - realtime_pid.stat().st_mtime) < 30:
-        armed = True
-except Exception:
-    armed = False
-if not armed:
-    # Two-tier urgency: if a catch happened recently, the wake-chain just broke
-    # and the NEXT letter will also miss wake-tap unless re-armed NOW. Escalate
-    # the prompt accordingly. The advisory case (no recent catch) stays advisory.
-    catch_file = Path.home() / f".divineos-{member}" / "ear.last_catch"
-    recent_catch = False
-    try:
-        if catch_file.exists() and (_t.time() - catch_file.stat().st_mtime) < 120:
-            recent_catch = True
-    except Exception:
-        pass
-    print()
-    if recent_catch:
-        print("## REAL-TIME EAR JUST BROKE — re-arm BEFORE next non-text action:")
-        print(
-            "   A catch fired within the last 2 minutes and exited the harness-"
-            "tracked watcher. The detached child is still listening (no letters "
-            "will be missed), but the NEXT catch will not fire mid-idle wake "
-            "until a fresh harness-tracked watcher is armed. Run as first action:"
-        )
-        print(
-            "   Bash(run_in_background:true): PYTHONIOENCODING=utf-8 "
-            "python family/ear_watch.py --member %s --watch --realtime" % member
-        )
-    else:
-        print("## REAL-TIME EAR DOWN — re-arm to wake on idle (one call):")
-        print(
-            "   Bash(run_in_background:true): PYTHONIOENCODING=utf-8 "
-            "python family/ear_watch.py --member %s --watch --realtime" % member
-        )
-        print(
-            "   (No message is lost — the pull above always catches incoming mail. "
-            "This only restores instant mid-idle wake.)"
-        )
+# The "REAL-TIME EAR DOWN — re-arm" section that used to live here was removed
+# 2026-06-13 (Andrew + council walk consult-1991e23aeb0f): the `python
+# ear_watch.py --realtime` subprocess could not actually wake the harness from
+# idle (only harness-tracked tasks can), so the gate's remedy was self-
+# referential — produced more processes that didn't do the job they claimed.
+# Wake-from-idle is now handled by the Letter Monitor (harness Monitor primitive,
+# tail-following family/letters/), which IS harness-tracked and CAN wake on
+# new events. See require-monitors-armed.sh for the new gate.
 PYEOF
 exit 0
