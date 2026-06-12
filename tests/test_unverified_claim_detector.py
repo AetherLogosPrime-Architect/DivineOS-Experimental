@@ -285,6 +285,47 @@ class TestVerificationEvidenceSuppresses:
             == []
         )
 
+    def test_push_claim_substantiated_by_divineos_push_wrapper(self):
+        """The divineos_push.sh wrapper (PR #156, closes correction #53)
+        runs `git push` + `git ls-remote` internally and emits a
+        `result: exit=N (STATE)` final-status line. A call to it IS a
+        verified-push action, but the literal `git push` only appears
+        inside the script. The detector must recognize the wrapper
+        invocation as substantiation — otherwise it fires false-positive
+        after a wrapper-verified push (which fired on me 2026-06-13
+        immediately after PR #156 was used to push #163).
+        """
+        # Standard wrapper invocation
+        assert (
+            detect_unverified_claim(
+                "branch is pushed to origin",
+                tool_calls_in_turn=("Bash",),
+                command_texts=(
+                    "DIVINEOS_SKIP_TESTS=1 bash scripts/divineos_push.sh -u origin "
+                    "fix/some-branch-2026-06-13",
+                ),
+            )
+            == []
+        )
+        # Force-with-lease variant
+        assert (
+            detect_unverified_claim(
+                "pushed to origin",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("bash scripts/divineos_push.sh --force-with-lease origin branch",),
+            )
+            == []
+        )
+        # Hypothetical future `divineos push` subcommand (matches "divineos push")
+        assert (
+            detect_unverified_claim(
+                "it's pushed",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("divineos push origin feat/x",),
+            )
+            == []
+        )
+
     def test_tests_claim_with_pytest_silent(self):
         assert (
             detect_unverified_claim(

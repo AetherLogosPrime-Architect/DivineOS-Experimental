@@ -448,7 +448,16 @@ def _is_id_transcription(text: str, match: re.Match[str]) -> bool:
 _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
     "push": re.compile(
         r"git\s+ls-remote|git\s+push|git\s+log\s+origin|git\s+rev-parse\b[^\n]*origin|"
-        r"git\s+for-each-ref",
+        r"git\s+for-each-ref|"
+        # divineos_push.sh — the verifying push wrapper added in PR #156
+        # (closes correction #53). It runs `git push` then `git ls-remote`
+        # internally and emits a `result: exit=N (STATE)` final-status
+        # line, so a call to it IS a verified-push action. The literal
+        # `git push` string only appears inside the script, not in the
+        # caller's command_texts (which sees `bash scripts/divineos_push.sh
+        # -u origin BRANCH`) — without this branch in the regex, the
+        # detector fires false-positive after a wrapper-verified push.
+        r"divineos_push\.sh|divineos\s+push",
         re.IGNORECASE,
     ),
     "merge": re.compile(
