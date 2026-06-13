@@ -612,6 +612,38 @@ def _build_decision_journal_slot() -> str:
         return ""
 
 
+def _derive_live_next_steps() -> list[str]:
+    """Compute Next-steps at read-time from live substrate state.
+
+    Replaces the frozen `note["next_steps"]` field that aged badly across
+    a session (HUD showed amend/push/letter items hours after they were
+    done). Sources: open Andrew-corrections (highest priority), then
+    active goals. Empty when neither has live items.
+    """
+    items: list[str] = []
+    try:
+        from divineos.core.andrew_correction_tracker import list_open as _list_open_corr
+
+        for c in _list_open_corr()[:2]:
+            text = (c.get("text") or "").strip().replace("\n", " ")
+            if len(text) > 100:
+                text = text[:100] + "..."
+            items.append(f"[correction #{c['id']}] {text}")
+    except (sqlite3.OperationalError, ImportError, OSError):
+        pass
+    try:
+        from divineos.core.hud_state import get_active_goals
+
+        for g in get_active_goals()[:4]:
+            text = (g.get("text") or "").strip().replace("\n", " ")
+            if len(text) > 100:
+                text = text[:100] + "..."
+            items.append(f"[goal] {text}")
+    except (json.JSONDecodeError, ImportError, OSError):
+        pass
+    return items
+
+
 def _build_handoff_slot() -> str:
     """Display the handoff note from the previous session."""
     note = load_handoff_note()
@@ -630,9 +662,10 @@ def _build_handoff_slot() -> str:
     if note.get("intent"):
         lines.append(f"**Intent:** {note['intent']}")
         lines.append("")
-    if note.get("next_steps"):
-        lines.append("**Next steps:**")
-        for step in note["next_steps"]:
+    live_steps = _derive_live_next_steps()
+    if live_steps:
+        lines.append("**Next steps (live):**")
+        for step in live_steps:
             lines.append(f"  - {step}")
         lines.append("")
     if note.get("blockers"):
