@@ -164,6 +164,85 @@ class TestEmbeddedAuditBody:
             # The body should appear inline as a paste-ready snippet.
             assert "gh pr merge 99 --squash --body" in reason
 
+    def test_emitted_body_includes_tree_hash_when_git_available(self) -> None:
+        """Phase 2 (2026-06-13): the gate's embedded merge body now carries
+        tree-hash binding when git can resolve HEAD's tree. The server-side
+        CI gate verifies the binding at merge time."""
+        from dataclasses import dataclass
+
+        @dataclass
+        class _R:
+            round_id: str = "round-abc123"
+            focus: str = "test PR"
+            created_at: float = 0.0
+
+        @dataclass
+        class _F:
+            actor: str = "user"
+            review_stance: object = None
+
+        fake_tree = "f" * 40
+        import time as _t
+
+        with (
+            patch.object(
+                pr_merge_gate,
+                "audit_pr_for_guardrail_touches",
+                return_value=(True, ["src/divineos/core/moral_compass.py"]),
+            ),
+            patch(
+                "divineos.core.watchmen.store.list_rounds",
+                return_value=[_R(created_at=_t.time() - 3600)],
+            ),
+            patch(
+                "divineos.core.watchmen.store.list_findings",
+                return_value=[_F(actor="user"), _F(actor="aletheia")],
+            ),
+            patch.object(pr_merge_gate, "_current_head_tree_hash", return_value=fake_tree),
+        ):
+            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
+            assert reason is not None
+            assert f"External-Review: round-abc123 tree-hash:{fake_tree}" in reason
+
+    def test_emitted_body_falls_back_to_legacy_when_git_unreachable(self) -> None:
+        """If _current_head_tree_hash returns empty (git unavailable), the
+        emitted trailer drops to legacy form."""
+        from dataclasses import dataclass
+
+        @dataclass
+        class _R:
+            round_id: str = "round-abc123"
+            focus: str = "test PR"
+            created_at: float = 0.0
+
+        @dataclass
+        class _F:
+            actor: str = "user"
+            review_stance: object = None
+
+        import time as _t
+
+        with (
+            patch.object(
+                pr_merge_gate,
+                "audit_pr_for_guardrail_touches",
+                return_value=(True, ["src/divineos/core/moral_compass.py"]),
+            ),
+            patch(
+                "divineos.core.watchmen.store.list_rounds",
+                return_value=[_R(created_at=_t.time() - 3600)],
+            ),
+            patch(
+                "divineos.core.watchmen.store.list_findings",
+                return_value=[_F(actor="user"), _F(actor="aletheia")],
+            ),
+            patch.object(pr_merge_gate, "_current_head_tree_hash", return_value=""),
+        ):
+            reason = pr_merge_gate.block_reason("gh pr merge 99 --squash")
+            assert reason is not None
+            assert "External-Review: round-abc123" in reason
+            assert "tree-hash:" not in reason
+
     def test_embeds_diagnosis_when_round_missing_user_confirm(self) -> None:
         """An invalid recent round → block message names the SPECIFIC
         gap (missing user-CONFIRMS / missing AI-CONFIRMS / stale)."""

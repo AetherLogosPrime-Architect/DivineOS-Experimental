@@ -272,7 +272,6 @@ src/divineos/
     semantic_store.py          Semantic-similarity primitive — embed/store/top-k search via sqlite-vec; foundation for knowledge dedup, claims supersession, restatement detection, theme surfacing (Andrew nightclub-frame 2026-06-11)
     _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3427be00f9d.
     semantic_search.py         Semantic-search consumer over a prose corpus — per-paragraph chunking, source-pointer per chunk, embedding-model version per chunk for targeted re-embed on model upgrade. First high-volume consumer of the GPU-accelerated embedding plumbing (PR #169). Council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
-    semantic_search_rerank.py  Cross-encoder rerank pass over semantic_search.search results — two-stage IR: bi-encoder recalls candidate pool, cross-encoder (default cross-encoder/ms-marco-MiniLM-L-6-v2) re-scores (query, chunk) pairs jointly for ranking quality. GPU-routed via _embedding_device.select_device. Fail-soft when model unavailable. Per prereg-9c7d70d3347e.
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
     opinion_store.py           Structured opinions with evidence tracking and evolution
     user_model.py              User preference and skill level modeling
