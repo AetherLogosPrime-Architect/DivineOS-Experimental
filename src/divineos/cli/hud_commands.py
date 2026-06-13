@@ -120,6 +120,27 @@ def register(cli: click.Group) -> None:
 
             logging.getLogger(__name__).debug("build-shape detector unavailable", exc_info=True)
 
+        # Adjacency surface (Andrew 2026-06-12 + kid 636fcba4): when a
+        # new goal is set, run the semantic-search consumer against
+        # the goal text and surface top adjacency hits. Closes the
+        # built-but-not-inhabited failure mode the find tool was
+        # exactly meant to address (Bengio lens, prereg-2ad79e23fcf7
+        # falsifier). Same altitude as the council advise above —
+        # soft, informational, never blocks goal-add.
+        try:
+            from divineos.core.goal_adjacency import adjacency_lines_for_goal
+
+            adjacency_lines = adjacency_lines_for_goal(text)
+            if adjacency_lines:
+                click.echo()
+                for i, line in enumerate(adjacency_lines):
+                    color = "cyan" if i == 0 else "bright_black"
+                    click.secho(line, fg=color)
+        except Exception:  # noqa: BLE001 — best-effort; never block goal-add
+            import logging
+
+            logging.getLogger(__name__).debug("adjacency surface unavailable", exc_info=True)
+
     @goal_group.command("done")
     @click.argument("text")
     def goal_done_cmd(text: str) -> None:
