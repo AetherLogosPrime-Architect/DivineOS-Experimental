@@ -108,6 +108,40 @@ class TestFileExists:
         (tmp_path / "tests" / "test_detector_wiring_contract.py").write_text("x", encoding="utf-8")
         assert _file_exists("test_detector_wiring_contract.py", tmp_path) is True
 
+    def test_glob_basename_resolves_in_deeper_subfolder(self, tmp_path):
+        """Live-observed 2026-06-13: find-4d2de51ae999 cited
+        `knowledge_commands.py` (actual location: src/divineos/cli/...).
+        The prefix fallback alone misses; glob-by-basename catches it."""
+        deep = tmp_path / "src" / "divineos" / "cli"
+        deep.mkdir(parents=True)
+        (deep / "knowledge_commands.py").write_text("x", encoding="utf-8")
+        assert _file_exists("knowledge_commands.py", tmp_path) is True
+
+    def test_glob_basename_ambiguous_resolves_first_hit(self, tmp_path):
+        """Documented behavior: when a basename matches more than one
+        file under the glob roots, the first hit counts as verified.
+        Operator-decided resolution doesn't get blocked on ambiguity."""
+        a = tmp_path / "src" / "divineos" / "core"
+        b = tmp_path / "src" / "divineos" / "cli"
+        a.mkdir(parents=True)
+        b.mkdir(parents=True)
+        (a / "shared_name.py").write_text("x", encoding="utf-8")
+        (b / "shared_name.py").write_text("x", encoding="utf-8")
+        assert _file_exists("shared_name.py", tmp_path) is True
+
+    def test_glob_skipped_for_multi_segment_path(self, tmp_path):
+        """A multi-segment path with no recognized prefix is unlikely
+        to be a real citation; glob-search is bare-basename-only."""
+        # No matching file exists; the multi-segment path with no known
+        # prefix should NOT trigger the glob fallback.
+        deep = tmp_path / "src" / "divineos" / "core" / "family"
+        deep.mkdir(parents=True)
+        (deep / "store.py").write_text("x", encoding="utf-8")
+        # The same file resolves via prefix fallback (test above), but
+        # an unrelated multi-segment string with no prefix shouldn't
+        # accidentally resolve via glob.
+        assert _file_exists("random/path/store.py", tmp_path) is False
+
     def test_does_not_double_prefix(self, tmp_path):
         """Paths already prefixed with src/divineos or tests must NOT be
         re-tried under another prefix — otherwise
