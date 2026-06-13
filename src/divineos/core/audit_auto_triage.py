@@ -114,7 +114,21 @@ _PATH_PREFIX_FALLBACKS = ("src/divineos", "tests")
 # real file is at "src/divineos/cli/knowledge_commands.py"). Path.rglob
 # is lazy, so first-match short-circuits the iteration — no enumeration
 # cap needed for normal-size trees.
-_GLOB_SEARCH_ROOTS = ("src/divineos", "tests")
+_GLOB_SEARCH_ROOTS = (
+    "src/divineos",
+    "tests",
+    # Audit-finding bodies often cite CLI-side artifacts that live
+    # outside src/. Extending the glob roots picks up:
+    #   - "scripts/" — checker scripts, CI helpers, shell utilities
+    #   - "setup/" — install/setup hooks (setup-hooks.sh, etc.)
+    #   - ".claude/hooks/" — Claude Code hook scripts
+    # Live observation 2026-06-13: 3 LOW findings citing files in these
+    # subtrees were returning 0% confidence because the lookup missed
+    # them. Adding the roots picks them up automatically.
+    "scripts",
+    "setup",
+    ".claude/hooks",
+)
 
 
 def _file_exists(path_str: str, repo_root: Path) -> bool:
