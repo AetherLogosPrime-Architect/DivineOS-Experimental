@@ -58,14 +58,37 @@ from __future__ import annotations
 __guardrail_required__ = True
 
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any
 from divineos.core.paths import marker_path
 
+logger = logging.getLogger(__name__)
+
 # All exception types the detector chain may raise — caught at the
 # per-detector level so one detector's failure never propagates.
 _ERRORS = (Exception,)  # broad by design at the orchestrator boundary
+
+# Per-process tally of detectors that errored during the most recent
+# run_audit invocation. Closes the silent-detector-failure-as-success
+# class named in find-f128475b5b65: when _run_detector swallowed an
+# exception and returned [], the audit summary showed "0 findings" —
+# indistinguishable from a clean run. Now the error gets logged AND
+# tallied here for post-run inspection.
+_LAST_RUN_ERRORS: list[dict[str, Any]] = []
+
+
+def last_run_detector_errors() -> list[dict[str, Any]]:
+    """Detectors that raised during the most recent run_audit.
+
+    Each entry: {name, exc_type, exc_msg}. Empty when the last run
+    was clean OR when run_audit hasn't been called yet this process.
+    Public read accessor so a briefing/HUD surface can show whether
+    'no findings' actually means 'ran clean'.
+    """
+    return list(_LAST_RUN_ERRORS)
+
 
 _ROLLING_WINDOW = 200
 
@@ -340,10 +363,25 @@ def _unverified_claim_gate_reason(
 
 def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
     """Run a single detector with try/except isolation. Returns the
-    findings list serialized to dicts, or empty list on any error."""
+    findings list serialized to dicts, or empty list on any error.
+
+    Error telemetry (find-f128475b5b65): when the detector raises,
+    log the exception and append to _LAST_RUN_ERRORS so a downstream
+    surface can distinguish 'detector ran clean' from 'detector
+    silently failed.'
+    """
     try:
         findings = func(*args, **kwargs)
-    except _ERRORS:
+    except _ERRORS as exc:
+        logger.warning(
+            "operating_loop detector %s raised %s: %s",
+            name,
+            type(exc).__name__,
+            exc,
+        )
+        _LAST_RUN_ERRORS.append(
+            {"name": name, "exc_type": type(exc).__name__, "exc_msg": str(exc)[:200]}
+        )
         return []
     if not findings:
         return []
@@ -400,6 +438,7 @@ def run_audit(
     JSON file. Pass ``write=False`` for test/preview runs that
     shouldn't touch the persistence layer.
     """
+    _LAST_RUN_ERRORS.clear()
     try:
         from divineos.core.operating_loop.turn_extraction import extract_turn
 
