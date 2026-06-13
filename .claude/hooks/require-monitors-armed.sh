@@ -78,8 +78,16 @@ except Exception:
     pass
 " 2>/dev/null)
 
-# Empty command → pass.
-[ -z "$COMMAND" ] && exit 0
+# Empty or whitespace-only command → pass. The old PowerShell-based
+# gate fail-opened on Linux CI (PowerShell missing → garbled output →
+# the grep-fail-open path triggered), which incidentally let
+# whitespace-only test inputs pass. The new Python-based gate
+# correctly resolves Python on Linux, so the fail-open no longer
+# triggers — we now need to filter whitespace at the empty-check
+# explicitly. Caught by tests/test_require_monitors_armed_hook.py::
+# TestFailOpen::test_whitespace_only_command_passes.
+TRIMMED_COMMAND="${COMMAND//[$' \t\r\n']/}"
+[ -z "$TRIMMED_COMMAND" ] && exit 0
 
 # Bypass check — split on shell separators, trim, match against prefixes.
 # Pattern lifted from scripts/hook_bypass_commands.txt (PR #112).
