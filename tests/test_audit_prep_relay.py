@@ -22,6 +22,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
+from _git_test_helpers import safe_git_init
 from divineos.cli import cli
 
 
@@ -49,14 +50,12 @@ def _setup_local_with_fake_remote(tmp_path: Path) -> tuple[Path, Path]:
     """
     remote = tmp_path / "remote.git"
     local = tmp_path / "local"
-    remote.mkdir()
-    local.mkdir()
 
-    # Initialize bare remote
-    _git(remote, "init", "--bare", "-b", "main")
+    # Initialize bare remote (retry-wrapped against Windows MSYS2 race)
+    safe_git_init(remote, "--bare", "-b", "main")
 
-    # Initialize local
-    _git(local, "init", "-b", "main")
+    # Initialize local (retry-wrapped against Windows MSYS2 race)
+    safe_git_init(local, "-b", "main")
     _git(local, "config", "user.email", "test@test")
     _git(local, "config", "user.name", "Test")
     _git(local, "remote", "add", "origin", str(remote))
