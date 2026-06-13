@@ -49,7 +49,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 ## At a glance
 
-- **529 source files across 31 packages**
+- **536 source files across 31 packages**
 - **8,253+ tests** (real SQLite, minimal mocks)
 - **360 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
@@ -454,7 +454,7 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 > and is intentionally separate from the OS code. The architecture section
 > below scopes to `src/divineos/`.
 
-DivineOS is 529 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 536 source files across 31 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
