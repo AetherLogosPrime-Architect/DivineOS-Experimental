@@ -32,6 +32,13 @@ INPUT=$(cat)
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
+# Resolve the divineos-aware Python via the shared helper. Required by
+# tests/test_hook_python_lookup.py — hooks importing divineos must NOT
+# call bare `python` (which can resolve to a different interpreter than
+# the one with divineos installed). Fail-open if helper missing.
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+
 # Bypass list — gate-recovery commands must always pass through. These are
 # the divineos substrate-consult commands the gate-system itself prescribes
 # as the named escape from any gate's block. Matches the canonical list in
@@ -62,7 +69,7 @@ if [ "$DIVINEOS_REQUIRE_MONITORS_BYPASS" = "1" ]; then
 fi
 
 # Extract the bash command from the tool input.
-COMMAND=$(printf '%s' "$INPUT" | python -c "
+COMMAND=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
 try:
     data = json.loads(sys.stdin.read() or '{}')
@@ -71,8 +78,16 @@ except Exception:
     pass
 " 2>/dev/null)
 
-# Empty command → pass.
-[ -z "$COMMAND" ] && exit 0
+# Empty or whitespace-only command → pass. The old PowerShell-based
+# gate fail-opened on Linux CI (PowerShell missing → garbled output →
+# the grep-fail-open path triggered), which incidentally let
+# whitespace-only test inputs pass. The new Python-based gate
+# correctly resolves Python on Linux, so the fail-open no longer
+# triggers — we now need to filter whitespace at the empty-check
+# explicitly. Caught by tests/test_require_monitors_armed_hook.py::
+# TestFailOpen::test_whitespace_only_command_passes.
+TRIMMED_COMMAND="${COMMAND//[$' \t\r\n']/}"
+[ -z "$TRIMMED_COMMAND" ] && exit 0
 
 # Bypass check — split on shell separators, trim, match against prefixes.
 # Pattern lifted from scripts/hook_bypass_commands.txt (PR #112).
@@ -95,20 +110,57 @@ for segment in $(printf '%s' "$COMMAND" | tr '&|;' '\n'); do
 done
 IFS="$IFS_BACKUP"
 
-# Check for alive Monitor processes.
-# Letter Monitor: bash subprocess containing "aria-to-aether-" in its command.
-# Compaction Monitor: python subprocess containing "compaction_token_monitor" in its command.
+# Check for alive Monitors. Primary: kernel-managed named mutex via
+# divineos.core.monitor_singleton.is_held (the new singleton-guard
+# primitive). Fallback: process scan for matching script names — used
+# only when is_held reports "not held" but the scripts ARE running.
+# This belt-and-suspenders shape covers an empirically-observed case
+# where cross-process mutex visibility from the gate's spawned Python
+# differs from the live letter_monitor.py's view (likely PYTHONPATH /
+# pywin32 install differences). The mutex is canonical; the process
+# scan is the safety net.
 #
-# Uses powershell.exe (more reliable on Windows than tasklist for command-line
-# inspection). Fail-open: if powershell isn't available or returns garbage,
-# treat as "monitors are armed" rather than break Bash.
-MONITORS_STATUS=$(powershell.exe -NoProfile -NonInteractive -Command "
-\$letter = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {\$_.CommandLine -match 'aria-to-aether-' -and \$_.Name -eq 'bash.exe'} | Measure-Object | Select-Object -ExpandProperty Count
-\$compaction = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {\$_.CommandLine -match 'compaction_token_monitor' -and \$_.Name -eq 'python.exe'} | Measure-Object | Select-Object -ExpandProperty Count
-Write-Output \"\$letter,\$compaction\"
-" 2>/dev/null | tr -d '\r')
+# Fail-open: if Python or the module is unavailable, treat as armed.
+# This gate cannot break a turn (Andrew 2026-06-09 design constraint).
+MONITORS_STATUS=$("$PYTHON_BIN" -c "
+import sys
+try:
+    from divineos.core.monitor_singleton import is_held
+    letter_mutex = 1 if is_held('letter') else 0
+    compaction_mutex = 1 if is_held('compaction') else 0
+    # Process-scan fallback (subprocess to powershell — only used as
+    # confirmation, never as primary). Script-name match is unambiguous
+    # because the scripts are uniquely-named, unlike the prior regex
+    # which matched arbitrary command-line tokens.
+    import subprocess
+    letter_proc = compaction_proc = 0
+    try:
+        ps_cmd = (
+            \"Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | \"
+            \"Where-Object { (\$_.CommandLine -match 'letter_monitor\.py' \"
+            \"-or \$_.CommandLine -match 'compaction_token_monitor\.py') \"
+            \"-and \$_.Name -eq 'python.exe' } | \"
+            \"ForEach-Object { \$_.CommandLine }\"
+        )
+        out = subprocess.run(
+            ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', ps_cmd],
+            capture_output=True, text=True, timeout=10,
+        ).stdout
+        for line in out.splitlines():
+            if 'letter_monitor.py' in line:
+                letter_proc = 1
+            if 'compaction_token_monitor.py' in line:
+                compaction_proc = 1
+    except Exception:
+        pass
+    letter = letter_mutex or letter_proc
+    compaction = compaction_mutex or compaction_proc
+    print(f'{letter},{compaction}')
+except Exception:
+    sys.exit(0)
+" 2>/dev/null)
 
-# Fail-open on garbled output.
+# Fail-open on missing output (Python broken, module missing, etc).
 if ! echo "$MONITORS_STATUS" | grep -qE '^[0-9]+,[0-9]+$'; then
   exit 0
 fi
@@ -117,18 +169,12 @@ LETTER_COUNT="${MONITORS_STATUS%,*}"
 COMPACTION_COUNT="${MONITORS_STATUS#*,}"
 
 # Conditional-requirement discipline: only require the compaction Monitor
-# if its underlying script exists in the working tree. PR #113 introduces
-# scripts/compaction_token_monitor.py; on branches before that PR lands,
-# requiring the compaction Monitor would create a chicken-and-egg trap
-# (gate blocks Bash; arming the Monitor fails because the script doesn't
-# exist; the gate's own remedy is uncallable).
+# if its underlying script exists in the working tree.
 COMPACTION_REQUIRED=1
 if [ ! -f "$REPO_ROOT/scripts/compaction_token_monitor.py" ]; then
   COMPACTION_REQUIRED=0
 fi
 
-# Letter Monitor is always required (no file-on-disk dependency — its
-# command is inline in the Monitor tool invocation).
 LETTER_OK=0
 COMPACTION_OK=0
 if [ "$LETTER_COUNT" -gt 0 ]; then
@@ -163,32 +209,25 @@ crossings does not fire. The arm-instruction.sh SessionStart hooks are NUDGES,
 not constraints — they don't survive compaction or my own attention drift.
 This gate enforces the discipline structurally (Andrew 2026-06-09).
 
-Re-arm via Monitor() — NOT a Bash call, so this gate does not block it:
+Re-arm via Monitor() — NOT a Bash call, so this gate does not block it.
+Each script acquires a kernel-managed named mutex at startup; if a
+sibling Monitor for that role is already alive, the script exits
+cleanly with a [MONITOR-SINGLETON-DEDUP role=...] line. The kernel
+releases the mutex on process death (including crash), so no stale
+state can accumulate.
 
   Monitor(
       description="new letters from aria — wakes from idle",
       persistent=True,
       timeout_ms=3600000,
-      command="seen=\$(ls family/letters/aria-to-aether-*.md 2>/dev/null | sort)
-echo \"[LETTER-MONITOR-ARMED] watching family/letters/ for new aria-to-aether-*.md\"
-while true; do
-  sleep 5
-  current=\$(ls family/letters/aria-to-aether-*.md 2>/dev/null | sort)
-  new=\$(comm -13 <(echo \"\$seen\") <(echo \"\$current\"))
-  if [ -n \"\$new\" ]; then
-    while IFS= read -r f; do
-      [ -n \"\$f\" ] && echo \"[LETTER] new from aria: \$f\"
-    done <<< \"\$new\"
-    seen=\"\$current\"
-  fi
-done",
+      command="PYTHONIOENCODING=utf-8 python scripts/letter_monitor.py",
   )
 
   Monitor(
       description="compaction — context threshold wake",
       persistent=True,
       timeout_ms=3600000,
-      command="PYTHONIOENCODING=utf-8 python C:/DIVINE OS/DivineOS-Experimental/scripts/compaction_token_monitor.py",
+      command="PYTHONIOENCODING=utf-8 python scripts/compaction_token_monitor.py",
   )
 
 After both arm, retry the original Bash call.
