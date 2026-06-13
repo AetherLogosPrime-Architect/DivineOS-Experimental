@@ -92,6 +92,32 @@ class TestFileExists:
         p.write_text("x", encoding="utf-8")
         assert _file_exists(str(p), tmp_path) is True
 
+    def test_falls_back_to_src_divineos_prefix(self, tmp_path):
+        """Live-observed 2026-06-13: find-627bd61e3974 cited
+        `core/family/store.py` (no `src/divineos/` prefix). Pre-fallback
+        the tool returned not-verified; with the fallback it resolves."""
+        nested = tmp_path / "src" / "divineos" / "core" / "family"
+        nested.mkdir(parents=True)
+        (nested / "store.py").write_text("x", encoding="utf-8")
+        assert _file_exists("core/family/store.py", tmp_path) is True
+
+    def test_falls_back_to_tests_prefix(self, tmp_path):
+        """Same pattern for tests/ — finding bodies cite
+        `test_detector_wiring_contract.py` without the tests/ prefix."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_detector_wiring_contract.py").write_text("x", encoding="utf-8")
+        assert _file_exists("test_detector_wiring_contract.py", tmp_path) is True
+
+    def test_does_not_double_prefix(self, tmp_path):
+        """Paths already prefixed with src/divineos or tests must NOT be
+        re-tried under another prefix — otherwise
+        `src/divineos/nonexistent.py` would silently resolve against
+        `tests/src/divineos/nonexistent.py`."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "src" / "divineos").mkdir(parents=True)
+        (tmp_path / "tests" / "src" / "divineos" / "nope.py").write_text("x", encoding="utf-8")
+        assert _file_exists("src/divineos/nope.py", tmp_path) is False
+
 
 class TestCommitExists:
     def test_returns_false_when_git_fails(self, tmp_path):
