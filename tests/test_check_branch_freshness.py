@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from _git_test_helpers import safe_git_init
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_branch_freshness.sh"
 
@@ -71,12 +73,10 @@ def repo() -> Path:
     """Build a tmp upstream-bare + clone with main branched off."""
     base_tmp = Path(tempfile.mkdtemp())
     upstream = base_tmp / "upstream.git"
-    upstream.mkdir()
-    _git(upstream, "init", "--bare", "--initial-branch=main")
+    safe_git_init(upstream, "--bare", "--initial-branch=main")
 
     work = base_tmp / "work"
-    work.mkdir()
-    _git(work, "init", "--initial-branch=main")
+    safe_git_init(work, "--initial-branch=main")
     _git(work, "config", "user.email", "test@example.com")
     _git(work, "config", "user.name", "test")
     _git(work, "remote", "add", "origin", str(upstream))

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from _git_test_helpers import safe_git_init
 from divineos.core.upstream_freshness import (
     BASE_BRANCH,
     REMOTE,
@@ -54,12 +55,10 @@ def two_clones() -> tuple[Path, Path, Path]:
     """
     base_tmp = Path(tempfile.mkdtemp())
     upstream = base_tmp / "upstream.git"
-    upstream.mkdir()
-    _git(upstream, "init", "--bare", "--initial-branch=main")
+    safe_git_init(upstream, "--bare", "--initial-branch=main")
 
     clone_a = base_tmp / "clone_a"
-    clone_a.mkdir()
-    _git(clone_a, "init", "--initial-branch=main")
+    safe_git_init(clone_a, "--initial-branch=main")
     _git(clone_a, "config", "user.email", "a@example.com")
     _git(clone_a, "config", "user.name", "a")
     _git(clone_a, "remote", "add", "origin", str(upstream))

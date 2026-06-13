@@ -38,6 +38,32 @@ def pytest_configure(config: pytest.Config) -> None:
             pass
 
 
+@pytest.fixture(scope="session")
+def git_template_repo(tmp_path_factory) -> Path:
+    """One initialized .git directory per session.
+
+    Tests that need a fresh repo should copy from this instead of
+    running another `git init`. Avoids the Windows MSYS2 DLL-init
+    race that occasionally fires STATUS_DLL_INIT_FAILED when many
+    git processes spawn in quick succession.
+    """
+    from _git_test_helpers import _build_template_repo
+
+    template = tmp_path_factory.mktemp("git_template_repo")
+    _build_template_repo(template, bare=False)
+    return template
+
+
+@pytest.fixture(scope="session")
+def git_template_bare_repo(tmp_path_factory) -> Path:
+    """Bare-repo counterpart for tests that need an `upstream.git`."""
+    from _git_test_helpers import _build_template_repo
+
+    template = tmp_path_factory.mktemp("git_template_bare")
+    _build_template_repo(template, bare=True)
+    return template
+
+
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path):
     """Give every test its own fresh database so tests never interfere with each other.
