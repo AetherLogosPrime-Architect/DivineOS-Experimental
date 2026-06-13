@@ -48,10 +48,43 @@ from pathlib import Path
 __guardrail_required__ = True
 
 _GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\s+(\d+)\b")
-_TRAILER_PATTERN = re.compile(r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE)
+# Trailer format (Phase 2, 2026-06-13):
+#   External-Review: <round-id> [tree-hash:<40-hex>]
+# Round-id is required; tree-hash suffix is optional during the
+# transition window. The server-side CI gate verifies tree-hash
+# when present; this local pre-merge gate only checks trailer
+# presence and round validity (substance-binding happens at the
+# CI layer, not here).
+_TRAILER_PATTERN = re.compile(
+    r"^External-Review:\s*(\S+)(?:\s+tree-hash:[a-f0-9]+)?",
+    re.MULTILINE | re.IGNORECASE,
+)
 _GUARDRAIL_LIST_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "guardrail_files.txt"
 )
+
+
+def _current_head_tree_hash() -> str:
+    """Return the tree-hash of the current git HEAD, or "" on any failure.
+
+    Used to construct substance-bound External-Review trailers (Phase 2,
+    2026-06-13). When this returns a hash, the emitted trailer is
+    `External-Review: <round-id> tree-hash:<40-hex>` and the server-side
+    CI gate verifies the binding. When this returns empty (git unreachable,
+    not a repo, timeout), the trailer falls back to legacy form and
+    the gate emits a deprecation warning.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD^{tree}"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
 
 
 def _load_guardrail_set() -> set[str]:
@@ -219,13 +252,22 @@ def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[st
             continue
 
         # Valid round found — compose the ready-to-paste merge body.
+        # Phase 2 (2026-06-13): include tree-hash from HEAD so the
+        # server-side CI gate can verify substance-binding. Falls back
+        # to legacy form if git is unreachable.
+        tree_hash = _current_head_tree_hash()
+        trailer = (
+            f"External-Review: {round_id} tree-hash:{tree_hash}"
+            if tree_hash
+            else f"External-Review: {round_id}"
+        )
         focus = getattr(rnd, "focus", "") or f"PR #{pr_number} merge under audit"
         merge_body = (
             f"{focus}\n\n"
             f"Reviewed via audit round {round_id} "
             f"(operator-CONFIRMS + external-AI-CONFIRMS, age {age_days:.1f}d, "
             f"within {recency_days}d recency window).\n\n"
-            f"External-Review: {round_id}"
+            f"{trailer}"
         )
         return round_id, merge_body, ""
 
