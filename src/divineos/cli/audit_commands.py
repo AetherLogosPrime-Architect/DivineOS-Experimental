@@ -1244,7 +1244,19 @@ def register(cli: click.Group) -> None:
             "focus is used as the title."
         ),
     )
-    def audit_prepare_merge_cmd(round_id: str, pr_title: str | None) -> None:
+    @click.option(
+        "--no-tree-hash",
+        is_flag=True,
+        default=False,
+        help=(
+            "Skip the tree-hash suffix in the emitted trailer (legacy form). "
+            "Default is to include tree-hash from the current HEAD so the "
+            "Phase 2 server-side gate can verify substance-binding. Use this "
+            "flag only when the operator is on a non-PR-head ref and the "
+            "auto-detected tree-hash would be wrong."
+        ),
+    )
+    def audit_prepare_merge_cmd(round_id: str, pr_title: str | None, no_tree_hash: bool) -> None:
         """Prepare a squash-merge commit message including the External-Review trailer.
 
         Phase 1 of the audit-stamp-attachment structural fix (claim ae9d70c4,
@@ -1373,16 +1385,47 @@ def register(cli: click.Group) -> None:
             f"within {_RECENCY_DAYS}d recency window)."
         )
         click.echo()
-        click.echo(f"External-Review: {round_id}")
+        # Phase 2 (2026-06-13): include tree-hash suffix so the server-side
+        # CI gate can verify substance-binding. Auto-detect from HEAD;
+        # fall back to legacy form on git failure with a visible warning.
+        trailer_tree_hash = ""
+        if not no_tree_hash:
+            import subprocess as _sp
+
+            try:
+                result = _sp.run(
+                    ["git", "rev-parse", "HEAD^{tree}"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=5,
+                )
+                trailer_tree_hash = result.stdout.strip()
+            except (_sp.CalledProcessError, _sp.TimeoutExpired, FileNotFoundError):
+                # git unreachable or not in a repo — fall through to legacy.
+                trailer_tree_hash = ""
+
+        if trailer_tree_hash:
+            click.echo(f"External-Review: {round_id} tree-hash:{trailer_tree_hash}")
+        else:
+            click.echo(f"External-Review: {round_id}")
         click.echo()
         click.echo("=" * 70)
-        click.secho(
-            "Paste the block above into the GitHub squash-merge commit message field.\n"
-            "The External-Review trailer satisfies the multi-party-review CI check.\n"
-            "Phase 1 helper per prereg-d695c9060158 — necessary but not sufficient.\n"
-            "Phase 2 (deferred): blocking GitHub Action when trailer missing.",
-            fg="cyan",
-        )
+        if trailer_tree_hash:
+            click.secho(
+                "Paste the block above into the GitHub squash-merge commit message field.\n"
+                "Trailer carries tree-hash binding (Phase 2); the server-side CI gate\n"
+                "verifies it matches the squash commit's tree. Substance-bound.",
+                fg="cyan",
+            )
+        else:
+            click.secho(
+                "Paste the block above into the GitHub squash-merge commit message field.\n"
+                "[!] Trailer is in LEGACY form (no tree-hash). The server-side gate will\n"
+                "    emit a DEPRECATED warning. Re-run from inside a git repo to include\n"
+                "    tree-hash binding, or pass --no-tree-hash to suppress this notice.",
+                fg="yellow",
+            )
 
     @audit_group.command("pr-merge-check")
     @click.argument("pr_number", type=int)
