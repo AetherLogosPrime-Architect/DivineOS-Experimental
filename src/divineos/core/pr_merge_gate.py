@@ -48,7 +48,17 @@ from pathlib import Path
 __guardrail_required__ = True
 
 _GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\s+(\d+)\b")
-_TRAILER_PATTERN = re.compile(r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE)
+# Trailer format (Phase 2, 2026-06-13):
+#   External-Review: <round-id> [tree-hash:<40-hex>]
+# Round-id is required; tree-hash suffix is optional during the
+# transition window. The server-side CI gate verifies tree-hash
+# when present; the local pre-merge gate only checks trailer
+# presence and round validity (substance-binding happens at the
+# CI layer, not here).
+_TRAILER_PATTERN = re.compile(
+    r"^External-Review:\s*(\S+)(?:\s+tree-hash:[a-f0-9]+)?",
+    re.MULTILINE | re.IGNORECASE,
+)
 _GUARDRAIL_LIST_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "guardrail_files.txt"
 )

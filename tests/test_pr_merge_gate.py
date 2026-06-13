@@ -54,6 +54,19 @@ class TestBlockReason:
             cmd = 'gh pr merge 99 --squash --body "fix\n\nExternal-Review: round-abc123"'
             assert pr_merge_gate.block_reason(cmd) is None
 
+    def test_guardrail_pr_with_tree_hash_trailer_passes(self) -> None:
+        """Phase 2 (2026-06-13): the trailer can carry an optional
+        tree-hash suffix for substance-binding. The local gate accepts
+        it; substance verification happens at the CI layer."""
+        with patch.object(
+            pr_merge_gate,
+            "audit_pr_for_guardrail_touches",
+            return_value=(True, ["src/divineos/core/moral_compass.py"]),
+        ):
+            tree_hash = "a" * 40
+            cmd = f'gh pr merge 99 --squash --body "fix\n\nExternal-Review: round-abc123 tree-hash:{tree_hash}"'
+            assert pr_merge_gate.block_reason(cmd) is None
+
     def test_gh_module_failure_fails_open(self) -> None:
         with patch.object(
             pr_merge_gate,
