@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from _git_test_helpers import safe_git_init
 from divineos.core.in_flight_branches import (
     BASE_REF,
     BRANCH_PREFIX,
@@ -56,12 +57,10 @@ def repo(tmp_path: Path) -> Path:
     claude/* branches at varying offsets from origin/main.
     """
     upstream = tmp_path / "upstream.git"
-    upstream.mkdir()
-    _git(upstream, "init", "--bare", "--initial-branch=main")
+    safe_git_init(upstream, "--bare", "--initial-branch=main")
 
     work = tmp_path / "work"
-    work.mkdir()
-    _git(work, "init", "--initial-branch=main")
+    safe_git_init(work, "--initial-branch=main")
     _git(work, "config", "user.email", "test@example.com")
     _git(work, "config", "user.name", "test")
     _git(work, "remote", "add", "origin", str(upstream))

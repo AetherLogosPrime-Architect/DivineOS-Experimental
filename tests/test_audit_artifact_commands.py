@@ -16,6 +16,8 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from _git_test_helpers import safe_git_init
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -78,9 +80,9 @@ class TestFullPathToLocalRemote:
     def test_pushes_orphan_commit_to_audit_ref(self, tmp_path, monkeypatch):
         # A local bare remote stands in for origin.
         bare = tmp_path / "remote.git"
-        _git(["init", "--bare", str(bare)], tmp_path)
+        safe_git_init(bare, "--bare")
         work = tmp_path / "work"
-        _git(["init", "-b", "main", str(work)], tmp_path)
+        safe_git_init(work, "-b", "main")
         _git(["config", "user.email", "t@t.t"], work)
         _git(["config", "user.name", "t"], work)
         (work / "f.txt").write_text("base", encoding="utf-8")
