@@ -19,6 +19,13 @@ is present, the running checkout claims ownership by writing the
 marker. Subsequent boots from the same checkout pass cleanly.
 Boots from a different checkout fail loud with a recovery message.
 
+Known misuse case (out of scope, find-bdd0090493bc): a symlinked
+data-home shared across two checkouts would bypass the ownership
+check because both checkouts read the same marker through the link.
+Not defended against — the design assumes data-homes are real
+directories. Symlink to a shared backing store is operator-deliberate
+configuration, not the failure mode this check was built for.
+
 This module deliberately lives separately from core/paths.py so
 that paths.py stays a pure path resolver (no filesystem mutation,
 no fail-loud raising). The two layers compose: paths.py decides
