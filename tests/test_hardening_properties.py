@@ -47,7 +47,11 @@ class TestEventImmutabilityProperty:
 
     @given(content=valid_content)
     @pytest.mark.slow
-    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=50,
+        suppress_health_check=[HealthCheck.too_slow],
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_event_immutability(self, content):
         """Test that events cannot be modified after storage."""
         session_id = initialize_session()
@@ -89,7 +93,11 @@ class TestToolCallResultPairingProperty:
         result=valid_content,
     )
     @pytest.mark.slow
-    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=30,
+        suppress_health_check=[HealthCheck.too_slow],
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_tool_call_result_pairing(self, tool_name, result):
         """Test that tool calls are paired with results."""
         # Initialize session
