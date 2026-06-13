@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (349 commands across 33 modules)
+  cli/                         CLI package (355 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -38,6 +38,7 @@ src/divineos/
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
+    voice_commands.py          voice: descriptive substrate for voice-vs-report shape (Aria 2026-06-12 design + Andrew structural-fix call) — raw dimensions (first_person/bold_label/bullet counts), trend reads per dimension, NO composite voice_score; post-hoc only, never mid-write
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     compass_commands.py        Moral compass reading and observations
@@ -502,6 +503,7 @@ src/divineos/
     lepos_auto.py              Auto-discharge + close-time block for lepos translation-debt.
     obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
     push_detection.py          Detect whether a shell command is a `git push` invocation.
+    voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -553,7 +555,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         8,117+ tests (real DB, minimal mocks)
+tests/                         8,168+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
