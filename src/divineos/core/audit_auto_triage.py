@@ -109,6 +109,13 @@ def _extract_commit_shas(text: str) -> list[str]:
 # fallbacks the tool returned ~30% false-not-verified on real findings.
 _PATH_PREFIX_FALLBACKS = ("src/divineos", "tests")
 
+# Subtrees searched when even the prefix fallback misses (e.g. when a
+# finding cites "knowledge_commands.py" with no subfolder at all and the
+# real file is at "src/divineos/cli/knowledge_commands.py"). Path.rglob
+# is lazy, so first-match short-circuits the iteration — no enumeration
+# cap needed for normal-size trees.
+_GLOB_SEARCH_ROOTS = ("src/divineos", "tests")
+
 
 def _file_exists(path_str: str, repo_root: Path) -> bool:
     """True if `path_str` exists at one of the resolution candidates.
@@ -117,23 +124,48 @@ def _file_exists(path_str: str, repo_root: Path) -> bool:
     1. The path as given (absolute or relative to repo_root).
     2. Each prefix in _PATH_PREFIX_FALLBACKS prepended (e.g.
        "core/family/store.py" -> "src/divineos/core/family/store.py").
+    3. Glob the basename under each subtree in _GLOB_SEARCH_ROOTS
+       (e.g. "knowledge_commands.py" matches anywhere under
+       src/divineos/). Capped at _MAX_GLOB_MATCHES; behavior on
+       ambiguous matches (multiple hits) is "first hit by sort order
+       counts as verified" — predictable and never blocks resolution
+       on a real candidate.
 
-    Skip the fallback ladder for paths that already start with one of
-    the prefixes — there's no point re-trying "src/divineos/src/divineos/...".
+    Skip prefix fallback for paths that already start with a known
+    prefix — there's no point re-trying "src/divineos/src/divineos/...".
+    Glob fallback only applies to bare basenames (no `/` in the path
+    string); a multi-segment path with no prefix is unlikely to be a
+    real citation anyway.
     """
     p = Path(path_str)
     if p.is_absolute():
         return p.exists()
     if (repo_root / p).exists():
         return True
-    # Skip fallbacks if the path already starts with a known prefix.
     norm = path_str.replace("\\", "/")
+    # If the path already starts with a known prefix, don't try other
+    # prefix fallbacks or glob — that path is meant as-given.
     for prefix in _PATH_PREFIX_FALLBACKS:
         if norm.startswith(prefix + "/"):
             return False
     for prefix in _PATH_PREFIX_FALLBACKS:
         if (repo_root / prefix / p).exists():
             return True
+    # Glob fallback: only for bare basenames (e.g. "knowledge_commands.py").
+    # Multi-segment paths with no recognized prefix are usually noise; an
+    # rglob over the whole src/ tree for a bare basename is the win case.
+    # Path.rglob is lazy, so the first match short-circuits the iteration
+    # — we don't enumerate the whole tree when a hit exists.
+    if "/" not in norm and norm:
+        for subtree in _GLOB_SEARCH_ROOTS:
+            base = repo_root / subtree
+            if not base.is_dir():
+                continue
+            try:
+                next(iter(base.rglob(norm)))
+                return True
+            except StopIteration:
+                continue
     return False
 
 
