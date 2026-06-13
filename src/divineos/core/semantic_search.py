@@ -82,12 +82,22 @@ class Chunk:
 
 @dataclass
 class SearchHit:
-    """A search result — a chunk that matched the query, with metadata."""
+    """A search result — a chunk that matched the query, with metadata.
+
+    ``similarity`` is the cosine-similarity of the query embedding to the
+    chunk's stored embedding (the first-pass score).
+
+    ``rerank_score`` is an optional cross-encoder score from a second
+    re-ranking pass (see ``semantic_search_rerank.rerank``). None when
+    no rerank has been applied. When present, the consumer typically
+    sorts by rerank_score and treats similarity as auxiliary context.
+    """
 
     source_path: str
     paragraph_index: int
     text: str
     similarity: float
+    rerank_score: float | None = None
 
 
 _PARAGRAPH_SEP = re.compile(r"\n\s*\n+")

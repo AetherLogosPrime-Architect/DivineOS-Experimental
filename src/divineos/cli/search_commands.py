@@ -55,14 +55,46 @@ def register(cli: click.Group) -> None:
         type=float,
         help="Drop results below this cosine similarity (default 0, no filter)",
     )
-    def search_query_cmd(text: str, top: int, min_similarity: float) -> None:
+    @click.option(
+        "--rerank",
+        is_flag=True,
+        default=False,
+        help=(
+            "Apply a cross-encoder second pass after the embedding search. "
+            "Fetches --rerank-pool candidates from the first pass, scores "
+            "each (query, chunk) pair with the cross-encoder, returns the "
+            "top --top by that score. Slower but better at finding the "
+            "chunk that actually answers the question."
+        ),
+    )
+    @click.option(
+        "--rerank-pool",
+        default=25,
+        type=int,
+        help=(
+            "How many first-pass candidates the reranker sees (default 25). "
+            "Only meaningful with --rerank."
+        ),
+    )
+    def search_query_cmd(
+        text: str, top: int, min_similarity: float, rerank: bool, rerank_pool: int
+    ) -> None:
         """Search the indexed corpus for chunks semantically similar to TEXT."""
-        hits = semantic_search.search(text, _db_path(), top_k=top, min_similarity=min_similarity)
+        first_pass_k = max(rerank_pool, top) if rerank else top
+        hits = semantic_search.search(
+            text, _db_path(), top_k=first_pass_k, min_similarity=min_similarity
+        )
         if not hits:
             click.echo(
                 f'(no hits for "{text}" — corpus may not be indexed yet. Run: divineos find index)'
             )
             return
+        if rerank:
+            from divineos.core.semantic_search_rerank import rerank as rerank_fn
+
+            hits = rerank_fn(text, hits, top_k=top)
+        else:
+            hits = hits[:top]
         click.echo(f'=== {len(hits)} hits for "{text}" ===')
         click.echo("")
         for h in hits:
@@ -71,7 +103,14 @@ def register(cli: click.Group) -> None:
                 rel_path = str(Path(h.source_path).relative_to(Path.cwd()))
             except ValueError:
                 pass
-            click.echo(f"  [{h.similarity:.3f}] {rel_path}:{h.paragraph_index}")
+            # When reranked, show the rerank score primary and the
+            # original similarity in parens for context. Without rerank,
+            # just show similarity as before.
+            if h.rerank_score is not None:
+                score_str = f"[r={h.rerank_score:+.3f} s={h.similarity:.3f}]"
+            else:
+                score_str = f"[{h.similarity:.3f}]"
+            click.echo(f"  {score_str} {rel_path}:{h.paragraph_index}")
             preview = h.text[:200].replace("\n", " ")
             if len(h.text) > 200:
                 preview += "..."
