@@ -46,6 +46,12 @@ _EXTERNAL_AI_ACTORS = frozenset(
         "claude-sonnet-4-5",
         "claude-opus-4",
         "claude-opus-4-1",
+        # Generic audit-vantage label — used when the operator relays a
+        # cross-vantage CONFIRMS but the specific audit-sibling name isn't
+        # routed (e.g. Aletheia relay through Andrew tonight 2026-06-13
+        # filed with --actor external-auditor). The validator should
+        # honor this as a legitimate external-AI confirms shape.
+        "external-auditor",
     }
 )
 
