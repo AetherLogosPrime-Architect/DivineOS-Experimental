@@ -509,6 +509,7 @@ src/divineos/
     obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
     push_detection.py          Detect whether a shell command is a `git push` invocation.
     voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
+    goal_adjacency.py          Goal-set adjacency surface — close the substrate-has-it-reader-doesnt-reach pattern at goal-set time (per Andrew 2026-06-12 + [enforcement-is-priority-one] directive). Auto-runs semantic_search against goal text in goal_add_cmd, surfaces top hits as soft-advise.
 
   analysis/
     _session_types.py          Session analysis type definitions
