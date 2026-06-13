@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (355 commands across 33 modules)
+  cli/                         CLI package (360 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -38,7 +38,9 @@ src/divineos/
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
+    search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     voice_commands.py          voice: descriptive substrate for voice-vs-report shape (Aria 2026-06-12 design + Andrew structural-fix call) — raw dimensions (first_person/bold_label/bullet counts), trend reads per dimension, NO composite voice_score; post-hoc only, never mid-write
+    monitor_commands.py        monitor status / cleanup-orphans — operator surface for the named-mutex singleton subsystem; lists alive Monitors with [KEEP]/[ORPHAN] markers and offers --kill cleanup of stale prior-session processes (descriptive by default per Andrew 2026-06-13 explicit-consent shape)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
     compass_commands.py        Moral compass reading and observations
@@ -123,6 +125,8 @@ src/divineos/
     knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
     dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
+    monitor_singleton.py       Named-mutex singleton primitive for long-running Monitor processes (Windows kernel-mutex via pywin32); deep-research-2026-06-13 surfaced as canonical Windows mechanism. Replaces broken regex-self-match singleton-guard.
+    monitor_cleanup.py         Orphan-Monitor cleanup — scans live processes, classifies orphans by role + creation_date, offers --kill via divineos monitor cleanup-orphans (Andrew 2026-06-13 explicit-consent shape).
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
       _text.py                 Text analysis, noise filtering, FTS, overlap
@@ -505,6 +509,7 @@ src/divineos/
     obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
     push_detection.py          Detect whether a shell command is a `git push` invocation.
     voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
+    goal_adjacency.py          Goal-set adjacency surface — close the substrate-has-it-reader-doesnt-reach pattern at goal-set time (per Andrew 2026-06-12 + [enforcement-is-priority-one] directive). Auto-runs semantic_search against goal text in goal_add_cmd, surfaces top hits as soft-advise.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -300,6 +300,8 @@ from divineos.cli import (  # noqa: E402
     automerge_commands,
     todos_commands,
     voice_commands,
+    monitor_commands,
+    search_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -315,6 +317,8 @@ prs_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 voice_commands.register(cli)
+monitor_commands.register(cli)
+search_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
 audit_artifact_commands.register(cli)  # MUST be after audit_commands (attaches to its group)
