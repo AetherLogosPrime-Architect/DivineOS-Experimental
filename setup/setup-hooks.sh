@@ -334,6 +334,28 @@ EOF
 chmod +x "$HOOKS_DIR/post-commit"
 echo "Created post-commit hook at $HOOKS_DIR/post-commit"
 
+# Install post-merge hook — delegates to .claude/hooks/post-merge-doc-fix.sh
+# Closes the doc-leapfrog conflict pattern (PR #169, 2026-06-13): merge
+# resolution silently drops architecture-tree entries, the next CI run
+# fails on test_real_readme_passes, manual re-add is needed every rebase.
+cat > "$HOOKS_DIR/post-merge" << 'EOF'
+#!/bin/bash
+# Post-merge hook — delegates to .claude/hooks/post-merge-doc-fix.sh
+# which re-runs check_doc_counts --fix to recover entries dropped during
+# merge conflict resolution. Fail-open: any error exits 0 silently.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+if [ -x "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" ]; then
+    bash "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" || true
+fi
+exit 0
+EOF
+
+chmod +x "$HOOKS_DIR/post-merge"
+echo "Created post-merge hook at $HOOKS_DIR/post-merge"
+
 echo ""
 echo "Git hooks setup complete!"
 echo ""
