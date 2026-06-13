@@ -17,6 +17,7 @@ import subprocess
 
 import pytest
 
+from _git_test_helpers import safe_git_init
 from divineos.core.branch_health import (
     BranchHealthFinding,
     check_all,
@@ -41,8 +42,7 @@ def _git(args: list[str], cwd) -> None:
 def fresh_repo(tmp_path):
     """A repo with a single commit on main."""
     repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(["init", "--initial-branch=main"], cwd=repo)
+    safe_git_init(repo, "--initial-branch=main")
     _git(["config", "user.email", "test@test"], cwd=repo)
     _git(["config", "user.name", "test"], cwd=repo)
     (repo / "README.md").write_text("hello", encoding="utf-8")
