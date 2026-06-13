@@ -497,7 +497,9 @@ def _ensure_embeddings() -> bool:
     try:
         from sentence_transformers import SentenceTransformer
 
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        from divineos.core._embedding_device import select_device
+
+        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device=select_device())
         _grounded_embeddings = _embedding_model.encode(_GROUNDED_REFERENCE, convert_to_numpy=True)
         _esoteric_embeddings = _embedding_model.encode(_ESOTERIC_REFERENCE, convert_to_numpy=True)
         return True
