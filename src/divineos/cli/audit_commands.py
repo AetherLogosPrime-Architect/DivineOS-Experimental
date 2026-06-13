@@ -1658,6 +1658,79 @@ def register(cli: click.Group) -> None:
                 click.echo(f"    {click.style(f['severity'], fg=sev_color)} {f['title']}")
         click.echo()
 
+    @audit_group.command("auto-triage")
+    @click.option(
+        "--severity",
+        default="HIGH",
+        help="Severity filter (HIGH/MEDIUM/LOW/CRITICAL/INFO). Default HIGH.",
+    )
+    @click.option(
+        "--min-confidence",
+        default=0.7,
+        type=float,
+        help="Only show findings whose verified-citation ratio is >= this (0.0-1.0). Default 0.7.",
+    )
+    @click.option(
+        "--min-citations",
+        default=1,
+        type=int,
+        help="Skip findings with fewer than this many citations. Default 1.",
+    )
+    @click.option(
+        "--limit",
+        default=200,
+        type=int,
+        help="Max OPEN findings to examine. Default 200.",
+    )
+    def audit_auto_triage_cmd(
+        severity: str, min_confidence: float, min_citations: int, limit: int
+    ) -> None:
+        """Surface OPEN findings whose cited files/commits actually exist.
+
+        Many findings are completion-narratives — write-ups of work just
+        landed — and never get marked resolved. This scans descriptions
+        for file paths and commit SHAs, checks each against the live
+        tree and git log, and ranks by verified/total. The operator
+        decides what to close; the tool only surfaces candidates.
+        """
+        from divineos.core.audit_auto_triage import scan_open_findings
+
+        verdicts = scan_open_findings(
+            severity=severity if severity.upper() != "ALL" else None,
+            min_confidence=min_confidence,
+            min_citations=min_citations,
+            limit=limit,
+        )
+        if not verdicts:
+            click.secho(
+                f"[~] No OPEN {severity} findings met the threshold "
+                f"(min_confidence={min_confidence}, min_citations={min_citations}).",
+                fg="bright_black",
+            )
+            return
+
+        click.secho(
+            f"\n=== Auto-triage candidates: {len(verdicts)} OPEN {severity} finding(s) ===",
+            fg="cyan",
+            bold=True,
+        )
+        click.echo("(Citation verification only — operator decides which to resolve.)\n")
+        for v in verdicts:
+            pct = int(v.confidence * 100)
+            color = "green" if v.confidence >= 0.9 else "yellow"
+            click.echo(
+                f"  {click.style(f'{pct:3d}%', fg=color)} "
+                f"({v.verified_count}/{v.total} cited) "
+                f"{v.finding.finding_id}  {v.finding.title[:70]}"
+            )
+            for c in v.citations:
+                tick = click.style("OK", fg="green") if c.verified else click.style("X ", fg="red")
+                click.echo(f"      {tick} {c.kind}: {c.target}")
+            click.echo("")
+        click.echo(
+            'Resolve a candidate with: divineos audit resolve <id> --status RESOLVED --notes "..."'
+        )
+
     @audit_group.command("predict")
     @click.option("--round", "round_id", required=True, help="Audit round ID")
     @click.option(
