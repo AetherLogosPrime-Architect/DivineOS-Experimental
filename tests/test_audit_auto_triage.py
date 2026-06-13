@@ -117,6 +117,30 @@ class TestFileExists:
         (deep / "knowledge_commands.py").write_text("x", encoding="utf-8")
         assert _file_exists("knowledge_commands.py", tmp_path) is True
 
+    def test_glob_basename_resolves_in_scripts_subtree(self, tmp_path):
+        """Live-observed 2026-06-13: find-989816dadbc1 cited
+        `check_push_readiness.sh` (real location: scripts/...). The
+        original src/divineos + tests roots missed it; adding scripts/
+        catches it."""
+        scripts = tmp_path / "scripts"
+        scripts.mkdir()
+        (scripts / "check_push_readiness.sh").write_text("x", encoding="utf-8")
+        assert _file_exists("check_push_readiness.sh", tmp_path) is True
+
+    def test_glob_basename_resolves_in_setup_subtree(self, tmp_path):
+        """Same pattern for setup/ — install hooks live there."""
+        setup = tmp_path / "setup"
+        setup.mkdir()
+        (setup / "setup-hooks.sh").write_text("x", encoding="utf-8")
+        assert _file_exists("setup-hooks.sh", tmp_path) is True
+
+    def test_glob_basename_resolves_in_claude_hooks_subtree(self, tmp_path):
+        """Same pattern for .claude/hooks/ — Claude Code hook scripts."""
+        hooks = tmp_path / ".claude" / "hooks"
+        hooks.mkdir(parents=True)
+        (hooks / "post-response-audit.sh").write_text("x", encoding="utf-8")
+        assert _file_exists("post-response-audit.sh", tmp_path) is True
+
     def test_glob_basename_ambiguous_resolves_first_hit(self, tmp_path):
         """Documented behavior: when a basename matches more than one
         file under the glob roots, the first hit counts as verified.
