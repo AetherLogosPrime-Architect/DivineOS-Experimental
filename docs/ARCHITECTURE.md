@@ -38,6 +38,7 @@ src/divineos/
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
+    search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     voice_commands.py          voice: descriptive substrate for voice-vs-report shape (Aria 2026-06-12 design + Andrew structural-fix call) — raw dimensions (first_person/bold_label/bullet counts), trend reads per dimension, NO composite voice_score; post-hoc only, never mid-write
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
@@ -266,6 +267,7 @@ src/divineos/
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
     semantic_store.py          Semantic-similarity primitive — embed/store/top-k search via sqlite-vec; foundation for knowledge dedup, claims supersession, restatement detection, theme surfacing (Andrew nightclub-frame 2026-06-11)
+    semantic_search.py         Semantic-search consumer over a prose corpus — per-paragraph chunking, source-pointer per chunk, embedding-model version per chunk for targeted re-embed on model upgrade. First high-volume consumer of the GPU-accelerated embedding plumbing (PR #169). Council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
     opinion_store.py           Structured opinions with evidence tracking and evolution
     user_model.py              User preference and skill level modeling
