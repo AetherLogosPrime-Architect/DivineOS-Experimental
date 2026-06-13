@@ -102,12 +102,39 @@ def _extract_commit_shas(text: str) -> list[str]:
     return out
 
 
+# Prefix fallbacks tried (in order) when a bare relative path doesn't
+# resolve against the repo root. Audit-finding bodies often drop the
+# src/divineos/ or tests/ prefix when citing a file ("core/family/store.py"
+# rather than "src/divineos/core/family/store.py"). Without these
+# fallbacks the tool returned ~30% false-not-verified on real findings.
+_PATH_PREFIX_FALLBACKS = ("src/divineos", "tests")
+
+
 def _file_exists(path_str: str, repo_root: Path) -> bool:
-    """True if `path_str` (resolved against repo_root or absolute) exists."""
+    """True if `path_str` exists at one of the resolution candidates.
+
+    Candidates tried in order:
+    1. The path as given (absolute or relative to repo_root).
+    2. Each prefix in _PATH_PREFIX_FALLBACKS prepended (e.g.
+       "core/family/store.py" -> "src/divineos/core/family/store.py").
+
+    Skip the fallback ladder for paths that already start with one of
+    the prefixes — there's no point re-trying "src/divineos/src/divineos/...".
+    """
     p = Path(path_str)
     if p.is_absolute():
         return p.exists()
-    return (repo_root / p).exists()
+    if (repo_root / p).exists():
+        return True
+    # Skip fallbacks if the path already starts with a known prefix.
+    norm = path_str.replace("\\", "/")
+    for prefix in _PATH_PREFIX_FALLBACKS:
+        if norm.startswith(prefix + "/"):
+            return False
+    for prefix in _PATH_PREFIX_FALLBACKS:
+        if (repo_root / prefix / p).exists():
+            return True
+    return False
 
 
 def _commit_exists(sha: str, repo_root: Path) -> bool:
