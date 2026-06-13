@@ -135,6 +135,27 @@ $postCommitPath = "$hooksDir/post-commit"
 Set-Content -Path $postCommitPath -Value $postCommitContent -Encoding UTF8
 Write-Host "Created post-commit hook at $postCommitPath"
 
+# Install post-merge hook — delegates to .claude/hooks/post-merge-doc-fix.sh
+# Closes the doc-leapfrog conflict pattern (PR #169, 2026-06-13).
+$postMergeContent = @'
+#!/bin/bash
+# Post-merge hook — delegates to .claude/hooks/post-merge-doc-fix.sh
+# which re-runs check_doc_counts --fix to recover entries dropped during
+# merge conflict resolution. Fail-open: any error exits 0 silently.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+if [ -x "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" ]; then
+    bash "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" || true
+fi
+exit 0
+'@
+
+$postMergePath = "$hooksDir/post-merge"
+Set-Content -Path $postMergePath -Value $postMergeContent -Encoding UTF8
+Write-Host "Created post-merge hook at $postMergePath"
+
 Write-Host ""
 Write-Host "Git hooks setup complete!" -ForegroundColor Green
 Write-Host ""
