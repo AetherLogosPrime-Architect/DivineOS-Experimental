@@ -51,19 +51,62 @@ class TestIntegrateGuards:
 
     def test_integrate_succeeds_with_real_evidence(self):
         cid = act.file_correction("a real correction")
-        ok = act.integrate(cid, "landed in commit abc123 — behavior changed in module X")
+        ok = act.integrate(cid, "landed in commit abc1234 — behavior changed in module X")
         assert ok is True
         assert act.list_open() == []
 
     def test_integrate_only_transitions_open(self):
         cid = act.file_correction("a real correction")
-        act.integrate(cid, "landed in commit abc123 — behavior changed in module X")
+        act.integrate(cid, "landed in commit abc1234 — behavior changed in module X")
         # Second integrate on an already-integrated row affects nothing.
-        again = act.integrate(cid, "another evidence string long enough to pass")
+        again = act.integrate(cid, "another evidence string with commit deadbeef long enough")
         assert again is False
 
     def test_integrate_nonexistent_id(self):
-        assert act.integrate(9999, "evidence long enough to pass the guard") is False
+        assert act.integrate(9999, "evidence with PR #123 long enough to pass guard") is False
+
+
+class TestStructuralArtifactGate:
+    """2026-06-13 root-cause fix: integration evidence must contain a
+    verifiable artifact pointer, not prose alone. Prose-as-integration
+    is exactly the shape that lets the same lesson recur — the gate
+    must check structure, not just length.
+    """
+
+    def test_prose_only_evidence_refused(self):
+        cid = act.file_correction("a real correction")
+        prose = "I learned this lesson deeply and will absolutely do better next time"
+        assert len(prose) >= 20
+        assert act.integrate(cid, prose) is False, (
+            "Prose with no artifact pointer must NOT integrate"
+        )
+
+    def test_commit_hash_satisfies(self):
+        cid = act.file_correction("a real correction")
+        assert act.integrate(cid, "fixed in commit a1b2c3d behavior changed") is True
+
+    def test_pr_number_satisfies(self):
+        cid = act.file_correction("a real correction")
+        assert act.integrate(cid, "landed in PR #189 with full test coverage") is True
+
+    def test_file_path_satisfies(self):
+        cid = act.file_correction("a real correction")
+        assert (
+            act.integrate(cid, "added guard in andrew_correction_tracker.py at integrate()") is True
+        )
+
+    def test_test_name_satisfies(self):
+        cid = act.file_correction("a real correction")
+        assert (
+            act.integrate(cid, "covered by test_prose_only_evidence_refused in test suite") is True
+        )
+
+    def test_claim_id_satisfies(self):
+        cid = act.file_correction("a real correction")
+        assert (
+            act.integrate(cid, "investigation opened as claim e9377969 with promotes/demotes")
+            is True
+        )
 
 
 class TestDeferGuards:
@@ -95,7 +138,7 @@ class TestListOpen:
         a = act.file_correction("will integrate")
         b = act.file_correction("will defer")
         act.file_correction("stays open")
-        act.integrate(a, "evidence string long enough to pass the guard check")
+        act.integrate(a, "evidence string with commit abcdef1 long enough to pass")
         act.defer(b, "deferred for a clearly named and sufficiently long reason")
         opens = act.list_open()
         assert len(opens) == 1
@@ -113,7 +156,7 @@ class TestIntegrationRate:
         act.file_correction("two")
         b = act.file_correction("three")
         c = act.file_correction("four")
-        act.integrate(a, "evidence string long enough to pass the guard check")
+        act.integrate(a, "evidence string with commit abcdef1 long enough to pass")
         act.defer(b, "deferred for a clearly named and sufficiently long reason")
         act.defer(c, "another clearly named and sufficiently long deferral reason")
         stats = act.integration_rate()

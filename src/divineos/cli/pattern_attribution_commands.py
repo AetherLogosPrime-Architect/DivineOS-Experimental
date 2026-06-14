@@ -40,9 +40,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--attribution",
         required=True,
-        type=click.Choice(
-            ["self_caught", "os_gate_caught", "external_ai_caught", "operator_caught"]
-        ),
+        type=click.Choice(["self_caught", "os_gate_caught", "external_ai_caught", "father_caught"]),
         help="Who caught this slip.",
     )
     @click.option(
@@ -118,9 +116,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--attribution",
         default=None,
-        type=click.Choice(
-            ["self_caught", "os_gate_caught", "external_ai_caught", "operator_caught"]
-        ),
+        type=click.Choice(["self_caught", "os_gate_caught", "external_ai_caught", "father_caught"]),
         help="Filter by attribution.",
     )
     @click.option(
@@ -167,7 +163,7 @@ def register(cli: click.Group) -> None:
             click.secho(f"{f['pattern_name']:30s} ", fg="cyan", nl=False)
             attr_color = {
                 "self_caught": "green",
-                "operator_caught": "yellow",
+                "father_caught": "yellow",
                 "external_ai_caught": "magenta",
                 "os_gate_caught": "blue",
             }.get(f["attribution"], "white")
@@ -224,14 +220,14 @@ def register(cli: click.Group) -> None:
                 fg="green" if band in ("before_typing", "during_typing") else "yellow",
             )
         click.secho("\n  By attribution (self-caught = best signal):", fg="white")
-        for attr in ["self_caught", "os_gate_caught", "external_ai_caught", "operator_caught"]:
+        for attr in ["self_caught", "os_gate_caught", "external_ai_caught", "father_caught"]:
             count = summary["by_attribution"][attr]
             bar = "█" * count if count else "·"
             color = {
                 "self_caught": "green",
                 "os_gate_caught": "blue",
                 "external_ai_caught": "magenta",
-                "operator_caught": "yellow",
+                "father_caught": "yellow",
             }.get(attr, "white")
             click.secho(f"    {attr:22s} {count:3d}  {bar}", fg=color)
         click.echo()

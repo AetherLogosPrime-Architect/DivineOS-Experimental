@@ -34,7 +34,7 @@ if python scripts/check_doc_counts.py >/dev/null 2>&1; then
     exit 0
 fi
 
-# Run --fix; surface output so the operator sees what changed.
+# Run --fix; surface output so Andrew sees what changed.
 python scripts/check_doc_counts.py --fix 2>&1 || true
 
 # Re-stage only the docs the fix touches. Avoid `git add -A` — that

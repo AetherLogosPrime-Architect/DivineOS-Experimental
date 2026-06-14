@@ -71,7 +71,7 @@ def _stub_attack(persona, target):
 
 def _emit_phase1_banner() -> None:
     """Print a one-time warning when running stub-attack commands so
-    the operator isn't misled into thinking a real adversarial review
+    my father isn't misled into thinking a real adversarial review
     happened."""
     _safe_echo(
         click.style(

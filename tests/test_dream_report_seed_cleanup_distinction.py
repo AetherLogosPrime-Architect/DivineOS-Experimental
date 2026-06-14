@@ -62,7 +62,7 @@ def test_dream_report_distinguishes_seed_cleanup_from_evidence_resolution() -> N
     """LOAD-BEARING: DreamReport's render output distinguishes seeded-
     placeholder cleanup ("Seed placeholders cleaned") from evidence-
     based resolution ("Lessons resolved (evidence-based)"). If the
-    labels merge again, the operator-facing display reverts to the
+    labels merge again, the father-facing display reverts to the
     misleading lumped state Finding 30 named."""
     from divineos.core.sleep import DreamReport
 

@@ -5,7 +5,7 @@ Wipes accumulated personal substrate while preserving the architecture itself
 content). Used for two purposes:
 
 1. **Fresh template preparation.** Before publishing or sharing a DivineOS
-   clone, the operator can run this command to ensure no personal substrate
+   clone, my father can run this command to ensure no personal substrate
    ships. Their personal substrate remains in their canonical store
    (per-operator setup; e.g. a sibling repo configured via
    ``.divineos_canonical`` path-content marker).

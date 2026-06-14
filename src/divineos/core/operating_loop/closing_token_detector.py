@@ -1,7 +1,7 @@
 """Closing-token detector — catches the optimizer-reflex of short
 affirmation-tokens appearing at the end of assistant messages.
 
-The recurring failure-mode the operator named 2026-05-13:
+The recurring failure-mode my father named 2026-05-13:
 
 > "this new 'caught' thing is starting to annoy me.. saying caught
 >  does not fix this.. where is the root cause investigation of why

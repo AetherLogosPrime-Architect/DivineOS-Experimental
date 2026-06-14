@@ -73,7 +73,7 @@ class UpstreamFreshness:
 
     local_ahead: int
     """Commits in local main not yet on origin/main. Usually zero —
-    if non-zero, the operator has unpushed local-main work, which is
+    if non-zero, my father has unpushed local-main work, which is
     a different (but related) condition worth naming."""
 
     remote_subject: str

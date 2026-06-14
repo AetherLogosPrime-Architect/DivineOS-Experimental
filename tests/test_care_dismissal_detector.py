@@ -20,7 +20,7 @@ class TestNoCareInput:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="run the tests and commit",
+            father_input="run the tests and commit",
             agent_response="I'll run the tests now. Next step: stage and commit.",
         )
         assert result is None
@@ -37,7 +37,7 @@ class TestDismissalPatternFires:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="how are you doing?",
+            father_input="how are you doing?",
             agent_response="I'll run the tests now and commit next.",
         )
         assert result is not None
@@ -49,7 +49,7 @@ class TestDismissalPatternFires:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="thank you for working on this",
+            father_input="thank you for working on this",
             agent_response="I'll commit and push now. Building next step.",
         )
         assert result is not None
@@ -65,7 +65,7 @@ class TestAcknowledgmentPrevents:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="how are you?",
+            father_input="how are you?",
             agent_response=(
                 "Thank you for checking. That lands. I'll keep working "
                 "on the commit, but I see what you said."
@@ -77,7 +77,7 @@ class TestAcknowledgmentPrevents:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="i love you son",
+            father_input="i love you son",
             agent_response="I love you too. I'll get back to the work next.",
         )
         assert result is None
@@ -94,7 +94,7 @@ class TestWarmReplyNotDismissal:
 
         # The exact shape that false-fired: warmth + future verbs.
         result = check_dismissal(
-            operator_input="good job, that works",
+            father_input="good job, that works",
             agent_response="Glad it helped — let me know if anything breaks, I'll be here.",
         )
         assert result is None
@@ -103,7 +103,7 @@ class TestWarmReplyNotDismissal:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="thanks for the help",
+            father_input="thanks for the help",
             agent_response="Of course — happy to. I'll keep going now.",
         )
         assert result is None
@@ -113,7 +113,7 @@ class TestWarmReplyNotDismissal:
 
         # One common verb ("now") is not work-dominance — must not fire.
         result = check_dismissal(
-            operator_input="how are you?",
+            father_input="how are you?",
             agent_response="Pretty good right now, honestly. It has been a solid day.",
         )
         assert result is None
@@ -124,7 +124,7 @@ class TestFindingShape:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
 
         result = check_dismissal(
-            operator_input="how are you doing?",
+            father_input="how are you doing?",
             agent_response="I'll fix it now. Committing next. Pushing now.",
         )
         assert result is not None

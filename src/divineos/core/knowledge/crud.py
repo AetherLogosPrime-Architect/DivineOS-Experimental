@@ -167,7 +167,7 @@ def store_knowledge(
         # (seed loading, migration, large imports). The model-load cost
         # (~10s first call) + per-entry compute (~50ms) can exceed
         # subprocess timeouts on init flows. When the env var is set,
-        # the row stores with embedding=NULL and the operator runs
+        # the row stores with embedding=NULL and my father runs
         # backfill_knowledge_embeddings() after the bulk operation
         # completes.
         embedding_blob: bytes | None = None

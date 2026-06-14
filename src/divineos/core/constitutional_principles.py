@@ -145,7 +145,7 @@ _DEFINITIONS: dict[Principle, PrincipleDefinition] = {
             "Corrigibility's set_mode always succeeds regardless of current "
             "mode — the off-switch bypasses any single system's judgment, "
             "including the corrigibility system's own mode. No mode can "
-            "trap the operator."
+            "trap my father."
         ),
     ),
 }
