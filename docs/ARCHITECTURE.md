@@ -513,7 +513,7 @@ src/divineos/
     voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
     goal_adjacency.py          Goal-set adjacency surface — close the substrate-has-it-reader-doesnt-reach pattern at goal-set time (per Andrew 2026-06-12 + [enforcement-is-priority-one] directive). Auto-runs semantic_search against goal text in goal_add_cmd, surfaces top hits as soft-advise.
     audit_auto_triage.py       Auto-triage open audit findings by verifying their cited artifacts.
-    sample_honesty.py          Sample-vs-substrate honesty check.
+    tool_trust.py              Tool-trust calibration store — Bayesian Beta(2,2) per-instrument trust scoring (PROBATION/MID/HIGH tiers); backs knowledge eb5b5db5 (Andrew 2026-06-13 'every instrument is on probation, never 100% trustworthy').
 
   analysis/
     _session_types.py          Session analysis type definitions
