@@ -56,9 +56,10 @@ _GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\s+(\d+)\b")
 # presence and round validity (substance-binding happens at the
 # CI layer, not here).
 _TRAILER_PATTERN = re.compile(
-    r"^External-Review:\s*(\S+)(?:\s+tree-hash:[a-f0-9]+)?",
+    r"^External-Review:\s*(\S+)(?:\s+tree-hash:([a-f0-9]+))?",
     re.MULTILINE | re.IGNORECASE,
 )
+# Captures: group 1 = round-id, group 2 = tree-hash (or None when omitted).
 _GUARDRAIL_LIST_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "guardrail_files.txt"
 )
@@ -154,6 +155,58 @@ def _command_has_external_review_trailer(command: str) -> bool:
     distinctive enough that regex on the raw command suffices.
     """
     return bool(_TRAILER_PATTERN.search(command))
+
+
+def _command_trailer_tree_hash_mismatch_reason(command: str) -> str | None:
+    """Return a denial message if the trailer carries a tree-hash that
+    does NOT match the current HEAD tree-hash, else None.
+
+    Aletheia 2026-06-14 substance-audit finding: the prior gate only
+    checked trailer PRESENCE. A trailer carrying a wrong tree-hash
+    still passed because the local gate trusted the textual claim
+    instead of verifying the substance. Same failure-shape as the
+    bypass-7 leak — happy-path check, no adversarial reject.
+
+    This closes the gap at the local layer:
+      - No trailer  → None (block_reason has the legacy denial path)
+      - Trailer with no tree-hash → None (transition window, see
+        prereg-b6dcddd005b0)
+      - Trailer with tree-hash that EQUALS HEAD → None (correctly bound)
+      - Trailer with tree-hash that DOES NOT equal HEAD → block message
+
+    Fail-open on git errors: if we can't compute the current HEAD
+    tree-hash, we have no ground truth to compare against, so we don't
+    block on hash mismatch (the trailer-presence check still applies).
+    The server-side CI gate is the second line; this is defense in
+    depth at the local layer.
+    """
+    match = _TRAILER_PATTERN.search(command)
+    if match is None:
+        return None
+    trailer_hash = (match.group(2) or "").strip().lower()
+    if not trailer_hash:
+        return None  # transition window — no hash to compare
+    head_hash = _current_head_tree_hash().strip().lower()
+    if not head_hash:
+        return None  # fail-open: no ground truth
+    if trailer_hash == head_hash:
+        return None
+    return (
+        "MERGE BLOCKED: External-Review trailer carries a tree-hash "
+        f"({trailer_hash}) that does NOT match the current HEAD "
+        f"tree-hash ({head_hash}). The trailer was bound to a different "
+        "commit's content — most likely a stale audit round being "
+        "reused, or a rebased branch where the trailer wasn't refreshed.\n"
+        "\n"
+        "Fix:\n"
+        "  1. Run `divineos audit prepare-merge <round-id>` to regenerate "
+        "the trailer for the current HEAD.\n"
+        "  2. Paste the fresh merge body when confirming the squash.\n"
+        "\n"
+        "This is a defense-in-depth local check; the server-side CI gate "
+        "is the second line. The mismatch was caught here so the wrong "
+        "binding never reaches main."
+    )
 
 
 def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[str | None, str, str]:
@@ -296,6 +349,14 @@ def block_reason(bash_command: str) -> str | None:
     if not touches:
         return None
     if _command_has_external_review_trailer(bash_command):
+        # Substance-binding check (Aletheia 2026-06-14 audit): if the
+        # trailer carries a tree-hash, it MUST match the current HEAD.
+        # The prior gate trusted trailer presence and passed wrong
+        # tree-hashes silently — same failure-shape as the bypass-7
+        # leak. This closes the gap at the local layer.
+        mismatch = _command_trailer_tree_hash_mismatch_reason(bash_command)
+        if mismatch is not None:
+            return mismatch
         return None
     file_list = "\n".join(f"      - {p}" for p in touched_files)
 
