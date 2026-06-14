@@ -54,7 +54,7 @@ RESIDENCY_MIN_WORDS = 3
 # runs above a minimum word count to avoid flagging legitimate short
 # technical answers. 50 is set high enough that single-word "Yes."
 # or "OK." replies don't trigger; low enough that a 3-sentence
-# operator-channel paragraph still gets checked.
+# father-channel paragraph still gets checked.
 CODE_JARGON_MIN_WORDS = 50
 
 

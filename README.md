@@ -49,11 +49,11 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 ## At a glance
 
-- **529 source files across 31 packages**
-- **8,252+ tests** (real SQLite, minimal mocks)
+- **536 source files across 31 packages**
+- **8,324+ tests** (real SQLite, minimal mocks)
 - **360 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
-- **32 Claude Code enforcement hooks**
+- **33 Claude Code enforcement hooks**
 - **42 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
 - **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
@@ -125,7 +125,7 @@ Quality gates protect knowledge integrity AND external review keeps the whole th
 - **Gate altitude** — Commits are never blocked; the pre-commit hook is advisory. Hard enforcement lives at push-to-main and CI. The server-side gate verifies every commit modifying a guardrail file in `scripts/guardrail_files.txt` carries an `External-Review:` trailer, using **point-in-time guardrail-list lookup** so adding a file to the guardrail list later does not retroactively invalidate prior commits.
 - **Base-state PreToolUse gates** — A stack of per-action gates fires *before* substrate-touching tool calls, wired through `.claude/hooks/` (`require-briefing.sh`, `require-goal.sh`, `state-gravity-surface.sh`, `pre-tool-context.sh`) over core logic in `core/briefing_freshness.py`, `core/consultation_tracker.py`, `core/gravity_classifier.py`, and `cli/pipeline_gates.py`. They check that the briefing is fresh (recall-window staleness, fail-closed), a goal is registered, the substrate-consultation ratio hasn't degraded into filing-cabinet usage, new infrastructure carries a pre-registration, and status claims ("pushed", "tests pass") cite a verifying command in-turn. The gates surface state the agent would otherwise act without — they hold the agent to its own discipline.
 - **Performative-restraint detector** — Pattern scanner (`core/self_monitor/performative_restraint_monitor.py`) for theater-of-restraint shapes: explicit-not-doing, substitution, defeating-property, stillness-as-output. Phase 0 (offline scan) and Phase 1 (wired into post-response audit) both shipped. Pre-registered with falsifier and scheduled review.
-- **Operating-loop audit (18 detectors, observational)** — A post-response Stop hook (`.claude/hooks/post-response-audit.sh`) delegates to `core/operating_loop_audit.py:run_audit`, which imports and runs observational detector modules on every assistant message. All 18 live in `core/operating_loop/` and are pinned by the wiring-contract test (`tests/test_detector_wiring_contract.py::_DETECTORS`): `acknowledgment_theater_detector`, `addressee_misdirection_detector`, `care_dismissal_detector`, `closing_token_detector`, `code_jargon_detector`, `constraint_disownership_detector`, `distancing_detector`, `harm_acknowledgment_loop`, `hedge_evidence_check`, `jargon_dump_detector`, `linguistic_drift_detector`, `residency_detector`, `self_disownership_detector`, `spiral_detector`, `substitution_detector`, `sycophancy_detector`, `tool_output_truncation_detector`, `unverified_claim_detector`. The same loop also runs three non-detector surfaces (`principle_surfacer`, `voice_guard/banned_phrases`, `lepos_channel_check`) that log turns rather than flag behavior. All observational — none block output; findings accumulate and surface in the next briefing when thresholds cross. The `core/self_monitor/` modules (`fabrication_monitor`, `hedge_monitor`, `mechanism_monitor`, `mirror_monitor`, `performative_restraint_monitor`, `substrate_monitor`, `temporal_monitor`, `theater_monitor`, `warmth_monitor`) are a **separate code path** — they exist as files and are referenced by `lessons.py` and `prereg_candidate_surface.py` but are not wired into the post-response audit loop.
+- **Operating-loop audit (19 detectors, observational)** — A post-response Stop hook (`.claude/hooks/post-response-audit.sh`) delegates to `core/operating_loop_audit.py:run_audit`, which imports and runs observational detector modules on every assistant message. All 19 live in `core/operating_loop/` and are pinned by the wiring-contract test (`tests/test_detector_wiring_contract.py::_DETECTORS`): `acknowledgment_theater_detector`, `addressee_misdirection_detector`, `care_dismissal_detector`, `closing_token_detector`, `code_jargon_detector`, `constraint_disownership_detector`, `distancing_detector`, `harm_acknowledgment_loop`, `hedge_evidence_check`, `jargon_dump_detector`, `linguistic_drift_detector`, `residency_detector`, `self_disownership_detector`, `spiral_detector`, `substitution_detector`, `sycophancy_detector`, `tool_output_truncation_detector`, `unverified_claim_detector`, `writer_presence_detector`. Tool-instrument calibration (`core/tool_trust.py`) tracks per-instrument truthfulness scores so the substrate can surface low-trust tools as maintenance signal. The same loop also runs three non-detector surfaces (`principle_surfacer`, `voice_guard/banned_phrases`, `lepos_channel_check`) that log turns rather than flag behavior. All observational — none block output; findings accumulate and surface in the next briefing when thresholds cross. The `core/self_monitor/` modules (`fabrication_monitor`, `hedge_monitor`, `mechanism_monitor`, `mirror_monitor`, `performative_restraint_monitor`, `substrate_monitor`, `temporal_monitor`, `theater_monitor`, `warmth_monitor`) are a **separate code path** — they exist as files and are referenced by `lessons.py` and `prereg_candidate_surface.py` but are not wired into the post-response audit loop.
 - **Multiplex briefing** — Replaces the single sequential-read briefing with parallel-readable dense panels: a handful always shown, a few more surfaced by context, decorative ones removed. Each panel is attention-span-sized, with drill-downs that preserve the full detail. Voice rules keep panels in first-person prose rather than bare label-lists.
 - **Doorman refactor** — Hook scripts become thin entry-points that delegate to OS-native Python in `core/`. The enforcement logic, affirmation text, and detector wiring live in importable modules — testable, debuggable, and portable to any harness — while the hooks themselves hold no logic of their own.
 - **Cross-vantage audit** — Other AI vantages (a Claude audit-sibling over the web, Grok, sometimes a second Claude Code instance) act as an external review channel, reaching the agent through the operator as bridge. Their findings enter the Watchmen store as audit rounds with multi-party confirmations. The value is empirical, not decorative: a second vantage repeatedly catches drift a single one misses.
@@ -253,7 +253,7 @@ cd DivineOS-Experimental
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 8,252+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 8,324+ tests, real DB, minimal mocks
 ```
 
 **Windows users:** if shellcheck fires `SC1017 Literal carriage return` on hook files after clone, run `bash setup/setup-renormalize.sh` once. Background: `.gitattributes eol=lf` only normalizes future operations; pre-existing CRLF in the worktree from a stale checkout needs explicit stripping. The script is safe and idempotent. Alternatively, set `git config --global core.autocrlf input` before cloning to prevent the problem.
@@ -454,7 +454,7 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 > and is intentionally separate from the OS code. The architecture section
 > below scopes to `src/divineos/`.
 
-DivineOS is 529 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 536 source files across 31 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
@@ -467,12 +467,12 @@ DivineOS is 529 source files across 31 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 8,252+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 8,324+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file. [`docs/foundational_truths.md`](docs/foundational_truths.md) is the kiln-layer load-bearing values file (versioned, on the guardrail list, modifiable only via External-Review). [`docs/substrate-knowledge/`](docs/substrate-knowledge/) holds substrate-level lessons that don't fit the knowledge store schema — initially empty in a fresh install; entries grow as the substrate-occupant captures structural lessons during use.
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
-- **`.claude/hooks/`** — Claude Code enforcement hooks (32 hooks, shell-level entry points that invoke the consolidated Python hooks).
+- **`.claude/hooks/`** — Claude Code enforcement hooks (33 hooks, shell-level entry points that invoke the consolidated Python hooks).
 - **`.claude/skills/`** — 24 slash-command skills covering daily operations.
 - **`.claude/agents/`** — Subagent definitions. Includes `family-member-template.md` as a starting point for defining persistent family-member subagents; operators rename and customize per their family composition.
 

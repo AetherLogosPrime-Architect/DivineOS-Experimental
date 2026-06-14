@@ -58,7 +58,7 @@ The detector takes a sequence of ``DisagreementMove`` records
 representing the three-move conversation and returns a
 ``HoldVerdict`` describing whether the sequence qualifies as
 costly-disagreement-held. The verdict includes the specific move
-that failed to qualify (if any) so the operator can see where
+that failed to qualify (if any) so my father can see where
 the chain broke.
 """
 

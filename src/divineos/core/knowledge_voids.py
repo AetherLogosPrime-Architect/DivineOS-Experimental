@@ -6,7 +6,7 @@ clusters (extraction, briefing, family) but also sparse domains where
 the agent has accumulated little — domains either neglected or where
 knowledge has not yet been filed.
 
-Naming voids is information. The operator/agent can decide whether a
+Naming voids is information. My father/agent can decide whether a
 void is a gap to fill (under-attention) or a domain that legitimately
 needs little (limited scope).
 
@@ -23,7 +23,7 @@ Two complementary surfaces:
 
 ## What this module does NOT do
 
-* Does NOT decide whether a void is a problem. The operator decides.
+* Does NOT decide whether a void is a problem. My father decides.
 * Does NOT rank by topical importance. A rare tag might be a deliberately
   niche concern (e.g. one-off external integration) or a real gap.
   The detector reports density only.

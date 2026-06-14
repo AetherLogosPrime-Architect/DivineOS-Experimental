@@ -2,7 +2,7 @@
 
 ## Why this exists
 
-Failure mode: after the operator names a drift, the agent's output
+Failure mode: after my father names a drift, the agent's output
 tightens into mirror-mode — short, structurally-aligned, echoing-
 back-the-correction-shape replies. The shape is recognizable: output
 that was discursive becomes terse and parallel-structured *right

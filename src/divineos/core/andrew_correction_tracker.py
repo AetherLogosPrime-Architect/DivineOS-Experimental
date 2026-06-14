@@ -24,11 +24,41 @@ from __future__ import annotations
 
 __guardrail_required__ = True
 
+import re
 import sqlite3
 import time
 from pathlib import Path
 
 from divineos.core.paths import divineos_home
+
+
+# Structural-artifact patterns (2026-06-13, Andrew: "we dont just fix the
+# error.. we fix the root cause so it doesnt keep happening"). The
+# integration claim must point at a verifiable artifact, not prose alone.
+# Same shape as the substance-binding tree-hash on External-Review
+# trailers — the claim is honored only when bound to a checkable thing.
+_ARTIFACT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b[0-9a-f]{7,40}\b"),  # commit hash (short or full)
+    re.compile(r"#\d{1,6}\b"),  # PR / issue number
+    re.compile(r"\b(?:PR|pr)\s*#?\s*\d+\b"),  # PR #N
+    re.compile(r"\bclaim[-_\s]?[0-9a-f]{6,}\b", re.IGNORECASE),  # claim id
+    re.compile(r"\bprereg[-_\s]?[0-9a-f]{6,}\b", re.IGNORECASE),  # prereg id
+    re.compile(r"\b[\w/\\._-]+\.(?:py|md|sh|sql|toml|yaml|yml|json)\b"),  # file path
+    re.compile(r"\btests?[/\\][\w/\\._-]+", re.IGNORECASE),  # test path
+    re.compile(r"\btest_\w+\b"),  # test function name
+)
+
+
+def _has_structural_artifact(evidence: str) -> bool:
+    """True iff ``evidence`` contains at least one structural-artifact
+    pointer (commit, PR, claim, prereg, file path, test name).
+
+    Andrew 2026-06-13: an integration claim with no artifact is
+    prose-acknowledgment-as-integration — the exact shape that lets the
+    same lesson recur. Fix the root, not the surface."""
+    if not evidence:
+        return False
+    return any(p.search(evidence) for p in _ARTIFACT_PATTERNS)
 
 
 def _db_path() -> Path:
@@ -103,8 +133,18 @@ def integrate(correction_id: int, evidence: str) -> bool:
     Refuses integration without evidence (>= 20 chars) to prevent silent
     closure. Evidence should name commit / behavior change / where the
     correction landed.
+
+    2026-06-13 (Andrew, root-cause-fix discipline): evidence must also
+    contain a structural-artifact pointer — commit hash, PR number,
+    claim/prereg id, file path, or test name. Prose-only "I learned
+    this and will do better" is exactly the integration-as-acknowledgment
+    shape that lets the same lesson recur. The check enforces what the
+    docstring already said ("name commit / behavior change") but the
+    length-only gate failed to enforce.
     """
     if not evidence or len(evidence.strip()) < 20:
+        return False
+    if not _has_structural_artifact(evidence):
         return False
     conn = _conn()
     try:

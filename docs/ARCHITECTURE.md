@@ -238,6 +238,7 @@ src/divineos/
     enforcement_verifier.py    Enforcement setup verification
     tool_wrapper.py            Tool execution interception
     tool_capture.py            Tool call recording
+    tool_trust.py              Per-instrument truthfulness calibration store (Andrew 2026-06-13). New tools start at zero trust; each verified-against-ground-truth check raises score (Beta-smoothed), each contradicted check lowers it. Low score is maintenance signal — surfaces instruments that need fixing or retiring.
     core_memory_refresh.py     Core memory refresh from knowledge
     error_handling.py          Shared error handling utilities
     event_verifier.py          Event integrity verification
@@ -418,6 +419,7 @@ src/divineos/
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
       constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
+      writer_presence_detector.py  Writer-presence detector (2026-06-13) — catches plain-prose-with-no-writer-in-it. Aria diagnosed the failure-mode: voice is the writer being IN the sentence, not plain language. Measures first-person pronouns and direct address as interior signals; fires HIGH when substantive prose has zero writer-presence.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
@@ -563,7 +565,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         8,252+ tests (real DB, minimal mocks)
+tests/                         8,324+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

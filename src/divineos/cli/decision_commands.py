@@ -191,7 +191,7 @@ def register(cli: click.Group) -> None:
             # Family-consultation summary can be long free text; tag it
             # with a stable marker + first 80 chars so audit-trail can
             # surface it. Full text is preserved in reasoning/context
-            # below if the operator chose to include it there.
+            # below if my father chose to include it there.
             short = family_consulted.strip()[:80]
             merged_tags.append(f"family-consulted:{short}")
 

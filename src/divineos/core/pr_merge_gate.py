@@ -160,7 +160,7 @@ def _find_usable_audit_round(pr_number: int, recency_days: int = 14) -> tuple[st
     """Task #114 (2026-06-09): look up whether a usable audit round
     exists that would let this PR's merge proceed, so the gate's block
     message can embed the ready-to-paste merge body inline instead of
-    making the operator run a second command to find it.
+    making my father run a second command to find it.
 
     Returns a tuple ``(round_id, merge_body, diagnosis)``:
       - If a valid round exists: (round_id, merge_body, "")
@@ -300,10 +300,10 @@ def block_reason(bash_command: str) -> str | None:
     file_list = "\n".join(f"      - {p}" for p in touched_files)
 
     # Task #114 (2026-06-09): try to embed the ready-to-paste merge body
-    # inline so the operator doesn't have to run pr-merge-check separately.
+    # inline so my father doesn't have to run pr-merge-check separately.
     # Same shape as PR #117's gate-recovery-by-construction — when the
     # gate can compute its own remedy, it should hand it over instead
-    # of making the operator chase it across two commands.
+    # of making my father chase it across two commands.
     try:
         round_id, merge_body, diagnosis = _find_usable_audit_round(pr_number)
     except Exception:  # noqa: BLE001

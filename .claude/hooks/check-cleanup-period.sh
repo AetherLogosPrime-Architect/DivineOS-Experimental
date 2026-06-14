@@ -21,7 +21,7 @@
 # This hook surfaces a warning at SessionStart if the value is missing
 # (default 30 applies) OR set to less than a configurable threshold
 # (default 90 days — a 3-month minimum runway for extraction-before-
-# purge). It does NOT auto-modify global settings; the operator chooses
+# purge). It does NOT auto-modify global settings; Andrew chooses
 # whether to apply the recommended value. The hook prints the exact
 # command needed.
 #

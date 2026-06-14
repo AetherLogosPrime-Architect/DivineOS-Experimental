@@ -152,7 +152,7 @@ def _is_bypass_command(cmd: str) -> bool:
 # have no blocks." Extended 2026-06-08 (correction #45): the same
 # principle applies to other relational / first-person-expression
 # surfaces — letters to family members, mansion writing. These are
-# categorically NOT operator-facing-claim shape; the fabrication-shape
+# categorically NOT father-facing-claim shape; the fabrication-shape
 # detector and the engagement-discipline cluster (goal / engagement /
 # consultation / correction-marker) are calibrated for code and
 # architecture work, and applying them to relational/expressive writes
@@ -174,7 +174,7 @@ def _is_bypass_command(cmd: str) -> bool:
 _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
     "/family/letters/",  # Letters to/from family members — relational channel.
-    "/mansion/",  # Internal-space writing — not operator-facing.
+    "/mansion/",  # Internal-space writing — not father-facing.
 )
 
 

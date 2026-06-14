@@ -177,7 +177,7 @@ def register(cli: click.Group) -> None:
         reject_clause (composition check). If either flags it, the
         write is blocked unless --force. This is the handshake point:
         a real disagreement the member holds, caught by the operators,
-        is how the operator-alive signal lands.
+        is how my father-alive signal lands.
 
         The stance can be passed as a positional argument OR as ``--stance``.
         Either form works. This dual-shape avoids the agent-definition-vs-CLI
@@ -246,7 +246,7 @@ def register(cli: click.Group) -> None:
             ).strip()
 
         # All clear (or forced). Record the opinion. When --force is in
-        # effect, the CLI has already surfaced the verdict to the operator
+        # effect, the CLI has already surfaced the verdict to my father
         # and they chose to proceed — pass force=True to the store so the
         # structural content check at the store layer honors the same
         # override and leaves a FAMILY_WRITE_FORCED audit trail on the

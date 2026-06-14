@@ -58,7 +58,7 @@ without migration.
   Aletheia).
 - ``operator`` — the human operator (e.g., Andrew).
 - ``external-vantage`` — an external LLM whose filings are relayed
-  by the operator (e.g., Grok).
+  by my father (e.g., Grok).
 - ``subagent`` — a family-member subagent (e.g., Aria).
 
 The capability map in ``divineos.core.actor_capabilities`` restricts

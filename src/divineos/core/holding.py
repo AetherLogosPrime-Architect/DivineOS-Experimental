@@ -253,13 +253,13 @@ def let_go(item_id: str, note: str = "") -> bool:
 
     Distinct from `promote` (which moves the item to a downstream system) and
     distinct from auto-stale (which records "seen N sessions without action,"
-    a fact, not a judgment). `let_go` is the operator's explicit close —
+    a fact, not a judgment). `let_go` is my father's explicit close —
     "I looked at this and decided to let it go." Records the note in the
     `promoted_to` field as 'let-go: <note>' so the audit trail distinguishes
     operator-let-go from auto-stale.
 
     Added 2026-05-12 alongside `hold check` review surface. Per the
-    code-does-not-think directive: code records the decision the operator
+    code-does-not-think directive: code records the decision my father
     made, never makes the decision.
     """
     init_holding_table()

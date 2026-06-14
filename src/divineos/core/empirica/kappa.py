@@ -39,7 +39,7 @@ What this module is NOT:
   a small fixture doesn't prove the classifier generalizes; a
   low kappa tells you something is wrong.
 * NOT a grading machine. It does not PASS or FAIL the classifier;
-  it reports the number. Interpretation is the operator's.
+  it reports the number. Interpretation is my father's.
 """
 
 from __future__ import annotations

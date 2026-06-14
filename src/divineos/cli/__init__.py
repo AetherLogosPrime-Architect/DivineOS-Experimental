@@ -90,7 +90,7 @@ def _enforce_operating_mode() -> None:
     """Refuse commands disallowed by the current operating mode.
 
     Runs BEFORE the briefing gate. Corrigibility has priority over
-    every other check — if the operator has set EMERGENCY_STOP, the
+    every other check — if my father has set EMERGENCY_STOP, the
     system must refuse regardless of briefing state. The mode command
     itself bypasses this check (it's in _ALWAYS_ALLOWED inside the
     corrigibility module) so the off-switch can always be flipped.
@@ -141,7 +141,7 @@ def _enforce_operating_mode() -> None:
     # assert the shutdown-critical commands are still in the allowlist, at
     # runtime, every invocation — so a refactor that drops one (as `extract`
     # was dropped, caught only by a test in the 2026-05-03 audit) fails loud
-    # immediately instead of silently trapping the operator in EMERGENCY_STOP.
+    # immediately instead of silently trapping my father in EMERGENCY_STOP.
     try:
         verify_off_switch_invariant()
     except RuntimeError as _inv_err:
