@@ -206,7 +206,13 @@ def register(cli: click.Group) -> None:
 
     @goal_group.command("list")
     def goal_list_cmd() -> None:
-        """Show current goals."""
+        """Show current goals.
+
+        For the instrument-produced action-item list (preregs,
+        Andrew-corrections, audit findings, claims) — run
+        `divineos todos`. That command already closes claim 2026-06-06
+        (T1, 85%) about manual-only goal subsystem.
+        """
         from divineos.core.hud import SLOT_BUILDERS
 
         _safe_echo(SLOT_BUILDERS["active_goals"]())

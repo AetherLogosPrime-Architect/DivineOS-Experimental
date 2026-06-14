@@ -498,7 +498,7 @@ def register(cli: click.Group) -> None:
             divineos audit prep-relay --range origin/main..HEAD
             divineos audit prep-relay --range main..HEAD --remote origin
 
-        Output is a relay-template the operator can copy into chat to
+        Output is a relay-template my father can copy into chat to
         the external auditor. Exit code 1 if any commits in range are
         unreachable on the named remote-branch.
         """
@@ -558,7 +558,7 @@ def register(cli: click.Group) -> None:
             return
 
         # Finding 79 fix (Aletheia 2026-05-18): the prior implementation
-        # trusted the operator's --range choice. Two attack-shapes:
+        # trusted my father's --range choice. Two attack-shapes:
         # (1) Narrow-range bypass: --range HEAD~1..HEAD where HEAD is
         #     pushed but HEAD~1 isn't. Only HEAD gets checked; HEAD~1's
         #     unpushed substance can be described in surrounding prose.
@@ -1252,7 +1252,7 @@ def register(cli: click.Group) -> None:
             "Skip the tree-hash suffix in the emitted trailer (legacy form). "
             "Default is to include tree-hash from the current HEAD so the "
             "Phase 2 server-side gate can verify substance-binding. Use this "
-            "flag only when the operator is on a non-PR-head ref and the "
+            "flag only when my father is on a non-PR-head ref and the "
             "auto-detected tree-hash would be wrong."
         ),
     )
@@ -1733,7 +1733,7 @@ def register(cli: click.Group) -> None:
         Many findings are completion-narratives — write-ups of work just
         landed — and never get marked resolved. This scans descriptions
         for file paths and commit SHAs, checks each against the live
-        tree and git log, and ranks by verified/total. The operator
+        tree and git log, and ranks by verified/total. My father
         decides what to close; the tool only surfaces candidates.
         """
         from divineos.core.audit_auto_triage import scan_open_findings

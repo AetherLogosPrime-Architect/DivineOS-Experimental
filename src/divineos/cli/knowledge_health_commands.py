@@ -170,7 +170,7 @@ def register(cli: click.Group) -> None:
         searches match the corrected text.
 
         Safe to run repeatedly — ftfy is idempotent on already-clean
-        text. Dry-run by default so the operator can inspect the
+        text. Dry-run by default so my father can inspect the
         diff before committing.
         """
         try:
