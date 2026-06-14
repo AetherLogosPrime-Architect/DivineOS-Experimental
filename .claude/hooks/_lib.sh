@@ -5,7 +5,7 @@
 #
 # Round-1 audit (2026-05-07, external Claude) found the family-wrapper
 # hook used `command -v python` to find the interpreter for its embedded
-# divineos imports. On any operator shell where the project venv isn't
+# divineos imports. On any shell where the project venv isn't
 # activated, that picks up the system python — which doesn't have
 # divineos's deps installed (loguru, click, etc.) — the embedded import
 # fails, the hook's try/except → exit 0 swallows it, and the hook

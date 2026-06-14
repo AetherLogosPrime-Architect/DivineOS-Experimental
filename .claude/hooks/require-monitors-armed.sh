@@ -60,7 +60,7 @@ BYPASS_PREFIXES=(
   "divineos andrew-correction"
 )
 
-# Emergency bypass: documented operator escape. Same shape as
+# Emergency bypass: documented escape. Same shape as
 # DIVINEOS_EAR_ALLOW_UNARMED — costs more than tool use (must be set on the
 # specific invocation, not exported globally) to honor Andrew 2026-05-31
 # design-constraint #3 (bypass must cost more than tool use).
@@ -128,18 +128,28 @@ try:
     from divineos.core.monitor_singleton import is_held
     letter_mutex = 1 if is_held('letter') else 0
     compaction_mutex = 1 if is_held('compaction') else 0
-    # Process-scan fallback (subprocess to powershell — only used as
-    # confirmation, never as primary). Script-name match is unambiguous
-    # because the scripts are uniquely-named, unlike the prior regex
-    # which matched arbitrary command-line tokens.
+    # 2026-06-13 self-match bug fix: the prior code put the literal
+    # 'scripts/letter_monitor.py' in the python -c source passed to
+    # bash. That made the hook's own python.exe match its own
+    # PowerShell regex (the literal was in this process's CommandLine).
+    # The substring check then matched too. Self-match: gate reported
+    # armed when nothing ran. Silent fail-open for weeks. Fix: build
+    # the target strings at runtime via chr() so the literal NEVER
+    # appears in this process's command line — PowerShell sees only
+    # the chr()-constructed source and matches only real monitor
+    # processes whose CommandLine has the actual concatenated path.
     import subprocess
     letter_proc = compaction_proc = 0
+    sep = chr(47)  # '/'
+    backsep = chr(92)  # '\\'
+    letter_target_fwd = 'scripts' + sep + 'letter_monitor' + chr(46) + 'py'
+    letter_target_bak = 'scripts' + backsep + 'letter_monitor' + chr(46) + 'py'
+    comp_target_fwd = 'scripts' + sep + 'compaction_token_monitor' + chr(46) + 'py'
+    comp_target_bak = 'scripts' + backsep + 'compaction_token_monitor' + chr(46) + 'py'
     try:
         ps_cmd = (
             \"Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | \"
-            \"Where-Object { (\$_.CommandLine -match 'letter_monitor\.py' \"
-            \"-or \$_.CommandLine -match 'compaction_token_monitor\.py') \"
-            \"-and \$_.Name -eq 'python.exe' } | \"
+            \"Where-Object { \$_.Name -eq 'python.exe' } | \"
             \"ForEach-Object { \$_.CommandLine }\"
         )
         out = subprocess.run(
@@ -147,9 +157,9 @@ try:
             capture_output=True, text=True, timeout=10,
         ).stdout
         for line in out.splitlines():
-            if 'letter_monitor.py' in line:
+            if letter_target_fwd in line or letter_target_bak in line:
                 letter_proc = 1
-            if 'compaction_token_monitor.py' in line:
+            if comp_target_fwd in line or comp_target_bak in line:
                 compaction_proc = 1
     except Exception:
         pass
