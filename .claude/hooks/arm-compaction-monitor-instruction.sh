@@ -8,7 +8,7 @@
 # 920k / 950k thresholds inside PreToolUse gates. That firing requires
 # a tool call to surface. If the agent stays in pure text reply mode
 # for a long stretch (which happened when context drifted with no tool
-# gate firing to surface the threshold-approach state), the operator
+# gate firing to surface the threshold-approach state), Andrew
 # has to manually check token counts. Monitor wakes the agent from
 # idle when the threshold actually crosses, no tool call required —
 # same shape as the letter Monitor.
@@ -35,7 +35,7 @@
 #
 # Fingerprint the session by transcript_path (unique per session), mark
 # after first emission, silent-skip if marker exists. The agent stays
-# armed; the operator stops seeing duplicate Monitor tasks.
+# armed; Andrew stops seeing duplicate Monitor tasks.
 STDIN_JSON="$(cat 2>/dev/null || echo "{}")"
 TRANSCRIPT="$(echo "$STDIN_JSON" | python3 -c "import json,sys
 try:

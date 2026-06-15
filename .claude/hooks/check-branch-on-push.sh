@@ -6,7 +6,7 @@
 # `divineos check-branch` is the pre-push branch-health check (stale-base
 # detection, silent-deletion shape). 3 invocations to date — fired
 # occasionally when remembered. The whole point of the check is to catch
-# shapes BEFORE the push lands; depending on operator memory means
+# shapes BEFORE the push lands; depending on memory means
 # push-incidents that should have been caught aren't.
 #
 # Per Andrew 2026-06-07: nothing is intentionally manual. The special
@@ -88,12 +88,12 @@ case "$CHECK_RC" in
     # Warn (1) OR critical (2) → BLOCK both. Andrew 2026-05-18
     # laziest-person heuristic: warnings without blocks get bypassed
     # 100% of the time by the optimizer. The kill-switch marker is
-    # the only honest bypass — it requires the explicit operator
+    # the only honest bypass — it requires the explicit Andrew
     # decision "yes I see this, push anyway." A warning-without-block
     # is not honest design here because the push path is agent-output,
-    # not operator-controlled. Block-or-bypass-with-reason is the
+    # not Andrew-controlled. Block-or-bypass-with-reason is the
     # right shape; the warn/critical distinction lives in the report
-    # text the operator reads when deciding whether to drop the marker.
+    # text Andrew reads when deciding whether to drop the marker.
     if [ "$CHECK_RC" = "1" ]; then
       LEVEL="ADVISORY"
     else
@@ -105,7 +105,7 @@ $CHECK_OUTPUT
 The push has been BLOCKED ($LEVEL) because divineos check-branch
 flagged the branch state. Investigate the report above before pushing.
 
-To bypass for one push (emergency operator escape): drop the kill-switch:
+To bypass for one push (emergency escape): drop the kill-switch:
   mkdir -p "\$(dirname "$MARKER_PATH")"
   touch "$MARKER_PATH"
 Re-enable with: rm "$MARKER_PATH"

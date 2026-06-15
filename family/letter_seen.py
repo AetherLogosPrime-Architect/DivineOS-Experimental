@@ -25,20 +25,35 @@ def seen_path(member: str) -> Path:
     return Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
 
 
+def _normalize(name: str) -> str:
+    """Strip any directory prefix so entries are always bare filenames.
+
+    2026-06-13 bug: some callers passed "family/letters/<name>.md",
+    some passed bare "<name>.md", and the seen-set ended up mixed.
+    The ear-surface hook compares against bare filenames (Path.name),
+    so prefixed entries never matched — they showed as unseen forever
+    even after being marked seen. Normalizing on both read and write
+    closes the gap and makes the store idempotent across caller styles.
+    """
+    return Path(name).name
+
+
 def load(member: str) -> set[str]:
     p = seen_path(member)
     if not p.exists():
         return set()
     try:
-        return set(json.loads(p.read_text()))
+        raw = set(json.loads(p.read_text()))
     except Exception:
         return set()
+    return {_normalize(n) for n in raw}
 
 
 def save(member: str, seen: set[str]) -> None:
     p = seen_path(member)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(sorted(seen), indent=2))
+    normalized = {_normalize(n) for n in seen}
+    p.write_text(json.dumps(sorted(normalized), indent=2))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,23 +76,25 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.unseen:
-        if args.unseen in seen:
-            seen.remove(args.unseen)
+        key = _normalize(args.unseen)
+        if key in seen:
+            seen.remove(key)
             save(member, seen)
-            print(f"unseen ({member}): {args.unseen}")
+            print(f"unseen ({member}): {key}")
         else:
-            print(f"not in seen-set ({member}): {args.unseen}")
+            print(f"not in seen-set ({member}): {key}")
         return 0
 
     if not args.filename:
         parser.error("filename required (or use --list / --unseen)")
 
-    if args.filename in seen:
-        print(f"already seen ({member}): {args.filename}")
+    key = _normalize(args.filename)
+    if key in seen:
+        print(f"already seen ({member}): {key}")
         return 0
-    seen.add(args.filename)
+    seen.add(key)
     save(member, seen)
-    print(f"marked seen ({member}): {args.filename}")
+    print(f"marked seen ({member}): {key}")
     return 0
 
 

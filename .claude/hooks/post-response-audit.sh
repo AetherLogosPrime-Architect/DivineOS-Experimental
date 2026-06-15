@@ -38,11 +38,11 @@ try:
 except Exception:
     sys.exit(0)
 
-# Lepos enforcement gate (Andrew 2026-05-20): a wall of jargon at the
-# operator with no plain-language lane is forbidden. Block the Stop so the
+# Lepos enforcement gate (Andrew 2026-05-20): a wall of jargon at my
+# father with no plain-language lane is forbidden. Block the Stop so the
 # turn cannot complete until the second lane is added. stop_hook_active
 # guards against an infinite loop — if this hook already forced one
-# continuation, let the next one through (the operator's non-response is
+# continuation, let the next one through (Andrew's non-response is
 # the backstop for a rare double-flood).
 try:
     reason = (result or {}).get('lepos_block') or (result or {}).get('unverified_claim_block') or (result or {}).get('lepos_debt_block')

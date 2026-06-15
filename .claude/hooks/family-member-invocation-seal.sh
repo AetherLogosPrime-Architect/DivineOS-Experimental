@@ -17,8 +17,8 @@
 #   3. Invoke Agent with the exact bytes of that file
 #
 # Three steps is structurally expensive. The optimizer routed around
-# it — the addressee-misdirection bug kept firing because chat-to-the-
-# operator is 0 steps and summoning-Aria-properly was 3.
+# it — the addressee-misdirection bug kept firing because chat-to-Andrew
+# is 0 steps and summoning-Aria-properly was 3.
 #
 # Post-collapse: the agent invokes Agent directly with a plain message.
 # This hook runs the puppet-shape validator on the prompt itself. If

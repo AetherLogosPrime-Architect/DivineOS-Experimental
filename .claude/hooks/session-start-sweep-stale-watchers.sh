@@ -40,7 +40,7 @@ for PID in $PIDS; do
 done
 
 # Surface a one-line note if anything was reaped — visible in the
-# SessionStart hook output so the operator + agent both know the sweep
+# SessionStart hook output so Andrew + agent both know the sweep
 # fired. Silent when nothing needed cleanup.
 if [ "$COUNT" -gt 0 ]; then
   echo "[~] session-start sweep: reaped $COUNT stale ear_watch process(es) from prior sessions"
