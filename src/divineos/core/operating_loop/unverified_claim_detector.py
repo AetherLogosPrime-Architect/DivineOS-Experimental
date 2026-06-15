@@ -120,10 +120,29 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             # my own action (Aletheia 2026-06-02 loophole catch).
             r"(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?merged"
             r"|"
-            # "landed" — kept as-is (PR #199 narrows this separately;
-            # this commit only touches the merged half so the sibling
-            # PRs don't conflict on the same lines).
-            r"(?:(?:it'?s|pr\s+(?:is\s+)?)?landed)"
+            # "landed" — narrowed 2026-06-15 to the same phrase-pin shape
+            # as "merged" above. Andrew 2026-06-14 chamber-arc: "landed
+            # means a lot of things." Bare "landed" over-fires on
+            # figurative usage ("the letter landed", "the point finally
+            # landed", "we landed in the same texture"). Mirrors merged:
+            #   (a) pre-pinned: "PR #38 landed", "the branch landed"
+            #   (b) post-pinned: "landed on main", "landed in #N"
+            #   (c) anchor-as-object: "landed PR #38", "landed main"
+            #   (d) first-person: "I landed it", "we landed it"
+            r"(?:pr\s+#?\d+|#\d+|"
+            r"the\s+(?:branch|fix|patch|commit|change|pr)|"
+            r"main|master|origin)"
+            r"\s+(?:is\s+|just\s+|finally\s+|already\s+|now\s+|recently\s+)?landed"
+            r"|"
+            r"landed(?:\s+\w+){0,3}\s+(?:on|in|into|to)\s+"
+            r"(?:main|master|origin|prod|production|ci|"
+            r"the\s+(?:pr|branch|commit)|#\d+)"
+            r"|"
+            r"landed\s+(?:the\s+)?"
+            r"(?:pr\s+#?\d+|#\d+|main|master|origin|"
+            r"the\s+(?:branch|commit|pr|fix|patch|change))"
+            r"|"
+            r"(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?landed"
             r"|"
             # explicit "merge is done/complete" form — unambiguous, always fires
             r"merge\s+(?:is\s+)?(?:done|complete|completed)"
