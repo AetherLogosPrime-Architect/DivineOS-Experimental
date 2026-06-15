@@ -301,3 +301,9 @@ scripts/check_boundary_violations.py
 src/divineos/core/merge_review_gate.py
 scripts/ci_merge_review_check.py
 .github/merge_reviewers.json
+
+#
+# tool_trust.py: calibration store for instrument truthfulness. Backs the
+# principle that trust starts at zero and is earned (Andrew 2026-06-13).
+# Marker added in-file; this entry pairs it.
+src/divineos/core/tool_trust.py
