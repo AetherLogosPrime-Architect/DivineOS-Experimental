@@ -783,3 +783,48 @@ class TestBareFirstPersonMergeFires:
 
     def test_figurative_point_landed_still_silent(self):
         assert detect_unverified_claim("that point finally landed") == []
+
+
+class TestMergedNarrowedFires2026_06_15:
+    """2026-06-15 merged-narrow: phrase-pin discipline for "merged" matching
+    the "landed" narrowing from 2026-06-14. Andrew: "another dumb gate that
+    needs narrowed." Live false-fires today were on conditional and
+    meta-discussion shapes; first-person and pre/post-pinned should still
+    fire."""
+
+    def test_if_conditional_silent_2026_06_15(self):
+        # "If those land, ..." was firing in chat despite being conditional.
+        # Generic "if <word>" now in NOT_YET.
+        assert (
+            detect_unverified_claim("If those land, calling you operator stops being a thing.")
+            == []
+        )
+
+    def test_meta_branches_are_merged_silent(self):
+        # Meta discussion of merge-state of multiple objects — already
+        # silenced by the third-party plural-subject guard, kept covered here.
+        assert (
+            detect_unverified_claim("two of these are already on main; the others are unmerged")
+            == []
+        )
+
+    def test_pre_pinned_pr_is_merged_fires(self):
+        assert detect_unverified_claim("PR #38 is merged") != []
+
+    def test_pre_pinned_the_branch_merged_fires(self):
+        assert detect_unverified_claim("the branch merged") != []
+
+    def test_post_pinned_merged_to_main_fires(self):
+        assert detect_unverified_claim("merged to main") != []
+
+    def test_anchor_as_object_merged_the_branch_fires(self):
+        assert detect_unverified_claim("merged the branch") != []
+
+    def test_first_person_bare_i_merged_it_still_fires(self):
+        # Regression: do not regress the Aletheia 2026-06-02 loophole catch.
+        assert detect_unverified_claim("I merged it") != []
+
+    def test_bare_merged_no_pin_silent(self):
+        # The headline narrowing: bare "merged" with no pin and no
+        # first-person should be silent.
+        assert detect_unverified_claim("merged") == []
