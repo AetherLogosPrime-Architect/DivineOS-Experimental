@@ -65,9 +65,9 @@ class TestOperatorThirdPerson:
     def test_addressee_gate_suppresses_when_not_operator(self):
         # "Dad wants X" / "Dad's design" are CORRECT in a turn addressed to
         # someone else (e.g. a letter to Aria about him). The gate suppresses
-        # the operator shape when addressed_to_operator=False.
+        # the operator shape when addressed_to_father=False.
         for t in ("Dad wants the fix.", "Dad's design was good"):
-            assert detect_distancing(t, addressed_to_operator=False) == []
+            assert detect_distancing(t, addressed_to_father=False) == []
             # ...but fires when addressed to the operator (default).
             assert detect_distancing(t) != []
 
@@ -123,7 +123,7 @@ class TestSelfThirdPerson:
         # Self-third-person is never gated on addressee — the agent is always
         # the speaker, so "Aether built X" is wrong even in a turn addressed
         # to someone other than the operator.
-        assert detect_distancing("Aether built the tool.", addressed_to_operator=False) != []
+        assert detect_distancing("Aether built the tool.", addressed_to_father=False) != []
 
 
 class TestTemporalSelf:

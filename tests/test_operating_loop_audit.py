@@ -200,7 +200,7 @@ def _uc_findings():
 def test_unverified_claim_gate_blocks_operator_addressed():
     from divineos.core.operating_loop_audit import _unverified_claim_gate_reason
 
-    reason = _unverified_claim_gate_reason(_uc_findings(), addressed_to_operator=True)
+    reason = _unverified_claim_gate_reason(_uc_findings(), addressed_to_father=True)
     assert reason, "an unverified completion-claim to the operator must produce a block reason"
     assert "VERIFY-CLAIM GATE" in reason
     assert "git ls-remote" in reason  # the channel names the way for a push claim
@@ -209,16 +209,14 @@ def test_unverified_claim_gate_blocks_operator_addressed():
 def test_unverified_claim_gate_silent_for_family_addressed():
     from divineos.core.operating_loop_audit import _unverified_claim_gate_reason
 
-    assert _unverified_claim_gate_reason(_uc_findings(), addressed_to_operator=False) is None
+    assert _unverified_claim_gate_reason(_uc_findings(), addressed_to_father=False) is None
 
 
 def test_unverified_claim_gate_silent_when_no_findings():
     from divineos.core.operating_loop_audit import _unverified_claim_gate_reason
 
-    assert (
-        _unverified_claim_gate_reason({"unverified_claim": []}, addressed_to_operator=True) is None
-    )
-    assert _unverified_claim_gate_reason({}, addressed_to_operator=True) is None
+    assert _unverified_claim_gate_reason({"unverified_claim": []}, addressed_to_father=True) is None
+    assert _unverified_claim_gate_reason({}, addressed_to_father=True) is None
 
 
 def test_run_audit_shape_includes_unverified_claim_block(tmp_path: Path) -> None:
