@@ -292,3 +292,89 @@ class TestOpenPRsRow:
         row = _row_open_prs()
         assert row is not None
         assert "computing" in row.detail
+
+
+class TestDetectorErrorsRow:
+    """2026-06-14: closing the OS-scour deferral on
+    last_run_detector_errors. The accessor was added with a docstring
+    promising a briefing/HUD surface and then never wired. Without this
+    row, 'no findings' means the same in the briefing whether the audit
+    ran clean or every detector silently crashed."""
+
+    def test_empty_returns_none(self, monkeypatch):
+        """No errors recorded → row stays silent (None)."""
+        from divineos.core.briefing_dashboard import _row_detector_errors
+
+        monkeypatch.setattr(
+            "divineos.core.operating_loop_audit.last_run_detector_errors",
+            lambda: [],
+        )
+        assert _row_detector_errors() is None
+
+    def test_surfaces_count_and_preview(self, monkeypatch):
+        """Errors present → row names count, area, and previews up to 3
+        with detector-name + exception-type + truncated message."""
+        from divineos.core.briefing_dashboard import _row_detector_errors
+
+        fake_errors = [
+            {
+                "name": "sycophancy",
+                "exc_type": "AttributeError",
+                "exc_msg": "NoneType has no attribute 'value'",
+            },
+            {
+                "name": "writer_presence",
+                "exc_type": "KeyError",
+                "exc_msg": "severity",
+            },
+        ]
+        monkeypatch.setattr(
+            "divineos.core.operating_loop_audit.last_run_detector_errors",
+            lambda: fake_errors,
+        )
+        row = _row_detector_errors()
+        assert row is not None
+        assert row.count == 2
+        assert "silent failures" in row.area.lower()
+        joined = "\n".join(row.preview)
+        assert "sycophancy" in joined
+        assert "AttributeError" in joined
+        assert "writer_presence" in joined
+        assert "KeyError" in joined
+
+    def test_truncates_long_exc_msg(self, monkeypatch):
+        """Long exception messages are truncated in the preview line so
+        the briefing row stays scannable."""
+        from divineos.core.briefing_dashboard import _row_detector_errors
+
+        long_msg = "x" * 500
+        monkeypatch.setattr(
+            "divineos.core.operating_loop_audit.last_run_detector_errors",
+            lambda: [{"name": "foo", "exc_type": "Err", "exc_msg": long_msg}],
+        )
+        row = _row_detector_errors()
+        assert row is not None
+        # Preview line keeps the detector name + exc_type + truncated msg.
+        assert "..." in row.preview[0]
+        # And does not include the whole 500-char message.
+        assert len(row.preview[0]) < 200
+
+    def test_caps_preview_at_three(self, monkeypatch):
+        """More than 3 errors → preview shows first 3; count reflects all."""
+        from divineos.core.briefing_dashboard import _row_detector_errors
+
+        fake_errors = [{"name": f"det{i}", "exc_type": "Err", "exc_msg": "x"} for i in range(7)]
+        monkeypatch.setattr(
+            "divineos.core.operating_loop_audit.last_run_detector_errors",
+            lambda: fake_errors,
+        )
+        row = _row_detector_errors()
+        assert row is not None
+        assert row.count == 7
+        assert len(row.preview) == 3
+
+    def test_row_registered_in_ROW_FNS(self):
+        """Row function must be in _ROW_FNS or it never gets called."""
+        from divineos.core.briefing_dashboard import _ROW_FNS, _row_detector_errors
+
+        assert _row_detector_errors in _ROW_FNS

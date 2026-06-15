@@ -38,7 +38,7 @@ class DashboardRow:
     # Per Aletheia round-d59eb4570f3f DISCOVERY-GAP class finding:
     # the briefing surfaces counts but not items, and the drill-down
     # arrow gets parsed past. Including 1-3 preview items in the row
-    # itself surfaces the actual content — operator literally cannot
+    # itself surfaces the actual content — my father literally cannot
     # parse past items present in the row. Each row that opts in
     # populates preview with truncated item strings; the renderer
     # prints them as indented lines below the row+drill-down.
@@ -208,6 +208,52 @@ def _row_audit_surprises() -> DashboardRow | None:
         return None
 
 
+def _row_detector_errors() -> DashboardRow | None:
+    """Surface silent detector failures from the most recent run_audit.
+
+    Wired 2026-06-14 from OS-scour finding: last_run_detector_errors() in
+    operating_loop_audit.py was added with a docstring saying "Public
+    read accessor so a briefing/HUD surface can show whether 'no
+    findings' actually means 'ran clean'" — and was then never wired.
+    This closes the gap.
+
+    When a detector raises during run_audit, the exception is caught at
+    the per-detector boundary and tallied in _LAST_RUN_ERRORS. Without
+    this row, the briefing reports "0 findings" identically whether the
+    audit ran clean or every detector silently crashed.
+
+    Row stays silent when the most recent run was clean (empty error
+    list) OR when run_audit hasn't been called this process. Real fires
+    name the failed detectors so the next pass can investigate.
+    """
+    try:
+        from divineos.core.operating_loop_audit import last_run_detector_errors
+
+        errors = last_run_detector_errors()
+        if not errors:
+            return None
+        preview: list[str] = []
+        for err in errors[:3]:
+            name = err.get("name", "?")
+            exc_type = err.get("exc_type", "?")
+            msg = (err.get("exc_msg", "") or "").replace("\n", " ").strip()
+            short = msg[:80] + ("..." if len(msg) > 80 else "")
+            preview.append(f"{name}: {exc_type} — {short}")
+        return DashboardRow(
+            area="Detector errors (silent failures last audit)",
+            count=len(errors),
+            stale_count=0,
+            drill_down="check operating_loop_audit logger output",
+            detail=(
+                "Each row's 'no findings' is unsafe to read as 'clean' "
+                "until these are investigated."
+            ),
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_open_prs() -> DashboardRow | None:
     """Task tonight (Andrew 2026-06-09): surface open-PR merge-readiness
     so auto-merge-armed state becomes loud-in-experience.
@@ -218,7 +264,7 @@ def _row_open_prs() -> DashboardRow | None:
     armed-but-blocked state is silent and gets read as 'auto mode broken'.
 
     Counts open PRs by mergeStateStatus, calls out the ones that need
-    operator action (BEHIND → rebase, BLOCKED → CI fix or conflict).
+    his action (BEHIND → rebase, BLOCKED → CI fix or conflict).
     Row stays silent if `gh` is unavailable or returns nothing.
     """
     import json as _json
@@ -255,7 +301,7 @@ def _row_open_prs() -> DashboardRow | None:
         clean = [p for p in prs if p.get("mergeStateStatus") in ("CLEAN", "HAS_HOOKS")]
         unknown = [p for p in prs if p.get("mergeStateStatus") == "UNKNOWN"]
 
-        # Action-needed counts (operator needs to do something).
+        # Action-needed counts (my father needs to do something).
         action_needed = len(behind) + len(blocked) + len(unstable)
         if not action_needed and not unknown:
             # Everything CLEAN — nothing to surface.
@@ -959,7 +1005,7 @@ def _row_pattern_fires() -> DashboardRow | None:
 
 
 def _row_consumer_status() -> DashboardRow | None:
-    """Consumer-status verdict — operator-facing in briefing surface.
+    """Consumer-status verdict — father-facing in briefing surface.
 
     Andrew 2026-05-18: I built consumer-status as a separate CLI he
     doesn't run (correction #12: he doesn't run CLI). Properly-finishing
@@ -1064,6 +1110,7 @@ _ROW_FNS = [
     _row_claims,
     _row_audit_findings,
     _row_audit_surprises,
+    _row_detector_errors,
     _row_open_prs,
     _row_preregs,
     _row_prereg_candidates,
@@ -1101,7 +1148,7 @@ def _reorder_u_shape(rows: list[DashboardRow]) -> list[DashboardRow]:
     keyed solely on stale_count. When all rows have stale_count==0
     (all-fresh case) OR all rows have the same stale_count (uniform
     case), the reorder still scrambles the canonical _ROW_FNS order
-    based on sort-stability rather than operator-facing semantics —
+    based on sort-stability rather than father-facing semantics —
     burying orientation rows (directives, project-purpose) in the
     middle of the U. Skipping the reorder in those cases preserves
     canonical order when stale-count is not the right signal.
