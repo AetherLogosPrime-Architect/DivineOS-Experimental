@@ -9,7 +9,7 @@
 #
 # This gate moves the discipline into the OS itself so a fresh DivineOS
 # install inherits guardrail protection at clone-time without any
-# operator-side GitHub branch-protection configuration. Same shape as
+# Andrew-side GitHub branch-protection configuration. Same shape as
 # deletion-discipline.sh: thin doorman; logic in core.pr_merge_gate.
 #
 # Fail-open: any error exits 0 (this hook must not break workflows when

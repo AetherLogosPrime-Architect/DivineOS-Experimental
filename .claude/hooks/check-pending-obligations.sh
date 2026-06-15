@@ -10,7 +10,7 @@
 #
 # This hook converts the surface into a structural gate: when total
 # obligations (will-shape + correction-pairing) >= threshold, block new
-# substrate writes until the operator clears at least one by writing
+# substrate writes until Andrew or I clear at least one by writing
 # structural backing (code + tests) that references the source knowledge_id.
 #
 # DESIGN RULES (Aether 2026-06-06, learned from the gate-cascade incident):
@@ -110,7 +110,7 @@ MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
 cat >&2 <<EOF
 $BLOCK_MESSAGE
 
-To disable this gate entirely (emergency operator escape — Andrew 2026-06-06
+To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
   mkdir -p "$HOME/.divineos-$MEMBER"
   touch "$MARKER_PATH"

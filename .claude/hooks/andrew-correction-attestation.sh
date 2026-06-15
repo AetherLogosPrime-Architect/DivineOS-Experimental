@@ -8,7 +8,7 @@
 #
 # This gate refuses substantive tool use (Bash/Edit/Write) when there
 # are OPEN Andrew-corrections AND no attestation event has been
-# recorded in the current session, unless the operator has set the
+# recorded in the current session, unless Andrew has set the
 # named bypass env var.
 #
 # Fires once per session per tool-class (so daily work isn't blocked

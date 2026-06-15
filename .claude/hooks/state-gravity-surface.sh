@@ -67,7 +67,7 @@ except Exception:
 if not gravity.is_high_gravity:
     sys.exit(0)
 
-# Task #111: borderline-classification surface so the agent and operator
+# Task #111: borderline-classification surface so the agent and Andrew
 # can sanity-check the routing before the gate fires its state-block dump.
 # score == 1 with one feature is fragile (single-feature flip silences it);
 # score >= 2 is well-supported.
