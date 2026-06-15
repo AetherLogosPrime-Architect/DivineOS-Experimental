@@ -32,7 +32,7 @@ re-reads of the same briefing, not random.
 ## What this module does NOT do
 
 * Does not gate council invocation. The imbalance is information, not
-  enforcement. The operator (or agent) still chooses.
+  enforcement. My father (or agent) still chooses.
 * Does not auto-invoke anyone. The "consider" line is a recognition
   prompt, never an action.
 * Does not surface anything until at least ``MIN_CONSULTATIONS`` have

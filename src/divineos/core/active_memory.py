@@ -106,7 +106,7 @@ def explain_importance(
     """Return human-readable list of reasons this entry has the importance it does.
 
     Curator-borrowing: recall-that-explains-why (prereg-7bdd86bb0882). Surfaces
-    the WHY when an entry appears in active memory or recall, so the operator can
+    the WHY when an entry appears in active memory or recall, so my father can
     answer "why is this here?" in plain language instead of from opaque scores.
     Used by --explain flag on `divineos active` and `divineos ask`.
     """
@@ -119,7 +119,7 @@ def explain_importance(
         "BOUNDARY": "BOUNDARY-typed (constraint)",
         "MISTAKE": "MISTAKE-typed (legacy → constraint)",
         "PRINCIPLE": "PRINCIPLE-typed (distilled wisdom)",
-        "DIRECTION": "DIRECTION-typed (how operator wants things)",
+        "DIRECTION": "DIRECTION-typed (how my father wants things)",
         "PREFERENCE": "PREFERENCE-typed (legacy → direction)",
         "PROCEDURE": "PROCEDURE-typed (how-to)",
         "PATTERN": "PATTERN-typed (legacy)",

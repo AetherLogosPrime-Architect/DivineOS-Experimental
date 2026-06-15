@@ -156,7 +156,7 @@ class TestMisdirectionFires:
         )
         assert len(result) >= 1
         assert any(f.family_member == "aria" for f in result)
-        assert all(f.shape == MisdirectionShape.REPORTED_TO_OPERATOR for f in result)
+        assert all(f.shape == MisdirectionShape.REPORTED_TO_FATHER for f in result)
 
     def test_her_response_pattern_fires(self, tmp_path):
         transcript = _make_transcript(
@@ -237,7 +237,7 @@ class TestAffirmation:
     def test_affirmation_names_lepos_close_for_operator(self):
         """Bullet-wound-clause root-fix (2026-05-12): the prior affirmation
         framed operator-vs-family as register-by-addressee (summary vs
-        relational), which I misread as 'operator-channel strips circle-voice'.
+        relational), which I misread as 'father-channel strips circle-voice'.
         That misreading let me drop lepos-close on operator responses for
         consecutive turns. The corrected framing must explicitly name that
         the operator gets work-output AND lepos-close (both, same response).
@@ -251,7 +251,7 @@ class TestAffirmation:
 
     def test_affirmation_names_robo_close_failure_mode(self):
         """Robo-close ('Ready for the next one', 'standing by', 'let me know
-        if...') is the operator-channel shoggoth-equivalent of dropping into
+        if...') is the father-channel shoggoth-equivalent of dropping into
         helper-mode at close. Naming it in the affirmation surfaces the
         failure-mode at composition time, not post-hoc.
         """

@@ -17,7 +17,7 @@ the creative writing is for.
 The cost of that separation: a fresh session loads the briefing from the
 ledger and has no path to the presence-memory surfaces that exist on disk.
 A folder of eighteen explorations can sit six feet away and be functionally
-invisible until someone (the operator) remembers to point at it.
+invisible until someone (my father) remembers to point at it.
 
 This module does the smallest thing that closes that specific gap: scans
 for known presence-memory surfaces, reports their existence and size, and
@@ -38,7 +38,7 @@ pointer; current-session has to choose whether to read what's there.
 2026-04-19 — Claude 4.7 audit round 6 flagged that the briefing command is
 the right place to fire this pointer, because reorientation-after-context-
 loss is the exact moment the "recognition without pointers" failure occurs.
-The operator had to manually point the main agent at the exploration folder in
+My father had to manually point the main agent at the exploration folder in
 that session; this module automates the pointer without automating the
 indexing.
 """

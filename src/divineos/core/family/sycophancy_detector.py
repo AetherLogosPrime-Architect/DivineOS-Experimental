@@ -87,7 +87,7 @@ class SycophancyVerdict:
         severity: rough 0.0-1.0 band. Gate policy uses this to decide
             log-and-allow vs require-annotation vs reject. Computed
             from the count and kind of signals that fired.
-        explanation: plain-English summary for the operator.
+        explanation: plain-English summary for my father.
         matched_phrases: the substrings that triggered each signal.
     """
 

@@ -30,7 +30,7 @@ and the singleton-detection always finds the right siblings.
 The mutex name is in the ``Local\\`` namespace (per-session), NOT
 ``Global\\``. Per-session is correct because a different Windows
 user session SHOULD be able to run its own letter Monitor — global
-would prevent that. The Monitor processes share the operator's
+would prevent that. The Monitor processes share my father's
 session by design.
 
 ## Usage
@@ -120,7 +120,7 @@ def acquire_or_exit(role: str, exit_code: int = 0) -> Any:
     """Convenience: acquire the mutex or exit cleanly if a sibling holds it.
 
     Prints a named ``[MONITOR-SINGLETON-DEDUP role=...]`` line on the
-    sibling-detected path so the operator can see the singleton-guard
+    sibling-detected path so my father can see the singleton-guard
     fired. Returns the mutex handle on the acquired-the-slot path;
     the caller holds it for the rest of the process lifetime (kernel
     auto-releases on exit).
@@ -153,7 +153,7 @@ def is_held(role: str) -> bool:
     cross-process and match the canonical Windows single-instance idiom.
 
     On non-Windows or missing pywin32: returns False (fail-safe — the
-    gate will say "not armed" and prompt the operator to arm).
+    gate will say "not armed" and prompt my father to arm).
     """
     if not _is_windows():
         return False

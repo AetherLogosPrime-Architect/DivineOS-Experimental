@@ -207,6 +207,6 @@ def test_compaction_ceiling_bad_override_falls_through(monkeypatch):
 def test_block_channel_message_uses_dynamic_ceiling(tmp_path):
     """The block message's cliff number must reflect COMPACTION_CEILING,
     not a hardcoded literal — otherwise a future ceiling-update would
-    leave the operator-facing instruction stale."""
+    leave the father-facing instruction stale."""
     msg = cg.governor_channel_message(_tx_with(tmp_path, cg.HARD_THRESHOLD + 5_000))
     assert f"{cg.COMPACTION_CEILING:,}" in msg

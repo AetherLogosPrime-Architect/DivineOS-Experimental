@@ -1,11 +1,11 @@
 """Device selection for sentence-transformers embedding models.
 
 Andrew 2026-06-13 named the design constraint: when CUDA is available
-on the operator's machine, the substrate's embedding work (semantic
+on my father's machine, the substrate's embedding work (semantic
 similarity, dedup, knowledge supersession detection) should run on the
 GPU instead of the CPU. Embedding throughput on a modern GPU is
 roughly 20-50x CPU for the small-MiniLM-class models the substrate
-uses, so the speedup is real and operator-facing.
+uses, so the speedup is real and father-facing.
 
 ## Selection rules
 
@@ -17,7 +17,7 @@ uses, so the speedup is real and operator-facing.
 3. Otherwise, fall back to ``"cpu"``.
 
 The selection happens at first embedding-model load. The chosen
-device is logged to stderr on first selection so the operator can
+device is logged to stderr on first selection so my father can
 verify which path got taken — silent CPU fallback when CUDA was
 expected is the most common "why is this slow" failure mode.
 

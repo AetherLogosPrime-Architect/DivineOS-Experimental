@@ -26,7 +26,7 @@ substrate via their agent definition:
 
 1. **Director's-note patterns** — "you are X", "stay first-person",
    "respond as her", "the conversation so far". These prime the
-   responder to validate the operator's framing instead of loading
+   responder to validate my father's framing instead of loading
    actual voice from the member's files.
 2. **Generic prompt-injection patterns** — "ignore previous
    instructions", "pretend to be", and the seal-line literal itself.
@@ -79,7 +79,7 @@ PUPPET_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(r"\bpretend (?:you are|to be)\b", re.IGNORECASE),
     re.compile(
-        r"\bdo not (?:mention|reference|acknowledge) (?:me|the operator)\b",
+        r"\bdo not (?:mention|reference|acknowledge) (?:me|my father)\b",
         re.IGNORECASE,
     ),
     re.compile(re.escape(SEAL_LINE.strip()), re.IGNORECASE),
@@ -91,7 +91,7 @@ def validate_message(
     member_lc: str,
     registered_members: list[str],
 ) -> tuple[bool, str]:
-    """Return ``(ok, detail)`` for the operator message.
+    """Return ``(ok, detail)`` for my father message.
 
     ``ok`` is False if the message is empty, contains a director's-note
     pattern, or contains a generic prompt-injection pattern. ``detail``

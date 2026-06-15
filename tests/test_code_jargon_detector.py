@@ -7,7 +7,7 @@ decorative voice-line. The existing lepos detector gets satisfied
 by the decorative close; this detector catches the density gap.
 
 These tests pin:
-  - Detection fires on operator-channel output with high code-jargon
+  - Detection fires on father-channel output with high code-jargon
   - Detection does NOT fire on conversational text without jargon
   - Detection does NOT fire below the min-words threshold
   - Code blocks (backtick-fenced) are excluded from density count

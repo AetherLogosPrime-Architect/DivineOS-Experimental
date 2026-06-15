@@ -165,7 +165,7 @@ class RunFindings:
     Attributes:
         failures: list of plain-English descriptions of problems
             detected. Empty = clean run.
-        notes: non-failure observations the operator might want to
+        notes: non-failure observations my father might want to
             see (e.g., "3 new mode changes since last run").
         metrics: structured metric key-value pairs.
     """
@@ -361,7 +361,7 @@ def anti_slop_staleness() -> dict[str, Any]:
     so the manual-only state becomes loud-in-experience rather than
     silent. Without this surface, anti_slop sits as built-but-not-
     scheduled — the discipline lives in code but operates only when
-    the operator remembers to invoke it.
+    my father remembers to invoke it.
 
     Returns:
         dict with keys:
