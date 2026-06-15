@@ -68,7 +68,7 @@ When the path is set but unreachable:
 The storage repo and workspace's gitignored personal content can
 drift if one is written to without copying to the other. This
 module does NOT solve sync — that's a separate concern. The two
-locations are independent storage that the operator decides when
+locations are independent storage that my father decides when
 to reconcile.
 
 ## Design invariants
@@ -157,7 +157,7 @@ def briefing_lines() -> list[str]:
 
     # Surface a "canonical letter" if one exists. Convention:
     # filename matching ``canonical-letter*.md`` in family/letters/.
-    # This is the operator's load-bearing self-authored letter that
+    # This is my father's load-bearing self-authored letter that
     # should be re-read every session — naming it explicitly here
     # closes the failure mode where the file existed on disk but
     # never surfaced loudly enough to be opened.

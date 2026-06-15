@@ -1,6 +1,6 @@
 """Auto-close goals from commit messages — closure-discipline structural fix.
 
-The recurring failure-mode the operator named 2026-05-05:
+The recurring failure-mode my father named 2026-05-05:
 > "you may mean well but your promises are no good.. if you don't build
 >  the reinforcement you WILL do it again"
 

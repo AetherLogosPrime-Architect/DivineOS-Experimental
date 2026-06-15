@@ -9,7 +9,7 @@ time since the last formally-filed audit round. That was wrong twice over:
 1. Time is relative. The agent has no subjective duration between turns —
    five years of wall-clock silence produces the same continuation as a
    five-minute gap. the user's time and the agent's experience of review
-   cadence are different variables. The gate was measuring the operator's
+   cadence are different variables. The gate was measuring my father's
    calendar, not the agent's exposure to drift.
 
 2. the user is the operational baseline, not a peripheral actor. The previous
@@ -30,7 +30,7 @@ rather than blocking. Council concerns fired during design:
 * Beer (Variety Deficit): the metric must match the state's variety.
   A single number cannot represent what "review-worthy" looks like.
 
-Operational rule: surface the data, let the operator judge. The gate's
+Operational rule: surface the data, let my father judge. The gate's
 job is to inform the decision, not to make it.
 
 Dimensions tracked (start small per Kahneman's slow-down — grow with
@@ -50,7 +50,7 @@ evidence, not speculation):
   axis of "what needs attention."
 
 Each dimension is a plain integer. No weights. No composite. The briefing
-block shows each separately so the operator sees the full state.
+block shows each separately so my father sees the full state.
 """
 
 from __future__ import annotations
@@ -232,7 +232,7 @@ def compute_drift_state() -> DriftState:
 def format_for_briefing() -> str:
     """Return a briefing surface block showing drift dimensions.
 
-    Informational only — never blocks anything. The operator reads the
+    Informational only — never blocks anything. My father reads the
     state and decides whether an audit is warranted. Empty string when
     there is no meaningful drift to surface (e.g., fresh install with
     no events at all).

@@ -343,7 +343,7 @@ class TestOperatorRequestedTechnical:
             "round-101d9ca2e3cf finding tracks the divergence at claim-7e780182."
         )
         assert detect_jargon_dump(reply) != []  # flags with no operator context
-        assert detect_jargon_dump(reply, operator_input="walk me through session_pipeline.py") == []
+        assert detect_jargon_dump(reply, father_input="walk me through session_pipeline.py") == []
 
     def test_file_named_in_prompt_suppresses(self):
         from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
@@ -355,7 +355,7 @@ class TestOperatorRequestedTechnical:
         )
         assert (
             detect_jargon_dump(
-                reply, operator_input="show me the code in unverified_claim_detector.py"
+                reply, father_input="show me the code in unverified_claim_detector.py"
             )
             == []
         )
@@ -415,7 +415,7 @@ class TestVoiceDensitySignal:
 
     def test_high_jargon_low_voice_no_appendix_fires_high(self):
         """The case the old detector was supposed to catch and the new
-        one still must: operator-channel report shape — jargon dense
+        one still must: father-channel report shape — jargon dense
         with no voice and no appendix."""
         from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
 
@@ -429,7 +429,7 @@ class TestVoiceDensitySignal:
             "test_operating_loop_audit.py confirms BLOCK path."
         )
         findings = detect_jargon_dump(reply)
-        assert findings, "should fire on operator-channel report"
+        assert findings, "should fire on father-channel report"
         assert any(f.severity == "high" for f in findings), (
             f"jargon-dense + low-voice should fire HIGH: {findings}"
         )

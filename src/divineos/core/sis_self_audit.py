@@ -30,7 +30,7 @@ class DocstringAuditResult:
 
     - ``substance_flagged`` — true when SIS verdict is QUARANTINE.
       Indicates ungrounded overclaim / metaphysical hand-waving with
-      no technical anchor. This is the real problem; the operator
+      no technical anchor. This is the real problem; my father
       should translate or quarantine.
 
     - ``register_flagged`` — true when SIS verdict is TRANSLATE and
@@ -38,7 +38,7 @@ class DocstringAuditResult:
       possibly-accurate claims (e.g. "Deep Wisdom" on a tried-and-
       tested expert framework). Informational only — the original
       framing may earn its place; the suggested translation is
-      available if the operator decides the elevation is reflexive
+      available if my father decides the elevation is reflexive
       rather than load-bearing.
 
     - ``flagged`` — kept for backward compatibility; equals

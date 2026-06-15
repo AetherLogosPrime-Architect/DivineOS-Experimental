@@ -252,7 +252,7 @@ def generate_enforcement_report() -> str:
 
     Updated 2026-05-05 to include tool-logbook health alongside main-
     ledger event counts. Tool events live in their own logbook now;
-    surfacing both stores side by side gives the operator a complete
+    surfacing both stores side by side gives my father a complete
     picture of enforcement.
 
     Returns:

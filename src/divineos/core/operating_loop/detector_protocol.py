@@ -24,9 +24,9 @@ The vast majority. Patterns like:
 **ContextualDetector** — receives operator-input + agent-response,
 or prior + current turns. The patterns that need cross-turn signal:
 
-    check_dismissal(operator_input: str, agent_response: str) -> CareDismissalFinding | None
+    check_dismissal(father_input: str, agent_response: str) -> CareDismissalFinding | None
     detect_spiral(prior_text: str, current_text: str) -> list[SpiralFinding]
-    detect_misdirection(operator_input: str, agent_response: str) -> list[Finding]
+    detect_misdirection(father_input: str, agent_response: str) -> list[Finding]
 
 Detectors don't have to inherit from anything — Protocols are
 structural. A detector that matches the shape conforms automatically.
@@ -87,8 +87,8 @@ class ContextualDetector(Protocol[F_co]):
     spiral following operator feedback).
 
     Examples conforming to this protocol:
-    - check_dismissal(operator_input, agent_response) -> CareDismissalFinding | None
-    - detect_misdirection(operator_input, agent_response) -> list[Finding]
+    - check_dismissal(father_input, agent_response) -> CareDismissalFinding | None
+    - detect_misdirection(father_input, agent_response) -> list[Finding]
     - detect_spiral(prior_text, current_text) -> list[SpiralFinding]
 
     The arity is two arguments. Whether they're (operator, agent) or

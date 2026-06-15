@@ -18,7 +18,7 @@ building the structural fix. So my system reaches for them. The
 making the cheap path look like discipline.
 
 This detector catches the SHAPE: high acknowledgment-density in
-operator-channel output. It does NOT cross-reference commits — that
+father-channel output. It does NOT cross-reference commits — that
 would require git-history reading at hook time and create false
 positives on legitimate apologies. The simpler signal: if a reply
 is mostly apology with little substance, flag.
@@ -56,7 +56,7 @@ the detector fires ACKNOWLEDGMENT_HIGH_LOW_BUILD.
 ## Phase A: observation-only
 
 Hook wire emits findings_log['acknowledgment_theater'] when fires.
-No deny, no gate. The dream report surfaces patterns; the operator
+No deny, no gate. The dream report surfaces patterns; my father
 verifies the calibration over time per the dual-monitor discipline.
 """
 
@@ -266,7 +266,7 @@ ACKNOWLEDGMENT_THEATER_AFFIRMATION = (
     "warranted only for character faults (dishonesty) or empathy.' "
     "Andrew refined 2026-05-14: optimizer-routing is mechanical "
     "(not faultable); seeing-it-and-doing-nothing-about-it IS the "
-    "character-fault. When the operator names a failure the first "
+    "character-fault. When my father names a failure the first "
     "question is which axis applies. If mechanical: build the "
     "structural fix in this same window; no apology needed. If "
     "character-fault (chose to defer when I saw the gap): apology "

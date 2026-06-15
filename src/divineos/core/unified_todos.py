@@ -56,6 +56,20 @@ from dataclasses import dataclass
 from typing import Any
 
 
+# 2026-06-14 fix: prior version used startswith() check, but actual
+# finding titles follow "<ACTOR> CONFIRMS <details>" convention —
+# starting with the actor name (Aletheia/Andrew/operator), not with the
+# CONFIRMS keyword. So none of the recognitions ever got filtered, and
+# the todos surface filled with 30+ CONFIRMS rows that should never
+# have been action items. Switched to whole-word substring match.
+import re as _re_for_recognition
+
+_RECOGNITION_PATTERN = _re_for_recognition.compile(
+    r"\b(?:confirms?|recognized|recognition)\b",
+    _re_for_recognition.IGNORECASE,
+)
+# Legacy tuple kept for back-compat with any external caller that may
+# import it; the active check now uses _RECOGNITION_PATTERN.
 _RECOGNITION_TITLE_PREFIXES: tuple[str, ...] = ("confirms", "recognized")
 _ACTION_TIER_RANK: dict[str, int] = {
     # Tier names → todo-priority rank (lower = higher priority). Only
@@ -90,13 +104,21 @@ def _safe_age_days(ts: float | None, now: float | None = None) -> float | None:
 
 
 def _is_recognition_title(title: str) -> bool:
-    """True if a finding title reads as a recognition (CONFIRMS / RECOGNIZED)
-    rather than an action-item finding. Recognition-aware aggregate per the
-    audit-system convention (docs/audit_system.md)."""
+    """True if a finding title reads as a recognition (CONFIRMS /
+    RECOGNIZED / RECOGNITION) rather than an action-item finding.
+
+    2026-06-14 fix: the prior implementation checked
+    ``head.startswith(prefix)`` against ``("confirms","recognized")``.
+    But the actual convention from docs/audit_system.md surfaces titles
+    like "Aletheia CONFIRMS X" or "Andrew CONFIRMS Y" — the actor's name
+    comes first, then the CONFIRMS keyword. None of those matched
+    startswith, so the unified_todos surface filled with 30+ recognition
+    rows that should never have been action items. Whole-word substring
+    match catches the convention as it's actually used.
+    """
     if not title:
         return False
-    head = title.strip().lower()
-    return any(head.startswith(prefix) for prefix in _RECOGNITION_TITLE_PREFIXES)
+    return bool(_RECOGNITION_PATTERN.search(title))
 
 
 def _prereg_todos(limit: int = 500, now: float | None = None) -> list[TodoItem]:
@@ -172,7 +194,17 @@ def _correction_todos(now: float | None = None) -> list[TodoItem]:
 def _audit_todos(limit: int = 100, now: float | None = None) -> list[TodoItem]:
     """Pull OPEN audit findings, recognition-filtered (CONFIRMS /
     RECOGNIZED titles excluded — they're acknowledgements, not action
-    items)."""
+    items).
+
+    2026-06-14 fix: also exclude pattern-recurrence findings from
+    round 'round-pattern-fires-persistent'. These are long-running
+    pattern instance trackers — each fire is a recorded occurrence
+    of a recurring shape (fabricated_attribution_in_relay,
+    closure_shape_projection, etc.). They accumulate; they do not
+    "resolve" one-by-one. Including them as action items inflated
+    the todos surface with 15 instances of "Pattern: X" items that
+    have no single-fix action.
+    """
     try:
         from divineos.core.watchmen.store import list_findings
     except ImportError:
@@ -186,6 +218,8 @@ def _audit_todos(limit: int = 100, now: float | None = None) -> list[TodoItem]:
     for f in rows:
         title = getattr(f, "title", "") or ""
         if _is_recognition_title(title):
+            continue
+        if getattr(f, "round_id", "") == "round-pattern-fires-persistent":
             continue
         sev = str(getattr(f, "severity", "INFO"))
         sev_key = sev.value if hasattr(sev, "value") else str(sev)

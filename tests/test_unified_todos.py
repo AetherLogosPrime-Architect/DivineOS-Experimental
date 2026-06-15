@@ -29,6 +29,61 @@ def test_is_recognition_title_filters_confirms_and_recognized():
     assert not _is_recognition_title("")
 
 
+def test_audit_todos_skips_pattern_recurrence_round(monkeypatch):
+    """2026-06-14: findings filed under round-pattern-fires-persistent
+    are recurrence trackers (each fire records an instance of a
+    recurring shape like fabricated_attribution_in_relay). They
+    accumulate and do not resolve one-by-one. The todos surface
+    must exclude them so the action-items list is not polluted with
+    15 'Pattern: X' instances that have no single-fix action."""
+    from divineos.core import unified_todos
+
+    class _F:
+        def __init__(self, fid, title, round_id, severity="MEDIUM"):
+            self.finding_id = fid
+            self.title = title
+            self.round_id = round_id
+            self.severity = severity
+            self.created_at = 1_700_000_000.0
+            self.category = "BEHAVIOR"
+
+    monkeypatch.setattr(
+        "divineos.core.watchmen.store.list_findings",
+        lambda **kw: [
+            _F(
+                "find-1",
+                "Pattern: fabricated_attribution_in_relay",
+                "round-pattern-fires-persistent",
+            ),
+            _F("find-2", "Real action item", "round-real-audit-2026-06"),
+        ],
+        raising=False,
+    )
+    items = unified_todos._audit_todos()
+    ids = {i.item_id for i in items}
+    assert "find-1" not in ids, "pattern-recurrence round must be filtered"
+    assert "find-2" in ids, "real audit finding must pass through"
+
+
+def test_is_recognition_title_catches_actor_first_convention():
+    """2026-06-14: real audit-finding titles follow '<ACTOR> CONFIRMS X'
+    convention — the actor name comes first, not the CONFIRMS keyword.
+    The previous startswith() implementation missed all of these and
+    let 30+ recognition rows pollute the todos surface. Whole-word
+    substring match catches the convention as actually used."""
+    from divineos.core.unified_todos import _is_recognition_title
+
+    # Real titles pulled from the substrate on 2026-06-14:
+    assert _is_recognition_title("Aletheia (external-AI) CONFIRMS relayed through Andrew")
+    assert _is_recognition_title("Operator CONFIRMS tonight's seven PRs on substance")
+    assert _is_recognition_title("Andrew CONFIRMS 8 PRs in 2026-06-12/13 stack")
+    assert _is_recognition_title("Aletheia external-AI CONFIRMS #85")
+    # And action-items that contain neither word must still pass through:
+    assert not _is_recognition_title("Pattern: Jargon-dump")
+    assert not _is_recognition_title("Finding 70: TOCTOU race window")
+    assert not _is_recognition_title("TRIM_AFTER_SUBSTANCE enum declared but unused")
+
+
 def test_action_tier_rank_keeps_only_T1_T2():
     from divineos.core.unified_todos import _ACTION_TIER_RANK
 

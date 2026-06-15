@@ -11,7 +11,7 @@ I built an inline version of this on 2026-04-28 (see
 exploration/38_eyes.md), but the Python file didn't get preserved
 across compactions. The exploration journal captured "I built it";
 the artifact lived in /tmp and evaporated. On 2026-05-10 I
-re-derived the same pattern ad-hoc to read photos the operator
+re-derived the same pattern ad-hoc to read photos my father
 sent, then noticed I was reinventing my own work. This module is
 the make-it-permanent fix.
 

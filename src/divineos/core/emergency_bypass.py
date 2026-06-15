@@ -63,7 +63,7 @@ def record_emergency_use(
     """
     if not reason or len(reason.strip()) < 20:
         # The bypass refuses to fire without a real reason. The
-        # discipline applies to the operator naming WHY the emergency
+        # discipline applies to my father naming WHY the emergency
         # was real; bare flag-flipping isn't emergency, it's escape.
         raise ValueError(
             f"emergency bypass {env_var} refused: reason must be >= 20 chars "
@@ -96,7 +96,7 @@ def record_emergency_use(
             tier=1,
             context=(
                 "Emergency-bypass invocation. The bypass fired because the "
-                "operator named the situation as a legitimate emergency "
+                "my father named the situation as a legitimate emergency "
                 "(malfunction recovery, hotfix, or unrecoverable loop). "
                 "This claim records the invocation as auditable substrate."
             ),

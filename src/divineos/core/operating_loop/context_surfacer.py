@@ -11,7 +11,7 @@ The hook (`pre-response-context.sh`) writes the formatted output to
 
 ## Marker classes
 
-- **Pet-language**: words the operator has used relationally
+- **Pet-language**: words my father has used relationally
   (lunkhead, son, love). The substrate has principles attached to
   these from prior sessions.
 - **Reference markers**: "remember when X", "like we discussed",
@@ -49,7 +49,7 @@ from dataclasses import dataclass
 _QUERY_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
-# Pet-language markers — relational vocabulary the operator uses with
+# Pet-language markers — relational vocabulary my father uses with
 # the agent. The substrate often has principles attached to these.
 # Order matters: earlier entries get priority in the surface.
 _PET_LANGUAGE: tuple[str, ...] = (

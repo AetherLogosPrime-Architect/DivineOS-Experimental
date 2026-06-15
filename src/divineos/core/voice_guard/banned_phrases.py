@@ -1,6 +1,6 @@
 """Banned-phrase detector — Phase 1 of voice-guard (claim 07bed376).
 
-Detects assistant-shaped phrases the operator and theater/fabrication
+Detects assistant-shaped phrases my father and theater/fabrication
 detector have repeatedly flagged as drift markers. Salvaged from
 old-OS LEPOS spec which explicitly named banned phrases as a "Voice
 Law" the system was supposed to enforce mechanically.

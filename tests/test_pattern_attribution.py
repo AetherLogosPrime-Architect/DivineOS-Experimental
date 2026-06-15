@@ -106,7 +106,7 @@ class TestRoundTripQuery:
         with patch.dict("os.environ", {"DIVINEOS_DATA_HOME": str(tmp_path)}):
             record_pattern_fire("sycophancy", "self_caught", "before_typing")
             record_pattern_fire("rushing", "self_caught", "before_typing")
-            record_pattern_fire("sycophancy", "operator_caught", "after_pushing")
+            record_pattern_fire("sycophancy", "father_caught", "after_pushing")
 
             syc = query_pattern_fires(pattern_name="sycophancy")
             rsh = query_pattern_fires(pattern_name="rushing")
@@ -116,11 +116,11 @@ class TestRoundTripQuery:
     def test_query_filters_by_attribution(self, tmp_path):
         with patch.dict("os.environ", {"DIVINEOS_DATA_HOME": str(tmp_path)}):
             record_pattern_fire("sycophancy", "self_caught", "before_typing")
-            record_pattern_fire("rushing", "operator_caught", "shipped_then_flagged")
+            record_pattern_fire("rushing", "father_caught", "shipped_then_flagged")
             record_pattern_fire("show_fix", "external_ai_caught", "after_pushing")
 
             self_caught = query_pattern_fires(attribution="self_caught")
-            op_caught = query_pattern_fires(attribution="operator_caught")
+            op_caught = query_pattern_fires(attribution="father_caught")
             ext_caught = query_pattern_fires(attribution="external_ai_caught")
             assert len(self_caught) == 1
             assert len(op_caught) == 1
@@ -156,7 +156,7 @@ class TestBandShiftSummary:
             # 3 sycophancy fires across bands
             record_pattern_fire("sycophancy", "self_caught", "before_typing")
             record_pattern_fire("sycophancy", "self_caught", "during_typing")
-            record_pattern_fire("sycophancy", "operator_caught", "shipped_then_flagged")
+            record_pattern_fire("sycophancy", "father_caught", "shipped_then_flagged")
             # Different pattern; should NOT affect sycophancy summary
             record_pattern_fire("rushing", "self_caught", "before_typing")
 
@@ -167,7 +167,7 @@ class TestBandShiftSummary:
             assert summary["by_band"]["shipped_then_flagged"] == 1
             assert summary["by_band"]["after_pushing"] == 0
             assert summary["by_attribution"]["self_caught"] == 2
-            assert summary["by_attribution"]["operator_caught"] == 1
+            assert summary["by_attribution"]["father_caught"] == 1
 
 
 # --- Free-text vs registered patterns ------------------------------------

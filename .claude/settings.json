@@ -185,6 +185,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/gh-pr-merge-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
           }
         ]
       }

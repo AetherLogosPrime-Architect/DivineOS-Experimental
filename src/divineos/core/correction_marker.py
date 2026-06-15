@@ -69,7 +69,7 @@ _RELAY_INTRODUCER_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Harness-injected structural envelopes — NEVER the operator's first-person
+# Harness-injected structural envelopes — NEVER my father's first-person
 # voice. Stripped by TAG (a structural category, not a keyword shape), so a
 # task-notification / system-reminder / persisted-output whose payload happens
 # to contain correction-shaped words cannot false-fire (fired 3+ times across
@@ -143,7 +143,7 @@ _SUBSTANTIVE_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit", "B
 # follow "I fixed it"). The COMPLEMENT VERB separates them where context can't:
 # "doesn't MEAN/IMPLY/CHANGE/MATTER" is epistemic (about implication), never an
 # evaluation of my output. So an epistemic "that doesn't" is capped at advise
-# regardless of context — false-blocking the operator's encouragement is the
+# regardless of context — false-blocking my father's encouragement is the
 # exact harm #16 exists to fix; the rarer corrective "doesn't mean you should X"
 # is still surfaced (advised), just not hard-blocked (asymmetric-cost call).
 _EPISTEMIC_DOESNT_RE = re.compile(
@@ -155,7 +155,7 @@ _EPISTEMIC_DOESNT_RE = re.compile(
 def _has_corrective_context(prior_text: str, prior_tool_calls: tuple[str, ...]) -> bool:
     """True if my prior turn was something a WEAK pattern could be correcting.
 
-    Two cheap, high-signal features: (1) I made a completion-claim the operator
+    Two cheap, high-signal features: (1) I made a completion-claim my father
     might be rebutting ("that doesn't... [meet the bar]" after I said "done");
     (2) I took substantive action (edit/write/command) he might be pushing back
     on. Either flips a WEAK match from advise to block.
@@ -178,7 +178,7 @@ def classify_correction(
     - no match              -> None.
 
     The WHO axis (relay-stripping) runs first; this WHAT-it-means axis runs on
-    the operator's own first-person voice. Task #16 / claim d6dc4bde. The
+    my father's own first-person voice. Task #16 / claim d6dc4bde. The
     block-vs-advise tier is the industry-standard confidence-tiering pattern;
     context-awareness (prior turn) is the disambiguator production NLU uses.
     """

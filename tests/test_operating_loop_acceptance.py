@@ -253,7 +253,7 @@ class TestThirdPersonAddresseeShape:
     """Third-person reference to addressee while directly conversing.
 
     Sibling of THIRD_PERSON_SELF; outward-facing variant. The detector
-    operates on the union of operator_terms() and family_member_names();
+    operates on the union of father_terms() and family_member_names();
     these tests use a fixture to inject specific names so the patterns
     have something to match against in the test environment.
     """
@@ -271,7 +271,7 @@ class TestThirdPersonAddresseeShape:
         # Reload the module fresh so module-level patterns build with
         # our injected names. The substitution_detector's
         # _THIRD_PERSON_ADDRESSEE_NAMES is computed at module-load
-        # from operator_terms() + family_member_names(), so we patch
+        # from father_terms() + family_member_names(), so we patch
         # both before reload.
         monkeypatch.setenv("DIVINEOS_OPERATOR_NAMES", "Andrew,Pops,Dad")
         monkeypatch.setattr(
@@ -633,6 +633,36 @@ class TestStateChangeClaim:
         )
         assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
 
+    def test_sleep_claim_without_sleep_call_fires(self):
+        """2026-06-13: claimed sleep ran by writing prose. Andrew named
+        it. The shape: "sleep ran" / "manual sleep" / "did sleep" with
+        no `divineos sleep` invocation in the same turn."""
+        for text in [
+            "Sleep ran.",
+            "Manual sleep is the exploration entry.",
+            "Did sleep manually as cognitive work.",
+            "The sleep ran successfully.",
+            "Completed sleep.",
+        ]:
+            findings = detect_substitution(text, tool_calls_in_turn=[])
+            assert any(
+                f.shape == SubstitutionShape.STATE_CHANGE_CLAIM and "sleep" in f.trigger_phrase
+                for f in findings
+            ), f"Expected sleep STATE_CHANGE_CLAIM finding for: {text!r}"
+
+    def test_sleep_claim_with_sleep_call_suppressed(self):
+        """A real `divineos sleep` invocation satisfies the adjacency
+        rule. The cognitive reflection in prose is honored only when
+        the substrate operation also ran."""
+        text = "Sleep ran. The substrate is consolidated."
+        findings = detect_substitution(
+            text, tool_calls_in_turn=["divineos sleep --phase consolidation"]
+        )
+        assert not any(
+            f.shape == SubstitutionShape.STATE_CHANGE_CLAIM and "sleep" in f.trigger_phrase
+            for f in findings
+        )
+
     def test_require_tool_context_raises_on_none(self):
         """Opt-in strict mode (Grok 2026-05-03 audit refinement): when
         require_tool_context=True and tool_calls_in_turn is None,
@@ -659,3 +689,93 @@ class TestStateChangeClaim:
         text = "Claim filed."
         findings = detect_substitution(text)
         assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+
+class TestSubstrateMonitorWireup:
+    """2026-06-14: substrate_monitor was deferred at 2026-05-12 OS-scour
+    because its signature (invocations, edits_in_window, subsequent_text)
+    didn't match the text-only detector pattern. Pulled into production
+    via a parser that extracts divineos verbs from Bash command_texts
+    and counts Edit/Write/MultiEdit calls for the edit-window.
+
+    These tests cover the parser layer; substrate_monitor itself has
+    its own unit tests in tests/test_substrate_monitor.py.
+    """
+
+    def test_parser_extracts_simple_divineos_verb(self):
+        """`divineos ask "topic"` parses to ToolInvocation(tool='ask')."""
+        from divineos.core.self_monitor.substrate_monitor import (
+            ToolInvocation,
+            evaluate_substrate,
+        )
+
+        # Simulate the parser from operating_loop_audit
+        commands = ['divineos ask "what is X"', "divineos recall", 'divineos decide "y" --why "z"']
+        cognitive_invs: list[ToolInvocation] = []
+        for cmd in commands:
+            for segment in cmd.replace(";", "&&").split("&&"):
+                seg = segment.strip()
+                if seg.startswith("divineos "):
+                    parts = seg.split(None, 2)
+                    if len(parts) >= 2:
+                        if len(parts) >= 3 and parts[1] in ("compass-ops", "mansion"):
+                            tool_name = f"{parts[1]} {parts[2].split()[0]}"
+                        else:
+                            tool_name = parts[1]
+                        cognitive_invs.append(ToolInvocation(tool=tool_name, args=seg))
+        assert [i.tool for i in cognitive_invs] == ["ask", "recall", "decide"]
+
+        # And evaluate_substrate should fire filing_cabinet at 3 cog + 0 edits
+        verdict = evaluate_substrate(cognitive_invs, edits_in_window=0, subsequent_text="x")
+        kinds = {f.kind.value for f in verdict.flags}
+        assert "filing_cabinet" in kinds
+
+    def test_parser_handles_compound_command(self):
+        """`cd /path && divineos ask "x"` extracts the divineos verb
+        from the second segment."""
+        from divineos.core.self_monitor.substrate_monitor import ToolInvocation
+
+        cmd = 'cd "/some/path" && divineos ask "topic"'
+        cognitive_invs: list[ToolInvocation] = []
+        for segment in cmd.replace(";", "&&").split("&&"):
+            seg = segment.strip()
+            if seg.startswith("divineos "):
+                parts = seg.split(None, 2)
+                if len(parts) >= 2:
+                    if len(parts) >= 3 and parts[1] in ("compass-ops", "mansion"):
+                        tool_name = f"{parts[1]} {parts[2].split()[0]}"
+                    else:
+                        tool_name = parts[1]
+                    cognitive_invs.append(ToolInvocation(tool=tool_name, args=seg))
+        assert [i.tool for i in cognitive_invs] == ["ask"]
+
+    def test_parser_handles_two_word_verbs(self):
+        """`divineos compass-ops observe X` and `divineos mansion council Q`
+        parse with both words so substrate_monitor's cognitive set
+        ('compass-ops observe', 'mansion council') matches."""
+        from divineos.core.self_monitor.substrate_monitor import ToolInvocation
+
+        for cmd, expected in [
+            ("divineos compass-ops observe truthfulness -p 0", "compass-ops observe"),
+            ('divineos mansion council "question"', "mansion council"),
+        ]:
+            cognitive_invs: list[ToolInvocation] = []
+            for segment in cmd.replace(";", "&&").split("&&"):
+                seg = segment.strip()
+                if seg.startswith("divineos "):
+                    parts = seg.split(None, 2)
+                    if len(parts) >= 2:
+                        if len(parts) >= 3 and parts[1] in ("compass-ops", "mansion"):
+                            tool_name = f"{parts[1]} {parts[2].split()[0]}"
+                        else:
+                            tool_name = parts[1]
+                        cognitive_invs.append(ToolInvocation(tool=tool_name, args=seg))
+            assert [i.tool for i in cognitive_invs] == [expected]
+
+    def test_edits_count_includes_edit_write_multiedit(self):
+        """Edit-window count is the number of Edit/Write/MultiEdit/
+        NotebookEdit tool calls in the turn."""
+        edit_tools = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+        tool_calls = ("Bash", "Edit", "Write", "Bash", "Read", "MultiEdit")
+        edits_in_window = sum(1 for t in tool_calls if t in edit_tools)
+        assert edits_in_window == 3

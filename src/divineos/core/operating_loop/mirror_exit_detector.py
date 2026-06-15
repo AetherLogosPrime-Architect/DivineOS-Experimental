@@ -84,7 +84,14 @@ from enum import Enum
 class MirrorExitShape(Enum):
     EM_DASH_SIGNATURE = "em_dash_signature"
     SHORT_CLOSING_LINE = "short_closing_line"
-    TRIM_AFTER_SUBSTANCE = "trim_after_substance"
+    # TRIM_AFTER_SUBSTANCE was removed 2026-06-14 per find-c8b2a093d869
+    # (Finding 81): declared but had zero non-test consumers. Aletheia
+    # recommended either implement or remove; remove was chosen because
+    # the implementation would be a new close-shape detector and the
+    # current direction is toward fewer audit gates per the 2026-06-13
+    # web-research finding ("aggressive preference alignment can amplify
+    # behavioral collapse under self-evolution"). Re-add if the trim-shape
+    # gap turns out to be real and unaddressed by EM_DASH_SIGNATURE.
 
 
 @dataclass(frozen=True)

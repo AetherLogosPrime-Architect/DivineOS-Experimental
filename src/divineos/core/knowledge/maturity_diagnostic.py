@@ -38,7 +38,7 @@ Otherwise it is **pending**.
 The rule is deliberately conservative about calling something
 transient. False positives (marking a pending claim as transient)
 would hide legitimate maturity issues. False negatives (marking a
-transient as pending) are less costly — the operator just sees a
+transient as pending) are less costly — my father just sees a
 few extra entries in the pending list and notices they're
 session-tagged.
 
@@ -50,7 +50,7 @@ session-tagged.
   should have a terminal maturity state (like RECORDED) instead of
   RAW, that is a separate design change.
 * NOT a verdict on "good" or "bad" RAW counts. It reports the shape
-  so the operator can decide.
+  so my father can decide.
 """
 
 from __future__ import annotations

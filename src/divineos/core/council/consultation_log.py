@@ -11,7 +11,7 @@ Mode 1.5 design (operator-proposed, 2026-04-21):
 
 This keeps two signals cleanly separated:
   - Consultation log: what the agent asked the council and what came back
-  - Audit log: findings the operator chose to count toward the review cadence
+  - Audit log: findings my father chose to count toward the review cadence
 
 Tier defaults for audit-promoted council rounds are MEDIUM (see
 watchmen.types.tier_for_actor — "council" maps to Tier.MEDIUM). Operators
@@ -206,7 +206,7 @@ def invocation_tally(last_n: int = 20) -> dict[str, int]:
     929cb459): the agent had been reaching for the same 5–7 analytical
     experts and steering away from lenses whose concerns would challenge
     it. Making the invocation imbalance VISIBLE at the point of
-    selection is the light-touch structural intervention — the operator
+    selection is the light-touch structural intervention — my father
     (or agent) can still choose, but can't choose unconsciously.
     """
     tally: dict[str, int] = {}

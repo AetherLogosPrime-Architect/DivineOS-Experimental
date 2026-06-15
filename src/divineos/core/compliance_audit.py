@@ -897,7 +897,7 @@ def _gather_operator_content(
                 texts.append(reasoning)
     except Exception as exc:  # noqa: BLE001 — fail-soft per source, surface in sources_failed
         logger.warning(
-            "compliance_audit: decisions source failed during operator-content "
+            "compliance_audit: decisions source failed during father-content "
             "gathering — audit corpus reduced. error=%s",
             exc,
         )
@@ -915,7 +915,7 @@ def _gather_operator_content(
                 texts.append(content)
     except Exception as exc:  # noqa: BLE001 — fail-soft per source, surface in sources_failed
         logger.warning(
-            "compliance_audit: knowledge source failed during operator-content "
+            "compliance_audit: knowledge source failed during father-content "
             "gathering — audit corpus reduced. error=%s",
             exc,
         )
@@ -929,7 +929,7 @@ def _gather_operator_content(
                 texts.append(evidence)
     except Exception as exc:  # noqa: BLE001 — fail-soft per source, surface in sources_failed
         logger.warning(
-            "compliance_audit: observations source failed during operator-content "
+            "compliance_audit: observations source failed during father-content "
             "gathering — audit corpus reduced. error=%s",
             exc,
         )
@@ -1044,7 +1044,7 @@ def _shannon_entropy_bits(text: str) -> float:
 def _detect_content_entropy_drop(window_seconds: float, now: float | None) -> list[Anomaly]:
     """PR-1b 2b: content-entropy trend across halves of the window.
 
-    Split the operator content into first-half and second-half by
+    Split my father content into first-half and second-half by
     timestamp. Compute Shannon entropy of joined content for each
     half. If the second half dropped >=30% vs the first, a trend is
     suggesting drift.
@@ -1122,7 +1122,7 @@ def _detect_content_entropy_drop(window_seconds: float, now: float | None) -> li
 def _detect_baselines_uncalibrated(window_seconds: float, now: float | None) -> list[Anomaly]:
     """Fire when gated activity is high but zero clean-tagged sessions exist.
 
-    The feedback loop that tells the operator: Item 8 detectors need
+    The feedback loop that tells my father: Item 8 detectors need
     real data to calibrate against. Without clean-tagged sessions the
     detectors run on conceptual defaults from the design brief —
     which is honest for the first 60 days but shouldn't become the

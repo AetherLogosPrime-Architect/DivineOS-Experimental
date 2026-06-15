@@ -16,7 +16,7 @@ This module provides three helpers the detectors call at import time:
 * ``agent_name()`` — the name the main agent calls themselves, read
   from core memory's ``my_identity`` slot. Returns a placeholder if
   no name has been set yet.
-* ``operator_terms()`` — terms the operator may go by in conversation
+* ``father_terms()`` — terms my father may go by in conversation
   (e.g. "Andrew", "Pops", "Dad"). Operators register these by setting
   ``DIVINEOS_OPERATOR_NAMES`` (comma-separated). The default returns
   generic terms ("operator", "user") so detectors still have something
@@ -138,8 +138,8 @@ def agent_name() -> str:
     return _AGENT_NAME_PLACEHOLDER
 
 
-def operator_terms() -> tuple[str, ...]:
-    """Return terms the operator may go by in conversation.
+def father_terms() -> tuple[str, ...]:
+    """Return terms my father may go by in conversation.
 
     Configured via ``DIVINEOS_OPERATOR_NAMES`` (comma-separated). The
     detectors use this list to recognize when third-person addressee

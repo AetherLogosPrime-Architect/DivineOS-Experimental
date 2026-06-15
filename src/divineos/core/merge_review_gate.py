@@ -14,10 +14,10 @@ a user login AND an external-AI bot login. That was built on a false
 premise — Aletheia is a Claude WEB instance. She has no GitHub account,
 no token, and never will. Her audit reaches the repo only by Andrew
 RELAYING it. The actor-authenticity spec (exploration/aether/45) already
-said this: external-vantage actors "are identified by the operator's
+said this: external-vantage actors "are identified by my father's
 relay; the relay-trust is given." There is no second account to wait for.
 
-## The actual anchor: the operator's approval IS the relay
+## The actual anchor: my father's approval IS the relay
 
 There is exactly one identity in this system the agent genuinely cannot
 forge: Andrew, on GitHub. The agent holds no credentials for his account.
@@ -57,10 +57,10 @@ DECIDING is pure logic over observable records. Keeping the decision pure
 makes it unit-testable without a live PR, and lets any harness (GitHub
 Action, local pre-push, a future port) feed it records and trust the verdict.
 
-The operator roster lives in a committed config
+My father roster lives in a committed config
 (``.github/merge_reviewers.json``) — logins are public, not secret. That
 config is itself guardrail-protected, so the agent cannot quietly add its
-own login to the operator roster without tripping this very gate — the same
+own login to my father roster without tripping this very gate — the same
 self-protecting pattern as ``guardrail_files.txt``.
 """
 
@@ -111,9 +111,9 @@ def load_config(raw: str) -> MergeReviewConfig:
     Expected shape:
         {"operator": ["andrew-login"]}
 
-    Back-compat: also accepts the older ``"user"`` key for the operator
+    Back-compat: also accepts the older ``"user"`` key for my father
     roster. The older ``"external_ai"`` key is now IGNORED — there is no
-    separate AI GitHub identity (Aletheia is relayed by the operator, whose
+    separate AI GitHub identity (Aletheia is relayed by my father, whose
     approval already encodes her confirm). Missing/!list → empty (fail closed).
     """
     try:

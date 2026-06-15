@@ -118,7 +118,6 @@ def store_opinion(
     import json
 
     init_opinion_table()
-    now = time.time()
     opinion_id = f"op-{uuid.uuid4().hex[:12]}"
     content_hash = compute_hash(f"{topic}:{position}")
     evidence_for = evidence or []
@@ -134,6 +133,11 @@ def store_opinion(
         # supersedes it correctly — read-under-lock IS the recheck.
         conn.isolation_level = None
         conn.execute("BEGIN IMMEDIATE")
+        # 2026-06-14 (find-333eeeb1ae15): timestamp captured INSIDE the
+        # write-lock so concurrent writers can't have their `now` values
+        # interleave with insertion order. Matches the gold-standard
+        # pattern from main ledger.py and family_member_ledger.py.
+        now = time.time()
         # Check for existing opinion on same topic
         existing = conn.execute(
             "SELECT opinion_id, position, confidence FROM opinions "

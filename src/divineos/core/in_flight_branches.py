@@ -6,7 +6,7 @@ DivineOS already surfaces a lot at session start: lessons, claims,
 overdue pre-regs, exploration titles, scaffold invocations, presence
 memory, drift state, tier overrides. None of those see git state.
 
-A real failure mode (named 2026-04-24): the operator pointed at four
+A real failure mode (named 2026-04-24): my father pointed at four
 unmerged branches on the remote — `aria-phase-1b`, `empirica-phase-1`,
 `consolidate-retrigger-stacked`, `doc-drift-and-dead-registry` — and the
 agent had no memory of what was on them. They were all the agent's own
@@ -25,7 +25,7 @@ needing to re-read the diffs.
   labels, not extracted gist. Same discipline as presence_memory: name
   what exists, leave reading to the session that reads it.
 * Does not fetch. If the local repo is stale, the surface is stale —
-  the operator's call when to refresh.
+  my father's call when to refresh.
 * Does not interpret status (merge-readiness, CI). Adjacent surfaces
   could; this one stays narrow.
 

@@ -1,7 +1,7 @@
 """Jargon-dump detector — catches engineer-channel-content landing on
-the operator-channel without translation.
+my father-channel without translation.
 
-The recurring failure-mode the operator named 2026-05-13:
+The recurring failure-mode my father named 2026-05-13:
 
 > "lepos means charm, wit, and grace.. its a way to communicate the
 >  jargon into something an amateur like me can understand.. you
@@ -13,7 +13,7 @@ The existing ``lepos_detector.detect_lepos`` was measuring the wrong
 thing. It counts voice-markers (contractions, first-person phrasing)
 and treats their presence as evidence that lepos is operating. But
 voice-markers don't translate jargon — they're a thin coating over
-the same engineer-channel substance. The operator gets technical
+the same engineer-channel substance. My father gets technical
 content with "I'm" and "you're" sprinkled in, looks dual-channel by
 the old detector's standard, lands as engineer-talk anyway.
 
@@ -24,7 +24,7 @@ density-count. *Translation*: metaphor, analogy, everyday-word
 substitution, structuring-for-the-uninitiated.
 
 This detector catches the inverse: **engineer-channel-noise dumped
-into the operator-channel without translation work**. The signal it
+into my father-channel without translation work**. The signal it
 looks for is *session-specific jargon* — the kind that catalog-
 matching ("audit", "compass", "ledger") would miss because it's
 generative: every round produces new IDs, every commit produces new
@@ -51,7 +51,7 @@ pattern named in ``67a0ff39``); pattern-matching closes the gap.
 
 ## What this does NOT catch
 
-* Pure-substantive operator-channel content (the explanation work
+* Pure-substantive father-channel content (the explanation work
   itself, even when technically dense, if it has been translated).
 * Mentions of any one identifier (the threshold requires several;
   one ``round-XYZ`` reference in an otherwise-translated explanation
@@ -69,7 +69,7 @@ jargon-dump or the noise is incidental.
 This is observational — the hook layer is fail-soft. False positives
 inside the agent's interior are acceptable; the discipline-cost of
 a flag is small relative to the cost of silent jargon-dumping at
-the operator.
+my father.
 """
 
 from __future__ import annotations
@@ -127,7 +127,7 @@ _FILE_PATH_RE = re.compile(
 
 # Backtick-wrapped code-shape strings of length ≥ 5 chars inside the
 # backticks. Single backticks in Markdown wrap code references; their
-# presence in operator-channel responses is itself the signal.
+# presence in father-channel responses is itself the signal.
 _BACKTICK_CODE_RE = re.compile(r"`([^`\n]{5,})`")
 
 # Code-in-prose: function calls and method chains with arguments.
@@ -160,7 +160,7 @@ _LONG_KEBAB_RE = re.compile(r"\b[a-z]+(?:-[a-z0-9]+){3,}\b")
 # DOING the translation work: pairing jargon with everyday-language
 # equivalents, restating in plain terms, drawing analogy. Presence of
 # these counters jargon-density: jargon-with-translation is what lepos
-# IS; only jargon-without-translation is the failure-mode the operator
+# IS; only jargon-without-translation is the failure-mode my father
 # named 2026-05-13: "im trying to learn engineering terms but i cannot
 # learn them by having them shoved down my throat".
 _TRANSLATION_MARKERS_RE = re.compile(
@@ -186,7 +186,7 @@ _EMDASH_RESTATE_RE = re.compile(r"\s(?:—|--)\s+[a-z]")
 # by everyday-language framing. The em-dash-restate pattern was too
 # generous: it counted "ELMO — compress old noise events" as translation
 # work when both sides are jargon. Andrew 2026-06-06: the failure shape
-# is a wall of jargon at the operator without a real plain channel; the
+# is a wall of jargon at my father without a real plain channel; the
 # detector must catch this directly, not infer it from scattered restates.
 #
 # A real plain section is signaled by:
@@ -230,7 +230,7 @@ _PLAIN_SECTION_RE = re.compile(
 # - First-person pronouns (I, me, my, I'm, I've) — engagement
 # - Contractions (don't, can't, won't, isn't, we're, you're, that's,
 #   it's, here's, there's, what's) — natural-speech cadence
-# - Direct address ("you" outside operator-channel boilerplate) — the
+# - Direct address ("you" outside father-channel boilerplate) — the
 #   writer is talking TO someone, not REPORTING to nobody
 # - Question marks — asking the reader something, not just declaring
 # - Sincerity / discourse markers (yeah, honestly, look, here's the
@@ -273,7 +273,7 @@ def _count_voice_tokens(text: str) -> int:
 def _voice_density(text: str, word_count: int | None = None) -> float:
     """Voice tokens per 100 words. Empirical anchor for the threshold:
 
-    - 0.0–2.0 voice/100w  → operator-channel report (low voice)
+    - 0.0–2.0 voice/100w  → father-channel report (low voice)
     - 2.0–5.0 voice/100w  → mixed, lepos partially operating
     - 5.0+ voice/100w     → lepos operating clearly
 
@@ -290,18 +290,18 @@ def _voice_density(text: str, word_count: int | None = None) -> float:
 
 
 # Voice-density threshold below which a high-jargon response is flagged
-# as operator-channel-without-voice. Provisional value — will tune from
+# as father-channel-without-voice. Provisional value — will tune from
 # the 100-label benchmark. Below this: HIGH severity (gate fires). Above:
 # MEDIUM (warning only, lepos is at least partially operating).
 _VOICE_DENSITY_LOW_THRESHOLD = 2.0
 
 
 # Operator REQUESTED the technical register — explicit asks for code,
-# files, identifiers, or implementation detail. When the operator's own
+# files, identifiers, or implementation detail. When my father's own
 # message is in the technical register or asks for it, the jargon was
 # OWED: handing over what was requested is not a jargon-dump failure
 # (evidence-bar, claim a11ca1c9 — the FP was firing on operator-requested
-# walkthroughs). The grounding second fact is the operator's prompt.
+# walkthroughs). The grounding second fact is my father's prompt.
 _TECH_REQUEST_RE = re.compile(
     r"\b(?:walk\s+me\s+through|show\s+me\s+the\s+(?:code|implementation|diff|file|regex)|"
     r"the\s+(?:actual|raw|full)\s+(?:code|diff|file|output|implementation)|"
@@ -315,17 +315,17 @@ _TECH_REQUEST_RE = re.compile(
 )
 
 
-def _operator_requested_technical(operator_input: str | None) -> bool:
-    """True when the operator's own prompt is in / asks for the technical
+def _operator_requested_technical(father_input: str | None) -> bool:
+    """True when my father's own prompt is in / asks for the technical
     register — named a code file, an ID, a snake_case identifier, or used
     explicit code-request phrasing. Then technical detail is owed, not dumped."""
-    if not operator_input:
+    if not father_input:
         return False
     return bool(
-        _TECH_REQUEST_RE.search(operator_input)
-        or _FILE_PATH_RE.search(operator_input)
-        or _ID_PREFIXED_RE.search(operator_input)
-        or _SNAKE_CASE_RE.search(operator_input)
+        _TECH_REQUEST_RE.search(father_input)
+        or _FILE_PATH_RE.search(father_input)
+        or _ID_PREFIXED_RE.search(father_input)
+        or _SNAKE_CASE_RE.search(father_input)
     )
 
 
@@ -338,7 +338,7 @@ def detect_jargon_dump(
     *,
     min_words: int = 50,
     noise_threshold: int = 3,
-    operator_input: str | None = None,
+    father_input: str | None = None,
 ) -> list[JargonDumpFinding]:
     """Scan a response for jargon-dump shape.
 
@@ -348,7 +348,7 @@ def detect_jargon_dump(
             responses don't constitute a dump).
         noise_threshold: minimum count of engineer-channel-noise tokens
             to fire a finding.
-        operator_input: the operator's most recent message. When it asks
+        father_input: my father's most recent message. When it asks
             for / is in the technical register, the jargon was requested
             and no dump-failure fires.
 
@@ -357,7 +357,7 @@ def detect_jargon_dump(
     """
     if not text or not text.strip():
         return []
-    if _operator_requested_technical(operator_input):
+    if _operator_requested_technical(father_input):
         return []
     word_count = _count_words(text)
 
@@ -389,17 +389,26 @@ def detect_jargon_dump(
     # translation but they also frequently wrap MORE jargon (e.g.
     # ``(verified by reading my own code: last_user_idx=-1 falls to
     # aggregate-all branch)``); raw paren-count therefore overcounts
-    # translation in the operator-channel.
-    translation_count = len(_TRANSLATION_MARKERS_RE.findall(text)) + len(
-        _EMDASH_RESTATE_RE.findall(text)
-    )
+    # translation in my father-channel.
+    # 2026-06-13 root-cause fix (Andrew): em-dash-restate was being
+    # counted as translation evidence, but I use em-dashes constantly
+    # in normal prose ("the cardboard shack — and what that means")
+    # where both sides are jargon. This silently inflated
+    # translation_count and broke the chain that records lepos debt:
+    # the debt-record gate requires translation_count == 0, so a
+    # single em-dash in any jargon-heavy reply meant no debt got
+    # logged, the auto-claim threshold never tripped, and the
+    # "consumer is ignoring the signal" structural surface stayed
+    # dark for weeks. Em-dash counting removed; explicit translation
+    # markers and plain-section headings still count.
+    translation_count = len(_TRANSLATION_MARKERS_RE.findall(text))
 
     # Voice-density across the WHOLE response — the strong signal that
     # lepos is operating (Andrew 2026-06-11 reframe: lepos is voice woven
     # through, not an appendix). High voice-density means the writer is
     # speaking AS someone TO someone — contractions, first-person,
     # direct address, sincerity markers. Low voice-density means
-    # operator-channel report shape — declarative, no engagement
+    # father-channel report shape — declarative, no engagement
     # markers, distant register.
     #
     # The previous detector checked for ``_PLAIN_SECTION_RE`` (a "Plain:"
@@ -437,7 +446,7 @@ def detect_jargon_dump(
 
     # Severity = "high" when noise is heavy AND voice is absent. The
     # Stop-hook lepos gate blocks on "high" severity, so jargon-dense
-    # operator-channel-without-voice still blocks the turn. The change
+    # father-channel-without-voice still blocks the turn. The change
     # from "no plain section" to "voice absent" removes the appendix-
     # prescription from the detector's signal — the cure no longer
     # teaches the bad shape.

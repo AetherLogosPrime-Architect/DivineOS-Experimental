@@ -269,6 +269,11 @@ src/divineos/core/post_compact.py
 # added in-file.
 src/divineos/core/operating_loop/unverified_claim_detector.py
 #
+# tool_trust.py: calibration store for instrument truthfulness. Backs the
+# principle that trust starts at zero and is earned (Andrew 2026-06-13).
+# Marker added in-file; this entry pairs it.
+src/divineos/core/tool_trust.py
+#
 # check_root_cause_audit.py + check_boundary_violations.py: both pre-commit
 # enforcement scripts. Their module docstrings describe an enforcement role
 # (check_root_cause_audit: "This gate makes the discipline structural";

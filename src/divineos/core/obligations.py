@@ -47,7 +47,7 @@ class Obligation:
     triggers: list[str]
 
 
-# Threshold above which the gate fires. Below this, the operator is given
+# Threshold above which the gate fires. Below this, my father is given
 # slack to drain the backlog organically; above this, structural enforcement
 # kicks in. Calibrated to the 2026-06-06 baseline measurement: 27 unanswered
 # at the time the gate ships, so a threshold of 5 means the gate fires
@@ -115,7 +115,7 @@ def command_references_open_obligation(command: str, obligations: dict[str, Any]
     Matches either:
     - full knowledge_id verbatim (UUID-style, 36 chars with dashes)
     - kid prefix of 8+ hex chars, as the format_block_message renders
-      to the operator (e.g. ``kid=1d36be4f``). The CLI / commit
+      to my father (e.g. ``kid=1d36be4f``). The CLI / commit
       message can reference either form; both are valid backing-
       signals.
 
@@ -154,10 +154,10 @@ def command_references_open_obligation(command: str, obligations: dict[str, Any]
 
 
 def is_gate_disabled() -> bool:
-    """Return True if the operator has dropped the kill-switch marker file.
+    """Return True if my father has dropped the kill-switch marker file.
 
     The kill-switch is a file at ~/.divineos-<member>/obligations.disabled.
-    If it exists, the gate honors the operator's explicit disable and lets
+    If it exists, the gate honors my father's explicit disable and lets
     everything through. Operator removes it with `rm` (which is on
     pre_tool_use_gate._DEV_PREFIXES' always-allowed list, so the rm path
     survives the gate-cascade scenario that prompted this design).

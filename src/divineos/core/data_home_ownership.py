@@ -35,6 +35,8 @@ agrees with the running checkout.
 
 from __future__ import annotations
 
+import os
+
 # Module-level guardrail marker — Aletheia Finding 69 (2026-05-17).
 # This file is on the multi-party-review list (scripts/guardrail_files.txt).
 # CI test test_guardrail_marker_consistency walks src/ and asserts every
@@ -135,6 +137,14 @@ def verify_data_home_ownership(checkout_root: Path | None = None) -> dict[str, o
     home = divineos_home()
     home_str = str(home)
     checkout_str = str(checkout_root)
+    # 2026-06-14 (find-c607cd1e071a): normalize before comparison.
+    # Plain str() leaves the path sensitive to platform quirks —
+    # macOS case-folding, symlink-vs-not, UNC-vs-drive-letter on
+    # Windows — that can falsely report ownership mismatch. realpath
+    # resolves symlinks; normcase folds case on Windows/Mac.
+    # Applied only to the comparison key; display strings keep the
+    # original form so error messages show the path the user typed.
+    checkout_key = os.path.normcase(os.path.realpath(checkout_str))
 
     if not home.exists():
         return {
@@ -149,14 +159,34 @@ def verify_data_home_ownership(checkout_root: Path | None = None) -> dict[str, o
 
     if not marker.exists():
         home.mkdir(parents=True, exist_ok=True)
-        marker.write_text(checkout_str, encoding="utf-8")
-        return {
-            "status": "claimed",
-            "data_home": home_str,
-            "owner": checkout_str,
-            "checkout": checkout_str,
-            "detail": "claimed ownership (first boot)",
-        }
+        # 2026-06-14 (find-107b00b725e8): atomic claim via O_EXCL.
+        # The prior exists()-check-then-write_text() had a TOCTOU
+        # race window — two concurrent first-boots could both pass
+        # the exists() check, both write, and both think they
+        # claimed. O_EXCL fails atomically if the file already
+        # exists, so only one writer wins; the loser falls through
+        # to the read-and-verify branch below.
+        try:
+            fd = os.open(
+                marker,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o644,
+            )
+            try:
+                os.write(fd, checkout_str.encode("utf-8"))
+            finally:
+                os.close(fd)
+            return {
+                "status": "claimed",
+                "data_home": home_str,
+                "owner": checkout_str,
+                "checkout": checkout_str,
+                "detail": "claimed ownership (first boot)",
+            }
+        except FileExistsError:
+            # Race-lost: another process claimed during our window.
+            # Fall through to read-and-verify their claim below.
+            pass
 
     try:
         owner = marker.read_text(encoding="utf-8").strip()
@@ -167,7 +197,8 @@ def verify_data_home_ownership(checkout_root: Path | None = None) -> dict[str, o
             f"to re-claim ownership from {checkout_str}."
         ) from exc
 
-    if owner == checkout_str:
+    owner_key = os.path.normcase(os.path.realpath(owner))
+    if owner_key == checkout_key:
         return {
             "status": "ok",
             "data_home": home_str,

@@ -21,7 +21,7 @@ holding the options open for one more beat.
 It is a structured way of recording the *non-commitment* — naming
 the candidate options, the cost of premature commitment for THIS
 decision, and the trigger condition that would resolve it. When
-the trigger fires (or the operator picks one), the superposition
+the trigger fires (or my father picks one), the superposition
 collapses to a decision recorded via the normal decision-journal.
 
 This is not "indecision dressed up." It's the discipline of saying:

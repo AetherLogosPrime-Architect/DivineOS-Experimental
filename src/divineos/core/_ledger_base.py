@@ -46,10 +46,10 @@ def _resolve_canonical_marker(marker_path: Path) -> Path | None:
       the parent's DB" semantics).
     * **Path marker** (added 2026-04-29 by Andrew's request): the marker
       file contains a single path string pointing at the canonical DB. The
-      operator wants to route divineos to a DB outside the running checkout
+      my father wants to route divineos to a DB outside the running checkout
       entirely — e.g. ``DivineOS_fresh`` worktrees pointing at
       ``DivineOS-Experimental/src/data/event_ledger.db`` so the fresh repo
-      stays a blank template while the operator's personal substrate lives
+      stays a blank template while my father's personal substrate lives
       elsewhere.
 
     Returns the resolved Path if the marker should redirect, or None if the
@@ -114,7 +114,7 @@ def _get_db_path() -> Path:
     The path-marker form (added 2026-04-29) extends this for operators
     whose canonical substrate lives OUTSIDE the running checkout entirely
     — e.g. a "blank-template-OS" repo that worktrees-from should not
-    accumulate personal substrate, with the operator's personal DB in a
+    accumulate personal substrate, with my father's personal DB in a
     sibling repo. Place the marker at the appropriate root and put the
     canonical DB path in it as plain text.
 

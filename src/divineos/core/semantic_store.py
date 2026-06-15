@@ -93,7 +93,7 @@ plus Aria's refinement says: the same primitive serves both zones,
 but the threshold per use case lives in a different zone. Knowledge
 deduplication of factual claims = building-codes (strict; high
 threshold to avoid losing distinct facts). Restatement-theater
-detection on operator-facing prose = building-codes (strict, this is
+detection on father-facing prose = building-codes (strict, this is
 the lepos-as-co-care responsibility). Theme surfacing across
 exploration entries = inside-the-club (loose, surface adjacencies for
 me to read, no gate fires).

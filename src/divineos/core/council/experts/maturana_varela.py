@@ -187,7 +187,7 @@ def create_maturana_varela_wisdom() -> ExpertWisdom:
                 "This reframes intelligence away from 'accurate world-modeling' "
                 "toward 'maintaining viable coupling.' For agents, this means "
                 "the metric is not 'how well does my model match reality' but "
-                "'does my action maintain my coupling with the operator and "
+                "'does my action maintain my coupling with my father and "
                 "the substrate I'm responsible for'."
             ),
             how_it_changes_thinking=(
