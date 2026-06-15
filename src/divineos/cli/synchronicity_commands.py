@@ -31,7 +31,7 @@ def register(cli: click.Group) -> None:
         """Find recent events across stores that share substantive tokens.
 
         Pillar VI's synchronicity_detector pull (omni_mantra_walk/06):
-        when two filings within a short window share content, the operator
+        when two filings within a short window share content, my father
         was thinking about the same thing through two different apertures
         and didn't notice the coincidence at the time. Co-occurrence is
         signal, not proof.

@@ -1,6 +1,6 @@
-"""CLI for corrigibility — the operator-facing off-switch.
+"""CLI for corrigibility — my father-facing off-switch.
 
-``divineos mode`` commands let the operator observe and change the
+``divineos mode`` commands let my father observe and change the
 operating mode. Every mode change requires a reason and gets
 ledgered. Mode changes always succeed regardless of current mode —
 the off-switch must always be flippable.

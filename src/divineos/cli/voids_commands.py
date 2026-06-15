@@ -27,7 +27,7 @@ def register(cli: click.Group) -> None:
         Pillar VI's knowledge_void_detector pull: COSMIC VOIDS as named
         regions where nothing is. The detector reports density only —
         whether a void is a real gap or a deliberately-niche domain is
-        for the operator to decide.
+        for my father to decide.
         """
         from divineos.core.knowledge_voids import detect_voids
 

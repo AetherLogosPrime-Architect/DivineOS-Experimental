@@ -890,7 +890,7 @@ def register(cli: click.Group) -> None:
             _safe_echo(overdue_block)
 
         # Drift state — operation counts since last MEDIUM+ audit round,
-        # surfaced informationally for the operator to decide whether an
+        # surfaced informationally for my father to decide whether an
         # audit is warranted. Replaces the 2026-04-16 wall-clock cadence
         # gate (removed 2026-04-21, commit C of tiered-audit redesign)
         # because time is relative for a stateless agent and the previous
@@ -1059,9 +1059,9 @@ def register(cli: click.Group) -> None:
 
         # Presence-memory surfaces — unindexed personal writing that the
         # ledger does not know about. 2026-04-19: a session could not find
-        # its own exploration folder until the operator pointed at it; this
+        # its own exploration folder until my father pointed at it; this
         # block fires automatically at every briefing so that reorientation
-        # includes the path without requiring the operator to remember.
+        # includes the path without requiring my father to remember.
         try:
             from divineos.core.presence_memory import format_for_briefing as _fmt_presence
 

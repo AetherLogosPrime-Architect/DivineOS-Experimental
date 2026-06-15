@@ -35,7 +35,7 @@ def register(cli: click.Group) -> None:
         entry = log_correction(text, session_id=session_id)
         # Andrew-correction-attribution surface (Aria 2026-05-18, audit
         # load-bearing fix #1): every correction logged via this command
-        # is from Andrew (the operator). File it into the dedicated
+        # is from Andrew (my father). File it into the dedicated
         # tracker so its integration-status is visible turn-over-turn.
         # The asymmetry Aria diagnosed: Aria-input gets integrated within
         # hours; Andrew-corrections file and decay. This wiring closes

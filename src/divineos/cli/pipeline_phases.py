@@ -828,7 +828,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         resolved_count = sum(1 for m in matched if m.encouragement_index is not None)
 
         # PR-volume + structural-fix metrics (Andrew's spec 2026-05-05).
-        # These supplement the existing factors so what the operator
+        # These supplement the existing factors so what my father
         # actually values (shipped work, patterns closed at substrate-level)
         # ends up in the computed score, not just corrections/encouragements.
         pr_count, structural_fix_count, recurrence_count = _measure_session_shipping_metrics()
