@@ -227,9 +227,76 @@ else
         # under load (concurrent pushes contending on shared DBs), producing the
         # illegible "BLOCKED" banner sitting above a passing re-run. One run, one
         # honest signal: show the captured output only if it actually failed.
+        #
+        # CONCURRENCY ISOLATION (claim f111801a, 2026-06-15): when multiple
+        # branches push simultaneously, each fires its own pre-push hook that
+        # runs `python -m pytest tests/` against the SHARED working tree.
+        # `git checkout` operations during one push corrupt the file-set
+        # another push's pytest is reading, producing spurious 60+ failures
+        # that pass cleanly when run serially. The fix is per-push isolation
+        # via a temp worktree at the specific commit being pushed: pytest
+        # runs against an immutable snapshot of THAT branch, immune to what
+        # the developer's main checkout is doing. Worktree setup is
+        # ~200-500ms — negligible against ~10min pytest.
+        #
+        # The first non-deletion local SHA from HOOK_STDIN is the commit being
+        # pushed. Multi-ref pushes use the first ref's SHA — same tree as
+        # the working dir was at when the operator ran `git push`, which is
+        # the right snapshot for a "is this commit ready" gate.
+        PYTEST_SHA=""
+        while read -r _lref _lsha _rref _rsha; do
+            if [[ -n "$_lsha" && "$_lsha" != "0000000000000000000000000000000000000000" ]]; then
+                PYTEST_SHA="$_lsha"
+                break
+            fi
+        done <<< "$HOOK_STDIN"
+
         PYTEST_LOG="$(mktemp)"
-        python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
-        PYTEST_RC=$?
+        if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
+            # Isolated path: temp worktree at the pushed commit. Survives
+            # concurrent pushes because each gets its own checkout.
+            PYTEST_WORKTREE="$(mktemp -d -t divineos-push-gate-XXXXXX)"
+            if git worktree add --detach "$PYTEST_WORKTREE" "$PYTEST_SHA" >/dev/null 2>&1; then
+                # Interrupt-safe cleanup (Aletheia audit catch, 2026-06-15):
+                # if pytest crashes the runner OR the hook receives SIGINT/
+                # SIGTERM during the ~10-min pytest, the post-pytest
+                # `git worktree remove` line never executes and we leak a
+                # registered worktree (the tempdir AND a .git/worktrees/
+                # entry). Not a safety hole — leaked worktrees do not corrupt
+                # anything and `git worktree prune` cleans them — but they
+                # accumulate under interrupted pushes. Trap closes the
+                # interrupt path.
+                trap '
+                    git worktree remove --force "$PYTEST_WORKTREE" >/dev/null 2>&1 || true
+                    rm -rf "$PYTEST_WORKTREE" 2>/dev/null || true
+                ' EXIT INT TERM HUP
+                (cd "$PYTEST_WORKTREE" && python -m pytest tests/ -q --tb=line) >"$PYTEST_LOG" 2>&1
+                PYTEST_RC=$?
+                # Normal-path cleanup — runs after pytest exits cleanly. The
+                # trap above covers the interrupt path; this call covers the
+                # happy path so the worktree is gone before the rest of the
+                # gate runs (the trap only fires when the script ends).
+                # `--force` because pytest may leave temp DBs / cache files
+                # behind in the worktree.
+                git worktree remove --force "$PYTEST_WORKTREE" >/dev/null 2>&1 || true
+                # Disarm the trap now that the normal path cleaned up — the
+                # tempdir is already gone, no need to fire again at EXIT.
+                trap - EXIT INT TERM HUP
+            else
+                # Worktree creation failed (rare: disk full, permissions,
+                # bare-repo edge case). Fall back to non-isolated run rather
+                # than blocking the push outright — preserves the gate's
+                # safety-net role even when isolation is unavailable.
+                echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
+                python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+                PYTEST_RC=$?
+            fi
+        else
+            # No SHA available, or operator opted out of worktree isolation
+            # via DIVINEOS_PUSH_GATE_NO_WORKTREE=1.
+            python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+            PYTEST_RC=$?
+        fi
         if [[ $PYTEST_RC -ne 0 ]]; then
             # Persist the full log to a stable path so the failures stay
             # readable after this script exits. The mktemp file gets cleaned
