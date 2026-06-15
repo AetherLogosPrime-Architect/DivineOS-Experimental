@@ -3,7 +3,7 @@
 The gate (core.deletion_discipline) blocks destructive deletions until a
 fresh justification exists. This command files it: what, why, what was
 investigated, what was extracted. Per [code-does-not-think], the judgment
-is the operator's/agent's; this only records it so the gate can verify it
+is my father's/agent's; this only records it so the gate can verify it
 was made before the irreversible act. Prereg: prereg-251b15df9461.
 """
 

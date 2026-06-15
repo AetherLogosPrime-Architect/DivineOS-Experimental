@@ -57,7 +57,7 @@ def register(cli: click.Group) -> None:
         a human-readable capture suggestion.
 
         Read-only. Never auto-extracts. Cluster H discipline: name
-        the threshold; the operator/agent decides.
+        the threshold; my father/agent decides.
         """
         from divineos.core.pre_erasure import compute_signal
 

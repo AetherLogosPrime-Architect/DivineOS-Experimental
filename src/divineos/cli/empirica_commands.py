@@ -1,6 +1,6 @@
 """CLI commands for EMPIRICA — corroboration provenance and kappa.
 
-Exposes two operator-facing entry points:
+Exposes two father-facing entry points:
 
 * ``divineos corroborate`` — record a corroboration event on a
   knowledge row, with explicit actor + kind + optional evidence
