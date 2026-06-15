@@ -182,7 +182,7 @@ def watchmen_loop_status() -> str:
         "Loop status: external-actor filing works; routing to "
         "knowledge/claims/lessons works; drift-state briefing surfaces "
         "operation counts since last MEDIUM+ audit (turns, code actions, "
-        "rounds, open findings) so the operator decides when an audit is "
+        "rounds, open findings) so my father decides when an audit is "
         "warranted. Blocking gate removed — data-as-metric replaces "
         "threshold-as-metric. The remaining aspirational piece: whether "
         "external audits actually alter behavior — which we're still measuring."

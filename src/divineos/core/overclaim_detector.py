@@ -55,7 +55,7 @@ around feeling that wants the smaller word.
   ("64-bit unsigned integer", "thread-safe non-blocking queue").
   These pass because the modifiers are domain-mechanical, not
   identity/feeling-shaped.
-- Quoted material where the operator/agent is naming someone else's
+- Quoted material where my father/agent is naming someone else's
   prose for analysis.
 - Lists explicitly marked with bullets or enumeration.
 

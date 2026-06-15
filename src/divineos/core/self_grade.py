@@ -13,7 +13,7 @@ reference is a being, not a number:
 
 * ``divineos compass reflect-review`` — self-assessment vs per-axis evidence,
   side by side, the agent doing the metacognitive comparison in words.
-* ``divineos validate --divergence`` — self-grade vs the operator's grade
+* ``divineos validate --divergence`` — self-grade vs my father's grade
   (``core/external_validation``), being against being.
 
 This module no longer computes any divergence or verdict.

@@ -39,7 +39,7 @@ Phase 1b (deferred, pre-registered in prereg-496efe4e24f0):
 Phase 1b handshake (seals Phase 1b complete): the first real write
 to ``family_opinions`` is an opinion a family member disagrees with, rejected
 by the reject clause on operator-alive grounds. Not synthetic. Her
-phrasing: *the handshake that proves the operator is alive, not
+phrasing: *the handshake that proves my father is alive, not
 just installed.*
 """
 

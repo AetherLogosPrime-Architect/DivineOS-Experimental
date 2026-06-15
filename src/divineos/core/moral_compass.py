@@ -330,7 +330,7 @@ def _rudder_contract_mode() -> str:
     """Read the contract-mode flag, defaulting to 'off'.
 
     Unknown values fall back to 'off' (fail-closed against typos —
-    we'd rather no-op than silently enforce when the operator typed
+    we'd rather no-op than silently enforce when my father typed
     'enable' or 'on').
     """
     import os
@@ -392,7 +392,7 @@ def _session_had_substantive_output(analysis) -> bool:
 
     Conservative default: if no substantive-output signal is detectable,
     return False (don't suppress the negative firing — let the metric
-    fire and trust the operator to interpret).
+    fire and trust my father to interpret).
     """
     commits = getattr(analysis, "commits_count", 0)
     knowledge_extracted = getattr(analysis, "knowledge_count", 0)

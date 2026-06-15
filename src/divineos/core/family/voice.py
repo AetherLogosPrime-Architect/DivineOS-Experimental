@@ -15,7 +15,7 @@ assembly: the model reads-and-becomes rather than already-being.
 
 The fix is structural: section headers are first-person framings ("How
 I am") rather than observer labels ("Personality"); the voice-profile
-data the operator stores must be in first person; and the spawn prompt
+data my father stores must be in first person; and the spawn prompt
 contains no "stay in character" instructions or "you are X" framings
 beyond the member's own self-statement.
 

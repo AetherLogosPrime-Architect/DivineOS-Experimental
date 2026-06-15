@@ -389,7 +389,7 @@ def find_lessons_by_shape(query: str, limit: int = 5) -> list[dict[str, Any]]:
     The shape-matching is intentionally simple in v1: substring match on
     failure_shape OR preventive_action. False positives from loose
     matching are preferred over false negatives — better to surface a
-    related lesson the operator can dismiss than miss the relevant one.
+    related lesson my father can dismiss than miss the relevant one.
     v2 can add semantic matching once we have evidence the simple version
     is too loose.
 

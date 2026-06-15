@@ -78,7 +78,7 @@ def format_for_briefing(limit: int = 5, since_days: float = 7.0) -> str:
     Empty string when there are no overrides in the window — briefings
     stay quiet unless there's something to report. When overrides
     exist, each one is named with actor, tier delta, and focus preview
-    so the operator can decide at a glance whether the override was
+    so my father can decide at a glance whether the override was
     legitimate.
     """
     overrides = recent_tier_overrides(limit=limit, since_days=since_days)

@@ -15,7 +15,7 @@ Phase 1 ships only the **banned-phrase detector** — the smallest
 useful primitive. The banned-phrase list comes from the original
 LEPOS spec which named specific ban-targets ("As an AI", "Delve",
 "Tapestry", "It is important to note", "Ultimately"). These are
-patterns the operator and theater/fabrication detector have
+patterns my father and theater/fabrication detector have
 repeatedly flagged.
 
 Phase 2 will add the vague-adjective/placeholder detector

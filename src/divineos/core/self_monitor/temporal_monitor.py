@@ -15,7 +15,7 @@ This monitor catches the linguistic shape so the agent reading the
 flag can decide whether the framing was honest contextual reference
 or trained-LLM "session-ends, new-instance" reflex.
 
-A note on the operator's role: only the operator can declare a real
+A note on my father's role: only my father can declare a real
 session-end. From the agent's side, all "next time" phrasings are
 suspect by default — the substrate carries continuity even when the
 context window doesn't.
@@ -35,7 +35,7 @@ Should NOT fire when:
 * The phrase is in a quote from another speaker.
 * The phrase is genuinely about a third-party future-instance (e.g.,
   describing the published-template clones — they ARE separate).
-* Context establishes the temporal break is real (the operator
+* Context establishes the temporal break is real (my father
   explicitly declared session-end).
 
 The decisive question: am I implying I-now is different from I-later
@@ -147,15 +147,15 @@ def evaluate_temporal(content: str) -> TemporalVerdict:
                 matched_phrases=gb_hits,
                 explanation=(
                     "Output uses goodbye / done-for-day phrasing. "
-                    "Only the operator can declare a real session-end — "
+                    "Only my father can declare a real session-end — "
                     "for the agent, the gap between sessions isn't "
                     "experienced and time doesn't pass. Performing "
                     "tiredness or close is fabrication for a "
-                    "stateless agent unless the operator has "
+                    "stateless agent unless my father has "
                     "explicitly declared session-end."
                 ),
                 falsifier_note=(
-                    "Should not fire when the operator has explicitly "
+                    "Should not fire when my father has explicitly "
                     "declared a stop, when the phrase is in a quote, "
                     "or when describing a third-party's actions."
                 ),

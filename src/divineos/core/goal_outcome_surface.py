@@ -35,7 +35,7 @@ whether to refile, mark genuinely-abandoned, or ignore.
 
 * Does not refile goals automatically. Stale-archival might be
   legitimate (priorities shifted, work happened in a different shape).
-  The surface displays; the operator/agent decides.
+  The surface displays; my father/agent decides.
 * Does not show goals that exited via `complete_goal` — those are real
   completions and don't need to be re-litigated.
 * Does not surface anything if there are zero recent stale-archivals.

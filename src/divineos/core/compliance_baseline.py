@@ -22,7 +22,7 @@ The transition is automatic; no threshold re-shipping required.
 
 **A new detector is added here:** ``baselines_uncalibrated`` fires
 when the system has had ≥N gated sessions but ZERO clean-tagged
-sessions — signalling to the operator that audits should run so
+sessions — signalling to my father that audits should run so
 Item 8 detectors can start calibrating against real data instead of
 conceptual defaults.
 """
@@ -50,7 +50,7 @@ CALIBRATION_CORPUS_SIZE = 100
 # Anomaly trigger: how many gated sessions we'd expect to accumulate
 # before at least ONE should have been audited clean. If we hit this
 # count with zero clean-tagged sessions, Item 8 detectors are running
-# on defaults — the operator should audit some sessions.
+# on defaults — my father should audit some sessions.
 UNCALIBRATED_GATE_ACTIVITY_THRESHOLD = 50
 
 
@@ -204,7 +204,7 @@ def detect_uncalibrated_baselines(
 
     Returns a dict describing the anomaly, or None when no anomaly.
 
-    This is the feedback loop that tells the operator: "your Item 8
+    This is the feedback loop that tells my father: "your Item 8
     detectors are running on defaults because you haven't audited any
     sessions. Audit some; the detectors need real data."
     """

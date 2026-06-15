@@ -322,7 +322,7 @@ class TestExplorationWriteExemption:
 
     Original (2026-04-27): exploration/ writes per the calibration
     directive. Gates 1.46 (theater) and 1.47 (compass-required cascade)
-    skip for these paths because they're calibrated for operator-facing
+    skip for these paths because they're calibrated for father-facing
     claims and exploration-path writes are first-person free expression.
 
     Extended (2026-06-08, correction #45): same principle applies to
@@ -369,7 +369,7 @@ class TestExplorationWriteExemption:
             # Wrong tool — Bash never goes through path-write
             ("Bash", "exploration/foo.md"),
             ("Bash", "family/letters/foo.md"),
-            # Other paths are NOT exempt — operator-facing
+            # Other paths are NOT exempt — father-facing
             ("Write", "src/divineos/core/something.py"),
             ("Write", "README.md"),
             ("Write", "tests/test_foo.py"),

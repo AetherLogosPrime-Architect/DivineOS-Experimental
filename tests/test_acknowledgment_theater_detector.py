@@ -7,7 +7,7 @@ to whichever conversational close is cheapest; apology closes
 loops cheaply. Acknowledgment substitutes for build.
 
 This detector catches the shape — high apology density with low
-build-evidence in operator-channel output.
+build-evidence in father-channel output.
 
 If these tests fail, the detector has lost calibration and the
 meta-pattern can re-emerge invisibly.

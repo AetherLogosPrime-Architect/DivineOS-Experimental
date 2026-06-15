@@ -166,7 +166,7 @@ _TRUTHY = {"1", "true", "yes", "on"}
 
 
 def _show_block_enabled() -> bool:
-    """True when the operator has flipped the switch to re-surface the
+    """True when my father has flipped the switch to re-surface the
     visible 'lepos check' block. Default (unset) keeps the check internal."""
     return os.environ.get(_SHOW_BLOCK_ENV, "").strip().lower() in _TRUTHY
 

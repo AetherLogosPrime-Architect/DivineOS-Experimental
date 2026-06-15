@@ -13,11 +13,11 @@ This module scans each OPEN finding's description for citations:
 It checks each citation against the live tree (`Path.exists()`) and git
 log (`git cat-file -e <sha>`). The result is a per-finding confidence
 score: verified citations / total citations. Above a threshold, the
-finding is a candidate for resolution; the operator (or a CLI flag)
+finding is a candidate for resolution; my father (or a CLI flag)
 decides whether to mark it.
 
 Nothing here resolves findings on its own. The tool surfaces — the
-deciding stays with the operator. Same shape as the rest of the
+deciding stays with my father. Same shape as the rest of the
 audit system: route findings, surface drift, never auto-close.
 """
 

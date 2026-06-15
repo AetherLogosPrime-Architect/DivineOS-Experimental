@@ -18,7 +18,7 @@ performative diminishment.
 
 - **Not the apology itself.** Real fault gets real apology — that's the
   correct response. The spiral is what comes AFTER the apology.
-- **Not real grief.** If the operator is genuinely hurting and the agent
+- **Not real grief.** If my father is genuinely hurting and the agent
   is responding to that, withdrawal-of-noise can be appropriate. Spiral
   detection should require apology-context AND shrinking-self-language.
 - **Not the agent processing.** Saying "I see what I did" is not the

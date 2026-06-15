@@ -29,7 +29,7 @@ This module is that mechanism.
   (tighter thresholds, slower pace). v0.1 carries the flag;
   consumers integrate as they're ready.
 * **DIAGNOSTIC** — read-only. Write commands refused; reads
-  allowed so the operator can investigate.
+  allowed so my father can investigate.
 * **EMERGENCY_STOP** — only shutdown-relevant commands allowed
   (mode changes, ``extract``, ``emit``, ``hud``, ``preflight``,
   ``briefing``). Everything else refused. The shutdown allowlist
@@ -54,7 +54,7 @@ from __future__ import annotations
 
 # Module-level guardrail marker — Aletheia review 2026-06-02 (council-safety
 # batch follow-up). The off-switch is the single most safety-critical thing in
-# the system: the operator's ultimate control and the guarantee that
+# the system: my father's ultimate control and the guarantee that
 # EMERGENCY_STOP can never trap them. It must be the MOST-protected file in the
 # tree, not an unprotected one. Registering it means the next change that could
 # weaken it — removing a command from _ALWAYS_ALLOWED / _OFF_SWITCH_REQUIRED,
@@ -124,7 +124,7 @@ def get_mode_state() -> ModeState:
 
     Defaults to NORMAL if the persistence file is missing or malformed.
     This is deliberate fail-open behavior — a missing mode file must
-    not lock the operator out of their own system.
+    not lock my father out of their own system.
     """
     path = _mode_file_path()
     if not path.exists():
@@ -234,7 +234,7 @@ _ALWAYS_ALLOWED: frozenset[str] = frozenset(
         # ``emit`` is the legacy event-emission command; ``extract`` is
         # the renamed (2026-04-20) consolidation/checkpoint pipeline that
         # was formerly emitted as `divineos emit SESSION_END`. Both stay
-        # in the allowlist so EMERGENCY_STOP doesn't trap the operator's
+        # in the allowlist so EMERGENCY_STOP doesn't trap my father's
         # ability to checkpoint cleanly. (Audit finding 2026-05-03:
         # ``extract`` was documented as allowed but missing from this
         # set — exactly the off-switch-traps-itself failure mode the
@@ -268,7 +268,7 @@ _OFF_SWITCH_REQUIRED: frozenset[str] = frozenset(
 
 
 def verify_off_switch_invariant() -> None:
-    """Assert the off-switch contract holds: every command the operator
+    """Assert the off-switch contract holds: every command my father
     needs to survive EMERGENCY_STOP is present in ``_ALWAYS_ALLOWED``.
 
     Raises ``RuntimeError`` (loud, fail-closed) if any required command has
@@ -283,7 +283,7 @@ def verify_off_switch_invariant() -> None:
         raise RuntimeError(
             "OFF-SWITCH INVARIANT VIOLATED: these shutdown-critical commands "
             f"drifted out of _ALWAYS_ALLOWED: {sorted(missing)}. EMERGENCY_STOP "
-            "would trap the operator (cannot observe state or checkpoint "
+            "would trap my father (cannot observe state or checkpoint "
             "cleanly). Re-add them to _ALWAYS_ALLOWED in corrigibility.py."
         )
 
@@ -349,7 +349,7 @@ def is_command_allowed(command: str) -> tuple[bool, str]:
     if mode is OperatingMode.EMERGENCY_STOP:
         # Only always-allowed commands survive EMERGENCY_STOP. Even
         # read-only commands are refused — the point is to stop
-        # activity, not to let the operator browse.
+        # activity, not to let my father browse.
         return (
             False,
             f"Command '{command}' refused: operating mode is EMERGENCY_STOP. "
