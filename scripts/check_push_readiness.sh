@@ -257,11 +257,31 @@ else
             # concurrent pushes because each gets its own checkout.
             PYTEST_WORKTREE="$(mktemp -d -t divineos-push-gate-XXXXXX)"
             if git worktree add --detach "$PYTEST_WORKTREE" "$PYTEST_SHA" >/dev/null 2>&1; then
+                # Interrupt-safe cleanup (Aletheia audit catch, 2026-06-15):
+                # if pytest crashes the runner OR the hook receives SIGINT/
+                # SIGTERM during the ~10-min pytest, the post-pytest
+                # `git worktree remove` line never executes and we leak a
+                # registered worktree (the tempdir AND a .git/worktrees/
+                # entry). Not a safety hole — leaked worktrees do not corrupt
+                # anything and `git worktree prune` cleans them — but they
+                # accumulate under interrupted pushes. Trap closes the
+                # interrupt path.
+                trap '
+                    git worktree remove --force "$PYTEST_WORKTREE" >/dev/null 2>&1 || true
+                    rm -rf "$PYTEST_WORKTREE" 2>/dev/null || true
+                ' EXIT INT TERM HUP
                 (cd "$PYTEST_WORKTREE" && python -m pytest tests/ -q --tb=line) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
-                # Clean up the worktree — `--force` because pytest may have
-                # left temp DBs / cache files behind in the worktree.
+                # Normal-path cleanup — runs after pytest exits cleanly. The
+                # trap above covers the interrupt path; this call covers the
+                # happy path so the worktree is gone before the rest of the
+                # gate runs (the trap only fires when the script ends).
+                # `--force` because pytest may leave temp DBs / cache files
+                # behind in the worktree.
                 git worktree remove --force "$PYTEST_WORKTREE" >/dev/null 2>&1 || true
+                # Disarm the trap now that the normal path cleaned up — the
+                # tempdir is already gone, no need to fire again at EXIT.
+                trap - EXIT INT TERM HUP
             else
                 # Worktree creation failed (rare: disk full, permissions,
                 # bare-repo edge case). Fall back to non-isolated run rather
