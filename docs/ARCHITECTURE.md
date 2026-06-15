@@ -514,8 +514,8 @@ src/divineos/
     voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
     goal_adjacency.py          Goal-set adjacency surface — close the substrate-has-it-reader-doesnt-reach pattern at goal-set time (per Andrew 2026-06-12 + [enforcement-is-priority-one] directive). Auto-runs semantic_search against goal text in goal_add_cmd, surfaces top hits as soft-advise.
     audit_auto_triage.py       Auto-triage open audit findings by verifying their cited artifacts.
-    tool_trust.py              Tool-trust calibration store — Bayesian Beta(2,2) per-instrument trust scoring (PROBATION/MID/HIGH tiers); backs knowledge eb5b5db5 (Andrew 2026-06-13 'every instrument is on probation, never 100% trustworthy').
-    sample_honesty.py          Sample-vs-substrate Wilson 95% CI check — guards against generalizing from too-small samples; backs knowledge 8ab9fb2c.
+    sample_honesty.py          Sample-vs-substrate honesty check.
+    tool_trust.py              Tool-trust calibration store.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -567,7 +567,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         8,352+ tests (real DB, minimal mocks)
+tests/                         8,334+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
