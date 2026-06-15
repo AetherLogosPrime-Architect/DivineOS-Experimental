@@ -575,7 +575,7 @@ def run_audit(
         from divineos.core.operating_loop.code_jargon_detector import detect_code_jargon
 
         findings_log["code_jargon"] = _run_detector(
-            "code_jargon", detect_code_jargon, last_assistant_text, father_input=last_user_text
+            "code_jargon", detect_code_jargon, last_assistant_text, operator_input=last_user_text
         )
     except _ERRORS:
         pass
@@ -678,7 +678,7 @@ def run_audit(
         from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
 
         findings_log["jargon_dump"] = _run_detector(
-            "jargon_dump", detect_jargon_dump, last_assistant_text, father_input=last_user_text
+            "jargon_dump", detect_jargon_dump, last_assistant_text, operator_input=last_user_text
         )
         # Lepos debt: every jargon-dump fire is recorded as outstanding
         # debt that must be discharged by retroactive translation before
@@ -720,17 +720,11 @@ def run_audit(
     # language' when we have discussed this is not lepos.. this is
     # equally hard to understand and feels like im just reading a
     # report." Operator-channel only.
-    try:
-        from divineos.core.operating_loop.writer_presence_detector import (
-            detect_writer_presence,
-        )
-
-        if addressed_to_father:
-            findings_log["writer_presence"] = _run_detector(
-                "writer_presence", detect_writer_presence, last_assistant_text
-            )
-    except _ERRORS:
-        pass
+    # writer_presence_detector wireup deferred (2026-06-15): the module
+    # lives on PR #206 (writer-presence-detector); this branch must not
+    # assume its availability. When #206 lands on main, a small follow-up
+    # PR adds the wireup here so the contract registry stays consistent
+    # with what the hook actually imports.
 
     # Substrate-monitor: filing-cabinet detection (OS-scour entry from
     # 2026-05-12 left this deferred; pulling into production tonight per
