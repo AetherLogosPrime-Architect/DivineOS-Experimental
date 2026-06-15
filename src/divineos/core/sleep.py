@@ -31,6 +31,24 @@ from loguru import logger
 # session-specific entries from cross-knowledge mining.
 _SESSION_SUFFIX_PATTERN = re.compile(r"\(session [a-f0-9]{6,16}\)")
 
+# Auto-generated bookkeeping stubs that recombine on vocabulary alone.
+# Identified during 2026-06-14 noise walk; matches the actual entries
+# whose edges were retired (Session-feedback summaries, auto-tag stubs,
+# auto-extracted self-correction stubs).
+_RECOMBINATION_AUTO_NOISE_PATTERNS = (
+    re.compile(r"^Session feedback \([a-f0-9]+\): \d+ errors, \d+ lessons"),
+    re.compile(r"^Session had .{0,80}corrections"),
+    re.compile(r"^Session completed normally"),
+    re.compile(r"^\[(DIVERGENCE|EMERGENCE|FRESH|CONVERGENCE)\]"),
+    re.compile(r"^The project has \d+ tests passing"),
+    re.compile(r"^I claimed something was fixed but the error came back\.$"),
+    re.compile(r"^I introduced errors after editing\. I need to verify changes work\.$"),
+    re.compile(r"^I keep making a recurring mistake"),
+    re.compile(r"^I deviated significantly in time"),
+    re.compile(r"^I consistently show good test_output"),
+    re.compile(r"^I edited files without reading them first"),
+)
+
 _SLEEP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError)
 
 
@@ -45,6 +63,12 @@ class DreamReport:
     started_at: float = 0.0
     finished_at: float = 0.0
     duration_seconds: float = 0.0
+
+    # Which phases actually executed this run. summary() gates each
+    # Phase N block on membership here so single-phase runs don't
+    # falsely report unrun phases as "found nothing". Populated by
+    # run_sleep() and by the CLI's single-phase handler.
+    phases_run: set[str] = field(default_factory=set)
 
     # Phase 1: Consolidation
     entries_scanned: int = 0
@@ -86,7 +110,10 @@ class DreamReport:
     connections_strengthened: int = 0  # already-known edges whose confidence
     # was bumped via Hebbian update (prereg-e36b567a6959). Subset of
     # connections_already_known where the edge's confidence had room to grow.
-    connection_details: list[dict[str, str]] = field(default_factory=list)
+    # dict[str, Any] because similarity_raw is a float (load-bearing for
+    # downstream confidence-storage), while the rest are strings. The
+    # type widened 2026-06-14 when storage stopped flattening similarity.
+    connection_details: list[dict[str, Any]] = field(default_factory=list)
     # 2026-05-03: count of all qualifying new connections found this
     # sleep (may exceed the display cap). connection_details is the
     # truncated/sorted view; this field preserves the full count so
@@ -102,7 +129,20 @@ class DreamReport:
     phase_errors: dict[str, str] = field(default_factory=dict)
 
     def summary(self) -> str:
-        """Human-readable dream report."""
+        """Human-readable dream report.
+
+        Phase blocks gate via `shows()`. Backwards-compatible default:
+        when `phases_run` is empty (e.g. tests constructing a bare
+        report for content checks), all phases print as before. When
+        populated, only the listed phases print — that's the
+        single-phase fix from 2026-06-14 that stopped CLI runs from
+        reporting unrun phases as empty-result theater.
+        """
+        all_phases = not self.phases_run
+
+        def shows(phase: str) -> bool:
+            return all_phases or phase in self.phases_run
+
         lines = []
         lines.append("=== Dream Report ===")
         lines.append(f"  Slept for {self.duration_seconds:.1f}s\n")
@@ -127,148 +167,154 @@ class DreamReport:
             pass
 
         # Consolidation
-        lines.append("  Phase 1 - Knowledge Consolidation")
-        lines.append(f"    Scanned {self.entries_scanned} entries")
-        if self.total_promoted > 0:
-            for level, count in self.promotions.items():
-                lines.append(f"    Promoted to {level}: {count}")
-        else:
-            lines.append("    No promotions needed")
-        if self.lessons_resolved:
-            lines.append(
-                f"    Lessons resolved (evidence-based): {', '.join(self.lessons_resolved)}"
-            )
-        if self.lessons_resolved_seed_cleanup:
-            lines.append(
-                f"    Seed placeholders cleaned (never fired, NOT earned "
-                f"resolution): {', '.join(self.lessons_resolved_seed_cleanup)}"
-            )
-        if self.lessons_dormant:
-            lines.append(
-                f"    Lessons dormant (quiet, not proven): {', '.join(self.lessons_dormant)}"
-            )
+        if shows("consolidation"):
+            lines.append("  Phase 1 - Knowledge Consolidation")
+            lines.append(f"    Scanned {self.entries_scanned} entries")
+            if self.total_promoted > 0:
+                for level, count in self.promotions.items():
+                    lines.append(f"    Promoted to {level}: {count}")
+            else:
+                lines.append("    No promotions needed")
+            if self.lessons_resolved:
+                lines.append(
+                    f"    Lessons resolved (evidence-based): {', '.join(self.lessons_resolved)}"
+                )
+            if self.lessons_resolved_seed_cleanup:
+                lines.append(
+                    f"    Seed placeholders cleaned (never fired, NOT earned "
+                    f"resolution): {', '.join(self.lessons_resolved_seed_cleanup)}"
+                )
+            if self.lessons_dormant:
+                lines.append(
+                    f"    Lessons dormant (quiet, not proven): {', '.join(self.lessons_dormant)}"
+                )
 
         # Pruning
-        lines.append("\n  Phase 2 - Pruning")
-        pruning_found = False
-        if self.health_results:
-            for key in (
-                "temporal_decayed",
-                "noise_penalized",
-                "noise_superseded",
-                "maturity_demoted",
-                "contradiction_flagged",
-            ):
-                val = self.health_results.get(key, 0)
-                if val:
-                    label = key.replace("_", " ").capitalize()
-                    lines.append(f"    {label}: {val}")
+        if shows("pruning"):
+            lines.append("\n  Phase 2 - Pruning")
+            pruning_found = False
+            if self.health_results:
+                for key in (
+                    "temporal_decayed",
+                    "noise_penalized",
+                    "noise_superseded",
+                    "maturity_demoted",
+                    "contradiction_flagged",
+                ):
+                    val = self.health_results.get(key, 0)
+                    if val:
+                        label = key.replace("_", " ").capitalize()
+                        lines.append(f"    {label}: {val}")
+                        pruning_found = True
+                review_count = self.health_results.get("needs_review_count", 0)
+                if review_count:
+                    lines.append(f"    Needs review (unseen 30d+): {review_count}")
                     pruning_found = True
-            review_count = self.health_results.get("needs_review_count", 0)
-            if review_count:
-                lines.append(f"    Needs review (unseen 30d+): {review_count}")
-                pruning_found = True
-        if self.hygiene_results:
-            for key in (
-                "noise_demoted",
-                "noise_superseded",
-                "stale_decayed",
-                "stale_superseded",
-                "orphans_flagged",
-                "reaped",
-            ):
-                val = self.hygiene_results.get(key, 0)
-                if val:
-                    label = key.replace("_", " ").capitalize()
-                    lines.append(f"    {label}: {val}")
-                    pruning_found = True
-        if not pruning_found:
-            lines.append("    Knowledge store is clean")
+            if self.hygiene_results:
+                for key in (
+                    "noise_demoted",
+                    "noise_superseded",
+                    "stale_decayed",
+                    "stale_superseded",
+                    "orphans_flagged",
+                    "reaped",
+                ):
+                    val = self.hygiene_results.get(key, 0)
+                    if val:
+                        label = key.replace("_", " ").capitalize()
+                        lines.append(f"    {label}: {val}")
+                        pruning_found = True
+            if not pruning_found:
+                lines.append("    Knowledge store is clean")
 
         # Affect
-        lines.append("\n  Phase 3 - Affect Recalibration")
-        if self.affect_entries_processed > 0:
-            lines.append(f"    Processed {self.affect_entries_processed} affect entries")
-            lines.append(f"    Decayed {self.affect_decayed} entries")
-            if self.affect_baseline:
-                v = self.affect_baseline.get("valence", 0)
-                a = self.affect_baseline.get("arousal", 0)
-                d = self.affect_baseline.get("dominance", 0)
-                lines.append(f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}")
-        else:
-            lines.append("    No affect history to process")
+        if shows("affect"):
+            lines.append("\n  Phase 3 - Affect Recalibration")
+            if self.affect_entries_processed > 0:
+                lines.append(f"    Processed {self.affect_entries_processed} affect entries")
+                lines.append(f"    Decayed {self.affect_decayed} entries")
+                if self.affect_baseline:
+                    v = self.affect_baseline.get("valence", 0)
+                    a = self.affect_baseline.get("arousal", 0)
+                    d = self.affect_baseline.get("dominance", 0)
+                    lines.append(f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}")
+            else:
+                lines.append("    No affect history to process")
 
         # Maintenance
-        lines.append("\n  Phase 4 - Maintenance")
-        if self.maintenance_results:
-            freed = self.maintenance_results.get("vacuum", {}).get("freed_mb", 0)
-            if freed > 0:
-                lines.append(f"    VACUUM freed {freed:.1f}MB")
+        if shows("maintenance"):
+            lines.append("\n  Phase 4 - Maintenance")
+            if self.maintenance_results:
+                freed = self.maintenance_results.get("vacuum", {}).get("freed_mb", 0)
+                if freed > 0:
+                    lines.append(f"    VACUUM freed {freed:.1f}MB")
+                else:
+                    lines.append("    VACUUM: nothing to reclaim")
+                logs = self.maintenance_results.get("logs", {})
+                if logs.get("removed_count", 0) > 0:
+                    lines.append(f"    Removed {logs['removed_count']} old log files")
+                transcripts = self.maintenance_results.get("transcripts", {})
+                if transcripts.get("removed_count", 0) > 0:
+                    lines.append(
+                        f"    Cleaned {transcripts['removed_count']} transcript debris "
+                        f"({transcripts.get('freed_mb', 0):.1f}MB freed)"
+                    )
+                pytest_tmp = self.maintenance_results.get("pytest_tmp", {})
+                if pytest_tmp.get("removed", 0) > 0:
+                    lines.append(
+                        f"    Cleaned {pytest_tmp['removed']} pytest run dirs "
+                        f"({pytest_tmp.get('freed_mb', 0):.1f}MB freed)"
+                    )
             else:
-                lines.append("    VACUUM: nothing to reclaim")
-            logs = self.maintenance_results.get("logs", {})
-            if logs.get("removed_count", 0) > 0:
-                lines.append(f"    Removed {logs['removed_count']} old log files")
-            transcripts = self.maintenance_results.get("transcripts", {})
-            if transcripts.get("removed_count", 0) > 0:
-                lines.append(
-                    f"    Cleaned {transcripts['removed_count']} transcript debris "
-                    f"({transcripts.get('freed_mb', 0):.1f}MB freed)"
-                )
-            pytest_tmp = self.maintenance_results.get("pytest_tmp", {})
-            if pytest_tmp.get("removed", 0) > 0:
-                lines.append(
-                    f"    Cleaned {pytest_tmp['removed']} pytest run dirs "
-                    f"({pytest_tmp.get('freed_mb', 0):.1f}MB freed)"
-                )
-        else:
-            lines.append("    Skipped")
+                lines.append("    Skipped")
 
         # Recombination — honest counts (2026-04-24 fix; 2026-05-03
         # full-scan fix removed the work-cap that limited every sleep
         # to ~10 pairs)
-        lines.append("\n  Phase 5 - Creative Recombination")
-        if self.connections_new > 0:
-            if self.connections_already_known > 0:
+        if shows("recombination"):
+            lines.append("\n  Phase 5 - Creative Recombination")
+            if self.connections_new > 0:
+                if self.connections_already_known > 0:
+                    lines.append(
+                        f"    Found {self.connections_new} new connection(s) "
+                        f"({self.connections_already_known} already-known skipped)"
+                    )
+                else:
+                    lines.append(f"    Found {self.connections_new} new connection(s)")
+                display_n = min(_RECOMBINATION_REPORT_DISPLAY, len(self.connection_details))
+                if self.connections_new > display_n:
+                    lines.append(
+                        f"    Showing top {min(5, display_n)} of {self.connections_new} "
+                        "by similarity (full list: divineos dream show):"
+                    )
+                for conn in self.connection_details[:5]:
+                    lines.append(f"    ~ {conn.get('summary', '?')}")
+                if self.connections_strengthened > 0:
+                    lines.append(
+                        f"    Hebbian strengthening: {self.connections_strengthened} "
+                        "re-discovered edge(s) had confidence bumped"
+                    )
+            elif self.connections_already_known > 0:
                 lines.append(
-                    f"    Found {self.connections_new} new connection(s) "
-                    f"({self.connections_already_known} already-known skipped)"
+                    f"    No new connections — {self.connections_already_known} "
+                    "already-known pairs skipped (similarity space may be saturating)"
                 )
+                if self.connections_strengthened > 0:
+                    lines.append(
+                        f"    Hebbian strengthening: {self.connections_strengthened} "
+                        "re-discovered edge(s) had confidence bumped"
+                    )
             else:
-                lines.append(f"    Found {self.connections_new} new connection(s)")
-            display_n = min(_RECOMBINATION_REPORT_DISPLAY, len(self.connection_details))
-            if self.connections_new > display_n:
-                lines.append(
-                    f"    Showing top {min(5, display_n)} of {self.connections_new} "
-                    "by similarity (full list: divineos dream show):"
-                )
-            for conn in self.connection_details[:5]:
-                lines.append(f"    ~ {conn.get('summary', '?')}")
-            if self.connections_strengthened > 0:
-                lines.append(
-                    f"    Hebbian strengthening: {self.connections_strengthened} "
-                    "re-discovered edge(s) had confidence bumped"
-                )
-        elif self.connections_already_known > 0:
-            lines.append(
-                f"    No new connections — {self.connections_already_known} "
-                "already-known pairs skipped (similarity space may be saturating)"
-            )
-            if self.connections_strengthened > 0:
-                lines.append(
-                    f"    Hebbian strengthening: {self.connections_strengthened} "
-                    "re-discovered edge(s) had confidence bumped"
-                )
-        else:
-            lines.append("    No connections found in similarity band")
+                lines.append("    No connections found in similarity band")
 
         # Curiosity
-        lines.append("\n  Phase 6 - Curiosity Maintenance")
-        if self.curiosity_categories:
-            for cat in self.curiosity_categories:
-                lines.append(f"    {cat}")
-        else:
-            lines.append("    Nothing to prune")
+        if shows("curiosity"):
+            lines.append("\n  Phase 6 - Curiosity Maintenance")
+            if self.curiosity_categories:
+                for cat in self.curiosity_categories:
+                    lines.append(f"    {cat}")
+            else:
+                lines.append("    Nothing to prune")
 
         # Errors
         if self.phase_errors:
@@ -598,6 +644,19 @@ def _phase_recombination(report: DreamReport) -> None:
         content = entry.get("content") or ""
         if _SESSION_SUFFIX_PATTERN.search(content.lower()):
             return True
+        # Auto-generated bookkeeping stubs from extraction/quality pipelines:
+        # session-feedback summaries, [DIVERGENCE]/[EMERGENCE] auto-tags,
+        # short auto-extracted self-correction stubs. These are short
+        # boilerplate, share project vocabulary, and pollute recombination
+        # by linking to substantive entries on vocabulary-only matches.
+        # Identified during 2026-06-14 noise walk (30 edges across 43
+        # source entries removed). Defense-in-depth alongside the
+        # bottom-of-extraction filters.
+        if len(content) < 250:
+            stripped = content.strip()
+            for pat in _RECOMBINATION_AUTO_NOISE_PATTERNS:
+                if pat.match(stripped):
+                    return True
         return False
 
     pre_filter_count = len(entries)
@@ -652,7 +711,7 @@ def _phase_recombination(report: DreamReport) -> None:
     # noise floor — the 0.45 threshold already prevents shared-vocab
     # false positives without needing lexical anchoring). Dice fallback
     # still requires lexical floor because Dice IS the lexical metric.
-    connections: list[dict[str, str]] = []
+    connections: list[dict[str, Any]] = []
     already_known_count = 0
     strengthened_count = 0  # subset of already_known whose confidence grew via Hebbian
     total_band_pairs = 0  # pairs in similarity band regardless of novelty
@@ -756,6 +815,7 @@ def _phase_recombination(report: DreamReport) -> None:
                         "type_a": type_a,
                         "type_b": type_b,
                         "similarity": f"{similarity:.0%}",
+                        "similarity_raw": float(similarity),
                         "summary": (
                             f"({similarity:.0%}) {type_a}+{type_b}: "
                             f"{_first_sentence(content_a)} <> "
@@ -801,11 +861,13 @@ def _phase_recombination(report: DreamReport) -> None:
                 aid = conn.get("entry_a_id", "")
                 bid = conn.get("entry_b_id", "")
                 if aid and bid and aid != "?" and bid != "?":
+                    sim_raw = conn.get("similarity_raw")
+                    edge_conf = float(sim_raw) if isinstance(sim_raw, (int, float)) else 0.6
                     create_edge(
                         source_id=aid,
                         target_id=bid,
                         edge_type="RELATED_TO",
-                        confidence=0.6,
+                        confidence=edge_conf,
                         notes=f"sleep recombination: {conn.get('similarity', '?')} similarity",
                     )
         except _SLEEP_ERRORS as e:
@@ -1003,6 +1065,7 @@ def run_sleep(skip_maintenance: bool = False) -> DreamReport:
             continue
         try:
             phase_fn(report)
+            report.phases_run.add(phase_name)
         except _SLEEP_ERRORS as e:
             report.phase_errors[phase_name] = str(e)
             logger.warning(f"Sleep phase '{phase_name}' failed: {e}")
