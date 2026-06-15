@@ -89,8 +89,45 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "merge",
         re.compile(
-            r"\b(?:(?:it'?s|pr\s+(?:is\s+)?)?(?:merged|landed)|merge\s+"
-            r"(?:is\s+)?(?:done|complete|completed))\b",
+            r"\b(?:"
+            # "merged" — narrowed 2026-06-15 (Andrew: "another dumb gate
+            # that needs narrowed"). Same phrase-pin shape applied to
+            # "landed" on 2026-06-14. Bare "merged" over-fires on
+            # meta-discussion of merging ("branches are merged or
+            # unmerged", "the substance work merged via v2 PR", "I saw
+            # merged yesterday"). Three accepted shapes:
+            #   (a) pre-pinned: "PR #38 merged", "the branch merged",
+            #       "the PR is merged"
+            #   (b) post-pinned: "merged to main", "merged into origin",
+            #       "merged it on main" (up to 3 words between)
+            #   (c) anchor-as-object: "merged PR #38", "merged main",
+            #       "merged the branch"
+            r"(?:pr\s+#?\d+|#\d+|"
+            r"the\s+(?:branch|fix|patch|commit|change|pr)|"
+            r"main|master|origin)"
+            r"\s+(?:is\s+|just\s+|finally\s+|already\s+|now\s+|recently\s+)?merged"
+            r"|"
+            r"merged(?:\s+\w+){0,3}\s+(?:on|in|into|to)\s+"
+            r"(?:main|master|origin|prod|production|ci|"
+            r"the\s+(?:pr|branch|commit)|#\d+)"
+            r"|"
+            r"merged\s+(?:the\s+)?"
+            r"(?:pr\s+#?\d+|#\d+|main|master|origin|"
+            r"the\s+(?:branch|commit|pr|fix|patch|change))"
+            r"|"
+            # (d) first-person assertion — "I merged it", "we merged it",
+            # "I've already merged it". Unambiguously a code claim about
+            # my own action (Aletheia 2026-06-02 loophole catch).
+            r"(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?merged"
+            r"|"
+            # "landed" — kept as-is (PR #199 narrows this separately;
+            # this commit only touches the merged half so the sibling
+            # PRs don't conflict on the same lines).
+            r"(?:(?:it'?s|pr\s+(?:is\s+)?)?landed)"
+            r"|"
+            # explicit "merge is done/complete" form — unambiguous, always fires
+            r"merge\s+(?:is\s+)?(?:done|complete|completed)"
+            r")\b",
             re.IGNORECASE,
         ),
     ),
@@ -195,7 +232,12 @@ _NOT_YET = re.compile(
     r"doesn'?t|didn'?t|can'?t|cannot|couldn'?t|"
     r"nothing|nobody|none|never|without|neither|no\s+longer|"
     r"to\s+(?:push|merge|deploy)|"
-    r"after\s+(?:i|the)|when\s+(?:it|the)|if\s+(?:it|the)|trying\s+to|"
+    r"after\s+(?:i|the)|when\s+(?:it|the)|"
+    # generic "if" — conditional clauses are non-assertions regardless of
+    # what follows (Andrew 2026-06-15: "if those land" was firing despite
+    # being a conditional). The prior "if\s+(?:it|the)" was too narrow.
+    r"if\s+\w+|"
+    r"trying\s+to|"
     r"let\s+me|i'?ll|waiting\s+for|"
     r"being|whether|would\s+(?:be|have))\b",
     re.IGNORECASE,
@@ -266,7 +308,11 @@ def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
     # First-person subject is its own grounding: "I merged it" is a claim,
     # not a description — fire even without a code-anchor (closes the
     # bare-first-person loophole Aletheia's probe surfaced 2026-06-02).
+    # Check both pre-window AND the start of the match itself, since the
+    # 2026-06-15 merged-narrow shape (d) absorbs the pronoun into the match.
     if _FIRST_PERSON_PRECEDES.search(text[max(0, match.start() - 18) : match.start()]):
+        return False
+    if re.match(r"\b(?:i|we|i'?ve|i'?m)\s+", matched, re.IGNORECASE):
         return False
     lo = max(0, match.start() - 45)
     hi = min(len(text), match.end() + 45)
