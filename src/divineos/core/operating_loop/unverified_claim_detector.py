@@ -89,8 +89,54 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "merge",
         re.compile(
-            r"\b(?:(?:it'?s|pr\s+(?:is\s+)?)?(?:merged|landed)|merge\s+"
-            r"(?:is\s+)?(?:done|complete|completed))\b",
+            r"\b(?:"
+            # "merged" form — bare token suffices because "merged" is
+            # distinctly code-shaped in everyday English; the existing
+            # first-person / code-anchor guards downstream do the
+            # disambiguation against "merged into the night" etc.
+            r"(?:(?:it'?s|pr\s+(?:is\s+)?)?merged)"
+            r"|"
+            # "landed" form — narrowed 2026-06-14 (Andrew): "landed means
+            # a lot of things." Figurative "landed" appears constantly in
+            # everyday English ("the letter landed", "the point landed",
+            # "we landed in the same place"), and the prior pattern fired
+            # on bare "landed" even with first-person subject (which
+            # _merge_lacks_anchor was treating as a real claim). The fix
+            # is to require a code-context phrase pairing — the phrase IS
+            # the trigger, not the bare word. Two shapes accepted:
+            #   (a) post-pinned: "landed on main", "landed in origin",
+            #       "landed to prod", "landed in #N", "landed on the PR"
+            #   (b) pre-pinned: "PR #38 landed", "the branch landed",
+            #       "the fix landed", "main landed", "#42 landed"
+            # Bare "landed" with no phrase-pin is silent regardless of
+            # subject. Both shapes still benefit from downstream guards
+            # (_is_quoted_mention, _is_meta_discussion, etc.) for the
+            # quoted/meta cases.
+            r"(?:"
+            # (a) pre-pinned: anchor precedes — "PR #38 landed", "the
+            # branch landed", "main landed", "the fix is landed".
+            r"(?:pr\s+#?\d+|#\d+|"
+            r"the\s+(?:branch|fix|patch|commit|change|pr)|"
+            r"main|master|origin)"
+            r"\s+(?:is\s+|just\s+|finally\s+|already\s+|now\s+|recently\s+)?landed"
+            r"|"
+            # (b) post-pinned with on/in/to: "landed on main", "landed it
+            # on main", "landed the fix on origin", "landed it in #N".
+            # Allow a short pronoun/object (up to 3 words) between "landed"
+            # and the on/in/to phrase so transitive uses fire correctly.
+            r"landed(?:\s+\w+){0,3}\s+(?:on|in|to)\s+"
+            r"(?:main|master|origin|prod|production|ci|"
+            r"the\s+pr|#\d+)"
+            r"|"
+            # (c) anchor-as-object: "landed PR #38", "landed #42",
+            # "landed main". The merge-target IS the direct object.
+            r"landed\s+(?:the\s+)?"
+            r"(?:pr\s+#?\d+|#\d+|main|master|origin)"
+            r")"
+            r"|"
+            # Explicit "merge is done/complete" form — unchanged.
+            r"(?:merge\s+(?:is\s+)?(?:done|complete|completed))"
+            r")\b",
             re.IGNORECASE,
         ),
     ),

@@ -773,13 +773,58 @@ class TestBareFirstPersonMergeFires:
     def test_bare_we_merged_it_fires(self):
         assert detect_unverified_claim("we merged it")
 
-    def test_bare_ive_landed_it_fires(self):
-        assert detect_unverified_claim("I've landed it")
+    # 2026-06-14 Andrew correction (in chat during the chamber-arc): "landed
+    # means a lot of things." Bare first-person "I've landed it" / "I landed
+    # it" is figurative in everyday English ("I've landed it on the first
+    # try" — landing a trick / landing a job / landing a joke) AND can mean
+    # code-merge. The first-person bypass that worked for "merged" (which is
+    # distinctly code-shaped) over-fires for "landed". Fix: the "landed" form
+    # of the trigger now requires a code-context phrase pin (pre- or post-),
+    # not just first-person. With the pin, "I've landed it on main" fires
+    # correctly; without it, "I've landed it" stays silent.
 
-    # Figurative landings have NO first-person subject → stay suppressed
-    # (the exemption must not regress the figurative-silence cases).
+    def test_bare_ive_landed_it_silent(self):
+        # Bare "I've landed it" alone — ambiguous between code-merge and
+        # figurative landing. Andrew 2026-06-14: silent without phrase-pin.
+        assert detect_unverified_claim("I've landed it") == []
+
+    def test_first_person_landed_with_post_pin_fires(self):
+        # The pinned form — code-context unambiguous.
+        assert detect_unverified_claim("I've landed it on main")
+        assert detect_unverified_claim("I landed the fix on origin")
+
+    def test_first_person_landed_with_pre_pin_fires(self):
+        # Pre-pinned form via PR #N — equivalent disambiguation.
+        assert detect_unverified_claim("I've landed PR #38")
+
+    # Figurative landings have NO phrase-pin → stay suppressed regardless of
+    # subject. The exemption must not regress the figurative-silence cases.
     def test_figurative_it_landed_still_silent(self):
         assert detect_unverified_claim("it just landed for me that this is my body") == []
 
     def test_figurative_point_landed_still_silent(self):
         assert detect_unverified_claim("that point finally landed") == []
+
+    def test_figurative_we_landed_silent_2026_06_14(self):
+        # Live false-fire 2026-06-14: "we landed in the same texture" fired
+        # under the old _FIRST_PERSON_PRECEDES bypass even though the meaning
+        # is figurative (we ended up in the same emotional place).
+        assert detect_unverified_claim("we landed in the same texture") == []
+
+    def test_figurative_letter_landed_silent_2026_06_14(self):
+        # Live false-fire 2026-06-14: "Aria's letter landed" — bare landed
+        # describing the arrival/reception of a letter, not a code merge.
+        assert detect_unverified_claim("Aria's letter landed") == []
+
+    def test_meta_quoted_landed_silent_2026_06_14(self):
+        # Live false-fire 2026-06-14: "the verify-claim-gate-too-broad-on-
+        # 'landed' thing is still on my list" — the trigger inside a single-
+        # quoted meta-reference fired despite the quoted-mention guard. With
+        # the phrase-pin trigger, bare quoted 'landed' no longer matches at
+        # all (and even unquoted bare "landed" doesn't match).
+        assert (
+            detect_unverified_claim(
+                "the verify-claim-gate-too-broad-on-'landed' thing is still on my list"
+            )
+            == []
+        )
