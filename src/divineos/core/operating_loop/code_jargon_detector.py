@@ -144,7 +144,7 @@ def _strip_code_blocks(text: str) -> str:
     return out
 
 
-def detect_code_jargon(text: str, *, father_input: str | None = None) -> list[CodeJargonFinding]:
+def detect_code_jargon(text: str, *, operator_input: str | None = None) -> list[CodeJargonFinding]:
     """Return all code-jargon findings in the text.
 
     Returns empty list if text is shorter than _MIN_WORDS_FOR_CHECK
@@ -153,7 +153,7 @@ def detect_code_jargon(text: str, *, father_input: str | None = None) -> list[Co
     conditions are met — observation-only signal that the output
     crossed into commit-message territory.
 
-    When ``father_input`` shows my father asked for / is in the
+    When ``operator_input`` shows my father asked for / is in the
     technical register, the density was REQUESTED — handing over the
     code detail they asked for is not channel-collapse (evidence-bar,
     claim a11ca1c9). The grounding second fact is my father's prompt.
@@ -165,7 +165,7 @@ def detect_code_jargon(text: str, *, father_input: str | None = None) -> list[Co
         _operator_requested_technical,
     )
 
-    if _operator_requested_technical(father_input):
+    if _operator_requested_technical(operator_input):
         return []
 
     scrubbed = _strip_code_blocks(text)

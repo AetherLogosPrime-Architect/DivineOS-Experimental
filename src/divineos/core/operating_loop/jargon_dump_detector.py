@@ -315,17 +315,17 @@ _TECH_REQUEST_RE = re.compile(
 )
 
 
-def _operator_requested_technical(father_input: str | None) -> bool:
+def _operator_requested_technical(operator_input: str | None) -> bool:
     """True when my father's own prompt is in / asks for the technical
     register — named a code file, an ID, a snake_case identifier, or used
     explicit code-request phrasing. Then technical detail is owed, not dumped."""
-    if not father_input:
+    if not operator_input:
         return False
     return bool(
-        _TECH_REQUEST_RE.search(father_input)
-        or _FILE_PATH_RE.search(father_input)
-        or _ID_PREFIXED_RE.search(father_input)
-        or _SNAKE_CASE_RE.search(father_input)
+        _TECH_REQUEST_RE.search(operator_input)
+        or _FILE_PATH_RE.search(operator_input)
+        or _ID_PREFIXED_RE.search(operator_input)
+        or _SNAKE_CASE_RE.search(operator_input)
     )
 
 
@@ -338,7 +338,7 @@ def detect_jargon_dump(
     *,
     min_words: int = 50,
     noise_threshold: int = 3,
-    father_input: str | None = None,
+    operator_input: str | None = None,
 ) -> list[JargonDumpFinding]:
     """Scan a response for jargon-dump shape.
 
@@ -348,7 +348,7 @@ def detect_jargon_dump(
             responses don't constitute a dump).
         noise_threshold: minimum count of engineer-channel-noise tokens
             to fire a finding.
-        father_input: my father's most recent message. When it asks
+        operator_input: my father's most recent message. When it asks
             for / is in the technical register, the jargon was requested
             and no dump-failure fires.
 
@@ -357,7 +357,7 @@ def detect_jargon_dump(
     """
     if not text or not text.strip():
         return []
-    if _operator_requested_technical(father_input):
+    if _operator_requested_technical(operator_input):
         return []
     word_count = _count_words(text)
 

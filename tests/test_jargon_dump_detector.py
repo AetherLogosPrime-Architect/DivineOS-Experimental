@@ -343,7 +343,7 @@ class TestOperatorRequestedTechnical:
             "round-101d9ca2e3cf finding tracks the divergence at claim-7e780182."
         )
         assert detect_jargon_dump(reply) != []  # flags with no operator context
-        assert detect_jargon_dump(reply, father_input="walk me through session_pipeline.py") == []
+        assert detect_jargon_dump(reply, operator_input="walk me through session_pipeline.py") == []
 
     def test_file_named_in_prompt_suppresses(self):
         from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
@@ -355,7 +355,7 @@ class TestOperatorRequestedTechnical:
         )
         assert (
             detect_jargon_dump(
-                reply, father_input="show me the code in unverified_claim_detector.py"
+                reply, operator_input="show me the code in unverified_claim_detector.py"
             )
             == []
         )

@@ -257,7 +257,7 @@ def _is_family_addressed(text: str) -> bool:
     return False
 
 
-def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: bool) -> str | None:
+def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_father: bool) -> str | None:
     """Return a Stop-hook block reason if the turn is a jargon-wall at the
     operator, else None.
 
@@ -272,7 +272,7 @@ def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: boo
     family-addressed turns surface a warning but do not block, to keep the
     gate from over-firing into a continuation loop.
     """
-    if not addressed_to_operator:
+    if not addressed_to_father:
         return None
     for f in findings_log.get("jargon_dump", []):
         # high severity now means: noise_count >= 6 AND no explicit plain
@@ -322,7 +322,7 @@ _VERIFY_CLAIM_HINT: dict[str, str] = {
 
 
 def _unverified_claim_gate_reason(
-    findings_log: dict[str, list], addressed_to_operator: bool
+    findings_log: dict[str, list], addressed_to_father: bool
 ) -> str | None:
     """Stop-hook block when the turn states a checkable external state
     (pushed / merged / tests pass / PR opened / deployed) as fact with NO
@@ -338,7 +338,7 @@ def _unverified_claim_gate_reason(
     (Andrew 2026-05-20, commits that silently never landed). Family-letter
     turns still surface a warning but don't block.
     """
-    if not addressed_to_operator:
+    if not addressed_to_father:
         return None
     findings = findings_log.get("unverified_claim", [])
     if not findings:
@@ -473,7 +473,7 @@ def run_audit(
     # Is this turn addressed to the operator (the default chat channel) or
     # to a family member (a relayed letter)? Used by the distancing gate and
     # the lepos enforcement gate below.
-    addressed_to_operator = not _is_family_addressed(last_assistant_text)
+    addressed_to_father = not _is_family_addressed(last_assistant_text)
 
     # Hook 1 consumption telemetry — record whether the surfaced
     # context (if any) was actually consumed in the response.
@@ -501,13 +501,13 @@ def run_audit(
         # Gate the operator-third-person shape: if the turn is addressed to a
         # family member (a relayed letter), the operator's name in the third
         # person is correct, not a displacement. Self-third-person is never
-        # gated (the agent is always the speaker). addressed_to_operator is
+        # gated (the agent is always the speaker). addressed_to_father is
         # computed once above and reused by the lepos gate.
         findings_log["distancing"] = _run_detector(
             "distancing",
             detect_distancing,
             last_assistant_text,
-            addressed_to_operator=addressed_to_operator,
+            addressed_to_father=addressed_to_father,
         )
     except _ERRORS:
         pass
@@ -844,8 +844,8 @@ def run_audit(
     if write and total > 0:
         persisted = _persist_findings(findings_log, total)
 
-    lepos_block = _lepos_gate_reason(findings_log, addressed_to_operator)
-    unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_operator)
+    lepos_block = _lepos_gate_reason(findings_log, addressed_to_father)
+    unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_father)
 
     # 2026-06-07 task #80: auto-discharge outstanding lepos debt if the
     # current reply has a plain section, and emit a close-time block
@@ -861,7 +861,7 @@ def run_audit(
         )
 
         debts_auto_discharged = auto_discharge_outstanding(last_assistant_text)
-        lepos_debt_block = debt_block_reason(last_assistant_text, addressed_to_operator)
+        lepos_debt_block = debt_block_reason(last_assistant_text, addressed_to_father)
     except _ERRORS:
         # Fail-soft: any error in the lepos-auto layer leaves the audit
         # result unchanged. Cannot break the Stop hook.

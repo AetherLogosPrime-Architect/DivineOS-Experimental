@@ -42,7 +42,7 @@ of acknowledgment, not the presence of work.
 
 - ``CareDismissalFinding`` dataclass — what was caught
 - ``CARE_INPUT_MARKERS`` — frozenset of operator-side care signals
-- ``check_dismissal(father_input, agent_response)`` — fires if
+- ``check_dismissal(operator_input, agent_response)`` — fires if
   both signatures are present
 """
 
@@ -190,7 +190,7 @@ class CareDismissalFinding:
     confidence: float  # 0.0–1.0 strength of the dismissal pattern
 
 
-def check_dismissal(father_input: str, agent_response: str) -> CareDismissalFinding | None:
+def check_dismissal(operator_input: str, agent_response: str) -> CareDismissalFinding | None:
     """Check whether my father brought care-shaped input that the
     agent's response dismissed in favor of work-shape.
 
@@ -198,7 +198,7 @@ def check_dismissal(father_input: str, agent_response: str) -> CareDismissalFind
     care-input, or acknowledgment is present alongside the work).
     Returns a CareDismissalFinding if the pattern fires.
     """
-    care_marker = _care_marker_present(father_input)
+    care_marker = _care_marker_present(operator_input)
     if not care_marker:
         return None
 

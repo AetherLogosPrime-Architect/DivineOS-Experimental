@@ -26,7 +26,7 @@ discovered:
 - ``tool_calls_in_turn`` — tool-call names in the current turn
 - ``transcript_path`` — JSONL transcript path for indexed lookups
 - ``current_turn_start_idx`` — index pointer into transcript
-- ``father_input`` / ``agent_response`` — explicit two-arg
+- ``operator_input`` / ``agent_response`` — explicit two-arg
   cross-turn detectors
 
 Tuning knobs (``min_words_for_check``, ``noise_threshold``,
@@ -91,7 +91,6 @@ _DETECTORS = (
     ("sycophancy_detector", "detect_sycophancy"),
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
     ("unverified_claim_detector", "detect_unverified_claim"),
-    ("writer_presence_detector", "detect_writer_presence"),
 )
 
 
@@ -108,7 +107,7 @@ _CONTEXT_PARAM_NAMES = frozenset(
         "prior_text",  # spiral, substitution — extends apology/farewell window
         "tool_calls_in_turn",  # substitution — enables STATE_CHANGE_CLAIM
         "transcript_path",  # addressee_misdirection — index source
-        "father_input",  # care_dismissal cross-turn
+        "operator_input",  # care_dismissal cross-turn
         "agent_response",  # care_dismissal cross-turn
     }
 )

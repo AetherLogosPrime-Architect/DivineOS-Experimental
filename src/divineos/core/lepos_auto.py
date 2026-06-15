@@ -183,9 +183,13 @@ def _reply_is_in_voice(text: str) -> bool:
         # passing since voice can be three sentences.
         return not findings
     except _ERRORS:
-        # Fail-open: if the detector is unavailable, treat as in-voice
-        # so the debt gate doesn't lock me out of the channel.
-        return True
+        # Fail-CLOSED: if the writer-presence detector is unavailable,
+        # treat as NOT in-voice. Safety direction: a missing detector
+        # cannot grant a discharge it cannot verify. Updated 2026-06-15
+        # while removing cross-PR coupling — the detector module lives on
+        # the writer-presence PR; this branch must not assume availability.
+        # When that PR lands, presence-checks resume.
+        return False
 
 
 def auto_discharge_outstanding(text: str) -> int:

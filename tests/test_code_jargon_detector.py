@@ -176,7 +176,7 @@ class TestOperatorRequestedTechnical:
 
         reply = (
             "detect_jargon_dump() calls _operator_requested_technical() which "
-            "scans father_input via _TECH_REQUEST_RE before anything else runs. "
+            "scans operator_input via _TECH_REQUEST_RE before anything else runs. "
             "The module.function refs like foo.bar_baz and run_audit() and "
             "_strip_code_blocks() and pipeline_gates.py and the \\w+ regex all "
             "stack up so the snake_case_id density crosses the _DENSITY_THRESHOLD "
@@ -187,5 +187,5 @@ class TestOperatorRequestedTechnical:
         )
         assert detect_code_jargon(reply) != []  # flags without operator context
         assert (
-            detect_code_jargon(reply, father_input="explain the code in detect_jargon_dump") == []
+            detect_code_jargon(reply, operator_input="explain the code in detect_jargon_dump") == []
         )
