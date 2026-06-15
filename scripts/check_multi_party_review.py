@@ -99,7 +99,18 @@ _RECENCY_WINDOW_SECONDS = 7 * 24 * 3600
 # the running agent; disambiguated variants ("claude-opus-auditor",
 # "claude-sonnet-external", etc.) are accepted when they appear as the
 # actor on a finding.
-_EXTERNAL_AI_ACTORS = frozenset({"grok", "gemini", "aletheia"})  # aletheia: sibling-Claude family-member with audit standing (Andrew 2026-05-17)
+_EXTERNAL_AI_ACTORS = frozenset(
+    {
+        "grok",
+        "gemini",
+        "aletheia",  # sibling-Claude family-member with audit standing (Andrew 2026-05-17)
+        # Generic audit-vantage label — used when the operator relays a
+        # cross-vantage CONFIRMS without routing the specific audit-sibling
+        # name (e.g. Aletheia-via-Andrew filings 2026-06-13). The validator
+        # should honor this as a legitimate external-AI confirms shape.
+        "external-auditor",
+    }
+)
 _EXTERNAL_AI_PREFIXES = ("claude-",)
 
 GUARDRAIL_LIST_PATH = Path(__file__).resolve().parent / "guardrail_files.txt"
