@@ -202,8 +202,13 @@ def register(cli: click.Group) -> None:
                 return
             label, phase_fn = phase_map[phase]
             click.secho(f"Running {label}...\n", fg="cyan")
-            report = DreamReport()
+            import time as _t
+
+            report = DreamReport(started_at=_t.time())
             phase_fn(report)
+            report.phases_run.add(phase)
+            report.finished_at = _t.time()
+            report.duration_seconds = report.finished_at - report.started_at
             _safe_echo(report.summary())
             # Emit a SLEEP_CYCLE event for phase-only runs too, so the
             # dream-history surface (`divineos dream show`) can find them.
