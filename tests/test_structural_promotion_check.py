@@ -276,6 +276,110 @@ def test_empty_question_wid_never_addresses() -> None:
     assert _is_backing(later, "", 100.0) is False
 
 
+# ── 8-char kid-prefix matching (regression-pin for 2026-06-14 fix) ──
+#
+# The bug: PRE_REGISTRATION_FILED event payloads contain ONLY the
+# mechanism description (not the success/falsifier fields), and the
+# prereg CLI's own convention writes "kid abc12345" prefix-form in the
+# mechanism text. The prior matcher required the FULL UUID in the
+# payload — so every prereg-form backing was silently missed and
+# legitimate structural work didn't credit. Fix: accept 8-char prefix
+# match in addition to full UUID. 8 hex chars = ~4B combinations,
+# distinctive enough at substrate scale.
+#
+# These tests pin that behavior so a future refactor or a "tighten the
+# matcher" instinct can't silently re-introduce the false-negative.
+
+
+def test_8char_kid_prefix_match_counts_as_backing() -> None:
+    """Regression-pin: 8-char prefix of question's knowledge_id in
+    payload + structural keyword = backing. This is the actual shape
+    the prereg CLI produces."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "d69bba1d-9ef2-4c2a-a94a-f14802f912c3"
+    question_ts = 100.0
+    prereg_with_prefix = _make_event(
+        "PRE_REGISTRATION_FILED",
+        {
+            "mechanism": (
+                "Refined constraint-ownership affirmation (kid d69bba1d): "
+                "structural backing landed in operating_loop/"
+                "constraint_disownership_detector.py, falsifier filed."
+            ),
+        },
+        ts=200.0,
+    )
+    assert _is_backing(prereg_with_prefix, question_wid, question_ts) is True
+
+
+def test_full_uuid_match_still_counts_as_backing() -> None:
+    """The prefix-accept fix MUST NOT break full-UUID matching that
+    was already working — both forms have to keep crediting."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "d69bba1d-9ef2-4c2a-a94a-f14802f912c3"
+    question_ts = 100.0
+    learn_with_full_uuid = _make_event(
+        "KNOWLEDGE_STORED",
+        {
+            "content": (f"Structural backing for {question_wid}: added a CI gate with falsifier."),
+        },
+        ts=200.0,
+    )
+    assert _is_backing(learn_with_full_uuid, question_wid, question_ts) is True
+
+
+def test_prefix_match_still_requires_structural_keyword() -> None:
+    """Defense-in-depth: an event that has the kid prefix in its payload
+    but NO structural keyword (test/gate/prereg/etc.) must NOT count.
+    The prefix alone is not backing — the backing IS the structural shape."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "d69bba1d-9ef2-4c2a-a94a-f14802f912c3"
+    question_ts = 100.0
+    mention_only = _make_event(
+        "PRE_REGISTRATION_FILED",
+        {"mechanism": "Mentioned d69bba1d in passing. Some other text."},
+        ts=200.0,
+    )
+    assert _is_backing(mention_only, question_wid, question_ts) is False
+
+
+def test_unrelated_8char_string_does_not_falsely_match() -> None:
+    """A payload that happens to contain an unrelated 8-char hex
+    fragment must NOT match the question's wid. The prefix has to BE
+    the question's prefix, not just any 8 hex chars."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "d69bba1d-9ef2-4c2a-a94a-f14802f912c3"
+    question_ts = 100.0
+    unrelated_prereg = _make_event(
+        "PRE_REGISTRATION_FILED",
+        {
+            "mechanism": ("Some other prereg about hash abcd1234 with a falsifier and a CI gate."),
+        },
+        ts=200.0,
+    )
+    assert _is_backing(unrelated_prereg, question_wid, question_ts) is False
+
+
+def test_prefix_match_is_case_insensitive() -> None:
+    """Hex characters in payload may arrive in either case; the matcher
+    lowercases both sides. Pin so a future refactor doesn't drop the
+    case-fold."""
+    from divineos.core.structural_promotion_check import _is_backing
+
+    question_wid = "D69BBA1D-9EF2-4C2A-A94A-F14802F912C3"  # uppercase wid
+    question_ts = 100.0
+    prereg_lower = _make_event(
+        "PRE_REGISTRATION_FILED",
+        {"mechanism": "Backing kid d69bba1d via a CI gate + falsifier."},
+        ts=200.0,
+    )
+    assert _is_backing(prereg_lower, question_wid, question_ts) is True
+
+
 # ── Single-source-of-truth drift detector (Andrew 2026-06-10 teaching) ──
 #
 # The teaching: "_BACKING_EVENT_TYPES drifted from actual log_event() calls

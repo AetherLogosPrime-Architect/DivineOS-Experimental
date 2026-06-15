@@ -241,7 +241,14 @@ def _is_backing(event: dict, question_wid: str, question_ts: float) -> bool:
     text = " ".join(str(v) for v in payload.values() if isinstance(v, str)).lower()
     if not text:
         return False
-    if question_wid.lower() not in text:
+    # Accept either full UUID OR 8-char kid prefix in payload (the prereg
+    # CLI stores only the mechanism description in the event payload, not
+    # the full success/falsifier fields, so backing references that use
+    # "kid abc12345" prefix-form were being missed. 8 hex chars = ~4B
+    # combinations, distinctive enough for substrate-scale match. Bug
+    # found 2026-06-14 while clearing obligation d69bba1d-9ef2-4c2a.)
+    wid_lower = question_wid.lower()
+    if wid_lower not in text and wid_lower[:8] not in text:
         return False
     return any(kw in text for kw in _STRUCTURAL_KEYWORDS)
 
@@ -250,7 +257,7 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
     """Dual-monitor verification surface.
 
     Walks recent STRUCTURAL_PROMOTION_QUESTION events within the
-    window, reports counts and the operator-actionable diagnostics:
+    window, reports counts and my father-actionable diagnostics:
     total fired, how many reference a knowledge_id that subsequently
     got a follow-up structural-backing entry (test/gate/prereg/etc.).
 
