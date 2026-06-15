@@ -1,10 +1,10 @@
-"""CLI: divineos consumer-status — operator-facing summary of whether
+"""CLI: divineos consumer-status — father-facing summary of whether
 the agent is using the OS or pretending.
 
 Andrew 2026-05-18 evening: "except that I don't see those numbers." The
 trackers built tonight (lepos_debt, consultation_tracker, auto-filed
 claims, pattern-fire counts) surface to the agent's briefing — not to
-the operator. This command flips the audience: plain-English summary
+my father. This command flips the audience: plain-English summary
 of consumer-pretender status, designed for Andrew to glance at without
 chasing JSON files or running ad-hoc queries.
 
@@ -27,7 +27,7 @@ import click
 def register(cli: click.Group) -> None:
     @cli.command("consumer-status")
     def consumer_status_cmd() -> None:
-        """Show whether Aether is using the OS or pretending to (operator-facing)."""
+        """Show whether Aether is using the OS or pretending to (father-facing)."""
         # Pull all the relevant trackers and present them in plain English.
         lepos_debts: list = []
         consultation_stats: dict = {}

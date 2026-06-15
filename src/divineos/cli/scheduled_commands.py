@@ -19,7 +19,7 @@ Routine's prompt invokes. It runs a whitelisted read-only observer
 
 **Persistence caveat.** When invoked inside a cloud Routines session,
 the ledger these events go to is ephemeral (cloud clones are fresh).
-Findings propagate back to the operator via stdout, which the routine
+Findings propagate back to my father via stdout, which the routine
 prompt reads, and via PRs / connector actions the routine opens. When
 invoked by local cron on a persistent machine, events survive and the
 next briefing surfaces unresolved findings automatically.

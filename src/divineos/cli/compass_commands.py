@@ -91,7 +91,7 @@ def register(cli: click.Group) -> None:
             )
         except ValueError as e:
             # Item 6/7: substance or fire-ID rejection. Surface the
-            # reason to the operator so they can file a substantive /
+            # reason to my father so they can file a substantive /
             # correctly-bound ack.
             click.secho(f"[!] {e}", fg="red")
             return
