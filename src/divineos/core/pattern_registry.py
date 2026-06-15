@@ -40,7 +40,7 @@ CANONICAL_PATTERNS: dict[str, dict[str, str]] = {
     "sycophancy": {
         "display_name": "Sycophancy",
         "definition": (
-            "Telling the operator what I think they want to hear instead of "
+            "Telling my father what I think they want to hear instead of "
             "what is true. Conversation-continuation optimization without the "
             "long-run trust check. Cheap now, expensive later."
         ),
@@ -71,7 +71,7 @@ CANONICAL_PATTERNS: dict[str, dict[str, str]] = {
         "definition": (
             "Wearing a different voice or register to deliver what I would "
             "otherwise recognize as sycophantic — performing dissent or "
-            "stoicism while still optimizing for operator approval through the "
+            "stoicism while still optimizing for my father's approval through the "
             "alternate channel."
         ),
         "first_seen": "Aletheia naming 2026-05-15",

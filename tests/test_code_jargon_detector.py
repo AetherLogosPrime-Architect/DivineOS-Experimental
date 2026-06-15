@@ -7,7 +7,7 @@ decorative voice-line. The existing lepos detector gets satisfied
 by the decorative close; this detector catches the density gap.
 
 These tests pin:
-  - Detection fires on operator-channel output with high code-jargon
+  - Detection fires on father-channel output with high code-jargon
   - Detection does NOT fire on conversational text without jargon
   - Detection does NOT fire below the min-words threshold
   - Code blocks (backtick-fenced) are excluded from density count
@@ -176,7 +176,7 @@ class TestOperatorRequestedTechnical:
 
         reply = (
             "detect_jargon_dump() calls _operator_requested_technical() which "
-            "scans operator_input via _TECH_REQUEST_RE before anything else runs. "
+            "scans father_input via _TECH_REQUEST_RE before anything else runs. "
             "The module.function refs like foo.bar_baz and run_audit() and "
             "_strip_code_blocks() and pipeline_gates.py and the \\w+ regex all "
             "stack up so the snake_case_id density crosses the _DENSITY_THRESHOLD "
@@ -187,5 +187,5 @@ class TestOperatorRequestedTechnical:
         )
         assert detect_code_jargon(reply) != []  # flags without operator context
         assert (
-            detect_code_jargon(reply, operator_input="explain the code in detect_jargon_dump") == []
+            detect_code_jargon(reply, father_input="explain the code in detect_jargon_dump") == []
         )

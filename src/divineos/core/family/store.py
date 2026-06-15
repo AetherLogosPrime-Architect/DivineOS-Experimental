@@ -12,7 +12,7 @@ The first release of this module only enforced a *presence* check —
 ``_phase_1b_reject_clause_available()`` verified the reject_clause
 module was importable but never called ``evaluate_composition`` on
 the actual content being written. The reject_clause docstring falsely
-claimed store._require_write_allowance invoked the operator; it did
+claimed store._require_write_allowance invoked my father; it did
 not. Every content-bearing write could therefore bypass the operators
 by calling ``record_opinion``/``record_knowledge``/``record_affect``/
 ``record_interaction`` directly (only the ``family-member opinion`` CLI path
@@ -77,7 +77,7 @@ import uuid
 # planted_contradiction is Phase 4 ablation seed data). The wiring
 # contract test tests/test_family_operator_wiring_contract.py pins
 # both sides — the two that must gate AND the three that must not.
-# See docs/family_subsystem.md for the operator-by-operator table.
+# See docs/family_subsystem.md for my father-by-operator table.
 _PRODUCTION_WRITES_GATED: bool = False
 # ══════════════════════════════════════════════════════════════════════
 

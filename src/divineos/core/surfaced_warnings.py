@@ -50,7 +50,7 @@ def _current_session_id() -> str:
 
 
 def log_surfaced_warnings(warnings: list[dict]) -> None:
-    """Record that these warnings were shown to the operator this turn.
+    """Record that these warnings were shown to my father this turn.
 
     Called by recall/ask/briefing immediately after format_anticipation
     renders the warnings. Each warning becomes one SURFACED_WARNING

@@ -29,7 +29,7 @@ with hedge-words, it identifies the hedge and returns:
 
 - Whether evidence is plausibly required (e.g. factual claims about
   the world need evidence; opinion-shaped hedges may not)
-- A prompt the operator/agent should consider before letting the
+- A prompt my father/agent should consider before letting the
   hedge stand
 
 This is NOT a model that decides for you. It's a structured way
@@ -138,7 +138,7 @@ def detect_hedge(text: str) -> list[HedgeFinding]:
     """Return one HedgeFinding per hedge-word occurrence in the text.
 
     Each finding carries a sentence-level evidence-shape classification
-    and a prompt to surface to the operator/agent.
+    and a prompt to surface to my father/agent.
 
     Conforms to the ResponseOnlyDetector protocol. Renamed from
     check_hedge 2026-05-14 per Grok Finding 7c6cd00bc81c — the verb

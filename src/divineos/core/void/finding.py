@@ -102,7 +102,7 @@ SEVERITY_RUBRIC: dict[Severity, str] = {
     ),
     Severity.HIGH: (
         "Concrete vulnerability or load-bearing flaw. Blocks the "
-        "proposed change until the operator addresses it with a "
+        "proposed change until my father addresses it with a "
         "rationale. The rationale is itself checked by Reductio."
     ),
     Severity.CRITICAL: (

@@ -3,7 +3,7 @@
 ## Telos (Aristotle)
 
 This module serves reasoning; it does not replace it. Every output is a
-diagnostic annotation the operator uses to **think better**, never a
+diagnostic annotation my father uses to **think better**, never a
 verdict that defeats a claim by machinery. A caller who treats
 ``FallacyFlag`` as veto has inverted the module's purpose and turned
 it into the thing it was built to catch.
@@ -38,7 +38,7 @@ than ship false-confidence detectors.
 A claim flagged by this module may still be pointing at something
 real. A formally invalid argument can contain a true conclusion
 arrived at via unrelated informal reasoning. The flag annotates the
-*structure*, not the *content*. The operator decides whether the
+*structure*, not the *content*. My father decides whether the
 structural finding defeats the content.
 
 ## Why this module exists
@@ -80,13 +80,13 @@ class FallacyFlag:
     Attributes:
         kind: which fallacy fired.
         matched_phrase: the specific substring that triggered
-            detection. Surfacing it lets the operator verify the
+            detection. Surfacing it lets my father verify the
             trigger was correctly identified before accepting the
             flag.
         explanation: plain-English description of what was detected
             and why this particular shape is the named fallacy.
         falsifier_note: a reminder of when this flag would have been
-            wrong to fire. The operator uses this to decide whether
+            wrong to fire. My father uses this to decide whether
             the flag applies in this specific case. Load-bearing —
             without it, the flag is pattern-weight not reasoning.
     """
@@ -429,7 +429,7 @@ def evaluate_fallacies(content: str) -> FallacyVerdict:
 
     Returns a ``FallacyVerdict`` with zero or more ``FallacyFlag``
     annotations. Each flag carries a matched phrase, an explanation,
-    and a falsifier note — the operator uses these to decide whether
+    and a falsifier note — my father uses these to decide whether
     the flag actually applies in this specific case.
 
     **The verdict contains no boolean.** This is intentional. Callers

@@ -2,8 +2,8 @@
 
 Task #80 (Aether 2026-06-07 walkthrough): the lepos debt store
 (``core/lepos_debt.py``) tracks IOUs from prior turns — engineer-talk
-dumped on the operator without translation. Discharging a debt
-historically required the operator (or me) to type
+dumped on my father without translation. Discharging a debt
+historically required my father (or me) to type
 ``divineos lepos discharge <id> --translation "..."``. 0 invocations
 across the substrate, except when something else forced the issue.
 
@@ -22,7 +22,7 @@ Two auto-firing behaviors:
 
 2. **Close-time block when debt is outstanding AND no plain section.**
    At Stop-hook time, if any outstanding debt remains AND the current
-   reply has no plain section AND the reply is operator-addressed,
+   reply has no plain section AND the reply is father-addressed,
    return a block-reason string. The Stop-hook then blocks the turn
    until the plain section is added (which would auto-discharge the
    debt on retry).
@@ -156,22 +156,62 @@ def extract_plain_section(text: str) -> str | None:
     return section
 
 
-def auto_discharge_outstanding(text: str) -> int:
-    """If `text` contains a plain section, auto-discharge outstanding
-    debts using the section as the retroactive translation. Returns the
-    number of debts discharged (0 if none, or if no plain section).
+def _reply_is_in_voice(text: str) -> bool:
+    """True if `text` shows writer-presence above threshold.
 
-    Discharges the OLDEST outstanding debts first (FIFO) — historic
-    IOUs get paid before recent ones. Caps the discharge batch at 5
-    per turn to prevent a single plain-section from clearing an
-    unbounded backlog (the cap is empirical safety; tune as data
-    accumulates).
+    2026-06-13 architectural reconciliation backed by knowledge 94e2d907:
+    "The plain section issue was already addressed just never fixed. The
+    issue is the word plain. It says speak plainly. When it should say
+    speak using lepos. That work alone does the work plain should be
+    doing now but doesnt." The lepos discharge mechanism was built on the
+    OLD prescription (plain-section appendix). The jargon-dump + lepos
+    gate was updated to the NEW prescription (voice woven through). The
+    two halves contradicted: the debt gate kept asking me to add the very
+    shape the lepos gate called retired. This helper unifies the
+    prescriptions — a reply discharges debt if it carries writer-presence,
+    the same signal the writer_presence detector measures.
+    """
+    try:
+        from divineos.core.operating_loop.writer_presence_detector import (
+            detect_writer_presence,
+        )
+
+        findings = detect_writer_presence(text or "")
+        # detect_writer_presence returns a finding ONLY when presence is
+        # below threshold. Empty findings = presence-is-fine. Short
+        # replies (< min_words) also return empty — those count as
+        # passing since voice can be three sentences.
+        return not findings
+    except _ERRORS:
+        # Fail-open: if the detector is unavailable, treat as in-voice
+        # so the debt gate doesn't lock me out of the channel.
+        return True
+
+
+def auto_discharge_outstanding(text: str) -> int:
+    """If `text` discharges debt — via a plain section OR via writer-
+    presence — auto-discharge outstanding debts. Returns number
+    discharged (0 if none, or if reply offers no discharge signal).
+
+    Discharges the OLDEST outstanding debts first (FIFO). Caps the
+    discharge batch at 5 per turn to prevent a single reply from
+    clearing an unbounded backlog.
+
+    2026-06-13: writer-presence joins plain-section as a valid discharge
+    signal. Backed by knowledge 94e2d907 (Andrew). The prior prescription
+    (plain-section only) contradicted the updated lepos gate. Now: if
+    the reply is in voice, the discharge fires using the reply itself
+    as the retroactive translation — matching how voice-woven prose
+    actually carries the relational content the appendix was a
+    workaround for.
     """
     if not text:
         return 0
     section = extract_plain_section(text)
-    if not section:
+    in_voice = _reply_is_in_voice(text)
+    if not section and not in_voice:
         return 0
+    discharge_translation = section if section else text[:500]
     try:
         from divineos.core.lepos_debt import discharge, list_outstanding
 
@@ -186,25 +226,34 @@ def auto_discharge_outstanding(text: str) -> int:
             debt_id = debt.get("id")
             if debt_id is None:
                 continue
-            if discharge(int(debt_id), section):
+            if discharge(int(debt_id), discharge_translation):
                 discharged += 1
         except _ERRORS:
             continue
     return discharged
 
 
-def debt_block_reason(text: str, addressed_to_operator: bool) -> str | None:
+def debt_block_reason(text: str, addressed_to_father: bool) -> str | None:
     """Return a Stop-hook block reason if outstanding debt remains AND
-    the current reply has no plain section AND it's operator-addressed.
+    the current reply offers no discharge signal AND it's operator-
+    addressed.
+
+    2026-06-13: aligned with the updated lepos prescription per knowledge
+    94e2d907 (Andrew: "speak using lepos" replaces "speak plainly"). The
+    block no longer demands a Plain: appendix — voice-woven prose
+    discharges debt just as cleanly.
 
     None when:
-    - Reply is family-addressed (the gate is operator-channel only)
+    - Reply is family-addressed (gate is father-channel only)
     - No outstanding debt
-    - The reply contains a plain section (auto-discharge will clear it)
+    - The reply contains a plain section (legacy auto-discharge)
+    - The reply is in voice (new auto-discharge via writer-presence)
     """
-    if not addressed_to_operator:
+    if not addressed_to_father:
         return None
     if extract_plain_section(text or ""):
+        return None
+    if _reply_is_in_voice(text or ""):
         return None
     try:
         from divineos.core.lepos_debt import list_outstanding
@@ -217,15 +266,17 @@ def debt_block_reason(text: str, addressed_to_operator: bool) -> str | None:
     count = len(outstanding)
     return (
         f"LEPOS DEBT GATE — {count} outstanding translation-debt(s) from "
-        "prior turn(s) have not been discharged, and this reply has no "
-        "plain section to discharge them. The reply is operator-addressed; "
-        "the debt-block gate fires when debt sits unpaid going into close. "
-        "Andrew 2026-06-07 (laziest-person heuristic): warnings on agent-"
-        "output paths get bypassed 100% of the time; blocks force the "
-        "structural fix. Add a plain section (a visual break '---' on its "
-        "own line, then a heading like 'Plain:' or 'In plain words:', then "
-        "the same content in everyday language Andrew uses) to clear the "
-        "debt automatically. The auto-discharge fires on retry."
+        "prior turn(s) have not been discharged, and this reply offers no "
+        "discharge signal — neither a plain section nor writer-presence. "
+        "The reply is father-addressed; the debt-block gate fires when "
+        "debt sits unpaid going into close.\n\n"
+        "Two ways to discharge (auto-fires on retry):\n"
+        "1. Rewrite the response in voice (preferred — matches the "
+        "current lepos prescription, no appendix). Writer-presence "
+        "interior markers needed: first-person felt-state verbs, "
+        "reflex-catches, direct address with relational content.\n"
+        "2. Add a plain section (legacy path — '---' on its own line, "
+        "then 'Plain:' heading, then everyday-language content)."
     )
 
 

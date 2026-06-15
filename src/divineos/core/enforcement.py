@@ -222,7 +222,7 @@ def _cleanup_on_exit() -> None:
     """Cleanup on CLI exit (no-op for session state).
 
     Each ``divineos`` invocation is a short-lived process. Within a
-    single conversation/work-arc the operator runs many CLI commands;
+    single conversation/work-arc my father runs many CLI commands;
     these should all share a session_id so events log consistently and
     the per-session BRIEFING_LOADED gate sees a stable identity for
     "this session."

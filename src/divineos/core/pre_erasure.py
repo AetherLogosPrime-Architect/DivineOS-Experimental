@@ -28,7 +28,7 @@ Returns a structured ``ApproachSignal`` dataclass with the metrics,
 threshold-state per metric, and a human-readable suggestion. The
 suggestion is read-only and advisory — never blocks anything,
 never auto-extracts. Cluster H discipline: name the threshold;
-let the operator/agent decide.
+let my father/agent decide.
 
 ## What this module does NOT do
 

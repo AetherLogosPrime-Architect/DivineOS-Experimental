@@ -267,7 +267,7 @@ def verify_logbook_health() -> dict[str, object]:
       activity if a session is running, count at-or-below cap.
     * ``HEALTHY_AT_CAP`` — logbook is at the prune threshold (designed
       steady-state for an active session). Distinct from HEALTHY only
-      so the operator sees the conveyor belt is engaged.
+      so my father sees the conveyor belt is engaged.
     * ``DEGRADED`` — unexpected state: logbook exists but is empty,
       OR very stale (newest event > 1 hour ago) during what looks
       like an active session, OR cap is misconfigured (cap <= 0).

@@ -5,7 +5,7 @@ pattern-recognition across temporally-separated events. The substrate
 already records commitments, claims, decisions, pre-regs, and knowledge
 entries — each in its own store, each with a timestamp. When two
 filings within a short window share substantive content, that is a
-signal worth surfacing: the operator (or agent) was thinking about the
+signal worth surfacing: my father (or agent) was thinking about the
 same thing through two different apertures and didn't notice the
 coincidence at the time.
 
@@ -21,7 +21,7 @@ Output: ``list[Synchronicity]`` sorted by overlap-score descending.
 ## What this module does NOT do
 
 * Does NOT make causal claims. Co-occurrence is signal, not proof.
-* Does NOT auto-link events. The operator decides whether the
+* Does NOT auto-link events. My father decides whether the
   coincidence is meaningful.
 * Does NOT use embedding similarity. Token-overlap is a deliberately
   cheap, transparent metric — it makes the co-occurrence reasoning

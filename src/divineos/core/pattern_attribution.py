@@ -62,7 +62,7 @@ VALID_ATTRIBUTIONS = frozenset(
         "self_caught",  # I caught the slip without external prompting
         "os_gate_caught",  # A substrate gate/detector fired
         "external_ai_caught",  # Aletheia / Grok / other external-AI auditor
-        "operator_caught",  # Andrew named it
+        "father_caught",  # Andrew named it
     }
 )
 
@@ -327,7 +327,7 @@ def band_shift_summary(pattern_name: str, window_days: float = 30.0) -> dict[str
             },
             "by_attribution": {
                 "self_caught": 7,
-                "operator_caught": 3,
+                "father_caught": 3,
                 "external_ai_caught": 2,
                 "os_gate_caught": 0,
             },
