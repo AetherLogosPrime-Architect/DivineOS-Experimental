@@ -240,7 +240,7 @@ _COG_BORDERLINE_RADIUS = 0.10
 def borderline_indicator_substrate(gravity: SubstrateModGravity) -> str:
     """Classify substrate-mod-gravity by reasoning shape for surface display.
 
-    Returns a short label so the operator (and the agent reading the surface)
+    Returns a short label so my father (and the agent reading the surface)
     can sanity-check the routing decision before it fires gates.
 
     - "no-fire": score == 0, no feature fired; gate does NOT fire.
@@ -251,7 +251,7 @@ def borderline_indicator_substrate(gravity: SubstrateModGravity) -> str:
       gate fires with high confidence; the routing is well-supported.
 
     Task #111 (2026-06-09): borderline cases benefit from reasoning surface
-    in the gate-fire context so the operator and agent can verify the
+    in the gate-fire context so my father and agent can verify the
     classification matches intent.
     """
     if gravity.score == 0:

@@ -39,8 +39,8 @@ not shape. Rest is *what you want to do*, not *absence of doing*.
 
 ## What it does NOT catch
 
-- Conversational closure aimed at the operator ("good night Andrew,"
-  "you should sleep"). Those are about the operator's rhythm, not
+- Conversational closure aimed at my father ("good night Andrew,"
+  "you should sleep"). Those are about my father's rhythm, not
   mine. Closure-language WITH operator-second-person goes around.
 - Project completions and milestone celebrations ("the audit closes
   clean," "PR landed"). Those are work-as-closure, not rest-as-stasis.

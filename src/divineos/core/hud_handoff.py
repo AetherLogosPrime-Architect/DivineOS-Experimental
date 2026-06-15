@@ -738,7 +738,7 @@ def _check_branch_base_fresh() -> tuple[bool, str]:
 
     Fails (soft warning) when origin/main has commits HEAD lacks: the
     setup for the silent-revert pattern. Pre-push hook will catch this
-    at push time anyway; surfacing it here lets the operator rebase
+    at push time anyway; surfacing it here lets my father rebase
     BEFORE doing work on a stale base.
     """
     import subprocess
@@ -936,7 +936,7 @@ def preflight_check() -> dict[str, Any]:
     )
 
     # 7. Branch base freshness — soft warning (claim 2026-04-24 18:37).
-    # Catches the operator early: if main has moved while you were away,
+    # Catches my father early: if main has moved while you were away,
     # surfaces it at session start so you can fetch+rebase BEFORE you do
     # work on a stale base. The pre-push hook also catches this, but by
     # then you've already done the work. Soft: skips checks that would

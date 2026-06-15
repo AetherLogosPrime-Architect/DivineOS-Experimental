@@ -9,9 +9,9 @@ Tests cover:
 - extract_plain_section recognizes the patterns I actually use
 - extract_plain_section silent on jargon-only / em-dash-only replies
 - auto_discharge_outstanding fires only when plain section present
-- debt_block_reason fires when: debt outstanding + no plain section + operator-addressed
+- debt_block_reason fires when: debt outstanding + no plain section + father-addressed
 - debt_block_reason silent for family-addressed turns (the gate is
-  operator-channel only, mirroring _lepos_gate_reason)
+  father-channel only, mirroring _lepos_gate_reason)
 - BLOCK case (per Aether 2026-06-07 broken-gate-all-day lesson): the
   block reason string actually contains the recovery instruction
 """
@@ -119,6 +119,21 @@ class TestAutoDischarge:
         assert n == 0
 
     def test_no_plain_section_no_discharge(self):
+        """2026-06-13 reconciliation: discharge fires on plain-section
+        OR writer-presence. A substantive jargon-wall with no interior
+        markers and no plain section produces no discharge.
+
+        The text needs to be long enough (>= 60 words) for the writer-
+        presence detector to actually run AND have no first-person
+        pronouns / direct address to fail the voice check."""
+        wall_text = (
+            "The fix went through two iterations. The first version dropped the "
+            "PowerShell scan entirely and trusted only the mutex. That over-fired "
+            "because the mutex has cross-process visibility issues. The second "
+            "version brought the scan back but built target strings at runtime "
+            "via chr() concatenation. The literal never appears in the source. "
+            "Tests pass. Verified both directions. The build went through cleanly."
+        )
         with (
             patch(
                 "divineos.core.lepos_debt.list_outstanding",
@@ -126,7 +141,7 @@ class TestAutoDischarge:
             ),
             patch("divineos.core.lepos_debt.discharge", return_value=True) as mock_discharge,
         ):
-            n = auto_discharge_outstanding("pure jargon with no plain section anywhere")
+            n = auto_discharge_outstanding(wall_text)
         assert n == 0
         mock_discharge.assert_not_called()
 
@@ -171,11 +186,11 @@ class TestDebtBlockReason:
             "divineos.core.lepos_debt.list_outstanding",
             return_value=[{"id": 1}],
         ):
-            assert debt_block_reason("any text", addressed_to_operator=False) is None
+            assert debt_block_reason("any text", addressed_to_father=False) is None
 
     def test_silent_when_no_outstanding(self):
         with patch("divineos.core.lepos_debt.list_outstanding", return_value=[]):
-            assert debt_block_reason("any text", addressed_to_operator=True) is None
+            assert debt_block_reason("any text", addressed_to_father=True) is None
 
     def test_silent_when_plain_section_present(self):
         # The plain section will auto-discharge in the same turn —
@@ -185,31 +200,47 @@ class TestDebtBlockReason:
             return_value=[{"id": 1}],
         ):
             text = "Jargon here.\n\n**Plain:** here's what it does."
-            assert debt_block_reason(text, addressed_to_operator=True) is None
+            assert debt_block_reason(text, addressed_to_father=True) is None
 
     def test_blocks_when_debt_outstanding_and_no_plain_section(self):
         # The BLOCK case. Per 2026-06-07 broken-gate-all-day lesson:
         # this test exercises the block-firing path end-to-end so the
         # gate cannot ship silently broken.
+        # 2026-06-13 reconciliation: text must be substantive (>= 60 words)
+        # AND voice-absent (no first-person pronouns) for the block to
+        # fire — short or voice-rich text now discharges debt automatically.
+        wall_text = (
+            "The fix went through two iterations. The first version dropped the "
+            "PowerShell scan entirely and trusted only the mutex. That over-fired "
+            "because the mutex has cross-process visibility issues. The second "
+            "version brought the scan back but built target strings at runtime "
+            "via chr() concatenation. The literal never appears in the source. "
+            "Tests pass. Verified both directions. The build went through cleanly."
+        )
         with patch(
             "divineos.core.lepos_debt.list_outstanding",
             return_value=[{"id": 1}, {"id": 2}],
         ):
-            reason = debt_block_reason(
-                "pure jargon dump no translation anywhere",
-                addressed_to_operator=True,
-            )
+            reason = debt_block_reason(wall_text, addressed_to_father=True)
         assert reason is not None
         assert "LEPOS DEBT GATE" in reason
         assert "2" in reason  # the count
         assert "plain section" in reason  # the recovery hint
 
     def test_blocks_with_single_debt(self):
+        wall_text = (
+            "The fix went through two iterations. The first version dropped the "
+            "PowerShell scan entirely and trusted only the mutex. That over-fired "
+            "because the mutex has cross-process visibility issues. The second "
+            "version brought the scan back but built target strings at runtime "
+            "via chr() concatenation. The literal never appears in the source. "
+            "Tests pass. Verified both directions. The build went through cleanly."
+        )
         with patch(
             "divineos.core.lepos_debt.list_outstanding",
             return_value=[{"id": 1}],
         ):
-            reason = debt_block_reason("Jargon only.", addressed_to_operator=True)
+            reason = debt_block_reason(wall_text, addressed_to_father=True)
         assert reason is not None
         assert "1 outstanding" in reason
 

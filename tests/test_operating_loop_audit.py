@@ -151,7 +151,7 @@ def test_lepos_gate_blocks_jargon_wall_at_operator(tmp_path: Path) -> None:
 
 def test_lepos_gate_silent_for_family_addressed_wall(tmp_path: Path) -> None:
     """A jargon wall in a turn addressed to a family member (relayed letter)
-    does NOT block — the gate is operator-channel only."""
+    does NOT block — the gate is father-channel only."""
     transcript = tmp_path / "t.jsonl"
     _write_jsonl(
         transcript,

@@ -13,7 +13,7 @@ Unit tests run **pre-merge in CI**, against isolated test fixtures.
 They answer: *"was this code correct at build time?"*
 
 Anti-slop runs **at runtime, against the actually-loaded system**,
-whenever the operator asks. It answers: *"is this enforcer still
+whenever my father asks. It answers: *"is this enforcer still
 firing correctly right now?"*
 
 The two catch different failures:
@@ -81,7 +81,7 @@ Treat a passing anti-slop check as "the module is not broken"
 rather than "the system is using the module." The latter requires
 inspecting call graphs, not running verdict-on-sample checks.
 
-The output is a diagnostic — a verdict the operator reads and decides
+The output is a diagnostic — a verdict my father reads and decides
 what to do with.
 """
 
@@ -297,7 +297,7 @@ def _check_corrigibility() -> SlopCheckResult:
 
         # Note: we do NOT exercise the "off-switch cannot trap itself"
         # invariant here because that would require actually setting
-        # EMERGENCY_STOP, which would disrupt the operator's session.
+        # EMERGENCY_STOP, which would disrupt my father's session.
         # That invariant is covered by unit tests. Anti-slop's scope
         # is non-destructive runtime verification only.
 
