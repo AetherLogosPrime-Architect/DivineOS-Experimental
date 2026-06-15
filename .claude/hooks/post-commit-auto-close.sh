@@ -2,7 +2,7 @@
 # Post-commit hook — auto-close active goals whose tokens overlap the
 # just-landed commit message.
 #
-# Closure-discipline structural fix (operator-named 2026-05-05):
+# Closure-discipline structural fix (Andrew-named 2026-05-05):
 # `divineos commitment fulfillment` showed 11 open goals / 0 closed
 # across the day even though several had shipped. The closing-act
 # required remembering + manual `divineos goal done`. Cost-asymmetry
