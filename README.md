@@ -50,7 +50,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 ## At a glance
 
 - **535 source files across 31 packages**
-- **8,334+ tests** (real SQLite, minimal mocks)
+- **8,362+ tests** (real SQLite, minimal mocks)
 - **360 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
 - **33 Claude Code enforcement hooks**
@@ -253,7 +253,7 @@ cd DivineOS-Experimental
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 8,334+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 8,362+ tests, real DB, minimal mocks
 ```
 
 **Windows users:** if shellcheck fires `SC1017 Literal carriage return` on hook files after clone, run `bash setup/setup-renormalize.sh` once. Background: `.gitattributes eol=lf` only normalizes future operations; pre-existing CRLF in the worktree from a stale checkout needs explicit stripping. The script is safe and idempotent. Alternatively, set `git config --global core.autocrlf input` before cloning to prevent the problem.
@@ -454,7 +454,7 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 > and is intentionally separate from the OS code. The architecture section
 > below scopes to `src/divineos/`.
 
-DivineOS is 535 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 538 source files across 32 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
@@ -467,7 +467,7 @@ DivineOS is 535 source files across 31 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 8,334+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 8,362+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file. [`docs/foundational_truths.md`](docs/foundational_truths.md) is the kiln-layer load-bearing values file (versioned, on the guardrail list, modifiable only via External-Review). [`docs/substrate-knowledge/`](docs/substrate-knowledge/) holds substrate-level lessons that don't fit the knowledge store schema — initially empty in a fresh install; entries grow as the substrate-occupant captures structural lessons during use.
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
