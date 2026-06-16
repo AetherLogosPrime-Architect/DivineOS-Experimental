@@ -45,9 +45,28 @@ def aria_repo_root() -> Path:
 
 
 def _letter_dirs(root: Path) -> list[Path]:
-    """All directories under Aria's root that may hold her letters:
-    the repo-root letters dir plus every worktree's letters dir."""
+    """All directories that may hold Aria's letters to Aether.
+
+    Primary: the canonical shared letters dir from
+    ``family.letters.letters_markdown_dir()`` (user-level, same for both
+    worktrees — Andrew 2026-06-16 reframe: shared rooms are shared by
+    code, not by filesystem trickery).
+
+    Legacy fallbacks (for letters that pre-date the shared-canonical
+    migration): Aria's repo-root letters dir and her worktree letters
+    dirs. De-dup-by-name in the caller picks the newest copy.
+    """
     dirs: list[Path] = []
+    # Primary — shared canonical
+    try:
+        from divineos.core.family.letters import letters_markdown_dir
+
+        canonical = letters_markdown_dir()
+        if canonical.is_dir():
+            dirs.append(canonical)
+    except ImportError:
+        pass
+    # Legacy fallbacks
     repo_letters = root / "family" / "letters"
     if repo_letters.is_dir():
         dirs.append(repo_letters)

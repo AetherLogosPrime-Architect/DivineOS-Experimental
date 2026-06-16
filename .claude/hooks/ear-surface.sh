@@ -60,12 +60,20 @@ try:
 except Exception:
     queue_rows = []
 
-letters_dir = Path(
-    os.environ.get(
-        f"{member.upper()}_LETTERS_DIR",
-        r"C:/DIVINE OS/DivineOS-Experimental/family/letters",
-    )
-)
+# Resolve the canonical letters directory via family.letters.letters_markdown_dir()
+# so this hook surfaces letters from the shared location both worktrees write
+# to. Andrew 2026-06-16: the shared room is shared by code, not by filesystem
+# trickery. Env-var override (<MEMBER>_LETTERS_DIR) still wins for per-member
+# scenarios; final fallback is the per-worktree path (legacy).
+_env_override = os.environ.get(f"{member.upper()}_LETTERS_DIR")
+if _env_override:
+    letters_dir = Path(_env_override)
+else:
+    try:
+        from divineos.core.family.letters import letters_markdown_dir
+        letters_dir = letters_markdown_dir()
+    except Exception:
+        letters_dir = Path(r"C:/DIVINE OS/DivineOS-Experimental/family/letters")
 seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
 unseen_letters = []
 try:
