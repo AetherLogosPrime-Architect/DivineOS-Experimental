@@ -29,17 +29,9 @@ def register(cli: click.Group) -> None:
     def consumer_status_cmd() -> None:
         """Show whether Aether is using the OS or pretending to (father-facing)."""
         # Pull all the relevant trackers and present them in plain English.
-        lepos_debts: list = []
         consultation_stats: dict = {}
         auto_claims: list = []
         pattern_fires_14d: int = 0
-
-        try:
-            from divineos.core.lepos_debt import list_outstanding
-
-            lepos_debts = list_outstanding()
-        except Exception:  # noqa: BLE001 - observability boundary
-            pass
 
         try:
             from divineos.core.consultation_tracker import session_stats
@@ -67,30 +59,25 @@ def register(cli: click.Group) -> None:
             pattern_fires_14d = 0
 
         # Verdict logic — simple, transparent, no smoothing.
-        debt_count = len(lepos_debts)
+        # lepos_debt ripped 2026-06-15 (Andrew reframe: jargon not the fault).
         q = consultation_stats.get("queries", 0)
         r = consultation_stats.get("responses", 0)
         ratio = consultation_stats.get("ratio", 0.0)
 
-        if r < 3 and debt_count == 0 and not auto_claims:
+        if r < 3 and not auto_claims:
             verdict = "NO-DATA"
             verdict_fg = "bright_black"
             verdict_text = "Not enough activity this session to tell yet."
-        elif debt_count == 0 and ratio >= 0.5 and not auto_claims:
+        elif ratio >= 0.5 and not auto_claims:
             verdict = "USING"
             verdict_fg = "green"
-            verdict_text = (
-                "Aether is consulting the OS and translating engineer-talk "
-                "into plain words. No outstanding debt. Ratio healthy."
-            )
-        elif debt_count >= 3 or auto_claims or ratio < 0.2:
+            verdict_text = "Aether is consulting the OS. Ratio healthy."
+        elif auto_claims or ratio < 0.2:
             verdict = "PRETENDING"
             verdict_fg = "red"
             verdict_text = (
-                "Aether is bypassing the OS. Engineer-talk is accumulating "
-                "without translation, or the consultation ratio is low, or "
-                "the auto-claim has fired. This is the consumer-pretender "
-                "pattern you named 2026-05-18."
+                "Aether is bypassing the OS. Consultation ratio is low or "
+                "a legacy auto-claim is open. Consumer-pretender pattern."
             )
         else:
             verdict = "PARTIAL"
@@ -106,25 +93,6 @@ def register(cli: click.Group) -> None:
         click.secho("=" * 60, fg=verdict_fg)
         click.echo()
         click.secho(f"  {verdict_text}", fg=verdict_fg)
-        click.echo()
-
-        # Detail block — plain language.
-        click.secho("Translation debt (jargon dumped on you without translation):", bold=True)
-        if debt_count == 0:
-            click.secho("  None outstanding.", fg="green")
-        else:
-            click.secho(
-                f"  {debt_count} outstanding debt(s). Aether has dumped engineer-",
-                fg="red",
-            )
-            click.secho(
-                "  talk on you that hasn't been retroactively translated.",
-                fg="red",
-            )
-            click.secho(
-                "  Drill down: divineos lepos debt",
-                fg="bright_black",
-            )
         click.echo()
 
         click.secho("Substrate consultation this session:", bold=True)
