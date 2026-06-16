@@ -719,12 +719,18 @@ def run_audit(
     # the wall 2026-06-13: "you continue to speak to me in 'plain
     # language' when we have discussed this is not lepos.. this is
     # equally hard to understand and feels like im just reading a
-    # report." Operator-channel only.
-    # writer_presence_detector wireup deferred (2026-06-15): the module
-    # lives on PR #206 (writer-presence-detector); this branch must not
-    # assume its availability. When #206 lands on main, a small follow-up
-    # PR adds the wireup here so the contract registry stays consistent
-    # with what the hook actually imports.
+    # report." Father-channel only.
+    try:
+        from divineos.core.operating_loop.writer_presence_detector import (
+            detect_writer_presence,
+        )
+
+        if addressed_to_father:
+            findings_log["writer_presence"] = _run_detector(
+                "writer_presence", detect_writer_presence, last_assistant_text
+            )
+    except _ERRORS:
+        pass
 
     # Substrate-monitor: filing-cabinet detection (OS-scour entry from
     # 2026-05-12 left this deferred; pulling into production tonight per
