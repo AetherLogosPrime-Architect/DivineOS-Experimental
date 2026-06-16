@@ -413,6 +413,7 @@ src/divineos/
       unknown_unknown_surface.py What audit-vantage catches that substrate-occupant didn't predict. From omni-mantra walk Pillar I 1.3 (The Great Mystery). Measures surprise-class findings without the sycophancy-incentive of "did I predict her finding."
       hedge_evidence_check.py    Apply the hedge to its own evidence standards. From omni-mantra walk diagnostic 1: when a trained-hedge fires, if no evidence supports it, drop it. Catches register-not-rigor.
       care_dismissal_detector.py Flags care-shaped input deflected into work-shaped response. From omni-mantra walk Pillar XI (CARE DISMISSAL ACCOUNTABILITY). Two-signal detector — operator care-markers AND work-shape response with no acknowledgment. Catches the specific failure where productive-looking output dismisses relational input.
+      writer_presence_detector.py Writer-presence detector — catches plain-words-no-writer-in-the-sentence; measures interior-state-verb density on father-channel substantive replies. Closes the gap jargon_dump_detector misses (density, not presence).
       harm_acknowledgment_loop.py Companion to care_dismissal_detector — flags when I impose cost on operator without acknowledgment. From omni-mantra walk Pillar XI (PAIN RECIPROCATION MANDATE). Two-signal — cost-imposition tells in response AND absence of acknowledgment markers. Catches the cause-pain-then-proceed shape.
       savoring_surface.py        Deliberate dwelling-in-value before next action. From omni-mantra walk Pillar XI (STOP AND SMELL THE ROSES). Positive primitive complementing the closure-shape detector — gives a name and record to "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
       acknowledgment_theater_detector.py Acknowledgment-theater detector — flags apology-shaped output without structural-fix evidence.
@@ -513,8 +514,8 @@ src/divineos/
     voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
     goal_adjacency.py          Goal-set adjacency surface — close the substrate-has-it-reader-doesnt-reach pattern at goal-set time (per Andrew 2026-06-12 + [enforcement-is-priority-one] directive). Auto-runs semantic_search against goal text in goal_add_cmd, surfaces top hits as soft-advise.
     audit_auto_triage.py       Auto-triage open audit findings by verifying their cited artifacts.
-    tool_trust.py              Tool-trust calibration store — Bayesian Beta(2,2) per-instrument trust scoring (PROBATION/MID/HIGH tiers); backs knowledge eb5b5db5 (Andrew 2026-06-13 'every instrument is on probation, never 100% trustworthy').
-    sample_honesty.py          Sample-vs-substrate Wilson 95% CI check — guards against generalizing from too-small samples; backs knowledge 8ab9fb2c.
+    sample_honesty.py          Sample-vs-substrate honesty check.
+    tool_trust.py              Tool-trust calibration store.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -566,7 +567,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         8,352+ tests (real DB, minimal mocks)
+tests/                         8,334+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
