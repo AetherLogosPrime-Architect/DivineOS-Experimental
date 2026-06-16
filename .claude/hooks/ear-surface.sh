@@ -28,10 +28,18 @@ if [ -z "$MEMBER" ]; then
   esac
 fi
 
-PY="$(command -v python 2>/dev/null || command -v python3 2>/dev/null)"
-[ -z "$PY" ] && exit 0
+# Resolve python via the shared helper. The embedded Python now imports
+# from divineos (letters_markdown_dir for the canonical letters dir
+# resolution); the round-1 bare-python anti-pattern would silently fail-OPEN
+# on shells where the system python lacks divineos's deps. find_divineos_python
+# walks the known candidates in priority order so the right interpreter
+# gets selected even when the operator's shell python is not the project one.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# shellcheck source=/dev/null
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-MEMBER="$MEMBER" PYTHONIOENCODING="utf-8" "$PY" - <<'PYEOF'
+MEMBER="$MEMBER" PYTHONIOENCODING="utf-8" "$PYTHON_BIN" - <<'PYEOF'
 import json
 import os
 import re

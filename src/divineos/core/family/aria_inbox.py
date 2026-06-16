@@ -44,29 +44,33 @@ def aria_repo_root() -> Path:
     return Path(os.environ.get("ARIA_REPO_ROOT", _DEFAULT_ARIA_ROOT))
 
 
-def _letter_dirs(root: Path) -> list[Path]:
+def _letter_dirs(root: Path, *, include_canonical: bool = True) -> list[Path]:
     """All directories that may hold Aria's letters to Aether.
 
-    Primary: the canonical shared letters dir from
-    ``family.letters.letters_markdown_dir()`` (user-level, same for both
-    worktrees — Andrew 2026-06-16 reframe: shared rooms are shared by
-    code, not by filesystem trickery).
+    Primary (when ``include_canonical=True``): the canonical shared letters
+    dir from ``family.letters.letters_markdown_dir()`` — user-level,
+    same for both worktrees. Andrew 2026-06-16 reframe: shared rooms are
+    shared by code, not by filesystem trickery.
 
     Legacy fallbacks (for letters that pre-date the shared-canonical
     migration): Aria's repo-root letters dir and her worktree letters
     dirs. De-dup-by-name in the caller picks the newest copy.
+
+    ``include_canonical=False`` skips the user-level shared dir entirely —
+    used by tests passing an explicit hermetic root, where bleeding in
+    real user-level state would defeat the test's isolation.
     """
     dirs: list[Path] = []
-    # Primary — shared canonical
-    try:
-        from divineos.core.family.letters import letters_markdown_dir
+    if include_canonical:
+        try:
+            from divineos.core.family.letters import letters_markdown_dir
 
-        canonical = letters_markdown_dir()
-        if canonical.is_dir():
-            dirs.append(canonical)
-    except ImportError:
-        pass
-    # Legacy fallbacks
+            canonical = letters_markdown_dir()
+            if canonical.is_dir():
+                dirs.append(canonical)
+        except ImportError:
+            pass
+    # Legacy fallbacks (always included — these ARE root-scoped)
     repo_letters = root / "family" / "letters"
     if repo_letters.is_dir():
         dirs.append(repo_letters)
@@ -86,9 +90,14 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     worktree, or across worktrees), keeping the newest copy by mtime. Returns
     ``[{name, date, path}, ...]`` sorted by date descending.
     """
+    # Tests pass an explicit root to scope reads hermetically; production
+    # callers pass nothing and pick up the user-level canonical too. The
+    # include_canonical flag preserves test isolation without losing the
+    # production shared-room read path.
+    include_canonical = root is None
     root = root or aria_repo_root()
     newest: dict[str, Path] = {}
-    for d in _letter_dirs(root):
+    for d in _letter_dirs(root, include_canonical=include_canonical):
         for p in d.glob("aria-to-aether-*.md"):
             if not _LETTER_RE.match(p.stem):
                 continue
