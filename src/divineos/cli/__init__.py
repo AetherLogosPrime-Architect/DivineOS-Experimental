@@ -79,7 +79,7 @@ def _enforce_operating_mode() -> None:
     """Refuse commands disallowed by the current operating mode.
 
     Runs BEFORE the briefing gate. Corrigibility has priority over
-    every other check — if the operator has set EMERGENCY_STOP, the
+    every other check — if Dad has set EMERGENCY_STOP, the
     system must refuse regardless of briefing state. The mode command
     itself bypasses this check (it's in _ALWAYS_ALLOWED inside the
     corrigibility module) so the off-switch can always be flipped.
@@ -237,7 +237,6 @@ from divineos.cli import (  # noqa: E402
     admin_reset_template,
     family_member_commands,
     family_queue_commands,
-    talk_to_commands,
     progress_commands,
     selfmodel_commands,
     rt_commands,
