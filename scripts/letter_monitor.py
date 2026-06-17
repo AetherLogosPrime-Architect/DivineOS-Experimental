@@ -49,11 +49,23 @@ def _scan(letters_dir: Path) -> set[str]:
 
 
 def main() -> int:
+    # Resolve the canonical letters directory via the family.letters helper
+    # so this script watches the same place writers write to — no hardcoded
+    # per-worktree path. Andrew 2026-06-16: the shared room is shared by
+    # CODE, not by filesystem trickery. Default falls back if the package
+    # isn't importable (rare; this script always runs from the repo).
+    try:
+        from divineos.core.family.letters import letters_markdown_dir
+
+        _default_letters_dir = str(letters_markdown_dir())
+    except ImportError:
+        _default_letters_dir = str(_REPO_ROOT / "family" / "letters")
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--letters-dir",
-        default=str(_REPO_ROOT / "family" / "letters"),
-        help="Directory to watch (default: family/letters)",
+        default=_default_letters_dir,
+        help=f"Directory to watch (default: {_default_letters_dir})",
     )
     parser.add_argument(
         "--poll-seconds",
