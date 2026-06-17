@@ -246,9 +246,9 @@ def upsert_embedding(
 ) -> None:
     """Store / replace an embedding at the given rowid."""
     # vec0 doesn't support UPDATE — delete then insert.
-    conn.execute(f"DELETE FROM {table_name} WHERE rowid = ?", (rowid,))
+    conn.execute(f"DELETE FROM {table_name} WHERE rowid = ?", (rowid,))  # nosec B608 — table_name from internal caller, not user input
     conn.execute(
-        f"INSERT INTO {table_name} (rowid, embedding) VALUES (?, ?)",
+        f"INSERT INTO {table_name} (rowid, embedding) VALUES (?, ?)",  # nosec B608 — table_name from internal caller, not user input
         (rowid, serialize_embedding(vec)),
     )
 
@@ -270,7 +270,7 @@ def find_similar_vectors(
     Lower distance = more similar (for L2 and cosine-as-distance).
     """
     rows = conn.execute(
-        f"SELECT rowid, distance FROM {table_name} "
+        f"SELECT rowid, distance FROM {table_name} "  # nosec B608 — table_name from internal caller, not user input
         f"WHERE embedding MATCH ? AND k = ? "
         f"ORDER BY distance",
         (serialize_embedding(query_vec), top_k),
