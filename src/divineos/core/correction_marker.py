@@ -232,7 +232,7 @@ def _session_id_placeholder() -> str:
 
         slot = get_core("my_identity").get("my_identity", "")
         first = slot.strip().split()[0] if slot.strip() else "unknown"
-    except Exception:
+    except Exception:  # noqa: BLE001  defensive: identity lookup can fail any number of ways during bootstrap; fall back to "unknown"
         first = "unknown"
     return f"{first}:placeholder-pid-{pid}"
 

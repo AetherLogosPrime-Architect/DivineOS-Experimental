@@ -165,7 +165,13 @@ def read_marker(path: Path) -> GateMarker | None:
     if not isinstance(data, dict):
         return None
     # Validate all required fields are present.
-    required = {"event_type", "triggered_at", "triggering_evidence", "resolution_action", "session_id"}
+    required = {
+        "event_type",
+        "triggered_at",
+        "triggering_evidence",
+        "resolution_action",
+        "session_id",
+    }
     if not required.issubset(data.keys()):
         return None
     try:

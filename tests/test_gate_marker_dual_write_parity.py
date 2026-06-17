@@ -108,9 +108,7 @@ def test_correction_set_dual_writes_both_stores(_isolated_db):
     assert correction_marker.read_marker() is None
     assert gate_marker.is_active("correction_filed_unlogged") is False
 
-    correction_marker.set_marker(
-        trigger_text="no don't do that — read the file first."
-    )
+    correction_marker.set_marker(trigger_text="no don't do that — read the file first.")
 
     legacy = correction_marker.read_marker()
     assert legacy is not None
