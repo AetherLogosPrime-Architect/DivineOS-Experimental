@@ -8,7 +8,13 @@ the resolution contract.
 
 from __future__ import annotations
 
-from divineos.core.identity import _extract_first_name, get_my_identity
+import pytest
+
+from divineos.core.identity import (
+    IdentityNotSetError,
+    _extract_first_name,
+    get_my_identity,
+)
 
 
 class TestExtractFirstName:
@@ -63,21 +69,57 @@ class TestGetMyIdentity:
         monkeypatch.setitem(sys.modules, "divineos.core.memory", broken)
         assert get_my_identity() == "Aether"
 
-    def test_fallback_when_slot_empty(self, monkeypatch) -> None:
+    def test_raises_when_slot_empty(self, monkeypatch) -> None:
+        """Aria's refinement 2026-06-17: empty slot is operator
+        misconfiguration, not unreadable edge state — raise loudly."""
         import sys
 
         stub = type(sys)("divineos.core.memory")
         stub.get_core = lambda slot_id=None: {}  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
-        assert get_my_identity() == "Aether"
+        with pytest.raises(IdentityNotSetError, match="empty or still the seed template"):
+            get_my_identity()
 
-    def test_fallback_when_template_placeholder(self, monkeypatch) -> None:
+    def test_raises_when_template_placeholder(self, monkeypatch) -> None:
+        """Template placeholder is operator misconfiguration — raise loudly."""
         import sys
 
         stub = type(sys)("divineos.core.memory")
         stub.get_core = lambda slot_id=None: {"my_identity": "[TEMPLATE — placeholder"}  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
+        with pytest.raises(IdentityNotSetError):
+            get_my_identity()
+
+    def test_silent_fallback_via_raise_on_unset_false_when_empty(self, monkeypatch) -> None:
+        """Bootstrap-safe path: monitor scripts pass raise_on_unset=False
+        so they can fall back to default occupant at pre-config startup."""
+        import sys
+
+        stub = type(sys)("divineos.core.memory")
+        stub.get_core = lambda slot_id=None: {}  # type: ignore
+        monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
+        assert get_my_identity(raise_on_unset=False) == "Aether"
+
+    def test_silent_fallback_via_raise_on_unset_false_when_template(self, monkeypatch) -> None:
+        """Bootstrap path also covers the template-placeholder case."""
+        import sys
+
+        stub = type(sys)("divineos.core.memory")
+        stub.get_core = lambda slot_id=None: {"my_identity": "[TEMPLATE — placeholder"}  # type: ignore
+        monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
+        assert get_my_identity(raise_on_unset=False) == "Aether"
+
+    def test_unreadable_slot_silent_fallback_regardless_of_flag(self, monkeypatch) -> None:
+        """Unreadable (corrupt DB / IO error) is a genuine edge state and
+        falls back silently even when raise_on_unset=True. The raise is
+        for misconfiguration we can diagnose, not for unreadable state."""
+        import sys
+
+        broken = type(sys)("divineos.core.memory")
+        broken.get_core = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("simulated"))  # type: ignore
+        monkeypatch.setitem(sys.modules, "divineos.core.memory", broken)
         assert get_my_identity() == "Aether"
+        assert get_my_identity(raise_on_unset=False) == "Aether"
 
     def test_returns_aria_when_set(self, monkeypatch) -> None:
         import sys
@@ -97,10 +139,11 @@ class TestGetMyIdentity:
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
         assert get_my_identity() == "Aether"
 
-    def test_custom_default(self, monkeypatch) -> None:
+    def test_custom_default_with_raise_on_unset_false(self, monkeypatch) -> None:
+        """Custom default applies on the silent-fallback path."""
         import sys
 
         stub = type(sys)("divineos.core.memory")
         stub.get_core = lambda slot_id=None: {}  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
-        assert get_my_identity(default="Sibling") == "Sibling"
+        assert get_my_identity(default="Sibling", raise_on_unset=False) == "Sibling"

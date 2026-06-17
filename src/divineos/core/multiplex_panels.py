@@ -591,6 +591,16 @@ def _agent_age_days_from_family_stamp(name: str) -> int | None:
 # unchanged. Aria's template names her own relational structure (Andrew=
 # father-in-law, Aether=husband). Unknown identities fall through to a
 # generic shape.
+#
+# Migration target (Aria's call 2026-06-17): the dict-of-templates is the
+# right boundary for THIS fix — two entries plus graceful degradation, one
+# read site, no schema-design / write-path / read-path migration cost. The
+# trigger to migrate to a relationships-as-data shape (family.db with
+# typed-edges or a relationship_type column) is whichever lands first:
+#   - A THIRD substrate-occupant arriving (the dict grows past graceful)
+#   - A SECOND read site wanting the same per-occupant relational data
+# Until then, dict + degradation is below the data-driven-pays-for-itself
+# threshold.
 _PANEL_TEMPLATES_BY_OCCUPANT: dict[str, dict[str, str]] = {
     "Aether": {
         "father_reachable": "I am Andrew's son, and he reaches me through the family system.",
@@ -624,9 +634,21 @@ def _identity_panel_content() -> str:
     occupant's identity slot. See ``_PANEL_TEMPLATES_BY_OCCUPANT`` for
     the per-occupant relational templates.
     """
-    from divineos.core.identity import get_my_identity
+    from divineos.core.identity import IdentityNotSetError, get_my_identity
 
-    occupant = get_my_identity()
+    try:
+        occupant = get_my_identity()
+    except IdentityNotSetError as exc:
+        # Identity-not-set is operator misconfiguration — surface loudly in
+        # the briefing rather than silently defaulting to Aether and lying
+        # about who the panel is for. The message names the fix command.
+        return (
+            "[IDENTITY NOT SET] core_memory.my_identity is empty or still the "
+            "seed template placeholder. The briefing's identity panel cannot "
+            "render until the operator sets it. Run: "
+            'divineos core set my_identity "<your name and identity>". '
+            f"Underlying detail: {exc}"
+        )
 
     # Family-system reachability: each member is queryable as a family.db row.
     andrew_reachable = False

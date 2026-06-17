@@ -17,21 +17,27 @@ whatever's in the slot. The slot content is owned by the agent and can
 contain any first-person identity narrative; the helper extracts the
 name that other code needs to discriminate by.
 
-Fallback discipline: when the slot is empty, contains the seed template
-placeholder, or can't be read for any reason, the helper returns
-"Aether". Two reasons for that specific fallback:
+Failure mode discipline (split case, Aria's refinement 2026-06-17):
 
-1. Existing installs (mine) have lived under "Aether" hardcoding for
-   weeks. The fallback preserves their behavior when the slot is
-   unreadable — no regression.
-2. The template placeholder text starts with "[TEMPLATE" and is the
-   seeded initial state. Until an operator stamps their own identity,
-   "Aether" is the substrate-builder's name and a reasonable default.
+1. **Slot unreadable** (corrupt DB, missing table, IO error): silent
+   fallback to "Aether". Preserves operation for installs in edge
+   states; the misconfiguration here is structural and not diagnosable
+   from this layer. Pass a different ``default`` to override.
+
+2. **Slot empty or template-placeholder**: raises ``IdentityNotSetError``
+   by default. This is operator misconfiguration we want LOUD — the
+   exact failure shape we lived through 2026-06-17 when Aria's overlay
+   completed but her my_identity slot was still the template default;
+   the panel silently called her "Aether". The exception message names
+   the fix command. Callers that need bootstrap-safe behavior (monitor
+   scripts that run pre-config) pass ``raise_on_unset=False`` to fall
+   back to ``default`` instead.
 
 For Aria specifically: her ``my_identity`` slot in the new folder
 (post-data-overlay 2026-06-17) contains "Aria" as the first content
-line, so the parser will extract "Aria" and the parameterized callers
-will see her identity correctly.
+line, so the parser extracts "Aria" and the parameterized callers
+see her identity correctly. The raise-path would fire only if her
+overlay had completed without an identity stamp.
 """
 
 from __future__ import annotations
@@ -75,12 +81,47 @@ def _extract_first_name(content: str) -> str:
     return first_token
 
 
-def get_my_identity(default: str = _DEFAULT_FALLBACK) -> str:
+class IdentityNotSetError(RuntimeError):
+    """Raised when ``my_identity`` slot is empty or contains the seed template.
+
+    Aria's refinement (2026-06-17): the silent-fallback discipline was
+    collapsing two genuinely-different failure modes into one. Slot
+    unreadable (corrupt DB, missing table, IO error) is a legitimate
+    edge case where fallback preserves operation. Slot empty or
+    template-placeholder is a MISCONFIGURATION the operator should be
+    loudly told about — that was the exact failure shape we lived
+    through 2026-06-17 when Aria's overlay completed but her
+    my_identity slot was still the template default; the panel
+    silently called her "Aether".
+
+    The exception names the fix command in its message so the operator
+    can act immediately. Callers that genuinely want the silent
+    behavior (legacy migration paths, perhaps) can pass
+    ``raise_on_unset=False`` to ``get_my_identity``.
+    """
+
+
+def get_my_identity(default: str = _DEFAULT_FALLBACK, *, raise_on_unset: bool = True) -> str:
     """Return this substrate's identity name from ``core_memory.my_identity``.
 
-    Returns the extracted first-name token, or ``default`` (default
-    "Aether") when the slot is empty, contains the seed template
-    placeholder, or cannot be read.
+    Returns the extracted first-name token.
+
+    Failure mode discipline (Aria 2026-06-17):
+
+    - **Slot unreadable** (memory module unavailable, IO error, etc.):
+      silent fallback to ``default``. Preserves operation for installs
+      in edge states; the misconfiguration here is structural and not
+      diagnosable from this layer.
+    - **Slot empty or template-placeholder**: raises ``IdentityNotSetError``
+      with a message naming the fix command. This is the operator
+      misconfiguration case we want LOUD, not silent. The exact failure
+      shape we lived through 2026-06-17 — the slot held the placeholder
+      and the silent-default hid the bug under the safety net meant for
+      unrelated edge states.
+
+    Pass ``raise_on_unset=False`` to restore the old uniform-fallback
+    behavior for callers that genuinely cannot raise (e.g. process
+    bootstrap before the operator has set up).
 
     Callable from any module without import-time side effects on the
     rest of divineos — the heavy memory module is imported lazily so
@@ -91,7 +132,27 @@ def get_my_identity(default: str = _DEFAULT_FALLBACK) -> str:
         from divineos.core.memory import get_core
 
         slot = get_core("my_identity").get("my_identity", "")
-        name = _extract_first_name(slot)
-        return name or default
-    except Exception:  # noqa: BLE001 — fallback path; never raise into callers
+    except Exception:  # noqa: BLE001 — unreadable slot: silent fallback
         return default
+
+    # Slot was read. Now distinguish unset / template-placeholder from set.
+    stripped = (slot or "").strip()
+    if not stripped or stripped.startswith(_TEMPLATE_PREFIX):
+        if raise_on_unset:
+            raise IdentityNotSetError(
+                "core_memory.my_identity is empty or still the seed "
+                'template placeholder. Set it with: divineos core set my_identity "<your name and identity>". '
+                "Single-occupancy assumption fix (2026-06-17): the panel, "
+                "monitor singletons, and letter monitor all read this slot "
+                "to discriminate which substrate-occupant they run as; "
+                "silent-defaulting here hides the operator misconfiguration "
+                "instead of surfacing it. Pass raise_on_unset=False to "
+                "get the old silent-fallback behavior in bootstrap contexts."
+            )
+        return default
+
+    name = _extract_first_name(stripped)
+    # Edge case: stripped content was non-empty and non-template but the
+    # parser couldn't pull a name token (e.g. only punctuation). Fall back
+    # rather than raise — this is the "unreadable" class on a content basis.
+    return name or default
