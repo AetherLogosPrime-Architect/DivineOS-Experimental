@@ -96,6 +96,7 @@ _DETECTORS = (
     ("writer_presence_detector", "detect_writer_presence"),
     ("closure_initiation_detector", "detect_closure_initiation"),
     ("deep_engagement_detector", "detect_deep_engagement"),
+    ("temporal_displacement_detector", "detect_temporal_displacement"),
 )
 
 
