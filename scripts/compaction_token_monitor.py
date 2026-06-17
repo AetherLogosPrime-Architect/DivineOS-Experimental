@@ -118,9 +118,7 @@ def _find_active_transcript(
     if not projects_dir.exists():
         return None
     if session_id is None:
-        session_id = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get(
-            "CLAUDE_SESSION_ID"
-        )
+        session_id = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID")
     if session_id:
         matches = list(projects_dir.rglob(f"{session_id}.jsonl"))
         if matches:
@@ -154,7 +152,15 @@ def main() -> int:
     # and exits cleanly if a sibling compaction monitor is alive.
     # Holding the handle for the process lifetime keeps the kernel
     # mutex live; the kernel releases it on exit (including crash).
-    _ = acquire_or_exit("compaction")  # noqa: F841 — held by reference
+    #
+    # Occupant discriminator (2026-06-17): the mutex is keyed per-
+    # substrate-occupant so Aether's and Aria's monitors can both run
+    # in the same Windows session without falsely-detecting each other
+    # as a sibling. Within an occupant, cross-window dup protection
+    # still applies. See divineos.core.monitor_singleton for rationale.
+    from divineos.core.identity import get_my_identity
+
+    _ = acquire_or_exit("compaction", occupant=get_my_identity())  # noqa: F841
 
     transcript = _find_active_transcript()
     if transcript is None:

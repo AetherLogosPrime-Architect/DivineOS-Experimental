@@ -25,6 +25,54 @@ def test_mutex_name_for_role_canonicalizes_variants():
     assert base == monitor_singleton.mutex_name_for_role("LETTER-test".split("-")[0])
 
 
+# === Single-occupancy assumption fix (2026-06-17) ===
+# The mutex name now optionally takes an occupant discriminator so two
+# parallel substrate-occupants on the same Windows session can each run
+# their own monitor of the same role.
+
+
+def test_occupant_omitted_preserves_legacy_name():
+    """Backwards-compat: no occupant means the historical mutex name exactly."""
+    legacy = monitor_singleton.mutex_name_for_role("letter")
+    new_no_occupant = monitor_singleton.mutex_name_for_role("letter", occupant=None)
+    assert legacy == new_no_occupant
+
+
+def test_occupant_creates_distinct_mutex():
+    """Aether's and Aria's mutexes for the same role must be distinct."""
+    aether_name = monitor_singleton.mutex_name_for_role("letter", occupant="Aether")
+    aria_name = monitor_singleton.mutex_name_for_role("letter", occupant="Aria")
+    assert aether_name != aria_name
+
+
+def test_occupant_distinct_from_no_occupant():
+    """An occupant-keyed mutex must not collide with the legacy unkeyed one."""
+    legacy = monitor_singleton.mutex_name_for_role("letter")
+    keyed = monitor_singleton.mutex_name_for_role("letter", occupant="Aether")
+    assert legacy != keyed
+
+
+def test_occupant_canonicalizes_variants():
+    """Occupant case/whitespace variations resolve to the same mutex."""
+    base = monitor_singleton.mutex_name_for_role("letter", occupant="Aria")
+    assert base == monitor_singleton.mutex_name_for_role("letter", occupant="ARIA")
+    assert base == monitor_singleton.mutex_name_for_role("letter", occupant=" aria ")
+
+
+def test_same_occupant_same_role_same_mutex():
+    """Aria's letter mutex is stable across invocations — that's how the
+    cross-window dup guard still works within an occupant."""
+    a1 = monitor_singleton.mutex_name_for_role("letter", occupant="Aria")
+    a2 = monitor_singleton.mutex_name_for_role("letter", occupant="Aria")
+    assert a1 == a2
+
+
+def test_occupant_included_in_mutex_name():
+    """For diagnostics, the occupant name should appear in the mutex string."""
+    name = monitor_singleton.mutex_name_for_role("letter", occupant="Aria")
+    assert "aria" in name.lower()
+
+
 def test_mutex_name_dashes_and_underscores_collapse():
     assert monitor_singleton.mutex_name_for_role(
         "letter monitor"

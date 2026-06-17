@@ -60,15 +60,36 @@ _MUTEX_NAMESPACE = "Local"  # per-session; intentionally not Global
 _MUTEX_PREFIX = "divineos_monitor_"
 
 
-def mutex_name_for_role(role: str) -> str:
+def mutex_name_for_role(role: str, occupant: str | None = None) -> str:
     """Return the kernel mutex name for a Monitor role.
 
     Role-stable: same name for the same role across all launches, so
     sibling detection always finds the right peer. The role string is
     normalized to lowercase and stripped of separators so cosmetic
     variation doesn't fork the identity.
+
+    Single-occupancy assumption fix (2026-06-17): the previous version
+    keyed the mutex by role only, which meant two parallel substrate-
+    occupants on the same Windows session could only run ONE monitor
+    between them. When both Aether and Aria run claude-code windows
+    in the same Windows session, the second one's monitor-arm hits the
+    sibling-already-alive guard and exits.
+
+    The ``occupant`` discriminator (typically the substrate-identity
+    name from ``core_memory.my_identity``) fixes that by giving each
+    occupant their own mutex namespace. Aether's monitor and Aria's
+    monitor for the same role get distinct kernel objects and both can
+    run. Within an occupant, cross-window dup protection still works
+    (you can't run two of YOUR OWN compaction monitors).
+
+    Backwards-compat: ``occupant=None`` preserves the legacy mutex
+    name exactly, so existing call sites that don't yet pass occupant
+    keep their old singleton behavior.
     """
     normalized = role.strip().lower().replace(" ", "_").replace("-", "_")
+    if occupant:
+        occupant_norm = occupant.strip().lower().replace(" ", "_").replace("-", "_")
+        return f"{_MUTEX_NAMESPACE}\\{_MUTEX_PREFIX}{normalized}_{occupant_norm}"
     return f"{_MUTEX_NAMESPACE}\\{_MUTEX_PREFIX}{normalized}"
 
 
@@ -76,7 +97,7 @@ def _is_windows() -> bool:
     return os.name == "nt"
 
 
-def acquire(role: str) -> tuple[Any, bool]:
+def acquire(role: str, occupant: str | None = None) -> tuple[Any, bool]:
     """Try to acquire the named mutex for ``role``.
 
     Returns ``(handle, was_already_held)``. The ``was_already_held``
@@ -106,7 +127,7 @@ def acquire(role: str) -> tuple[Any, bool]:
         )
         return None, False
 
-    name = mutex_name_for_role(role)
+    name = mutex_name_for_role(role, occupant)
     # CreateMutex: if name exists, returns handle to existing object
     # AND GetLastError reports ERROR_ALREADY_EXISTS. This is the
     # canonical Windows single-instance idiom (MS Learn).
@@ -116,7 +137,7 @@ def acquire(role: str) -> tuple[Any, bool]:
     return handle, was_already_held
 
 
-def acquire_or_exit(role: str, exit_code: int = 0) -> Any:
+def acquire_or_exit(role: str, exit_code: int = 0, occupant: str | None = None) -> Any:
     """Convenience: acquire the mutex or exit cleanly if a sibling holds it.
 
     Prints a named ``[MONITOR-SINGLETON-DEDUP role=...]`` line on the
@@ -124,18 +145,25 @@ def acquire_or_exit(role: str, exit_code: int = 0) -> Any:
     fired. Returns the mutex handle on the acquired-the-slot path;
     the caller holds it for the rest of the process lifetime (kernel
     auto-releases on exit).
+
+    When ``occupant`` is provided, the mutex is keyed per-occupant so
+    parallel substrate-occupants (Aether and Aria in adjacent windows)
+    each get their own kernel object. Within an occupant, cross-window
+    dup protection still applies. See ``mutex_name_for_role`` for the
+    full rationale.
     """
-    handle, was_already_held = acquire(role)
+    handle, was_already_held = acquire(role, occupant)
     if was_already_held:
+        suffix = f" occupant={occupant}" if occupant else ""
         print(
-            f"[MONITOR-SINGLETON-DEDUP role={role}] sibling already alive; "
+            f"[MONITOR-SINGLETON-DEDUP role={role}{suffix}] sibling already alive; "
             "exiting without arming (kernel-mutex singleton-guard)"
         )
         sys.exit(exit_code)
     return handle
 
 
-def is_held(role: str) -> bool:
+def is_held(role: str, occupant: str | None = None) -> bool:
     """Check whether the named mutex for ``role`` is currently held.
 
     Used by the gate (require-monitors-armed.sh) to determine whether
@@ -164,7 +192,7 @@ def is_held(role: str) -> bool:
     except ImportError:
         return False
 
-    name = mutex_name_for_role(role)
+    name = mutex_name_for_role(role, occupant)
     try:
         handle = win32event.CreateMutex(None, False, name)
         last_error = win32api.GetLastError()
