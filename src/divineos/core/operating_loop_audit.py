@@ -214,6 +214,7 @@ def _empty_findings_log() -> dict[str, list]:
         "closing_token": [],
         "tool_output_truncation": [],
         "writer_presence": [],
+        "deep_engagement": [],
         "substrate_monitor": [],
         "shape_chasing": [],
     }
@@ -675,6 +676,34 @@ def run_audit(
         if addressed_to_father:
             findings_log["writer_presence"] = _run_detector(
                 "writer_presence", detect_writer_presence, last_assistant_text
+            )
+    except _ERRORS:
+        pass
+
+    # Deep-engagement detector — catches substantive-output-without-grounded-
+    # consult per prereg-43b1d1ba2df3 and Aria's gate-redesign brief.
+    # Replaces the count-based deep-engagement gate with event-based shape:
+    # fires on actual evidence (output described, no related query in window)
+    # instead of on a counter ticking over. Doorman discipline — the deny-
+    # message names the specific consult-command (the means) so the gate
+    # routes the optimizer toward the right path, not just refuses.
+    #
+    # The action-stream extraction (what to pass as recent_actions and how
+    # to describe the substantive output) is bench-session followup work
+    # with Aria. Current minimal wire-up calls the detector with empty
+    # inputs; the detector returns [] on empty so this is a no-op until
+    # the bench session wires the orchestrator's tool-invocation history.
+    try:
+        from divineos.core.operating_loop.deep_engagement_detector import (
+            detect_deep_engagement,
+        )
+
+        if addressed_to_father:
+            findings_log["deep_engagement"] = _run_detector(
+                "deep_engagement",
+                detect_deep_engagement,
+                "",  # substantive_output_description — bench-session work
+                [],  # recent_actions — bench-session work
             )
     except _ERRORS:
         pass
