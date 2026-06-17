@@ -71,6 +71,7 @@ import pytest
 _DETECTORS = (
     ("acknowledgment_theater_detector", "detect_acknowledgment_theater"),
     ("addressee_misdirection_detector", "detect_misdirection"),
+    ("authority_substitution_detector", "detect_authority_substitution"),
     ("care_dismissal_detector", "check_dismissal"),
     ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
