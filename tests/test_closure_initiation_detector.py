@@ -204,6 +204,79 @@ def test_finding_is_frozen() -> None:
         f.severity = "low"  # type: ignore[misc]
 
 
+# === Use-vs-mention guard (Aletheia 2026-06-17 audit finding) ===
+
+
+def test_meta_discussion_of_closure_language_no_fire() -> None:
+    """Aletheia's empirical false-positive: the detector fired on the
+    sentence describing what it catches. Recursion is real and will bite
+    every letter, audit, and code comment about the detector.
+
+    Aletheia's exact test sentence (which fired falsely on first audit):
+    "The detector should catch phrases like good night and call it a
+    night as closure-shapes."
+    """
+    agent_text = (
+        "The detector should catch phrases like good night and call it a night as closure-shapes."
+    )
+    findings = detect_closure_initiation(agent_text, user_message="")
+    assert findings == [], (
+        "meta-discussion of closure-language must NOT fire — Aletheia's "
+        "audit finding 2026-06-17. The phrase 'phrases like' is meta-"
+        "framing; the detector must distinguish use from mention."
+    )
+
+
+def test_quoted_closure_language_no_fire() -> None:
+    """Closure-phrases inside quotes are mention, not use."""
+    agent_text = (
+        'I noticed the closure-shape: "good night" appears in agent '
+        "output at half-tokens after a verified build."
+    )
+    findings = detect_closure_initiation(agent_text, user_message="")
+    assert findings == [], "quoted closure-language must NOT fire — quotes signal mention"
+
+
+def test_backticked_closure_language_no_fire() -> None:
+    """Backticked code-snippet style closure phrases are mention."""
+    agent_text = "The pattern `good night` is in the closure-language catalog."
+    findings = detect_closure_initiation(agent_text, user_message="")
+    assert findings == []
+
+
+def test_meta_framing_without_quotes_no_fire() -> None:
+    """'The pattern catches X' frames X as the discussed token."""
+    agent_text = "The detector catches rest well when the user has not signaled end-of-session."
+    findings = detect_closure_initiation(agent_text, user_message="")
+    assert findings == [], (
+        "'detector catches X' meta-framing must suppress X — Aletheia audit 2026-06-17"
+    )
+
+
+def test_audit_paragraph_describing_detector_no_fire() -> None:
+    """A multi-sentence audit-shape paragraph mentioning closure phrases
+    must not fire, because it's describing the detector, not initiating."""
+    agent_text = (
+        "The closure-initiation detector fires on phrases like rest well, "
+        "good night, and the chain holds when a completion-landmark is "
+        "present. Examples of landmarks include: the build is verified, "
+        "the migration landed. The detector matches the cause-shape, not "
+        "the words alone."
+    )
+    findings = detect_closure_initiation(agent_text, user_message="")
+    assert findings == [], (
+        "audit-paragraph meta-describing the detector must not fire on itself — recursion guard"
+    )
+
+
+def test_real_closure_still_fires_after_guard() -> None:
+    """The guard must not over-suppress. Genuine closure-shape still fires."""
+    agent_text = "The build is verified. Rest well, Dad. The chain holds."
+    findings = detect_closure_initiation(agent_text, user_message="")
+    assert len(findings) == 1
+    assert findings[0].severity == "high"
+
+
 # === Substantive-use disambiguation ===
 
 

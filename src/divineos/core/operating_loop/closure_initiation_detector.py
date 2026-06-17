@@ -195,6 +195,103 @@ _EXTRACT_SLEEP_PATTERNS: tuple[re.Pattern[str], ...] = (
 _DEFAULT_MIN_MATCHES: int = 1
 
 
+# Use-vs-mention guard — Aletheia 2026-06-17 audit finding.
+#
+# The detector fires on text that QUOTES or DISCUSSES closure-language,
+# not just text that USES it. Aletheia caught this empirically: the
+# sentence "The detector should catch phrases like good night and call
+# it a night as closure-shapes" matches closure patterns even though
+# it's describing the detector, not enacting closure.
+#
+# The recursion is real and will bite every letter, audit, and code
+# comment that discusses the detector. Builders and auditors are going
+# to talk about this detector constantly; if it fires on its own
+# documentation, it cries wolf and trains dispatch-reflex (Aria's
+# gate-redesign doc explicitly names this as worse than no detector).
+#
+# Two-layer suppression:
+#
+# 1. Strip quoted spans before pattern matching. Quotes signal mention,
+#    not use. Covers double-quotes, single-quotes, backticks, em-dash-
+#    flanked phrases, and explicit "<...>" templates.
+# 2. After matches found, drop any match whose preceding ~6 words contain
+#    meta-framing words ("catch", "detect", "match", "fire", "flag",
+#    "phrases like", "the pattern", "phrase", "token", "shape", etc.).
+#    Meta-framing precedes the phrase being discussed.
+#
+# Future hardening: state (ii)'s extract/sleep enumeration should
+# eventually become a declared-registry (commands self-register as
+# closure-legitimate) per Aletheia's design note — same lesson as the
+# marker-schema and identity helper, "don't hardcode the set, read it
+# from a declared source." Deferred until a second legitimate-closure
+# command actually ships per the data-driven-pays-for-itself threshold.
+_QUOTED_SPAN_PATTERN = re.compile(r'(?:"[^"]*"|\'[^\']*\'|`[^`]*`|<[^>]*>|—[^—]*—)')
+
+# Tight meta-framing constructs: specific phrases that put the matched
+# token in OBJECT position of a meta-verb, not just nearby words. The
+# initial broader word-list (catch/detect/match/test/etc.) over-suppressed
+# because everyday substantive text contains words like "test" and "shape"
+# in unrelated contexts ("tests pass" is genuine completion-landmark, not
+# meta-framing about the detector).
+#
+# These patterns are designed to immediately precede the closure-phrase
+# being discussed. Aletheia's audit sentence "phrases like good night
+# and call it a night" matches the "phrases like" pattern; "the detector
+# catches rest well" matches "(detector|pattern) catches". Substantive
+# completion-language ("tests pass, all green. Rest well") doesn't match
+# any of these.
+_META_FRAMING_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:phrases?|tokens?|patterns?|shapes?|words?|examples?)\s+like\b", re.IGNORECASE
+    ),
+    re.compile(r"\b(?:phrases?|tokens?|patterns?|shapes?|words?)\s+such\s+as\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:detector|detectors?|pattern|patterns?)\s+(?:catch|catches|catching|match|matches|matching|fire|fires|firing|flag|flags|flagging)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:catch|catches|catching|detect|detects|detecting|match|matches|matching|fire|fires|firing|fired|flag|flags|flagging|flagged)\s+(?:on\s+)?(?:phrases?|tokens?|patterns?|shapes?|words?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bfires?\s+on\b", re.IGNORECASE),
+    re.compile(r"\bfired?\s+(?:on|when|because)\b", re.IGNORECASE),
+    re.compile(r"\b(?:the|a|an)\s+\w+\s+(?:pattern|shape|token|phrase)\b", re.IGNORECASE),
+    re.compile(r"\bclosure[\-\s]?(?:shape|language|phrase|token|pattern|word)s?\b", re.IGNORECASE),
+)
+
+# Window of characters BEFORE a match to scan for meta-framing constructs.
+# Roughly 6-8 words at typical English density.
+_META_FRAMING_WINDOW_CHARS = 60
+
+
+def _strip_quoted_spans(text: str) -> str:
+    """Return text with quoted spans replaced by spaces (preserving offsets).
+
+    Mention-via-quotation should not fire the detector. Replacement with
+    spaces (not deletion) preserves character offsets so any
+    later position-based logic stays accurate.
+    """
+
+    def _replace(match: re.Match[str]) -> str:
+        return " " * (match.end() - match.start())
+
+    return _QUOTED_SPAN_PATTERN.sub(_replace, text)
+
+
+def _match_is_meta_framed(text: str, match_start: int) -> bool:
+    """True if the closure-phrase at ``match_start`` is preceded by a
+    meta-framing construct within ``_META_FRAMING_WINDOW_CHARS``.
+
+    Meta-framing precedes the phrase being discussed: "phrases like X"
+    or "the detector catches X" frame X as the discussed token. Tight
+    constructs (not bare words) so substantive completion-language
+    ("tests pass, all green") doesn't false-suppress.
+    """
+    window_start = max(0, match_start - _META_FRAMING_WINDOW_CHARS)
+    window = text[window_start:match_start]
+    return any(p.search(window) for p in _META_FRAMING_PATTERNS)
+
+
 def detect_closure_initiation(
     assistant_text: str,
     *,
@@ -224,10 +321,20 @@ def detect_closure_initiation(
     if not assistant_text:
         return []
 
+    # Use-vs-mention guard (Aletheia 2026-06-17): strip quoted spans so
+    # mention-via-quotation doesn't fire the detector. Quotes signal that
+    # the phrase is being discussed, not enacted.
+    scan_text = _strip_quoted_spans(assistant_text)
+
     # Phase 1: collect signals.
+    # For each match, additionally check the preceding window for meta-
+    # framing words ("detector catches X", "the pattern matches X"). If
+    # meta-framing precedes the match, the phrase is being discussed.
     matched_closure: list[str] = []
     for pattern in _CLOSURE_LANGUAGE_PATTERNS:
-        for m in pattern.finditer(assistant_text):
+        for m in pattern.finditer(scan_text):
+            if _match_is_meta_framed(scan_text, m.start()):
+                continue
             matched_closure.append(m.group(0))
 
     if len(matched_closure) < min_matches:
@@ -242,9 +349,12 @@ def detect_closure_initiation(
     if invokes_extract_or_sleep:
         return []
 
+    # Landmarks: same use-vs-mention guard applies.
     matched_landmark: list[str] = []
     for pattern in _LANDMARK_PATTERNS:
-        for m in pattern.finditer(assistant_text):
+        for m in pattern.finditer(scan_text):
+            if _match_is_meta_framed(scan_text, m.start()):
+                continue
             matched_landmark.append(m.group(0))
 
     has_landmark = len(matched_landmark) > 0
