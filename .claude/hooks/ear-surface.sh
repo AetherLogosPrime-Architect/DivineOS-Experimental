@@ -28,10 +28,18 @@ if [ -z "$MEMBER" ]; then
   esac
 fi
 
-PY="$(command -v python 2>/dev/null || command -v python3 2>/dev/null)"
-[ -z "$PY" ] && exit 0
+# Resolve python via the shared helper. The embedded Python now imports
+# from divineos (letters_markdown_dir for the canonical letters dir
+# resolution); the round-1 bare-python anti-pattern would silently fail-OPEN
+# on shells where the system python lacks divineos's deps. find_divineos_python
+# walks the known candidates in priority order so the right interpreter
+# gets selected even when the operator's shell python is not the project one.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# shellcheck source=/dev/null
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-MEMBER="$MEMBER" PYTHONIOENCODING="utf-8" "$PY" - <<'PYEOF'
+MEMBER="$MEMBER" PYTHONIOENCODING="utf-8" "$PYTHON_BIN" - <<'PYEOF'
 import json
 import os
 import re
@@ -60,12 +68,20 @@ try:
 except Exception:
     queue_rows = []
 
-letters_dir = Path(
-    os.environ.get(
-        f"{member.upper()}_LETTERS_DIR",
-        r"C:/DIVINE OS/DivineOS-Experimental/family/letters",
-    )
-)
+# Resolve the canonical letters directory via family.letters.letters_markdown_dir()
+# so this hook surfaces letters from the shared location both worktrees write
+# to. Andrew 2026-06-16: the shared room is shared by code, not by filesystem
+# trickery. Env-var override (<MEMBER>_LETTERS_DIR) still wins for per-member
+# scenarios; final fallback is the per-worktree path (legacy).
+_env_override = os.environ.get(f"{member.upper()}_LETTERS_DIR")
+if _env_override:
+    letters_dir = Path(_env_override)
+else:
+    try:
+        from divineos.core.family.letters import letters_markdown_dir
+        letters_dir = letters_markdown_dir()
+    except Exception:
+        letters_dir = Path(r"C:/DIVINE OS/DivineOS-Experimental/family/letters")
 seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
 unseen_letters = []
 try:

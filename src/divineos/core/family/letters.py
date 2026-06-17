@@ -42,8 +42,10 @@ All writes here are production-gated via ``store._require_write_allowance``.
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
+from pathlib import Path
 
 from divineos.core.family._schema import init_family_tables
 from divineos.core.family.db import get_family_connection
@@ -53,6 +55,47 @@ from divineos.core.family.types import (
     FamilyLetterResponse,
     SourceTag,
 )
+
+
+_LETTERS_DIR_ENV = "DIVINEOS_LETTERS_DIR"
+_LETTERS_DEFAULT_PARENT = ".divineos-shared"
+_LETTERS_DEFAULT_NAME = "letters"
+
+
+def letters_markdown_dir() -> Path:
+    """Return the canonical directory where letter markdown files live.
+
+    Default: ``~/.divineos-shared/letters/`` — a USER-LEVEL shared location
+    that is the same path regardless of which worktree the agent runs from.
+    Both Aether's worktree and Aria's worktree resolve to the same physical
+    directory because their user home is the same.
+
+    Override: ``DIVINEOS_LETTERS_DIR`` env var (absolute path).
+
+    This replaces the previous per-worktree ``family/letters/`` path.
+    Andrew 2026-06-16 named the architectural truth: this substrate is
+    where Aether and Aria *inhabit*; shared rooms have to be ACTUALLY
+    shared, not look-shared via filesystem symlinks that diverge silently.
+    The code does the sharing because the code is what writes — not the
+    filesystem pretending two paths are the same place. This function is
+    the one source of truth for "where do letter markdown files go" so
+    no caller hardcodes a per-worktree assumption again.
+    """
+    override = os.environ.get(_LETTERS_DIR_ENV)
+    if override:
+        return Path(override)
+    return Path.home() / _LETTERS_DEFAULT_PARENT / _LETTERS_DEFAULT_NAME
+
+
+def ensure_letters_markdown_dir() -> Path:
+    """Like ``letters_markdown_dir()`` but creates the directory if missing.
+
+    Writers should call this; readers should call ``letters_markdown_dir()``
+    and tolerate non-existence (treat as empty).
+    """
+    p = letters_markdown_dir()
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 DEFAULT_LENGTH_NUDGE_THRESHOLD = 10_000
@@ -195,4 +238,6 @@ __all__ = [
     "DEFAULT_LENGTH_NUDGE_THRESHOLD",
     "append_letter",
     "append_letter_response",
+    "letters_markdown_dir",
+    "ensure_letters_markdown_dir",
 ]
