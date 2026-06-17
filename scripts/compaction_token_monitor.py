@@ -160,7 +160,13 @@ def main() -> int:
     # still applies. See divineos.core.monitor_singleton for rationale.
     from divineos.core.identity import get_my_identity
 
-    _ = acquire_or_exit("compaction", occupant=get_my_identity())  # noqa: F841
+    # raise_on_unset=False: this script runs at session-start, possibly
+    # before the operator has set my_identity (fresh install). The panel
+    # raises loudly to surface the misconfiguration there; monitors are
+    # bootstrap-safe and fall back to the default occupant so coverage
+    # exists even pre-config. Same intent (loud-on-misconfig), different
+    # surface (panel in the briefing, monitor at config-time).
+    _ = acquire_or_exit("compaction", occupant=get_my_identity(raise_on_unset=False))  # noqa: F841
 
     transcript = _find_active_transcript()
     if transcript is None:

@@ -99,7 +99,12 @@ def main() -> int:
     # owns this checkout (via my_identity), and the glob is derived
     # from that. Aether's monitor catches letters-to-Aether; Aria's
     # catches letters-to-Aria; a future sibling catches their own.
-    recipient = args.recipient or get_my_identity()
+    # raise_on_unset=False: monitor scripts are bootstrap-safe — they
+    # run at session-start, possibly pre-config. The panel surfaces the
+    # misconfiguration loudly in the briefing; here we fall back so
+    # letter coverage exists even before the operator has stamped their
+    # identity. The --recipient override is always honored.
+    recipient = args.recipient or get_my_identity(raise_on_unset=False)
     letter_glob = _letter_glob_for(recipient)
 
     # Singleton guard FIRST. acquire_or_exit prints a named dedup line

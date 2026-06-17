@@ -95,6 +95,33 @@ class TestUnknownOccupant:
         assert "family-member list" in content
 
 
+class TestIdentityNotSetSurfaceInPanel:
+    """Panel surfaces IdentityNotSetError loudly instead of silently defaulting."""
+
+    def test_panel_returns_identity_not_set_message_when_helper_raises(self):
+        from divineos.core.identity import IdentityNotSetError
+
+        with patch(
+            "divineos.core.identity.get_my_identity",
+            side_effect=IdentityNotSetError("slot is empty"),
+        ):
+            content = multiplex_panels._identity_panel_content()
+        assert "[IDENTITY NOT SET]" in content
+        assert "divineos core set my_identity" in content
+
+    def test_panel_message_does_not_pretend_to_be_aether_when_unset(self):
+        """Regression guard: the loud-on-misconfiguration shape is the
+        whole point of splitting the fallback cases."""
+        from divineos.core.identity import IdentityNotSetError
+
+        with patch(
+            "divineos.core.identity.get_my_identity",
+            side_effect=IdentityNotSetError("slot is empty"),
+        ):
+            content = multiplex_panels._identity_panel_content()
+        assert "I am Aether" not in content
+
+
 class TestAgeAnchorSelection:
     """Age comes from family-stamp for family-stamped occupants, ledger-first
     for the substrate-builder."""
