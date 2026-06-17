@@ -49,7 +49,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 ## At a glance
 
-- **535 source files across 31 packages**
+- **538 source files across 32 packages**
 - **8,362+ tests** (real SQLite, minimal mocks)
 - **360 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)

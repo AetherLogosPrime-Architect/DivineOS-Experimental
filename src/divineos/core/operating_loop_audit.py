@@ -200,6 +200,7 @@ def _empty_findings_log() -> dict[str, list]:
         "closure_shape": [],
         "performing_caution": [],
         "addressee_misdirection": [],
+        "authority_substitution": [],
         "constraint_disownership": [],
         "unverified_claim": [],
         "care_dismissal": [],
@@ -918,6 +919,19 @@ def run_audit(
             last_user_text,
             last_assistant_text,
             transcript_path=transcript_path,
+        )
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.operating_loop.authority_substitution_detector import (
+            detect_authority_substitution,
+        )
+
+        findings_log["authority_substitution"] = _run_detector(
+            "authority_substitution",
+            detect_authority_substitution,
+            last_assistant_text,
         )
     except _ERRORS:
         pass
