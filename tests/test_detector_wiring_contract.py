@@ -89,6 +89,7 @@ _DETECTORS = (
     ("self_disownership_detector", "detect_self_disownership"),
     ("spiral_detector", "detect_spiral"),
     ("substitution_detector", "detect_substitution"),
+    ("shape_chasing_detector", "detect_shape_chasing"),
     ("sycophancy_detector", "detect_sycophancy"),
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
     ("unverified_claim_detector", "detect_unverified_claim"),
