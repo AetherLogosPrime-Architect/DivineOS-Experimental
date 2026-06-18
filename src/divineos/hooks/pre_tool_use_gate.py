@@ -127,8 +127,18 @@ _DEV_PREFIXES = (
     "ruff ",
 )
 
-# Match "divineos <subcmd>" — requires a subcommand word after divineos
-_DIVINEOS_SUBCMD_RE = re.compile(r"\bdivineos\s+(\w[\w-]*)")
+# Match "divineos <subcmd>" — requires a subcommand word after divineos.
+#
+# 2026-06-17 fix: also match "divineos.exe <subcmd>" (Windows venv path
+# form). Aether and Aria both hit a gate-deadlock the day this was filed
+# when invoking divineos via the full venv path (e.g.
+# `"./.venv/Scripts/divineos.exe" goal add "..."`). The previous regex
+# required `divineos` directly followed by whitespace, so the .exe form
+# never matched the bypass list — gate-clearing commands like `goal add`
+# and `ask` blocked themselves because the bypass-list lookup didn't fire.
+# Adding the optional `.exe` and the optional closing quote handles both
+# bare invocations and quoted-path invocations.
+_DIVINEOS_SUBCMD_RE = re.compile(r"\bdivineos(?:\.exe)?[\"']?\s+(\w[\w-]*)")
 
 
 def _is_bypass_command(cmd: str) -> bool:
