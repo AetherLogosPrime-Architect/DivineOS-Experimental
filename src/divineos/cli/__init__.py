@@ -287,7 +287,6 @@ from divineos.cli import (  # noqa: E402
     voids_commands,
     multiplex_commands,
     pattern_attribution_commands,
-    lepos_commands,
     consumer_status_commands,
     andrew_correction_commands,
     andrew_teachings_commands,
@@ -353,7 +352,6 @@ empirica_commands.register(cli)
 family_member_commands.register(cli)
 family_queue_commands.register(cli)
 talk_to_commands.register(cli)
-lepos_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
 andrew_teachings_commands.register(cli)

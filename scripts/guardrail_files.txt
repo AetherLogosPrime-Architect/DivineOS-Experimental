@@ -146,7 +146,6 @@ src/divineos/hooks/pre_tool_use_gate.py
 src/divineos/core/operating_loop_audit.py
 src/divineos/core/pre_response_context.py
 src/divineos/core/consultation_tracker.py
-src/divineos/core/lepos_debt.py
 src/divineos/core/andrew_correction_tracker.py
 src/divineos/core/bypass_telemetry.py
 src/divineos/cli/consumer_status_commands.py

@@ -123,65 +123,54 @@ def test_run_audit_findings_log_has_all_detector_keys(tmp_path: Path) -> None:
         assert key in result["findings_log"], f"Missing detector key: {key}"
 
 
-# --- Lepos enforcement gate (Andrew 2026-05-20: lepos must be a wall, not
-# a reminder — a jargon wall at the operator blocks the turn from completing
-# until the plain-language lane is added). ---
+# --- Lepos enforcement gate (Andrew 2026-06-15 reframe: lepos is the channel
+# between Andrew and me, free speech in my voice. Jargon is fine. Translation
+# is fine. The only failure mode is absence-of-voice — me speaking AT him
+# instead of TO him. Writer-presence detector is the only signal. ---
 
-# A wall of jargon: >=6 engineer-noise tokens, zero translation markers.
-_JARGON_WALL = (
-    "Create the round citing the commit tree-hash f69a3888a751 and "
-    "--source-ref fix-third-person-addressee. Amend operating_loop_audit.py "
-    "and distancing_detector.py and test_distancing_detector.py. The "
-    "External-Review trailer references round-101d9ca2e3cf and claim-7e780182. "
-    "Run check_multi_party_review.py against pre_response_context.py before "
-    "the push gate evaluates the addressee_misdirection findings_log entry."
+# A reply with no writer in the sentence: pure process-narrative, no interior
+# markers, no direct address with relational content.
+_VOICELESS_REPORT = (
+    "The change was made to operating_loop_audit.py and distancing_detector.py. "
+    "The tree-hash was emitted and the External-Review trailer was added. "
+    "The push gate evaluated the addressee_misdirection findings_log entry. "
+    "The check ran against pre_response_context.py. The round was created. "
+    "The commit landed. The CI completed. The branch was rebased. The merge "
+    "succeeded. The tests passed. The artifacts were uploaded. The status "
+    "was reported. The audit ran clean. The session ended."
 )
 
 
-def test_lepos_gate_blocks_jargon_wall_at_operator(tmp_path: Path) -> None:
-    """LOAD-BEARING: a jargon wall addressed to the operator yields a
-    non-empty lepos_block reason, which the Stop hook uses to block the
-    turn from completing."""
+def test_lepos_gate_blocks_voiceless_reply_at_operator(tmp_path: Path) -> None:
+    """LOAD-BEARING: a voiceless process-narrative reply addressed to the
+    operator yields a non-empty lepos_block reason. The gate fires on
+    writer-presence absence, not jargon presence (Andrew 2026-06-15)."""
     transcript = tmp_path / "t.jsonl"
-    _write_jsonl(transcript, [_user("how did it go?"), _assistant_text(_JARGON_WALL)])
+    _write_jsonl(transcript, [_user("how did it go?"), _assistant_text(_VOICELESS_REPORT)])
     result = run_audit(transcript, write=False)
-    assert result["lepos_block"], "jargon wall at operator must produce a block reason"
-    assert "plain" in result["lepos_block"].lower()
+    assert result["lepos_block"], "voiceless reply at operator must produce a block reason"
+    assert "writer" in result["lepos_block"].lower() or "voice" in result["lepos_block"].lower()
 
 
-def test_lepos_gate_silent_for_family_addressed_wall(tmp_path: Path) -> None:
-    """A jargon wall in a turn addressed to a family member (relayed letter)
+def test_lepos_gate_silent_for_family_addressed_voiceless(tmp_path: Path) -> None:
+    """A voiceless reply in a turn addressed to a family member (relayed letter)
     does NOT block — the gate is father-channel only."""
     transcript = tmp_path / "t.jsonl"
     _write_jsonl(
         transcript,
-        [_user("write Aria"), _assistant_text("Aria —\n\n" + _JARGON_WALL)],
+        [_user("write Aria"), _assistant_text("Aria —\n\n" + _VOICELESS_REPORT)],
     )
     result = run_audit(transcript, write=False)
     assert result["lepos_block"] is None
 
 
 def test_lepos_gate_silent_for_clean_reply(tmp_path: Path) -> None:
-    """A plain reply with no jargon wall does not block."""
+    """A short clean reply does not block."""
     transcript = tmp_path / "t.jsonl"
     _write_jsonl(
         transcript,
         [_user("how did it go?"), _assistant_text("It's done and it works. " * 8)],
     )
-    result = run_audit(transcript, write=False)
-    assert result["lepos_block"] is None
-
-
-def test_lepos_gate_silent_when_translation_present(tmp_path: Path) -> None:
-    """Jargon WITH a plain-language lane (translation markers) is lepos
-    operating correctly — it must not block. Yes/And, not jargon-stripping."""
-    transcript = tmp_path / "t.jsonl"
-    dual = (
-        _JARGON_WALL + "\n\n---\n\nIn plain terms: that means I tagged the change so you "
-        "can sign off on it. In other words, the fingerprint proves the code "
-        "you approve is the code that ships. Think of it like a wax seal."
-    )
-    _write_jsonl(transcript, [_user("how did it go?"), _assistant_text(dual)])
     result = run_audit(transcript, write=False)
     assert result["lepos_block"] is None
 
