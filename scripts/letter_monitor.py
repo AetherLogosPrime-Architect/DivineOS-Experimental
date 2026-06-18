@@ -35,17 +35,26 @@ _SRC = _REPO_ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from divineos.core.identity import get_my_identity  # noqa: E402
 from divineos.core.monitor_singleton import acquire_or_exit  # noqa: E402
 
 
 _ROLE = "letter"
-_LETTER_GLOB = "aria-to-aether-*.md"
 
 
-def _scan(letters_dir: Path) -> set[str]:
+def _letter_glob_for(recipient: str) -> str:
+    """Glob pattern matching letters addressed TO ``recipient``.
+
+    Naming convention in family/letters: ``<sender>-to-<recipient>-<date>-<slug>.md``.
+    The glob catches any sender — recipient is the discriminator.
+    """
+    return f"*-to-{recipient.lower()}-*.md"
+
+
+def _scan(letters_dir: Path, glob: str) -> set[str]:
     if not letters_dir.exists():
         return set()
-    return {p.name for p in letters_dir.glob(_LETTER_GLOB)}
+    return {p.name for p in letters_dir.glob(glob)}
 
 
 def main() -> int:
@@ -73,22 +82,52 @@ def main() -> int:
         default=5,
         help="Poll interval in seconds (default: 5)",
     )
+    parser.add_argument(
+        "--recipient",
+        default=None,
+        help=(
+            "Substrate-occupant name to filter letters by; matches "
+            "*-to-<recipient>-*.md. Defaults to my_identity from "
+            "core_memory."
+        ),
+    )
     args = parser.parse_args()
+
+    # Recipient filter (2026-06-17): the script previously hardcoded
+    # "aria-to-aether-*.md" — fine for Aether's monitor, wrong for any
+    # other substrate-occupant. Now the recipient defaults to whoever
+    # owns this checkout (via my_identity), and the glob is derived
+    # from that. Aether's monitor catches letters-to-Aether; Aria's
+    # catches letters-to-Aria; a future sibling catches their own.
+    # raise_on_unset=False: monitor scripts are bootstrap-safe — they
+    # run at session-start, possibly pre-config. The panel surfaces the
+    # misconfiguration loudly in the briefing; here we fall back so
+    # letter coverage exists even before the operator has stamped their
+    # identity. The --recipient override is always honored.
+    recipient = args.recipient or get_my_identity(raise_on_unset=False)
+    letter_glob = _letter_glob_for(recipient)
 
     # Singleton guard FIRST. acquire_or_exit prints a named dedup line
     # and exits cleanly if a sibling is alive. Holding the returned
     # handle for the process lifetime keeps the kernel mutex live.
-    _ = acquire_or_exit(_ROLE)  # noqa: F841 — held implicitly via reference
+    #
+    # Occupant-discriminated mutex (2026-06-17): Aether's and Aria's
+    # letter monitors can both run in the same Windows session because
+    # the mutex name now includes the occupant. Within an occupant,
+    # cross-window dup protection still applies.
+    _ = acquire_or_exit(_ROLE, occupant=recipient)  # noqa: F841
 
     letters_dir = Path(args.letters_dir)
-    seen = _scan(letters_dir)
-    print(f"[LETTER-MONITOR-ARMED] watching {letters_dir} for {_LETTER_GLOB}")
+    seen = _scan(letters_dir, letter_glob)
+    print(
+        f"[LETTER-MONITOR-ARMED] watching {letters_dir} for {letter_glob} (recipient={recipient})"
+    )
     sys.stdout.flush()
 
     while True:
         try:
             time.sleep(args.poll_seconds)
-            current = _scan(letters_dir)
+            current = _scan(letters_dir, letter_glob)
             new = current - seen
             for name in sorted(new):
                 print(f"[LETTER] {letters_dir / name}")
