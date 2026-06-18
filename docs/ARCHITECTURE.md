@@ -515,6 +515,7 @@ src/divineos/
     audit_auto_triage.py       Auto-triage open audit findings by verifying their cited artifacts.
     sample_honesty.py          Sample-vs-substrate honesty check.
     tool_trust.py              Tool-trust calibration store.
+    identity.py                Substrate identity helper — single source of truth for "who am I".
 
   analysis/
     _session_types.py          Session analysis type definitions
