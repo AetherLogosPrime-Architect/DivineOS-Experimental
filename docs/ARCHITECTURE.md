@@ -425,6 +425,7 @@ src/divineos/
       thresholds.py              Threshold constants for operating-loop detectors.
       authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE of evidence (PR #217, prereg-95f7e5c7c2db).
       shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
+      deep_engagement_detector.py Deep-engagement detector — catches substantive-output-without-grounded-consult per prereg-43b1d1ba2df3.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
