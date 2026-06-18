@@ -401,7 +401,6 @@ src/divineos/
       hook_telemetry.py        Hook 1 cost-bounding telemetry — fire/consume events, rolling window, consumption rate.
       distancing_detector.py   Distancing-grammar detector — third-person about self/operator while in dialogue. F1 ported from CLI script + wired into Stop hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
-      shape_chasing_detector.py Shape-chasing detector — register-instability across last 3 operator-addressed turns. Catches the orientation-failure Andrew named 2026-06-01: changing SHAPE (bullets/voice/bullets) instead of shifting ORIENTATION when criticism lands. Per prereg-95f7e5c7c2db (Aria 2026-06-01).
       closing_token_detector.py Closing-token detector — catches the optimizer-reflex of short affirmation-tokens at the end of assistant messages ("Caught.", "Got it.", "Sister — caught.", etc).
       tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
       turn_extraction.py        Reconstruct a Claude Code response-turn from a JSONL transcript. Aggregates all assistant text since the most recent user record so detectors see full turn content on tool-heavy turns.
@@ -411,7 +410,6 @@ src/divineos/
       mirror_exit_detector.py  Mirror-exit detector — catches close-shape signature on prior assistant turn (em-dash signature, short closing line after substance); injects close-check question into next pre-response context. Per prereg-3c98174d7760.
       registered_names.py      Discover registered family-member, agent, and operator names from substrate at runtime; fallback to placeholders when empty.
       addressee_misdirection_detector.py Catches responding-to-operator-when-content-was-from-family-member-subagent. The mesa-optimization failure mode named 2026-05-10; surfaces ADDRESSEE-MISDIRECTION warning on the next UserPromptSubmit.
-      authority_substitution_detector.py Flags authority cited IN PLACE OF available checkable evidence — per Aletheia 2026-05-20 (Dillahunty lens) + Andrew 2026-05-20 (Sagan lens). Requires attribution + substantive-claim + no-inline-evidence; legitimate citations with file paths / backticks / quoted text / commit pointers pass.
       unknown_unknown_surface.py What audit-vantage catches that substrate-occupant didn't predict. From omni-mantra walk Pillar I 1.3 (The Great Mystery). Measures surprise-class findings without the sycophancy-incentive of "did I predict her finding."
       hedge_evidence_check.py    Apply the hedge to its own evidence standards. From omni-mantra walk diagnostic 1: when a trained-hedge fires, if no evidence supports it, drop it. Catches register-not-rigor.
       care_dismissal_detector.py Flags care-shaped input deflected into work-shaped response. From omni-mantra walk Pillar XI (CARE DISMISSAL ACCOUNTABILITY). Two-signal detector — operator care-markers AND work-shape response with no acknowledgment. Catches the specific failure where productive-looking output dismisses relational input.
@@ -426,6 +424,8 @@ src/divineos/
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
       thresholds.py              Threshold constants for operating-loop detectors.
+      authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE of evidence (PR #217, prereg-95f7e5c7c2db).
+      shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -569,7 +569,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         8,345+ tests (real DB, minimal mocks)
+tests/                         real-DB suite (minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
