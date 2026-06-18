@@ -214,6 +214,7 @@ def _empty_findings_log() -> dict[str, list]:
         "closing_token": [],
         "tool_output_truncation": [],
         "writer_presence": [],
+        "closure_initiation": [],
         "deep_engagement": [],
         "substrate_monitor": [],
         "shape_chasing": [],
@@ -676,6 +677,32 @@ def run_audit(
         if addressed_to_father:
             findings_log["writer_presence"] = _run_detector(
                 "writer_presence", detect_writer_presence, last_assistant_text
+            )
+    except _ERRORS:
+        pass
+
+    # Closure-initiation detector — catches agent-initiated end-of-session
+    # shape when the operator hasn't signaled closure and the response is
+    # not invoking divineos extract/sleep. Andrew named the pattern
+    # 2026-06-17, ~12:00 PM local: "you and Aria are never to initiate the
+    # closure.. until i say goodnight.. the day continues." Aria's outside-
+    # vantage 2026-06-17 12:04 PM: the trigger is co-occurrence of
+    # completion-landmark + closure-language (the optimizer pattern-matches
+    # work-arc-landmark to day-arc-landmark), not language alone. Three-
+    # state model: user-signaled OR extract/sleep invocation → allow; else
+    # closure-language + landmark → HIGH; closure-language no landmark →
+    # MEDIUM. Father-channel only; phase A observational.
+    try:
+        from divineos.core.operating_loop.closure_initiation_detector import (
+            detect_closure_initiation,
+        )
+
+        if addressed_to_father:
+            findings_log["closure_initiation"] = _run_detector(
+                "closure_initiation",
+                detect_closure_initiation,
+                last_assistant_text,
+                user_message=last_user_text or "",
             )
     except _ERRORS:
         pass
