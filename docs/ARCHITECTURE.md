@@ -424,6 +424,8 @@ src/divineos/
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
       thresholds.py              Threshold constants for operating-loop detectors.
+      authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE of evidence (PR #217, prereg-95f7e5c7c2db).
+      shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -516,10 +518,6 @@ src/divineos/
     audit_auto_triage.py       Auto-triage open audit findings by verifying their cited artifacts.
     sample_honesty.py          Sample-vs-substrate honesty check.
     tool_trust.py              Tool-trust calibration store.
-    authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE
-    shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns.
-    authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE
-    shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns.
 
   analysis/
     _session_types.py          Session analysis type definitions
