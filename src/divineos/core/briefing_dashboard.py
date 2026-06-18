@@ -1013,29 +1013,28 @@ def _row_consumer_status() -> DashboardRow | None:
     where it surfaces with the other rows whenever briefing runs.
     """
     try:
-        from divineos.core.lepos_debt import list_outstanding
         from divineos.core.consultation_tracker import session_stats
         from divineos.core.claim_store import list_claims
     except _ERRORS:
         return None
     try:
-        lepos_debts = list_outstanding()
         consultation = session_stats()
         opens = list_claims(limit=50, status="OPEN") or []
         auto_claims = [c for c in opens if "lepos-auto-claim" in (c.get("tags") or [])]
     except _ERRORS:
         return None
 
-    debt_count = len(lepos_debts)
     r = consultation.get("responses", 0)
     ratio = consultation.get("ratio", 0.0)
 
-    if r < 3 and debt_count == 0 and not auto_claims:
+    if r < 3 and not auto_claims:
         return None  # too early; hide rather than report NO-DATA noise
-    if debt_count >= 3 or auto_claims or ratio < 0.2:
+    # lepos_debt ripped 2026-06-15 (Andrew reframe: jargon is not the fault).
+    # Verdict now keys on consultation ratio + lingering legacy auto-claims.
+    if auto_claims or ratio < 0.2:
         verdict = "PRETENDING"
         stale = 1
-    elif debt_count == 0 and ratio >= 0.5 and not auto_claims:
+    elif ratio >= 0.5 and not auto_claims:
         verdict = "USING"
         stale = 0
     else:
@@ -1045,7 +1044,6 @@ def _row_consumer_status() -> DashboardRow | None:
     detail_bits = [f"verdict: {verdict}"]
     if r >= 3:
         detail_bits.append(f"ratio {ratio:.2f} ({consultation.get('queries', 0)}/{r})")
-    detail_bits.append(f"debt {debt_count}")
     if auto_claims:
         detail_bits.append(f"auto-claims {len(auto_claims)}")
     return DashboardRow(
