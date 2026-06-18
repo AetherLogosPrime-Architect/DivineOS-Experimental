@@ -94,6 +94,7 @@ _DETECTORS = (
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
     ("unverified_claim_detector", "detect_unverified_claim"),
     ("writer_presence_detector", "detect_writer_presence"),
+    ("deep_engagement_detector", "detect_deep_engagement"),
 )
 
 
