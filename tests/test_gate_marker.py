@@ -28,9 +28,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
-from divineos.core import gate_marker
 from divineos.core.gate_marker import (
     GateMarker,
     clear_all,
@@ -304,9 +301,7 @@ def test_semantic_equivalence_correction_marker_active_state(_isolated_db):
     assert is_active("correction_filed_unlogged") is False
 
     # Set via the legacy API.
-    correction_marker.set_marker(
-        trigger_text="no don't do that — read the file first."
-    )
+    correction_marker.set_marker(trigger_text="no don't do that — read the file first.")
     legacy = correction_marker.read_marker()
     assert legacy is not None
     assert "trigger" in legacy
@@ -393,10 +388,14 @@ def test_no_field_ordering_dependency_in_serialization(_isolated_db):
     p2.write_text(re_stringified_reverse, encoding="utf-8")
     m1 = read_marker(p1)
     m2 = read_marker(p2)
-    assert m1 == m2 == GateMarker(
-        event_type="test_ordering",
-        triggered_at=42.0,
-        triggering_evidence="ev",
-        resolution_action="rs",
-        session_id="ss",
+    assert (
+        m1
+        == m2
+        == GateMarker(
+            event_type="test_ordering",
+            triggered_at=42.0,
+            triggering_evidence="ev",
+            resolution_action="rs",
+            session_id="ss",
+        )
     )
