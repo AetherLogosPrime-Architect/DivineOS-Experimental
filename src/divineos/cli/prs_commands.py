@@ -121,9 +121,7 @@ def _branch_touches_guardrail(branch: str, base: str = "main") -> tuple[bool, li
     guardrails = _guardrail_paths()
     if not guardrails:
         return False, []
-    rc, out, _ = _run(
-        ["git", "diff", "--name-only", f"origin/{base}...{branch}"], timeout=10
-    )
+    rc, out, _ = _run(["git", "diff", "--name-only", f"origin/{base}...{branch}"], timeout=10)
     if rc != 0:
         return False, []
     changed = {line.strip() for line in out.splitlines() if line.strip()}

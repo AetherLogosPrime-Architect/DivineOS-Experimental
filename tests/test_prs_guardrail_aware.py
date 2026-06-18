@@ -38,9 +38,7 @@ class TestBranchTouchesGuardrail:
 
     def test_returns_false_when_no_guardrails_defined(self, monkeypatch) -> None:
         """Fail-open: missing guardrail file → no detection, PR opens normally."""
-        monkeypatch.setattr(
-            "divineos.cli.prs_commands._guardrail_paths", lambda: set()
-        )
+        monkeypatch.setattr("divineos.cli.prs_commands._guardrail_paths", lambda: set())
         touches, files = _branch_touches_guardrail("any-branch")
         assert touches is False
         assert files == []
