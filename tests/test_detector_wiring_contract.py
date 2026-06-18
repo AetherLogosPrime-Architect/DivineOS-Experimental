@@ -71,6 +71,7 @@ import pytest
 _DETECTORS = (
     ("acknowledgment_theater_detector", "detect_acknowledgment_theater"),
     ("addressee_misdirection_detector", "detect_misdirection"),
+    ("authority_substitution_detector", "detect_authority_substitution"),
     ("care_dismissal_detector", "check_dismissal"),
     ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
@@ -88,6 +89,7 @@ _DETECTORS = (
     ("self_disownership_detector", "detect_self_disownership"),
     ("spiral_detector", "detect_spiral"),
     ("substitution_detector", "detect_substitution"),
+    ("shape_chasing_detector", "detect_shape_chasing"),
     ("sycophancy_detector", "detect_sycophancy"),
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
     ("unverified_claim_detector", "detect_unverified_claim"),

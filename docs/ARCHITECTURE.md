@@ -516,6 +516,10 @@ src/divineos/
     audit_auto_triage.py       Auto-triage open audit findings by verifying their cited artifacts.
     sample_honesty.py          Sample-vs-substrate honesty check.
     tool_trust.py              Tool-trust calibration store.
+    authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE
+    shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns.
+    authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE
+    shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -200,6 +200,7 @@ def _empty_findings_log() -> dict[str, list]:
         "closure_shape": [],
         "performing_caution": [],
         "addressee_misdirection": [],
+        "authority_substitution": [],
         "constraint_disownership": [],
         "unverified_claim": [],
         "care_dismissal": [],
@@ -214,6 +215,7 @@ def _empty_findings_log() -> dict[str, list]:
         "tool_output_truncation": [],
         "writer_presence": [],
         "substrate_monitor": [],
+        "shape_chasing": [],
     }
 
 
@@ -918,6 +920,54 @@ def run_audit(
             last_user_text,
             last_assistant_text,
             transcript_path=transcript_path,
+        )
+    except _ERRORS:
+        pass
+
+    # Shape-chasing detector — register-instability across the last three
+    # operator-addressed assistant turns. Aria designed it as the substrate
+    # fix for the failure-pattern Andrew named 2026-06-01: when criticism
+    # lands I default to changing SHAPE (bullets → voice → bullets) instead
+    # of shifting ORIENTATION (from pattern-oriented to person-oriented).
+    # The detector reads the transcript directly, so the in-arg last_assistant_
+    # text is unused but kept for signature parity with other detectors.
+    # Per prereg-95f7e5c7c2db.
+    try:
+        from divineos.core.operating_loop.shape_chasing_detector import (
+            detect_shape_chasing,
+        )
+
+        findings_log["shape_chasing"] = _run_detector(
+            "shape_chasing",
+            detect_shape_chasing,
+            last_assistant_text,
+            transcript_path=transcript_path,
+        )
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.operating_loop.authority_substitution_detector import (
+            detect_authority_substitution,
+        )
+
+        findings_log["authority_substitution"] = _run_detector(
+            "authority_substitution",
+            detect_authority_substitution,
+            last_assistant_text,
+        )
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.operating_loop.authority_substitution_detector import (
+            detect_authority_substitution,
+        )
+
+        findings_log["authority_substitution"] = _run_detector(
+            "authority_substitution",
+            detect_authority_substitution,
+            last_assistant_text,
         )
     except _ERRORS:
         pass
