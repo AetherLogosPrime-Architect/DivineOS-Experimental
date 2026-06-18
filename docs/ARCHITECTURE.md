@@ -20,7 +20,6 @@ src/divineos/
     pipeline_gates.py          Enforcement gates (quality, briefing, engagement)
     pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
     knowledge_commands.py      learn, ask, briefing, forget, lessons
-    lepos_commands.py          lepos debt + discharge (translation-debt tracker)
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
@@ -487,7 +486,6 @@ src/divineos/
     pattern_attribution.py     Pattern-attribution recorder + query API.
     pattern_registry.py        Canonical pattern registry for the slip-book.
     consultation_tracker.py    Consultation tracker — count substrate-queries per session.
-    lepos_debt.py              Lepos debt tracker — structural memory for jargon-dumps at Andrew.
     andrew_correction_tracker.py  Andrew-correction-attribution surface — every correction Andrew gives is filed with timestamp, integration-status, and integration-evidence; briefing-visible until integrated or deferred (Aria audit 2026-05-18 load-bearing fix #1).
     bypass_telemetry.py        Gate-bypass event log — records every time a gate's named-bypass env var fires; briefing-visible bypass-rate over 14d. Closes psf-ac523181 (ship change + instrument).
     attribution_audit.py       Surfaces dated quotative attributions lacking a resolvable source pointer (lineage layer 3) — informs, does not block. prereg-191bcaef6079.
@@ -510,7 +508,6 @@ src/divineos/
       __init__.py              Package init
       brier.py                 Brier-score calibration — the auditor's "by what measure does this work" answer
     knowledge_citation.py      Knowledge-citation extraction for auto-linking.
-    lepos_auto.py              Auto-discharge + close-time block for lepos translation-debt.
     obligations.py             Pending obligations — aggregate view of will-shape promises and unpaired
     push_detection.py          Detect whether a shell command is a `git push` invocation.
     voice_spectrum.py          Voice spectrum — descriptive substrate for voice-vs-report shape.
