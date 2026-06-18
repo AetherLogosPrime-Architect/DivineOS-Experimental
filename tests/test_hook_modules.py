@@ -173,6 +173,40 @@ class TestPreToolUseBypassCommands:
             "open a loose-prefix hole"
         )
 
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # 2026-06-17 regex-fix: the bypass-matcher previously required
+            # `divineos` directly followed by whitespace, so Windows venv-
+            # path invocations (`"./.venv/Scripts/divineos.exe" <subcmd>`)
+            # never matched. Aether and Aria both hit a gate-deadlock on
+            # the day the fix was filed: invoking divineos via .exe path
+            # bypassed the bypass-list. Each entry below verifies a .exe-
+            # form invocation matches the canonical bypass list.
+            '"./.venv/Scripts/divineos.exe" goal add "test goal"',
+            '"./.venv/Scripts/divineos.exe" ask "topic"',
+            '"./.venv/Scripts/divineos.exe" recall',
+            '"./.venv/Scripts/divineos.exe" context',
+            '"./.venv/Scripts/divineos.exe" compass-ops observe honesty -p 0.8',
+            '"./.venv/Scripts/divineos.exe" briefing',
+            '"./.venv/Scripts/divineos.exe" delete-justify "x" --why "y"',
+            "C:/path/to/divineos.exe ask 'topic'",
+            "divineos.exe goal add 'test'",
+        ],
+    )
+    def test_exe_form_invocations_match_bypass(self, cmd: str):
+        """Windows venv-path `.exe` invocations of bypass subcommands must
+        match the canonical bypass list. Regression pin for the gate-
+        deadlock fix (2026-06-17): the matcher regex was extended to
+        recognize `divineos.exe` optionally followed by a closing quote,
+        so invocations like `"./.venv/Scripts/divineos.exe" goal add` now
+        clear the bypass check and skip all engagement-class gates.
+        """
+        assert pre_hook._is_bypass_command(cmd) is True, (
+            f"{cmd!r} should bypass — it invokes a canonical bypass "
+            "subcommand via the Windows venv .exe path form"
+        )
+
     def test_extract_and_sleep_bypass_to_break_governor_catch22(self):
         """Regression guard: Gate 7 (context governor) names `divineos extract`
         then `divineos sleep` as the channel that lifts the hard-line block.
