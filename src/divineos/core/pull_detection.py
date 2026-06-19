@@ -336,7 +336,16 @@ def _format_marker_subset(markers: dict[str, str]) -> str:
 
 
 def _write_check_marker(result: PullCheck) -> None:
-    """Write pull check result to HUD dir for other systems to read."""
+    """Write pull check result to HUD dir for other systems to read.
+
+    Step 0 part 2 migration (signal-based-gates redesign): writes the
+    legacy ``.pull_check`` in hud dir AND populates the unified
+    gate_marker store. Non-clean checks add a gate_marker entry of
+    event_type ``fabrication_detected``; clean checks clear all such
+    entries. The dual-write/dual-clear shape mirrors the migrations of
+    hedge_marker and correction_marker. See
+    docs/signal-based-gates-design-2026-06-16.md.
+    """
     hud_dir = _ensure_hud_dir()
     data = {
         "clean": result.clean,
@@ -345,6 +354,36 @@ def _write_check_marker(result: PullCheck) -> None:
         "checked_at": result.checked_at,
     }
     (hud_dir / _PULL_CHECK_MARKER).write_text(json.dumps(data), encoding="utf-8")
+
+    # Dual-write to gate_marker. Clean checks clear; non-clean checks add.
+    # Fail-open: if the new store fails, the legacy gate still functions.
+    try:
+        from divineos.core import gate_marker as _gm
+
+        if result.clean:
+            _gm.clear_all("fabrication_detected")
+        else:
+            import os
+
+            pid = os.getpid()
+            try:
+                from divineos.core.memory import get_core
+
+                slot = get_core("my_identity").get("my_identity", "")
+                first = slot.strip().split()[0] if slot.strip() else "unknown"
+            except Exception:  # noqa: BLE001  defensive: identity lookup can fail any number of ways during bootstrap; fall back to "unknown"
+                first = "unknown"
+            session_id = f"{first}:placeholder-pid-{pid}"
+            markers_str = ", ".join(result.markers_fired)
+            _gm.write_marker(
+                event_type="fabrication_detected",
+                triggering_evidence=f"hard_markers=[{markers_str}]",
+                resolution_action="divineos rt pull-check",
+                session_id=session_id,
+                triggered_at=result.checked_at,
+            )
+    except (ImportError, OSError, AttributeError):
+        pass
 
 
 def last_check() -> PullCheck | None:
