@@ -518,6 +518,7 @@ src/divineos/
     sample_honesty.py          Sample-vs-substrate honesty check.
     tool_trust.py              Tool-trust calibration store.
     identity.py                Substrate identity helper — single source of truth for "who am I".
+    gate_marker.py             Unified gate marker schema — the foundation primitive for signal-based gates.
 
   analysis/
     _session_types.py          Session analysis type definitions
