@@ -17,11 +17,17 @@ def main() -> int:
     strict = "--strict" in args
 
     cmd = [
-        sys.executable, "-m", "bandit",
-        "-r", "src/divineos/",
-        "-f", "txt",
-        "-s", "B101",  # Skip assert_used (tests use asserts)
-        "--exclude", "tests",
+        sys.executable,
+        "-m",
+        "bandit",
+        "-r",
+        "src/divineos/",
+        "-f",
+        "txt",
+        "-s",
+        "B101",  # Skip assert_used (tests use asserts)
+        "--exclude",
+        "tests",
     ]
 
     if not show_all:

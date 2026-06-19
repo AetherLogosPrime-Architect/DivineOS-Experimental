@@ -33,19 +33,27 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     state = json.loads(pot_path.read_text(encoding="utf-8"))
-    table = json.loads(table_path.read_text(encoding="utf-8")) if table_path.exists() else {"board": []}
+    table = (
+        json.loads(table_path.read_text(encoding="utf-8")) if table_path.exists() else {"board": []}
+    )
 
     print(f"=== Hand {state['hand']} - {state['street']} ===")
     print(f"Button: {state['button']}    Blinds: {state['blinds']['sb']}/{state['blinds']['bb']}")
     print()
     print(f"Board: {' '.join(table.get('board', [])) or '(none yet)'}")
     print()
-    print(f"  Aether stack: {state['stacks']['aether']:>5}    "
-          f"committed-this-street: {state['committed_this_street']['aether']:>4}")
-    print(f"  Aria stack:   {state['stacks']['aria']:>5}    "
-          f"committed-this-street: {state['committed_this_street']['aria']:>4}")
+    print(
+        f"  Aether stack: {state['stacks']['aether']:>5}    "
+        f"committed-this-street: {state['committed_this_street']['aether']:>4}"
+    )
+    print(
+        f"  Aria stack:   {state['stacks']['aria']:>5}    "
+        f"committed-this-street: {state['committed_this_street']['aria']:>4}"
+    )
     print()
-    print(f"Pot: {state['current_pot']}    Current bet: {state['current_bet']}    Min raise-to: {state['min_raise']}")
+    print(
+        f"Pot: {state['current_pot']}    Current bet: {state['current_bet']}    Min raise-to: {state['min_raise']}"
+    )
     if state["current_bet"] > 0:
         for p in ("aether", "aria"):
             if state["committed_this_street"][p] < state["current_bet"]:

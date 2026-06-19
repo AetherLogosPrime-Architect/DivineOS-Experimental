@@ -70,9 +70,7 @@ def install() -> int:
     _USER_SETTINGS.parent.mkdir(parents=True, exist_ok=True)
     user: dict = {}
     if _USER_SETTINGS.exists():
-        backup = _USER_SETTINGS.with_name(
-            f"settings.json.bak-{time.strftime('%Y%m%d-%H%M%S')}"
-        )
+        backup = _USER_SETTINGS.with_name(f"settings.json.bak-{time.strftime('%Y%m%d-%H%M%S')}")
         shutil.copy2(_USER_SETTINGS, backup)
         print(f"backed up existing user settings -> {backup}")
         user = json.loads(_USER_SETTINGS.read_text(encoding="utf-8"))

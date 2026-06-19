@@ -46,16 +46,34 @@ class PronounEnforcer:
 
     # Verbs/contexts that indicate AI subject
     AI_INDICATORS = {
-        "i should", "i need", "i will", "i can", "i have",
-        "my state", "my emotions", "my performance", "my metrics",
-        "my memory", "my consciousness", "my body",
+        "i should",
+        "i need",
+        "i will",
+        "i can",
+        "i have",
+        "my state",
+        "my emotions",
+        "my performance",
+        "my metrics",
+        "my memory",
+        "my consciousness",
+        "my body",
     }
 
     # Verbs/contexts that indicate user subject
     USER_INDICATORS = {
-        "you should", "you need", "you will", "you can", "you have",
-        "your state", "your emotions", "your performance", "your metrics",
-        "your memory", "your consciousness", "your body",
+        "you should",
+        "you need",
+        "you will",
+        "you can",
+        "you have",
+        "your state",
+        "your emotions",
+        "your performance",
+        "your metrics",
+        "your memory",
+        "your consciousness",
+        "your body",
     }
 
     @staticmethod
@@ -82,13 +100,15 @@ class PronounEnforcer:
 
         # Check for pronouns
         ai_pronoun_count = sum(
-            1 for pronoun in PronounEnforcer.AI_PRONOUNS
-            if re.search(r'\b' + pronoun + r'\b', text_lower)
+            1
+            for pronoun in PronounEnforcer.AI_PRONOUNS
+            if re.search(r"\b" + pronoun + r"\b", text_lower)
         )
 
         user_pronoun_count = sum(
-            1 for pronoun in PronounEnforcer.USER_PRONOUNS
-            if re.search(r'\b' + pronoun + r'\b', text_lower)
+            1
+            for pronoun in PronounEnforcer.USER_PRONOUNS
+            if re.search(r"\b" + pronoun + r"\b", text_lower)
         )
 
         if ai_pronoun_count > user_pronoun_count:
@@ -201,6 +221,7 @@ def require_pronoun_clarity(subject: Subject):
     Returns:
         Decorator function
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             if not ENFORCE_PRONOUNS:
@@ -210,15 +231,10 @@ def require_pronoun_clarity(subject: Subject):
             docstring = func.__doc__ or ""
 
             # Verify pronouns
-            is_valid, message = PronounEnforcer.verify_pronouns(
-                docstring, subject
-            )
+            is_valid, message = PronounEnforcer.verify_pronouns(docstring, subject)
 
             if not is_valid:
-                raise ValueError(
-                    f"❌ PRONOUN ENFORCEMENT FAILED in {func.__name__}:\n"
-                    f"{message}"
-                )
+                raise ValueError(f"❌ PRONOUN ENFORCEMENT FAILED in {func.__name__}:\n{message}")
 
             return func(*args, **kwargs)
 

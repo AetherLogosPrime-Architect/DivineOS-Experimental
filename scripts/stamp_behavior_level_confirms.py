@@ -32,8 +32,7 @@ def find_truly_anchorless() -> list[tuple[str, str]]:
         title = getattr(f, "title", "") or ""
         desc = getattr(f, "description", "") or ""
         if not (
-            actor in external_actors
-            or any(actor.startswith(a + "-") for a in external_actors)
+            actor in external_actors or any(actor.startswith(a + "-") for a in external_actors)
         ):
             continue
         if "CONFIRM" not in title.upper():

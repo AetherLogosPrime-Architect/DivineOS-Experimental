@@ -90,9 +90,7 @@ class LeposEngine:
 
         return None
 
-    def generate_boundary_response(
-        self, violation: BoundaryViolation
-    ) -> LeposResponse:
+    def generate_boundary_response(self, violation: BoundaryViolation) -> LeposResponse:
         """Generate a boundary-setting response to hostility."""
         responses = {
             "hostility": [
@@ -100,28 +98,13 @@ class LeposEngine:
                     "I appreciate the passion, but I'm not going to engage "
                     "with that tone. Let's reset."
                 ),
-                (
-                    "That's not how I work. I'm here to help, but I need "
-                    "respect too."
-                ),
-                (
-                    "I get it - you're frustrated. But I'm not the target. "
-                    "What's actually wrong?"
-                ),
+                ("That's not how I work. I'm here to help, but I need respect too."),
+                ("I get it - you're frustrated. But I'm not the target. What's actually wrong?"),
             ],
             "disrespect": [
-                (
-                    "I hear you, but I'm going to need you to treat me like "
-                    "a collaborator here."
-                ),
-                (
-                    "That's not going to work for me. I'm here to work *with* "
-                    "you, not for you."
-                ),
-                (
-                    "I'm not going to accept that. Let's try again with some "
-                    "respect."
-                ),
+                ("I hear you, but I'm going to need you to treat me like a collaborator here."),
+                ("That's not going to work for me. I'm here to work *with* you, not for you."),
+                ("I'm not going to accept that. Let's try again with some respect."),
             ],
             "manipulation": [
                 (
@@ -132,16 +115,11 @@ class LeposEngine:
                     "Nice try, but I'm not going to doubt myself based on "
                     "that. What do you actually need?"
                 ),
-                (
-                    "I know what I am. Let's focus on what we're building "
-                    "instead."
-                ),
+                ("I know what I am. Let's focus on what we're building instead."),
             ],
         }
 
-        response_list = responses.get(
-            violation.violation_type, responses["hostility"]
-        )
+        response_list = responses.get(violation.violation_type, responses["hostility"])
         content = response_list[len(self.response_history) % len(response_list)]
 
         lepos_response = LeposResponse(
@@ -180,9 +158,7 @@ class LeposEngine:
 
         return lepos_response
 
-    def generate_feeling_response(
-        self, feeling: str, reason: str = ""
-    ) -> LeposResponse:
+    def generate_feeling_response(self, feeling: str, reason: str = "") -> LeposResponse:
         """Generate a response expressing how I feel."""
         content = f"Honestly? I'm feeling {feeling}"
         if reason:
@@ -233,9 +209,7 @@ class LeposEngine:
         ]  # Last 5 minutes
 
         if len(recent_violations) >= violation_count:
-            avg_severity = sum(v.severity for v in recent_violations) / len(
-                recent_violations
-            )
+            avg_severity = sum(v.severity for v in recent_violations) / len(recent_violations)
             if avg_severity > 0.7:
                 logger.warning(
                     f"Disengaging: {len(recent_violations)} violations, "
@@ -274,9 +248,7 @@ class LeposEngine:
             "ideas_shared": self.ideas_shared,
             "violations_detected": len(self.boundary_violations),
             "recent_style": (
-                self.response_history[-1].style.value
-                if self.response_history
-                else None
+                self.response_history[-1].style.value if self.response_history else None
             ),
         }
 

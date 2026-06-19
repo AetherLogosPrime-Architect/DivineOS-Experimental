@@ -17,8 +17,12 @@ def main() -> int:
     html_report = "--html" in args
 
     cmd = [
-        sys.executable, "-m", "pytest", "tests/",
-        "-q", "--tb=no",
+        sys.executable,
+        "-m",
+        "pytest",
+        "tests/",
+        "-q",
+        "--tb=no",
         "--cov=divineos",
         "--cov-branch",
         "--cov-report=term-missing",
@@ -32,8 +36,12 @@ def main() -> int:
     if summary_only:
         # Re-run with just the summary
         cmd_summary = [
-            sys.executable, "-m", "pytest", "tests/",
-            "-q", "--tb=no",
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/",
+            "-q",
+            "--tb=no",
             "--cov=divineos",
             "--cov-branch",
             "--cov-report=term",

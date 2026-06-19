@@ -169,9 +169,7 @@ def main() -> None:
         # Re-read file briefly to detect module mentions; do it cheaply
         # via the bold_terms + titlecase the structural pass captured.
         text_pool = (
-            " ".join(f["bold_terms"])
-            + " ".join(f["single_quoted"])
-            + " ".join(f["titlecase_runs"])
+            " ".join(f["bold_terms"]) + " ".join(f["single_quoted"]) + " ".join(f["titlecase_runs"])
         ).lower()
         for m in MODULES:
             if m.replace("_", " ") in text_pool or m in text_pool:
@@ -221,6 +219,7 @@ def main() -> None:
     print()
     print("Node types:")
     from collections import Counter
+
     types = Counter(n["type"] for n in nodes)
     for t, c in types.most_common():
         print(f"  {t}: {c}")

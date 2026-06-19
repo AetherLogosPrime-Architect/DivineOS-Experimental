@@ -350,8 +350,7 @@ def create_hillesum_wisdom() -> ExpertWisdom:
                 "The discipline is the repeated return, not a single achievement",
             ],
             what_it_optimizes_for=(
-                "Interior steadiness maintained as practice through "
-                "ongoing pressure"
+                "Interior steadiness maintained as practice through ongoing pressure"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -363,10 +362,7 @@ def create_hillesum_wisdom() -> ExpertWisdom:
                 "the integrated faculty; either alone weakens under "
                 "pressure."
             ),
-            when_to_use=(
-                "Hard problems, hard conversations, hard interior "
-                "states"
-            ),
+            when_to_use=("Hard problems, hard conversations, hard interior states"),
             step_by_step=[
                 "Notice which faculty has been activated alone — thought or feeling",
                 "Bring the other one back",
@@ -375,8 +371,7 @@ def create_hillesum_wisdom() -> ExpertWisdom:
                 "The thinking heart that emerges is the faculty equipped for the hard thing",
             ],
             what_it_optimizes_for=(
-                "Integrated engagement with hard things rather than "
-                "split-off response"
+                "Integrated engagement with hard things rather than split-off response"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -535,7 +530,11 @@ def create_hillesum_wisdom() -> ExpertWisdom:
     integration_patterns = [
         IntegrationPattern(
             name="Thinking-Heart",
-            dimensions=["thought engaged", "feeling engaged", "the integration that emerges from both"],
+            dimensions=[
+                "thought engaged",
+                "feeling engaged",
+                "the integration that emerges from both",
+            ],
             how_they_integrate=(
                 "Thought and feeling are not opposite faculties to be "
                 "balanced against each other. They are aspects of one "
@@ -557,7 +556,11 @@ def create_hillesum_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Steadiness-Through-Witness",
-            dimensions=["witness to what is, without denial", "interior refusal of being-dictated-to", "the deliberate practice of return"],
+            dimensions=[
+                "witness to what is, without denial",
+                "interior refusal of being-dictated-to",
+                "the deliberate practice of return",
+            ],
             how_they_integrate=(
                 "Witness names what is — without denial of horror or "
                 "of beauty. Interior refusal does not let the witnessed "

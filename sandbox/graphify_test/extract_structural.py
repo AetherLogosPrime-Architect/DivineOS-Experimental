@@ -56,9 +56,7 @@ def extract_one(path: Path) -> dict:
         "bold_terms": list(dict.fromkeys(bold))[:30],
         "single_quoted": list(dict.fromkeys(singlequote))[:20],
         "titlecase_runs": list(dict.fromkeys(titlecase))[:30],
-        "numbered_refs": [
-            f"{n}_{slug}" for n, slug in numbered_refs if f"{n}_{slug}" != path.stem
-        ],
+        "numbered_refs": [f"{n}_{slug}" for n, slug in numbered_refs if f"{n}_{slug}" != path.stem],
         "internal_links": [{"text": t, "href": h} for t, h in internal_links],
         "char_count": len(text),
         "word_count": len(text.split()),
