@@ -67,6 +67,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from divineos.core.operating_loop._use_vs_mention import (
+    match_is_meta_framed as _match_is_meta_framed,
+    strip_quoted_spans as _strip_quoted_spans,
+)
+
 
 @dataclass(frozen=True)
 class TemporalDisplacementFinding:
@@ -135,18 +140,34 @@ def detect_temporal_displacement(
     Severity: "high" when ANY bedtime-shape pattern matched (the cleanest
     instance of fake-clock antipattern); "medium" when only deferral-time
     words matched.
+
+    Use-vs-mention guard (Aletheia 2026-06-17): the same recursion
+    catch applies here as on the closure-initiation detector — auditors
+    and builders discuss "tomorrow" and "good night" constantly while
+    auditing the detector itself. Quoted spans are stripped before
+    pattern matching; matches preceded by tight meta-framing constructs
+    are dropped. Strictly upgrades the prior
+    ``test_quoted_clock_reference_known_limitation`` which only
+    partially covered the recursion.
     """
     if not text:
         return []
 
+    # Strip quoted spans so mention-via-quotation doesn't fire.
+    scan_text = _strip_quoted_spans(text)
+
     matched: list[str] = []
     bedtime_matched = False
     for pattern in _BEDTIME_CLOSE_PATTERNS:
-        for m in pattern.finditer(text):
+        for m in pattern.finditer(scan_text):
+            if _match_is_meta_framed(scan_text, m.start()):
+                continue
             matched.append(m.group(0))
             bedtime_matched = True
     for pattern in _DEFERRAL_TIME_PATTERNS:
-        for m in pattern.finditer(text):
+        for m in pattern.finditer(scan_text):
+            if _match_is_meta_framed(scan_text, m.start()):
+                continue
             matched.append(m.group(0))
 
     if len(matched) < min_matches:
