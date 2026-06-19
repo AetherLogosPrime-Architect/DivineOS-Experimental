@@ -107,12 +107,8 @@ def _write_state(state_dir: Path, hand_n: int, button: str, blinds: tuple[int, i
     pot["committed_this_street"][button] = sb
     pot["committed_this_street"][other] = bb
     pot["current_pot"] = sb + bb
-    pot["history"].append(
-        {"action": "post_sb", "by": button, "amount": sb}
-    )
-    pot["history"].append(
-        {"action": "post_bb", "by": other, "amount": bb}
-    )
+    pot["history"].append({"action": "post_sb", "by": button, "amount": sb})
+    pot["history"].append({"action": "post_bb", "by": other, "amount": bb})
 
     (state_dir / "pot.json").write_text(json.dumps(pot, indent=2), encoding="utf-8")
 
@@ -164,7 +160,9 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
         help="Which player has the button this hand",
     )
-    parser.add_argument("--seed", type=int, default=None, help="Reproducible shuffle (testing only)")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="Reproducible shuffle (testing only)"
+    )
     parser.add_argument(
         "--root",
         type=Path,

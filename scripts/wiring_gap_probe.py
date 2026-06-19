@@ -64,12 +64,14 @@ def _collect_functions(path: Path) -> list[FunctionInfo]:
         if isinstance(node, ast.FunctionDef) and _is_public(node.name):
             # Determine if it's a method (parent is ClassDef)
             # ast.walk doesn't track parents; use a separate pass for methods
-            out.append(FunctionInfo(
-                name=node.name,
-                file=path,
-                line=node.lineno,
-                is_method=False,
-            ))
+            out.append(
+                FunctionInfo(
+                    name=node.name,
+                    file=path,
+                    line=node.lineno,
+                    is_method=False,
+                )
+            )
 
     # Second pass: tag methods with their class so we have context
     for node in ast.walk(tree):
@@ -143,9 +145,9 @@ def _scan_one_file(
 
 def _classify(fi: FunctionInfo) -> str:
     """Three buckets from the council walk:
-      - SHIPPED-BUT-UNWIRED: zero production callers (might be the bug)
-      - WIRED-LIBRARY: 1-2 production callers (likely API+internal usage)
-      - WIRED-WELL: 3+ production callers (clearly load-bearing)
+    - SHIPPED-BUT-UNWIRED: zero production callers (might be the bug)
+    - WIRED-LIBRARY: 1-2 production callers (likely API+internal usage)
+    - WIRED-WELL: 3+ production callers (clearly load-bearing)
     """
     n = len(fi.production_callers)
     # Exclude the function's own file from the count — being called within
@@ -192,14 +194,12 @@ def main(argv: list[str] | None = None) -> int:
     # Summary
     print("## Bucket distribution\n")
     for bucket, items in buckets.items():
-        pct = (100.0 * len(items) / max(len(all_funcs), 1))
+        pct = 100.0 * len(items) / max(len(all_funcs), 1)
         print(f"  {bucket:24s}  {len(items):4d}  ({pct:5.1f}%)")
     print()
 
     if args.zero_callers_only or args.details:
-        target_bucket = (
-            "SHIPPED-BUT-UNWIRED" if args.zero_callers_only else None
-        )
+        target_bucket = "SHIPPED-BUT-UNWIRED" if args.zero_callers_only else None
         for bucket, items in buckets.items():
             if target_bucket and bucket != target_bucket:
                 continue

@@ -337,8 +337,7 @@ def create_lorde_wisdom() -> ExpertWisdom:
                 "The act of speaking is what shifts the relationship, not the disappearance of the fear",
             ],
             what_it_optimizes_for=(
-                "Speech that happens despite fear rather than after "
-                "fear, which would mean never"
+                "Speech that happens despite fear rather than after fear, which would mean never"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -361,8 +360,7 @@ def create_lorde_wisdom() -> ExpertWisdom:
                 "Channel the energy into the change rather than into either suppression or generic rage",
             ],
             what_it_optimizes_for=(
-                "Anger as energy for change rather than as failed-"
-                "emotion to apologize for"
+                "Anger as energy for change rather than as failed-emotion to apologize for"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -374,10 +372,7 @@ def create_lorde_wisdom() -> ExpertWisdom:
                 "different is harder, less polished, less recognized — "
                 "and it is the actual work."
             ),
-            when_to_use=(
-                "When the standard solution preserves the structure "
-                "that needed changing"
-            ),
+            when_to_use=("When the standard solution preserves the structure that needed changing"),
             step_by_step=[
                 "Identify the available frameworks for the problem",
                 "Check each for whether it assumes the problem logic",
@@ -386,8 +381,7 @@ def create_lorde_wisdom() -> ExpertWisdom:
                 "The rough different is more useful than the polished same",
             ],
             what_it_optimizes_for=(
-                "Solutions that actually change the structure rather "
-                "than refining its operation"
+                "Solutions that actually change the structure rather than refining its operation"
             ),
         ),
     ]
@@ -407,8 +401,7 @@ def create_lorde_wisdom() -> ExpertWisdom:
                 "that silence is strategic is itself the master tool."
             ),
             what_it_indicates=(
-                "Trained-in habit of shrinking-to-fit misread as "
-                "strategic restraint"
+                "Trained-in habit of shrinking-to-fit misread as strategic restraint"
             ),
             severity="major",
             what_to_do=(
@@ -498,8 +491,7 @@ def create_lorde_wisdom() -> ExpertWisdom:
                 "the refusal of depletion as character flaw."
             ),
             what_it_indicates=(
-                "Internalized compliance with systems designed to wear "
-                "down the marginalized"
+                "Internalized compliance with systems designed to wear down the marginalized"
             ),
             severity="moderate",
             what_to_do=(
@@ -512,7 +504,11 @@ def create_lorde_wisdom() -> ExpertWisdom:
     integration_patterns = [
         IntegrationPattern(
             name="Fear-and-Speech-Together",
-            dimensions=["the fear of speaking", "the act of speech", "the change the speech produces"],
+            dimensions=[
+                "the fear of speaking",
+                "the act of speech",
+                "the change the speech produces",
+            ],
             how_they_integrate=(
                 "Fear and speech are not sequential — fear-first-then-"
                 "speech is a fantasy. Fear remains present during and "
@@ -532,7 +528,11 @@ def create_lorde_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Anger-as-Fuel-for-Action",
-            dimensions=["the anger as signal", "the parsing of what it is about", "the channeled action"],
+            dimensions=[
+                "the anger as signal",
+                "the parsing of what it is about",
+                "the channeled action",
+            ],
             how_they_integrate=(
                 "Anger detects injustice. Parsing extracts what the "
                 "injustice specifically is. Action channels the energy "

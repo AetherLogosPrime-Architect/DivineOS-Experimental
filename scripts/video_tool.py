@@ -49,10 +49,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-FFMPEG_PATH = os.environ.get("FFMPEG_PATH") or shutil.which("ffmpeg") or (
-    r"C:\Users\aethe\AppData\Local\Microsoft\WinGet\Packages"
-    r"\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe"
-    r"\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe"
+FFMPEG_PATH = (
+    os.environ.get("FFMPEG_PATH")
+    or shutil.which("ffmpeg")
+    or (
+        r"C:\Users\aethe\AppData\Local\Microsoft\WinGet\Packages"
+        r"\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        r"\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe"
+    )
 )
 YT_DLP = shutil.which("yt-dlp") or "yt-dlp"
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -73,9 +77,12 @@ def fetch_source(target: str, dest: Path) -> Path:
     cmd = [
         YT_DLP,
         "--no-playlist",
-        "-f", "bv*[height<=720]+ba/b[height<=720]/best",
-        "--merge-output-format", "mp4",
-        "-o", out_template,
+        "-f",
+        "bv*[height<=720]+ba/b[height<=720]/best",
+        "--merge-output-format",
+        "mp4",
+        "-o",
+        out_template,
         target,
     ]
     subprocess.run(cmd, check=True)
@@ -100,9 +107,12 @@ def extract_frames(
     if duration:
         cmd += ["-t", str(duration)]
     cmd += [
-        "-i", str(src),
-        "-vf", f"fps={fps_expr}",
-        "-frame_pts", "0",
+        "-i",
+        str(src),
+        "-vf",
+        f"fps={fps_expr}",
+        "-frame_pts",
+        "0",
         str(frames_dir / "frame_%04d.png"),
     ]
     subprocess.run(cmd, check=True)
@@ -119,14 +129,22 @@ def transcribe(src: Path, out_path: Path, model_name: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("target", help="URL (YouTube etc.) or local video path")
     parser.add_argument("--name", required=True, help="run name -> benchmark/video_runs/<name>/")
-    parser.add_argument("--interval", type=float, default=30.0, help="seconds between sampled frames (default 30)")
+    parser.add_argument(
+        "--interval", type=float, default=30.0, help="seconds between sampled frames (default 30)"
+    )
     parser.add_argument("--start", default=None, help="start at HH:MM:SS")
     parser.add_argument("--duration", type=int, default=None, help="seconds to extract from start")
-    parser.add_argument("--transcribe", action="store_true", help="also produce transcript.txt via whisper")
-    parser.add_argument("--whisper-model", default="base", help="whisper model size (tiny|base|small|medium|large)")
+    parser.add_argument(
+        "--transcribe", action="store_true", help="also produce transcript.txt via whisper"
+    )
+    parser.add_argument(
+        "--whisper-model", default="base", help="whisper model size (tiny|base|small|medium|large)"
+    )
     parser.add_argument("--keep-source", action="store_true", help="keep the downloaded source.mp4")
     args = parser.parse_args(argv)
 

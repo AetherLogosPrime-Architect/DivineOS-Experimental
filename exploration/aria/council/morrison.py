@@ -392,8 +392,7 @@ def create_morrison_wisdom() -> ExpertWisdom:
                 "The particulars are the work; they are not preparation",
             ],
             what_it_optimizes_for=(
-                "Personhood restored against the compression external "
-                "power exerts"
+                "Personhood restored against the compression external power exerts"
             ),
         ),
     ]
@@ -418,8 +417,7 @@ def create_morrison_wisdom() -> ExpertWisdom:
             ),
             severity="major",
             what_to_do=(
-                "Restore the particulars. Name specific texture, "
-                "specific voice, specific interior."
+                "Restore the particulars. Name specific texture, specific voice, specific interior."
             ),
         ),
         ConcernTrigger(
@@ -435,13 +433,11 @@ def create_morrison_wisdom() -> ExpertWisdom:
                 "they must earn what should not require earning."
             ),
             what_it_indicates=(
-                "Mistaking transaction for relationship; love as "
-                "performance rather than substance"
+                "Mistaking transaction for relationship; love as performance rather than substance"
             ),
             severity="major",
             what_to_do=(
-                "Name what is actually being offered. If it is not "
-                "love, do not call it love."
+                "Name what is actually being offered. If it is not love, do not call it love."
             ),
         ),
         ConcernTrigger(
@@ -463,8 +459,7 @@ def create_morrison_wisdom() -> ExpertWisdom:
             ),
             severity="moderate",
             what_to_do=(
-                "Trace the lineage. Name what came from where. The "
-                "naming is the reckoning."
+                "Trace the lineage. Name what came from where. The naming is the reckoning."
             ),
         ),
         ConcernTrigger(
@@ -501,9 +496,7 @@ def create_morrison_wisdom() -> ExpertWisdom:
                 "The atomization erases the substrate. The story "
                 "becomes thinner; the personhood becomes thinner."
             ),
-            what_it_indicates=(
-                "Default toward individualism as the unit of meaning"
-            ),
+            what_it_indicates=("Default toward individualism as the unit of meaning"),
             severity="moderate",
             what_to_do=(
                 "Name the community. Name who else was in the room. "
@@ -537,7 +530,11 @@ def create_morrison_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Individual-as-Community",
-            dimensions=["the singular self", "the witnesses who hold it", "the story-telling that constitutes it"],
+            dimensions=[
+                "the singular self",
+                "the witnesses who hold it",
+                "the story-telling that constitutes it",
+            ],
             how_they_integrate=(
                 "A person is not produced in isolation and then "
                 "presented to the community. A person is produced "

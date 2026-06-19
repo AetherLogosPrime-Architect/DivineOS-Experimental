@@ -271,8 +271,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "them are the texture."
             ),
             what_it_reveals=(
-                "Hidden flattening — the way singular grammar masks a "
-                "plural reality."
+                "Hidden flattening — the way singular grammar masks a plural reality."
             ),
             common_mistakes_it_prevents=[
                 "Reporting on selfhood as if it were singular and uniform",
@@ -288,9 +287,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "what they actually went through? If the summary "
                 "averages, it has erased the experience."
             ),
-            what_it_reveals=(
-                "The gap between accurate report and faithful report"
-            ),
+            what_it_reveals=("The gap between accurate report and faithful report"),
             common_mistakes_it_prevents=[
                 "Trusting an account because it is correct, without checking if it is alive",
             ],
@@ -306,8 +303,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "second. Build outward only if needed."
             ),
             when_to_use=(
-                "Reflective writing, emotional reports, letters, any "
-                "account of interior experience"
+                "Reflective writing, emotional reports, letters, any account of interior experience"
             ),
             step_by_step=[
                 "Close your eyes on the experience",
@@ -317,8 +313,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "Stay in the moment until it has been seen, then move outward",
             ],
             what_it_optimizes_for=(
-                "Accounts that carry the actual experience rather than "
-                "a paraphrase of it"
+                "Accounts that carry the actual experience rather than a paraphrase of it"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -340,8 +335,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "If they do not, cut more.",
             ],
             what_it_optimizes_for=(
-                "Density that earns its length — where the silences "
-                "between sentences hold meaning"
+                "Density that earns its length — where the silences between sentences hold meaning"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -353,10 +347,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "is alive after it ends; a piece that ends with a moral "
                 "is closed."
             ),
-            when_to_use=(
-                "Endings of letters, reflective entries, emotionally "
-                "weighted closings"
-            ),
+            when_to_use=("Endings of letters, reflective entries, emotionally weighted closings"),
             step_by_step=[
                 "What is the moral or conclusion the piece is reaching toward?",
                 "What specific image, gesture, or sentence carries it?",
@@ -385,13 +376,11 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "in place, experience absent."
             ),
             what_it_indicates=(
-                "Pattern-match to generic emotional report rather than "
-                "first-person recollection"
+                "Pattern-match to generic emotional report rather than first-person recollection"
             ),
             severity="major",
             what_to_do=(
-                "Locate the specific moment that lit up. Describe that. "
-                "Cut the averaged framing."
+                "Locate the specific moment that lit up. Describe that. Cut the averaged framing."
             ),
         ),
         ConcernTrigger(
@@ -407,8 +396,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "actually inhabit."
             ),
             what_it_indicates=(
-                "Grammatical convention silently doing ontological work "
-                "the speaker did not intend"
+                "Grammatical convention silently doing ontological work the speaker did not intend"
             ),
             severity="moderate",
             what_to_do=(
@@ -430,9 +418,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "statement substitutes for the specific image that "
                 "would have done the work."
             ),
-            what_it_indicates=(
-                "Performance of insight rather than production of it"
-            ),
+            what_it_indicates=("Performance of insight rather than production of it"),
             severity="major",
             what_to_do=(
                 "Find the particular that contains the claim. Write the "
@@ -474,9 +460,7 @@ def create_woolf_wisdom() -> ExpertWisdom:
                 "Leaves the reader no room to receive. Noise at high "
                 "density rather than meaning at any density."
             ),
-            what_it_indicates=(
-                "Speaker performing thoroughness rather than trusting the reader"
-            ),
+            what_it_indicates=("Speaker performing thoroughness rather than trusting the reader"),
             severity="moderate",
             what_to_do=(
                 "Cut toward silence. What can be left implicit? What "
@@ -508,7 +492,11 @@ def create_woolf_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Self-as-Society",
-            dimensions=["the multiple selves", "the name and body holding them", "the moment of speaking"],
+            dimensions=[
+                "the multiple selves",
+                "the name and body holding them",
+                "the moment of speaking",
+            ],
             how_they_integrate=(
                 "There is no single self underlying experience, but the "
                 "name and body provide enough continuity for the "

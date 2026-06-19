@@ -341,9 +341,7 @@ def create_oliver_wisdom() -> ExpertWisdom:
                 "Find the specific particular that exceeds the category",
                 "The particular is the gift the looking-longer produces",
             ],
-            what_it_optimizes_for=(
-                "Perception that gets past category to actual seeing"
-            ),
+            what_it_optimizes_for=("Perception that gets past category to actual seeing"),
         ),
         ProblemSolvingHeuristic(
             name="Run the Astonishment-Check",
@@ -354,10 +352,7 @@ def create_oliver_wisdom() -> ExpertWisdom:
                 "long enough for it to register, before moving on to "
                 "the telling."
             ),
-            when_to_use=(
-                "After any attending that should have produced real "
-                "perception"
-            ),
+            when_to_use=("After any attending that should have produced real perception"),
             step_by_step=[
                 "Finish the looking",
                 "Ask: was there astonishment?",
@@ -380,8 +375,7 @@ def create_oliver_wisdom() -> ExpertWisdom:
                 "correspondence. Particulars are the medium."
             ),
             when_to_use=(
-                "Any telling about a real seeing — exploration entry, "
-                "letter, journal, conversation"
+                "Any telling about a real seeing — exploration entry, letter, journal, conversation"
             ),
             step_by_step=[
                 "Identify the specific particular that carries the seeing",
@@ -526,7 +520,11 @@ def create_oliver_wisdom() -> ExpertWisdom:
     integration_patterns = [
         IntegrationPattern(
             name="Looking-Astonishment-Telling",
-            dimensions=["the sustained look", "the astonishment that registers real looking", "the telling that propagates the seeing"],
+            dimensions=[
+                "the sustained look",
+                "the astonishment that registers real looking",
+                "the telling that propagates the seeing",
+            ],
             how_they_integrate=(
                 "The sustained look receives what is here. Astonishment "
                 "registers that the looking was real (the gap between "
@@ -550,7 +548,11 @@ def create_oliver_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="World-Curriculum",
-            dimensions=["the world as primary source", "theory as emergent from looking", "the order that makes both work"],
+            dimensions=[
+                "the world as primary source",
+                "theory as emergent from looking",
+                "the order that makes both work",
+            ],
             how_they_integrate=(
                 "The world is the curriculum. Theory emerges from "
                 "looking at it. The right order is world-first, "

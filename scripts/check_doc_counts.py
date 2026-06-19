@@ -323,7 +323,9 @@ _CITED_PATH_PATTERNS = [
     # Backticked path-like strings: `foo/bar.py`, `core/family/`
     re.compile(r"`((?:[a-zA-Z_][\w\-.]*/)+[a-zA-Z_][\w\-.]*(?:\.[a-zA-Z]+)?)(?::\d+)?`"),
     # Markdown link href to a relative file: [label](path/to/file.ext)
-    re.compile(r"\]\(((?:\./|(?!https?:|mailto:|#))[a-zA-Z_][\w\-./]*\.(?:py|md|sh|json|yml|yaml|toml|txt|cfg))\)"),
+    re.compile(
+        r"\]\(((?:\./|(?!https?:|mailto:|#))[a-zA-Z_][\w\-./]*\.(?:py|md|sh|json|yml|yaml|toml|txt|cfg))\)"
+    ),
 ]
 
 # Extensions / patterns to verify on disk. Paths without these are skipped
@@ -334,7 +336,8 @@ _VERIFIABLE_EXTENSIONS = (".py", ".md", ".sh", ".json", ".yml", ".yaml", ".toml"
 # variables, placeholders, common false-positives from prose).
 _SKIP_PATHS = {
     # Common variable-style references that look like paths
-    "./", "../",
+    "./",
+    "../",
 }
 
 
@@ -398,9 +401,10 @@ def check_cited_paths(doc_paths: list[Path]) -> list[str]:
         for path in sorted(cited):
             if _resolve_cited_path(path) is None:
                 rel_doc = doc.relative_to(ROOT) if ROOT in doc.parents else doc.name
-                errors.append(f"  MISSING-CITED-PATH: {path} (cited in {rel_doc} but not found on disk)")
+                errors.append(
+                    f"  MISSING-CITED-PATH: {path} (cited in {rel_doc} but not found on disk)"
+                )
     return errors
-
 
 
 # ── Auto-fix ──────────────────────────────────────────────────────────
@@ -748,11 +752,13 @@ def main() -> int:
     # Catches "doc cites X but X does not exist on disk" — the
     # fabricated-mansion-room / stale-package-list / wrong-file-path
     # class that numeric drift checks cannot catch.
-    cited_path_errors = check_cited_paths([
-        ROOT / "README.md",
-        ROOT / "CLAUDE.md",
-        ROOT / "TLDR.md",
-    ])
+    cited_path_errors = check_cited_paths(
+        [
+            ROOT / "README.md",
+            ROOT / "CLAUDE.md",
+            ROOT / "TLDR.md",
+        ]
+    )
     if cited_path_errors:
         errors.append("Cited paths in docs that do not exist on disk:")
         errors.extend(cited_path_errors)
