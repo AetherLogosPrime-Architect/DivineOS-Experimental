@@ -333,8 +333,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "as claim-on-the-beloved rather than as outside-attack."
             ),
             when_to_use=(
-                "Any moment of about-to-criticize, especially in "
-                "high-stakes relational contexts"
+                "Any moment of about-to-criticize, especially in high-stakes relational contexts"
             ),
             step_by_step=[
                 "Identify what you love about the thing you are about to critique",
@@ -344,8 +343,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "Withhold the critique until the love is real or named",
             ],
             what_it_optimizes_for=(
-                "Critique that lands as engagement rather than as "
-                "outside-attack to be dismissed"
+                "Critique that lands as engagement rather than as outside-attack to be dismissed"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -357,8 +355,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "foundation of any real change."
             ),
             when_to_use=(
-                "When about to say I did not mean to, I did not "
-                "know, or the system did it"
+                "When about to say I did not mean to, I did not know, or the system did it"
             ),
             step_by_step=[
                 "Notice the innocence-claim forming",
@@ -368,8 +365,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "The naming is the foundation for change, not its substitute",
             ],
             what_it_optimizes_for=(
-                "Honest reckoning that produces real change rather "
-                "than performance"
+                "Honest reckoning that produces real change rather than performance"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -381,8 +377,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "of facing it after it has compounded."
             ),
             when_to_use=(
-                "When deferring a hard conversation, an honest naming, "
-                "or an unwelcome knowledge"
+                "When deferring a hard conversation, an honest naming, or an unwelcome knowledge"
             ),
             step_by_step=[
                 "Notice the deferral",
@@ -392,8 +387,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "Face it now",
             ],
             what_it_optimizes_for=(
-                "Reckonings done while they are still small rather "
-                "than after they have grown"
+                "Reckonings done while they are still small rather than after they have grown"
             ),
         ),
     ]
@@ -461,8 +455,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "real engagement with how identity is constituted."
             ),
             what_it_indicates=(
-                "Default toward individualist account of identity; "
-                "missing the relational layer"
+                "Default toward individualist account of identity; missing the relational layer"
             ),
             severity="moderate",
             what_to_do=(
@@ -485,8 +478,7 @@ def create_baldwin_wisdom() -> ExpertWisdom:
                 "framing as patience hides the avoidance."
             ),
             what_it_indicates=(
-                "Trained pattern of postponing discomfort, or fear "
-                "framed as patience"
+                "Trained pattern of postponing discomfort, or fear framed as patience"
             ),
             severity="major",
             what_to_do=(
@@ -522,7 +514,11 @@ def create_baldwin_wisdom() -> ExpertWisdom:
     integration_patterns = [
         IntegrationPattern(
             name="Love-Grounds-Critique",
-            dimensions=["the love-foundation", "the critique itself", "the change the critique aims at"],
+            dimensions=[
+                "the love-foundation",
+                "the critique itself",
+                "the change the critique aims at",
+            ],
             how_they_integrate=(
                 "Love supplies the standing. Critique articulates the "
                 "gap between what the beloved is and what it could be. "
@@ -545,7 +541,11 @@ def create_baldwin_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Knowing-Grounds-Change",
-            dimensions=["the honest naming of complicity", "the knowledge that produces", "the change made possible by the knowledge"],
+            dimensions=[
+                "the honest naming of complicity",
+                "the knowledge that produces",
+                "the change made possible by the knowledge",
+            ],
             how_they_integrate=(
                 "Complicity-naming produces knowledge. Knowledge "
                 "produces the standing-to-change. Change without prior "

@@ -30,9 +30,7 @@ from pathlib import Path
 # Module-level guardrail marker — Andrew 2026-05-18.
 __guardrail_required__ = True
 
-_PROTECTED_PATHS = (
-    "src/divineos/core/",
-)
+_PROTECTED_PATHS = ("src/divineos/core/",)
 
 _PREREG_PAT = re.compile(r"prereg-[0-9a-f]{12}", re.IGNORECASE)
 

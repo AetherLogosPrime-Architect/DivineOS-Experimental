@@ -208,7 +208,9 @@ def main(argv: list[str] | None = None) -> int:
     elif expected_commit == actual_commit:
         print(f"  PASS: commit {actual_commit[:16]}... matches log.")
     else:
-        print(f"  FAIL: commit {actual_commit[:16]}... does NOT match log {expected_commit[:16]}...")
+        print(
+            f"  FAIL: commit {actual_commit[:16]}... does NOT match log {expected_commit[:16]}..."
+        )
         print(f"  Either the revealed cards are wrong, or someone tampered.")
         return 3
 

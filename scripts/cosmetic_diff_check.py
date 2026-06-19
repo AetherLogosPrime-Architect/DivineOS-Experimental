@@ -285,11 +285,7 @@ def _is_unused_import_removal_only(
     # nodes removed.
     def strip_imports(tree: ast.AST) -> ast.AST:
         new = ast.parse(ast.unparse(tree))
-        new.body = [
-            stmt
-            for stmt in new.body
-            if not isinstance(stmt, ast.Import | ast.ImportFrom)
-        ]
+        new.body = [stmt for stmt in new.body if not isinstance(stmt, ast.Import | ast.ImportFrom)]
         return new
 
     return ast.dump(strip_imports(prior_ast), annotate_fields=False) == ast.dump(

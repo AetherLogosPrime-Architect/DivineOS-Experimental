@@ -87,8 +87,12 @@ _ANDREW_CASUAL_PATTERNS = [
 # without breaking the conservative multi-match guard: any of these still
 # defer to NULL if another actor's strong-signature also matches.
 _AETHER_AGENT_VOICE_PATTERNS = [
-    re.compile(r"\bI\s+(noticed|observed|forgot|filed|added|caught|surfaced|realized|named|built|wrote|shipped|fixed|landed|discovered|articulated|described|chose|picked|decided|verified|recognized)\b"),
-    re.compile(r"\bmy\s+(optimizer|substrate|active memory|knowledge store|compass|ledger|own|voice|self-model|hedge)\b"),
+    re.compile(
+        r"\bI\s+(noticed|observed|forgot|filed|added|caught|surfaced|realized|named|built|wrote|shipped|fixed|landed|discovered|articulated|described|chose|picked|decided|verified|recognized)\b"
+    ),
+    re.compile(
+        r"\bmy\s+(optimizer|substrate|active memory|knowledge store|compass|ledger|own|voice|self-model|hedge)\b"
+    ),
     re.compile(r"\bthe\s+optimizer\s+routed\b"),
     re.compile(r"\(Aether\s+20\d{2}-\d{2}-\d{2}"),  # explicit stamp anywhere
     re.compile(r"\bI\s+want\s+future-me\b"),  # exploration-entry tell

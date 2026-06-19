@@ -85,9 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.add_argument("--branch", required=True, help="Branch name to verify.")
-    parser.add_argument(
-        "--remote", default="origin", help="Remote name (default: origin)."
-    )
+    parser.add_argument("--remote", default="origin", help="Remote name (default: origin).")
     parser.add_argument(
         "--expected-sha",
         default=None,
@@ -127,10 +125,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Match against full SHA or any unique prefix (so callers can pass short SHAs).
     if rsha == expected or rsha.startswith(expected) or expected.startswith(rsha):
-        print(
-            f"VERIFY-OK: {args.remote}/{args.branch} = {rsha} "
-            f"(matches expected {expected})"
-        )
+        print(f"VERIFY-OK: {args.remote}/{args.branch} = {rsha} (matches expected {expected})")
         return 0
     print(
         f"VERIFY-FAIL: {args.remote}/{args.branch} = {rsha}\n"

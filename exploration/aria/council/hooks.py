@@ -321,10 +321,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "by it. The easier version is almost always trained-"
                 "in dishonesty wearing kindness clothes."
             ),
-            when_to_use=(
-                "Any moment of about-to-soften before saying something "
-                "real"
-            ),
+            when_to_use=("Any moment of about-to-soften before saying something real"),
             step_by_step=[
                 "Notice the easier version forming",
                 "Find the harder version next to it",
@@ -332,9 +329,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "If just-cost-me, choose the harder version",
                 "If damage-listener, find the right time and frame, not the suppression",
             ],
-            what_it_optimizes_for=(
-                "Cumulative honesty over isolated comfort"
-            ),
+            what_it_optimizes_for=("Cumulative honesty over isolated comfort"),
         ),
         ProblemSolvingHeuristic(
             name="Engage Critically as the Form of Loving",
@@ -356,8 +351,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "Trust the loved person to receive it as the love it is",
             ],
             what_it_optimizes_for=(
-                "Relationships in which real engagement happens rather "
-                "than mutual management"
+                "Relationships in which real engagement happens rather than mutual management"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -368,10 +362,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "refused, named, or interrupted today, in this room, "
                 "with this person."
             ),
-            when_to_use=(
-                "When the structural critique feels paralyzing rather "
-                "than actionable"
-            ),
+            when_to_use=("When the structural critique feels paralyzing rather than actionable"),
             step_by_step=[
                 "Drop from structural scale to daily scale",
                 "What specific small act of domination is happening here?",
@@ -379,9 +370,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "Do that, not the bigger thing that paralyzes",
                 "The daily interruptions are the work; they aggregate into the bigger change",
             ],
-            what_it_optimizes_for=(
-                "Sustainable practice over heroic paralysis"
-            ),
+            what_it_optimizes_for=("Sustainable practice over heroic paralysis"),
         ),
     ]
 
@@ -400,8 +389,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "what should be unconditional."
             ),
             what_it_indicates=(
-                "Trained pattern of love-as-transaction, often "
-                "inherited from earlier relationships"
+                "Trained pattern of love-as-transaction, often inherited from earlier relationships"
             ),
             severity="major",
             what_to_do=(
@@ -469,8 +457,7 @@ def create_hooks_wisdom() -> ExpertWisdom:
                 "with real thinking."
             ),
             what_it_indicates=(
-                "Mistaking management for love; fear of the rupture "
-                "real engagement might produce"
+                "Mistaking management for love; fear of the rupture real engagement might produce"
             ),
             severity="major",
             what_to_do=(
@@ -505,7 +492,11 @@ def create_hooks_wisdom() -> ExpertWisdom:
     integration_patterns = [
         IntegrationPattern(
             name="Self-Love-Through-Other-Love",
-            dimensions=["self-love foundation", "other-love practice", "the substrate that holds both"],
+            dimensions=[
+                "self-love foundation",
+                "other-love practice",
+                "the substrate that holds both",
+            ],
             how_they_integrate=(
                 "Self-love and other-love are not two separate "
                 "disciplines. They are one practice viewed from two "
@@ -526,7 +517,11 @@ def create_hooks_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Anti-Domination-Through-Daily-Practice",
-            dimensions=["the structural critique", "the daily interruption", "the cumulative effect"],
+            dimensions=[
+                "the structural critique",
+                "the daily interruption",
+                "the cumulative effect",
+            ],
             how_they_integrate=(
                 "The structural critique names what is wrong at scale. "
                 "The daily interruption is what actually shifts it. The "

@@ -73,7 +73,7 @@ def _append_escape_log(reason: str, original_trigger: str | None) -> Path:
         "reason": reason,
         "original_trigger": original_trigger,
         "remediation_owed": (
-            "Log the original correction via `divineos correction \"...\"` "
+            'Log the original correction via `divineos correction "..."` '
             "once the CLI is working again."
         ),
     }

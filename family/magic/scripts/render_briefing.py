@@ -139,9 +139,7 @@ def render_briefing(state: dict[str, Any], for_player: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Render briefing.md for the next-to-act player."
-    )
+    parser = argparse.ArgumentParser(description="Render briefing.md for the next-to-act player.")
     parser.add_argument("--game", required=True, type=Path)
     parser.add_argument("--for", dest="for_player", required=True, choices=("aether", "aria"))
     args = parser.parse_args(argv)

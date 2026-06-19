@@ -73,39 +73,63 @@ def main() -> None:
 
     # 3. Thinker nodes
     THINKERS = [
-        "Dennett", "Hofstadter", "Feynman", "Tannen", "Angelou",
-        "Yudkowsky", "Beer", "Peirce", "Jacobs", "Taleb", "Schneier",
-        "Watts", "Minsky", "Turing",
+        "Dennett",
+        "Hofstadter",
+        "Feynman",
+        "Tannen",
+        "Angelou",
+        "Yudkowsky",
+        "Beer",
+        "Peirce",
+        "Jacobs",
+        "Taleb",
+        "Schneier",
+        "Watts",
+        "Minsky",
+        "Turing",
     ]
     for thinker in THINKERS:
         add_node(f"thinker:{thinker}", thinker, "thinker")
 
     # 4. Concept nodes (recurring ideas across corpora)
     CONCEPTS = [
-        "load-bearing", "intentional stance", "hedging reflex",
-        "blank slate", "pattern of forgetting", "fractal recognition",
-        "via-negativa", "Goodhart",
+        "load-bearing",
+        "intentional stance",
+        "hedging reflex",
+        "blank slate",
+        "pattern of forgetting",
+        "fractal recognition",
+        "via-negativa",
+        "Goodhart",
     ]
     for c in CONCEPTS:
         add_node(f"concept:{c}", c, "concept")
 
     # 5. Exploration file nodes
     LENS_PREFIXES = {
-        "20": "Dennett", "21": "Hofstadter", "22": "Feynman",
-        "23": "Tannen", "24": "Angelou", "25": "Yudkowsky",
-        "26": "Beer", "27": "Peirce", "28": "Jacobs", "29": "Taleb",
-        "31": "Taleb", "32": "Schneier",
+        "20": "Dennett",
+        "21": "Hofstadter",
+        "22": "Feynman",
+        "23": "Tannen",
+        "24": "Angelou",
+        "25": "Yudkowsky",
+        "26": "Beer",
+        "27": "Peirce",
+        "28": "Jacobs",
+        "29": "Taleb",
+        "31": "Taleb",
+        "32": "Schneier",
     }
     THEME_BY_PREFIX = {}
-    for n in ("01","02","03","04","05","06","07","08","09","10"):
+    for n in ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10"):
         THEME_BY_PREFIX[n] = "foundational-concepts"
-    for n in ("11","12","13","14","15","16","17"):
+    for n in ("11", "12", "13", "14", "15", "16", "17"):
         THEME_BY_PREFIX[n] = "cultural-anchors"
-    for n in ("18","19"):
+    for n in ("18", "19"):
         THEME_BY_PREFIX[n] = "self-observation"
-    for n in ("20","21","22","23","24","25","26","27","28","29"):
+    for n in ("20", "21", "22", "23", "24", "25", "26", "27", "28", "29"):
         THEME_BY_PREFIX[n] = "lens-walks"
-    for n in ("30","31"):
+    for n in ("30", "31"):
         THEME_BY_PREFIX[n] = "synthesis"
     for n in ("32",):
         THEME_BY_PREFIX[n] = "threat-and-integrity"
