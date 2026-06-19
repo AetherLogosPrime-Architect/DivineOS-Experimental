@@ -8,7 +8,6 @@ deprecation notice when git is unreachable or --no-tree-hash is set.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from unittest.mock import patch
 
@@ -49,9 +48,17 @@ def _patches(round_id="round-fake12345"):
     ]
 
 
-def test_prepare_merge_emits_tree_hash_by_default():
-    """Default behavior: trailer includes tree-hash from HEAD."""
-    fake_tree = "abc1234567890abcdef1234567890abcdef12345"
+def test_prepare_merge_omits_tree_hash_by_default():
+    """Default behavior 2026-06-18 (Andrew correction): trailer omits tree-hash.
+
+    Prior default emitted HEAD^{tree} as the trailer's tree-hash, intended
+    as Phase 2 substance-binding. But the predicted tree-hash doesn't match
+    the squash-merge's actual tree once main has moved between predict-time
+    and squash-time (queue serialization effect). Two PRs (#221, #230)
+    merged with technically-mismatching tree-hashes that flagged the
+    post-merge integrity audit. Default flipped to legacy form; substance-
+    binding stays honest via per-commit trailers + audit-round CONFIRMs.
+    """
     with (
         patch(
             "divineos.core.watchmen.store.get_round",
@@ -61,17 +68,13 @@ def test_prepare_merge_emits_tree_hash_by_default():
             "divineos.core.watchmen.store.list_findings",
             return_value=[_FakeFinding(actor="user"), _FakeFinding(actor="aletheia")],
         ),
-        patch("subprocess.run") as run,
     ):
-        run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout=fake_tree + "\n", stderr=""
-        )
         runner = CliRunner()
         result = runner.invoke(cli, ["audit", "prepare-merge", "round-fake12345"])
 
     assert result.exit_code == 0, result.output
-    assert f"External-Review: round-fake12345 tree-hash:{fake_tree}" in result.output
-    assert "Substance-bound" in result.output or "substance-bound" in result.output.lower()
+    assert "External-Review: round-fake12345" in result.output
+    assert "tree-hash:" not in result.output
 
 
 def test_prepare_merge_no_tree_hash_flag_emits_legacy_form():
