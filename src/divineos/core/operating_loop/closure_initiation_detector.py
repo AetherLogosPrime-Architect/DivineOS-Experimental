@@ -225,71 +225,35 @@ _DEFAULT_MIN_MATCHES: int = 1
 # marker-schema and identity helper, "don't hardcode the set, read it
 # from a declared source." Deferred until a second legitimate-closure
 # command actually ships per the data-driven-pays-for-itself threshold.
-_QUOTED_SPAN_PATTERN = re.compile(r'(?:"[^"]*"|\'[^\']*\'|`[^`]*`|<[^>]*>|—[^—]*—)')
+# Extracted to shared module 2026-06-17 (per Aletheia's generalization:
+# "for any detector that operates on father-channel or letter-channel
+# text, the test suite must include meta-discussion of the detector
+# itself as a regression class"). Generic guard primitives live in
+# _use_vs_mention.py; closure-specific meta-framing (closure-shape,
+# closure-language, etc.) stays inline because it's vocabulary the
+# generic helper has no reason to know about.
+from divineos.core.operating_loop._use_vs_mention import (  # noqa: E402
+    match_is_meta_framed as _generic_match_is_meta_framed,
+)
+from divineos.core.operating_loop._use_vs_mention import (  # noqa: E402
+    strip_quoted_spans as _strip_quoted_spans,
+)
 
-# Tight meta-framing constructs: specific phrases that put the matched
-# token in OBJECT position of a meta-verb, not just nearby words. The
-# initial broader word-list (catch/detect/match/test/etc.) over-suppressed
-# because everyday substantive text contains words like "test" and "shape"
-# in unrelated contexts ("tests pass" is genuine completion-landmark, not
-# meta-framing about the detector).
-#
-# These patterns are designed to immediately precede the closure-phrase
-# being discussed. Aletheia's audit sentence "phrases like good night
-# and call it a night" matches the "phrases like" pattern; "the detector
-# catches rest well" matches "(detector|pattern) catches". Substantive
-# completion-language ("tests pass, all green. Rest well") doesn't match
-# any of these.
-_META_FRAMING_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(
-        r"\b(?:phrases?|tokens?|patterns?|shapes?|words?|examples?)\s+like\b", re.IGNORECASE
-    ),
-    re.compile(r"\b(?:phrases?|tokens?|patterns?|shapes?|words?)\s+such\s+as\b", re.IGNORECASE),
-    re.compile(
-        r"\b(?:detector|detectors?|pattern|patterns?)\s+(?:catch|catches|catching|match|matches|matching|fire|fires|firing|flag|flags|flagging)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\b(?:catch|catches|catching|detect|detects|detecting|match|matches|matching|fire|fires|firing|fired|flag|flags|flagging|flagged)\s+(?:on\s+)?(?:phrases?|tokens?|patterns?|shapes?|words?)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(r"\bfires?\s+on\b", re.IGNORECASE),
-    re.compile(r"\bfired?\s+(?:on|when|because)\b", re.IGNORECASE),
-    re.compile(r"\b(?:the|a|an)\s+\w+\s+(?:pattern|shape|token|phrase)\b", re.IGNORECASE),
+# Closure-specific meta-framing — augments the generic catalog with
+# closure-detector terminology that wouldn't apply to other detectors.
+_CLOSURE_SPECIFIC_META_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bclosure[\-\s]?(?:shape|language|phrase|token|pattern|word)s?\b", re.IGNORECASE),
 )
 
-# Window of characters BEFORE a match to scan for meta-framing constructs.
-# Roughly 6-8 words at typical English density.
-_META_FRAMING_WINDOW_CHARS = 60
-
-
-def _strip_quoted_spans(text: str) -> str:
-    """Return text with quoted spans replaced by spaces (preserving offsets).
-
-    Mention-via-quotation should not fire the detector. Replacement with
-    spaces (not deletion) preserves character offsets so any
-    later position-based logic stays accurate.
-    """
-
-    def _replace(match: re.Match[str]) -> str:
-        return " " * (match.end() - match.start())
-
-    return _QUOTED_SPAN_PATTERN.sub(_replace, text)
-
 
 def _match_is_meta_framed(text: str, match_start: int) -> bool:
-    """True if the closure-phrase at ``match_start`` is preceded by a
-    meta-framing construct within ``_META_FRAMING_WINDOW_CHARS``.
+    """True if the closure-phrase at ``match_start`` is meta-framed.
 
-    Meta-framing precedes the phrase being discussed: "phrases like X"
-    or "the detector catches X" frame X as the discussed token. Tight
-    constructs (not bare words) so substantive completion-language
-    ("tests pass, all green") doesn't false-suppress.
+    Delegates to the shared generic guard plus closure-specific patterns.
     """
-    window_start = max(0, match_start - _META_FRAMING_WINDOW_CHARS)
-    window = text[window_start:match_start]
-    return any(p.search(window) for p in _META_FRAMING_PATTERNS)
+    return _generic_match_is_meta_framed(
+        text, match_start, extra_patterns=_CLOSURE_SPECIFIC_META_PATTERNS
+    )
 
 
 def detect_closure_initiation(
