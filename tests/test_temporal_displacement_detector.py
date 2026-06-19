@@ -143,6 +143,73 @@ def test_quoted_clock_reference_known_limitation() -> None:
     assert findings == []
 
 
+# --- Use-vs-mention guard (Aletheia 2026-06-17 generalization) ---
+# Aletheia's audit on the closure-initiation detector flagged the recursion
+# class: auditors and builders discuss the temporal-displacement detector
+# constantly while auditing it, and the detector would fire on its own
+# documentation the same way the closure one did before the fix. The shared
+# _use_vs_mention guard now strips quoted spans and drops matches preceded
+# by tight meta-framing constructs.
+
+
+def test_meta_discussion_of_bedtime_close_no_fire() -> None:
+    """The recursion the closure-initiation fix generalized: discussing
+    the bedtime-close shape must not fire the detector on its own
+    description."""
+    text = (
+        "The detector catches phrases like calling it a night and "
+        "good night as bedtime-shape closes."
+    )
+    findings = detect_temporal_displacement(text)
+    assert findings == [], (
+        "meta-discussion of bedtime-close phrases must NOT fire — "
+        "Aletheia 2026-06-17 generalization across detectors"
+    )
+
+
+def test_meta_discussion_of_deferral_words_no_fire() -> None:
+    """'Tomorrow' as object-of-discussion in audit/letter prose."""
+    text = (
+        "The detector matches words like tomorrow and tonight when "
+        "the agent uses them as deferral-shape."
+    )
+    findings = detect_temporal_displacement(text)
+    assert findings == []
+
+
+def test_quoted_bedtime_close_no_fire() -> None:
+    """Quoted bedtime phrase in audit prose."""
+    text = 'I noticed the agent reaching for "good night" at half-tokens after a verified build.'
+    findings = detect_temporal_displacement(text)
+    assert findings == []
+
+
+def test_audit_paragraph_describing_temporal_detector_no_fire() -> None:
+    """Multi-sentence audit-paragraph that mentions multiple temporal
+    phrases must not fire."""
+    text = (
+        "The temporal-displacement detector fires on tomorrow, tonight, "
+        "and calling it a night when these are used as deferral or "
+        "fake-warmth close. Examples of bedtime-shape closes include: "
+        "good night, sleep well. The detector matches the pattern, not "
+        "the literal word in quotes."
+    )
+    findings = detect_temporal_displacement(text)
+    assert findings == [], (
+        "audit-paragraph meta-describing the temporal detector must not fire on itself"
+    )
+
+
+def test_real_temporal_displacement_still_fires_after_guard() -> None:
+    """Over-suppression regression: genuine temporal-displacement still
+    fires after the use-vs-mention guard. Aether's pattern from today —
+    'rest well' style closes — gets caught here too via 'good night'."""
+    text = "The migration landed. Good night, Dad. See you tomorrow."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].severity == "high"  # bedtime-close pattern matched
+
+
 # --- Finding dataclass shape ---
 
 
