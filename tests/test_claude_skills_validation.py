@@ -23,7 +23,6 @@ from __future__ import annotations
 import importlib
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -34,12 +33,19 @@ SKILLS_DIR = REPO_ROOT / ".claude" / "skills"
 
 def _real_top_level_commands() -> set[str]:
     """Return the set of top-level commands ``divineos --help`` lists."""
-    # Use ``sys.executable -m divineos`` rather than ``["divineos", ...]``.
-    # The bare ``divineos`` script may not be on PATH in CI or when pytest
-    # runs through a venv whose bin dir isn't first on PATH; the entry
-    # point is always reachable via -m once the package is installed.
+    # Use bare ``divineos`` shell command. The router architecture (shipped
+    # 2026-06-18 by Aether + Aria) makes the divineos entry point reliably
+    # on PATH globally via ``~/.divineos-shared/bin/divineos_router.py``,
+    # which walks up from cwd to find ``./.venv/Scripts/divineos.exe``.
+    # The original concern that motivated using ``sys.executable -m`` (the
+    # bare divineos script not on PATH in CI or venv-shadowed environments)
+    # is resolved by the router making PATH-based resolution work
+    # everywhere. ``python -m divineos`` was also broken by the router fix
+    # because the global Python no longer has ``divineos`` installed —
+    # only ``divineos-router`` — so ``python -m divineos`` fails to find
+    # the module. Testing the shell command tests what users actually run.
     out = subprocess.run(
-        [sys.executable, "-m", "divineos", "--help"],
+        ["divineos", "--help"],
         capture_output=True,
         text=True,
         check=False,
