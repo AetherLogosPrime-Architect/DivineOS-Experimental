@@ -217,20 +217,65 @@ def marker_path() -> Path:
     return _marker_path_under_home("correction_unlogged.json")
 
 
+def _session_id_placeholder() -> str:
+    """Return a placeholder session_id until require-goal redesign ships.
+
+    Mirrors the same helper in ``hedge_marker._session_id_placeholder``;
+    will become a single shared call into the require-goal redesign's
+    session_id helper once that migration ships.
+    """
+    import os
+
+    pid = os.getpid()
+    try:
+        from divineos.core.memory import get_core
+
+        slot = get_core("my_identity").get("my_identity", "")
+        first = slot.strip().split()[0] if slot.strip() else "unknown"
+    except Exception:  # noqa: BLE001  defensive: identity lookup can fail any number of ways during bootstrap; fall back to "unknown"
+        first = "unknown"
+    return f"{first}:placeholder-pid-{pid}"
+
+
 def set_marker(trigger_text: str) -> None:
     """Write the marker. Called by the UserPromptSubmit hook on detection.
 
     ``trigger_text`` is the user message (first ~200 chars) that tripped
     the correction pattern. Stored so the agent sees what correction was
     detected when the gate fires, not just that one was.
+
+    Step 0 part 2 migration (signal-based-gates redesign): writes the
+    legacy ``~/.divineos/correction_unlogged.json`` AND populates the
+    unified gate_marker store at
+    ``~/.divineos/gate_markers/correction_filed_unlogged__<short_id>.json``
+    in parallel. Legacy read path unchanged for backward compat. The
+    dual-write establishes parallel state for the future read-path swap.
+    See docs/signal-based-gates-design-2026-06-16.md.
     """
     path = marker_path()
+    payload_ts = time.time()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"ts": time.time(), "trigger": (trigger_text or "")[:200]}
+        payload = {"ts": payload_ts, "trigger": (trigger_text or "")[:200]}
         atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass  # fail open — don't crash the hook on disk issues
+
+    # Dual-write to gate_marker. Fail-open: if the new store fails, the
+    # legacy gate still functions; a new-store bug must not break
+    # existing enforcement.
+    try:
+        from divineos.core import gate_marker as _gm
+
+        _gm.write_marker(
+            event_type="correction_filed_unlogged",
+            triggering_evidence=(trigger_text or "")[:200],
+            resolution_action='divineos learn "..." or divineos correction "..."',
+            session_id=_session_id_placeholder(),
+            triggered_at=payload_ts,
+        )
+    except (ImportError, OSError, AttributeError):
+        pass
 
     # Cascade: a correction is virtue-relevant by definition (the user
     # named drift). Set the compass-required marker so the next tool
@@ -266,13 +311,26 @@ def read_marker() -> dict | None:
 
 
 def clear_marker() -> None:
-    """Remove the marker. Called by `divineos learn` and `divineos correction`."""
+    """Remove the marker. Called by `divineos learn` and `divineos correction`.
+
+    Step 0 part 2 migration: the dual-write in ``set_marker`` requires a
+    dual-clear so the two stores stay in sync. Legacy clear runs first;
+    gate_marker entries of event_type ``correction_filed_unlogged`` are
+    cleared in parallel. Fail-open: if the new store clear fails, the
+    legacy clear still succeeds.
+    """
     path = marker_path()
     if path.exists():
         try:
             path.unlink()
         except OSError:
             pass
+    try:
+        from divineos.core import gate_marker as _gm
+
+        _gm.clear_all("correction_filed_unlogged")
+    except (ImportError, OSError, AttributeError):
+        pass
 
 
 def format_gate_message(marker: dict) -> str:
