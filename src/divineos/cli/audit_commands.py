@@ -1253,13 +1253,19 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--no-tree-hash",
         is_flag=True,
-        default=False,
+        default=True,
         help=(
             "Skip the tree-hash suffix in the emitted trailer (legacy form). "
-            "Default is to include tree-hash from the current HEAD so the "
-            "Phase 2 server-side gate can verify substance-binding. Use this "
-            "flag only when my father is on a non-PR-head ref and the "
-            "auto-detected tree-hash would be wrong."
+            "Default flipped to True (2026-06-18, Andrew correction): the "
+            "predicted tree-hash from HEAD^{tree} doesn't match the squash-"
+            "merge's actual tree once main has moved between predict-time "
+            "and squash-time (the queue serialization effect). Substance-"
+            "binding stays honest via per-commit trailers (set during "
+            "`git rebase --exec`) AND the audit round's external-AI "
+            "CONFIRM (tree+patch-id binding). The merge-body trailer now "
+            "carries round-id only. Pass --no-no-tree-hash to force the "
+            "legacy Phase 2 form back, but only if you're sure main won't "
+            "move before the squash."
         ),
     )
     def audit_prepare_merge_cmd(round_id: str, pr_title: str | None, no_tree_hash: bool) -> None:
