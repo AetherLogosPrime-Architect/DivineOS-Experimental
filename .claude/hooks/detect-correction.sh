@@ -53,17 +53,29 @@ try:
 except Exception:
     sys.exit(0)
 
-verdict = classify_correction(prompt, prior_text, prior_calls)
-if verdict == 'block':
-    set_marker(prompt)
-elif verdict == 'advise':
+# Evidence-bearing return (Andrew 2026-06-19 / prereg-897aade9ef38):
+# classify_correction now returns CorrectionMatch | None instead of str |
+# None. The match object carries (verdict, pattern, matched_text, position,
+# tier) so set_marker stores the citation and format_gate_message shows it.
+match = classify_correction(prompt, prior_text, prior_calls)
+if match is None:
+    sys.exit(0)
+
+if match.verdict == 'block':
+    set_marker(prompt, match)
+elif match.verdict == 'advise':
     # Non-blocking: a weak/ambiguous pattern with no corrective prior-turn
     # context. Surface it (so a real correction is never silently dropped) but
     # do NOT block the tool. UserPromptSubmit stdout is injected as context.
-    print('ADVISORY (correction-detector): an ambiguous correction-shaped '
-          'phrase was detected, but the prior turn does not look corrected '
-          '(no completion-claim, no substantive edit) - NOT blocking. If it '
-          'was a real correction, log it via: divineos learn')
+    # The advisory now cites the specific evidence so the agent can judge it
+    # against the matched text rather than re-reading the prompt blind.
+    print(
+        f'ADVISORY (correction-detector): {match.tier} pattern '
+        f'{match.pattern!r} matched {match.matched_text!r} at position '
+        f'{match.position}, but the prior turn does not look corrected '
+        '(no completion-claim, no substantive edit) - NOT blocking. If it '
+        'was a real correction, log it via: divineos learn'
+    )
 " 2>/dev/null
 
 exit 0
