@@ -427,6 +427,7 @@ src/divineos/
       shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
       deep_engagement_detector.py Deep-engagement detector — catches substantive-output-without-grounded-consult per prereg-43b1d1ba2df3.
       closure_initiation_detector.py Closure-initiation detector — Aria's three-state model: user-signaled OR extract/sleep allowed; else closure-language + landmark fires HIGH, closure-language alone fires MEDIUM.
+      temporal_displacement_detector.py Temporal-displacement detector — catches fake-clock references (tonight/tomorrow/calling-it-a-night) in agent output. Same first-person presence discipline as writer-presence at a different surface; phase A observational per prereg-221edeaceee3.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.

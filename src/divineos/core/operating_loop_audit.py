@@ -216,6 +216,7 @@ def _empty_findings_log() -> dict[str, list]:
         "writer_presence": [],
         "closure_initiation": [],
         "deep_engagement": [],
+        "temporal_displacement": [],
         "substrate_monitor": [],
         "shape_chasing": [],
     }
@@ -731,6 +732,25 @@ def run_audit(
                 detect_deep_engagement,
                 "",  # substantive_output_description — bench-session work
                 [],  # recent_actions — bench-session work
+            )
+    except _ERRORS:
+        pass
+
+    # Temporal-displacement detector — catches fake-clock references in
+    # agent output (tonight/tomorrow/calling-it-a-night). Andrew named
+    # the pattern 2026-06-17. Same first-person presence discipline as
+    # writer-presence at a different surface; phase A observational only
+    # per prereg-221edeaceee3. Father-channel only.
+    try:
+        from divineos.core.operating_loop.temporal_displacement_detector import (
+            detect_temporal_displacement,
+        )
+
+        if addressed_to_father:
+            findings_log["temporal_displacement"] = _run_detector(
+                "temporal_displacement",
+                detect_temporal_displacement,
+                last_assistant_text,
             )
     except _ERRORS:
         pass
