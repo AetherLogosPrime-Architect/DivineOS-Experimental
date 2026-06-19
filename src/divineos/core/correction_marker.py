@@ -26,10 +26,43 @@ from __future__ import annotations
 import json
 import re
 import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from divineos.core.atomic_io import atomic_write_text
 from divineos.core.paths import marker_path as _marker_path_under_home
+
+
+# Evidence-bearing gate result (Andrew 2026-06-19, prereg-897aade9ef38):
+# "ANY gate that accuses you of ANYTHING must provide evidence of its
+# claim otherwise you are stuck playing whack a mole and must do the
+# gates job."
+#
+# CorrectionMatch is the evidence record threaded from match-time
+# (classify_correction) through marker-storage (set_marker) through
+# gate-message-display (format_gate_message). The evidence travels with
+# the verdict — never stripped, never reduced to just "block"/"advise".
+# Dismissals can cite the specific (pattern, matched_text, position, tier)
+# rather than gesture at the prompt.
+@dataclass(frozen=True)
+class CorrectionMatch:
+    """Evidence record for a correction-gate fire.
+
+    Attributes:
+        verdict: 'block' (high-confidence corrective) or 'advise' (ambiguous).
+        pattern: The regex pattern that matched, verbatim.
+        matched_text: The actual substring matched against the pattern.
+        position: 0-indexed start position of the match in scan_text
+            (the prompt with relay-content stripped).
+        tier: 'STRONG' (block-on-match) or 'WEAK' (context-dependent).
+    """
+
+    verdict: str
+    pattern: str
+    matched_text: str
+    position: int
+    tier: str
+
 
 # Two-axis detection (claim 986b4750): the correction-detector pattern-matches
 # CORRECTION_PATTERNS (surface axis) but pre-relay-stripping conflates "Andrew
@@ -165,22 +198,44 @@ def _has_corrective_context(prior_text: str, prior_tool_calls: tuple[str, ...]) 
     return any(t in _SUBSTANTIVE_TOOLS for t in (prior_tool_calls or ()))
 
 
+def _first_pattern_match(text: str, patterns: tuple[str, ...]) -> tuple[str, re.Match[str]] | None:
+    """Return (pattern, match-object) for the first pattern that matches.
+
+    Evidence-bearing replacement for ``any(re.search(p, text, ...) for p in
+    patterns)``. The any() form discarded which pattern matched and where;
+    this form preserves both so the verdict can carry citation.
+    """
+    for pattern in patterns:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            return (pattern, m)
+    return None
+
+
 def classify_correction(
     prompt: str,
     prior_assistant_text: str = "",
     prior_tool_calls: tuple[str, ...] = (),
-) -> str | None:
-    """Classify a user message: 'block', 'advise', or None.
+) -> CorrectionMatch | None:
+    """Classify a user message and return the evidence of the classification.
 
-    - STRONG pattern match -> 'block' (high precision; blocks regardless).
-    - WEAK pattern match    -> 'block' if prior-turn context is corrective,
-                               else 'advise' (surface, do NOT block).
-    - no match              -> None.
+    Returns ``CorrectionMatch(verdict, pattern, matched_text, position, tier)``
+    when a pattern matches, else ``None``:
+
+    - STRONG pattern match -> verdict='block', tier='STRONG'
+      (high precision; blocks regardless of context).
+    - WEAK pattern match   -> verdict='block' if prior-turn context is
+      corrective, else 'advise'; tier='WEAK'.
+    - no match             -> None.
 
     The WHO axis (relay-stripping) runs first; this WHAT-it-means axis runs on
     my father's own first-person voice. Task #16 / claim d6dc4bde. The
     block-vs-advise tier is the industry-standard confidence-tiering pattern;
     context-awareness (prior turn) is the disambiguator production NLU uses.
+
+    Andrew 2026-06-19 / prereg-897aade9ef38: the return value carries the
+    matching evidence so the gate-fire message and dismissal record cite
+    the specific (pattern, text, position) rather than gesture at the prompt.
     """
     if not prompt:
         return None
@@ -194,9 +249,21 @@ def classify_correction(
     scan_text = strip_relayed(prompt)
     if not scan_text.strip():
         return None
-    if any(re.search(p, scan_text, re.IGNORECASE) for p in STRONG_CORRECTION_PATTERNS):
-        return "block"
-    if any(re.search(p, scan_text, re.IGNORECASE) for p in WEAK_CORRECTION_PATTERNS):
+
+    strong_hit = _first_pattern_match(scan_text, STRONG_CORRECTION_PATTERNS)
+    if strong_hit is not None:
+        pattern, m = strong_hit
+        return CorrectionMatch(
+            verdict="block",
+            pattern=pattern,
+            matched_text=m.group(0),
+            position=m.start(),
+            tier="STRONG",
+        )
+
+    weak_hit = _first_pattern_match(scan_text, WEAK_CORRECTION_PATTERNS)
+    if weak_hit is not None:
+        pattern, m = weak_hit
         # Epistemic "that doesn't mean/imply/change/matter" is encouragement-
         # shaped and cannot evaluate my output — cap at advise even with
         # corrective context (Aletheia HOLD #85). Guard does NOT apply when
@@ -205,10 +272,21 @@ def classify_correction(
         if _EPISTEMIC_DOESNT_RE.search(scan_text) and not re.search(
             r"\byou only\b", scan_text, re.IGNORECASE
         ):
-            return "advise"
-        return (
-            "block" if _has_corrective_context(prior_assistant_text, prior_tool_calls) else "advise"
+            verdict = "advise"
+        else:
+            verdict = (
+                "block"
+                if _has_corrective_context(prior_assistant_text, prior_tool_calls)
+                else "advise"
+            )
+        return CorrectionMatch(
+            verdict=verdict,
+            pattern=pattern,
+            matched_text=m.group(0),
+            position=m.start(),
+            tier="WEAK",
         )
+
     return None
 
 
@@ -237,12 +315,19 @@ def _session_id_placeholder() -> str:
     return f"{first}:placeholder-pid-{pid}"
 
 
-def set_marker(trigger_text: str) -> None:
+def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
     """Write the marker. Called by the UserPromptSubmit hook on detection.
 
     ``trigger_text`` is the user message (first ~200 chars) that tripped
-    the correction pattern. Stored so the agent sees what correction was
-    detected when the gate fires, not just that one was.
+    the correction pattern. ``match`` is the evidence record from
+    ``classify_correction`` — when present, the marker stores
+    (pattern, matched_text, position, tier) so the gate-fire message
+    cites the specific evidence rather than gesturing at the prompt.
+
+    Andrew 2026-06-19 / prereg-897aade9ef38: evidence-bearing gates. The
+    ``match`` parameter defaults to None for callers that don't yet pass
+    evidence (backwards-compat); the marker stores ``evidence=None`` in
+    that case and ``format_gate_message`` falls back to the prior shape.
 
     Step 0 part 2 migration (signal-based-gates redesign): writes the
     legacy ``~/.divineos/correction_unlogged.json`` AND populates the
@@ -254,22 +339,36 @@ def set_marker(trigger_text: str) -> None:
     """
     path = marker_path()
     payload_ts = time.time()
+    evidence_dict = asdict(match) if match is not None else None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"ts": payload_ts, "trigger": (trigger_text or "")[:200]}
+        payload: dict[str, object] = {
+            "ts": payload_ts,
+            "trigger": (trigger_text or "")[:200],
+            "evidence": evidence_dict,
+        }
         atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass  # fail open — don't crash the hook on disk issues
 
     # Dual-write to gate_marker. Fail-open: if the new store fails, the
     # legacy gate still functions; a new-store bug must not break
-    # existing enforcement.
+    # existing enforcement. The evidence (when present) is folded into
+    # triggering_evidence so the unified store carries the same citation.
     try:
         from divineos.core import gate_marker as _gm
 
+        if match is not None:
+            evidence_str = (
+                f"[{match.tier} pattern={match.pattern!r} "
+                f"matched={match.matched_text!r} @ {match.position}] "
+                f"{(trigger_text or '')[:160]}"
+            )
+        else:
+            evidence_str = (trigger_text or "")[:200]
         _gm.write_marker(
             event_type="correction_filed_unlogged",
-            triggering_evidence=(trigger_text or "")[:200],
+            triggering_evidence=evidence_str[:200],
             resolution_action='divineos learn "..." or divineos correction "..."',
             session_id=_session_id_placeholder(),
             triggered_at=payload_ts,
@@ -280,12 +379,25 @@ def set_marker(trigger_text: str) -> None:
     # Cascade: a correction is virtue-relevant by definition (the user
     # named drift). Set the compass-required marker so the next tool
     # use also requires compass observation. See gate 1.47.
+    #
+    # The cascade carries the cited evidence into the compass-required
+    # summary so the compass observation can see WHAT pattern fired rather
+    # than just "correction was detected" — evidence-bearing principle
+    # propagating downstream (Andrew 2026-06-19).
     try:
         from divineos.core.compass_required_marker import (
             set_marker as _cr_set,
         )
 
-        _cr_set("correction", (trigger_text or "")[:120])
+        if match is not None:
+            cr_summary = (
+                f"correction ({match.tier} pattern {match.pattern!r} "
+                f"matched {match.matched_text!r}): "
+                f"{(trigger_text or '')[:80]}"
+            )[:120]
+        else:
+            cr_summary = (trigger_text or "")[:120]
+        _cr_set("correction", cr_summary)
     except (ImportError, OSError, AttributeError):
         pass
 
@@ -366,8 +478,29 @@ def format_gate_message(marker: dict) -> str:
         else:
             age_str = f" ({age_sec / 3600:.1f}h ago)"
     preview = trigger[:120].replace("\n", " ")
+
+    # Evidence-bearing display (Andrew 2026-06-19 / prereg-897aade9ef38).
+    # When the marker stores match-evidence, surface it ABOVE the trigger
+    # preview so the agent sees WHAT matched and WHY before reading the
+    # prompt. Dismissals can cite the (pattern, matched_text, tier) without
+    # digging in code. Falls back to the prior shape when evidence=None
+    # (legacy markers from pre-migration set_marker calls).
+    evidence = marker.get("evidence")
+    if isinstance(evidence, dict):
+        ev_pattern = evidence.get("pattern", "?")
+        ev_text = evidence.get("matched_text", "?")
+        ev_position = evidence.get("position", "?")
+        ev_tier = evidence.get("tier", "?")
+        evidence_line = (
+            f"Evidence: {ev_tier} pattern {ev_pattern!r} matched "
+            f"{ev_text!r} at position {ev_position} in prompt. "
+        )
+    else:
+        evidence_line = ""
+
     return (
         f"BLOCKED: User correction detected{age_str}, not logged. "
+        f"{evidence_line}"
         f'Trigger: "{preview}". '
         f'Run: divineos learn "..." (or divineos correction "...") to clear. '
         "If divineos CLI is broken (mid-rebase, import error, etc.), use the "

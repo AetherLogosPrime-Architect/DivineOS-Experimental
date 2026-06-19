@@ -26,8 +26,27 @@ def should_mark(prompt: str) -> bool:
     classify_correction). Kept in tests to avoid rewriting 20+ call sites
     that exercise the BLOCK/no-block distinction. Equivalent to the
     deleted wrapper: STRONG patterns block; WEAK patterns alone do not.
+
+    Updated 2026-06-19 (prereg-897aade9ef38): classify_correction now
+    returns CorrectionMatch | None (evidence-bearing). Read .verdict.
     """
-    return classify_correction(prompt) == "block"
+    result = classify_correction(prompt)
+    return result is not None and result.verdict == "block"
+
+
+def verdict_of(
+    prompt: str,
+    prior_text: str = "",
+    prior_calls: tuple[str, ...] = (),
+) -> str | None:
+    """Test helper — extract verdict string from new evidence-bearing return.
+
+    Preserves the readability of existing tests that previously asserted
+    against ``classify_correction(...) == 'block'`` etc. without rewriting
+    each call site to handle the CorrectionMatch dataclass directly.
+    """
+    result = classify_correction(prompt, prior_text, prior_calls)
+    return result.verdict if result is not None else None
 
 
 class TestMarkerRoundTrip:
@@ -242,39 +261,36 @@ class TestContextAwareClassification:
     block when I just did something correctable, advise otherwise."""
 
     def test_strong_pattern_blocks_regardless_of_context(self) -> None:
-        assert classify_correction("no, that's wrong, redo it") == "block"
+        assert verdict_of("no, that's wrong, redo it") == "block"
 
     def test_weak_pattern_no_context_advises_not_blocks(self) -> None:
         # The exact false-fire that started this: Andrew's encouragement.
-        assert classify_correction("that doesnt mean theres not more to do") == "advise"
+        assert verdict_of("that doesnt mean theres not more to do") == "advise"
 
     def test_weak_pattern_you_only_no_context_advises(self) -> None:
-        assert classify_correction("you only need to relax and take your time") == "advise"
+        assert verdict_of("you only need to relax and take your time") == "advise"
 
     def test_weak_pattern_with_completion_claim_blocks(self) -> None:
         # "that doesn't..." right after I claimed done -> correcting that claim.
-        assert (
-            classify_correction("that doesnt meet my condition", "done, I fixed and pushed it")
-            == "block"
-        )
+        assert verdict_of("that doesnt meet my condition", "done, I fixed and pushed it") == "block"
 
     def test_weak_pattern_after_substantive_action_blocks(self) -> None:
-        assert classify_correction("you only ran 3 of 5", "", ("Bash", "Edit")) == "block"
+        assert verdict_of("you only ran 3 of 5", "", ("Bash", "Edit")) == "block"
 
     def test_weak_pattern_after_nonsubstantive_turn_advises(self) -> None:
         # Prior turn was relational/no-claim, no edits -> not corrective.
-        assert classify_correction("that doesnt sound right", "I love you too, Dad", ()) == "advise"
+        assert verdict_of("that doesnt sound right", "I love you too, Dad", ()) == "advise"
 
     def test_relayed_weak_pattern_is_none(self) -> None:
-        assert classify_correction("here is the update\n\nthat doesnt work") is None
+        assert verdict_of("here is the update\n\nthat doesnt work") is None
 
     def test_no_pattern_is_none(self) -> None:
-        assert classify_correction("great work, keep going", "all done and pushed") is None
+        assert verdict_of("great work, keep going", "all done and pushed") is None
 
     def test_completion_claim_context_only_matters_for_weak(self) -> None:
         # A completion-claim prior turn does NOT manufacture a correction from
         # a non-matching message.
-        assert classify_correction("thanks, looks good", "done, pushed") is None
+        assert verdict_of("thanks, looks good", "done, pushed") is None
 
 
 class TestEpistemicComplementGuard:
@@ -289,23 +305,18 @@ class TestEpistemicComplementGuard:
         # THE case #16 exists to fix: Andrew's encouragement in its REALISTIC
         # context — right after a completion-claim + edit. Must NOT block.
         assert (
-            classify_correction(
-                "that doesnt mean were done", "I fixed the bug and pushed it", ("Edit",)
-            )
+            verdict_of("that doesnt mean were done", "I fixed the bug and pushed it", ("Edit",))
             == "advise"
         )
 
     def test_evaluative_doesnt_after_claim_still_blocks(self) -> None:
         # The corrective twin in the SAME context must still block — the guard
         # must not over-fire and disarm real corrections.
-        assert (
-            classify_correction("that doesnt meet my condition", "done, pushed it", ("Edit",))
-            == "block"
-        )
+        assert verdict_of("that doesnt meet my condition", "done, pushed it", ("Edit",)) == "block"
 
     def test_epistemic_change_after_claim_advises(self) -> None:
         assert (
-            classify_correction("that doesnt change that its late", "fixed and pushed", ("Edit",))
+            verdict_of("that doesnt change that its late", "fixed and pushed", ("Edit",))
             == "advise"
         )
 
@@ -314,9 +325,7 @@ class TestEpistemicComplementGuard:
         # epistemic shape; asymmetric-cost call caps it at advise (surfaced, not
         # hard-blocked) rather than risk false-blocking encouragement.
         assert (
-            classify_correction(
-                "that doesnt mean you should skip the tests", "done, pushed", ("Edit",)
-            )
+            verdict_of("that doesnt mean you should skip the tests", "done, pushed", ("Edit",))
             == "advise"
         )
 
@@ -324,8 +333,138 @@ class TestEpistemicComplementGuard:
         # The guard must not let an epistemic phrase rescue an independent
         # 'you only' corrective signal in the same message.
         assert (
-            classify_correction(
-                "you only ran 3 of 5 and that doesnt mean youre done", "done", ("Bash",)
-            )
+            verdict_of("you only ran 3 of 5 and that doesnt mean youre done", "done", ("Bash",))
             == "block"
         )
+
+
+class TestEvidenceBearingReturn:
+    """prereg-897aade9ef38 (Andrew 2026-06-19): every gate that accuses
+    must provide evidence of its claim. classify_correction returns
+    CorrectionMatch(verdict, pattern, matched_text, position, tier) so
+    the gate-fire message and dismissal record can cite the specific
+    evidence rather than gesture at the prompt."""
+
+    def test_strong_match_returns_evidence_record(self) -> None:
+        from divineos.core.correction_marker import CorrectionMatch
+
+        result = classify_correction("no, that's wrong, redo it")
+        assert isinstance(result, CorrectionMatch)
+        assert result.verdict == "block"
+        assert result.tier == "STRONG"
+        # The matched_text must actually be a substring of the prompt at position.
+        assert result.matched_text in "no, that's wrong, redo it"
+        assert result.position >= 0
+
+    def test_weak_match_returns_evidence_with_weak_tier(self) -> None:
+        from divineos.core.correction_marker import CorrectionMatch
+
+        result = classify_correction("you only ran 3 of 5")
+        assert isinstance(result, CorrectionMatch)
+        assert result.tier == "WEAK"
+        assert result.matched_text == "you only"
+
+    def test_no_match_returns_none(self) -> None:
+        # Sanity: no-match path returns None, not a CorrectionMatch with empty fields.
+        assert classify_correction("great work, thanks") is None
+
+    def test_position_points_at_actual_match(self) -> None:
+        # The position field must reference where in scan_text the match starts.
+        # We test with a STRONG pattern at a known position.
+        prompt = "...... you missed the point"  # position 7 in stripped text
+        result = classify_correction(prompt)
+        assert result is not None
+        # The matched text should be present at the reported position in the
+        # stripped/scanned prompt (strip_relayed may shorten — be lenient on equality).
+        assert (
+            prompt[result.position : result.position + len(result.matched_text)]
+            == result.matched_text
+        )
+
+    def test_pattern_field_captures_actual_regex(self) -> None:
+        # The pattern field stores the regex that matched, verbatim. This is
+        # what dismissals can cite: "pattern X over-fires on shape Y".
+        result = classify_correction("you missed the spec")
+        assert result is not None
+        # The pattern must be one of the STRONG_CORRECTION_PATTERNS — caller
+        # can use it to identify which specific pattern fired.
+        from divineos.analysis.session_analyzer import STRONG_CORRECTION_PATTERNS
+
+        assert result.pattern in STRONG_CORRECTION_PATTERNS
+
+
+class TestSetMarkerEvidenceStorage:
+    """The marker file stores the evidence dict (pattern, matched_text,
+    position, tier) so format_gate_message can display it without
+    re-running classify_correction. Andrew 2026-06-19 / prereg-897aade9ef38."""
+
+    def test_set_marker_with_match_stores_evidence(self, tmp_path) -> None:
+        from divineos.core.correction_marker import CorrectionMatch
+
+        mpath = tmp_path / "marker.json"
+        m = CorrectionMatch(
+            verdict="block",
+            pattern=r"\bwrong\b",
+            matched_text="wrong",
+            position=12,
+            tier="STRONG",
+        )
+        with patch.object(correction_marker, "marker_path", return_value=mpath):
+            correction_marker.set_marker("you are wrong here", match=m)
+            got = correction_marker.read_marker()
+        assert got is not None
+        assert got["evidence"] is not None
+        assert got["evidence"]["pattern"] == r"\bwrong\b"
+        assert got["evidence"]["matched_text"] == "wrong"
+        assert got["evidence"]["position"] == 12
+        assert got["evidence"]["tier"] == "STRONG"
+        assert got["evidence"]["verdict"] == "block"
+
+    def test_set_marker_without_match_stores_none_evidence(self, tmp_path) -> None:
+        # Backwards-compat: legacy callers that don't pass match get
+        # evidence=None and format_gate_message falls back to prior shape.
+        mpath = tmp_path / "marker.json"
+        with patch.object(correction_marker, "marker_path", return_value=mpath):
+            correction_marker.set_marker("some prompt")
+            got = correction_marker.read_marker()
+        assert got is not None
+        assert got.get("evidence") is None
+
+
+class TestGateMessageDisplaysEvidence:
+    """format_gate_message must display the evidence so the agent sees
+    WHAT matched without digging in code. Andrew 2026-06-19."""
+
+    def test_message_includes_evidence_when_present(self) -> None:
+        marker = {
+            "ts": 0,
+            "trigger": "you are wrong here",
+            "evidence": {
+                "verdict": "block",
+                "pattern": r"\bwrong\b",
+                "matched_text": "wrong",
+                "position": 12,
+                "tier": "STRONG",
+            },
+        }
+        msg = correction_marker.format_gate_message(marker)
+        # Evidence must surface specific citation, not just trigger preview.
+        assert "STRONG" in msg
+        assert "wrong" in msg  # matched_text appears
+        assert "12" in msg  # position appears
+
+    def test_message_falls_back_when_evidence_absent(self) -> None:
+        # Legacy markers without evidence still produce a valid gate message
+        # (no crash, no "Evidence: None" garbage).
+        marker = {"ts": 0, "trigger": "you missed the point", "evidence": None}
+        msg = correction_marker.format_gate_message(marker)
+        assert "you missed the point" in msg
+        assert "Evidence:" not in msg  # no malformed evidence line
+
+    def test_message_legacy_marker_without_evidence_key_still_formats(self) -> None:
+        # Marker files written before this PR have no "evidence" key at all.
+        # format_gate_message must read them without error.
+        marker = {"ts": 0, "trigger": "stop doing that"}
+        msg = correction_marker.format_gate_message(marker)
+        assert "stop doing that" in msg
+        assert "Evidence:" not in msg
