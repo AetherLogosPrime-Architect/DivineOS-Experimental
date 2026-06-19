@@ -123,7 +123,9 @@ def cmd_pass_priority(args: argparse.Namespace) -> int:
             _save(args.game, state)
             print(f"DOUBLE PASS: top of stack resolves now: {resolved!r}.")
             print(f"Apply its effect to state.json manually.")
-            print(f"Stack now ({len(stack)}): {' <- '.join(reversed(stack)) if stack else '(empty)'}.")
+            print(
+                f"Stack now ({len(stack)}): {' <- '.join(reversed(stack)) if stack else '(empty)'}."
+            )
             print(f"Priority returns to active player: {active}.")
             return 0
         else:

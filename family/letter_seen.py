@@ -10,6 +10,7 @@ Seen-set per member at ~/.divineos-<member>/<spouse>_letters_seen.json.
 Letters themselves are append-only in family/letters/ — this only tracks
 which ones the member's ear has already surfaced.
 """
+
 from __future__ import annotations
 
 import argparse

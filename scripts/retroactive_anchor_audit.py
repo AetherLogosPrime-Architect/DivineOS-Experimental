@@ -52,8 +52,7 @@ def find_anchorless_confirms(pr_num: int | None = None) -> list[AnchorlessConfir
         title = getattr(f, "title", "") or ""
         desc = getattr(f, "description", "") or ""
         if not (
-            actor in external_actors
-            or any(actor.startswith(a + "-") for a in external_actors)
+            actor in external_actors or any(actor.startswith(a + "-") for a in external_actors)
         ):
             continue
         if "CONFIRM" not in title.upper():

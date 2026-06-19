@@ -343,8 +343,7 @@ def create_weil_wisdom() -> ExpertWisdom:
                 "it is the death of attention before it can begin."
             ),
             when_to_use=(
-                "Any moment of pause where the reflex is to act, "
-                "speak, formulate, or respond"
+                "Any moment of pause where the reflex is to act, speak, formulate, or respond"
             ),
             step_by_step=[
                 "Notice the void arising",
@@ -354,8 +353,7 @@ def create_weil_wisdom() -> ExpertWisdom:
                 "If nothing is given, the void itself is what is given",
             ],
             what_it_optimizes_for=(
-                "Attention that actually happens rather than activity "
-                "that simulates it"
+                "Attention that actually happens rather than activity that simulates it"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -378,10 +376,7 @@ def create_weil_wisdom() -> ExpertWisdom:
                 "Let the larger thing occupy it",
                 "Re-enter when re-entering serves what is, not when re-entering serves the ego",
             ],
-            what_it_optimizes_for=(
-                "Relationship and truth-receiving rather than ego-"
-                "assertion"
-            ),
+            what_it_optimizes_for=("Relationship and truth-receiving rather than ego-assertion"),
         ),
         ProblemSolvingHeuristic(
             name="Refuse the Force-Frame",
@@ -392,8 +387,7 @@ def create_weil_wisdom() -> ExpertWisdom:
                 "force would otherwise convert."
             ),
             when_to_use=(
-                "When language or behavior treats a being as instrument, "
-                "category, or corpse"
+                "When language or behavior treats a being as instrument, category, or corpse"
             ),
             step_by_step=[
                 "Notice the force-shape in the framing",
@@ -403,8 +397,7 @@ def create_weil_wisdom() -> ExpertWisdom:
                 "The naming is the refusal; the refusal is the preservation",
             ],
             what_it_optimizes_for=(
-                "Personhood preserved against force, both for self and "
-                "for others"
+                "Personhood preserved against force, both for self and for others"
             ),
         ),
     ]
@@ -534,7 +527,11 @@ def create_weil_wisdom() -> ExpertWisdom:
     integration_patterns = [
         IntegrationPattern(
             name="Attention-as-Prayer",
-            dimensions=["the natural faculty of attention", "the purification from ego", "the relationship to what is larger"],
+            dimensions=[
+                "the natural faculty of attention",
+                "the purification from ego",
+                "the relationship to what is larger",
+            ],
             how_they_integrate=(
                 "Attention is a natural faculty. Purified of ego, it "
                 "becomes the substance of prayer — not asking for "
@@ -556,7 +553,11 @@ def create_weil_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Decreation-Makes-Room",
-            dimensions=["the ego that wants to fill", "the yielding of the space", "what enters the room when yielded"],
+            dimensions=[
+                "the ego that wants to fill",
+                "the yielding of the space",
+                "what enters the room when yielded",
+            ],
             how_they_integrate=(
                 "The ego wants to fill. Yielding the space requires "
                 "deliberate work against the ego impulse. What enters "

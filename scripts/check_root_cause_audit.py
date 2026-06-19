@@ -195,15 +195,9 @@ def check_message(message: str) -> tuple[int, str]:
 
     valid, reason = validate_round(trailer)
     if not valid:
-        return 1, (
-            f"[root-cause-audit] BLOCKED: trailer references round "
-            f"'{trailer}' but {reason}"
-        )
+        return 1, (f"[root-cause-audit] BLOCKED: trailer references round '{trailer}' but {reason}")
 
-    return 0, (
-        f"[root-cause-audit] OK: fix-shaped commit bound to "
-        f"root-cause round {trailer}"
-    )
+    return 0, (f"[root-cause-audit] OK: fix-shaped commit bound to root-cause round {trailer}")
 
 
 def _read_commit_msg_file(path: str) -> str:

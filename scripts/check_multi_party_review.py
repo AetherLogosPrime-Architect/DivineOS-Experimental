@@ -354,12 +354,8 @@ def validate(
     # cross-platform deterministic (claim 2026-04-24 06:15: diff bytes
     # diverge between Windows and Linux container despite .gitattributes
     # normalization). Verifiers running independently should prefer tree-hash.
-    actual_diff_hash = (
-        diff_hash_override if diff_hash_override is not None else _staged_diff_hash()
-    )
-    actual_tree_hash = (
-        tree_hash_override if tree_hash_override is not None else _staged_tree_hash()
-    )
+    actual_diff_hash = diff_hash_override if diff_hash_override is not None else _staged_diff_hash()
+    actual_tree_hash = tree_hash_override if tree_hash_override is not None else _staged_tree_hash()
     description = _round_description(rnd)
     # findall() not search() — a single audit round may bind multiple commits
     # (e.g. a PR's full commit sequence). Each commit has its own tree-hash;
@@ -552,9 +548,7 @@ def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
                     text=True,
                     check=False,
                 )
-                commit_tree_hash = (
-                    tree_proc.stdout.strip() if tree_proc.returncode == 0 else ""
-                )
+                commit_tree_hash = tree_proc.stdout.strip() if tree_proc.returncode == 0 else ""
             except OSError:
                 commit_tree_hash = ""
 
@@ -573,7 +567,9 @@ def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
 
     if failures:
         print("\n=== Multi-Party Review Gate (pre-push, target: main) ===", file=sys.stderr)
-        print("BLOCKED — guardrail-touching commits without valid External-Review:\n", file=sys.stderr)
+        print(
+            "BLOCKED — guardrail-touching commits without valid External-Review:\n", file=sys.stderr
+        )
         for f in failures:
             print(f, file=sys.stderr)
         print(

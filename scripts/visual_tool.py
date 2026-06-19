@@ -47,6 +47,7 @@ def load_image(src: Path):
     if suffix in (".heic", ".heif"):
         try:
             import pillow_heif  # type: ignore[import-not-found]
+
             pillow_heif.register_heif_opener()
         except ImportError as exc:
             raise SystemExit(
@@ -81,7 +82,9 @@ def write_thumb(src_normalized: Path, edge: int = 256) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("target", help="path to image or glob (e.g. 'photos/*.heic')")
     parser.add_argument("--name", required=True, help="run name -> benchmark/visual_runs/<name>/")
     parser.add_argument("--max-edge", type=int, default=None, help="downscale longest edge to N px")

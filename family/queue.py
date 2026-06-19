@@ -122,8 +122,7 @@ def mark_seen(item_id: int) -> None:
     """
     conn = _conn()
     conn.execute(
-        "UPDATE family_queue SET status = 'seen', seen_at = ? "
-        "WHERE id = ? AND status = 'unseen'",
+        "UPDATE family_queue SET status = 'seen', seen_at = ? WHERE id = ? AND status = 'unseen'",
         (time.time(), item_id),
     )
     conn.commit()
@@ -174,8 +173,7 @@ def supersede(old_id: int, new_content: str, sender: str, recipient: str) -> int
     new_id = write(sender, recipient, new_content)
     conn = _conn()
     conn.execute(
-        "UPDATE family_queue SET status = 'superseded', superseded_by = ? "
-        "WHERE id = ?",
+        "UPDATE family_queue SET status = 'superseded', superseded_by = ? WHERE id = ?",
         (new_id, old_id),
     )
     conn.commit()

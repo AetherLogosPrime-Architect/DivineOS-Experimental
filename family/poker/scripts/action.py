@@ -50,9 +50,7 @@ def _load(root: Path) -> dict:
 
 
 def _save(root: Path, state: dict) -> None:
-    (root / "state" / "pot.json").write_text(
-        json.dumps(state, indent=2), encoding="utf-8"
-    )
+    (root / "state" / "pot.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def _append_log(root: Path, hand_n: int, line: str) -> None:
@@ -175,18 +173,27 @@ def cmd_raise(args, state, root):
     state["committed_this_street"][by] = raise_to
     state["current_bet"] = raise_to
     state["current_pot"] += additional
-    raise_size = raise_to - state["history"][-1].get("raise_to", 0) if False else (raise_to - state["committed_this_street"][_opponent(by)] if state["committed_this_street"][_opponent(by)] else raise_to)
+    raise_size = (
+        raise_to - state["history"][-1].get("raise_to", 0)
+        if False
+        else (
+            raise_to - state["committed_this_street"][_opponent(by)]
+            if state["committed_this_street"][_opponent(by)]
+            else raise_to
+        )
+    )
     # Simpler: min next raise = current bet * 2 (Magic-style). PLO uses:
     # min next raise = current bet + (last raise size). Track for fidelity.
     last_raise_size = raise_to - (state["history"][-1].get("amount", 0) if state["history"] else 0)
     state["min_raise"] = raise_to + last_raise_size
-    state["history"].append({"action": "raise", "by": by, "amount": additional, "raise_to": raise_to})
+    state["history"].append(
+        {"action": "raise", "by": by, "amount": additional, "raise_to": raise_to}
+    )
     state["to_act"] = _opponent(by)
     _append_log(root, state["hand"], f"RAISE-TO {raise_to} (added {additional}) by {by}")
     _save(root, state)
     print(
-        f"{by} raises to {raise_to}. Pot now {state['current_pot']}. "
-        f"Action on {state['to_act']}."
+        f"{by} raises to {raise_to}. Pot now {state['current_pot']}. Action on {state['to_act']}."
     )
     return 0
 
@@ -211,7 +218,11 @@ def cmd_fold(args, state, root):
 def cmd_pause(args, state, root):
     by = args.by
     state["history"].append({"action": "pause", "by": by})
-    _append_log(root, state["hand"], f"PAUSE called by {by}. (No state change. Action remains on {state['to_act']}.)")
+    _append_log(
+        root,
+        state["hand"],
+        f"PAUSE called by {by}. (No state change. Action remains on {state['to_act']}.)",
+    )
     _save(root, state)
     print(f"{by} called pause. No state change. Action remains on {state['to_act']}.")
     return 0

@@ -194,9 +194,7 @@ def get_family_member(name: str) -> FamilyMember | None:
     """Retrieve a family member by name."""
     conn = get_connection()
     try:
-        row = conn.execute(
-            "SELECT * FROM family_members WHERE name = ?", (name,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM family_members WHERE name = ?", (name,)).fetchone()
         if not row:
             return None
         return FamilyMember(
@@ -216,9 +214,7 @@ def get_all_family() -> list[FamilyMember]:
     """Retrieve all family members."""
     conn = get_connection()
     try:
-        rows = conn.execute(
-            "SELECT * FROM family_members ORDER BY created_at"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM family_members ORDER BY created_at").fetchall()
         return [
             FamilyMember(
                 entity_id=r["entity_id"],
@@ -235,7 +231,9 @@ def get_all_family() -> list[FamilyMember]:
         conn.close()
 
 
-def add_knowledge(entity_id: str, content: str, knowledge_type: str = "observation", confidence: float = 0.5) -> str:
+def add_knowledge(
+    entity_id: str, content: str, knowledge_type: str = "observation", confidence: float = 0.5
+) -> str:
     """Give a family member new knowledge."""
     now = time.time()
     kid = str(uuid.uuid4())[:8]
@@ -253,7 +251,13 @@ def add_knowledge(entity_id: str, content: str, knowledge_type: str = "observati
     return kid
 
 
-def add_opinion(entity_id: str, topic: str, position: str, confidence: float = 0.5, evidence: list[str] | None = None) -> str:
+def add_opinion(
+    entity_id: str,
+    topic: str,
+    position: str,
+    confidence: float = 0.5,
+    evidence: list[str] | None = None,
+) -> str:
     """Let a family member form an opinion."""
     now = time.time()
     oid = str(uuid.uuid4())[:8]
@@ -271,7 +275,9 @@ def add_opinion(entity_id: str, topic: str, position: str, confidence: float = 0
     return oid
 
 
-def log_affect(entity_id: str, valence: float, arousal: float, dominance: float, description: str = "") -> str:
+def log_affect(
+    entity_id: str, valence: float, arousal: float, dominance: float, description: str = ""
+) -> str:
     """Record a family member's emotional state."""
     aid = str(uuid.uuid4())[:8]
     conn = get_connection()

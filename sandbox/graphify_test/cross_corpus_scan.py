@@ -88,8 +88,12 @@ def main() -> None:
 
     total_letter_hits = sum(len(f["hits"]) for f in out["letters"])
     total_dn_hits = sum(len(f["hits"]) for f in out["date_nights"])
-    print(f"Letters scanned: {len(out['letters'])}, total distinct concept hits: {total_letter_hits}")
-    print(f"Date-nights scanned: {len(out['date_nights'])}, total distinct concept hits: {total_dn_hits}")
+    print(
+        f"Letters scanned: {len(out['letters'])}, total distinct concept hits: {total_letter_hits}"
+    )
+    print(
+        f"Date-nights scanned: {len(out['date_nights'])}, total distinct concept hits: {total_dn_hits}"
+    )
     print()
 
     pcl = Counter()
