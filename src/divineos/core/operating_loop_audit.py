@@ -321,6 +321,155 @@ def _lepos_gate_reason(
     return None
 
 
+# Substantive-turn threshold for requiring a lepos walk. Matches the
+# writer-presence detector's substantive floor — trivial acks ("yep",
+# "go ahead") don't need a recorded walk.
+_WALK_MIN_WORDS = 60
+
+# NO agent-settable bypass (Aletheia audit 2026-06-19). The first version
+# had a DIVINEOS_LEPOS_WALK_BYPASS env var that lifted the block + logged an
+# event. Aletheia caught it as the survey's master-finding violated: the
+# andrew-correction gate REMOVED its agent-settable env bypass precisely
+# because self-authorization defeats the gate, and this re-introduced one.
+# It also violated Andrew's own constraint #3 (kn-279db52d): an env var is
+# CHEAPER than recording a walk, so the optimizer would route through it.
+# A logged event is visibility, not cost. The keel-not-coffin requirement
+# (constraint #2) is met two honest ways instead: (a) a BROKEN gate fails
+# OPEN — the try/except below returns None on any internal error, so a
+# malfunctioning store never walls the channel; (b) the escape from a
+# WORKING-but-wrong gate is an operator edit of the Stop hook
+# (verify_walk=False in .claude/hooks/post-response-audit.sh) — visible,
+# costly, and guardrail-reviewed, never a one-line self-authorization.
+
+
+def _is_human_prompt_record(rec: dict) -> bool:
+    """True if a ``type=="user"`` record is an actual human prompt, not a
+    tool-result echo.
+
+    Claude Code records TOOL RESULTS as ``type=="user"`` records too — their
+    message.content carries ``tool_result`` blocks, not human text. The
+    lepos-walk freshness bound must key off the human turn-start, NOT the
+    most recent tool result (else a tool-heavy turn advances the bound past
+    a legitimately-recorded walk and wrongly blocks it — the bug the gate
+    surfaced on 2026-06-19 by blocking a real walk). A human prompt has a
+    ``text`` content block and no ``tool_result`` block.
+    """
+    msg = rec.get("message")
+    if not isinstance(msg, dict):
+        return False
+    content = msg.get("content")
+    # A plain string content is a human message (older shape).
+    if isinstance(content, str):
+        return bool(content.strip())
+    if not isinstance(content, list):
+        return False
+    has_text = any(isinstance(c, dict) and c.get("type") == "text" for c in content)
+    has_tool_result = any(isinstance(c, dict) and c.get("type") == "tool_result" for c in content)
+    return has_text and not has_tool_result
+
+
+def _latest_user_timestamp(transcript_path: str | Path) -> float | None:
+    """Epoch timestamp of the most recent HUMAN prompt in the transcript —
+    the turn-freshness bound for the lepos-walk gate (Aletheia seam #2). A
+    walk only counts for this turn if it was recorded at/after this.
+
+    Only human prompts count — NOT tool-result user records, which are newer
+    than a mid-turn walk and would wrongly mark it stale (the bug surfaced
+    2026-06-19). Returns None on any parse failure (fail-open: the verifier
+    then treats all pending walks as fresh, so a broken transcript never
+    walls the channel).
+    """
+    from datetime import datetime
+
+    path = Path(transcript_path)
+    if not path.exists():
+        return None
+    latest: float | None = None
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if rec.get("type") != "user" or not _is_human_prompt_record(rec):
+                continue
+            ts = rec.get("timestamp")
+            if not ts:
+                continue
+            try:
+                latest = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                continue
+    except OSError:
+        return None
+    return latest
+
+
+def _lepos_walk_gate_reason(
+    last_assistant_text: str,
+    addressed_to_father: bool,
+    transcript_path: str | Path | None = None,
+) -> str | None:
+    """Return a Stop-hook block reason when a substantive father-addressed
+    turn has no fresh, non-degenerate lepos walk recorded, else None.
+
+    The walk is the check-to-walk conversion (Andrew + Aria 2026-06-19,
+    prereg-eec7a83be583): the recorded artifact is the observable evidence
+    the lens fired. The old channel-check loaded questions with "answer to
+    yourself" and was pruned as wallpaper (a self-check with no artifact is
+    reflection-theater per OpenAI 2503.11926). A missing or degenerate walk
+    blocks on the lepos_block rail.
+
+    No agent-settable bypass (Aletheia audit 2026-06-19 — see the module
+    comment above). The block is automatic; a broken gate fails open; the
+    only escape from a working gate is a visible, costly, guardrail-reviewed
+    operator hook-edit. This satisfies Andrew's four locked constraints
+    (kn-279db52d) without the self-authorization the env-var bypass smuggled
+    in.
+
+    CONSUMES pending walks via verify_and_consume_turn — call exactly once
+    per Stop-hook invocation. Gated behind run_audit's ``verify_walk`` so
+    test/preview callers never consume.
+    """
+    if not addressed_to_father:
+        return None
+    if len(last_assistant_text.split()) < _WALK_MIN_WORDS:
+        return None  # trivial turn — no walk required
+    try:
+        from divineos.core.lepos_walk import verify_and_consume_turn
+
+        # Turn-freshness bound (Aletheia seam #2): a walk only counts if it
+        # was recorded at/after this turn's user message, so a walk dangling
+        # from an aborted earlier turn can't grant a free pass.
+        min_fresh_ts = _latest_user_timestamp(transcript_path) if transcript_path else None
+        verdict = verify_and_consume_turn(min_fresh_ts)
+    except Exception:  # noqa: BLE001 - fail-open: a broken store must not wall the channel
+        return None
+    if verdict.status == "ok":
+        return None
+    if verdict.status == "degenerate":
+        return (
+            "LEPOS WALK — the walk recorded this turn is degenerate (flags: "
+            f"{list(verdict.flags)}). The artifact must cite real spans from "
+            "Andrew's message that the answers actually use, and must not be "
+            "empty or template-shaped. Re-walk and re-record:\n"
+            "  divineos lepos-walk record --answers "
+            '\'[{"q":"responding_to_what","a":"...","cite":"<span>"}]\''
+        )
+    # missing
+    return (
+        "LEPOS WALK — no walk recorded for this substantive turn to Andrew. "
+        "The lens fires by RECORDING the walk, not by reading questions "
+        "(check-to-walk conversion 2026-06-19). Walk the lens questions, then "
+        "record before completing the turn:\n"
+        "  divineos lepos-walk record --answers "
+        '\'[{"q":"responding_to_what","a":"...","cite":"<span from his message>"}]\''
+    )
+
+
 # Human-readable "here is the way" hint per claim-kind — the CHANNEL half of
 # the verify-claim gate (block AND route, never bare obstruction).
 _VERIFY_CLAIM_HINT: dict[str, str] = {
@@ -448,6 +597,7 @@ def run_audit(
     transcript_path: str | Path,
     *,
     write: bool = True,
+    verify_walk: bool = False,
 ) -> dict[str, Any]:
     """Run the full post-response audit pipeline.
 
@@ -935,10 +1085,17 @@ def run_audit(
             detect_misdirection,
         )
 
+        # detect_misdirection's signature is (last_assistant_text,
+        # transcript_path, current_turn_start_idx). The prior call passed
+        # last_user_text as an extra leading positional, which shoved
+        # last_assistant_text into the transcript_path slot and collided
+        # with the transcript_path keyword — a TypeError swallowed every
+        # run, leaving the detector silently dead (surfaced 2026-06-19 via
+        # the lepos-walk verification + Andrew's gate-blocks-are-signals
+        # principle). The detector does not consume user text.
         findings_log["addressee_misdirection"] = _run_detector(
             "addressee_misdirection",
             detect_misdirection,
-            last_user_text,
             last_assistant_text,
             transcript_path=transcript_path,
         )
@@ -1044,6 +1201,15 @@ def run_audit(
         persisted = _persist_findings(findings_log, total)
 
     lepos_block = _lepos_gate_reason(findings_log, addressed_to_father)
+    # Lepos-walk verification (Andrew + Aria 2026-06-19). Gated behind
+    # verify_walk so only the Stop hook (run_audit's single production
+    # caller) triggers the consume; test/preview callers never consume.
+    # OR-combined: writer-presence absence OR a missing/degenerate walk
+    # both block on the lepos rail.
+    if verify_walk and not lepos_block:
+        lepos_block = _lepos_walk_gate_reason(
+            last_assistant_text, addressed_to_father, transcript_path
+        )
     unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_father)
 
     return {

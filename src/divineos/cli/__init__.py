@@ -265,6 +265,7 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    lepos_walk_commands,
     loadout_commands,
     gravity_commands,
     memory_commands,
@@ -324,6 +325,7 @@ audit_artifact_commands.register(cli)  # MUST be after audit_commands (attaches 
 pattern_attribution_commands.register(cli)
 bio_commands.register(cli)
 loadout_commands.register(cli)
+lepos_walk_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
 directive_commands.register(cli)
