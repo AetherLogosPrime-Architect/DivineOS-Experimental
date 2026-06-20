@@ -74,7 +74,7 @@ def test_missing_or_empty_transcript_is_zero(tmp_path):
 
 def test_due_fires_over_threshold(tmp_path):
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(cg.WARN_THRESHOLD, 0, 0)])
+    _write_jsonl(tx, [_assistant_with_usage(cg.HARD_THRESHOLD, 0, 0)])
     assert cg.consolidation_due(tx) is True
 
 
@@ -84,11 +84,18 @@ def test_not_due_below_threshold(tmp_path):
     assert cg.consolidation_due(tx) is False
 
 
+def test_not_due_in_old_warn_band(tmp_path):
+    # 950k used to be the warn line; after 2026-06-19 collapse, it's just ok.
+    tx = tmp_path / "t.jsonl"
+    _write_jsonl(tx, [_assistant_with_usage(950_000, 0, 0)])
+    assert cg.consolidation_due(tx) is False
+
+
 def test_fires_once_then_marker_silences_it(tmp_path):
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(950000, 0, 0)])
+    _write_jsonl(tx, [_assistant_with_usage(980_000, 0, 0)])
     assert cg.consolidation_due(tx) is True  # first crossing
-    cg.mark_consolidated(950000)
+    cg.mark_consolidated(980_000)
     assert cg.consolidation_due(tx) is False  # already consolidated → no nag
     cg.clear_consolidated()
     assert cg.consolidation_due(tx) is True  # re-armed (e.g. new session)
@@ -99,7 +106,7 @@ def test_fail_soft_never_fires_on_unreadable_sensor(tmp_path):
     assert cg.consolidation_due(tmp_path / "missing.jsonl") is False
 
 
-# --- the finish-grace band: ok / warn / block (Andrew 2026-05-27) ----------
+# --- two-state read: ok / block (collapsed 2026-06-19 from ok / warn / block)
 
 
 def _tx_with(tmp_path, tokens: int) -> Path:
@@ -108,18 +115,12 @@ def _tx_with(tmp_path, tokens: int) -> Path:
     return tx
 
 
-def test_state_ok_below_warn(tmp_path):
+def test_state_ok_below_hard(tmp_path):
+    # Everything below HARD_THRESHOLD is quiet now — the old 950k warn line
+    # was removed 2026-06-19 because its only effect was pre-emptive panic.
     assert cg.consolidation_state(_tx_with(tmp_path, 900_000)) == "ok"
-
-
-def test_state_warn_in_grace_band(tmp_path):
-    # WARN_THRESHOLD–HARD_THRESHOLD: nudge to wrap up, but NOT a block —
-    # grace to finish. Constants used so the band is data, not a magic
-    # number that drifts with the cliff (Andrew 2026-06-11: 920k → 935k →
-    # 950k after the Aletheia audit reconciled three branches).
-    assert cg.consolidation_state(_tx_with(tmp_path, cg.WARN_THRESHOLD)) == "warn"
-    assert cg.consolidation_state(_tx_with(tmp_path, cg.WARN_THRESHOLD + 1)) == "warn"
-    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "warn"
+    assert cg.consolidation_state(_tx_with(tmp_path, 950_000)) == "ok"
+    assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "ok"
 
 
 def test_state_block_at_hard_line(tmp_path):
@@ -148,11 +149,10 @@ def test_governor_context_empty_when_ok(tmp_path):
     assert cg.build_governor_context(_tx_with(tmp_path, 900_000)) == ""
 
 
-def test_governor_context_warn_is_nudge_not_block(tmp_path):
-    out = cg.build_governor_context(_tx_with(tmp_path, cg.WARN_THRESHOLD + 1))
-    assert "WARN" in out
-    assert "BLOCKED" not in out  # warn band is grace, not a block
-    assert "extract" in out and "sleep" in out
+def test_governor_context_empty_in_old_warn_band(tmp_path):
+    # 950k used to surface a WARN nudge; 2026-06-19 collapse made it silent.
+    assert cg.build_governor_context(_tx_with(tmp_path, 950_000)) == ""
+    assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == ""
 
 
 def test_governor_context_block_is_channel_message(tmp_path):

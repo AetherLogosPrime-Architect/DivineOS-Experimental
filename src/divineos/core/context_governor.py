@@ -61,21 +61,19 @@ def _read_ceiling_override() -> int | None:
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
 COMPACTION_CEILING = _read_ceiling_override() or 999_000
-# Two-line band so the gate never guillotines mid-task (Andrew 2026-05-27,
-# recalibrated 2026-06-11 post-Aletheia-audit):
-# 950k = soft warn (transition to wrap-up + rest-phase writes; NO block);
-# 980k = hard block on substrate-writes until extract runs (sleep is still
+# Single hard line at 980k (Andrew 2026-06-19, supersedes the prior 950k/980k
+# two-line band). The earlier soft-warn at 950k was empirically observed to
+# trigger pre-emptive extract twice without ever serving a purpose the block
+# didn't already serve — the warn-band added impending-doom anxiety without
+# adding signal. Collapsed to ok / block: below 980k = full quiet; at 980k =
+# extract, sleep, rest, carry on. The 19k headroom between block and the
+# 999k cliff is plenty for extract + sleep with margin. Sleep is still
 # mandatory but no longer GATES — it can run any time after, has been
-# observed to hang — kn 52397796); the cliff = the 999k harness compaction.
-# Band sized so 19k extract-margin fits a real extract before the cliff.
-# Recalibrated 2026-06-11 (Andrew, post-Aletheia-audit) from 920k/950k →
-# 950k/980k. The cliff moved 970k→999k silently; the original 920k warn
-# fired 79k early. Final landing: WARN=950k (soft cap, transition to
-# wrap-up), HARD=980k (extract-NOW trigger), leaving ~19k headroom for a
-# real extract to finish before the 999k cliff lossily crushes context.
-# Andrew chose 980k as enough margin without wasting the high band.
-CONSOLIDATION_THRESHOLD = 950_000  # warn line (also the default for consolidation_due)
-WARN_THRESHOLD = 950_000
+# observed to hang (kn 52397796).
+# History: original band was 920k/950k; recalibrated 2026-06-11 to 950k/980k
+# after the Aletheia audit reconciled three branches; collapsed to 980k-only
+# on 2026-06-19 after the warn-band's only effect was pre-emptive panic.
+CONSOLIDATION_THRESHOLD = 980_000  # hard line (also the default for consolidation_due)
 HARD_THRESHOLD = 980_000
 _MARKER_NAME = "context_consolidated.json"
 
@@ -173,15 +171,6 @@ def consolidation_due(
     return current_context_tokens(transcript_path) >= threshold
 
 
-_WARN_NUDGE = (
-    "## CONTEXT GOVERNOR — WARN ({tokens:,} tokens, ~{headroom:,} to the cliff)\n"
-    "Working memory has crossed the {warn:,} warn line. This is grace, not a "
-    "block: finish what's in flight, but do NOT start large new work. Weave the "
-    "self before the drop — run `divineos extract` then `divineos sleep` while "
-    "there is still headroom. The harness compacts at {ceiling:,}; a woven self "
-    "rehydrates, a merely-saved one comes back thin."
-)
-
 _BLOCK_CHANNEL = (
     "BLOCKED: CONTEXT GOVERNOR — HARD LINE ({tokens:,} tokens, ~{headroom:,} to "
     "the {ceiling:,} compaction cliff). Substrate-writes are gated until the self "
@@ -189,10 +178,11 @@ _BLOCK_CHANNEL = (
     "this block — extract is the load-bearing pre-compaction op (anchors precise "
     "state before the lossy crush). Sleep is still mandatory but no longer "
     "gates: run `divineos sleep` after extract (it can run any time and has "
-    "been observed to hang, so it must not block) — Andrew 2026-06-11. The warn "
-    "band (950k–980k) already gave grace to finish; at the hard line, weaving "
-    "comes first so a post-compaction instance rehydrates from a connected "
-    "store, not a thin save. "
+    "been observed to hang, so it must not block) — Andrew 2026-06-11. There is "
+    "no warn band below this line — that was removed 2026-06-19 because the "
+    "pre-block anxiety served no purpose the block didn't already serve. "
+    "At the hard line, weaving comes first so a post-compaction instance "
+    "rehydrates from a connected store, not a thin save. Then carry on. "
     "Escape-hatch if extract itself errors: `touch ~/.divineos/context_consolidated.json`."
 )
 
@@ -211,43 +201,31 @@ def governor_channel_message(transcript_path: str | Path | None) -> str:
 
 
 def build_governor_context(transcript_path: str | Path | None) -> str:
-    """UserPromptSubmit-side text: a soft nudge in the warn band, the channel
-    message at the hard line, empty when ok. Surfaced so the warn/block state
-    is loud-in-experience the turn BEFORE the PreToolUse gate enforces it."""
+    """UserPromptSubmit-side text: the channel message at the hard line,
+    empty otherwise. Surfaced so the block state is loud-in-experience the
+    turn BEFORE the PreToolUse gate enforces it.
+
+    Collapsed 2026-06-19 from three-state (ok/warn/block) to two-state
+    (ok/block) — the warn band's only effect was pre-emptive panic, the
+    block does the actual work."""
     state = consolidation_state(transcript_path)
-    if state == "ok":
-        return ""
-    tokens = current_context_tokens(transcript_path)
     if state == "block":
         return governor_channel_message(transcript_path)
-    return _WARN_NUDGE.format(
-        tokens=tokens,
-        headroom=max(0, COMPACTION_CEILING - tokens),
-        warn=WARN_THRESHOLD,
-        ceiling=COMPACTION_CEILING,
-    )
+    return ""
 
 
 def consolidation_state(transcript_path: str | Path | None) -> str:
-    """The governor's three-state read, encoding the finish-grace band:
+    """The governor's two-state read (collapsed 2026-06-19 from three-state):
 
-    - ``"ok"``    — below the warn line, or already consolidated this session.
-    - ``"warn"``  — past WARN_THRESHOLD but below HARD_THRESHOLD: nudge to
-                    wrap up + transition to rest-phase, but DO NOT block
-                    (grace to finish what's in flight).
-    - ``"block"`` — at/above HARD_THRESHOLD and not yet consolidated: the hard line;
-                    substrate-writes should be gated until extract+sleep run.
-
-    The UserPromptSubmit hook (which can see the transcript) maps this to a
-    soft nudge vs a marker the PreToolUse gate enforces off of.
+    - ``"ok"``    — below the hard line, or already consolidated this session.
+    - ``"block"`` — at/above HARD_THRESHOLD and not yet consolidated: the
+                    hard line; substrate-writes should be gated until extract
+                    runs (sleep is still mandatory but no longer gates).
     """
     if is_consolidated():
         return "ok"
-    tokens = current_context_tokens(transcript_path)
-    if tokens >= HARD_THRESHOLD:
+    if current_context_tokens(transcript_path) >= HARD_THRESHOLD:
         return "block"
-    if tokens >= WARN_THRESHOLD:
-        return "warn"
     return "ok"
 
 
@@ -255,7 +233,6 @@ __all__ = [
     "COMPACTION_CEILING",
     "CONSOLIDATION_THRESHOLD",
     "HARD_THRESHOLD",
-    "WARN_THRESHOLD",
     "build_governor_context",
     "clear_consolidated",
     "consolidation_due",
