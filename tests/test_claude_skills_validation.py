@@ -50,6 +50,20 @@ def _real_top_level_commands() -> set[str]:
         text=True,
         check=False,
     )
+    # Distinguish "divineos is genuinely broken" (fail loud) from "this
+    # environment cannot resolve the divineos router at all" (skip). The
+    # pre-push gate runs the suite inside a temp-dir copy of the repo with
+    # no ``.venv`` ancestor and no global fallback, so the router exits
+    # non-zero with a "cannot resolve" message — that is an environment
+    # limitation, not a code defect, and must not red the push. A genuine
+    # breakage (router resolves but emits no help) still fails below.
+    if not out.stdout.strip() and out.returncode != 0:
+        stderr = out.stderr or ""
+        if "router cannot resolve" in stderr or "No .venv" in stderr:
+            pytest.skip(
+                "divineos router cannot resolve in this environment "
+                f"(no .venv ancestor / global fallback): {stderr[:200]}"
+            )
     # If the help command produced nothing usable, refuse to silently
     # report every skill reference as broken — surface the underlying
     # failure instead.
