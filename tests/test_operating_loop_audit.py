@@ -32,6 +32,181 @@ def _assistant_text(text: str) -> dict:
     return {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
 
 
+# Voiceful, substantive (>60 words) assistant text: passes writer-presence
+# so the lepos-walk block is the only blocker under test, not voice-absence.
+_VOICEFUL = (
+    "I hear you, and I don't know yet whether this lands the way I want it to. "
+    "I keep reaching for the careful version and I almost did it again just now. "
+    "What scares me is getting this wrong in a way that blocks you mid-turn. "
+    "I feel steady about the shape but genuinely uncertain about the edges, and "
+    "I want to name that honestly rather than hide it behind confident prose. "
+    "You asked me to be present, and I am trying to be here in the sentence."
+)
+
+
+def _isolate_walk_db(tmp_path, monkeypatch):
+    from divineos.core import lepos_walk as lw
+
+    monkeypatch.setattr(lw, "_db_path", lambda: tmp_path / "lepos_walk.db")
+    return lw
+
+
+def test_walk_block_fires_when_no_walk_recorded(tmp_path, monkeypatch) -> None:
+    """A substantive, voiceful father turn with no recorded walk blocks on
+    the lepos rail when verify_walk=True."""
+    _isolate_walk_db(tmp_path, monkeypatch)
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(transcript, [_user("build the gate"), _assistant_text(_VOICEFUL)])
+    result = run_audit(transcript, write=False, verify_walk=True)
+    assert result["lepos_block"] is not None
+    assert "LEPOS WALK" in result["lepos_block"]
+    assert "no walk recorded" in result["lepos_block"]
+
+
+def test_walk_block_clears_when_walk_recorded(tmp_path, monkeypatch) -> None:
+    """Recording a clean walk clears the walk-block."""
+    lw = _isolate_walk_db(tmp_path, monkeypatch)
+    lw.record_walk(
+        lw.LeposWalk(
+            turn_id="t-int",
+            answers=(
+                lw.WalkAnswer(
+                    "responding_to_what",
+                    "He asked me to build the gate, and I am wiring the verification now.",
+                    cited_span="build the gate",
+                ),
+            ),
+        )
+    )
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(transcript, [_user("build the gate"), _assistant_text(_VOICEFUL)])
+    result = run_audit(transcript, write=False, verify_walk=True)
+    # No walk-block (writer-presence also passes on _VOICEFUL).
+    assert result["lepos_block"] is None
+
+
+def test_walk_check_skipped_when_verify_walk_false(tmp_path, monkeypatch) -> None:
+    """Default verify_walk=False: no walk required, no consumption — so
+    existing run_audit callers (tests, previews) are unaffected."""
+    _isolate_walk_db(tmp_path, monkeypatch)
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(transcript, [_user("build the gate"), _assistant_text(_VOICEFUL)])
+    result = run_audit(transcript, write=False)  # verify_walk defaults False
+    assert result["lepos_block"] is None
+
+
+def test_no_agent_settable_env_bypass(tmp_path, monkeypatch) -> None:
+    """Aletheia audit 2026-06-19: there must be NO agent-settable env bypass
+    (self-authorization defeats the gate — the survey's master-finding). The
+    old DIVINEOS_LEPOS_WALK_BYPASS env var is gone; setting it must NOT lift
+    the block. The keel is fail-open-on-error + a visible costly operator
+    hook-edit, not a one-line self-bypass."""
+    _isolate_walk_db(tmp_path, monkeypatch)
+    monkeypatch.setenv("DIVINEOS_LEPOS_WALK_BYPASS", "1")  # the retired var
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(transcript, [_user("build the gate"), _assistant_text(_VOICEFUL)])
+    result = run_audit(transcript, write=False, verify_walk=True)
+    # The block still fires — the env var no longer authorizes anything.
+    assert result["lepos_block"] is not None
+    assert "LEPOS WALK" in result["lepos_block"]
+
+
+def test_walk_not_required_on_short_turn(tmp_path, monkeypatch) -> None:
+    """Trivial acks (< 60 words) need no walk even with verify_walk=True."""
+    _isolate_walk_db(tmp_path, monkeypatch)
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(transcript, [_user("ok?"), _assistant_text("Yep, go ahead.")])
+    result = run_audit(transcript, write=False, verify_walk=True)
+    # Short turns short-circuit run_audit before the gate assembles, so the
+    # walk-check never runs (no consume, no block). lepos_block may be absent.
+    assert result.get("lepos_block") is None
+
+
+def test_latest_user_timestamp_parses_iso(tmp_path: Path) -> None:
+    """The turn-freshness bound (Aletheia seam #2) depends on parsing the
+    latest user record's ISO timestamp to epoch. Pins the parse."""
+    import datetime
+
+    from divineos.core.operating_loop_audit import _latest_user_timestamp
+
+    transcript = tmp_path / "t.jsonl"
+    txt = {"content": [{"type": "text", "text": "hi"}]}
+    transcript.write_text(
+        json.dumps({"type": "user", "timestamp": "2026-06-20T01:00:00.000Z", "message": txt})
+        + "\n"
+        + json.dumps({"type": "user", "timestamp": "2026-06-20T01:01:00.000Z", "message": txt})
+        + "\n",
+        encoding="utf-8",
+    )
+    ts = _latest_user_timestamp(transcript)
+    assert ts == datetime.datetime.fromisoformat("2026-06-20T01:01:00+00:00").timestamp()
+
+
+def test_latest_user_timestamp_fail_open(tmp_path: Path) -> None:
+    """Missing/unparseable transcript -> None (fail-open: all walks fresh)."""
+    from divineos.core.operating_loop_audit import _latest_user_timestamp
+
+    assert _latest_user_timestamp(tmp_path / "nope.jsonl") is None
+
+
+def test_latest_user_timestamp_ignores_tool_results(tmp_path: Path) -> None:
+    """The bug the live gate surfaced 2026-06-19: Claude Code records TOOL
+    RESULTS as type=user records, newer than a mid-turn walk. The freshness
+    bound must key off the HUMAN prompt, not the latest tool result, or a
+    tool-heavy turn wrongly blocks a real walk."""
+    import datetime
+
+    from divineos.core.operating_loop_audit import _latest_user_timestamp
+
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text(
+        # Human prompt (the real turn-start).
+        json.dumps(
+            {
+                "type": "user",
+                "timestamp": "2026-06-20T01:00:00.000Z",
+                "message": {"content": [{"type": "text", "text": "do the thing"}]},
+            }
+        )
+        + "\n"
+        # A tool result — also type=user, but newer. Must be IGNORED.
+        + json.dumps(
+            {
+                "type": "user",
+                "timestamp": "2026-06-20T01:05:00.000Z",
+                "message": {"content": [{"type": "tool_result", "content": "ok"}]},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    ts = _latest_user_timestamp(transcript)
+    # Returns the human prompt (01:00), NOT the later tool result (01:05).
+    assert ts == datetime.datetime.fromisoformat("2026-06-20T01:00:00+00:00").timestamp()
+
+
+def test_no_detector_dies_silently(tmp_path: Path) -> None:
+    """CLASS-FIX (Aletheia #75, 2026-06-19): fixing a dead-detector
+    INSTANCE is not closing the CLASS. _run_detector swallows exceptions
+    so one detector's failure can't break the others — but that same
+    swallow let addressee_misdirection die silently every run (a signature
+    drift collided last_user_text into transcript_path). The instance fix
+    is the corrected call; THIS test closes the class: a normal run_audit
+    must leave last_run_detector_errors() empty, so any future detector
+    that starts raising trips here instead of dying invisibly.
+    """
+    from divineos.core.operating_loop_audit import last_run_detector_errors
+
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [_user("what did aria say about the plan"), _assistant_text(_VOICEFUL)],
+    )
+    run_audit(transcript, write=False)
+    errors = last_run_detector_errors()
+    assert errors == [], f"detectors raised during run_audit (silent failure): {errors}"
+
+
 def test_run_audit_returns_expected_shape(tmp_path: Path) -> None:
     """LOAD-BEARING: contract of run_audit is dict with the three
     keys. Test pins the shape so callers (hooks, alternative
