@@ -42,13 +42,14 @@ idle when the threshold actually crosses, no tool call required.
 
 ## Threshold-source coupling
 
-The WARN/HARD threshold values are imported from
-``divineos.core.context_governor`` (the same constants the PreToolUse
-gates enforce). They are NOT re-literalled here. Aletheia 2026-06-09
+The HARD threshold value is imported from
+``divineos.core.context_governor`` (the same constant the PreToolUse
+gate enforces). It is NOT re-literalled here. Aletheia 2026-06-09
 flagged that re-literalled copies risk silent drift between
 what-the-gate-enforces and what-the-monitor-warns. Single source of
-truth: changing WARN_THRESHOLD or HARD_THRESHOLD in context_governor
-automatically updates this script's behavior AND its emitted messages.
+truth: changing HARD_THRESHOLD in context_governor automatically
+updates this script's behavior AND its emitted messages. The prior
+WARN_THRESHOLD was removed 2026-06-19 in the ok/block collapse.
 """
 
 from __future__ import annotations
@@ -60,7 +61,6 @@ from pathlib import Path
 
 from divineos.core.context_governor import (
     HARD_THRESHOLD,
-    WARN_THRESHOLD,
     current_context_tokens,
 )
 from divineos.core.monitor_singleton import acquire_or_exit
@@ -134,16 +134,16 @@ def _find_active_transcript(
 def _current_state(transcript: Path) -> tuple[str, int]:
     """Return (state, tokens) tuple for the transcript.
 
-    state is one of "ok" / "warn" / "block" — same vocabulary as
-    divineos.core.context_governor.consolidation_state. The threshold
-    constants are imported at module level (see Threshold-source coupling
+    state is one of "ok" / "block" — same vocabulary as
+    divineos.core.context_governor.consolidation_state (collapsed
+    2026-06-19 from three-state to two-state; the prior warn band
+    served no purpose the block didn't already serve). The threshold
+    constant is imported at module level (see Threshold-source coupling
     in the module docstring) so the gate and the monitor cannot drift.
     """
     tokens = current_context_tokens(transcript)
     if tokens >= HARD_THRESHOLD:
         return "block", tokens
-    if tokens >= WARN_THRESHOLD:
-        return "warn", tokens
     return "ok", tokens
 
 
@@ -176,18 +176,17 @@ def main() -> int:
         )
         return 2
 
-    # State-transition flags: emit only on the FIRST entry into warn / block.
+    # State-transition flag: emit only on the FIRST entry into block.
     # The Monitor stays alive after emitting; we just don't repeat the event.
-    warn_emitted = False
     block_emitted = False
 
     # Startup heartbeat so the operator and the agent see the watch is armed.
-    # Threshold display strings are derived from the imported constants
-    # (see module docstring "Threshold-source coupling") — they cannot
-    # drift from what the PreToolUse gates enforce.
+    # Threshold display string is derived from the imported constant
+    # (see module docstring "Threshold-source coupling") — it cannot
+    # drift from what the PreToolUse gate enforces.
     print(
         f"[COMPACTION-ARMED] watching transcript {transcript.name} — "
-        f"thresholds {_kfmt(WARN_THRESHOLD)} warn / {_kfmt(HARD_THRESHOLD)} block"
+        f"block threshold {_kfmt(HARD_THRESHOLD)}"
     )
     sys.stdout.flush()
 
@@ -210,23 +209,9 @@ def main() -> int:
                 )
                 sys.stdout.flush()
                 block_emitted = True
-                # Once we hit block, warn-emission state is moot — but
-                # set it true too so a transient bounce-back doesn't
-                # re-fire warn.
-                warn_emitted = True
-            elif state == "warn" and not warn_emitted:
-                print(
-                    f"[COMPACTION-WARN] context crossed warn threshold: "
-                    f"{tokens:,} tokens (>= {_kfmt(WARN_THRESHOLD)}, "
-                    f"< {_kfmt(HARD_THRESHOLD)}). Approaching the hard "
-                    "line; wrap in-flight work and plan extract + sleep."
-                )
-                sys.stdout.flush()
-                warn_emitted = True
             elif state == "ok":
-                # Dropped back below thresholds (consolidation cleared them).
-                # Reset emission flags so a future re-entry re-fires.
-                warn_emitted = False
+                # Dropped back below threshold (consolidation cleared it).
+                # Reset emission flag so a future re-entry re-fires.
                 block_emitted = False
         except Exception as exc:  # noqa: BLE001 — Monitor must not die on transient failures
             # Don't silent-fail; emit a diagnostic but keep going.
