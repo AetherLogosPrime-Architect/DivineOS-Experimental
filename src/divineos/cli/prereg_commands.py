@@ -60,6 +60,24 @@ def register(cli: click.Group) -> None:
         help="Optional commit SHA of the mechanism being shipped",
     )
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
+    @click.option(
+        "--companion-prereg",
+        default=None,
+        help=(
+            "prereg-id of the upstream/structural-prevention companion. "
+            "Required (or --no-upstream-because) when the filing reads "
+            "as a surface-fix shape. See prereg-89d744b98b35."
+        ),
+    )
+    @click.option(
+        "--no-upstream-because",
+        default=None,
+        help=(
+            "Escape hatch when upstream prevention is genuinely "
+            "impossible for this failure-class. Reason text >= 30 "
+            "chars; logged as auditable. See prereg-89d744b98b35."
+        ),
+    )
     def prereg_file_cmd(
         mechanism: str,
         claim: str,
@@ -70,12 +88,38 @@ def register(cli: click.Group) -> None:
         linked_claim: str | None,
         linked_commit: str | None,
         tags: tuple[str, ...],
+        companion_prereg: str | None,
+        no_upstream_because: str | None,
     ) -> None:
         """File a new pre-registration.
 
         Every field is load-bearing. Empty falsifier = not a prediction.
+
+        Surface-fix shapes (detectors / warnings / pattern-match gates)
+        must either name a companion structural-prevention prereg OR
+        explicitly document why upstream prevention is impossible. See
+        the three-why-trace gate (prereg-89d744b98b35) for the discipline.
         """
         from divineos.core.pre_registrations import file_pre_registration
+        from divineos.core.three_why_gate import validate_three_why
+
+        ok, message = validate_three_why(
+            mechanism=mechanism,
+            claim=claim,
+            companion_prereg_id=companion_prereg,
+            no_upstream_because=no_upstream_because,
+        )
+        if not ok:
+            click.secho(f"[!] {message}", fg="red")
+            return
+
+        # Fold the upstream-context into tags so it surfaces in list/show
+        # and remains auditable across the prereg's lifetime.
+        effective_tags = list(tags) if tags else []
+        if companion_prereg:
+            effective_tags.append(f"companion:{companion_prereg}")
+        if no_upstream_because:
+            effective_tags.append("no-upstream-because")
 
         try:
             prereg_id = file_pre_registration(
@@ -87,11 +131,15 @@ def register(cli: click.Group) -> None:
                 review_window_days=review_days,
                 linked_claim_id=linked_claim,
                 linked_commit=linked_commit,
-                tags=list(tags) if tags else None,
+                tags=effective_tags if effective_tags else None,
             )
             click.secho(f"[+] Pre-registration filed: {prereg_id}", fg="cyan")
             click.echo(f"    Review scheduled in {review_days} days.")
             click.echo(f"    Falsifier: {falsifier[:100]}")
+            if companion_prereg:
+                click.echo(f"    Upstream companion: {companion_prereg}")
+            if no_upstream_because:
+                click.echo(f"    No-upstream-because logged ({len(no_upstream_because)} chars)")
         except ValueError as e:
             click.secho(f"[!] {e}", fg="red")
 
