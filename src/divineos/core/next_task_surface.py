@@ -65,7 +65,15 @@ def _top_overdue_prereg() -> tuple[str, str] | None:
 
 def _top_open_audit_finding() -> tuple[str, str] | None:
     """Return (finding_id, one-line) for the highest-severity open audit
-    finding, or None."""
+    finding that is actually an action item, or None.
+
+    Calibration note (Aether 2026-06-20, observed live during the wire-up):
+    INFO-severity findings are excluded because the audit system uses INFO
+    for received CONFIRMs and other administrative entries that aren't
+    action items. A CONFIRM finding doesn't need me to "resolve" it — it's
+    an acknowledgment, not a task. MEDIUM and above are real findings that
+    need action; LOW is the lowest action-shaped tier.
+    """
     try:
         from divineos.core.watchmen import store as watchmen_store
         from divineos.core.watchmen.types import Severity
@@ -77,16 +85,20 @@ def _top_open_audit_finding() -> tuple[str, str] | None:
         return None
     if not all_findings:
         return None
-    # Severity order: HIGH > MEDIUM > LOW > INFO. Pick the first
-    # highest-severity finding.
+    # Exclude INFO-severity findings — they're administrative (CONFIRMs,
+    # status entries), not action items.
+    action_findings = [f for f in all_findings if f.severity != Severity.INFO]
+    if not action_findings:
+        return None
+    # Severity order: HIGH > MEDIUM > LOW. Pick the first highest-severity
+    # finding; tiebreak on newest-first.
     severity_rank = {
         Severity.HIGH: 0,
         Severity.MEDIUM: 1,
         Severity.LOW: 2,
-        Severity.INFO: 3,
     }
     sorted_findings = sorted(
-        all_findings,
+        action_findings,
         key=lambda f: (severity_rank.get(f.severity, 99), -f.created_at),
     )
     top = sorted_findings[0]
