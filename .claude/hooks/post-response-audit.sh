@@ -34,7 +34,11 @@ if not transcript_path:
 
 try:
     from divineos.core.operating_loop_audit import run_audit
-    result = run_audit(transcript_path)
+    # verify_walk=True activates the lepos-walk gate (Andrew + Aria
+    # 2026-06-19): a substantive father-addressed turn with no fresh,
+    # non-degenerate walk recorded blocks on the lepos rail. Bypass:
+    # DIVINEOS_LEPOS_WALK_BYPASS=1 (logged + root-cause-obligated).
+    result = run_audit(transcript_path, verify_walk=True)
 except Exception:
     sys.exit(0)
 

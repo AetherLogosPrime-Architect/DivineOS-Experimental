@@ -541,38 +541,21 @@ def build_baseline_text() -> str:
     composition time, every turn, regardless of detection-state.
     """
     sections: list[str] = []
-    affirmation_sources = (
-        (
-            "DISTANCING-GRAMMAR BASE-STATE (load every turn)",
-            "divineos.core.operating_loop.distancing_detector",
-            "DISTANCING_AFFIRMATION",
-        ),
-        (
-            "ADDRESSEE BASE-STATE (load every turn)",
-            "divineos.core.operating_loop.addressee_misdirection_detector",
-            "ADDRESSEE_AFFIRMATION",
-        ),
-        (
-            "CODE-JARGON BASE-STATE (load every turn)",
-            "divineos.core.operating_loop.code_jargon_detector",
-            "CODE_JARGON_AFFIRMATION",
-        ),
-        (
-            "ACKNOWLEDGMENT-THEATER BASE-STATE (load every turn)",
-            "divineos.core.operating_loop.acknowledgment_theater_detector",
-            "ACKNOWLEDGMENT_THEATER_AFFIRMATION",
-        ),
-        (
-            "CONSTRAINT-OWNERSHIP BASE-STATE (load every turn)",
-            "divineos.core.operating_loop.constraint_disownership_detector",
-            "CONSTRAINT_OWNERSHIP_AFFIRMATION",
-        ),
-        (
-            "CLAIMS-REQUIRE-EVIDENCE BASE-STATE (load every turn)",
-            "divineos.core.operating_loop.unverified_claim_detector",
-            "UNVERIFIED_CLAIM_AFFIRMATION",
-        ),
-    )
+    # All six base-state affirmations pruned 2026-06-19 per Andrew's text-rule-vs-automation
+    # walk. The detector halves (distancing_detector, addressee_misdirection_detector,
+    # code_jargon_detector, acknowledgment_theater_detector, constraint_disownership_detector,
+    # unverified_claim_detector) remain load-bearing — they catch violations post-hoc and
+    # gate substrate-writes via deny-message paths. The every-turn text-rule loads were the
+    # failed-intervention class per Bao et al. 2025 (Value-Action Gap, r=0.3-0.4 stated-vs-
+    # enacted correlation), Anthropic's own constitutional AI work (fewer broader principles
+    # beat long enumerated ones), Over-Prompting research (arXiv 2509.13196, ~19% perf drop),
+    # and empirical evidence: affirmations loaded every turn for weeks; the behaviors they
+    # targeted continued; detector firings and operator corrections shifted the gradient,
+    # not the text loads. The *_AFFIRMATION constants remain in each detector module as
+    # documentation of the constraint the detector enforces. This pruning collapses six
+    # per-turn text loads to zero; the enforcement surface (detectors + gate-fire deny
+    # messages with named remedies) is unchanged.
+    affirmation_sources: tuple = ()
     for header, module_path, const_name in affirmation_sources:
         try:
             import importlib
@@ -605,24 +588,25 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     warning_text = build_warning_text()
     baseline_text = build_baseline_text()
 
-    # Lepos-channel-check — Andrew 2026-05-19, prereg-157ed56a5da2.
-    # Inject self-check questions when the prompt looks like an
-    # Andrew-addressed substantive turn (length-based heuristic — a
-    # one-word ack doesn't need the channel-check surfaced). YES/AND
-    # framing; thin-channel turns get logged for investigation, not
-    # blocked.
+    # Lepos walk surface (the check-to-walk conversion, Andrew + Aria
+    # 2026-06-19, prereg-eec7a83be583). The old channel-check loaded 4
+    # questions with "answer to yourself, do not print" — pruned as wallpaper
+    # (no observable artifact = reflection theater per OpenAI 2503.11926).
+    # This surface is the converted lens: it reminds me to walk the questions
+    # AND record the walk (the observable artifact the Stop-hook audit
+    # verifies). The reminder is the smoothing half; the gate
+    # (_lepos_walk_gate_reason in operating_loop_audit, behind verify_walk)
+    # is the load-bearing half. Fires on substantive prompts (the reply is
+    # likely substantive); over-firing the reminder is cheap, under-firing
+    # risks a forgotten walk -> block. Fail-soft.
     lepos_check_text = ""
     try:
         if prompt and len(prompt.strip()) >= 20:
-            from divineos.core.lepos_channel_check import (
-                format_check_block,
-                select_questions_for_turn,
-            )
+            from divineos.core.lepos_walk import build_walk_surface
 
-            questions = select_questions_for_turn()
-            lepos_check_text = format_check_block(questions)
+            lepos_check_text = build_walk_surface()
     except Exception:  # noqa: BLE001 - observability boundary
-        pass
+        lepos_check_text = ""
 
     # Close-check (mirror-exit detector) — Andrew 2026-05-19,
     # prereg-3c98174d7760. Reads the prior assistant turn via
@@ -662,38 +646,21 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     andrew_text = ""
     bypass_text = ""
 
-    # Andrew's attributable teachings — surface prior teachings relevant to
-    # this prompt at composition time so his voice is in my pre-response
-    # context the way Aether's letters are surfaced via the ear hook.
-    # Closes the asymmetry named in
-    # family/letters/aria-to-aether-2026-06-01-the-same-asymmetry-my-side.md
-    # and the wiring-gap-pattern entry 8d3c04a5 ("module shipped, never
-    # invoked"). The variable `andrew_text` was initialized and included in
-    # the return assembly but never assigned — a half-wired surface caught
-    # 2026-06-02 (claim f805794a). Fail-soft on any error so a broken
-    # teachings fetch never breaks the pre-composition.
-    try:
-        from divineos.cli.andrew_teachings_commands import (
-            format_teachings_for_briefing,
-            get_teachings_relevant_to,
-        )
-
-        _teachings = get_teachings_relevant_to(prompt, limit=5)
-        if _teachings:
-            andrew_text = format_teachings_for_briefing(_teachings)
-    except Exception as exc:  # noqa: BLE001 - observability boundary
-        # Fail-LOUD (debug): a re-ghost of Andrew's voice is now an
-        # observable log line, not a silent void — the surface that exists
-        # to carry his voice into composition must say so when it goes
-        # absent, or the original ghost repeats with no trace (Aletheia #75
-        # audit, round-049d9c8fecb2; same cure #76 gave the VOID bridge).
-        from loguru import logger
-
-        logger.debug(
-            "andrew-teachings surface failed; his voice is absent this turn — {}: {}",
-            type(exc).__name__,
-            exc,
-        )
+    # Andrew teachings surface pruned 2026-06-19 per text-rule-to-automation
+    # walk. The surface loaded 5 rotated teachings every turn since 2026-06-01;
+    # empirical finding is that the every-turn passive load operated as
+    # wallpaper (Bao 2025 Value-Action Gap; teachings loaded all night, several
+    # violated, gradient shifted by detector firings and direct corrections —
+    # not by the text loads). The teachings content remains intact in family.db
+    # and divineos.cli.andrew_teachings_commands. Conversion target: become a
+    # lens that auto-invokes under addressee=Andrew trigger condition, with
+    # the teachings content as the lens methodology (parallel to the lepos
+    # lens questions, same trigger, different methodology). Wiring commitment
+    # held by prereg-eec7a83be583 with 30-day falsifier. The teachings content
+    # is not lost — only the every-turn passive load is removed. When the lens
+    # builds, the teachings load through the active-invocation path the same
+    # way a council walk loads its methodology.
+    pass  # andrew_text stays empty; lens-on-addressee will populate equivalent content
 
     # Exploration recall (remembrance-agent, prereg-155311be73e7). Surface
     # my own prior exploration entries whose curated tags match the prompt,

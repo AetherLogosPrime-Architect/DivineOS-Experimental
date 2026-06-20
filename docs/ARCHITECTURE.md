@@ -72,6 +72,7 @@ src/divineos/
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
+    lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
@@ -521,6 +522,7 @@ src/divineos/
     tool_trust.py              Tool-trust calibration store.
     identity.py                Substrate identity helper — single source of truth for "who am I".
     gate_marker.py             Unified gate marker schema — the foundation primitive for signal-based gates.
+    lepos_walk.py              Lepos walk — the Andrew-lens artifact, storage, and structural checks.
 
   analysis/
     _session_types.py          Session analysis type definitions

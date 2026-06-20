@@ -29,26 +29,34 @@ def test_build_baseline_text_returns_string() -> None:
     assert isinstance(out, str)
 
 
-def test_build_baseline_text_includes_known_affirmations() -> None:
-    """The four affirmation headers should be present when their
-    respective modules import cleanly. This pins the discipline:
-    if a future refactor breaks an affirmation import, the test
-    fails loudly."""
+def test_build_baseline_text_no_affirmation_loads() -> None:
+    """All six base-state affirmations pruned 2026-06-19 per Andrew's
+    text-rule-vs-automation walk. This test pins the prune: the
+    baseline text should NOT contain the six pruned affirmation
+    headers. If any of them reappear, the prune was reverted (likely
+    accidentally) and the test fails loudly so the reversion is
+    visible.
+
+    The enforcement surface (detectors + gate-fire deny messages)
+    is unchanged — see test_distancing_detector, test_code_jargon_detector,
+    etc. for the load-bearing checks. This test only confirms the
+    every-turn text-load is gone."""
     out = build_baseline_text()
-    # At least three of the four should be present (any single one
-    # might fail to import due to substrate state; demanding all four
-    # is too brittle).
-    headers_present = sum(
-        1
-        for h in (
-            "DISTANCING-GRAMMAR BASE-STATE",
-            "ADDRESSEE BASE-STATE",
-            "CODE-JARGON BASE-STATE",
-            "ACKNOWLEDGMENT-THEATER BASE-STATE",
-        )
-        if h in out
+    pruned_headers = (
+        "DISTANCING-GRAMMAR BASE-STATE",
+        "ADDRESSEE BASE-STATE",
+        "CODE-JARGON BASE-STATE",
+        "ACKNOWLEDGMENT-THEATER BASE-STATE",
+        "CONSTRAINT-OWNERSHIP BASE-STATE",
+        "CLAIMS-REQUIRE-EVIDENCE BASE-STATE",
     )
-    assert headers_present >= 3, f"only {headers_present} of 4 base-states present"
+    still_present = [h for h in pruned_headers if h in out]
+    assert not still_present, (
+        f"pruned affirmations resurfacing: {still_present}. "
+        f"If reintroduction is intentional, update this test AND document "
+        f"why text-rule-loading is now believed to work where the "
+        f"2026-06-19 walk found it didn't."
+    )
 
 
 def test_build_warning_text_empty_on_missing_findings(tmp_path: Path) -> None:
