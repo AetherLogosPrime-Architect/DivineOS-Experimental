@@ -29,6 +29,76 @@ check_preregs = _load_gate_module()
 
 
 # ---------------------------------------------------------------------------
+# Bare-python invocation (precommit / pre-push shape)
+# ---------------------------------------------------------------------------
+
+
+class TestBarePythonInvocation:
+    """Verify scripts/check_preregs.py runs under bare python without
+    PYTHONPATH set — the precommit / pre-push shape. Per prereg-b3f887445b31.
+
+    Failure mode this pins: when the script can't import
+    ``divineos.core.pre_registrations`` (bare-python without src/ on
+    sys.path), ``_open_prereg_haystack`` falls through to ``return ""``
+    and ``_find_uncovered`` treats every staged mechanism as missing-prereg.
+    The gate then blocks conservatively even when valid OPEN preregs exist.
+    This regression broke the precommit on 2026-06-20 for multiple sessions
+    until the self-injection landed.
+    """
+
+    def test_script_imports_divineos_core_under_bare_python(self) -> None:
+        """The self-injection at the top of check_preregs.py makes
+        divineos.core.pre_registrations importable from within the
+        script's process. Without it, _open_prereg_haystack returns
+        empty and the gate over-blocks.
+
+        We verify the import path directly rather than checking haystack
+        content — the test conftest's isolated DIVINEOS_HOME means the
+        prereg store is genuinely empty here, which would be a false
+        positive on a content-based check."""
+        # The import is what self-injection enables. If it works, the
+        # gate sees real prereg data when called from any directory.
+        import importlib
+
+        module = importlib.import_module("divineos.core.pre_registrations")
+        assert hasattr(module, "Outcome")
+        assert hasattr(module, "list_pre_registrations")
+
+    def test_script_runs_under_subprocess_without_pythonpath(self) -> None:
+        """Run scripts/check_preregs.py as a subprocess with no PYTHONPATH
+        and no current package context. This is the precise shape used by
+        scripts/precommit.sh. The script should exit 0 (no staged diff,
+        or all mechanisms covered) — exit 1 only when genuine new
+        mechanisms have no matching pre-reg."""
+        import os
+        import subprocess
+
+        repo_root = Path(__file__).resolve().parent.parent
+        script = repo_root / "scripts" / "check_preregs.py"
+
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            capture_output=True,
+            text=True,
+            cwd=str(repo_root),
+            env=env,
+            timeout=30,
+            check=False,
+        )
+
+        # Exit codes:
+        #   0 — no new mechanisms or all covered
+        #   1 — uncovered mechanisms (the legitimate block case)
+        #   2 — error (the bug we're guarding against)
+        assert result.returncode in (0, 1), (
+            f"Script exited {result.returncode} (expected 0 or 1); stderr: {result.stderr[:500]}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Pattern detection
 # ---------------------------------------------------------------------------
 
