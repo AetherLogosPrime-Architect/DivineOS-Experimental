@@ -523,6 +523,7 @@ src/divineos/
     identity.py                Substrate identity helper — single source of truth for "who am I".
     gate_marker.py             Unified gate marker schema — the foundation primitive for signal-based gates.
     lepos_walk.py              Lepos walk — the Andrew-lens artifact, storage, and structural checks.
+    three_why_gate.py          Three-why-trace gate for prereg-file: structural prevention against
 
   analysis/
     _session_types.py          Session analysis type definitions
