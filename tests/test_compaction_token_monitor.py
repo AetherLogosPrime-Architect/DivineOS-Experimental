@@ -4,7 +4,8 @@ The full main() loop is impossible to test cleanly because it polls
 forever. These tests cover the testable surface:
 
 - transcript-finding logic (find most-recently-modified .jsonl)
-- current-state classification (ok / warn / block thresholds)
+- current-state classification (ok / block thresholds — collapsed
+  2026-06-19 from the prior ok / warn / block)
 - error handling when no transcript is found
 
 The poll loop itself is exercised in the live arming check during PR
@@ -101,31 +102,28 @@ class TestFindActiveTranscript:
 
 class TestCurrentState:
     """Threshold classification — should match context_governor's
-    consolidation_state semantics exactly."""
+    consolidation_state semantics exactly (ok / block; the prior warn band
+    was collapsed away 2026-06-19)."""
 
-    def test_below_warn_returns_ok(self, script_module, tmp_path):
+    def test_below_hard_returns_ok(self, script_module, tmp_path):
         tx = tmp_path / "tx.jsonl"
         _write_transcript(tx, 500_000)
         state, tokens = script_module._current_state(tx)
         assert state == "ok"
         assert tokens == 500_000
 
-    def test_at_warn_returns_warn(self, script_module, tmp_path):
+    def test_in_old_warn_band_returns_ok(self, script_module, tmp_path):
+        # 950k used to be the warn line; after the 2026-06-19 collapse it's ok.
         tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, script_module.WARN_THRESHOLD)
-        state, tokens = script_module._current_state(tx)
-        assert state == "warn"
-
-    def test_above_warn_below_block_returns_warn(self, script_module, tmp_path):
-        # Midpoint between warn and hard so future cliff-drift / threshold
-        # bumps don't desync this assertion (Andrew 2026-06-11 bumped warn
-        # 920k→935k after the cliff moved to 999k; tests previously hardcoded
-        # 935_000 which then collided with the new WARN floor).
-        midpoint = (script_module.WARN_THRESHOLD + script_module.HARD_THRESHOLD) // 2
-        tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, midpoint)
+        _write_transcript(tx, 950_000)
         state, _ = script_module._current_state(tx)
-        assert state == "warn"
+        assert state == "ok"
+
+    def test_just_below_hard_returns_ok(self, script_module, tmp_path):
+        tx = tmp_path / "tx.jsonl"
+        _write_transcript(tx, script_module.HARD_THRESHOLD - 1)
+        state, _ = script_module._current_state(tx)
+        assert state == "ok"
 
     def test_at_block_returns_block(self, script_module, tmp_path):
         tx = tmp_path / "tx.jsonl"
@@ -142,27 +140,23 @@ class TestCurrentState:
 
 class TestThresholdCoupling:
     """Aletheia 2026-06-09 coupling-note (find-c0f7f9f9b183): the script's
-    thresholds must come from context_governor, not be re-literalled. These
-    tests pin the coupling so future-me can't reintroduce the drift by
-    copy-pasting numeric literals into the script."""
+    threshold must come from context_governor, not be re-literalled. This
+    test pins the coupling so a future change can't reintroduce drift by
+    copy-pasting a numeric literal into the script."""
 
-    def test_thresholds_imported_from_context_governor(self, script_module):
-        """The script's WARN/HARD must be the SAME OBJECTS as the
-        governor's — not just equal-valued. Catches the failure-mode
-        where someone replaces the import with a hardcoded literal that
-        happens to match today's value."""
+    def test_threshold_imported_from_context_governor(self, script_module):
+        """The script's HARD must be the SAME OBJECT as the governor's —
+        not just equal-valued. Catches the failure-mode where someone
+        replaces the import with a hardcoded literal that happens to match
+        today's value."""
         from divineos.core import context_governor
 
-        assert script_module.WARN_THRESHOLD is context_governor.WARN_THRESHOLD
         assert script_module.HARD_THRESHOLD is context_governor.HARD_THRESHOLD
 
-    def test_kfmt_derives_display_from_constants(self, script_module):
+    def test_kfmt_derives_display_from_constant(self, script_module):
         """The human-readable threshold string in emitted messages must
-        be derived from the constant, not be a hardcoded "920k"/"950k"
-        literal. If the constant changes, the message updates with it."""
-        # Sanity-check the formatter contract.
-        assert script_module._kfmt(920_000) == "920k"
-        assert script_module._kfmt(950_000) == "950k"
-        # And verify it works on hypothetical future values.
+        be derived from the constant, not be a hardcoded literal. If the
+        constant changes, the message updates with it."""
+        assert script_module._kfmt(980_000) == "980k"
         assert script_module._kfmt(900_000) == "900k"
         assert script_module._kfmt(1_000_000) == "1000k"
