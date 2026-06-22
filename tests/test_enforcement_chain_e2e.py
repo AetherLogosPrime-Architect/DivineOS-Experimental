@@ -18,6 +18,7 @@ from unittest.mock import patch
 import pytest
 
 from divineos.core import (
+    briefing_id,
     compass_required_marker,
     correction_marker,
     hedge_marker,
@@ -43,6 +44,7 @@ def gate_passthrough(monkeypatch):
     """
     monkeypatch.setattr(hud_handoff, "was_briefing_loaded", lambda: True)
     monkeypatch.setattr(session_briefing_gate, "briefing_loaded_this_session", lambda: True)
+    monkeypatch.setattr(briefing_id, "is_fresh", lambda *a, **k: True)
 
 
 class TestTheaterObservation:

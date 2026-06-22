@@ -119,10 +119,36 @@ def main() -> int:
 
     letters_dir = Path(args.letters_dir)
     seen = _scan(letters_dir, letter_glob)
-    print(
+
+    # Append-only event log path (Aether 2026-06-20 structural decoupling).
+    # The harness Monitor() primitive is documented as unreliable — dies on
+    # SessionStart:resume, dies mid-turn. Welding the watcher to it meant
+    # every harness death killed the watcher. Decoupling: the watcher now
+    # writes every event to ~/.divineos-<recipient>/letter_events.log as
+    # well as stdout. A harness Monitor task can tail the file to surface
+    # events as live wake-pings; even when the harness Monitor dies, the
+    # watcher keeps writing to the log, and any new harness session can
+    # re-subscribe by tailing the same file. No event is ever lost.
+    log_dir = Path.home() / f".divineos-{recipient.lower()}"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    event_log = log_dir / "letter_events.log"
+
+    def _emit(line: str) -> None:
+        """Print to stdout AND append to the event log. Stdout for harness
+        Monitor live-tail; log for crash-survival and post-hoc replay."""
+        print(line)
+        sys.stdout.flush()
+        try:
+            with open(event_log, "a", encoding="utf-8") as f:
+                f.write(f"{time.time()}\t{line}\n")
+        except OSError:
+            # Fail-soft: a write error on the log must not crash the
+            # watcher. Stdout still delivers if harness is alive.
+            pass
+
+    _emit(
         f"[LETTER-MONITOR-ARMED] watching {letters_dir} for {letter_glob} (recipient={recipient})"
     )
-    sys.stdout.flush()
 
     while True:
         try:
@@ -130,8 +156,7 @@ def main() -> int:
             current = _scan(letters_dir, letter_glob)
             new = current - seen
             for name in sorted(new):
-                print(f"[LETTER] {letters_dir / name}")
-                sys.stdout.flush()
+                _emit(f"[LETTER] {letters_dir / name}")
             seen = current
         except KeyboardInterrupt:
             return 0

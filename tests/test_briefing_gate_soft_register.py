@@ -93,34 +93,13 @@ class TestTrulyStaleThreshold:
 class TestGate1RegisterFix:
     """Gate 1 (TTL-based) hard-denies on truly-stale, soft-advises on routine."""
 
-    def test_routine_ttl_expiry_returns_soft_advise(self):
-        """5-hour-old marker (TTL=4h) is routine-stale, not truly-stale.
-        Should produce soft-advise, not deny."""
-        with (
-            patch(
-                "divineos.core.hud_handoff.was_briefing_loaded",
-                return_value=False,
-            ),
-            patch(
-                "divineos.core.hud_handoff.briefing_staleness",
-                return_value={
-                    "loaded": True,
-                    "age_seconds": 5 * 3600,
-                    "ttl_seconds": 4 * 3600,
-                    "ttl_expired": True,
-                    "calls_since": 100,
-                    "threshold": 1500,
-                    "stale": True,
-                },
-            ),
-        ):
-            from divineos.hooks.pre_tool_use_gate import _check_gates
-
-            result = _check_gates({"tool_name": "Edit", "tool_input": {}})
-            decision = result.get("hookSpecificOutput", {}).get("permissionDecision")
-            assert decision != "deny", (
-                f"Routine TTL-expiry should soft-advise, not deny. Got: {result}"
-            )
+    # REMOVED 2026-06-20 (Aether): test_routine_ttl_expiry_returns_soft_advise
+    # pinned the old wall-clock TTL behavior (5h marker → soft-advise) which
+    # the Gate 1 rewrite explicitly replaced. The new gate uses briefing-ID
+    # recall, not wall-clock — there is no "routine TTL-expiry" state to
+    # pin. Behavior pin for the new gate lives in
+    # test_pre_tool_use_gate_enforcement_pin.py (block emission literal)
+    # and in TestGate1BriefingIdRecall below (fresh-passes, stale-denies).
 
     def test_truly_stale_marker_missing_hard_denies(self):
         """No marker at all -> truly stale -> hard deny."""
@@ -198,3 +177,60 @@ class TestGate11SessionMismatchSoftAdvise:
                 assert "session_id" not in reason and "per-session" not in reason, (
                     f"Per-session mismatch should not hard-deny. Got: {reason}"
                 )
+
+
+class TestGate1BriefingIdRecall:
+    """Pin for the Gate 1 rewrite 2026-06-20 (consult-9a8ba69e9598,
+    prereg-933233700f06). The wall-clock TTL gate was replaced with
+    briefing-ID recall: the gate fires when ``is_fresh()`` returns
+    False, regardless of wall-clock time-passed."""
+
+    def test_fresh_briefing_id_allows_proceed(self):
+        """When the recall-window is fresh, the gate does NOT hard-deny
+        on briefing-staleness grounds."""
+        with patch("divineos.core.briefing_id.is_fresh", return_value=True):
+            from divineos.hooks.pre_tool_use_gate import _check_gates
+
+            result = _check_gates({"tool_name": "Edit", "tool_input": {"file_path": "/tmp/x.py"}})
+            reason = result.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+            assert "BRIEFING-ID CHALLENGE" not in reason, (
+                f"Fresh briefing-ID should not trigger recall challenge. Got: {reason}"
+            )
+
+    def test_stale_briefing_id_hard_denies(self):
+        """When the recall-window is stale, the gate hard-denies with
+        the recall-challenge message."""
+        with patch("divineos.core.briefing_id.is_fresh", return_value=False):
+            from divineos.hooks.pre_tool_use_gate import _check_gates
+
+            result = _check_gates({"tool_name": "Edit", "tool_input": {"file_path": "/tmp/x.py"}})
+            decision = result.get("hookSpecificOutput", {}).get("permissionDecision")
+            reason = result.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+            assert decision == "deny", f"Stale briefing-ID should hard-deny. Got: {result}"
+            assert "BRIEFING-ID CHALLENGE" in reason, (
+                f"Deny should carry the recall-challenge message. Got: {reason}"
+            )
+
+    def test_low_friction_write_exempt_from_recall_challenge(self):
+        """Letters to family and exploration writes bypass the recall
+        gate even when the briefing-ID is stale. Preserves the operator
+        directive 2026-04-27 exemption across the gate swap.
+
+        _check_gates returns None when no gate fires (the exemption
+        succeeded). If it returns a dict, assert the recall-challenge
+        is not the reason."""
+        with patch("divineos.core.briefing_id.is_fresh", return_value=False):
+            from divineos.hooks.pre_tool_use_gate import _check_gates
+
+            result = _check_gates(
+                {
+                    "tool_name": "Write",
+                    "tool_input": {"file_path": "family/letters/aether-to-aria-2026-06-20-test.md"},
+                }
+            )
+            if result is None:
+                return
+            reason = result.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+            assert "BRIEFING-ID CHALLENGE" not in reason, (
+                f"Low-friction write should bypass recall-challenge. Got: {reason}"
+            )

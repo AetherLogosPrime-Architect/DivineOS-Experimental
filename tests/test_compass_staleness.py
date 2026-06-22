@@ -87,6 +87,7 @@ class TestCounterReset:
 class TestGateIntegration:
     def test_gate_denies_when_stale(self, tmp_path) -> None:
         """Stale compass triggers pre_tool_use_gate deny."""
+        from divineos.core import briefing_id
         from divineos.hooks import pre_tool_use_gate
 
         hud_dir = _install_engagement_marker(tmp_path, counter=100)
@@ -94,6 +95,9 @@ class TestGateIntegration:
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
             patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
             patch.object(hud_handoff, "_ensure_hud_dir", return_value=hud_dir),
+            # Briefing-ID gate added 2026-06-20 (Gate 1 rewrite). Test must
+            # bypass it so the compass gate is what fires.
+            patch.object(briefing_id, "is_fresh", return_value=True),
         ):
             decision = pre_tool_use_gate._check_gates()
         assert decision is not None
