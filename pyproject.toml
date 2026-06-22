@@ -7,7 +7,7 @@ name = "divineos"
 version = "1.0.0"
 description = "An operating system for AI agents — memory, continuity, accountability, and learning across sessions."
 license = "AGPL-3.0-or-later"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "click>=8.0.0",
     "loguru>=0.7.0",
@@ -24,7 +24,7 @@ dev = [
     "pytest-xdist>=3.0",
     "pytest-benchmark>=4.0",
     "hypothesis>=6.0",
-    "mypy>=1.0",
+    "mypy>=2.1",  # bumped 2026-06-22 from >=1.0 as part of the Python-3.12-floor bump — newer numpy stubs use PEP 695 `type` statement syntax, and combining a newer mypy with python_version=3.12 lets mypy parse them naturally. Caught by PR #251 (mypy-step failure across all CI jobs after the runner-image upgrade pulled in a newer numpy).
     "ruff==0.15.5",  # pinned exact: ruff's formatter output varies across versions; an unpinned range let CI resolve a different ruff than local, producing spurious `ruff format --check` reds (PR #24, 2026-05-21). Bump deliberately + reformat the tree in the same commit.
     "vulture>=2.0",
     "bandit==1.9.4",  # pinned exact: bandit's B608 line-attribution shifted across 1.x (the reported line moved from the conn.execute() call to the f-string-construction line), which silently orphaned every `# nosec B608` by one line and failed the strict gate on unchanged code (2026-05-24). nosec placement is version-coupled; bump deliberately + re-verify suppressions land in the same commit.
@@ -50,7 +50,7 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 ignore = [
@@ -150,6 +150,6 @@ tests_dir = "tests/"
 runner = "python -m pytest tests/ -q --tb=no -x"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
