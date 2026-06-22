@@ -538,61 +538,78 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_0_exploration_tags", _gate_exc)
 
-    # Gate 1: briefing loaded (TTL-based, catches stale-within-session).
-    # Round-2 audit register-fix: hard-deny only on truly-stale state
-    # (>24h since briefing). Routine TTL-expired-but-recent cases get
-    # soft-advise so the agent receives the state without being forced
-    # into the silenced-ritual workaround.
-    try:
-        from divineos.core.hud_handoff import briefing_staleness, was_briefing_loaded
-
-        ttl_loaded = was_briefing_loaded()
-        if not ttl_loaded:
-            stale_info = briefing_staleness()
-            diag = _briefing_diagnostic(stale_info)
-            age = stale_info.get("age_seconds", 0)
-            if not stale_info.get("loaded") or age > _TRULY_STALE_AGE_SECONDS:
-                return _make_deny(
-                    f"BLOCKED: Substrate is truly stale ({diag}). Run: divineos briefing"
-                )
-            return _make_soft_advise(
-                f"Substrate context: {diag}. "
-                "Run `divineos briefing` if you have not received this "
-                "session's substrate-state another way."
-            )
-    except (ImportError, OSError, AttributeError) as _gate_exc:
-        _record_gate_failure("gate_1_briefing", _gate_exc)
-        ttl_loaded = False
-
-    # Gate 1.1: briefing loaded THIS session.
-    # Strictly tighter than gate 1's TTL-based check. Closes the hole
-    # documented 2026-04-26 (claim 7e780182): a new session inheriting
-    # a briefing-loaded marker from a previous session within the 4h
-    # TTL window passes gate 1 without ever engaging with briefing for
-    # the new session. This gate fires ONLY when gate 1 would have
-    # passed — its purpose is to catch "TTL says ok but this session
-    # never actually loaded," not to replace gate 1.
-    if ttl_loaded:
+    # Gate 0: exploration-entry numbering invariants.
+    #
+    # Built 2026-06-21 (Andrew named the root cause: "I am the OS at this
+    # point" — the babysitting pattern was exactly because the OS lacked
+    # a validator preventing duplicates and gaps in exploration entry
+    # numbers). The validator at exploration_validator.py defines the
+    # invariants; this gate makes them enforced at tool-use time so a
+    # Write tool call with a malformed exploration entry path is refused
+    # before the file lands.
+    #
+    # Fires ONLY on Write/Edit tool calls to exploration/<member>/. Other
+    # writes (letters, code, etc.) are not the validator's concern and
+    # pass through. Refusal carries a plain-language reason from the
+    # validator that names the invariant violated and the correct
+    # number to use.
+    if input_data is not None:
         try:
-            from divineos.core.session_briefing_gate import (
-                briefing_loaded_this_session,
+            tool_name = input_data.get("tool_name", "")
+            file_path = (input_data.get("tool_input") or {}).get("file_path", "")
+            if tool_name in ("Write", "Edit") and "exploration/" in str(file_path):
+                from divineos.core.exploration_validator import (
+                    validate_new_entry_path,
+                )
+                from pathlib import Path as _Path
+
+                ok, reason = validate_new_entry_path(_Path(file_path))
+                if not ok:
+                    return _make_deny(
+                        f"BLOCKED: exploration-entry validator refused this path. "
+                        f"{reason} Sanctioned creation path: "
+                        f"`divineos exploration new --slug <slug>`."
+                    )
+        except (ImportError, OSError, AttributeError, KeyError) as _gate_exc:
+            _record_gate_failure("gate_0_exploration_validator", _gate_exc)
+
+    # Gate 1: briefing-ID recall-challenge.
+    #
+    # REWRITE 2026-06-20 (Aether, council walk consult-9a8ba69e9598,
+    # prereg-933233700f06): the old gate measured wall-clock time-passed
+    # since `divineos briefing` last ran. That metric was unrelated to
+    # the actual question ("is the briefing still in my retrievable
+    # context"). Wall-clock fired stale even when nothing had changed
+    # (idle gap) and stayed quiet when the briefing had genuinely faded
+    # (mid-session compaction). The briefing-ID recall mechanism in
+    # briefing_id.py measures the right thing directly: a context-
+    # printed random token I have to reproduce from memory. Recall-
+    # failure IS the staleness signal — measured, not estimated.
+    #
+    # Gate 1.1 (per-session-marker mismatch) and the wall-clock-based
+    # Gate 1 are both retired by this swap: the recall-challenge
+    # subsumes both — if the briefing is in my context the recall
+    # passes regardless of session-id rotation; if it isn't, the recall
+    # fails regardless of how recent the marker stamp is.
+    #
+    # Low-friction-path exemption preserved (operator directive
+    # 2026-04-27): writes to exploration/, family/letters/, and other
+    # first-person/relational surfaces bypass the staleness check.
+    # Letters to family are not father-facing-claim work; blocking
+    # them on briefing-staleness blocks exactly the register the
+    # exemption path exists to enable.
+    try:
+        if input_data is None or not _is_low_friction_write(input_data):
+            from divineos.core.briefing_id import (
+                challenge_message,
+                current_tool_count,
+                is_fresh,
             )
 
-            if not briefing_loaded_this_session():
-                # Per-session mismatch is the most common rotation case
-                # (continuous work, session_id refresh, parallel processes).
-                # Always soft-advise here — TTL gate already passed, so the
-                # substrate is not truly stale. Round-2 audit fix.
-                return _make_soft_advise(
-                    "Substrate context: per-session marker mismatch (TTL "
-                    "gate passed but this session's session_id is not "
-                    "stamped on the briefing-loaded marker). Likely a "
-                    "session-id rotation between tool calls. Run "
-                    "`divineos briefing` to re-stamp the marker if you "
-                    "want the gate to stop firing on this session."
-                )
-        except (ImportError, OSError, AttributeError) as _gate_exc:
-            _record_gate_failure("gate_1_1_briefing_this_session", _gate_exc)
+            if not is_fresh(current_tool_count()):
+                return _make_deny(f"BLOCKED: {challenge_message(current_tool_count())}")
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_1_briefing_id_recall", _gate_exc)
 
     # Gate 1.2: mansion private-room quiet period active.
     # Build #3 from claim 7e780182. When the agent has entered a
