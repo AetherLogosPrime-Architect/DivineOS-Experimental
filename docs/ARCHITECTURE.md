@@ -580,6 +580,7 @@ src/divineos/
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
+    closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
 
   analysis/
     _session_types.py          Session analysis type definitions
