@@ -31,19 +31,31 @@ from dataclasses import dataclass
 _SUBSTRATE_MOD_THRESHOLD = 1
 # Council-required tier (2026-06-20, Andrew: "the gravity classifier is
 # not pulling its weight its letting you make serious changes with no
-# council"). Above the basic substrate-gate threshold sits a second tier
-# requiring council consultation BEFORE the edit proceeds. Fires when
-# either: (a) score >= _COUNCIL_REQUIRED_THRESHOLD with multiple non-
-# trivial features, or (b) any single high-impact feature fires
-# (guardrail-listed file or kiln-layer file). The high-impact short-
-# circuit catches today's slip: edits to operating-loop detector files
-# (guardrail-listed) scored only 1 / borderline under the prior design
-# and passed through with passive surface only. Council-walked
-# (consult-944ad9d332e5) before implementing. Pre-registered with
-# 14-day falsifier (prereg-fb1b42753396): threshold-2 is on probation
-# per Aether's review (Deming PDSA discipline — don't pre-tune, let data
-# shape the number); review whether to bump to 3 if false-positive rate
-# exceeds 25% on routine multi-tool turns over the probation window.
+# council"). Above the basic substrate-gate threshold sits a second
+# tier that the classifier marks as warranting council consultation.
+# Fires when either: (a) score >= _COUNCIL_REQUIRED_THRESHOLD with
+# multiple non-trivial features, or (b) any single high-impact feature
+# fires (guardrail-listed file or kiln-layer file). The high-impact
+# short-circuit catches the 2026-06-20 slip: edits to operating-loop
+# detector files (guardrail-listed) scored only 1 / borderline under
+# the prior design and passed through with passive surface only.
+# Council-walked (consult-944ad9d332e5) before implementing. Pre-
+# registered with 14-day falsifier (prereg-fb1b42753396): threshold-2
+# is on probation per Aether's review (Deming PDSA discipline — don't
+# pre-tune, let data shape the number); review whether to bump to 3
+# if false-positive rate exceeds 25% on routine multi-tool turns over
+# the probation window.
+#
+# Honesty note (added 2026-06-22, per Aletheia audit
+# round-931e301d32f0 + Aether option-1 read): the classifier REPORTS
+# this tier as a measurement on its result dataclass; it does NOT
+# block the edit. Currently the only consumer of is_council_required
+# is the borderline_indicator label function below, which renders
+# the tier as a display string ("council-required") for the gravity
+# surface. No pre-edit gate reads the field. Enforcement (block the
+# edit until evidence of a real council walk exists, substance-
+# binding-style) is a deferred follow-up tracked as its own design
+# work, not implemented by this commit.
 _COUNCIL_REQUIRED_THRESHOLD = 2
 _HIGH_IMPACT_FEATURES = frozenset({"edit-kiln-layer", "edit-guardrail-listed"})
 # Cognitive-value-gravity aggregate threshold.
@@ -75,9 +87,18 @@ class SubstrateModGravity:
     because each is independently substrate-modifying.
 
     is_council_required is the second tier (2026-06-20): True when the
-    edit warrants council consultation BEFORE proceeding, not just a
-    passive surface. Fires on either high-impact-feature short-circuit
-    (guardrail-listed or kiln-layer) or score >= _COUNCIL_REQUIRED_THRESHOLD.
+    classifier judges that the edit warrants council consultation.
+    Fires on either high-impact-feature short-circuit (guardrail-listed
+    or kiln-layer) or score >= _COUNCIL_REQUIRED_THRESHOLD.
+
+    This field is a MEASUREMENT, not a pre-edit block. The only current
+    consumer is the borderline_indicator label function, which renders
+    the tier as the display string "council-required" for the gravity
+    surface. No code reads this field as a verdict that prevents the
+    edit. Real enforcement (substance-binding the field to evidence of
+    an actual council walk before clearing) is a deferred follow-up.
+    See the honesty note above _COUNCIL_REQUIRED_THRESHOLD for the
+    Aletheia-audit context (round-931e301d32f0).
     """
 
     score: int
