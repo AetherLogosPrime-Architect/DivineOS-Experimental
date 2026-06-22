@@ -701,10 +701,26 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
         except Exception:  # noqa: BLE001 - observability boundary
             governor_text = ""
 
+    # Next-task surface (prereg-d99b6b8a442b). Auto-pulls the highest-priority
+    # queue item (overdue prereg > open audit > open correction > pending psf)
+    # into context so the next concrete action shows up without me running
+    # `divineos todos`. Andrew 2026-06-20: "the todo list itself is what needs
+    # work, it needs automated so you always know what the next task is."
+    # The query-step between me and the work — the one I would skip by asking
+    # — is now structurally absent. Fail-soft.
+    next_task_text = ""
+    try:
+        from divineos.core.next_task_surface import build_next_task_surface
+
+        next_task_text = build_next_task_surface()
+    except Exception:  # noqa: BLE001 - observability boundary
+        next_task_text = ""
+
     return "\n\n".join(
         t
         for t in (
             governor_text,
+            next_task_text,
             andrew_text,
             consultation_text,
             debt_text,
