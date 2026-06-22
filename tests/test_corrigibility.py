@@ -37,7 +37,17 @@ from divineos.core.corrigibility import (
 @pytest.fixture(autouse=True)
 def _isolated_home(tmp_path, monkeypatch):
     """Redirect Path.home() to a tmp path so the mode file doesn't
-    pollute the real home directory."""
+    pollute the real home directory.
+
+    Mock data_home_or_none too (added 2026-06-22): the recurrence-guard
+    added in 1fe9a682 made ``data_home_or_none()`` walk CWD ancestors
+    and own-root looking for ``.divineos_data_home`` markers. Any
+    member-specific checkout carries that marker at its root, and the
+    walk reaches it from pytest's tmp_path. ``_mode_file_path()`` goes
+    through ``divineos_home()`` which calls ``data_home_or_none()`` first,
+    so without this mock the corrigibility tests resolve to the real
+    member home (which has a persisted mode), not the isolated tmp_path.
+    """
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     # Also patch the specific function in case Path.home() caches
@@ -45,6 +55,9 @@ def _isolated_home(tmp_path, monkeypatch):
 
     original_home = _P.home
     monkeypatch.setattr(_P, "home", classmethod(lambda cls: tmp_path))
+    import divineos.core.paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "data_home_or_none", lambda: None)
     yield
     monkeypatch.setattr(_P, "home", original_home)
 
