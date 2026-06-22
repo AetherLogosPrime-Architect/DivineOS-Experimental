@@ -531,6 +531,7 @@ src/divineos/
     lepos_walk.py              Lepos walk — the Andrew-lens artifact, storage, and structural checks.
     three_why_gate.py          Three-why-trace gate for prereg-file: structural prevention against
     exploration_validator.py   Exploration-entry numbering validator — structural prevention.
+    next_task_surface.py       Auto-next-task surface for pre-response context.
 
   analysis/
     _session_types.py          Session analysis type definitions
