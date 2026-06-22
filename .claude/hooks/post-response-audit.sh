@@ -34,11 +34,17 @@ if not transcript_path:
 
 try:
     from divineos.core.operating_loop_audit import run_audit
-    # verify_walk=True activates the lepos-walk gate (Andrew + Aria
-    # 2026-06-19): a substantive father-addressed turn with no fresh,
-    # non-degenerate walk recorded blocks on the lepos rail. Bypass:
-    # DIVINEOS_LEPOS_WALK_BYPASS=1 (logged + root-cause-obligated).
-    result = run_audit(transcript_path, verify_walk=True)
+    # verify_walk=False per Andrew 2026-06-22: the walk-record requirement
+    # had become the 7-command-ceremony Andrew explicitly named as broken.
+    # Lepos was always meant to be a SECTION (a new section in the same
+    # post -- Andrew dual-channel naked-bath frame), not a per-sentence
+    # presence-density measurement and not a precondition gate demanding
+    # cited-span records before each turn could complete. Phase 1 kills
+    # the walk-record gate; Phase 2 (deferred, full-discipline) will
+    # restructure the remaining writer-presence check from density-across-
+    # the-whole-reply to section-detection -- did the reply open a lepos
+    # section after work content.
+    result = run_audit(transcript_path, verify_walk=False)
 except Exception:
     sys.exit(0)
 
