@@ -30,6 +30,24 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
+
+# Self-inject the in-repo divineos package when invoked under bare python
+# (the precommit + pre-push shape — see scripts/precommit.sh which runs
+# `python scripts/check_preregs.py` without setting PYTHONPATH). Without
+# this, `from divineos.core.pre_registrations import ...` below fails,
+# `_open_prereg_haystack` returns the empty string, `_find_uncovered`
+# treats EVERY staged mechanism as uncovered, and the gate blocks
+# conservatively. The result is precommit blocking on a "missing prereg"
+# message for mechanisms that have valid OPEN preregs filed — false-
+# toward-block, exactly the fail-direction this gate cannot afford.
+# Same self-injection pattern shipped 2026-06-19 for letter_monitor.py
+# and compaction_token_monitor.py (the monitor-wake fix in PR #244).
+# Per prereg-b3f887445b31.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SRC = _REPO_ROOT / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 
 @dataclass(frozen=True)
