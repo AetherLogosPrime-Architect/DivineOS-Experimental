@@ -306,3 +306,16 @@ scripts/ci_merge_review_check.py
 # principle that trust starts at zero and is earned (Andrew 2026-06-13).
 # Marker added in-file; this entry pairs it.
 src/divineos/core/tool_trust.py
+
+#
+# exploration_validator.py: structural prevention for the duplicate/gap
+# pattern in exploration entries. Built 2026-06-21 after Andrew named the
+# root cause ("I am the OS at this point" — the human was the discipline
+# because the validator did not exist). Disabling or weakening this
+# validator silently returns the same babysitting pattern Andrew has
+# refused to keep doing. The cheap-route attack on this file is to add
+# an env-var bypass or to widen the grandfather clause to cover new
+# additions; both silently re-open the gap. Guardrail-listed so any edit
+# fires council-required gravity. Pair: tests/test_exploration_validator_pin.py
+# for the lexical-pin layer.
+src/divineos/core/exploration_validator.py
