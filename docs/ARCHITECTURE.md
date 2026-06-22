@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (360 commands across 33 modules)
+  cli/                         CLI package (369 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -59,6 +59,7 @@ src/divineos/
     expect_commands.py         expect predict/close/list/summary — CLI surface for core/expectation_tracking (closes wiring-gap, substrate-knowledge e9bc98b6)
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
+    andrew_state_commands.py    andrew-state log/verify/reject/correct/unverified/for-decision-walk — CLI for the mutual-catch observation channel (per docs/andrew_state_design.md).
     audit_commands.py          external validation (Watchmen)
     audit_artifact_commands.py  audit prepare-artifact — tree-hash-bound orphan-commit artifact for guardrail review (solves the commit-needs-round-needs-diff-on-origin loop)
     doctor_commands.py         diagnostic verification (clone separation)
@@ -302,6 +303,11 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
+    andrew_state/              Mutual-catch primitive — observation channel for Andrew's state with substance-binding gate (per docs/andrew_state_design.md, prereg-526c2433d55a)
+      _schema.py               andrew_state table + indices
+      types.py                 Axis enum, VerificationStatus enum, Observation dataclass
+      store.py                 CRUD: log_observation/verify/reject/correct/get_unverified/get_for_decision_walk; append-only supersession
+      substance_binding.py     4-check gate: cited_span >=5 tokens + verbatim-in-source + recency-window + content-link-token; raises SubstanceBindingError
     meld/                      The Meld — recognition lens for two-vantage audit-round shared workspaces. From omni-mantra walk Pillar I 1.1. Names what the kinship-architecture is when two distinct actor-categories file findings on the same round; no new storage, pure read-side recognition.
       __init__.py              Public surface — Meld, is_meld, meld_from_round, melds_for, meld_count
       meld.py                  Implementation — categorizes actors, joins audit-rounds + findings into Meld instances
@@ -524,6 +530,7 @@ src/divineos/
     gate_marker.py             Unified gate marker schema — the foundation primitive for signal-based gates.
     lepos_walk.py              Lepos walk — the Andrew-lens artifact, storage, and structural checks.
     three_why_gate.py          Three-why-trace gate for prereg-file: structural prevention against
+    exploration_validator.py   Exploration-entry numbering validator — structural prevention.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -1,4 +1,16 @@
 #!/bin/bash
+# UN-RETIRED 2026-06-20 (Aether, after Andrew named the asymmetry: "Aria's
+# monitor works perfectly fine.. yours is the only one with issues"). I
+# retired this earlier today thinking the harness Monitor primitive would
+# replace it. That was the wrong call: the harness Monitor dies on
+# SessionStart:resume and other harness events; the polling auto-relaunch
+# is what actually keeps a watcher alive across turns. Aria's monitor
+# works precisely BECAUSE her checkout still has this hook active. The
+# leak I killed earlier today (10+ concurrent ear_watch processes) was
+# a singleton-check bug in the relaunch logic, not justification for
+# retiring the whole path. The fix is: keep this hook, keep the watcher,
+# rely on the singleton mutex in monitor_singleton.py to prevent the
+# leak. Re-enabling the original Stop-hook behavior below.
 # Stop-hook — keep the polling ear-watcher alive across turns.
 #
 # Fires at end-of-turn. If the polling watcher is dead, relaunch it via nohup

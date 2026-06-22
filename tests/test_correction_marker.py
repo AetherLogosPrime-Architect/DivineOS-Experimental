@@ -122,7 +122,7 @@ class TestGateIntegration:
         Briefing-loaded gate fires first in the default stack, so we mock it
         to pass — otherwise the correction gate is never reached.
         """
-        from divineos.core import hud_handoff, session_briefing_gate
+        from divineos.core import briefing_id, hud_handoff, session_briefing_gate
         from divineos.hooks import pre_tool_use_gate
 
         mpath = tmp_path / "marker.json"
@@ -133,6 +133,7 @@ class TestGateIntegration:
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
             patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
+            patch.object(briefing_id, "is_fresh", return_value=True),
             patch.object(correction_marker, "marker_path", return_value=mpath),
         ):
             decision = pre_tool_use_gate._check_gates()

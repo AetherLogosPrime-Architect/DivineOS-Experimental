@@ -180,3 +180,95 @@ def register(cli: click.Group) -> None:
                 click.echo(
                     f"    {fn}: {counts['surfaced']} surfaced / {counts['referenced']} referenced"
                 )
+
+    @exploration_group.command(name="new")
+    @click.option(
+        "--slug",
+        required=True,
+        help=(
+            "Short slug for the entry filename (no number prefix, no "
+            ".md suffix). Whitespace converted to underscores."
+        ),
+    )
+    @click.option(
+        "--member",
+        default=None,
+        help=("Substrate-occupant directory under exploration/ (defaults to my own identity)."),
+    )
+    @click.option(
+        "--title",
+        default=None,
+        help=(
+            "Optional title for the entry's first heading. Defaults to "
+            "the slug with underscores replaced by spaces."
+        ),
+    )
+    def new(slug: str, member: str | None, title: str | None) -> None:
+        """Create a new numbered exploration entry — the sanctioned path.
+
+        Built 2026-06-21 (Andrew named the root cause for the ghost-
+        numbers pattern: no validator existed). This command is the
+        only sanctioned way to create a new numbered entry. The
+        number is auto-assigned as max(existing) + 1 — no manual
+        specification accepted, no skipping ahead, no reusing.
+
+        The exploration_validator gate refuses any direct Write tool
+        call that would violate the same invariants, so this CLI
+        becomes the right-path-as-cheap-path.
+        """
+        from pathlib import Path
+
+        from divineos.core.exploration_validator import (
+            next_entry_number,
+            validate_new_entry_path,
+        )
+
+        # Resolve member: explicit flag wins; else my_identity; else fail.
+        if member is None:
+            try:
+                from divineos.core.identity import get_my_identity
+
+                member = get_my_identity(raise_on_unset=True)
+            except Exception as exc:  # noqa: BLE001 - want a plain error to operator
+                click.echo(
+                    f"[exploration new] could not resolve member ({exc}); "
+                    f"pass --member <name> explicitly.",
+                    err=True,
+                )
+                raise SystemExit(1) from exc
+
+        member_lower = str(member).lower()
+        clean_slug = "_".join(slug.strip().split()).lower()
+        if not clean_slug:
+            click.echo("[exploration new] --slug cannot be empty.", err=True)
+            raise SystemExit(1)
+
+        next_num = next_entry_number(member_lower)
+        repo_root = Path(__file__).resolve().parents[3]
+        target_dir = repo_root / "exploration" / member_lower
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = target_dir / f"{next_num}_{clean_slug}.md"
+
+        # Defense-in-depth: run the validator one more time. If anything
+        # changed between next_entry_number() and now (concurrent file
+        # creation), this catches it.
+        ok, reason = validate_new_entry_path(target_path)
+        if not ok:
+            click.echo(
+                f"[exploration new] validator refused the computed path: {reason}",
+                err=True,
+            )
+            raise SystemExit(1)
+
+        if target_path.exists():
+            click.echo(
+                f"[exploration new] {target_path} already exists "
+                "(race condition or stale next-number).",
+                err=True,
+            )
+            raise SystemExit(1)
+
+        title_text = title or clean_slug.replace("_", " ")
+        body = f"<!-- tags: -->\n# {next_num} — {title_text}\n\n"
+        target_path.write_text(body, encoding="utf-8")
+        click.echo(f"[exploration new] created {target_path}")

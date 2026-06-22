@@ -82,13 +82,14 @@ class TestFormatGateMessage:
 
 class TestGateIntegration:
     def test_gate_denies_during_active_quiet(self, tmp_path) -> None:
-        from divineos.core import hud_handoff, session_briefing_gate
+        from divineos.core import briefing_id, hud_handoff, session_briefing_gate
         from divineos.hooks import pre_tool_use_gate
 
         mpath = tmp_path / "mansion_quiet.json"
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
             patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
+            patch.object(briefing_id, "is_fresh", return_value=True),
             patch.object(mqm, "marker_path", return_value=mpath),
         ):
             mqm.set_marker("test-room", duration_seconds=300)

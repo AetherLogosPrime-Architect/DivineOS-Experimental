@@ -20,6 +20,7 @@ from __future__ import annotations
 import pytest
 
 from divineos.core import (
+    briefing_id,
     compass_required_marker,
     consultation_tracker,
     correction_marker,
@@ -62,6 +63,9 @@ class TestCheckGatesCoalesces:
         # Briefing gates pass.
         monkeypatch.setattr(hud_handoff, "was_briefing_loaded", lambda: True)
         monkeypatch.setattr(session_briefing_gate, "briefing_loaded_this_session", lambda: True)
+        # Briefing-id challenge passes (added to gate ordering 2026-06-20). Without this
+        # mock, the challenge fires before any engagement gate the test is targeting.
+        monkeypatch.setattr(briefing_id, "is_fresh", lambda *a, **k: True)
         # Hard / complex gates all pass.
         monkeypatch.setattr(hud_handoff, "compass_staleness_status", lambda: {"stale": False})
         monkeypatch.setattr(mansion_quiet_marker, "is_quiet_active", lambda: False)

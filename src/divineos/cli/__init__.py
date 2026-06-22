@@ -235,6 +235,7 @@ def cli() -> None:
 from divineos.cli import (  # noqa: E402
     actor_registry_commands,
     analysis_commands,
+    andrew_state_commands,
     audit_artifact_commands,
     audit_commands,
     bio_commands,
@@ -305,6 +306,7 @@ from divineos.cli import (  # noqa: E402
 )
 
 actor_registry_commands.register(cli)
+andrew_state_commands.register(cli)
 ledger_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
