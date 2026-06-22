@@ -53,7 +53,7 @@ class TestClear:
 
 class TestGateIntegration:
     def test_gate_denies_when_marker_present(self, tmp_path) -> None:
-        from divineos.core import hud_handoff
+        from divineos.core import briefing_id, hud_handoff
         from divineos.hooks import pre_tool_use_gate
 
         mpath = tmp_path / "hedge.json"
@@ -73,6 +73,8 @@ class TestGateIntegration:
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
             patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
+            # Briefing-id challenge: must pass so the hedge gate is what fires.
+            patch.object(briefing_id, "is_fresh", return_value=True),
             patch.object(hedge_marker, "marker_path", return_value=mpath),
         ):
             decision = pre_tool_use_gate._check_gates()
