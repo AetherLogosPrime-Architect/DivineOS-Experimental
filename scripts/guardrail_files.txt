@@ -155,6 +155,19 @@ scripts/check_prereg_for_new_infra.py
 tests/test_no_agent_settable_bypasses.py
 src/divineos/core/gravity_classifier.py
 .claude/hooks/state-gravity-surface.sh
+
+# Council-required enforcement gate — closes the Hofstadter self-loop
+# per Aether peer-review 2026-06-22. Edits to the gate's own substance-
+# binding, store, types, or PreToolUse hook would otherwise escape the
+# gate's own enforcement (the gate cannot fire on edits to a file it
+# does not see as council-required). Listing them here makes those
+# edits multi-party-review territory.
+src/divineos/core/council_required/gate.py
+src/divineos/core/council_required/store.py
+src/divineos/core/council_required/substance_binding.py
+src/divineos/core/council_required/types.py
+src/divineos/core/council_required/decision_walk_link.py
+.claude/hooks/check-council-required.sh
 src/divineos/core/oscillating_read.py
 src/divineos/core/emergency_bypass.py
 src/divineos/core/theater_audit.py

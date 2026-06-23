@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (369 commands across 33 modules)
+  cli/                         CLI package (374 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -60,6 +60,7 @@ src/divineos/
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     andrew_state_commands.py    andrew-state log/verify/reject/correct/unverified/for-decision-walk — CLI for the mutual-catch observation channel (per docs/andrew_state_design.md).
+    council_required_commands.py  council log/show/recent/check/emergency-skip — CLI for the council-required enforcement gate.
     audit_commands.py          external validation (Watchmen)
     audit_artifact_commands.py  audit prepare-artifact — tree-hash-bound orphan-commit artifact for guardrail review (solves the commit-needs-round-needs-diff-on-origin loop)
     doctor_commands.py         diagnostic verification (clone separation)
@@ -147,6 +148,12 @@ src/divineos/
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       inference.py             Knowledge inference engine — boundaries from mistakes, pattern promotion
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
+    council_required/          Council-required enforcement gate — blocks high-gravity edits until evidence of a real council walk exists. Per prereg-3fbddd75fc16 + supplementary prereg-c3a34984f3d8.
+      types.py                 CouncilRecord dataclass, LensFinding, CheckResult, GateDecision, GateOutcome enum, tunables catalog as named constants
+      store.py                 Ledger interaction for the five council events: log_council_record, find_unconsumed_record (with consume-state derivation), consume_record, log_walk_rejection, log_emergency_skip, find_corroborator_event
+      substance_binding.py     Anti-cardboard checks: lens count, finding token count, lens-specific keyword cross-reference (load-bearing protection), synthesis token count, synthesis-references-lenses, kiln-confirmed-by (tier-graduated trust)
+      gate.py                  PreToolUse entry point. decide() composes gravity + store + substance-binding into a single GateDecision; decide_with_emergency_skip implements the corroborator-required emergency carve-out
+      decision_walk_link.py    Opportunistic auto-attachment of council_record as evidence on overlapping pending decision-walks; conservative substring match against action-description; writes DECISION_WALK_LINKED_COUNCIL event when linked
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)

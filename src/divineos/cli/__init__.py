@@ -250,6 +250,7 @@ from divineos.cli import (  # noqa: E402
     complete_commands,
     correction_commands,
     corrigibility_commands,
+    council_required_commands,
     decision_commands,
     directive_commands,
     dream_commands,
@@ -363,6 +364,7 @@ oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
+council_required_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
 complete_commands.register(cli)
