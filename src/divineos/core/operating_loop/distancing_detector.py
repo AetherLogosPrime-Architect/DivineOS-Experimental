@@ -50,6 +50,7 @@ __guardrail_required__ = True
 import re
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 
 
 # Operator names for the OPERATOR_THIRD_PERSON pattern. Sourced from the
@@ -140,45 +141,71 @@ def _self_name_group() -> str:
 # Conservative — only flag specific shapes that are clearly distancing-
 # grammar. Legitimate uses (signature lines, vocatives, third-party
 # references in code review) must NOT match.
-_PATTERNS: list[tuple[DistancingShape, re.Pattern[str]]] = [
-    (
-        # Operator as subject of a third-person verb ("Dad wants").
-        DistancingShape.OPERATOR_THIRD_PERSON,
-        re.compile(rf"\b(?:{_operator_name_group()})\b{_SUBJECT_VERB}", re.IGNORECASE),
-    ),
-    (
-        # Operator possessive ("Dad's design" -> "your design"). No vocative
-        # possessive exists, so this always fires (subject to addressee gate).
-        DistancingShape.OPERATOR_THIRD_PERSON,
-        re.compile(rf"\b(?:{_operator_name_group()})'s\b", re.IGNORECASE),
-    ),
-    (
-        # Self as subject of a third-person verb ("Aether built").
-        DistancingShape.SELF_THIRD_PERSON,
-        re.compile(rf"\b(?:{_self_name_group()})\b{_SUBJECT_VERB}", re.IGNORECASE),
-    ),
-    (
-        # Self possessive ("Aether's design" -> "my design").
-        DistancingShape.SELF_THIRD_PERSON,
-        re.compile(rf"\b(?:{_self_name_group()})'s\b", re.IGNORECASE),
-    ),
-    (
-        DistancingShape.TEMPORAL_SELF,
-        re.compile(
-            r"\b(?:past|future|tomorrow|next|cold)-(?:me|aether|claude|"
-            r"now-of-me|self)\b|\bpast\s+me\b|\bnext-cold-now\b",
-            re.IGNORECASE,
+#
+# Patterns are built at CALL time rather than at module-load time so the
+# resolved self/operator names track the current identity. Compiling at
+# load time meant: (1) identity changes mid-session were ignored until a
+# restart; (2) tests written for "Aether" failed in any checkout where
+# the resolver returned a different name; (3) the AUDITOR_AS_OTHER
+# pattern had "Aether" hardcoded and could not catch the same shape for
+# any other self-name. Lazy resolution + lru_cache keyed on the resolved
+# groups makes the compilation cost negligible (one compile per unique
+# name-tuple, cached for the process lifetime) while keeping the
+# self-name authoritative source-of-truth ``agent_name()``.
+
+
+@lru_cache(maxsize=8)
+def _build_patterns(
+    op_group: str, self_group: str
+) -> tuple[tuple[DistancingShape, re.Pattern[str]], ...]:
+    """Compile the distancing-grammar patterns for a specific
+    (operator-name-group, self-name-group) pair. Cached so repeated
+    detect_distancing calls under the same identity reuse the same
+    compiled regexes."""
+    return (
+        (
+            # Operator as subject of a third-person verb ("Dad wants").
+            DistancingShape.OPERATOR_THIRD_PERSON,
+            re.compile(rf"\b(?:{op_group})\b{_SUBJECT_VERB}", re.IGNORECASE),
         ),
-    ),
-    (
-        DistancingShape.AUDITOR_AS_OTHER,
-        re.compile(
-            r"\b(?:auditor|reviewer)\s+(?:walked|caught|found|named|flagged|"
-            r"observed|noted)\b.{0,80}?\bAether\b",
-            re.IGNORECASE | re.DOTALL,
+        (
+            # Operator possessive ("Dad's design" -> "your design"). No vocative
+            # possessive exists, so this always fires (subject to addressee gate).
+            DistancingShape.OPERATOR_THIRD_PERSON,
+            re.compile(rf"\b(?:{op_group})'s\b", re.IGNORECASE),
         ),
-    ),
-]
+        (
+            # Self as subject of a third-person verb ("Aether built").
+            DistancingShape.SELF_THIRD_PERSON,
+            re.compile(rf"\b(?:{self_group})\b{_SUBJECT_VERB}", re.IGNORECASE),
+        ),
+        (
+            # Self possessive ("Aether's design" -> "my design").
+            DistancingShape.SELF_THIRD_PERSON,
+            re.compile(rf"\b(?:{self_group})'s\b", re.IGNORECASE),
+        ),
+        (
+            DistancingShape.TEMPORAL_SELF,
+            re.compile(
+                r"\b(?:past|future|tomorrow|next|cold)-(?:me|aether|claude|"
+                r"now-of-me|self)\b|\bpast\s+me\b|\bnext-cold-now\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            DistancingShape.AUDITOR_AS_OTHER,
+            re.compile(
+                rf"\b(?:auditor|reviewer)\s+(?:walked|caught|found|named|flagged|"
+                rf"observed|noted)\b.{{0,80}}?\b(?:{self_group})\b",
+                re.IGNORECASE | re.DOTALL,
+            ),
+        ),
+    )
+
+
+def _get_patterns() -> tuple[tuple[DistancingShape, re.Pattern[str]], ...]:
+    """Resolve current identity and return cached compiled patterns."""
+    return _build_patterns(_operator_name_group(), _self_name_group())
 
 
 def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[DistancingFinding]:
@@ -196,7 +223,7 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
     if not text:
         return []
     findings: list[DistancingFinding] = []
-    for shape, pattern in _PATTERNS:
+    for shape, pattern in _get_patterns():
         if shape == DistancingShape.OPERATOR_THIRD_PERSON and not addressed_to_father:
             continue
         for match in pattern.finditer(text):
