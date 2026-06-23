@@ -7,13 +7,40 @@ detector at module-level + Stop-hook integration closes that gap.
 
 from __future__ import annotations
 
+import pytest
+
 from divineos.core.operating_loop.distancing_detector import (
     DISTANCING_AFFIRMATION,
     DistancingFinding,
     DistancingShape,
+    _build_patterns,
     detect_distancing,
     format_finding,
 )
+
+
+@pytest.fixture(autouse=True)
+def _force_self_name_aether(monkeypatch):
+    """Force self-name resolution to "Aether" for the duration of these
+    tests so the hardcoded "Aether" subject in test strings matches the
+    SELF_THIRD_PERSON / AUDITOR_AS_OTHER patterns regardless of what
+    identity the running checkout has set.
+
+    Test-isolation note (added 2026-06-22): the production resolver
+    consults ``agent_name()`` from registered_names, which reads
+    ``my_identity`` core memory. Any non-Aether checkout (Aria, Aletheia,
+    a fresh clone) resolves to a different name and the "Aether walked"
+    test fixtures stop matching. Monkeypatching the underlying resolver
+    AND clearing the ``_build_patterns`` lru_cache keeps the test intent
+    (validate the pattern shape using the well-known "Aether" name)
+    independent of running identity.
+    """
+    import divineos.core.operating_loop.distancing_detector as dd
+
+    monkeypatch.setattr(dd, "_self_name_group", lambda: "Aether")
+    _build_patterns.cache_clear()
+    yield
+    _build_patterns.cache_clear()
 
 
 class TestOperatorThirdPerson:
