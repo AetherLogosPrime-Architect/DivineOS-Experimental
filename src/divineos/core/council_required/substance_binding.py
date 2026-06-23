@@ -1,0 +1,397 @@
+"""Substance-binding checks for council records.
+
+The actual anti-cardboard protection. These checks are what prevent a
+walked-the-command-but-did-not-engage walk from clearing the gate. Token
+counts alone are gameable (the optimizer can pad); the load-bearing
+protection is the per-lens keyword cross-reference — the finding for
+lens X must reference content-words from lens X's own
+characteristic_questions, which forces engagement with that specific
+lens's framework rather than producing generic text that satisfies the
+count.
+
+Aether peer-review 2026-06-22 named the trap: lens-keyword check needs
+characteristic_questions populated on every registered lens. Without
+that, the check accidentally narrows the acceptable lens set. The
+``test_council_expert_characteristic_questions_populated`` test (filed
+separately) pins the invariant; this module assumes the test passes.
+
+Layout:
+- Pure check functions returning ``CheckResult`` (passed + reason)
+- ``substance_bind_record`` is the top-level entry: runs all applicable
+  checks in order and returns the first failure or an all-passed result
+- Tier-graduated rule (Aether Catch 3): kiln-layer edits additionally
+  require ``confirmed_by`` populated by an external actor; non-kiln
+  guardrail edits do not
+"""
+
+from __future__ import annotations
+
+import re
+
+from divineos.core.council_required.types import (
+    CHECK_FINDING_KEYWORD,
+    CHECK_FINDING_TOKEN_COUNT,
+    CHECK_KILN_CONFIRMED_BY,
+    CHECK_LENS_COUNT,
+    CHECK_SYNTHESIS_REFERENCES_LENSES,
+    CHECK_SYNTHESIS_TOKEN_COUNT,
+    COUNCIL_MIN_FINDING_TOKENS,
+    COUNCIL_MIN_LENSES,
+    COUNCIL_MIN_SYNTHESIS_TOKENS,
+    CheckResult,
+    CouncilRecord,
+    LensFinding,
+)
+
+
+# Registered external actors who can sign off on kiln-layer council walks.
+# Sourced from the family-system + external-auditor registry — Andrew is
+# the operator, Aletheia is the registered external auditor.
+EXTERNAL_ACTORS_FOR_KILN: frozenset[str] = frozenset({"Andrew", "andrew", "Aletheia", "aletheia"})
+
+
+# Common English stopwords excluded from the keyword cross-reference check.
+# The check looks for lens-specific content-words; matching on "the" or "is"
+# would let any text pass. Conservative list — the goal is to force the
+# finding to contain a SUBSTANTIVE keyword from the lens, not to be
+# semantically clever.
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "if",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "from",
+        "by",
+        "with",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "this",
+        "that",
+        "these",
+        "those",
+        "what",
+        "where",
+        "when",
+        "why",
+        "how",
+        "which",
+        "who",
+        "whom",
+        "whose",
+        "you",
+        "your",
+        "yours",
+        "i",
+        "me",
+        "my",
+        "mine",
+        "we",
+        "our",
+        "us",
+        "it",
+        "its",
+        "they",
+        "them",
+        "their",
+        "he",
+        "she",
+        "his",
+        "her",
+        "him",
+        "not",
+        "no",
+        "yes",
+        "as",
+        "than",
+        "then",
+        "so",
+        "very",
+        "just",
+        "also",
+        "too",
+        "only",
+        "more",
+        "most",
+        "some",
+        "any",
+        "all",
+        "each",
+        "every",
+        "much",
+        "many",
+        "few",
+        "would",
+        "could",
+        "should",
+        "will",
+        "shall",
+        "can",
+        "may",
+        "might",
+        "must",
+        "about",
+        "into",
+        "out",
+        "up",
+        "down",
+        "over",
+        "under",
+        "again",
+        "once",
+        "here",
+        "there",
+        "now",
+        "then",
+        "always",
+        "never",
+        "still",
+    }
+)
+
+
+def _content_tokens(text: str) -> set[str]:
+    """Extract content words from text (lowercased, stopwords excluded).
+
+    Used for the keyword cross-reference check. Treats ``-`` and ``_``
+    as word characters too so compound-name tokens like ``rate-limit``
+    or ``System_4`` survive tokenization.
+    """
+    if not text:
+        return set()
+    tokens = re.findall(r"[A-Za-z][A-Za-z0-9_\-]*", text.lower())
+    return {t for t in tokens if t and t not in _STOPWORDS and len(t) >= 2}
+
+
+def _check_lens_count(record: CouncilRecord) -> CheckResult:
+    if len(record.lenses_surfaced) >= COUNCIL_MIN_LENSES:
+        return CheckResult(passed=True)
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_LENS_COUNT,
+        what_would_clear_it=(
+            f"Council walk must surface at least {COUNCIL_MIN_LENSES} lenses "
+            f"(this walk surfaced {len(record.lenses_surfaced)}). Re-walk with "
+            "the dynamic council manager allowing more lenses, or add the "
+            "lenses missing for this question."
+        ),
+    )
+
+
+def _check_finding_token_counts(record: CouncilRecord) -> CheckResult:
+    for finding in record.lens_findings:
+        if finding.token_count < COUNCIL_MIN_FINDING_TOKENS:
+            return CheckResult(
+                passed=False,
+                failed_check_name=CHECK_FINDING_TOKEN_COUNT,
+                what_would_clear_it=(
+                    f"Finding for lens '{finding.lens_name}' is too short "
+                    f"({finding.token_count} tokens < {COUNCIL_MIN_FINDING_TOKENS} "
+                    "required). A real lens-application produces substantive "
+                    "content; expand the finding with the specific application "
+                    "of this lens to the edit."
+                ),
+            )
+    return CheckResult(passed=True)
+
+
+def _check_finding_keywords(
+    record: CouncilRecord,
+    expert_keywords_for_lens: dict[str, set[str]],
+) -> CheckResult:
+    """For each finding, verify at least one content-word from the lens's
+    characteristic_questions appears in the finding text.
+
+    ``expert_keywords_for_lens`` maps lens_name → set of content-words
+    extracted from that lens's characteristic_questions (caller pre-
+    computes this from the council expert registry; passing it in keeps
+    this module pure and testable). If a lens has no keywords in the
+    registry, this check FAILS with a specific reason — that signals the
+    characteristic_questions-populated invariant is broken (see
+    test_council_expert_characteristic_questions_populated).
+    """
+    for finding in record.lens_findings:
+        keywords = expert_keywords_for_lens.get(finding.lens_name, set())
+        if not keywords:
+            return CheckResult(
+                passed=False,
+                failed_check_name=CHECK_FINDING_KEYWORD,
+                what_would_clear_it=(
+                    f"Lens '{finding.lens_name}' has no characteristic_questions "
+                    "content-words available — either the lens is not registered "
+                    "in the council expert library, or its characteristic_questions "
+                    "field is empty. The startup-validation test should be catching "
+                    "this; investigate the expert registry before re-walking."
+                ),
+            )
+        finding_tokens = _content_tokens(finding.finding_text)
+        if not (keywords & finding_tokens):
+            sample = sorted(keywords)[:5]
+            return CheckResult(
+                passed=False,
+                failed_check_name=CHECK_FINDING_KEYWORD,
+                what_would_clear_it=(
+                    f"Finding for lens '{finding.lens_name}' does not reference "
+                    "any content-word from the lens's characteristic_questions. "
+                    f"Lens-specific keywords like {sample!r} would clear the check. "
+                    "A real application of this lens to the edit will name what "
+                    "the lens specifically asks; padding generic text fails by design."
+                ),
+            )
+    return CheckResult(passed=True)
+
+
+def _check_synthesis_token_count(record: CouncilRecord) -> CheckResult:
+    if record.synthesis_token_count >= COUNCIL_MIN_SYNTHESIS_TOKENS:
+        return CheckResult(passed=True)
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_SYNTHESIS_TOKEN_COUNT,
+        what_would_clear_it=(
+            f"Synthesis is too short ({record.synthesis_token_count} tokens < "
+            f"{COUNCIL_MIN_SYNTHESIS_TOKENS} required). The synthesis integrates "
+            "the lens findings into a single conclusion for the edit; expand it "
+            "to explain what the cross-lens picture says about the edit."
+        ),
+    )
+
+
+def _check_synthesis_references_lenses(record: CouncilRecord) -> CheckResult:
+    """Synthesis must name at least 2 of the surfaced lenses.
+
+    A synthesis that names no lenses is a generic conclusion; a synthesis
+    that names only one is a single-lens conclusion in synthesis costume.
+    Two-or-more is the floor for "this synthesis integrates ACROSS the
+    walk" rather than restating one lens's view.
+    """
+    synthesis_lower = record.synthesis.lower()
+    named = 0
+    named_examples = []
+    for lens in record.lenses_surfaced:
+        if lens.lower() in synthesis_lower:
+            named += 1
+            named_examples.append(lens)
+        if named >= 2:
+            return CheckResult(passed=True)
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_SYNTHESIS_REFERENCES_LENSES,
+        what_would_clear_it=(
+            f"Synthesis references {named} surfaced lens(es); need at least 2. "
+            f"Currently named: {named_examples!r}. A real synthesis integrates "
+            "ACROSS the walk; naming the lenses by name in the synthesis is the "
+            "minimum signal that the integration happened."
+        ),
+    )
+
+
+def _check_kiln_confirmed_by(record: CouncilRecord, is_kiln_layer: bool) -> CheckResult:
+    """For kiln-layer edits, require confirmed_by populated by an
+    external actor (Aether Catch 3 — tier-graduated trust).
+
+    Non-kiln edits pass this check trivially; kiln-layer edits must
+    carry a confirmed_by field naming Andrew or Aletheia. The graduated-
+    trust design: substance-binding is the protection for guardrail
+    edits, AND external-actor confirmation on top for kiln.
+    """
+    if not is_kiln_layer:
+        return CheckResult(passed=True)
+    if record.confirmed_by and record.confirmed_by in EXTERNAL_ACTORS_FOR_KILN:
+        return CheckResult(passed=True)
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_KILN_CONFIRMED_BY,
+        what_would_clear_it=(
+            "Kiln-layer edits require external-actor confirmation on the "
+            "council walk. Set ``confirmed_by`` to Andrew or Aletheia after "
+            "they sign off on the recorded walk. Kiln-tier graduated trust: "
+            "substance-binding is necessary but not sufficient for kiln-layer; "
+            "an external actor must additionally affirm the walk."
+        ),
+    )
+
+
+def substance_bind_record(
+    record: CouncilRecord,
+    is_kiln_layer: bool,
+    expert_keywords_for_lens: dict[str, set[str]],
+) -> CheckResult:
+    """Run all applicable substance-binding checks in order.
+
+    Returns the first failing CheckResult, or a passing CheckResult if
+    all checks pass. Order is intentional — cheapest checks first
+    (lens count, token counts) before the more expensive keyword
+    cross-reference, so a clear failure surfaces fast.
+
+    The artifact-exists and recency checks live in the gate (gate.py),
+    not here; this function operates on a record that has already been
+    located. Consume-state similarly: the gate handles consume-on-use;
+    this function does not.
+    """
+    for check in (
+        _check_lens_count(record),
+        _check_finding_token_counts(record),
+        _check_finding_keywords(record, expert_keywords_for_lens),
+        _check_synthesis_token_count(record),
+        _check_synthesis_references_lenses(record),
+        _check_kiln_confirmed_by(record, is_kiln_layer),
+    ):
+        if not check.passed:
+            return check
+    return CheckResult(passed=True)
+
+
+def keywords_for_expert_registry(
+    expert_registry: dict[str, list[str]],
+) -> dict[str, set[str]]:
+    """Build the ``expert_keywords_for_lens`` mapping from a registry of
+    expert_name → characteristic_questions list.
+
+    The caller provides the registry; this function extracts content-
+    tokens per lens. Separated from the substance-binding logic so the
+    expensive expert-loading happens once at gate startup, not per check.
+
+    Lenses whose characteristic_questions yield zero content-tokens are
+    EXCLUDED from the resulting map — the gate's keyword check will then
+    fail-with-specific-reason for findings on those lenses, surfacing
+    the population gap rather than silently letting them pass.
+    """
+    out: dict[str, set[str]] = {}
+    for lens_name, questions in expert_registry.items():
+        all_text = " ".join(questions or [])
+        tokens = _content_tokens(all_text)
+        if tokens:
+            out[lens_name] = tokens
+    return out
+
+
+# Public exports
+def get_finding_for_lens(record: CouncilRecord, lens_name: str) -> LensFinding | None:
+    """Convenience accessor for tests and the CLI surface."""
+    for f in record.lens_findings:
+        if f.lens_name == lens_name:
+            return f
+    return None
+
+
+__guardrail_required__ = True
