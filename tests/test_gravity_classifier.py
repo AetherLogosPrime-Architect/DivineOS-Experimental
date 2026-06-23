@@ -98,6 +98,186 @@ class TestSubstrateModificationFeatures:
         assert not r.is_high_gravity
 
 
+class TestCouncilRequiredTier2026_06_20:
+    """Andrew 2026-06-20: 'the gravity classifier is not pulling its weight
+    its letting you make serious changes with no council.' The prior design
+    fired only the basic substrate-gate at score >= 1; edits to guardrail-
+    listed detector files scored 1 (borderline-single-feature, edit-src-
+    divineos only) and passed through with passive surface only — no
+    council requirement. The fix: add edit-guardrail-listed feature reading
+    scripts/guardrail_files.txt, plus is_council_required tier.
+
+    Council-walked before implementing (consult-944ad9d332e5). These tests
+    pin the today's-slip cases at council-required and pin routine edits to
+    non-guardrail src/ files at just-surface, so the regression boundary is
+    explicit.
+    """
+
+    def test_edit_guardrail_listed_detector_fires_new_feature(self):
+        # The exact slip-through: editing a detector file in the guardrail
+        # list. Prior design: only edit-src-divineos fired (score 1).
+        # New design: edit-guardrail-listed ALSO fires (score >= 2) AND
+        # triggers council-required via high-impact short-circuit.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/core/operating_loop/distancing_detector.py",),
+        )
+        assert "edit-guardrail-listed" in r.fired_features
+        assert "edit-src-divineos" in r.fired_features
+        assert r.is_council_required, (
+            "guardrail-listed edits must require council walk per high-impact short-circuit"
+        )
+
+    def test_edit_unverified_claim_detector_requires_council(self):
+        # The other detector I edited today. Same shape.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/core/operating_loop/unverified_claim_detector.py",),
+        )
+        assert "edit-guardrail-listed" in r.fired_features
+        assert r.is_council_required
+
+    def test_edit_gravity_classifier_itself_requires_council(self):
+        # Meta-case: editing the classifier itself is high-gravity (it's
+        # guardrail-listed for exactly the same reason — modifying it
+        # weakens the gate against self-modification).
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/core/gravity_classifier.py",),
+        )
+        assert "edit-guardrail-listed" in r.fired_features
+        assert r.is_council_required
+
+    def test_edit_non_guardrail_src_does_not_require_council(self):
+        # Routine edit to a non-guardrail file under src/divineos/ scores 1
+        # on edit-src-divineos only — still fires the basic substrate-gate
+        # (gives a surface) but does NOT require council walk.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/cli/hud_commands.py",),
+        )
+        assert r.fired_features == ("edit-src-divineos",)
+        assert r.is_high_gravity  # basic surface still fires
+        assert not r.is_council_required  # but council not required for routine code
+
+    def test_edit_kiln_layer_requires_council(self):
+        # Kiln-layer files (foundational_truths.md, seed.json) are the
+        # other high-impact feature class. Edits trigger council via the
+        # same short-circuit.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("docs/foundational_truths.md",),
+        )
+        assert "edit-kiln-layer" in r.fired_features
+        assert r.is_council_required
+
+    def test_borderline_indicator_returns_council_required_label(self):
+        # The substrate borderline indicator surfaces "council-required"
+        # ahead of the basic score-based labels when the council tier fires.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/core/operating_loop/distancing_detector.py",),
+        )
+        assert borderline_indicator_substrate(r) == "council-required"
+
+    def test_routine_edit_keeps_borderline_label(self):
+        # Routine non-guardrail edits keep the original borderline label —
+        # we did not break the score-1 case.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/cli/hud_commands.py",),
+        )
+        assert borderline_indicator_substrate(r) == "borderline-single-feature"
+
+    def test_zero_features_still_no_fire(self):
+        # Zero-feature case unchanged: not high-gravity, not council-required.
+        r = score_substrate_modification("Read", file_paths=("README.md",))
+        assert r.score == 0
+        assert not r.is_high_gravity
+        assert not r.is_council_required
+        assert borderline_indicator_substrate(r) == "no-fire"
+
+    def test_dataclass_default_is_council_required_false(self):
+        # Defensive: existing call-sites that construct SubstrateModGravity
+        # without the new field still get is_council_required=False.
+        r = SubstrateModGravity(score=1, fired_features=("x",), is_high_gravity=True)
+        assert r.is_council_required is False
+
+
+class TestGuardrailListPathNormalization2026_06_20:
+    """Aether's design review: suffix-match has a silent-wrong failure mode.
+    A guardrail entry like 'src/divineos/core/operating_loop/distancing_detector.py'
+    would match an unrelated path 'foo/src/divineos/core/operating_loop/distancing_detector.py'
+    under endswith. Fixed via repo-relative exact-match. These tests pin
+    the new normalization behavior.
+    """
+
+    def test_relative_path_repo_relative_matches(self):
+        # The canonical case: caller passes a repo-relative string that
+        # exactly matches an entry in the guardrail list.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/core/operating_loop/distancing_detector.py",),
+        )
+        assert "edit-guardrail-listed" in r.fired_features
+
+    def test_leading_dot_slash_normalized(self):
+        # "./src/..." should normalize to "src/..." and match.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("./src/divineos/core/operating_loop/distancing_detector.py",),
+        )
+        assert "edit-guardrail-listed" in r.fired_features
+
+    def test_backslash_paths_normalized_to_forward(self):
+        # Windows-style backslashes should normalize to forward-slash before
+        # matching against the guardrail list (which is forward-slash canonical).
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src\\divineos\\core\\operating_loop\\distancing_detector.py",),
+        )
+        assert "edit-guardrail-listed" in r.fired_features
+
+    def test_upward_traversal_path_rejected(self):
+        # Paths containing ".." are ambiguous (could resolve outside repo)
+        # and must NOT fire the guardrail-listed feature. The basic
+        # edit-src-divineos may still fire on string-contains; that's the
+        # designed fail-open behavior.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/../src/divineos/core/operating_loop/distancing_detector.py",),
+        )
+        assert "edit-guardrail-listed" not in r.fired_features
+
+    def test_suffix_lookalike_path_does_not_false_fire(self):
+        # The exact silent-wrong shape Aether caught: a path that ends
+        # with a guardrail entry suffix but is in a different repo-relative
+        # location. Under the prior suffix-match this would have false-fired;
+        # under repo-relative exact-match it must NOT fire.
+        # The path "foo/src/divineos/core/operating_loop/distancing_detector.py"
+        # is repo-relative (no absolute prefix), so it normalizes to itself.
+        # Since "foo/src/..." is not in the guardrail list, no fire.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("foo/src/divineos/core/operating_loop/distancing_detector.py",),
+        )
+        # The lookalike must not match the guardrail entry.
+        assert "edit-guardrail-listed" not in r.fired_features
+        # But edit-src-divineos still fires (basic substrate-mod gate)
+        # because the path contains "src/divineos/" — that's correct;
+        # the basic gate is permissive by design.
+        assert "edit-src-divineos" in r.fired_features
+
+    def test_non_guardrail_relative_path_silent(self):
+        # Sanity: a clean repo-relative path NOT in the guardrail list
+        # does not fire the guardrail feature.
+        r = score_substrate_modification(
+            "Edit",
+            file_paths=("src/divineos/cli/hud_commands.py",),
+        )
+        assert "edit-guardrail-listed" not in r.fired_features
+
+
 class TestCognitiveValueScoring:
     def test_empty_content_is_low_gravity(self):
         r = score_cognitive_value("")
