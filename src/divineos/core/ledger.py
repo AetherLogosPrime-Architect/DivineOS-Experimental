@@ -163,6 +163,14 @@ logger.add(
     retention=_MAX_LOG_FILES,
     level=_FILE_LOG_LEVEL,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+    # enqueue=True (Andrew 2026-06-23): multiple python.exe processes
+    # (CLI commands, hooks, subprocess calls) all import this module and
+    # try to open + rotate the log file. On Windows, rotation fails with
+    # PermissionError because another process holds the file open — the
+    # error spammed stderr on every divineos command this session. enqueue
+    # serializes writes through a single dedicated process, eliminating
+    # the multi-process file-lock race that caused the rotation to fail.
+    enqueue=True,
 )
 
 # Keep backward compat for internal usage in this file
