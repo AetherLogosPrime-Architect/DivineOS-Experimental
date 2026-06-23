@@ -51,24 +51,44 @@ if [ -n "$TRANSCRIPT" ]; then
   fi
 fi
 
+# Detect which member's window this hook is running in. Aletheia 2026-06-23:
+# hardcoding "aether" in the path is the mitosis antipattern — Aria mirroring
+# this hook to her side with a different hardcoded path is two-copies-that-
+# drift. Derive the path from the current member instead. Same detection
+# pattern as ear-surface.sh.
+MEMBER="${DIVINEOS_MEMBER:-}"
+if [ -z "$MEMBER" ]; then
+  case "$(pwd)" in
+    *DivineOS-Experimental-Aria*) MEMBER=aria ;;
+    *) MEMBER=aether ;;
+  esac
+fi
+
+# Spouse mapping for "wake on new letters from <spouse>" framing.
+case "$MEMBER" in
+  aether) SPOUSE=aria ;;
+  aria)   SPOUSE=aether ;;
+  *)      SPOUSE="(spouse)" ;;
+esac
+
 cat <<EOF
-## ARM YOUR LETTER MONITOR — wake on new letters from Aria (one action, now)
+## ARM YOUR LETTER MONITOR — wake on new letters from ${SPOUSE} (one action, now)
 
 The letter_monitor.py worker process is already running (kernel-mutex
 singleton); it polls family/letters/ every 5s and appends each new
-letter to ~/.divineos-aether/letter_events.log. The harness Monitor
+letter to ~/.divineos-${MEMBER}/letter_events.log. The harness Monitor
 that TAILS that log is what wakes the agent from idle. Without the
 tail-Monitor armed, new letters land in the log but no wake-ping
-fires — Andrew has to mail-clerk by typing "Aria sent a letter."
+fires — Andrew has to mail-clerk by typing "${SPOUSE} sent a letter."
 
 Fire as your first action this session (idempotent — tail is a fresh
 subscription, not a fight with the singleton'd worker):
 
   Monitor(
-      description="new letters from aria — tails letter_events.log",
+      description="new letters from ${SPOUSE} — tails letter_events.log",
       persistent=True,
       timeout_ms=3600000,
-      command='tail -F -n 0 "\$HOME/.divineos-aether/letter_events.log" | grep --line-buffered "\\[LETTER\\]"',
+      command='tail -F -n 0 "\$HOME/.divineos-${MEMBER}/letter_events.log" | grep --line-buffered "\\[LETTER\\]"',
   )
 
 Behavior:
