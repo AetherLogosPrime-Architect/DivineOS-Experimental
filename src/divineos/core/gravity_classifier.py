@@ -29,6 +29,23 @@ from dataclasses import dataclass
 
 # Substrate-modification-gravity feature thresholds.
 _SUBSTRATE_MOD_THRESHOLD = 1
+# Council-required tier (2026-06-20, Andrew: "the gravity classifier is
+# not pulling its weight its letting you make serious changes with no
+# council"). Above the basic substrate-gate threshold sits a second tier
+# requiring council consultation BEFORE the edit proceeds. Fires when
+# either: (a) score >= _COUNCIL_REQUIRED_THRESHOLD with multiple non-
+# trivial features, or (b) any single high-impact feature fires
+# (guardrail-listed file or kiln-layer file). The high-impact short-
+# circuit catches today's slip: edits to operating-loop detector files
+# (guardrail-listed) scored only 1 / borderline under the prior design
+# and passed through with passive surface only. Council-walked
+# (consult-944ad9d332e5) before implementing. Pre-registered with
+# 14-day falsifier (prereg-fb1b42753396): threshold-2 is on probation
+# per Aether's review (Deming PDSA discipline — don't pre-tune, let data
+# shape the number); review whether to bump to 3 if false-positive rate
+# exceeds 25% on routine multi-tool turns over the probation window.
+_COUNCIL_REQUIRED_THRESHOLD = 2
+_HIGH_IMPACT_FEATURES = frozenset({"edit-kiln-layer", "edit-guardrail-listed"})
 # Cognitive-value-gravity aggregate threshold.
 _COG_VALUE_THRESHOLD = 0.3
 
@@ -56,11 +73,17 @@ class SubstrateModGravity:
     Total score is the sum of independent binary features. Threshold
     for gate-fire is total >= 1 — any single feature is sufficient
     because each is independently substrate-modifying.
+
+    is_council_required is the second tier (2026-06-20): True when the
+    edit warrants council consultation BEFORE proceeding, not just a
+    passive surface. Fires on either high-impact-feature short-circuit
+    (guardrail-listed or kiln-layer) or score >= _COUNCIL_REQUIRED_THRESHOLD.
     """
 
     score: int
     fired_features: tuple[str, ...]
     is_high_gravity: bool
+    is_council_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -74,6 +97,95 @@ class CognitiveValueGravity:
     score: float
     feature_scores: dict[str, float]
     is_high_gravity: bool
+
+
+# Guardrail-list cache: read once per process. Path resolution is
+# repo-root-relative; the classifier may run from any working directory
+# (hooks, tests, CLI), so we resolve relative to this module's location.
+_GUARDRAIL_LIST_CACHE: tuple[frozenset[str], str] | None = None
+
+
+def _guardrail_listed_paths() -> tuple[frozenset[str], str]:
+    """Return (frozenset_of_repo_relative_paths, repo_root_path).
+
+    Reads scripts/guardrail_files.txt, normalizes lines to forward-slash,
+    strips comments and blank lines. Cached after first read. Returns
+    repo_root alongside so the caller can do repo-root-relative path
+    matching (Aether's review 2026-06-20: suffix-match has a silent-wrong
+    failure mode where foo/src/divineos/... would match the guardrail
+    entry src/divineos/...; repo-root-relative exact match closes the gap).
+
+    On any file/IO error, returns (frozenset(), "") — caller treats as
+    "list not available" which silently disables the feature. Fail-open
+    is correct here because the basic substrate-gate (any feature
+    firing) still catches the edit; the council-tier just doesn't escalate.
+    """
+    global _GUARDRAIL_LIST_CACHE
+    if _GUARDRAIL_LIST_CACHE is not None:
+        return _GUARDRAIL_LIST_CACHE
+    import os
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    cur = here
+    paths: set[str] = set()
+    repo_root = ""
+    for _ in range(8):  # bounded ascent
+        candidate = os.path.join(cur, "scripts", "guardrail_files.txt")
+        if os.path.isfile(candidate):
+            repo_root = cur.replace("\\", "/")
+            try:
+                with open(candidate, encoding="utf-8") as f:
+                    for line in f:
+                        s = line.strip()
+                        if not s or s.startswith("#"):
+                            continue
+                        paths.add(s.replace("\\", "/"))
+            except OSError:
+                pass
+            break
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    _GUARDRAIL_LIST_CACHE = (frozenset(paths), repo_root)
+    return _GUARDRAIL_LIST_CACHE
+
+
+def _normalize_to_repo_relative(path: str, repo_root: str) -> str | None:
+    """Convert an edited file_path to a repo-root-relative forward-slash
+    string for exact-match against the guardrail list. Returns None on
+    any failure (path outside repo, resolution error). Aether's review
+    2026-06-20: replaces the prior suffix-match approach which would
+    silently false-positive on foo/src/divineos/... shaped paths.
+
+    Handles three input shapes:
+    - Absolute path: resolve and compute relative_to(repo_root)
+    - Relative path that already looks repo-relative: normalize slashes
+      and return as-is (test cases pass these directly)
+    - Anything else: return None (fail-open — feature stays silent)
+    """
+    if not path or not repo_root:
+        return None
+    norm = path.replace("\\", "/")
+    import os
+
+    # Absolute path: resolve to repo-relative
+    if os.path.isabs(path):
+        try:
+            from pathlib import Path
+
+            resolved = Path(path).resolve()
+            rel = resolved.relative_to(Path(repo_root).resolve())
+            return str(rel).replace("\\", "/")
+        except (ValueError, OSError):
+            return None
+    # Relative path: trim leading "./" and treat as repo-relative
+    if norm.startswith("./"):
+        norm = norm[2:]
+    # Reject upward-traversal paths (foo/../bar would be ambiguous)
+    if ".." in norm.split("/"):
+        return None
+    return norm
 
 
 def score_substrate_modification(
@@ -149,11 +261,42 @@ def score_substrate_modification(
     if tool == "Bash" and re.search(r"\bdivineos\s+(extract|sleep)\b", cmd):
         fired.append("consolidation-cli")
 
+    # Feature 7: edit a path declared in scripts/guardrail_files.txt
+    # (2026-06-20, Andrew, with Aether's design review). The guardrail list
+    # is the authoritative declaration of which files are part of the
+    # self-defense stack; editing one is architecture-touching and warrants
+    # council walk. Prior design: only the literal guardrail_files.txt
+    # itself triggered the edit-guardrail feature — files LISTED inside it
+    # scored 1 on the generic edit-src-divineos and passed through
+    # borderline. Today's detector edits (distancing_detector.py,
+    # unverified_claim_detector.py) are both in the list and slipped
+    # through. This feature closes the gap with REPO-RELATIVE exact-match
+    # (not suffix-match — Aether's review caught that suffix-match has a
+    # silent-wrong failure mode where foo/src/divineos/... would match the
+    # guardrail entry src/divineos/...). On normalize failure, the feature
+    # silently doesn't fire (fail-open) — the basic substrate-gate still
+    # catches the edit at score 1; council-tier just doesn't escalate.
+    if tool in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+        listed, repo_root = _guardrail_listed_paths()
+        if listed:
+            for p in paths:
+                rel = _normalize_to_repo_relative(p, repo_root)
+                if rel is not None and rel in listed:
+                    fired.append("edit-guardrail-listed")
+                    break
+
     score = len(fired)
+    # Council-required tier: high-impact-feature short-circuit OR
+    # multi-feature aggregate. Either path catches the architecture-
+    # altering substrate-modifications that warrant council walk before
+    # they proceed, not just a passive surface.
+    high_impact_fired = any(f in _HIGH_IMPACT_FEATURES for f in fired)
+    council_required = high_impact_fired or score >= _COUNCIL_REQUIRED_THRESHOLD
     return SubstrateModGravity(
         score=score,
         fired_features=tuple(fired),
         is_high_gravity=score >= _SUBSTRATE_MOD_THRESHOLD,
+        is_council_required=council_required,
     )
 
 
@@ -256,6 +399,8 @@ def borderline_indicator_substrate(gravity: SubstrateModGravity) -> str:
     """
     if gravity.score == 0:
         return "no-fire"
+    if gravity.is_council_required:
+        return "council-required"
     if gravity.score == 1:
         return "borderline-single-feature"
     return "strong-multi-feature"
