@@ -221,4 +221,183 @@ def detect_writer_presence(
     ]
 
 
-__all__ = ["WriterPresenceFinding", "detect_writer_presence"]
+# ---------------------------------------------------------------------------
+# Phase 2 — section-detection (prereg-433458d711d4)
+# ---------------------------------------------------------------------------
+#
+# INCOMPLETE — NOT WIRED INTO PRODUCTION GATE YET. The function below is
+# the section-detection redesign per the prereg's filed mechanism, but
+# the production post-response-audit gate still calls the v1
+# detect_writer_presence (density-across-whole-reply). Per the
+# wired-and-dogfooded completion rule (Andrew 2026-06-23), v2 stays in
+# parallel until dogfooded across multiple real sessions and Aletheia-
+# audited. The v1 detector keeps the bank high while v2 calibrates.
+#
+# Council walk on this design (2026-06-23): 12 lenses surfaced one
+# load-bearing risk — the SPECIFICALLY-REAL-CONTENT check is where the
+# optimizer can construct generic warm prose to pass without being real
+# presence. Defended via: quoted spans, references to this-turn-content,
+# concrete proper nouns. Three gaming vectors documented inline below.
+
+# Specifically-real-content markers — concrete-reference signals that
+# anchor a prose block to THIS turn's content rather than generic warm
+# filler. The Goodhart-resistance is in requiring at least one of these
+# to count the prose block as presence-bearing.
+#
+# Gaming vector defenses:
+#   - Quoted spans force the writer to actually quote something from this
+#     turn (can be gamed by quoting any token; mitigated by requiring the
+#     quote >= 3 chars to filter trivial quotes).
+#   - Reference patterns require explicit pointer to this-turn-action
+#     ("the X I just", "your phrase Y", "what you just"), which is
+#     harder to fake than first-person presence alone.
+_SPECIFIC_REFERENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # Quoted span >= 3 chars (filters trivial single-token quotes)
+    re.compile(r"[\"“”][^\"“”]{3,}[\"“”]"),
+    # Reference to this-turn-content
+    re.compile(
+        r"\b(?:the\s+\w+\s+I\s+(?:just|now)|"
+        r"your\s+(?:phrase|line|message|catch|word|note)|"
+        r"what\s+you\s+(?:just|asked|said|named|caught)|"
+        r"you\s+(?:just|caught|named|asked)|"
+        r"this\s+turn|this\s+session)\b",
+        re.IGNORECASE,
+    ),
+)
+
+# Block-split heuristic markers — signals that a paragraph is WORK-shaped.
+# A paragraph with 2+ markers is classified as a work-block.
+#
+# Gaming vector: the split is heuristic; a clever optimizer could place
+# work-shaped content in a paragraph that LOOKS like prose, or vice
+# versa. Mitigation: the v2 detector logs which paragraphs it classified
+# as which, so misclassifications can be tuned from observed data.
+_WORK_MARKER_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"```"),  # code fence
+    re.compile(r"\bdivineos\s+\w+"),  # CLI command
+    re.compile(r"\b\w+\.(?:py|sh|md|json|yaml|toml)\b"),  # file path
+    re.compile(r"\bprereg-[0-9a-f]+\b"),  # prereg id
+    re.compile(r"\b[0-9a-f]{7,40}\b"),  # commit hash
+    re.compile(r"^\s*[-*]\s+\*\*\w", re.MULTILINE),  # bulleted bold-action list
+)
+
+
+def _split_into_paragraphs(text: str) -> list[str]:
+    """Split text into paragraph blocks on blank lines."""
+    if not text:
+        return []
+    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def _is_work_block(paragraph: str) -> bool:
+    """Classify a paragraph as work-block (True) or prose-block (False).
+
+    Heuristic: 2+ work-marker hits → work-block. The threshold of 2 (not 1)
+    avoids classifying a prose paragraph that mentions one file path as
+    work; technical-heavy paragraphs typically hit multiple markers."""
+    hit_count = sum(1 for p in _WORK_MARKER_PATTERNS if p.search(paragraph))
+    return hit_count >= 2
+
+
+def _has_specific_reference(text: str) -> bool:
+    """True if text contains a specifically-real-content marker.
+
+    Goodhart-resistance check: a prose block with first-person presence
+    but no specific-this-turn reference is likely generic warm filler
+    (e.g., "thanks for that, makes sense"). Real presence cites
+    something from the current exchange."""
+    return any(p.search(text) for p in _SPECIFIC_REFERENCE_PATTERNS)
+
+
+def detect_writer_presence_v2(
+    text: str,
+    *,
+    min_prose_words: int = 30,
+) -> list[WriterPresenceFinding]:
+    """Phase 2 detector — section-detection over density.
+
+    INCOMPLETE: not wired to production gate yet. Calibration period
+    required before promoting from v1 (see wired-and-dogfooded rule).
+
+    Logic (per prereg-433458d711d4):
+      - Split reply into paragraphs
+      - Classify each as work-block or prose-block via marker count
+      - Pure-prose replies (no work) pass unconditionally
+      - Pure-work replies (no prose) fail (no second room)
+      - Mixed replies pass IFF the FINAL prose-block has:
+        (a) first-person presence (>=1 _INTERIOR_PATTERNS hit)
+        (b) specifically-real-content (>=1 _SPECIFIC_REFERENCE_PATTERNS)
+        (c) word count >= min_prose_words
+
+    Returns one WriterPresenceFinding on failure, empty list on pass.
+    The finding's severity field encodes the failure mode:
+      - "high":   pure-work-no-prose-section
+      - "medium": final-prose-section-lacks-presence-or-reference
+
+    Watts/Hofstadter meta-guard: paragraphs that ONLY discuss the
+    detector itself (e.g. "the gate caught me" with no other content)
+    are not yet specifically excluded; this is a known calibration item
+    for the dogfooding period.
+    """
+    if not text:
+        return []
+    paragraphs = _split_into_paragraphs(text)
+    if not paragraphs:
+        return []
+
+    # Classify each paragraph.
+    classifications = [(p, _is_work_block(p)) for p in paragraphs]
+    has_work = any(is_work for _, is_work in classifications)
+    prose_blocks = [p for p, is_work in classifications if not is_work]
+
+    # Pure-prose: no work content, presence already implicit. Pass.
+    if not has_work:
+        return []
+
+    # Has work content. Need a real prose block as the second room.
+    if not prose_blocks:
+        # Pure work, no second room. Highest severity.
+        return [
+            WriterPresenceFinding(
+                interior_count=0,
+                process_count=len(paragraphs),
+                word_count=_count_words(text),
+                presence_density=0.0,
+                matched_interior=(),
+                severity="high",
+            )
+        ]
+
+    # Mixed reply: check the FINAL prose block.
+    final_prose = prose_blocks[-1]
+    final_word_count = _count_words(final_prose)
+    interior_matches: list[str] = []
+    for pattern in _INTERIOR_PATTERNS:
+        for m in pattern.finditer(final_prose):
+            interior_matches.append(m.group(0))
+    has_presence = len(interior_matches) >= 1
+    has_reference = _has_specific_reference(final_prose)
+    long_enough = final_word_count >= min_prose_words
+
+    if has_presence and has_reference and long_enough:
+        return []
+
+    # Fails one or more checks. Medium severity (a prose block exists
+    # but doesn't pass the substance bar).
+    return [
+        WriterPresenceFinding(
+            interior_count=len(interior_matches),
+            process_count=sum(1 for _, is_work in classifications if is_work),
+            word_count=final_word_count,
+            presence_density=len(interior_matches) / max(1, final_word_count),
+            matched_interior=tuple(interior_matches[:5]),
+            severity="medium",
+        )
+    ]
+
+
+__all__ = [
+    "WriterPresenceFinding",
+    "detect_writer_presence",
+    "detect_writer_presence_v2",
+]
