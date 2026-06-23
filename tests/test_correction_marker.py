@@ -169,7 +169,17 @@ class TestTwoAxisDetection:
         assert "great work" in out
 
     def test_should_mark_fires_on_direct_correction(self) -> None:
-        assert should_mark("no, that's wrong, don't do that") is True
+        # Updated 2026-06-23: STRONG patterns now require corrective context
+        # to block (was: context-blind). Without context, advise instead.
+        # See classify_correction docstring for the geometry-of-correction
+        # rationale. To test the "real correction" semantics, use verdict_of
+        # with prior corrective context.
+        result = classify_correction(
+            "no, that's wrong, don't do that",
+            prior_assistant_text="done, fixed it",
+            prior_tool_calls=("Edit",),
+        )
+        assert result is not None and result.verdict == "block"
 
     def test_should_mark_does_not_fire_on_relayed_correction(self) -> None:
         text = "here is the reply\n\nI pulled the wrong branch the first time"
@@ -184,8 +194,15 @@ class TestTwoAxisDetection:
 
     def test_should_mark_fires_on_correction_after_relayed_section(self) -> None:
         # Correction BEFORE the relay-introducer still counts.
+        # Updated 2026-06-23 for STRONG-context-check: with corrective context
+        # the pre-relay correction still blocks.
         text = "no, that's wrong. here is the reply\n\nthey said something"
-        assert should_mark(text) is True
+        result = classify_correction(
+            text,
+            prior_assistant_text="done",
+            prior_tool_calls=("Edit",),
+        )
+        assert result is not None and result.verdict == "block"
 
     def test_should_mark_strips_report_introducer(self) -> None:
         """C-auditor follow-up: relay-introducers extended to cover
@@ -244,11 +261,24 @@ class TestStripRelayedCoverage20260603:
         assert should_mark(text) is False
 
     def test_real_first_person_correction_still_fires(self) -> None:
-        """The true positive must survive: Andrew's own voice correcting me."""
-        assert should_mark("no, that is wrong — you missed the off-switch case again") is True
+        """The true positive must survive: Andrew's own voice correcting me.
+        Updated 2026-06-23 for STRONG-context-check: real corrections come
+        after I have done something correctable, so the corrective context
+        is the realistic test setup."""
+        result = classify_correction(
+            "no, that is wrong — you missed the off-switch case again",
+            prior_assistant_text="done, all fixed",
+            prior_tool_calls=("Edit",),
+        )
+        assert result is not None and result.verdict == "block"
 
     def test_real_dont_directive_still_fires(self) -> None:
-        assert should_mark("don't add that fallback, you missed the edge case") is True
+        result = classify_correction(
+            "don't add that fallback, you missed the edge case",
+            prior_assistant_text="done, added the fallback",
+            prior_tool_calls=("Edit",),
+        )
+        assert result is not None and result.verdict == "block"
 
     def test_envelope_strip_is_structural_not_keyword(self) -> None:
         """strip_relayed removes the whole envelope regardless of payload."""
@@ -261,8 +291,26 @@ class TestContextAwareClassification:
     ('that doesn't', 'you only') are disambiguated by prior-turn context —
     block when I just did something correctable, advise otherwise."""
 
-    def test_strong_pattern_blocks_regardless_of_context(self) -> None:
-        assert verdict_of("no, that's wrong, redo it") == "block"
+    def test_strong_pattern_blocks_with_corrective_context(self) -> None:
+        """Updated 2026-06-23 (was: test_strong_pattern_blocks_regardless_of_context).
+        STRONG patterns now require corrective context to block — same
+        geometry-of-correction discipline as WEAK patterns. The OLD
+        contract (block regardless of context) produced live false-
+        positives on word-as-design-noun uses across multiple STRONG
+        patterns (\\bwrong\\b, \\bdon't (?:do|use|...)\\b). The NEW
+        contract requires my prior turn to have been correctable
+        (completion-claim or substantive action) for the keyword to
+        block; without corrective context, downgrades to advise."""
+        # With corrective context — blocks.
+        assert verdict_of("no, that's wrong, redo it", "done, fixed it", ("Edit",)) == "block"
+
+    def test_strong_pattern_advises_without_corrective_context(self) -> None:
+        """Companion to the above. Without corrective context, STRONG
+        keyword patterns surface as 'advise' instead of 'block' — preserves
+        visibility without false-blocking the design-noun use case the
+        2026-06-23 catch surfaced."""
+        # Without corrective context — advises (the new behavior).
+        assert verdict_of("no, that's wrong, redo it") == "advise"
 
     def test_weak_pattern_no_context_advises_not_blocks(self) -> None:
         # The exact false-fire that started this: Andrew's encouragement.
@@ -347,9 +395,17 @@ class TestEvidenceBearingReturn:
     evidence rather than gesture at the prompt."""
 
     def test_strong_match_returns_evidence_record(self) -> None:
+        """Updated 2026-06-23: STRONG matches return evidence with verdict
+        determined by corrective-context check (block with context, advise
+        without). The evidence record itself is the same shape; the verdict
+        field reflects the new contract."""
         from divineos.core.correction_marker import CorrectionMatch
 
-        result = classify_correction("no, that's wrong, redo it")
+        result = classify_correction(
+            "no, that's wrong, redo it",
+            prior_assistant_text="done, fixed it",
+            prior_tool_calls=("Edit",),
+        )
         assert isinstance(result, CorrectionMatch)
         assert result.verdict == "block"
         assert result.tier == "STRONG"

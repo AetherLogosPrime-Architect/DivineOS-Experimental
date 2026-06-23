@@ -268,3 +268,92 @@ def register(cli: click.Group) -> None:
         )
         click.secho(f"[+] Correction [{ts_label}] marked {resolution_status}.", fg="green")
         click.secho(f"    evidence: {evidence}", fg="bright_black")
+
+    @cli.command("correction-false-positive")
+    @click.option(
+        "--reason",
+        required=True,
+        help=(
+            "Why this gate-fire is NOT a real correction. >= 30 chars. "
+            "Logged to ~/.divineos/false_positive_clears.jsonl for audit."
+        ),
+    )
+    def correction_false_positive_cmd(reason: str) -> None:
+        """Clear the correction-unlogged marker when the gate fired but no real
+        correction occurred (e.g. a keyword matched on a design-noun use).
+
+        Breaks the meta-loop where clearing a false-positive via
+        ``divineos correction`` creates a new entry in the andrew-correction
+        attribution surface, which itself becomes the next thing to clean up.
+        This path clears the marker WITHOUT writing to the correction-attribution
+        table; the false-positive is instead logged to an audit file Andrew
+        can review periodically.
+
+        Andrew 2026-06-23: "any deferral that is authorized is put into the
+        todo list... ALL deferrals must be authorized by me, never yourself."
+        This path is structurally adjacent: the audit log is the
+        external-visibility mechanism that prevents this from being a
+        fully self-authorized escape — repeated false-positives on the
+        same shape become visible in the log and signal the detector
+        itself needs adjusting.
+
+        Required reason length >= 30 chars (same threshold as the offline
+        escape hatch scripts/clear_correction_marker.py) so this cannot
+        be cleared with a one-word excuse.
+        """
+        import json
+        from pathlib import Path
+
+        reason = (reason or "").strip()
+        if len(reason) < 30:
+            click.secho(
+                f"[-] Reason too short ({len(reason)} chars; need >= 30). "
+                "Name the gate-fire concretely (which pattern, which non-corrective "
+                "use of the matched word, why this is not a real correction).",
+                fg="red",
+            )
+            return
+
+        # Read the marker (if present) so the log entry carries the
+        # triggering evidence — keeps the false-positive auditable
+        # against what actually fired, not just my reason for clearing it.
+        from divineos.core.correction_marker import clear_marker, marker_path
+
+        marker_data: dict = {}
+        mpath = marker_path()
+        if mpath.exists():
+            try:
+                marker_data = json.loads(mpath.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                marker_data = {}
+
+        log_dir = Path.home() / ".divineos"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "false_positive_clears.jsonl"
+
+        entry = {
+            "ts": time.time(),
+            "reason": reason,
+            "marker_trigger": marker_data.get("trigger", ""),
+            "marker_pattern": marker_data.get("pattern", ""),
+            "marker_matched_text": marker_data.get("matched_text", ""),
+        }
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except OSError as e:
+            click.secho(f"[-] Could not append to {log_path}: {e}", fg="red")
+            return
+
+        clear_marker()
+
+        click.secho(
+            f"[+] False-positive cleared. Logged to {log_path}.",
+            fg="green",
+        )
+        click.secho(
+            "    NO entry written to andrew-correction attribution surface — "
+            "this path is for false-positives only, not real corrections. "
+            "If the same pattern keeps false-firing, the detector needs adjustment.",
+            fg="bright_black",
+        )

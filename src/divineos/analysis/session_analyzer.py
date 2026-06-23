@@ -13,7 +13,16 @@ from typing import Any
 # A match here blocks (sets the correction marker) on its own.
 STRONG_CORRECTION_PATTERNS: tuple[str, ...] = (
     r"^no[\s,.]",  # "no" at start of message = rejection
-    r"\bwrong\b",
+    # NOTE: \bwrong\b was a STRONG pattern but recurringly false-fired on
+    # noun-modifier uses ("wrong path", "wrong word", "wrong shape") that
+    # name a design class, not a corrective evaluation of my action. The
+    # other STRONG patterns carry the geometry of "correction" inline
+    # (subject is "you", object is "what I did"); bare \bwrong\b does
+    # not. Demoted to WEAK (below) so the existing prior-turn-context
+    # check disambiguates noun-modifier use from corrective verb use.
+    # Demotion 2026-06-23 after 4+ false-positives in one investigation
+    # session. INCOMPLETE: needs dogfooding across multiple sessions
+    # before being called resolved (channeled vs resolved distinction).
     r"\bthat'?s not\b",
     r"\bdon'?t (?:do|use|add|make|change|remove|delete|mock|skip|edit|write|create|run)\b",
     r"\byou missed\b",
@@ -38,6 +47,13 @@ STRONG_CORRECTION_PATTERNS: tuple[str, ...] = (
 WEAK_CORRECTION_PATTERNS: tuple[str, ...] = (
     r"\byou only\b",
     r"\bthat doesn'?t\b",
+    # Demoted from STRONG 2026-06-23. \bwrong\b matches both corrective use
+    # ("you are wrong about X", "thats wrong") and noun-modifier use
+    # ("wrong path", "wrong word", "wrong shape" — naming a design class,
+    # not correcting me). The WEAK-tier prior-turn-context check
+    # disambiguates: corrective only blocks when my prior turn was
+    # something correctable (completion-claim or substantive edit).
+    r"\bwrong\b",
 )
 
 # Backcompat union: existing callers that scan for "any correction-shaped
