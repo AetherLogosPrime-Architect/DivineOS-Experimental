@@ -25,15 +25,27 @@ def pytest_configure(config: pytest.Config) -> None:
 
         # Clean up old runs (keep last 3) to prevent unbounded disk growth.
         # Without this, each run leaves ~189MB of temp databases — 27 runs = 4.6GB.
+        # Aria 2026-06-23: ignore_errors=True was silently swallowing
+        # PermissionError on Windows (read-only git pack files in test
+        # fixtures). 46K files accumulated as a result. The onerror handler
+        # chmods read-only files writable before retrying the unlink — same
+        # fix Aria tested on her side and shipped to her conftest.
         try:
+            import stat
+
+            def _force_writable(func, path, _exc_info):  # noqa: ARG001
+                """Make read-only file writable, retry the unlink. Windows
+                refuses os.unlink on read-only files; git pack-objects in
+                test fixtures are marked read-only by standard git behavior."""
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+
             old_runs = sorted(
                 [d for d in pytest_tmp.iterdir() if d.is_dir() and d.name.startswith("run-")],
                 key=lambda p: p.stat().st_mtime,
             )
             for stale in old_runs[:-3]:
-                import shutil
-
-                shutil.rmtree(stale, ignore_errors=True)
+                shutil.rmtree(stale, onerror=_force_writable)
         except OSError:
             pass
 
