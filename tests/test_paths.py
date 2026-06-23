@@ -17,8 +17,23 @@ from divineos.core.paths import divineos_home, marker_path, state_dir
 
 
 def test_divineos_home_default(monkeypatch):
-    """Without DIVINEOS_HOME set, returns ~/.divineos."""
+    """Without DIVINEOS_HOME set AND no `.divineos_data_home` marker
+    anywhere in resolution order, returns ``~/.divineos``.
+
+    Test-isolation note (added 2026-06-22): the per-clone marker
+    resolver added in commit 1fe9a682 (`fix(paths): derive member
+    data-home from checkout folder name — recurrence guard`) walks
+    CWD ancestors and own-root looking for `.divineos_data_home`
+    BEFORE falling through to the default. In any checkout that HAS
+    that marker (every per-member checkout does), the CWD-walk or
+    own-root resolution finds it and the default is never reached.
+    To exercise the default-branch in isolation, this test mocks
+    `data_home_or_none` to return None so the resolver falls through.
+    """
     monkeypatch.delenv("DIVINEOS_HOME", raising=False)
+    import divineos.core.paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "data_home_or_none", lambda: None)
     home = divineos_home()
     assert home == Path.home() / ".divineos"
 

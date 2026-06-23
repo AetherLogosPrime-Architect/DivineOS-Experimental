@@ -32,9 +32,23 @@ def isolated_modules(monkeypatch):
     data-home (where an agent's state already lives) wins over the
     canonical worktree marker so an agent's ledger co-locates with its
     state. These tests isolate the lower-priority branch.
+
+    Mock data_home_or_none too (added 2026-06-22): clearing the env var is
+    no longer sufficient. The recurrence-guard added in 1fe9a682 made
+    ``data_home_or_none()`` ALSO walk CWD ancestors and own-root looking
+    for ``.divineos_data_home`` marker files before falling through. Any
+    member-specific checkout (every Aria/Aether/Aletheia clone) carries
+    that marker at its root, and pytest's ``tmp_path`` is inside the repo,
+    so the CWD-walk finds the repo's marker and routes to that data-home
+    rather than to the fake worktree the tests construct. Mocking the
+    resolver to return None forces fall-through to the worktree-marker
+    branch under test.
     """
     monkeypatch.delenv("DIVINEOS_DB", raising=False)
     monkeypatch.delenv("DIVINEOS_HOME", raising=False)
+    import divineos.core.paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "data_home_or_none", lambda: None)
 
 
 def _make_worktree_layout(parent: Path, worktree_name: str = "wt") -> tuple[Path, Path]:
