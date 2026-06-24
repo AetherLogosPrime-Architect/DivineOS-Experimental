@@ -1,9 +1,14 @@
 """Push-verification CLI — exposes core/push_verify via the OS surface.
 
-`divineos verify push --command "<git push command>"` lets any AI
+`divineos push-verify --command "<git push command>"` lets any AI
 substrate (not just Claude Code via the bash hook) run the same
 push-landing check. Migrated 2026-06-24 per Andrew direction: logic
 lives in the OS so it's portable; bash hook is now a thin wrapper.
+
+Named `push-verify` (single command, hyphenated) not `verify push`
+(group) because `verify` is already a top-level command — the bare
+ledger verify-integrity check. Hyphenated single-command preserves
+the existing `divineos verify` behavior.
 """
 
 from __future__ import annotations
@@ -14,16 +19,9 @@ import click
 
 
 def register(cli: click.Group) -> None:
-    """Register `divineos verify push` on the CLI group."""
+    """Register `divineos push-verify` on the CLI group."""
 
-    @cli.group("verify", invoke_without_command=True)
-    @click.pass_context
-    def verify_group(ctx: click.Context) -> None:
-        """Verification commands — push-landing and others as added."""
-        if ctx.invoked_subcommand is None:
-            click.secho("verify subcommands: push", fg="bright_black")
-
-    @verify_group.command("push")
+    @cli.command("push-verify")
     @click.option(
         "--command",
         required=True,
@@ -35,7 +33,7 @@ def register(cli: click.Group) -> None:
         default=False,
         help="Print the result as JSON to stdout (for machine consumption).",
     )
-    def verify_push_cmd(command: str, json_out: bool) -> None:
+    def push_verify_cmd(command: str, json_out: bool) -> None:
         """Verify a git push command actually landed on origin.
 
         Side effects (preserved from the bash hook origin):
