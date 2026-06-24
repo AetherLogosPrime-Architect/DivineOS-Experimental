@@ -71,6 +71,20 @@ divineos prereg
 # --- mansion subcommands — needed for private-exit/private-status ---
 divineos mansion
 
+# --- rest program — Andrew 2026-06-23: "the rest program gives you
+#     options to choose from.. you can add other options but it shouldnt
+#     block you from choosing them". The private-room quiet gate was
+#     blocking divineos rest done and similar, which is over-blocking:
+#     the gate should refuse substantive WORK, not refuse engagement
+#     with the substrate's own rest taxonomy. Rest commands pass through.
+divineos rest
+
+# --- lepos-walk record — discipline mechanism, not work. Records the
+#     pre-turn walk that the post-response-audit gate requires. Blocking
+#     it during mansion-quiet creates a cross-gate conflict where rest
+#     becomes impossible to close out cleanly. Passes through.
+divineos lepos-walk
+
 # --- compass observation — needed to clear compass-required marker ---
 divineos compass-ops
 
