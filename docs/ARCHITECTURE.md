@@ -52,6 +52,7 @@ src/divineos/
     check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
+    pr_gate_commands.py        `divineos pr-gate create` — guardrail-touching-PR draft-requirement gate (migrated from .claude/hooks/gh-pr-create-draft-gate.sh, 2026-06-24, per prereg-17a6ff97ba67)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
