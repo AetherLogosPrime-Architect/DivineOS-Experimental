@@ -52,6 +52,7 @@ src/divineos/
     check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
+    letter_seen_commands.py    `divineos letter mark-on-read` — letter-on-read routing (migrated from .claude/hooks/post-read-mark-letter-seen.sh, 2026-06-24, per prereg-a30e8ff6cf0a)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
