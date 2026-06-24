@@ -52,6 +52,7 @@ src/divineos/
     check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
+    audit_visibility_commands.py  `divineos audit-visibility check` — post-commit "auditable work not on origin" warning (migrated from .claude/hooks/post-commit-audit-visibility.sh, 2026-06-24, per prereg-69507d1a38db)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
