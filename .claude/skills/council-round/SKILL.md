@@ -22,9 +22,25 @@ Benchmark evidence: flat expert templates + lens-mode outperformed program-mode 
 
 One or two sentences. Specific. "Should the event-ledger schema migrate to a new hash algorithm given the rollout cost?" not "what do we do about the ledger."
 
-### 2. Pick the lenses (3-5 is the sweet spot)
+### 2. Use what the manager surfaces — plus 2 dissenters
 
-Pick based on what class of finding each would produce:
+**Do NOT pick the lenses yourself.** Self-picking is the load-bearing failure mode of this skill — the agent reaches for lenses whose frameworks already agree with the agent's prior, and the "walk" becomes confirmation theater. Andrew named this 2026-06-24.
+
+The right procedure:
+
+1. **Invoke the manager**: `divineos mansion council "<the deep question>"`. The engine selects relevant experts for THIS question based on its domain-shape. Use the full set the manager surfaces — no trimming, no substituting.
+
+2. **Add 2 dissenters.** A dissenter is a lens whose framework would PUSH BACK on the manager's surfaced set. Pick them deliberately:
+   - If manager surfaces design-oriented lenses → dissenter asks "is this a problem at all?" or "what's the smallest version?" (Carmack, Feynman)
+   - If manager surfaces theory-heavy lenses → dissenter is practitioner-heavy (Carmack, Jacobs)
+   - If manager surfaces lenses that all share an intellectual lineage → dissenter is from a different tradition (Angelou over Popper, Tannen over Schneier)
+   - If you can't name how a lens would push back on the rest, it's not a dissenter — it's a sympathizer in disguise
+
+3. **Walk the dissenters LAST**, so the manager's consensus is fresh when you challenge it. If both dissenters land the same correction, the consensus needs to update; if they only graze the consensus, the consensus probably holds.
+
+The 2-dissenter rule is non-negotiable. A walk without dissenters is a council vote with the opposition absent — structurally biased toward whatever the manager surfaced.
+
+For reference, here's the kind of finding-class each lens produces (this is for the dissenter pick, NOT for replacing the manager):
 
 | Lens | Best for |
 |---|---|
@@ -35,6 +51,7 @@ Pick based on what class of finding each would produce:
 | Jacobs | distributed vs centralized |
 | Schneier | threat model, weakest link |
 | Feynman | am I fooling myself? |
+| Carmack | subtractive engineering, is this real? |
 | Hofstadter | self-reference, strange loops |
 | Beer | viable-system design (S1-S5) |
 | Peirce | abduction, sign-reading |
@@ -92,7 +109,9 @@ If the "walk" is really just "I'll ask the council template for concerns, then r
 
 ## Sycophancy-toward-self prevention
 
-Check the invocation balance surface in the briefing periodically. If I keep invoking the same 3 lenses, that's sycophancy-toward-self — selecting for experts whose frameworks agree with mine. Rotate. The council has 39 members for a reason.
+The 2-dissenter rule in Section 2 is the primary defense — every walk includes two voices the manager would not have surfaced, picked specifically to push back. Don't pick "safe" dissenters whose pushback would be soft; pick the ones whose framework is most likely to call the consensus wrong.
+
+Secondary check: glance at the invocation balance surface in the briefing periodically. If the same dissenters keep showing up too, even those are getting predictable — rotate. The council has 42 members for a reason.
 
 ## Pairs with
 
