@@ -159,7 +159,7 @@ _FILE_LOG_LEVEL = _configured_level if _configured_level in _VALID_LOG_LEVELS el
 
 logger.add(
     _LOG_DIR / "divineos.log",
-    rotation="10 MB",
+    rotation="100 MB",  # 2026-06-23: bumped from 10 MB — rotation fails on Windows when multiple DivineOS processes hold the log open (letter_monitor, compaction_monitor, ear_watch). The enqueue=True fix earlier today made the failure SILENT (background-thread retry); sleep hangs waiting for the queue to drain. Real fix tracked in prereg for per-process log files; this defers the trigger.
     retention=_MAX_LOG_FILES,
     level=_FILE_LOG_LEVEL,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
