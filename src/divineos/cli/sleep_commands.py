@@ -162,7 +162,15 @@ def register(cli: click.Group) -> None:
     @click.option("--dry-run", is_flag=True, help="Show what would happen without modifying data.")
     @click.option("--skip-maintenance", is_flag=True, help="Skip VACUUM/log/cache phase.")
     @click.option("--phase", type=str, default=None, help="Run only a specific phase.")
-    def sleep_cmd(dry_run: bool, skip_maintenance: bool, phase: str | None) -> None:
+    @click.option(
+        "--json-out",
+        type=str,
+        default=None,
+        help="With --phase: write the resulting DreamReport to this file as JSON instead of printing a human summary. Used by run_sleep() to subprocess each phase for in-process-state isolation.",
+    )
+    def sleep_cmd(
+        dry_run: bool, skip_maintenance: bool, phase: str | None, json_out: str | None
+    ) -> None:
         """Offline consolidation — process accumulated experience.
 
         Runs six phases: knowledge consolidation, pruning, affect recalibration,
@@ -201,14 +209,26 @@ def register(cli: click.Group) -> None:
                 )
                 return
             label, phase_fn = phase_map[phase]
-            click.secho(f"Running {label}...\n", fg="cyan")
             import time as _t
 
+            if not json_out:
+                click.secho(f"Running {label}...\n", fg="cyan")
             report = DreamReport(started_at=_t.time())
             phase_fn(report)
             report.phases_run.add(phase)
             report.finished_at = _t.time()
             report.duration_seconds = report.finished_at - report.started_at
+            if json_out:
+                # Machine-readable path for run_sleep's subprocess-per-phase.
+                # Skip human summary AND skip the SLEEP_CYCLE event emission
+                # below (parent process aggregates and emits the one event for
+                # the whole cycle, so children emitting too would double-count).
+                import json as _json
+                from divineos.core.sleep import serialize_report
+
+                with open(json_out, "w", encoding="utf-8") as _f:
+                    _json.dump(serialize_report(report), _f)
+                return
             _safe_echo(report.summary())
             # Emit a SLEEP_CYCLE event for phase-only runs too, so the
             # dream-history surface (`divineos dream show`) can find them.

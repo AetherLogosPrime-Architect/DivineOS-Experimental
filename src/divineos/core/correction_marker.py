@@ -253,8 +253,25 @@ def classify_correction(
     strong_hit = _first_pattern_match(scan_text, STRONG_CORRECTION_PATTERNS)
     if strong_hit is not None:
         pattern, m = strong_hit
+        # Geometry-of-correction check (Andrew 2026-06-23 catch on the
+        # don't-verb STRONG pattern, council walk on the detector class).
+        # STRONG patterns USED to block regardless of context — high-
+        # confidence by keyword alone. Live evidence this session:
+        # multiple STRONG patterns false-fired on word-as-design-noun
+        # uses where the user was naming a pattern or hypothesizing, not
+        # correcting me. Whack-a-mole per-pattern demotion (wrong → WEAK)
+        # missed the broader class. Now ALL STRONG patterns require the
+        # same prior-turn corrective context that WEAK patterns require:
+        # block iff something I just did is correctable. Without that
+        # context, even a high-confidence keyword cannot be a correction
+        # of me — there is nothing for me to be corrected on. Demotes
+        # to 'advise' when no corrective context exists, preserving
+        # visibility without false-blocking.
+        verdict = (
+            "block" if _has_corrective_context(prior_assistant_text, prior_tool_calls) else "advise"
+        )
         return CorrectionMatch(
-            verdict="block",
+            verdict=verdict,
             pattern=pattern,
             matched_text=m.group(0),
             position=m.start(),

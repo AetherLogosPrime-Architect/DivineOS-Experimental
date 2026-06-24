@@ -693,7 +693,7 @@ class TestRunSleep:
 
         init_knowledge_table()
 
-        report = run_sleep(skip_maintenance=True)
+        report = run_sleep(skip_maintenance=True, _in_process_only=True)
         assert isinstance(report, DreamReport)
         assert report.duration_seconds >= 0
         assert report.started_at > 0
@@ -706,7 +706,7 @@ class TestRunSleep:
         init_knowledge_table()
 
         # Even with potential issues, sleep should complete
-        report = run_sleep(skip_maintenance=True)
+        report = run_sleep(skip_maintenance=True, _in_process_only=True)
         assert isinstance(report, DreamReport)
         # Should have scanned something even if other phases had issues
         assert report.entries_scanned >= 0
@@ -717,7 +717,7 @@ class TestRunSleep:
 
         init_knowledge_table()
 
-        report = run_sleep(skip_maintenance=True)
+        report = run_sleep(skip_maintenance=True, _in_process_only=True)
         assert report.maintenance_results == {}
 
 
