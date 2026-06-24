@@ -588,7 +588,6 @@ def _phase_recombination(report: DreamReport) -> None:
     from divineos.core.knowledge._text import (
         _compute_overlap,
         _ensure_embedding_model,
-        compute_similarity,
     )
     from divineos.core.knowledge.crud import get_knowledge
     from divineos.core.knowledge.edges import find_edge
@@ -723,10 +722,57 @@ def _phase_recombination(report: DreamReport) -> None:
                 return text[: idx + 1]
         return text[:cap] + "..." if len(text) > cap else text
 
-    semantic_available = _ensure_embedding_model() is not None
+    # 2026-06-24 latent-bug fix: was `_ensure_embedding_model() is not None`
+    # which evaluates to True regardless (the function returns bool, not
+    # an object). Harmless before because compute_similarity re-checked
+    # availability per call, but with the new embedding cache below it
+    # made tests that monkeypatch _embeddings_available=False still
+    # take the semantic path if a prior test had loaded the model.
+    semantic_available = _ensure_embedding_model()
 
     # Filter to long-enough entries once before the O(n²) loop.
     eligible = [e for e in entries if len((e.get("content") or "")) >= 30]
+
+    # 2026-06-24 perf fix: pre-compute embeddings for all eligible
+    # entries ONCE before the O(n²) loop. Before this, compute_similarity
+    # re-embedded both texts on every pair → ~2 * O(n^2) embed calls
+    # (~1M calls for n=1000). With n growing each run, recombination
+    # was getting hours-slow and hanging real-world sleeps.
+    # Now: n embed calls up front, then O(1) cached cosine per pair.
+    _cached_embeddings: list[Any] = []
+    _zero_norms: set[int] = set()
+    if semantic_available:
+        import numpy as _np  # numpy is a sentence-transformers transitive dep
+
+        texts = [e.get("content", "") for e in eligible]
+        try:
+            from divineos.core.knowledge import _text as _text_mod
+
+            model = _text_mod._embedding_model  # populated by _ensure_embedding_model()
+            if model is not None:
+                # Batch-encode in one call — sentence-transformers handles
+                # internal batching efficiently on GPU.
+                raw = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+                for i, vec in enumerate(raw):
+                    n = float(_np.linalg.norm(vec))
+                    if n == 0.0:
+                        _zero_norms.add(i)
+                        _cached_embeddings.append(None)
+                    else:
+                        _cached_embeddings.append(vec / n)  # pre-normalize for cosine = dot
+            else:
+                semantic_available = False
+        except (RuntimeError, ValueError, ImportError) as e:
+            logger.debug(f"Recombination embedding pre-cache failed: {e}")
+            semantic_available = False
+
+    def _cached_similarity(ai_: int, bi_: int, text_a: str, text_b: str) -> float:
+        if semantic_available and ai_ not in _zero_norms and bi_ not in _zero_norms:
+            import numpy as _np
+
+            sim = float(_np.dot(_cached_embeddings[ai_], _cached_embeddings[bi_]))
+            return max(0.0, min(1.0, sim))
+        return _compute_overlap(text_a, text_b)
 
     for ai in range(len(eligible)):
         entry_a = eligible[ai]
@@ -747,7 +793,7 @@ def _phase_recombination(report: DreamReport) -> None:
             if not semantic_available and word_overlap < _RECOMBINATION_MIN_WORD_OVERLAP:
                 continue
 
-            similarity = compute_similarity(content_a, content_b)
+            similarity = _cached_similarity(ai, bi, content_a, content_b)
             if _min_similarity <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
                 total_band_pairs += 1
                 aid = entry_a.get("knowledge_id", "?")
@@ -1048,27 +1094,152 @@ _PHASES: list[tuple[str, Any]] = [
 ]
 
 
-def run_sleep(skip_maintenance: bool = False) -> DreamReport:
+# Phases routed through the subprocess path. lesson_rehearsal is not in
+# the --phase CLI map so it stays in-process (it's lightweight: dict lookup
+# over chronic lessons, JSON write — no embedding model, no DB writes).
+_SUBPROCESS_PHASES = {
+    "consolidation",
+    "pruning",
+    "affect",
+    "maintenance",
+    "recombination",
+    "curiosity",
+}
+
+
+def serialize_report(report: DreamReport) -> dict[str, Any]:
+    """Convert DreamReport to a JSON-serializable dict.
+
+    Sets are converted to sorted lists. All other field types
+    (int, float, str, list, dict) are already JSON-safe.
+    """
+    from dataclasses import fields
+
+    out: dict[str, Any] = {}
+    for f in fields(report):
+        v = getattr(report, f.name)
+        if isinstance(v, set):
+            v = sorted(v)
+        out[f.name] = v
+    return out
+
+
+def _merge_phase_result(master: DreamReport, child: dict[str, Any], phase_name: str) -> None:
+    """Apply a child-process phase's DreamReport JSON onto the master report.
+
+    Each phase populates a disjoint set of fields (see field comments on
+    DreamReport for phase ownership). The merge strategy: take any
+    non-default field from the child and apply it to the master. Special
+    handling for phases_run (union) and phase_errors (key-merge) since
+    those accumulate across phases.
+    """
+    from dataclasses import MISSING, fields
+
+    master.phases_run.update(child.get("phases_run", []))
+    for k, v in (child.get("phase_errors") or {}).items():
+        master.phase_errors[k] = v
+
+    skip = {"started_at", "finished_at", "duration_seconds", "phases_run", "phase_errors"}
+    for f in fields(master):
+        if f.name in skip:
+            continue
+        if f.name not in child:
+            continue
+        cval = child[f.name]
+        # Compute the field's default value to detect "child didn't touch this".
+        if f.default is not MISSING:
+            default = f.default
+        elif f.default_factory is not MISSING:  # type: ignore[misc]
+            default = f.default_factory()  # type: ignore[misc]
+        else:
+            default = None
+        if cval == default:
+            continue
+        # Each phase owns its fields — direct copy is safe.
+        setattr(master, f.name, cval)
+
+
+def run_sleep(skip_maintenance: bool = False, _in_process_only: bool = False) -> DreamReport:
     """Run the full sleep cycle. Returns a dream report.
 
     Each phase is independent — if one fails, the others still run.
     This is offline processing, not a live session. Errors are recorded
     but don't crash the system.
 
+    **Subprocess-per-phase architecture (2026-06-24).** Phases in
+    _SUBPROCESS_PHASES run as separate `divineos sleep --phase X
+    --json-out FILE` invocations and their reports are merged. This
+    guarantees process isolation: in-process state leaks (CUDA context,
+    DB connection pool, loguru queue) from earlier phases were causing
+    recombination to hang indefinitely in the same Python interpreter
+    while running cleanly in a fresh process. lesson_rehearsal stays
+    in-process (lightweight, no shared-state risk).
+
     Args:
         skip_maintenance: Skip the VACUUM/log/cache phase (useful for testing).
+        _in_process_only: Run ALL phases in-process, bypassing the
+            subprocess architecture. For tests only — tests use empty
+            fixture DBs where shared-state poisoning can't trigger,
+            and subprocess startup × 6 phases blows the test timeout.
     """
+    import json as _json
+    import subprocess as _sp
+    import tempfile as _tempfile
+    from pathlib import Path as _Path
+
     report = DreamReport(started_at=time.time())
 
     for phase_name, phase_fn in _PHASES:
         if skip_maintenance and phase_name == "maintenance":
             continue
-        try:
-            phase_fn(report)
-            report.phases_run.add(phase_name)
-        except _SLEEP_ERRORS as e:
-            report.phase_errors[phase_name] = str(e)
-            logger.warning(f"Sleep phase '{phase_name}' failed: {e}")
+        if phase_name in _SUBPROCESS_PHASES and not _in_process_only:
+            tmp = _tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, encoding="utf-8"
+            )
+            tmp.close()
+            try:
+                # NOT capture_output: Windows pipe buffer (~4KB) fills if
+                # child writes noisy stderr (CUDA init, warnings) and the
+                # child blocks on write while parent waits for exit ⇒
+                # deadlock. Result is the JSON file anyway, so suppress
+                # child stdout/stderr instead of buffering them.
+                result = _sp.run(
+                    ["divineos", "sleep", "--phase", phase_name, "--json-out", tmp.name],
+                    stdout=_sp.DEVNULL,
+                    stderr=_sp.DEVNULL,
+                    timeout=600,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    report.phase_errors[phase_name] = (
+                        f"subprocess exit {result.returncode} (output suppressed)"
+                    )
+                    logger.warning(
+                        f"Sleep phase '{phase_name}' subprocess failed: exit={result.returncode}"
+                    )
+                    continue
+                with open(tmp.name, encoding="utf-8") as _f:
+                    child_report = _json.load(_f)
+                _merge_phase_result(report, child_report, phase_name)
+            except _sp.TimeoutExpired:
+                report.phase_errors[phase_name] = "subprocess timeout (>600s)"
+                logger.warning(f"Sleep phase '{phase_name}' subprocess timed out")
+            except (OSError, _json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+                report.phase_errors[phase_name] = f"merge failure: {e}"
+                logger.warning(f"Sleep phase '{phase_name}' merge failed: {e}")
+            finally:
+                try:
+                    _Path(tmp.name).unlink(missing_ok=True)
+                except OSError:
+                    pass
+        else:
+            # Lightweight phases stay in-process.
+            try:
+                phase_fn(report)
+                report.phases_run.add(phase_name)
+            except _SLEEP_ERRORS as e:
+                report.phase_errors[phase_name] = str(e)
+                logger.warning(f"Sleep phase '{phase_name}' failed: {e}")
 
     report.finished_at = time.time()
     report.duration_seconds = report.finished_at - report.started_at

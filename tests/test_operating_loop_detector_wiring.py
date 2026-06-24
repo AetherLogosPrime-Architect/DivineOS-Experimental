@@ -35,6 +35,16 @@ _INTERNAL_HELPERS = {
     # detect_action_class is consumed at module-level by principle_surfacer
     # itself; not a standalone detector.
     "detect_action_class",
+    # detect_writer_presence_v2 is the Phase 2 section-detection redesign
+    # of the lepos writer-presence check (prereg-433458d711d4). Built
+    # 2026-06-23 alongside v1 per the wired-and-dogfooded completion rule
+    # — production gate still uses v1; v2 is parallel-INCOMPLETE awaiting
+    # dogfooding across multiple sessions and Aletheia audit before
+    # promotion. The promotion path is filed as a separate prereg so the
+    # deferral is a scheduled fix, not an acknowledgment-only code comment
+    # (Aletheia 2026-06-23 discipline: comment is acknowledgment, prereg
+    # is scheduled fix).
+    "detect_writer_presence_v2",
 }
 
 
