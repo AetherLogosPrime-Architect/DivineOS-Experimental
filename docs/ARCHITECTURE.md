@@ -53,6 +53,7 @@ src/divineos/
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     push_commands.py           `divineos push <branch>` — foreground push with file-lock + ledger-event alarms (per prereg-a9ecf79d250d, anti-silent-failure root fix for the 2026-06-24 stuck-branches incident)
+    ear_relaunch_commands.py   `divineos ear-relaunch check` — polling-watcher relaunch-decision surface (migrated from .claude/hooks/ear-auto-relaunch.sh, 2026-06-24)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
