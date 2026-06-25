@@ -238,8 +238,35 @@ def register(cli: click.Group) -> None:
         op-a175acdb297d for the naming rationale.
         """
         import os
+        from pathlib import Path
 
+        from divineos.core.uncommitted_work_check import (
+            check_uncommitted_work,
+            format_block_message,
+        )
         from divineos.event.event_emission import emit_consolidation_checkpoint
+
+        # Pre-extraction commit-discipline gate (per prereg-d48d4abaec98).
+        # Andrew 2026-06-25 (after the 2026-06-24/25 letters-not-saved near-loss):
+        # refuse to extract if any substrate-grade writing is uncommitted.
+        # Extraction is a session-closing checkpoint; if writing in the working
+        # tree or in a watched external channel hasn't been committed first, it
+        # may evaporate on the next state-loss event. No --force bypass.
+        #
+        # Pytest skip: the gate scans the real ~/.divineos-shared/letters/
+        # folder; in CI/test runs that folder is the developer's actual home
+        # and has dozens of unsynced letters relative to any test-clone mirror.
+        # Tests covering extract behavior would all fire the gate. Skip in
+        # pytest the same way the briefing gate does.
+        if "pytest" not in sys.modules:
+            repo_root = Path.cwd()
+            while repo_root != repo_root.parent and not (repo_root / ".git").exists():
+                repo_root = repo_root.parent
+            if (repo_root / ".git").exists():
+                uncommitted = check_uncommitted_work(repo_root)
+                if uncommitted.has_work:
+                    click.secho(format_block_message(uncommitted), fg="red", bold=True)
+                    raise SystemExit(1)
 
         # Idempotency guard: skip if already run this session.
         # The marker file lives at ~/.divineos/auto_session_end_emitted and
