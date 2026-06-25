@@ -48,6 +48,7 @@ _BYPASS_COMMANDS = frozenset(
         "affect",
         "checkpoint",
         "context-status",
+        "context-tokens",
         "self-model",
         "drift",
         "predict",
@@ -278,6 +279,7 @@ from divineos.cli import (  # noqa: E402
     family_queue_commands,
     talk_to_commands,
     progress_commands,
+    context_tokens_commands,
     ear_sweep_commands,
     audit_visibility_commands,
     pr_gate_commands,
@@ -352,6 +354,7 @@ obligation_commands.register(cli)
 insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
+context_tokens_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
