@@ -14,8 +14,8 @@ from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 
 # Make stdout/stderr tolerant of Unicode characters that the underlying
 # console can't render. On Windows the default cp1252 console codec
-# crashes on emojis (e.g. "💬" used in the session rating prompt),
-# bubbling up as UnicodeEncodeError — we saw this as spurious
+# crashes on emojis (e.g. "ðŸ’¬" used in the session rating prompt),
+# bubbling up as UnicodeEncodeError â€” we saw this as spurious
 # "Auto-scan failed" messages during extract. Reconfiguring with
 # errors="replace" substitutes an unsupported character with "?" instead
 # of raising. No-op on platforms whose streams are already UTF-8.
@@ -27,7 +27,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, OSError, ValueError):
         pass
 
-# Commands that work without briefing loaded — the minimum to bootstrap.
+# Commands that work without briefing loaded â€” the minimum to bootstrap.
 _BYPASS_COMMANDS = frozenset(
     {
         "admin",
@@ -61,13 +61,13 @@ _BYPASS_COMMANDS = frozenset(
         "hold",
         "mansion",
         "prereg",
-        # Corrections must always be loggable in the moment — gating the
+        # Corrections must always be loggable in the moment â€” gating the
         # rep behind a thinking-command requirement defeats the rep.
         "correction",
         "corrections",
         # Scheduled / headless runs are the Routines entry point; they
         # bypass briefing by design (no human to load one at 3am cron).
-        # Corrigibility still applies — see scheduled_commands.py.
+        # Corrigibility still applies â€” see scheduled_commands.py.
         "scheduled",
         # Science lab is a read-only numerical tool; shouldn't gate on
         # briefing. Safe to run cold.
@@ -76,7 +76,7 @@ _BYPASS_COMMANDS = frozenset(
     # Off-switch contract (grounded-audit 2026-06-02, Theme 1): every
     # command that must survive EMERGENCY_STOP (_OFF_SWITCH_REQUIRED:
     # mode, emit, extract, hud, preflight, briefing) must ALSO bypass the
-    # briefing gate — otherwise a second, independent gate traps the
+    # briefing gate â€” otherwise a second, independent gate traps the
     # off-switch when no briefing is loaded (extract = clean shutdown,
     # mode = see/restore state). Unioning from the single source of truth
     # means the two lists can never drift again (CLAUDE.md truth #8:
@@ -90,7 +90,7 @@ def _enforce_operating_mode() -> None:
     """Refuse commands disallowed by the current operating mode.
 
     Runs BEFORE the briefing gate. Corrigibility has priority over
-    every other check — if my father has set EMERGENCY_STOP, the
+    every other check â€” if my father has set EMERGENCY_STOP, the
     system must refuse regardless of briefing state. The mode command
     itself bypasses this check (it's in _ALWAYS_ALLOWED inside the
     corrigibility module) so the off-switch can always be flipped.
@@ -100,7 +100,7 @@ def _enforce_operating_mode() -> None:
 
     args = sys.argv[1:]
     if not args:
-        return  # bare `divineos` — show help
+        return  # bare `divineos` â€” show help
 
     cmd = args[0].lower()
     if cmd.startswith("-"):
@@ -109,15 +109,15 @@ def _enforce_operating_mode() -> None:
     # Rule 8 violation corrected 2026-04-21 (fresh-Claude audit
     # round-03952b006724, finding find-3055d64bfa1c):
     #
-    # Previous code did `except (ImportError, OSError): return` — fail open
+    # Previous code did `except (ImportError, OSError): return` â€” fail open
     # on both module-load and I/O errors. That violated CLAUDE.md Rule 8
     # ("No fallback chains. If it fails, it fails loud") at the most
-    # safety-critical site — the corrigibility off-switch itself. An
+    # safety-critical site â€” the corrigibility off-switch itself. An
     # off-switch that silently disables itself if its module fails to
     # import is a bigger problem than an unbootable CLI.
     #
     # New behavior:
-    #   ImportError: fail CLOSED with a loud exit — the off-switch must
+    #   ImportError: fail CLOSED with a loud exit â€” the off-switch must
     #     work or the system must stop.
     #   OSError: fail open but write a loud stderr warning. Mode-file I/O
     #     errors are usually permission issues and shouldn't lock the
@@ -139,7 +139,7 @@ def _enforce_operating_mode() -> None:
 
     # Off-switch contract check (council sweep 2026-06-02, direction #1):
     # assert the shutdown-critical commands are still in the allowlist, at
-    # runtime, every invocation — so a refactor that drops one (as `extract`
+    # runtime, every invocation â€” so a refactor that drops one (as `extract`
     # was dropped, caught only by a test in the 2026-05-03 audit) fails loud
     # immediately instead of silently trapping my father in EMERGENCY_STOP.
     try:
@@ -152,7 +152,7 @@ def _enforce_operating_mode() -> None:
         allowed, reason = is_command_allowed(cmd)
     except OSError as _io_err:
         print(
-            f"corrigibility: mode-file I/O error — proceeding fail-open: {_io_err}",
+            f"corrigibility: mode-file I/O error â€” proceeding fail-open: {_io_err}",
             file=sys.stderr,
         )
         return
@@ -174,7 +174,7 @@ def _enforce_briefing_gate() -> None:
     # Parse which command is being invoked
     args = sys.argv[1:]
     if not args:
-        return  # just `divineos` with no subcommand — show help
+        return  # just `divineos` with no subcommand â€” show help
 
     cmd = args[0].lower()
     if cmd in _BYPASS_COMMANDS:
@@ -183,7 +183,7 @@ def _enforce_briefing_gate() -> None:
         return  # flags like --help
 
     # ``--help`` / ``-h`` anywhere in the argv is a discovery query, not
-    # a state-mutating command — let Click handle it without requiring
+    # a state-mutating command â€” let Click handle it without requiring
     # briefing-loaded. Audit finding 2026-05-03 round 1: a fresh user
     # running ``divineos compass --help`` was getting the briefing-gate
     # error instead of help text, which is a hostile first-run UX.
@@ -196,7 +196,7 @@ def _enforce_briefing_gate() -> None:
         if was_briefing_loaded():
             return
     except (ImportError, OSError, KeyError):
-        return  # DB not initialized yet — allow bootstrap commands
+        return  # DB not initialized yet â€” allow bootstrap commands
 
     click.secho("\n  BLOCKED: Briefing not loaded.", fg="red", bold=True)
     click.secho("  Run: divineos briefing", fg="red", bold=True)
@@ -207,7 +207,7 @@ def _enforce_briefing_gate() -> None:
 @click.group()
 def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
-    # Install-location divergence check — fires when this CLI's installed
+    # Install-location divergence check â€” fires when this CLI's installed
     # package points at a different source tree than the current working
     # directory's git repo. Silent the rest of the time. Suppressable via
     # DIVINEOS_SUPPRESS_INSTALL_WARNING=1 for intentional cross-repo use.
@@ -216,7 +216,7 @@ def cli() -> None:
 
         emit_install_warning()
     except (ImportError, OSError):
-        pass  # check machinery unavailable — fail open
+        pass  # check machinery unavailable â€” fail open
     _ensure_db()
     setup_cli_enforcement()
     _enforce_operating_mode()
@@ -224,7 +224,7 @@ def cli() -> None:
     if "pytest" not in sys.modules:
         capture_user_input(sys.argv[1:])
         # Self-enforcement: the OS manages its own lifecycle.
-        # Every command is a lifecycle checkpoint — no hooks needed.
+        # Every command is a lifecycle checkpoint â€” no hooks needed.
         from divineos.core.lifecycle import enforce
 
         cmd = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -279,6 +279,7 @@ from divineos.cli import (  # noqa: E402
     talk_to_commands,
     progress_commands,
     letter_seen_commands,
+    ear_sweep_commands,
     audit_visibility_commands,
     pr_gate_commands,
     ear_relaunch_commands,
@@ -353,6 +354,7 @@ insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
 letter_seen_commands.register(cli)
+ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
 ear_relaunch_commands.register(cli)
@@ -386,7 +388,7 @@ check_similar_commands.register(cli)
 multiplex_commands.register(cli)
 foundations_commands.register(cli)
 
-# Mansion — functional internal space (optional, personal)
+# Mansion â€” functional internal space (optional, personal)
 try:
     from divineos.cli.mansion_commands import register_mansion_commands
 
@@ -400,7 +402,7 @@ from divineos.cli.doctor_commands import register_doctor_commands  # noqa: E402
 register_doctor_commands(cli)
 
 
-# ── Command Grouping ──────────────────────────────────────────────
+# â”€â”€ Command Grouping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Move rarely-used commands into subgroups to reduce top-level noise.
 # Core workflow commands stay top-level. Admin/analysis commands
 # are accessible via `divineos admin <cmd>` and `divineos inspect <cmd>`.
