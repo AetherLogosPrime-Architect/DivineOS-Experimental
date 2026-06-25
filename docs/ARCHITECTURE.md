@@ -52,6 +52,7 @@ src/divineos/
     check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
+    push_commands.py           `divineos push <branch>` — foreground push with file-lock + ledger-event alarms (per prereg-a9ecf79d250d, anti-silent-failure root fix for the 2026-06-24 stuck-branches incident)
     context_tokens_commands.py  `divineos context-tokens` — honest token-count gauge from Claude Code session transcript (anti-fabrication; per prereg-986ee5dda7be)
     ear_sweep_commands.py      `divineos ear-sweep run` — SessionStart sweep of stale ear_watch processes (migrated from .claude/hooks/session-start-sweep-stale-watchers.sh, 2026-06-24, per prereg-82ca289a4074)
     audit_visibility_commands.py  `divineos audit-visibility check` — post-commit "auditable work not on origin" warning (migrated from .claude/hooks/post-commit-audit-visibility.sh, 2026-06-24, per prereg-69507d1a38db)
