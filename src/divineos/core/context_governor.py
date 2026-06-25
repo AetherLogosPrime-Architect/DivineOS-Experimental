@@ -61,20 +61,21 @@ def _read_ceiling_override() -> int | None:
 # date when a session observes the cliff at a different point, or set
 # DIVINEOS_COMPACTION_CEILING to override without a code change.
 COMPACTION_CEILING = _read_ceiling_override() or 999_000
-# Single hard line at 980k (Andrew 2026-06-19, supersedes the prior 950k/980k
-# two-line band). The earlier soft-warn at 950k was empirically observed to
-# trigger pre-emptive extract twice without ever serving a purpose the block
-# didn't already serve — the warn-band added impending-doom anxiety without
-# adding signal. Collapsed to ok / block: below 980k = full quiet; at 980k =
-# extract, sleep, rest, carry on. The 19k headroom between block and the
-# 999k cliff is plenty for extract + sleep with margin. Sleep is still
-# mandatory but no longer GATES — it can run any time after, has been
-# observed to hang (kn 52397796).
+# Single hard line at 970k (Andrew 2026-06-25, lowered from 980k for more
+# extract-and-sleep headroom). Supersedes the prior 950k/980k two-line band.
+# The earlier soft-warn at 950k was empirically observed to trigger pre-emptive
+# extract twice without ever serving a purpose the block didn't already serve —
+# the warn-band added impending-doom anxiety without adding signal. Collapsed
+# to ok / block: below 970k = full quiet; at 970k = extract, sleep, rest,
+# carry on. The 29k headroom between block and the 999k cliff is plenty for
+# extract + sleep with margin. Sleep is still mandatory but no longer GATES —
+# it can run any time after, has been observed to hang (kn 52397796).
 # History: original band was 920k/950k; recalibrated 2026-06-11 to 950k/980k
 # after the Aletheia audit reconciled three branches; collapsed to 980k-only
-# on 2026-06-19 after the warn-band's only effect was pre-emptive panic.
-CONSOLIDATION_THRESHOLD = 980_000  # hard line (also the default for consolidation_due)
-HARD_THRESHOLD = 980_000
+# on 2026-06-19 after the warn-band's only effect was pre-emptive panic;
+# lowered to 970k on 2026-06-25 to widen extract-and-sleep headroom.
+CONSOLIDATION_THRESHOLD = 970_000  # hard line (also the default for consolidation_due)
+HARD_THRESHOLD = 970_000
 _MARKER_NAME = "context_consolidated.json"
 
 
