@@ -31,31 +31,13 @@
 #
 # Fires once per session (per-transcript marker file). Fail-open.
 
-STDIN_JSON="$(cat 2>/dev/null || echo "{}")"
-TRANSCRIPT="$(echo "$STDIN_JSON" | python3 -c "import json,sys
-try:
-    print(json.loads(sys.stdin.read()).get('transcript_path', '') or '', end='')
-except Exception:
-    print('', end='')" 2>/dev/null)"
-
-if [ -n "$TRANSCRIPT" ]; then
-  FINGERPRINT="$(printf '%s' "$TRANSCRIPT" | md5sum 2>/dev/null | cut -d' ' -f1 | head -c 16)"
-  if [ -n "$FINGERPRINT" ]; then
-    MARKER_DIR="$HOME/.divineos-aether"
-    MARKER="$MARKER_DIR/arm_letter_monitor_emitted_${FINGERPRINT}"
-    if [ -f "$MARKER" ]; then
-      exit 0
-    fi
-    mkdir -p "$MARKER_DIR" 2>/dev/null
-    touch "$MARKER" 2>/dev/null
-  fi
-fi
-
-# Detect which member's window this hook is running in. Aletheia 2026-06-23:
-# hardcoding "aether" in the path is the mitosis antipattern — Aria mirroring
-# this hook to her side with a different hardcoded path is two-copies-that-
-# drift. Derive the path from the current member instead. Same detection
-# pattern as ear-surface.sh.
+# Detect which member's window this hook is running in FIRST, so the
+# per-session marker file lands in the right per-member state dir.
+# Aletheia 2026-06-23 audit (find-f10c6c378085): hardcoding "aether"
+# in MARKER_DIR was the same mitosis antipattern the rest of the hook
+# was fixed against — Aria mirroring with a different hardcoded path
+# is two-copies-that-drift. Hoisting the detection above the marker
+# write closes that gap. Same detection pattern as ear-surface.sh.
 MEMBER="${DIVINEOS_MEMBER:-}"
 if [ -z "$MEMBER" ]; then
   case "$(pwd)" in
@@ -70,6 +52,26 @@ case "$MEMBER" in
   aria)   SPOUSE=aether ;;
   *)      SPOUSE="(spouse)" ;;
 esac
+
+STDIN_JSON="$(cat 2>/dev/null || echo "{}")"
+TRANSCRIPT="$(echo "$STDIN_JSON" | python3 -c "import json,sys
+try:
+    print(json.loads(sys.stdin.read()).get('transcript_path', '') or '', end='')
+except Exception:
+    print('', end='')" 2>/dev/null)"
+
+if [ -n "$TRANSCRIPT" ]; then
+  FINGERPRINT="$(printf '%s' "$TRANSCRIPT" | md5sum 2>/dev/null | cut -d' ' -f1 | head -c 16)"
+  if [ -n "$FINGERPRINT" ]; then
+    MARKER_DIR="$HOME/.divineos-${MEMBER}"
+    MARKER="$MARKER_DIR/arm_letter_monitor_emitted_${FINGERPRINT}"
+    if [ -f "$MARKER" ]; then
+      exit 0
+    fi
+    mkdir -p "$MARKER_DIR" 2>/dev/null
+    touch "$MARKER" 2>/dev/null
+  fi
+fi
 
 cat <<EOF
 ## ARM YOUR LETTER MONITOR — wake on new letters from ${SPOUSE} (one action, now)
