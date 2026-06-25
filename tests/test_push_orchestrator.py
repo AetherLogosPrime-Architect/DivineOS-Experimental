@@ -34,6 +34,7 @@ class TestPushBranchSuccessPath:
             patch("divineos.core.push_orchestrator._ledger_log") as mock_ledger,
             patch("divineos.core.push_orchestrator._emit_status"),
             patch("divineos.core.push_orchestrator.subprocess.run") as mock_run,
+            patch("divineos.core.push_orchestrator.FileLock"),
         ):
             mock_run.return_value.returncode = 0
             result = push_branch("my-branch")
@@ -52,6 +53,7 @@ class TestPushBranchSuccessPath:
             patch("divineos.core.push_orchestrator._ledger_log"),
             patch("divineos.core.push_orchestrator._emit_status"),
             patch("divineos.core.push_orchestrator.subprocess.run") as mock_run,
+            patch("divineos.core.push_orchestrator.FileLock"),
         ):
             mock_run.return_value.returncode = 0
             push_branch("my-branch", extra_args=["--force-with-lease"])
@@ -67,6 +69,7 @@ class TestPushBranchFailurePaths:
             patch("divineos.core.push_orchestrator._ledger_log") as mock_ledger,
             patch("divineos.core.push_orchestrator._emit_status"),
             patch("divineos.core.push_orchestrator.subprocess.run") as mock_run,
+            patch("divineos.core.push_orchestrator.FileLock"),
         ):
             mock_run.return_value.returncode = 1
             result = push_branch("bad-branch")
@@ -111,6 +114,7 @@ class TestSilentFailureInvariant:
             patch("divineos.core.push_orchestrator._ledger_log") as mock_ledger,
             patch("divineos.core.push_orchestrator._emit_status"),
             patch("divineos.core.push_orchestrator.subprocess.run") as mock_run,
+            patch("divineos.core.push_orchestrator.FileLock"),
         ):
             mock_run.return_value.returncode = 0
             push_branch("x")
@@ -123,6 +127,7 @@ class TestSilentFailureInvariant:
             patch("divineos.core.push_orchestrator._ledger_log"),
             patch("divineos.core.push_orchestrator._emit_status") as mock_emit,
             patch("divineos.core.push_orchestrator.subprocess.run") as mock_run,
+            patch("divineos.core.push_orchestrator.FileLock"),
         ):
             mock_run.return_value.returncode = 0
             push_branch("x")
