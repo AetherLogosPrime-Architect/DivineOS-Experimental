@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (374 commands across 33 modules)
+  cli/                         CLI package (378 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -53,6 +53,8 @@ src/divineos/
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     ear_sweep_commands.py      `divineos ear-sweep run` — SessionStart sweep of stale ear_watch processes (migrated from .claude/hooks/session-start-sweep-stale-watchers.sh, 2026-06-24, per prereg-82ca289a4074)
+    audit_visibility_commands.py  `divineos audit-visibility check` — post-commit "auditable work not on origin" warning (migrated from .claude/hooks/post-commit-audit-visibility.sh, 2026-06-24, per prereg-69507d1a38db)
+    pr_gate_commands.py        `divineos pr-gate create` — guardrail-touching-PR draft-requirement gate (migrated from .claude/hooks/gh-pr-create-draft-gate.sh, 2026-06-24, per prereg-17a6ff97ba67)
     ear_relaunch_commands.py   `divineos ear-relaunch check` — polling-watcher relaunch-decision surface (migrated from .claude/hooks/ear-auto-relaunch.sh, 2026-06-24)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
@@ -484,6 +486,7 @@ src/divineos/
     prereg_candidate_surface.py Pre-registration candidate surface — forcing function for the prereg discipline.
     archive_export.py          Archive export — regenerates docs/archives/*.md from canonical SQLite.
     briefing_freshness.py      Briefing-freshness tracker — make briefing-loading load-bearing
+    briefing_bypass.py         Portable bypass-prefix list for require-briefing gate (extracted from .claude/hooks/require-briefing.sh inline, 2026-06-24, per prereg-7bba8b123d42 — Carmack scope-down kept Claude-Code-specific deny-message in the hook)
     command_inventory.py       Substrate inventory — engagement audit across the CLI surface.
     completion_check.py        Completion-quality probe for the initiative/overreach compass spectrum.
     correction_pairing.py      Observe-then-learn pairing — module form.
