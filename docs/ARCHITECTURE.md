@@ -53,6 +53,7 @@ src/divineos/
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     ear_sweep_commands.py      `divineos ear-sweep run` — SessionStart sweep of stale ear_watch processes (migrated from .claude/hooks/session-start-sweep-stale-watchers.sh, 2026-06-24, per prereg-82ca289a4074)
+    ear_relaunch_commands.py   `divineos ear-relaunch check` — polling-watcher relaunch-decision surface (migrated from .claude/hooks/ear-auto-relaunch.sh, 2026-06-24)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships

@@ -279,6 +279,7 @@ from divineos.cli import (  # noqa: E402
     talk_to_commands,
     progress_commands,
     ear_sweep_commands,
+    ear_relaunch_commands,
     obligation_commands,
     selfmodel_commands,
     rt_commands,
@@ -350,6 +351,7 @@ insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
 ear_sweep_commands.register(cli)
+ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
 correction_commands.register(cli)
