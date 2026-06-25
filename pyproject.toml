@@ -13,6 +13,7 @@ dependencies = [
     "loguru>=0.7.0",
     "ftfy>=6.0",
     "numpy>=1.20",
+    "filelock>=3.0",  # core/push_orchestrator — cross-platform file lock for push serialization (works on Windows where flock is unavailable). Added 2026-06-24 with the divineos push CLI per prereg-a9ecf79d250d. CI caught the missing dep on PR #266 — local had filelock via another transitive install, CI didn't.
 ]
 
 [project.optional-dependencies]
