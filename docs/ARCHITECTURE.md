@@ -53,6 +53,7 @@ src/divineos/
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     letter_seen_commands.py    `divineos letter mark-on-read` — letter-on-read routing (migrated from .claude/hooks/post-read-mark-letter-seen.sh, 2026-06-24, per prereg-a30e8ff6cf0a)
+    ear_relaunch_commands.py   `divineos ear-relaunch check` — polling-watcher relaunch-decision surface (migrated from .claude/hooks/ear-auto-relaunch.sh, 2026-06-24)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
