@@ -30,6 +30,7 @@ dev = [
     "vulture>=2.0",
     "bandit==1.9.4",  # pinned exact: bandit's B608 line-attribution shifted across 1.x (the reported line moved from the conn.execute() call to the f-string-construction line), which silently orphaned every `# nosec B608` by one line and failed the strict gate on unchanged code (2026-05-24). nosec placement is version-coupled; bump deliberately + re-verify suppressions land in the same commit.
     "mutmut>=3.0",
+    "deptry>=0.20",  # scan code-imports vs pyproject deps; catches the "dirty venv has it via transitive, CI doesn't" silent-failure root (added 2026-06-24 per prereg-e05fb19ed93f after PR #266 burned on missing filelock).
 ]
 # Fable 5 audit 2026-06-09: three modules import these but pyproject
 # never declared them, so `pip install divineos` produced a runtime
@@ -149,6 +150,50 @@ ignore_names = [
 paths_to_mutate = "src/divineos/core/"
 tests_dir = "tests/"
 runner = "python -m pytest tests/ -q --tb=no -x"
+
+[tool.deptry]
+# 2026-06-24 per prereg-e05fb19ed93f. Catches the "code uses X but
+# pyproject doesn't declare X" silent-failure root that bit PR #266
+# on missing filelock (local venv had it via transitive install;
+# CI's clean install didn't).
+known_first_party = ["divineos"]
+extend_exclude = [
+    "benchmark",  # scratchpad — local imports (swe_harness, etc.) are by design
+    "bootcamp",   # training-exercise dir with intentional local-imports
+    "exploration",
+    "family/letters",
+]
+# Map distribution-name → import-name where they differ.
+[tool.deptry.package_module_name_map]
+pillow-heif = ["PIL", "pillow_heif"]
+# Per-rule ignores for legitimate transitive use — each entry has a reason.
+[tool.deptry.per_rule_ignores]
+# DEP002 = declared but not imported. These are dev TOOLS invoked via
+# subprocess from scripts/precommit.sh, not Python imports — deptry
+# can't see them as "used" but they're load-bearing.
+DEP002 = [
+    "mypy",
+    "ruff",
+    "vulture",
+    "bandit",
+    "mutmut",
+    "deptry",
+    "pytest",           # CLI runner used via subprocess; not imported directly
+    "pytest-asyncio",   # auto-loaded plugin
+    "pytest-timeout",   # auto-loaded plugin
+    "pytest-cov",       # auto-loaded plugin
+    "pytest-xdist",     # auto-loaded plugin
+    "pytest-benchmark", # auto-loaded plugin
+    "hypothesis",       # auto-loaded plugin via pytest entrypoints
+]
+# DEP003 = transitive dep used directly. These are intentional:
+DEP003 = [
+    "torch",        # CUDA detection in core/_embedding_device.py — transitive of sentence-transformers; declaring directly would couple us to a specific torch version we don't want to constrain
+    "win32api",     # Windows-only optional; pywin32 is in environment markers, not a direct dep
+    "win32event",   # Windows-only optional; pywin32
+    "winerror",     # Windows-only optional; pywin32
+    "whisper",      # scripts/video_tool.py — optional speech-to-text tool; the script gates on import availability so undeclared is correct
+]
 
 [tool.mypy]
 python_version = "3.12"
