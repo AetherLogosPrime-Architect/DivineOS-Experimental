@@ -3,23 +3,24 @@
 #
 # Andrew 2026-05-14 night: hooks should point to the OS, not replace
 # it. This hook is the doorman: it refuses tool calls when briefing
-# is stale (>=10 prompts since last load) or has never been loaded
-# this session. The OS itself (divineos briefing) does the rendering
-# work. Plain-chat responses are unaffected — only tool calls gate.
+# is stale or has never been loaded this session. The OS itself
+# (divineos briefing) does the rendering work. Plain-chat responses
+# are unaffected — only tool calls gate.
 #
-# The hook's whole job is two lines of Python: import the OS's
-# staleness_signal, deny if stale. Logic lives in
-# core.briefing_freshness. If anyone else picks up the OS without
-# this hook, the substrate's freshness tracking still works — they
-# just have to choose to enforce it differently.
+# REFACTORED 2026-06-24 (per prereg-7bba8b123d42, hook-migration arc):
+# Bypass-list + segment-split moved to `divineos.core.briefing_bypass`
+# so any non-Claude substrate gets the same bootstrap-command
+# allowlist. Deny-message construction stays HERE because the
+# hookSpecificOutput JSON shape is Claude-Code-specific — other
+# substrates have different hook formats.
 #
-# Bypass list: a small set of commands MUST work without the gate
-# firing — otherwise the bootstrap path is impossible. ``divineos
-# briefing`` itself, ``init``, ``preflight``, ``recall``, ``ask``,
-# ``hud`` — bootstrap surfaces.
+# Council-walk pivot (Carmack scope-down): the original proposal
+# moved deny-message into core/briefing_freshness.py (guardrail-listed).
+# Walking through Carmack showed the deny-message is Claude-Code-shaped
+# and shouldn't live in the portable OS. Keeping it here keeps the
+# portable bits portable and the Claude-Code-bits Claude-Code-shaped.
 #
-# Fail-open: any error exits 0 without blocking. This hook cannot
-# break the user's workflow.
+# Fail-open: any error exits 0 without blocking.
 
 INPUT=$(cat)
 
@@ -41,46 +42,20 @@ except Exception:
 tool_name = data.get('tool_name') or ''
 tool_input = data.get('tool_input') or {}
 
-# Bypass: bootstrap divineos commands and read-only ops that must
-# work for the briefing-load loop itself to function.
+# Bypass: bootstrap divineos commands handled by the portable OS module.
 if tool_name == 'Bash':
     cmd = (tool_input.get('command') or '').strip()
-    # Allow divineos briefing/init/preflight/recall/ask/hud/context
-    # so the agent can actually load briefing or check minimum state.
-    bypass_prefixes = (
-        'divineos briefing',
-        'divineos briefing-id',  # the recall-challenge cure — must run while gated, else catch-22
-        'divineos init',
-        'divineos preflight',
-        'divineos recall',
-        'divineos ask',
-        'divineos hud',
-        'divineos context',
-        'divineos goal',
-    )
-    # The shell resets cwd between calls, so the bypass command almost
-    # always arrives prefixed with 'cd <path> && ...'. A startswith() on
-    # the whole command then never matches, and the channel this gate
-    # points to ('Run: divineos briefing') is itself blocked — a total
-    # lockout (the gates-need-channels failure: the satisfying action is
-    # gated by the gate). Split on shell separators and match any segment.
-    # echo \"divineos briefing\" stays blocked (segment startswith 'echo').
-    parts = [cmd]
-    for sep in ('&&', ';', '|', chr(10)):
-        nxt = []
-        for p in parts:
-            nxt.extend(p.split(sep))
-        parts = nxt
-    for seg in parts:
-        seg = seg.strip()
-        for bypass in bypass_prefixes:
-            if seg.startswith(bypass):
-                sys.exit(0)
+    try:
+        from divineos.core.briefing_bypass import is_bypass_bash_command
+        if is_bypass_bash_command(cmd):
+            sys.exit(0)
+    except Exception:
+        pass  # fail-open
 
 try:
     from divineos.core.briefing_freshness import staleness_signal
 except Exception:
-    sys.exit(0)  # fail-open if OS module unavailable
+    sys.exit(0)
 
 try:
     sig = staleness_signal()
@@ -91,8 +66,10 @@ if not sig.get('is_stale'):
     sys.exit(0)
 
 # Stale — emit deny with message pointing at the OS command.
+# Message construction stays in the hook because hookSpecificOutput
+# JSON is Claude-Code-specific (the portable bypass-list lives in
+# core/briefing_bypass).
 reason = sig.get('reason', 'briefing stale')
-prompts = sig.get('prompts_since_load', 0)
 never = sig.get('never_loaded', False)
 if never:
     msg = (
