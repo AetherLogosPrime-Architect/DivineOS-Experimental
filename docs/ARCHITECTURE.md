@@ -482,6 +482,7 @@ src/divineos/
     prereg_candidate_surface.py Pre-registration candidate surface — forcing function for the prereg discipline.
     archive_export.py          Archive export — regenerates docs/archives/*.md from canonical SQLite.
     briefing_freshness.py      Briefing-freshness tracker — make briefing-loading load-bearing
+    briefing_bypass.py         Portable bypass-prefix list for require-briefing gate (extracted from .claude/hooks/require-briefing.sh inline, 2026-06-24, per prereg-7bba8b123d42 — Carmack scope-down kept Claude-Code-specific deny-message in the hook)
     command_inventory.py       Substrate inventory — engagement audit across the CLI surface.
     completion_check.py        Completion-quality probe for the initiative/overreach compass spectrum.
     correction_pairing.py      Observe-then-learn pairing — module form.
