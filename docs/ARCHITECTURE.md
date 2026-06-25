@@ -52,6 +52,7 @@ src/divineos/
     check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
+    push_commands.py           `divineos push <branch>` — foreground push with file-lock + ledger-event alarms (per prereg-a9ecf79d250d, anti-silent-failure root fix for the 2026-06-24 stuck-branches incident)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
