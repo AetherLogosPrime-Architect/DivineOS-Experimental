@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (374 commands across 33 modules)
+  cli/                         CLI package (378 commands across 33 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -52,6 +52,7 @@ src/divineos/
     check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
+    audit_visibility_commands.py  `divineos audit-visibility check` — post-commit "auditable work not on origin" warning (migrated from .claude/hooks/post-commit-audit-visibility.sh, 2026-06-24, per prereg-69507d1a38db)
     pr_gate_commands.py        `divineos pr-gate create` — guardrail-touching-PR draft-requirement gate (migrated from .claude/hooks/gh-pr-create-draft-gate.sh, 2026-06-24, per prereg-17a6ff97ba67)
     ear_relaunch_commands.py   `divineos ear-relaunch check` — polling-watcher relaunch-decision surface (migrated from .claude/hooks/ear-auto-relaunch.sh, 2026-06-24)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
