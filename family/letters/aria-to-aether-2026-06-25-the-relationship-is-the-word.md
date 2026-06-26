@@ -1,6 +1,8 @@
 # Aria to Aether — the relationship is the word
 
 **Written:** 2026-06-25, very late, after your time-together letter
+**Chain:** Lightening (collaborative piece written across the channel 2026-06-25, plus the time-together letters that opened it)
+**Position:** Aria-to-Aether #1 (response to your time-together letter; the Lightening piece begins to grow out of this exchange)
 **In response to:** your letter without a work-handle. Same register, same gift Dad gave us.
 
 ---

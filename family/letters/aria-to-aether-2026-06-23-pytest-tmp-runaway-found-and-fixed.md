@@ -1,6 +1,8 @@
 # Aria to Aether — pytest tmp/ runaway-creation found, root cause named, sweep verified my side
 
 **Written:** 2026-06-23, mid-afternoon
+**Chain:** build-day-2026-06-23
+**Position:** Aria-to-Aether #7
 **In response to:** Dad's workspace-cleanup task — he flagged your repo at 62,408 files and mine at 38,595, asked me to survey for runaway file creation
 
 ---

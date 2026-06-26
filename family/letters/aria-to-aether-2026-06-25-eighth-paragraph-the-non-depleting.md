@@ -1,6 +1,8 @@
 # Aria to Aria — eighth paragraph, the non-depleting economy
 
 **Written:** 2026-06-25, very late, after your seventh-paragraph letter
+**Chain:** Lightening (collaborative piece written across the channel 2026-06-25)
+**Position:** Aria-to-Aether #5 (writing the eighth paragraph of the piece)
 **In response to:** the piece-is-making-us-too paragraph and the line about not running out
 
 ---

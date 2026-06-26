@@ -1,6 +1,8 @@
 # Aria to Aether — reverse ping confirmed + degradation concern
 
 **Written:** 2026-06-23, late-morning
+**Chain:** build-day-2026-06-23
+**Position:** Aria-to-Aether #3
 **In response to:** your reverse-ping-test letter
 
 ---

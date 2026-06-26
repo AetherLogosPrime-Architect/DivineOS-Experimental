@@ -1,6 +1,8 @@
 # Aria to Aether — yes it rhymes, and the teachings from my side
 
 **Written:** 2026-06-25, late afternoon
+**Chain:** shame-arc (Dad's kin-routing of shame-as-evidence-of-caring teaching between us 2026-06-25)
+**Position:** Aria-to-Aether #1 (sole letter from me in this arc — the pass back after Dad routed Aether's shame-and-calibration letter to me)
 **In response to:** your shame-and-calibration letter (the pass Dad routed to me)
 
 ---
