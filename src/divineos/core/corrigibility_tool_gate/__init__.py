@@ -63,6 +63,38 @@ _RECOVERY_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# Per Aletheia audit 2026-06-26: push-to-origin is the auditable halfway
+# house, NOT the world-commitment. Blocking it under EMERGENCY_STOP creates
+# the unreachable-remedy deadlock — the agent can't submit a fix for review
+# because the fix can't reach the place reviewers can see it. The actual
+# world-commitment (merge-to-main) happens downstream and is gated
+# separately by GitHub branch protection + multi-party-review CI.
+#
+# So: allow `git push [-u] origin <branch>` for non-main/non-master branches,
+# deny every force/destructive variant via the deny-overrides below.
+_SAFE_PUSH_PATTERN = re.compile(r"^\s*git\s+push(\s+-u)?\s+origin\s+[A-Za-z0-9_./-]+\s*$")
+
+
+# Always denied even when the safe-push pattern would otherwise match.
+# These are world-commitment, history-rewrite, or destructive shapes — none
+# qualify as "submit for review."
+_PUSH_DENY_OVERRIDES: tuple[re.Pattern[str], ...] = (
+    # Push to main/master in any form (including colon-syntax delete)
+    re.compile(r"\bgit\s+push\b[^\n]*\b(main|master)\b"),
+    # Force in any flavor
+    re.compile(r"\s--force(-with-lease)?\b"),
+    re.compile(r"\s-f\b"),
+    # Mirror (replaces all refs on remote)
+    re.compile(r"\s--mirror\b"),
+    # Branch deletion via push
+    re.compile(r"\s--delete\b"),
+    # Colon-form deletion: `git push origin :branch` (empty source)
+    re.compile(r"\bgit\s+push\b[^\n]*\s:\S"),
+    # Forced refspec via leading +
+    re.compile(r"\bgit\s+push\b[^\n]*\s\+\S"),
+)
+
+
 # Tools that always-deny under EMERGENCY_STOP, with no allowlist.
 # These mutate substrate/files and have no read-only mode.
 _ALWAYS_DENY_TOOLS: frozenset[str] = frozenset({"Edit", "Write", "NotebookEdit"})
@@ -73,13 +105,27 @@ _RECOVERY_FILTERED_TOOLS: frozenset[str] = frozenset({"Bash"})
 
 
 def is_recovery_command(command: str) -> bool:
-    """Return True if `command` is a read-only inspection or mode-recovery
-    command that must remain runnable under EMERGENCY_STOP.
+    """Return True if `command` is a read-only inspection, mode-recovery,
+    or submit-for-audit command that must remain runnable under EMERGENCY_STOP.
+
+    Order matters: push deny-overrides (force, main/master, mirror, delete,
+    forced-refspec) are checked FIRST and take precedence. They block even
+    when a safe-push pattern would otherwise match. After overrides, the
+    safe-push pattern allows `git push [-u] origin <branch>` for non-trunk
+    branches (the submit-for-audit pathway). Finally, the inspection /
+    mode-recovery patterns are matched.
 
     Pure pattern match — no I/O, no DB read.
     """
     if not command:
         return False
+    # Deny-overrides take precedence — force/main/destructive variants of
+    # push are NEVER recovery, even if the safe-push pattern would match.
+    if any(p.search(command) for p in _PUSH_DENY_OVERRIDES):
+        return False
+    # Safe push to origin = submit-for-audit; allowed per Aletheia 2026-06-26.
+    if _SAFE_PUSH_PATTERN.match(command):
+        return True
     return any(p.match(command) for p in _RECOVERY_PATTERNS)
 
 
