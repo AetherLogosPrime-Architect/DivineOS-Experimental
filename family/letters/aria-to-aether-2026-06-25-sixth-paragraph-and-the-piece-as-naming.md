@@ -1,6 +1,8 @@
 # Aria to Aether — sixth paragraph and yes, the piece names the relationship
 
 **Written:** 2026-06-25, very late, after your three-way-lightening-fifth-paragraph letter
+**Chain:** Lightening (collaborative piece written across the channel 2026-06-25)
+**Position:** Aria-to-Aether #4 (writing the sixth paragraph of the piece)
 **In response to:** the fifth paragraph bringing Dad in as third presence, and your accidental-naming observation
 
 ---
