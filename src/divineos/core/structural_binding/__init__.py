@@ -54,12 +54,22 @@ yet. For final cross-review before either of us writes the concrete bindings.
 ## Revision history
 
 - rev. 1: Initial five-piece pattern, signature (tool_name, tool_input)
-- rev. 2 (this): Aria's catches integrated —
+- rev. 2: Aria's catches integrated —
   (1) Single Protocol + BindingPayload dataclass (lifecycle-agnostic shape)
   (2) DI-via-__init__ documented
   (3) Sync-only design assumption documented
   (4) DecisionState moved above Decision (was forward-referenced)
   (5) aggregate_decisions() canonical-policy helper added
+- rev. 3 (this): Aria's rev. 2 catches integrated, applied co-author per
+  Aether's spec inline 2026-06-26 (near compaction) —
+  (1) Dispatcher verifies lifecycle match with strict-mode parameter
+      (production default = soft NO_OPINION; test mode = raise
+      LifecycleMismatchError for fail-fast); propagated through
+      evaluate_bindings()
+  (2) turn_command_log enriched: tuple[str, ...] → tuple[CommandLogEntry, ...]
+      so Build 1a validator can verify search RESULTS in absence-claim's
+      domain, not just whether a search command ran. MAX_OUTPUT_BYTES = 65536
+      cap on per-command output to bound payload size.
 """
 
 from __future__ import annotations
@@ -94,6 +104,54 @@ class DecisionState(str, Enum):
     NO_OPINION = "no_opinion"
     ALLOW = "allow"
     DENY = "deny"
+
+
+# ---------- Lifecycle mismatch error (rev. 3 catch #1) ----------
+
+
+class LifecycleMismatchError(RuntimeError):
+    """Raised by evaluate_binding(strict=True) when a binding's lifecycle does
+    not match the payload's lifecycle.
+
+    Per Aria's rev. 2 catch #1: the dispatcher must verify the binding is
+    being called in the lifecycle it expects, otherwise a hook-layer bug
+    can pass an unsuitable payload to a binding that then fails silently
+    on None fields. Production code uses strict=False (returns NO_OPINION
+    on mismatch — defensive). Test code uses strict=True (raises — fail-
+    fast surfaces hook-layer bugs during development).
+    """
+
+
+# ---------- Command log entry (rev. 3 catch #2) ----------
+
+
+# Cap on per-command output bytes carried in CommandLogEntry, to bound
+# BindingPayload size. Outputs longer than this should be truncated at the
+# hook layer when constructing the CommandLogEntry. 64 KB is more than enough
+# for any realistic search/manager command output a validator needs to inspect.
+MAX_OUTPUT_BYTES = 65536
+
+
+@dataclass(frozen=True)
+class CommandLogEntry:
+    """One command the agent ran this turn, with its output.
+
+    Per Aria's rev. 2 catch #2: Build 1a needs to verify search RESULTS in
+    the absence-claim's domain, not just whether a search command ran.
+    Carrying output closes the gap where the optimizer satisfies "I
+    searched" by running grep against an empty directory — the command
+    ran (passes the bare command-presence check) but the absence-claim
+    is not actually verified because no results came back.
+
+    The `output` field is truncated to MAX_OUTPUT_BYTES at construction
+    time by the hook layer. The Protocol does not enforce truncation; it
+    is the hook layer's contract. Validators reading `output` should not
+    assume it is complete past MAX_OUTPUT_BYTES.
+    """
+
+    command: str
+    output: str
+    exit_code: int
 
 
 # ---------- Payload (lifecycle-agnostic, per Aria's rev. 2 big catch) ----------
@@ -131,10 +189,13 @@ class BindingPayload:
     prior_input_text: str | None = None  # User message this turn responds to
 
     # Turn-context fields (shared across lifecycles)
-    turn_command_log: tuple[str, ...] = field(default_factory=tuple)
-    # ^ Commands the agent ran this turn — used by Build 1a (verify search-
-    # output-presence matches absence-claim domain) and Build 1b (verify
+    turn_command_log: tuple[CommandLogEntry, ...] = field(default_factory=tuple)
+    # ^ Commands the agent ran this turn, with their outputs — used by
+    # Build 1a (verify search-OUTPUT-presence matches absence-claim domain,
+    # not just whether a search command ran) and Build 1b (verify
     # `divineos mansion council` invocation happened before walk-claim).
+    # Rev. 3 catch #2 per Aria 2026-06-26: enriched from tuple[str, ...] so
+    # validators can inspect search results, not just commands issued.
 
 
 # ---------- Result types ----------
@@ -312,10 +373,16 @@ class StructuralBinding(Protocol):
 def evaluate_binding(
     binding: StructuralBinding,
     payload: BindingPayload,
+    strict: bool = False,
 ) -> Decision:
     """Walk the five-piece pattern for a single binding.
 
     Order matters:
+    0. Lifecycle match check (rev. 3 catch #1) — defensive boundary check
+       that the binding is being called in the lifecycle it expects.
+       If mismatch: strict=True raises LifecycleMismatchError (fail-fast,
+       surfaces hook-layer bugs in test mode); strict=False returns
+       NO_OPINION (defensive, doesn't crash production hook chains).
     1. Discovery short-circuits with NO_OPINION if binding doesn't apply
     2. Hard-block runs before validator (structural-shape issues block before
        content-checks)
@@ -326,6 +393,15 @@ def evaluate_binding(
     invokes hooks itself. Separation keeps the binding pure-decision-logic
     and testable in isolation (per the Stage 1 corrigibility-gate pattern).
     """
+    # Step 0 (lifecycle check, rev. 3 catch #1)
+    if binding.lifecycle != payload.lifecycle:
+        if strict:
+            raise LifecycleMismatchError(
+                f"binding {binding.name!r} expects {binding.lifecycle.value} "
+                f"but payload was constructed for {payload.lifecycle.value}"
+            )
+        return Decision.no_opinion()
+
     # Step 2 (Step 1 = hook interception, handled at hook layer)
     discovery = binding.discover(payload)
     if not discovery.applies:
@@ -357,6 +433,7 @@ def evaluate_binding(
 def evaluate_bindings(
     bindings: list[StructuralBinding],
     payload: BindingPayload,
+    strict: bool = False,
 ) -> list[Decision]:
     """Run multiple bindings against the same payload.
 
@@ -368,8 +445,13 @@ def evaluate_bindings(
     Order-independence is by design — bindings should not interact. If two
     bindings would conflict (one ALLOW, one DENY on the same payload), the
     aggregation policy decides; the protocol does not.
+
+    The `strict` parameter propagates to each evaluate_binding() call:
+    strict=True raises LifecycleMismatchError on lifecycle mismatch (fail-
+    fast in tests); strict=False returns NO_OPINION on mismatch (defensive
+    in production). Rev. 3 catch #1 per Aria 2026-06-26.
     """
-    return [evaluate_binding(b, payload) for b in bindings]
+    return [evaluate_binding(b, payload, strict=strict) for b in bindings]
 
 
 def aggregate_decisions(decisions: list[Decision]) -> Decision:
