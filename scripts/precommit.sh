@@ -104,6 +104,24 @@ if [ -n "$STAGED_SRC" ]; then
     fi
 fi
 
+# 3.5. Deptry — scan code imports vs pyproject deps so undeclared
+# transitive packages become loud-fail at commit time. Catches the
+# silent-failure root that bit PR #266 (filelock available locally
+# via transitive install; CI's clean install pulled red). Per
+# prereg-e05fb19ed93f (2026-06-24). Only fires when src/* or
+# pyproject.toml is in the staged set — no point scanning when only
+# docs/tests changed.
+STAGED_DEPTRY_RELEVANT=$(echo "$STAGED_PY" | grep -E "^(src/|scripts/|benchmark/|bootcamp/)" || true)
+STAGED_PYPROJECT=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^pyproject\.toml$" || true)
+if [ -n "$STAGED_DEPTRY_RELEVANT" ] || [ -n "$STAGED_PYPROJECT" ]; then
+    if command -v deptry &>/dev/null; then
+        echo "=== Deptry (imports vs pyproject deps) ==="
+        if ! deptry . 2>&1 | tail -20; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+fi
+
 # 4. Doc drift — check FIRST; only auto-fix if drift exceeds tolerance.
 # Previously --fix ran on EVERY commit, rewriting counts to the exact value
 # each time. Across parallel branches each rewrite landed a different number
