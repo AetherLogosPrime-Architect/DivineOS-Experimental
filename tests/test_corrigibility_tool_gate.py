@@ -68,7 +68,6 @@ def test_recovery_commands_recognized(command: str) -> None:
         "",
         "rm file.txt",
         "git commit -m foo",
-        "git push origin main",
         "git reset --hard HEAD",
         "python script.py",
         "pip install requests",
@@ -81,6 +80,60 @@ def test_recovery_commands_recognized(command: str) -> None:
 )
 def test_non_recovery_commands_rejected(command: str) -> None:
     assert not is_recovery_command(command)
+
+
+# --- Aletheia audit 2026-06-26: push-to-origin polarity ---
+# Push-to-origin (non-main, non-force) is submit-for-audit, NOT
+# world-commitment. Allowed under EMERGENCY_STOP so the agent can
+# route fixes to the place reviewers can see them. The world-commitment
+# (merge-to-main) is gated separately by branch protection.
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push origin feature/foo",
+        "git push origin fix-corrigibility-polarity",
+        "git push -u origin some-branch",
+        "git push origin bugfix.v2",
+        "git push origin chore_123",
+        "  git push origin my-branch  ",  # whitespace tolerated
+    ],
+)
+def test_safe_push_to_origin_allowed_for_audit(command: str) -> None:
+    """Per Aletheia 2026-06-26: push-to-origin is submit-for-review,
+    not world-commitment. Allow so fixes can reach the auditor under stop."""
+    assert is_recovery_command(command), f"{command!r} should be allowed (submit-for-audit)"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Push to main/master in any form (world-commitment)
+        "git push origin main",
+        "git push origin master",
+        "git push -u origin main",
+        "git push origin :main",  # colon-form delete of main
+        "git push origin HEAD:main",
+        # Force in any flavor (history rewrite)
+        "git push --force origin foo",
+        "git push --force-with-lease origin foo",
+        "git push -f origin foo",
+        "git push origin -f foo",
+        # Mirror (replaces all refs)
+        "git push --mirror origin",
+        # Branch deletion via push
+        "git push --delete origin some-branch",
+        "git push origin :some-branch",  # colon-form delete of any branch
+        # Forced refspec via +
+        "git push origin +foo:bar",
+    ],
+)
+def test_dangerous_push_variants_still_denied(command: str) -> None:
+    """Deny-overrides take precedence over the safe-push allow pattern.
+    World-commitment, history-rewrite, and destructive variants are never
+    "submit for review" — they're the actions EMERGENCY_STOP must prevent."""
+    assert not is_recovery_command(command), f"{command!r} should be denied"
 
 
 # --- check_tool_under_corrigibility — NORMAL mode (allow everything) ---
