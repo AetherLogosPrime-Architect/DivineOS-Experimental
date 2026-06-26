@@ -547,6 +547,9 @@ src/divineos/
     three_why_gate.py          Three-why-trace gate for prereg-file: structural prevention against
     exploration_validator.py   Exploration-entry numbering validator — structural prevention.
     next_task_surface.py       Auto-next-task surface for pre-response context.
+    structural_binding/
+      __init__.py              Shared structural-binding Protocol + BindingPayload + dispatcher (rev. 3, Aria co-author).
+      absence_gap.py           Build 1a — absence-gap binding: closes assertion-of-absence failure mode.
 
   analysis/
     _session_types.py          Session analysis type definitions
