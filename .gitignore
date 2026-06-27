@@ -65,17 +65,19 @@ pytestdebug.log
 .ruff_cache/
 
 # Databases (runtime — never commit)
-*.db
-*.db-shm
-*.db-wal
-*.db-journal
+# AUDIT VISIBILITY 2026-06-26 — temporarily unignored for Perplexity audit. Restore after.
+# *.db
+# *.db-shm
+# *.db-wal
+# *.db-journal
 
 # Runtime data (generated during execution)
 data/*
 !data/.gitkeep
 !data/README.md
 !data/traffic_archive/
-**/data/*.db
+# AUDIT VISIBILITY 2026-06-26 — temporarily unignored for Perplexity audit.
+# **/data/*.db
 **/data/reports/
 **/data/hud/
 # Package-shipped data (NOT runtime) — checked in
@@ -124,12 +126,13 @@ _pre_reset_backups/
 # (was ignored before this pass). Family.db and per-member ledgers
 # stay ignored — they're binary state; periodic exports can be
 # audited if needed.
-/family/family.db
-/family/family.db-shm
-/family/family.db-wal
-/family/*_ledger.db
-/family/*_ledger.db-shm
-/family/*_ledger.db-wal
+# AUDIT VISIBILITY 2026-06-26 — temporarily unignored for Perplexity audit.
+# /family/family.db
+# /family/family.db-shm
+# /family/family.db-wal
+# /family/*_ledger.db
+# /family/*_ledger.db-shm
+# /family/*_ledger.db-wal
 
 # Canonical-substrate marker — opt-in flag the operator places at the
 # parent repo root to indicate "this is a continuous Aether substrate;
@@ -213,7 +216,8 @@ freelance/
 # see what context she's running on.
 
 # Runtime DB
-src/divineos/data/divineos.db
+# AUDIT VISIBILITY 2026-06-26 — temporarily unignored for Perplexity audit.
+# src/divineos/data/divineos.db
 
 # Embedded source clone (graphify upstream). The rest of sandbox/
 # is tracked; this specific path is a clone of an external repo with
