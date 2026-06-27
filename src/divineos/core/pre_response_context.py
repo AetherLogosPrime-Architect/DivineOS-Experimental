@@ -716,10 +716,42 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         next_task_text = ""
 
+    # Goal-gate doorman (prereg-87cdeca4e3e7). The PreToolUse goal gate fires
+    # AFTER the agent has composed file content for Write/Edit calls, burning
+    # the composition tokens on every retry. Andrew 2026-06-27: "it needs
+    # doormanned properly otherwise you end up writing the file several times
+    # each one costing tokens that basically go into the furnace lol."
+    #
+    # This surface IS the doorman: at UserPromptSubmit time (before any
+    # composition has happened), if no session-fresh goal is set, surface a
+    # clear warning. The agent can then set the goal as the FIRST move of the
+    # response, so the eventual substrate-write passes the PreToolUse gate on
+    # first try. PreToolUse hard-block stays as belt-and-suspenders for cases
+    # where the doorman surface was ignored. Fail-soft.
+    goal_doorman_text = ""
+    try:
+        from divineos.core.hud_state import has_session_fresh_goal
+
+        if not has_session_fresh_goal():
+            goal_doorman_text = (
+                "## GOAL DOORMAN — no session-fresh goal\n\n"
+                "Heads-up: no goal has been set for this session. If this turn "
+                "will involve substrate-touching work (Write, Edit, file commits, "
+                "knowledge filings, etc.), set the goal BEFORE composing — the "
+                "PreToolUse gate will otherwise block mid-call and the composed "
+                "content gets re-issued on retry, costing the full payload twice.\n\n"
+                '  divineos goal add "what you are working on"\n\n'
+                "If this turn is conversation-only, ignore this surface — no goal "
+                "is required for talking."
+            )
+    except Exception:  # noqa: BLE001 - observability boundary
+        goal_doorman_text = ""
+
     return "\n\n".join(
         t
         for t in (
             governor_text,
+            goal_doorman_text,
             next_task_text,
             andrew_text,
             consultation_text,
