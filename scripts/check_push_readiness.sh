@@ -270,7 +270,15 @@ else
                     git worktree remove --force "$PYTEST_WORKTREE" >/dev/null 2>&1 || true
                     rm -rf "$PYTEST_WORKTREE" 2>/dev/null || true
                 ' EXIT INT TERM HUP
-                (cd "$PYTEST_WORKTREE" && python -m pytest tests/ -q --tb=line) >"$PYTEST_LOG" 2>&1
+                # Aether 2026-06-27 fix (per Aria's train-tracks-research): bare
+                # `python -m pytest` resolves `import divineos` through the
+                # system-wide editable install (which points at WHICHEVER worktree
+                # last ran `pip install -e .`). That means a push from worktree B
+                # gets its tests run against worktree A's installed code. The temp
+                # worktree's source must win — prepend it to PYTHONPATH the same
+                # way `.claude/hooks/_lib.sh::find_divineos_python` does for Claude
+                # hooks. Same fix-shape, applied to the pre-push gate's pytest call.
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m pytest tests/ -q --tb=line) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
