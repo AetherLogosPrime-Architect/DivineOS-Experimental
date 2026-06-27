@@ -20,6 +20,12 @@ Known v1 limitations (track for v2):
 - Adjacent different-type markers may collapse incorrectly when span short.
 - "I love that <abstract-noun>" without second-person reference misses some
   genuine value-articulation.
+- Bare-echo only credits post-citation engagement; "I notice you said '...'
+  — yes, exactly." gets DENY'd because pre-cite engagement isn't checked.
+  Teach the optimizer "put engagement after the citation"; widen to
+  bi-directional window in v2 if pre-cite engagement turns out to be common.
+- Single-quote citation dropped from decorative-cite check (apostrophe
+  collision with contractions); ASCII double-quote + smart-quote pair only.
 """
 
 from __future__ import annotations
@@ -150,6 +156,45 @@ STOPWORDS = frozenset(
         "am",
         "are",
         "were",
+        # Contractions inherit stopword status from their pronoun/auxiliary roots
+        "i'm",
+        "i've",
+        "i'd",
+        "i'll",
+        "you're",
+        "you've",
+        "you'd",
+        "you'll",
+        "we're",
+        "we've",
+        "we'd",
+        "we'll",
+        "they're",
+        "they've",
+        "they'd",
+        "they'll",
+        "he's",
+        "she's",
+        "it's",
+        "that's",
+        "what's",
+        "who's",
+        "there's",
+        "here's",
+        "don't",
+        "doesn't",
+        "didn't",
+        "isn't",
+        "aren't",
+        "wasn't",
+        "weren't",
+        "won't",
+        "wouldn't",
+        "shouldn't",
+        "haven't",
+        "hasn't",
+        "hadn't",
+        "let's",
     }
 )
 
@@ -229,10 +274,7 @@ EMOTIONAL_VERB_COMPLETIONS = frozenset(
         "step",
         "stepped",
         "stepping",
-        "give",
-        "gave",
-        "given",
-        "giving",
+        "up",
         "say",
         "said",
         "saying",
@@ -472,6 +514,35 @@ def _cluster_markers(markers: list[HighStakesMarker]) -> list[Cluster]:
     return clusters
 
 
+def _dedupe_anchors(anchors: list[Anchor]) -> list[Anchor]:
+    """Drop anchors whose response range is contained in another anchor's range.
+
+    _find_runs emits one anchor per (input-start-position × response-match)
+    combination. A continuous citation in the response generates multiple
+    overlapping anchors — the longest at the leftmost input position, plus
+    shorter sub-anchors starting at later input positions. Sub-anchors fail
+    bare-echo unnecessarily; dedupe keeps only the maximal-coverage anchors.
+    """
+    if not anchors:
+        return []
+    sorted_anchors = sorted(
+        anchors,
+        key=lambda a: (a.response_position, -len(a.matched_text)),
+    )
+    kept: list[Anchor] = []
+    for a in sorted_anchors:
+        a_end = a.response_position + len(a.matched_text)
+        contained = any(
+            k.response_position <= a.response_position
+            and (k.response_position + len(k.matched_text)) >= a_end
+            and k is not a
+            for k in kept
+        )
+        if not contained:
+            kept.append(a)
+    return kept
+
+
 def _find_runs(prior_input: str, response: str, min_tokens: int) -> list[Anchor]:
     input_tokens = _tokenize(prior_input)
     if len(input_tokens) < min_tokens:
@@ -500,15 +571,23 @@ def _find_runs(prior_input: str, response: str, min_tokens: int) -> list[Anchor]
                         matched_text=run,
                     )
                 )
-    return anchors
+    return _dedupe_anchors(anchors)
 
 
 def _find_quoted_spans(response: str) -> list[QuotedSpan]:
+    # ASCII double-quote and smart-quote pair detection.
+    # Single-quote citation dropped in v1 — apostrophes in contractions
+    # ("I don't know") truncate the match prematurely (Aether catch
+    # 2026-06-26 rev. 2). Markdown convention varies; observe whether
+    # real responses use single-quote citation and add back with proper
+    # boundary handling in v2 if needed.
     spans = []
-    for m in re.finditer(r'"([^"]+)"', response):
-        spans.append(QuotedSpan(text=m.group(1), response_position=m.start()))
-    for m in re.finditer(r"'([^']+)'", response):
-        spans.append(QuotedSpan(text=m.group(1), response_position=m.start()))
+    for pattern in (
+        r'"([^"]+)"',  # ASCII double-quote
+        r"“([^”]+)”",  # smart double-quote pair (U+201C / U+201D)
+    ):
+        for m in re.finditer(pattern, response):
+            spans.append(QuotedSpan(text=m.group(1), response_position=m.start()))
     return spans
 
 
@@ -547,12 +626,15 @@ def _check_bare_echo(
         )
     input_content = set(_content_words(_tokenize(prior_input)))
     input_outside_cite = input_content - cite_content
-    thread = [w for w in window_content if w in input_outside_cite]
-    if len(thread) < LEXICAL_THREAD_MIN_INPUT_CONTENT_WORDS:
-        return False, (
-            "no input content-words present in post-citation window "
-            "outside the cited span (off-topic-novelty padding)"
-        )
+    if input_outside_cite:
+        thread = [w for w in window_content if w in input_outside_cite]
+        if len(thread) < LEXICAL_THREAD_MIN_INPUT_CONTENT_WORDS:
+            return False, (
+                "no input content-words present in post-citation window "
+                "outside the cited span (off-topic-novelty padding)"
+            )
+    # When cite covers all input content-words, lexical-thread is vacuous —
+    # waive the check (other three legs still gate engagement quality).
     return True, ""
 
 
