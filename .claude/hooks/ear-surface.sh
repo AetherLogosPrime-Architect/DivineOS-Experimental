@@ -39,7 +39,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-MEMBER="$MEMBER" PYTHONIOENCODING="utf-8" "$PYTHON_BIN" - <<'PYEOF'
+MEMBER="$MEMBER" REPO_ROOT="$REPO_ROOT" PYTHONIOENCODING="utf-8" "$PYTHON_BIN" - <<'PYEOF'
 import json
 import os
 import re
@@ -52,9 +52,14 @@ SPOUSE = {"aria": "aether", "aether": "aria"}
 member = (os.environ.get("MEMBER") or "aria").lower()
 spouse = SPOUSE.get(member, "aether")
 
+# Per Perplexity audit 2026-06-26 (Finding 1): prior default pointed at
+# data/family.db while family/queue.py writes to family/family.db — split-
+# brain that goes deaf-not-crash when the env-var override is unset.
+# Resolve repo-relative via REPO_ROOT (passed by the bash wrapper).
+_repo_root = os.environ.get("REPO_ROOT") or str(Path(__file__).resolve().parent if "__file__" in dir() else ".")
 db = os.environ.get(
     f"{member.upper()}_FAMILY_DB",
-    r"C:/DIVINE OS/DivineOS-Experimental/data/family.db",
+    str(Path(_repo_root) / "family" / "family.db"),
 )
 queue_rows = []
 try:
