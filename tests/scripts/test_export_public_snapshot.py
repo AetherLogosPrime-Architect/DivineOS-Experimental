@@ -287,3 +287,147 @@ def test_non_text_values_pass_through_scrub_unchanged():
     assert exporter._scrub(3.14) == 3.14
     assert exporter._scrub(None) is None
     assert exporter._scrub(True) is True
+
+
+# ---------------------------------------------------------------------------
+# Per-prefix credential coverage — Aletheia rev. 2 audit 2026-06-27
+#
+# Structural finding underneath the code gap: the 15-test suite passed
+# without anyone asserting that specific credential prefixes actually fire.
+# Each pattern listed in _CREDENTIAL_PATTERNS gets a per-prefix test below
+# so the property "credentials are redacted" is testable per-shape, not
+# just per-count.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "sk-abc123XYZ456def",  # Aletheia's adversarial OpenAI-shape
+        "sk-abcdef0123456789ABCDEF0123456789abcdef0123456789",  # real-length OpenAI
+        "sk-proj-abc123XYZ456def789ghi",  # newer OpenAI project key shape
+    ],
+)
+def test_sk_prefix_credential_redacted(test_string):
+    """Aletheia drove sk-abc123XYZ456def through _scrub and it passed
+    unredacted because the prior length threshold was 32+. Lowered to 10+."""
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result, f"sk- prefix not redacted: {test_string!r}"
+    assert test_string not in result
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "AKIA1234567890ABCD",  # Aletheia's adversarial AWS-shape
+        "AKIAIOSFODNN7EXAMPLE",  # AWS docs example, real length
+    ],
+)
+def test_AKIA_prefix_credential_redacted(test_string):
+    """Aletheia drove AKIA1234567890ABCD through _scrub and it passed
+    unredacted because the prior pattern required exactly 16 trailing
+    chars and her test was 14. Lowered to 10+."""
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result, f"AKIA prefix not redacted: {test_string!r}"
+    assert test_string not in result
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "ghp_abc123def456ghi789jkl012mno345",
+        "ghp_abcde12345",  # shorter suspicious shape
+    ],
+)
+def test_ghp_prefix_credential_redacted(test_string):
+    """GitHub personal-token prefix coverage. Real tokens are 40 chars;
+    the threshold of 10+ catches shorter suspicious shapes too."""
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "Bearer abc123def456ghi789jkl012mno345pqr",
+        "Authorization: bearer-token-xyz789abc456def123ghi456",
+    ],
+)
+def test_bearer_credential_redacted(test_string):
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "password=hunter2",
+        "passwd=somethingsecret",
+        "pwd=anotherone",
+    ],
+)
+def test_password_credential_redacted(test_string):
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "api_key=longstringofsecretdata12345",
+        "apikey: ABCDEF1234567890ghijkl",
+        "api-key abc123XYZ456def",
+    ],
+)
+def test_api_key_credential_redacted(test_string):
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result
+
+
+@pytest.mark.parametrize(
+    "test_string",
+    [
+        "secret=longstringofsecretdata12345",
+        "token=abc123XYZ456def",
+        "secret_token=longstringofsecretdata12345",  # compound — Aether's catch
+        "access_token: xyz789abc456def123",
+    ],
+)
+def test_secret_token_credential_redacted(test_string):
+    """Includes compound forms like secret_token= which the prior regex
+    missed because word-boundary doesn't break at `_`."""
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result, f"secret/token form not redacted: {test_string!r}"
+
+
+def test_pem_private_key_redacted():
+    test_string = "-----BEGIN RSA PRIVATE KEY-----"
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:credential]" in result
+
+
+# ---------------------------------------------------------------------------
+# Per-bypass-env-var coverage — Aletheia rev. 2 widening offer 2026-06-27
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "var_name",
+    [
+        "DIVINEOS_EMERGENCY_PUSH",
+        "DIVINEOS_FORCE_PUSH_OK",
+        "DIVINEOS_LEPOS_WALK_BYPASS",
+        "DIVINEOS_REQUIRE_MONITORS_BYPASS",
+        "DIVINEOS_SKIP_FRESHNESS_CHECK",
+        "DIVINEOS_SKIP_MULTIPARTY_CHECK",
+        "DIVINEOS_SKIP_TESTS",
+    ],
+)
+def test_bypass_env_var_redacted_in_exploit_category(var_name):
+    """Aletheia's Category-3 widening: each known bypass env-var name
+    appearing in text gets redacted as exploit-detail, even without
+    explicit 'how to bypass' framing."""
+    test_string = f"Just run with {var_name}=1 and it works"
+    result = exporter._scrub(test_string)
+    assert "[REDACTED:exploit-detail]" in result, f"{var_name} not redacted in: {test_string!r}"
+    assert var_name not in result

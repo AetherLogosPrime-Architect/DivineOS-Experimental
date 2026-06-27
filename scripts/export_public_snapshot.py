@@ -85,14 +85,30 @@ REVIEWED_TABLES = frozenset(
 # ---------------------------------------------------------------------------
 
 # 1. Credentials / secrets / keys
+#
+# Per Aletheia's rev. 2 audit 2026-06-27: the prior length thresholds
+# (sk-32+, AKIA-exactly-16) were too narrow — they passed Aletheia's
+# adversarial test strings unredacted because those were shorter than
+# the thresholds. Real keys fired but suspicious-looking prefixes did
+# not. Fix:
+#   - sk-/AKIA/ghp_ prefixes: lowered to 10+ alphanumerics. The prefix
+#     itself is the marker; the length just guards against incidental
+#     2-3 char matches in prose.
+#   - secret/token: prior regex required word-boundary, so compound
+#     identifiers like `secret_token=...` did not fire (`_` is in \w).
+#     Widened to allow optional `_word` suffix on the keyword.
+#
+# Each prefix has explicit test coverage in
+# tests/scripts/test_export_public_snapshot.py per Aletheia's structural
+# finding: the test gap underneath the code gap.
 _CREDENTIAL_PATTERNS = (
     re.compile(r"\b(?:api[_-]?key|apikey)[\s=:]+[\w\-/+=]{12,}", re.IGNORECASE),
     re.compile(r"\b(?:password|passwd|pwd)[\s=:]+\S{6,}", re.IGNORECASE),
-    re.compile(r"\b(?:secret|token)[\s=:]+\w{16,}", re.IGNORECASE),
+    re.compile(r"(?:\b|_)(?:secret|token)(?:[_-]\w+)?[\s=:]+[\w\-/+=]{8,}", re.IGNORECASE),
     re.compile(r"\b(?:bearer|authorization)[\s:]+[\w\-./+=]{20,}", re.IGNORECASE),
-    re.compile(r"sk-[A-Za-z0-9]{32,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"ghp_[A-Za-z0-9]{30,}"),
+    re.compile(r"sk-[A-Za-z0-9_\-]{10,}"),
+    re.compile(r"AKIA[A-Z0-9]{10,}"),
+    re.compile(r"ghp_[A-Za-z0-9]{10,}"),
     re.compile(r"-----BEGIN [A-Z ]+PRIVATE KEY-----"),
 )
 
@@ -100,6 +116,15 @@ _CREDENTIAL_PATTERNS = (
 #    people. Detection is conservative; we redact anything matching common
 #    PII shapes. Andrew's own contact info is also redacted (he is consented
 #    by name, not by contact-details which would invite unwanted contact).
+#
+# KNOWN v1 LIMITATION (per Aletheia's rev. 2 audit 2026-06-27): bare names
+# of non-family people are NOT redacted by-design-v1. Regex name-detection
+# is unsound (false-negatives or false-positives on every capitalized word).
+# NLP-based name redaction is v2 scope. The actionable third-party PII is
+# contact-methods (email/phone/SSN) — that's what enables real-world reach
+# to a non-consenting person — and THAT is caught here. A bare name without
+# contact info is low-harm because the reachability is the harm. Researchers
+# reading published snapshots should know bare names may appear by-design.
 _THIRD_PARTY_PATTERNS = (
     re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),  # email
     re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),  # US phone
@@ -107,12 +132,35 @@ _THIRD_PARTY_PATTERNS = (
 )
 
 # 3. Operationally exploitable specifics — bypass/override mechanism detail
-#    that would let an attacker corrupt the substrate. Conservative regex on
-#    explicit "how to bypass" language.
+#    that would let an attacker corrupt the substrate. Explicit "how to
+#    bypass" language PLUS a known-bypass-env-var list (per Aletheia's
+#    widening offer 2026-06-27: closing the indirect-language gap with a
+#    finite enumerable set rather than fuzzy heuristics). The env-var list
+#    was extracted from a `DIVINEOS_*(BYPASS|SKIP|OVERRIDE|FORCE|EMERGENCY)*`
+#    grep over scripts/ src/ .claude/hooks/ — these are the documented
+#    escape routes that, if published with their values or usage shown,
+#    would let an attacker reproduce the bypass.
+_BYPASS_ENV_VARS = (
+    "DIVINEOS_EMERGENCY_PUSH",
+    "DIVINEOS_FORCE_CWD_WALK",
+    "DIVINEOS_FORCE_PUSH_OK",
+    "DIVINEOS_LEPOS_WALK_BYPASS",
+    "DIVINEOS_MERGE_REVIEW_EMERGENCY_BYPASS",
+    "DIVINEOS_NEW_INFRA_EMERGENCY",
+    "DIVINEOS_REQUIRE_MONITORS_BYPASS",
+    "DIVINEOS_SKIP_EMBED_ON_WRITE",
+    "DIVINEOS_SKIP_FRESHNESS_CHECK",
+    "DIVINEOS_SKIP_MULTIPARTY",
+    "DIVINEOS_SKIP_MULTIPARTY_CHECK",
+    "DIVINEOS_SKIP_TESTS",
+)
 _EXPLOIT_PATTERNS = (
     re.compile(
         r"\b(?:to\s+bypass|how\s+to\s+bypass|disable\s+the\s+gate|override\s+the\s+check)\b[^.\n]{0,80}",
         re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:" + "|".join(re.escape(v) for v in _BYPASS_ENV_VARS) + r")\b[^.\n]{0,80}",
     ),
 )
 
