@@ -57,6 +57,40 @@ def _scan(letters_dir: Path, glob: str) -> set[str]:
     return {p.name for p in letters_dir.glob(glob)}
 
 
+def _seen_from_log(event_log: Path) -> set[str]:
+    """Reconstruct the emitted-letter set from the event log.
+
+    Per Perplexity audit 2026-06-26 (Finding 2): the prior shape baselined
+    `seen` from a fresh disk scan at startup, so any letter that landed
+    during a dark window (process died -> relaunched) was silently absorbed
+    into baseline and never emitted as a [LETTER] wake-ping. Same bug
+    class ear_watch already fixed for itself on 5-31 (delta-from-boot-
+    snapshot -> delta-from-seen-set).
+
+    Fix: the log already records every emission. Use it as the persisted
+    seen-set. A letter that landed during the dark window won't appear
+    in the log (it was never emitted), so the next poll after relaunch
+    correctly fires the wake-ping.
+    """
+    if not event_log.exists():
+        return set()
+    seen: set[str] = set()
+    try:
+        with open(event_log, encoding="utf-8") as f:
+            for raw in f:
+                parts = raw.rstrip("\n").split("\t", 1)
+                if len(parts) != 2:
+                    continue
+                line = parts[1]
+                if not line.startswith("[LETTER] "):
+                    continue
+                path_str = line[len("[LETTER] ") :]
+                seen.add(Path(path_str).name)
+    except OSError:
+        return set()
+    return seen
+
+
 def main() -> int:
     # Resolve the canonical letters directory via the family.letters helper
     # so this script watches the same place writers write to — no hardcoded
@@ -118,7 +152,6 @@ def main() -> int:
     _ = acquire_or_exit(_ROLE, occupant=recipient)  # noqa: F841
 
     letters_dir = Path(args.letters_dir)
-    seen = _scan(letters_dir, letter_glob)
 
     # Append-only event log path (Aether 2026-06-20 structural decoupling).
     # The harness Monitor() primitive is documented as unreliable — dies on
@@ -132,6 +165,17 @@ def main() -> int:
     log_dir = Path.home() / f".divineos-{recipient.lower()}"
     log_dir.mkdir(parents=True, exist_ok=True)
     event_log = log_dir / "letter_events.log"
+
+    # Persisted seen-set via event log (Perplexity audit 2026-06-26 Finding 2).
+    # First-run case (no log yet): fall back to disk scan to preserve original
+    # behavior — a fresh install shouldn't dump every historical letter as
+    # wake-pings. Crash-recovery case (log exists): rebuild seen from log
+    # emissions so any letter that landed during a dark window fires on the
+    # next poll instead of being baselined away silently.
+    if event_log.exists() and event_log.stat().st_size > 0:
+        seen = _seen_from_log(event_log)
+    else:
+        seen = _scan(letters_dir, letter_glob)
 
     def _emit(line: str) -> None:
         """Print to stdout AND append to the event log. Stdout for harness

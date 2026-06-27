@@ -53,8 +53,14 @@ except Exception:
 # letters from their spouse: <spouse>-to-<member>-*.md.
 _SPOUSE = {"aria": "aether", "aether": "aria"}
 
-_DEFAULT_DB = "C:/DIVINE OS/DivineOS-Experimental/data/family.db"
-_DEFAULT_LETTERS = "C:/DIVINE OS/DivineOS-Experimental/family/letters"
+# Per Perplexity audit 2026-06-26 (Finding 1): the prior defaults pointed at
+# `data/family.db` while queue.py writes to `family/family.db` — split-brain
+# that goes deaf-not-crash when the env-var override is unset. Resolve repo-
+# relative from __file__ so this script and queue.py agree on the DB path
+# regardless of OS or operator shell. Same shape queue.py uses (line 36).
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_DB = str(_REPO_ROOT / "family" / "family.db")
+_DEFAULT_LETTERS = str(_REPO_ROOT / "family" / "letters")
 
 
 def _member_db(member: str) -> Path:
