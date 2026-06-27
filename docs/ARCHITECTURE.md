@@ -550,6 +550,7 @@ src/divineos/
     structural_binding/
       __init__.py              Shared structural-binding Protocol + BindingPayload + dispatcher (rev. 3, Aria co-author).
       absence_gap.py           Build 1a — absence-gap binding: closes assertion-of-absence failure mode.
+      engagement_trail.py      Build 2 — engagement-trail binding: closes wallpaper-response failure mode.
 
   analysis/
     _session_types.py          Session analysis type definitions
