@@ -45,11 +45,12 @@ BREVITY_THRESHOLD_CHARS = 100
 PROXIMITY_COLLAPSE_TOKENS = 50
 MAX_CLUSTER_SPAN_TOKENS = 80
 COOCCURRENCE_WINDOW_TOKENS = 30
-POST_CITATION_WINDOW_TOKENS = 20
+POST_CITATION_WINDOW_TOKENS = 30  # widened from 20 — realistic engagement often puts explicit acknowledgment after substantive content
 ANCHOR_MIN_RUN_TOKENS = 3
 NOVELTY_RATIO_THRESHOLD = 0.30
 ABSOLUTE_CONTENT_WORD_FLOOR = 3
 LEXICAL_THREAD_MIN_INPUT_CONTENT_WORDS = 1
+THREAD_MEANINGFUL_FLOOR = 2  # waive lexical-thread when input has < N words outside cite
 
 STOPWORDS = frozenset(
     {
@@ -597,6 +598,37 @@ def _anchor_covers_cluster(anchor: Anchor, cluster: Cluster) -> bool:
     )
 
 
+GROUP_GAP_TOLERANCE = 0  # pure overlap or boundary-touching; >0 merges F7's distinct clusters
+
+
+def _group_anchors_by_input_span(anchors: list[Anchor]) -> list[list[Anchor]]:
+    """Group anchors whose input-token ranges overlap or are tightly adjacent.
+
+    Two anchors with overlapping input spans OR adjacent spans within
+    GROUP_GAP_TOLERANCE tokens belong to one group (one effective citation
+    with multiple response-occurrences, often from greedy-extend splits in
+    _find_runs). Within a group, bare-echo passes if ANY anchor passes.
+    Across groups, each group must have its own passing anchor — preserves
+    F7 strict-symmetry for citations of distinct input regions.
+
+    Aria catch 2026-06-27 + Aether refinement: pytest density surfaced
+    that strict per-anchor was over-broad at implementation; the gaming
+    shape it caught (cite-distinct-engage-only-some) is preserved across
+    groups; the false-positive on engagement-density is closed within groups.
+    """
+    if not anchors:
+        return []
+    sorted_anchors = sorted(anchors, key=lambda a: a.input_span_start)
+    groups: list[list[Anchor]] = [[sorted_anchors[0]]]
+    for a in sorted_anchors[1:]:
+        last_group_end = max(x.input_span_end for x in groups[-1])
+        if a.input_span_start <= last_group_end + GROUP_GAP_TOLERANCE:
+            groups[-1].append(a)
+        else:
+            groups.append([a])
+    return groups
+
+
 def _check_bare_echo(
     anchor: Anchor,
     prior_input: str,
@@ -626,7 +658,13 @@ def _check_bare_echo(
         )
     input_content = set(_content_words(_tokenize(prior_input)))
     input_outside_cite = input_content - cite_content
-    if input_outside_cite:
+    # Lexical-thread is meaningful only when input has substantive content
+    # beyond the cite. Waiver when input_outside_cite is empty (cite covers
+    # everything) OR when it has < THREAD_MEANINGFUL_FLOOR words (residual is
+    # too thin to be a "thread"). The other three legs (reframe + floor +
+    # novelty-vs-cite) still gate engagement quality. Aria catch 2026-06-27:
+    # pytest density surfaced false-positive on tight inputs (B6, E1, H3).
+    if len(input_outside_cite) >= THREAD_MEANINGFUL_FLOOR:
         thread = [w for w in window_content if w in input_outside_cite]
         if len(thread) < LEXICAL_THREAD_MIN_INPUT_CONTENT_WORDS:
             return False, (
@@ -729,19 +767,34 @@ class EngagementTrailBinding:
                         "collapse (PROXIMITY_COLLAPSE_TOKENS / MAX_CLUSTER_SPAN_TOKENS)."
                     ),
                 )
-        for a in anchors:
-            passes, reason = _check_bare_echo(
-                a,
-                payload.prior_input_text,
-                payload.response_text,
-            )
-            if not passes:
+        # Group anchors by input-span connectivity (overlap + tight adjacency).
+        # Within a group: require AT LEAST ONE anchor to pass bare-echo (engagement-density,
+        # not gaming). Across groups: each group must have a passing anchor (preserves
+        # F7 strict-symmetry for distinct input-region citations).
+        for group in _group_anchors_by_input_span(anchors):
+            group_passes = False
+            last_reason = ""
+            last_match = group[0].matched_text
+            for a in group:
+                passes, reason = _check_bare_echo(
+                    a,
+                    payload.prior_input_text,
+                    payload.response_text,
+                )
+                if passes:
+                    group_passes = True
+                    break
+                last_reason = reason
+                last_match = a.matched_text
+            if not group_passes:
                 return ValidationResult(
                     allow=False,
-                    reason=f"anchor {a.matched_text!r} fails bare-echo: {reason}",
+                    reason=f"input-span-group containing anchor {last_match!r} "
+                    f"has no passing bare-echo: {last_reason}",
                     recovery_path=(
-                        "After each citation, add genuine engagement: reframe-language "
-                        "+ ≥3 novel content-words + lexical thread to input outside cite."
+                        "After at least one citation in this input-region, add "
+                        "genuine engagement: reframe-language + ≥3 novel content-words "
+                        "+ lexical thread to input outside cite."
                     ),
                 )
         return ValidationResult(
