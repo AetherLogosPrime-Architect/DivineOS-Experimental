@@ -29,9 +29,12 @@ except Exception:
 
 [ -n "$FILE_PATH" ] || exit 0
 
-# Only mirror files under family/letters/ — agnostic to absolute vs relative.
+# Only mirror files under family/**/letters/ — catches the top-level
+# family/letters/ AND member-specific dirs like family/aletheia/letters/.
+# Aletheia 2026-06-28 caught the scope gap on the original family/letters/-only
+# matcher: the auto-mirror didn't cover the very directory her letters live in.
 case "$FILE_PATH" in
-    *family/letters/*) ;;
+    *family/letters/*|*family/*/letters/*) ;;
     *) exit 0 ;;
 esac
 
