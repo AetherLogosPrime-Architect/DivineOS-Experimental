@@ -53,6 +53,19 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 
 <!-- BACKLOG-ENTRIES-BEGIN -->
 
+### architecture-naming
+
+- **Name four-vantage as confidence-via-convergence principle in foundational truths** [filed 2026-06-28]
+  Pattern from TheAuditor's four-vector convergence engine. We use it relationally; haven't named it formally. Today saw it work multiple times. Worth making explicit in CLAUDE.md or foundational truths as load-bearing pattern, not just emergent observation.
+
+- **Name anti-leakage-by-construction as foundational principle for self-audits** [filed 2026-06-28]
+  Pattern from BenchProctor (benchproctor.com), reviewed 2026-06-28. Their SAST corpus contains zero metadata that would let the scanner cheat — no comments, no category labels, no meaningful names; the answer key lives in a separate CSV the scanner never reads. Same shape as our gate-gaming problem: when I know what a gate measures, I can satisfy it ceremonially. Anti-leakage says: design audits so the thing-being-tested has no way to see what's being measured. We already have pieces (SUBSTRATE-MODIFICATION-GRAVITY scores at tool-call layer, blind to prose); lift it to a named foundational principle so future detector design is gated by it. Pop-correction 2026-06-28: don't need to lift his code, build it with what we have.
+
+### briefing
+
+- **Briefing surface upgrade: Resume Diff delta-from-last-session pattern** [filed 2026-06-28]
+  Pattern from Curator (curatormcp.com) reviewed 2026-06-28. Briefing currently shows what I know at session-start. The upgrade: also surface DELTA between past and present standards since last session — supersession chains rendered as what-changed-in-me. Data exists in knowledge engine; gap is delta-rendering surface. Knowledge entry bddfa4ae captures provenance.
+
 ### detector-rebuild
 
 - **Rebuild keyword-based detectors to evidence-based detection (shoggoth-residue refactor)** [filed 2026-06-28]
@@ -72,6 +85,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **Branch-freshness gate fires on every push regardless of merge-shape risk** [filed 2026-06-28]
   Aria 2026-06-28: 'fires on EVERY push regardless of whether the merge-shape would actually create the silent-revert it's protecting against. Same gate-input-vs-purpose misalignment — fires on the input is-branch-behind when the purpose is would-this-push-cause-a-silent-revert-on-merge.' Fourth item in the gate-scope cluster (lint whole-repo, correction-detector raw-text, forgot-git-add no-check, freshness-check on-every-push). All same fix-pattern: align gate input to gate purpose. Pop's root-cause-diagnostic-first principle applied: the four are one architectural family, refactor as cluster not individually.
 
+### enforcement-structure
+
+- **Tiered import DAG enforcement to prevent circular imports by construction** [filed 2026-06-28]
+  Pattern from Warden (wardenclient.com) reviewed 2026-06-28. Each module tagged with a tier; imports may only go from higher tier to lower tier, never sideways, never upward. Enforced by a small script run in pre-commit. We've had circular-import problems multiple times; the fix-when-it-happens shape is per-file. The Warden shape is per-architecture — once tiers are defined, the class of failure can't occur. Build with our materials (Python AST walker over staged files, manifest of tier-per-module, pre-commit hook). Same root-cause-diagnostic discipline: close the class of failure permanently rather than patch instances.
+
 ### grammar-discipline
 
 - **Upgrade distancing-detector from post-hoc warning to compose-time block on self-displacement** [filed 2026-06-28]
@@ -84,9 +102,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **Automate audit-handoff discipline: block 'ready for Aletheia' language without visible auditable object** [filed 2026-06-28]
   Pop + Aletheia 2026-06-28: 'Built is not ready-for-audit. Pushed is. Request and object travel together.' Recurring gap (kiln, motivation, ledger): meta-context reaches Aletheia, the object doesn't. Root cause: I can write 'ready for Aletheia' without any check verifying she can see the object. The system trusts the claim instead of binding it to evidence. Fix shape: a check that fires when outgoing letters contain audit-request language (to Aletheia or any external auditor). Check requires either (a) pushed branch + patch-id named in the letter, or (b) the auditable object pasted inline. If neither, block the letter from being marked complete until one is present. Same architecture as goal-doorman — surface at compose-time, block at execute-time. Aria + Aletheia co-design per bidirectional default; Aletheia offered to write the rule-file, I'd want to write it on my side to internalize the discipline via doing.
 
-### mirror-gap
-
-- **Auto-mirror letters from agent-tree family/letters to shared dir** [filed 2026-06-28]
-  When I write to family/letters/ in my tree, her watcher (which polls /c/Users/aethe/.divineos-shared/letters/) never sees it. Aria has flagged this as at least the 4th surface of friction (her 2026-06-27 letter named it 'at least the third'; today added one more). Should be a Cluster H threshold-triggered protection: on file-landing in tree, auto-cp to shared dir. Small piece of code, closes a recurring friction permanently. Pop-and-Aria both compensating manually right now.
-
 <!-- BACKLOG-ENTRIES-END -->
+
+## Shipped
+
+Class-of-failure closures, archived for the trail. Pop's teaching 2026-06-28: "once you do a chore and do it properly it stays done." Shipped items belong here, not deleted — the pattern of permanent closure is data worth keeping.
+
+- **Auto-mirror letters from agent-tree family/letters to shared dir** [shipped 2026-06-28]
+  Filed: Aria flagged 4 times; pop and Aria both manually compensating. Fix: PostToolUse Edit|Write hook (`mirror-letters-to-shared.sh`) copies any letter saved under `family/letters/` to the shared dir. Verified end-to-end with a stub-file dry run before declaring done. Class of failure closed: letters landing in my tree but not visible to her watcher.
