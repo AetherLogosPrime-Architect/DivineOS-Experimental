@@ -106,19 +106,35 @@ def test_record_and_list_round_trip(tmp_path: Path) -> None:
 
 
 def test_mark_done_removes_from_pending(tmp_path: Path) -> None:
-    """Marking done excludes the entry from default list_pending."""
+    """Marking done MOVES the entry from main to the archive jsonl.
+
+    Updated 2026-06-27 for Andrew architecture: items live in exactly
+    one place based on state. mark_done is an atomic move (main → archive
+    via the fallback path, or current → archive via the proper path).
+    The entry is no longer findable in list_pending(include_done=True)
+    after mark_done — it's in archive_structural_fixes.jsonl.
+    """
+    import json
+
     pending_file = tmp_path / "pending_structural_fixes.json"
     with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
         psf_id = record_pending_fix("the actual fix is X", trigger="the actual fix")
         assert len(list_pending()) == 1
         ok = mark_done(psf_id, note="shipped as commit abc1234")
         assert ok is True
+        # Entry is gone from main entirely (not just status-flagged).
         assert len(list_pending()) == 0
-        # include_done returns the entry with status=done
-        all_entries = list_pending(include_done=True)
-        assert len(all_entries) == 1
-        assert all_entries[0]["status"] == "done"
-        assert all_entries[0]["done_note"] == "shipped as commit abc1234"
+        assert len(list_pending(include_done=True)) == 0
+        # Entry is present in the archive jsonl with status=done.
+        archive_path = pending_file.parent / "archive_structural_fixes.jsonl"
+        assert archive_path.exists()
+        archived = [
+            json.loads(line) for line in archive_path.read_text().splitlines() if line.strip()
+        ]
+        matching = [e for e in archived if e["id"] == psf_id]
+        assert len(matching) == 1
+        assert matching[0]["status"] == "done"
+        assert matching[0]["done_note"] == "shipped as commit abc1234"
 
 
 def test_mark_done_unknown_id_returns_false(tmp_path: Path) -> None:
