@@ -70,7 +70,8 @@ _STRUCTURAL_FIX_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 
 def _read_pending() -> list[dict]:
-    """Read the current pending list. Fail-open on missing/malformed."""
+    """Read the MAIN list (entries that still need doing, not yet picked up).
+    Fail-open on missing/malformed."""
     if not marker_path("pending_structural_fixes.json").exists():
         return []
     try:
@@ -83,12 +84,45 @@ def _read_pending() -> list[dict]:
 
 
 def _write_pending(entries: list[dict]) -> None:
-    """Write the pending list back. Fail-open on I/O error."""
+    """Write the MAIN list back. Fail-open on I/O error."""
     try:
         marker_path("pending_structural_fixes.json").parent.mkdir(parents=True, exist_ok=True)
         marker_path("pending_structural_fixes.json").write_text(
             json.dumps(entries, indent=2), encoding="utf-8"
         )
+    except OSError:
+        pass
+
+
+def _read_current() -> list[dict]:
+    """Read the CURRENT working-list (entries actively picked up). Fail-open."""
+    p = marker_path("current_structural_fixes.json")
+    if not p.exists():
+        return []
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError, ValueError):
+        return []
+
+
+def _write_current(entries: list[dict]) -> None:
+    """Write the CURRENT working-list back. Fail-open."""
+    try:
+        p = marker_path("current_structural_fixes.json")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _append_archive(entry: dict) -> None:
+    """Append a single completed entry to the archive (JSONL). Fail-open."""
+    try:
+        p = marker_path("archive_structural_fixes.jsonl")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
     except OSError:
         pass
 
@@ -154,25 +188,130 @@ def list_pending(include_done: bool = False) -> list[dict]:
 
 
 def mark_done(psf_id: str, note: str = "") -> bool:
-    """Mark a pending entry as done. Returns True if found, False if not."""
-    entries = _read_pending()
-    found = False
-    for entry in entries:
-        if entry.get("id") == psf_id:
-            entry["status"] = "done"
-            entry["done_at"] = time.time()
-            if note:
-                entry["done_note"] = note
-            found = True
-            break
-    if found:
-        _write_pending(entries)
-    return found
+    """Move an entry from the CURRENT working-list to the ARCHIVE.
+
+    Andrew architecture 2026-06-27: an item only lives in one place at a
+    time based on its state. mark_done is the current → archive transition.
+    Falls back to MAIN if the id isn't in current (backward-compat for
+    items that were never picked but got marked done directly).
+    """
+    # Try current first (the proper flow).
+    current = _read_current()
+    found_entry = None
+    remaining = []
+    for entry in current:
+        if entry.get("id") == psf_id and found_entry is None:
+            found_entry = entry
+        else:
+            remaining.append(entry)
+    if found_entry:
+        found_entry["status"] = "done"
+        found_entry["done_at"] = time.time()
+        if note:
+            found_entry["done_note"] = note
+        _append_archive(found_entry)
+        _write_current(remaining)
+        return True
+
+    # Fallback: try main (item was never picked but is being closed directly).
+    pending = _read_pending()
+    found_entry = None
+    remaining = []
+    for entry in pending:
+        if entry.get("id") == psf_id and found_entry is None:
+            found_entry = entry
+        else:
+            remaining.append(entry)
+    if found_entry:
+        found_entry["status"] = "done"
+        found_entry["done_at"] = time.time()
+        if note:
+            found_entry["done_note"] = note
+        _append_archive(found_entry)
+        _write_pending(remaining)
+        return True
+
+    return False
+
+
+def pick_to_current(psf_id: str) -> bool:
+    """Move an entry from MAIN to CURRENT (the "I'm picking this up" step).
+
+    Andrew architecture 2026-06-27: picking is an atomic move, not a copy.
+    The entry leaves main and lives in current until done. Returns True if
+    found and moved, False if the id wasn't in main.
+    """
+    pending = _read_pending()
+    found_entry = None
+    remaining = []
+    for entry in pending:
+        if entry.get("id") == psf_id and found_entry is None:
+            found_entry = entry
+        else:
+            remaining.append(entry)
+    if not found_entry:
+        return False
+    found_entry["picked_at"] = time.time()
+    found_entry["status"] = "current"
+    current = _read_current()
+    current.append(found_entry)
+    _write_current(current)
+    _write_pending(remaining)
+    return True
+
+
+def list_current() -> list[dict]:
+    """Return entries actively picked up (in the working-list)."""
+    return _read_current()
+
+
+def sweep_stale_from_main(days_threshold: float = 30.0) -> list[str]:
+    """Walk MAIN for entries older than the threshold. Returns the list of
+    psf_ids that look stale — caller decides whether to archive-as-stale or
+    delete or leave them. v1 of the sweep is just surfacing; cleanup is a
+    separate explicit action so we don't silently lose work.
+    """
+    now = time.time()
+    cutoff = now - (days_threshold * 86400)
+    pending = _read_pending()
+    stale = []
+    for entry in pending:
+        created = entry.get("created_at", 0)
+        if created and created < cutoff:
+            stale.append(entry.get("id", "?"))
+    return stale
+
+
+def archive_stale_from_main(psf_ids: list[str], reason: str = "stale-sweep") -> int:
+    """Move the named ids from MAIN directly to ARCHIVE (skipping current).
+    Used after sweep_stale_from_main surfaces candidates and the operator
+    confirms. Returns the count actually archived.
+    """
+    pending = _read_pending()
+    archived = 0
+    remaining = []
+    target_set = set(psf_ids)
+    for entry in pending:
+        if entry.get("id") in target_set:
+            entry["status"] = "stale-archived"
+            entry["archived_at"] = time.time()
+            entry["archive_reason"] = reason
+            _append_archive(entry)
+            archived += 1
+        else:
+            remaining.append(entry)
+    if archived:
+        _write_pending(remaining)
+    return archived
 
 
 __all__ = [
+    "archive_stale_from_main",
     "detect_structural_fix_shape",
+    "list_current",
     "list_pending",
     "mark_done",
+    "pick_to_current",
     "record_pending_fix",
+    "sweep_stale_from_main",
 ]

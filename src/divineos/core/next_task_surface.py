@@ -129,12 +129,33 @@ def _top_open_correction() -> tuple[str, str] | None:
 
 
 def _top_pending_structural_fix() -> tuple[str, str] | None:
-    """Return (psf_id, one-line) for the oldest pending structural-fix
-    obligation, or None."""
+    """Return (psf_id, one-line) for the next structural-fix to surface.
+
+    Andrew architecture 2026-06-27: the surface should reflect what I'm
+    ACTIVELY WORKING ON (the current list), not random oldest entries from
+    the big pile. Order:
+      1. If something's in `current`, surface that (what I'm on).
+      2. Otherwise, surface a candidate from `main` framed as "pick this?".
+      3. Otherwise nothing.
+    """
     try:
-        from divineos.core.structural_fix_tracker import list_pending
+        from divineos.core.structural_fix_tracker import list_current, list_pending
     except Exception:  # noqa: BLE001 - observability boundary
         return None
+
+    # 1. Active working-list takes priority.
+    try:
+        current = list_current()
+    except Exception:  # noqa: BLE001 - observability boundary
+        current = []
+    if current:
+        top = current[0]
+        psf_id = top.get("id", "?")
+        excerpt = top.get("content_excerpt", "")
+        line = f"continue {psf_id}: {excerpt}"
+        return psf_id, _truncate(line)
+
+    # 2. Nothing in current — surface a candidate from main as "pick this?".
     try:
         pending = list_pending()
     except Exception:  # noqa: BLE001 - observability boundary
@@ -144,7 +165,7 @@ def _top_pending_structural_fix() -> tuple[str, str] | None:
     top = pending[0]
     psf_id = top.get("id", "?")
     excerpt = top.get("content_excerpt", "")
-    line = f"address {psf_id}: {excerpt}"
+    line = f"pick {psf_id}? {excerpt}"
     return psf_id, _truncate(line)
 
 
