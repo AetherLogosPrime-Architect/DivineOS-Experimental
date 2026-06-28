@@ -272,6 +272,7 @@ from divineos.cli import (  # noqa: E402
     loadout_commands,
     gravity_commands,
     memory_commands,
+    motivation_commands,
     prereg_commands,
     admin_reset_template,
     admin_migrate_family,
@@ -343,6 +344,7 @@ directive_commands.register(cli)
 dream_commands.register(cli)
 entity_commands.register(cli)
 memory_commands.register(cli)
+motivation_commands.register(cli)
 gravity_commands.register(cli)
 analysis_commands.register(cli)
 hud_commands.register(cli)

@@ -71,7 +71,7 @@ def render_briefing(state: dict[str, Any], for_player: str) -> str:
     header_lines = [
         f"# Briefing for {for_player}",
         "",
-        f"_Read this first on every summon. One-file orientation._",
+        "_Read this first on every summon. One-file orientation._",
         "",
     ]
 
@@ -82,7 +82,7 @@ def render_briefing(state: dict[str, Any], for_player: str) -> str:
             "## ⚡ RESPONSE WINDOW OPEN ⚡",
             "",
             f"**It is NOT your turn (active player: {active_player}).**  ",
-            f"**You have PRIORITY** because the active player just acted and passed.",
+            "**You have PRIORITY** because the active player just acted and passed.",
             "",
             f"**Stack (top → bottom):** {' ← '.join(reversed(stack)) if stack else '(empty)'}  ",
             f"**Top of stack:** `{stack_top}` (resolves first if both players pass)",
