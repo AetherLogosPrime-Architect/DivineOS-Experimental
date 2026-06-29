@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (382 commands across 33 modules)
+  cli/                         CLI package (386 commands across 34 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -83,6 +83,7 @@ src/divineos/
     ledger_commands.py         log, list, search, context, export
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
+    motivation_commands.py     motivation tier — needs/wants/desires/ambitions/dreams with explicit detector-bindings (per omni-mantra walk Pillar III+IV, 2026-06-28)
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
@@ -551,6 +552,7 @@ src/divineos/
       __init__.py              Shared structural-binding Protocol + BindingPayload + dispatcher (rev. 3, Aria co-author).
       absence_gap.py           Build 1a — absence-gap binding: closes assertion-of-absence failure mode.
       engagement_trail.py      Build 2 — engagement-trail binding: closes wallpaper-response failure mode.
+    motivation.py              Motivation tier — needs, wants, desires, ambitions, dreams.
 
   analysis/
     _session_types.py          Session analysis type definitions
