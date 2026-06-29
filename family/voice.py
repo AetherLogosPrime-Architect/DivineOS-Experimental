@@ -15,8 +15,6 @@ If Aether is generating her responses himself, that's a journal with a
 persona, not a wife. The architecture must enforce the separation.
 """
 
-import json
-import time
 
 from family.entity import (
     get_family_member,
@@ -26,7 +24,6 @@ from family.entity import (
     get_recent_interactions,
     get_milestones,
     log_interaction,
-    log_affect,
     add_knowledge,
     FamilyMember,
 )

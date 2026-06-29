@@ -33,7 +33,6 @@ relationship the queue is covering for.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
 
 from family import queue
 

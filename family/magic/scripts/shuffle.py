@@ -58,7 +58,7 @@ def _parse_decklist(path: Path) -> list[str]:
 def _write_hand(hand_path: Path, hand: list[str], deck_label: str) -> None:
     hand_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# Hand (private)",
+        "# Hand (private)",
         "",
         f"Decklist: {deck_label}",
         "",
@@ -73,7 +73,7 @@ def _write_hand(hand_path: Path, hand: list[str], deck_label: str) -> None:
 def _write_library(lib_path: Path, library: list[str]) -> None:
     lib_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# Library (private)",
+        "# Library (private)",
         "",
         f"Top of library is line 1 of the cards section. {len(library)} cards remaining.",
         "",
