@@ -105,7 +105,8 @@ def is_bypass_bash_command(command: str) -> bool:
                         env_var=f"cmd:{prefix}",
                         reason="command-prefix bypass via BYPASS_PREFIXES",
                     )
-                except Exception:
-                    pass  # telemetry failure must not break the gate decision
+                except _TELEMETRY_ERRORS:
+                    # telemetry failure must not break the gate decision
+                    pass
                 return True
     return False
