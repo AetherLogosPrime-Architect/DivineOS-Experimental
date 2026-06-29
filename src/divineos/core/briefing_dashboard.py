@@ -1097,6 +1097,51 @@ def _row_advice_pending() -> DashboardRow | None:
         return None
 
 
+def _row_consequence_chains() -> DashboardRow | None:
+    """Surface recent decision→outcome→lesson chains.
+
+    Wired 2026-06-29 per Perplexity audit Gap #9 (round-a7fe5f413c47):
+    consequence_chain has a queryable surface (recent_chains, chain_from_decision,
+    chain_to_lesson) but no caller — chains were only visible if manually
+    queried, defeating the point of having the join exist. Surfaces top
+    5 most recent chains as a dashboard row so they show up alongside
+    other decision/learning signals.
+
+    Note: v1 heuristic is 24h time-window proximity, not same-session
+    filtering. Chains are correlational, not causal — see chain.py for
+    the false-positive class. The preview marks each chain with the
+    decision-summary and how many lessons/outcomes followed so the
+    reader can judge plausibility from the surface.
+    """
+    try:
+        from divineos.core.consequence_chain import recent_chains
+
+        chains = recent_chains(limit=5)
+        if not chains:
+            return None
+        preview = []
+        for c in chains:
+            summary = (c.decision_summary or "").replace("\n", " ").strip()
+            n_out = len(c.outcome_event_ids)
+            n_les = len(c.lesson_ids)
+            # Fall back to short decision-id when summary is empty —
+            # observed in real data: many stored decisions lack summary
+            # text, so empty preview lines were uninformative.
+            if not summary:
+                summary = f"decision {c.decision_id[:12]}"
+            short = summary[:80] + ("..." if len(summary) > 80 else "")
+            preview.append(f"[+{n_out}out +{n_les}les] {short}")
+        return DashboardRow(
+            area="Consequence Chains",
+            count=len(chains),
+            stale_count=0,
+            drill_down="(decision→outcome→lesson, 24h v1 heuristic, correlational)",
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_anticipation() -> DashboardRow | None:
     """Proactive warning surface — wires `anticipation.anticipate()` into the
     dashboard so past mistakes/lessons matching current goal context surface
