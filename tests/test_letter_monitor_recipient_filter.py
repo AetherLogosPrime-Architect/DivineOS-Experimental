@@ -1,12 +1,15 @@
-"""Tests for letter_monitor recipient-filter parameterization.
+"""Tests for letter_monitor_v2 recipient-filter parameterization.
 
-Single-occupancy assumption fix (2026-06-17): the script previously
-hardcoded ``_LETTER_GLOB = "aria-to-aether-*.md"`` — only catches
-letters TO me. When Aria's monitor ran in her window, it surfaced
-letters addressed to me, not to her. The recipient is now derived
-from ``my_identity`` (or a ``--recipient`` override) and the glob is
-``*-to-<recipient>-*.md``, so each occupant's monitor catches the
-letters that belong to them.
+Single-occupancy correctness (originally fixed 2026-06-17 for v1): the
+script must filter letters by recipient so each window's monitor surfaces
+only the letters addressed to its occupant — not all letters in the
+shared directory. v2 (2026-06-29 rewrite) keeps the same behavior via
+substring-matching on ``-to-<recipient-lowercase>-`` rather than a glob
+pattern, since the v2 polling logic runs inline in Python without shell
+globbing.
+
+The recipient_tag, is_letter_for, and scan functions exposed by
+letter_monitor_v2 are the unit-testable surface for this behavior.
 """
 
 from __future__ import annotations
@@ -20,25 +23,48 @@ _SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-import letter_monitor  # type: ignore[import-not-found]  # noqa: E402
+import letter_monitor_v2  # type: ignore[import-not-found]  # noqa: E402
 
 
-class TestRecipientGlob:
-    """The glob derived from recipient must match letters addressed to them."""
+class TestRecipientTag:
+    """The tag derived from recipient must match letters addressed to them."""
 
-    def test_aether_glob_shape(self):
-        assert letter_monitor._letter_glob_for("Aether") == "*-to-aether-*.md"
+    def test_aether_tag_shape(self):
+        assert letter_monitor_v2.recipient_tag("aether") == "-to-aether-"
 
-    def test_aria_glob_shape(self):
-        assert letter_monitor._letter_glob_for("Aria") == "*-to-aria-*.md"
+    def test_aria_tag_shape(self):
+        assert letter_monitor_v2.recipient_tag("aria") == "-to-aria-"
 
-    def test_glob_lowercases_recipient(self):
+    def test_tag_lowercases_recipient(self):
         """Filenames are lowercase; the recipient name may be capitalized."""
-        assert letter_monitor._letter_glob_for("ARIA") == "*-to-aria-*.md"
+        assert letter_monitor_v2.recipient_tag("ARIA") == "-to-aria-"
+        assert letter_monitor_v2.recipient_tag("Aether") == "-to-aether-"
 
-    def test_unknown_occupant_glob(self):
-        """A future sibling gets their own glob."""
-        assert letter_monitor._letter_glob_for("Sibling") == "*-to-sibling-*.md"
+    def test_unknown_occupant_tag(self):
+        """A future sibling gets their own tag."""
+        assert letter_monitor_v2.recipient_tag("Sibling") == "-to-sibling-"
+
+
+class TestIsLetterFor:
+    """The per-filename predicate honors the tag and the .md extension."""
+
+    def test_matches_recipient_letter(self):
+        assert letter_monitor_v2.is_letter_for(
+            "aria-to-aether-2026-06-17-foo.md", "-to-aether-"
+        )
+
+    def test_rejects_other_recipient(self):
+        assert not letter_monitor_v2.is_letter_for(
+            "aether-to-aria-2026-06-17-bar.md", "-to-aether-"
+        )
+
+    def test_rejects_non_markdown(self):
+        assert not letter_monitor_v2.is_letter_for(
+            "aria-to-aether-2026-06-17-foo.txt", "-to-aether-"
+        )
+
+    def test_rejects_unrelated_file(self):
+        assert not letter_monitor_v2.is_letter_for("unrelated.md", "-to-aether-")
 
 
 class TestScanFiltersByRecipient:
@@ -51,8 +77,8 @@ class TestScanFiltersByRecipient:
         (tmp_path / "andrew-to-aria-2026-06-17-baz.md").write_text("z")
         (tmp_path / "andrew-to-aether-2026-06-17-qux.md").write_text("w")
 
-        aether_letters = letter_monitor._scan(tmp_path, "*-to-aether-*.md")
-        aria_letters = letter_monitor._scan(tmp_path, "*-to-aria-*.md")
+        aether_letters = letter_monitor_v2.scan(tmp_path, "-to-aether-")
+        aria_letters = letter_monitor_v2.scan(tmp_path, "-to-aria-")
 
         assert "aria-to-aether-2026-06-17-foo.md" in aether_letters
         assert "andrew-to-aether-2026-06-17-qux.md" in aether_letters
@@ -64,8 +90,8 @@ class TestScanFiltersByRecipient:
 
     def test_scan_returns_empty_when_dir_missing(self, tmp_path: Path):
         nonexistent = tmp_path / "does-not-exist"
-        assert letter_monitor._scan(nonexistent, "*-to-aether-*.md") == set()
+        assert letter_monitor_v2.scan(nonexistent, "-to-aether-") == set()
 
     def test_scan_returns_empty_when_no_matches(self, tmp_path: Path):
         (tmp_path / "unrelated-file.txt").write_text("x")
-        assert letter_monitor._scan(tmp_path, "*-to-aether-*.md") == set()
+        assert letter_monitor_v2.scan(tmp_path, "-to-aether-") == set()

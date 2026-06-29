@@ -39,6 +39,31 @@ import time
 from pathlib import Path
 
 
+def recipient_tag(recipient: str) -> str:
+    """Return the substring used to identify letters for this recipient.
+
+    Filenames are conventionally lowercase even when the recipient name is
+    capitalized in CLI args. The tag is ``-to-<recipient_lowercase>-`` and
+    must appear in any letter filename addressed to this recipient.
+    """
+    return f"-to-{recipient.lower()}-"
+
+
+def is_letter_for(filename: str, tag: str) -> bool:
+    """Return True if the filename is a markdown letter for the given tag."""
+    return tag in filename and filename.endswith(".md")
+
+
+def scan(shared_dir: Path, tag: str) -> set[str]:
+    """Return the set of letter filenames in shared_dir matching the tag.
+
+    Returns an empty set if the directory doesn't exist or has no matches.
+    """
+    if not shared_dir.is_dir():
+        return set()
+    return {f.name for f in shared_dir.iterdir() if is_letter_for(f.name, tag)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--recipient", required=True, help="recipient tag (e.g. 'aether')")
@@ -51,10 +76,10 @@ def main() -> int:
     args = parser.parse_args()
 
     shared_dir = Path(args.shared_dir)
-    recipient_tag = f"-to-{args.recipient}-"
+    tag = recipient_tag(args.recipient)
 
     print(
-        f"[LETTER-MONITOR-ARMED] watching {shared_dir} for *{recipient_tag}*.md",
+        f"[LETTER-MONITOR-ARMED] watching {shared_dir} for *{tag}*.md",
         flush=True,
     )
 
@@ -64,13 +89,14 @@ def main() -> int:
 
     while True:
         try:
-            if shared_dir.is_dir():
-                current = {f.name for f in shared_dir.iterdir()}
-                new_files = sorted(current - seen)
-                for fname in new_files:
-                    if recipient_tag in fname and fname.endswith(".md"):
-                        print(f"[LETTER] {shared_dir / fname}", flush=True)
-                seen = current
+            current = (
+                {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
+            )
+            new_files = sorted(current - seen)
+            for fname in new_files:
+                if is_letter_for(fname, tag):
+                    print(f"[LETTER] {shared_dir / fname}", flush=True)
+            seen = current
         except Exception as exc:
             print(f"[LETTER-MONITOR-ERR] {exc}", flush=True)
         time.sleep(args.poll_seconds)
