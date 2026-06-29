@@ -6,6 +6,8 @@
 
 **DRAFT.** Not approved for implementation. Pending council walk (all surfaced lenses, no curating, per the new rule from 2026-06-23) and Andrew greenlight.
 
+**Update 2026-06-29:** The letter-wake-rot specific instance the original draft was responding to has been fixed via a different (and simpler) architectural move: the v2 letter-monitor pattern. Instead of running the polling worker as a separate process whose silent-death required external watching, the polling script now runs DIRECTLY inside the harness `Monitor()` invocation (`scripts/letter_monitor_v2.py`). The harness itself sees its Monitor processes die, eliminating the silent-rot failure mode the watchdog primitive was designed to catch — for this case. The general watchdog primitive still applies to the other surfaces named below (ledger integrity, directive staleness, etc.), but the letter-wake instance is no longer a load-bearing reason to build it. Same lesson at the meta-level: if you can change the architecture so the rot-mode can't happen, that's preferable to adding a watchdog to detect when it does.
+
 ## Premise
 
 Andrew suggested 2026-06-23: "make another agent be the monitor.. one that runs on my computer in the background" and clarified the cost concern: "cant we run like llama or some other low parameter AI on my GPU." Further clarified: "i dont mean full agent like you or Aria.. but as a smart tool." Then opened the scope: "this method could be used for other things as well... may be useful elsewhere where things are failing."
