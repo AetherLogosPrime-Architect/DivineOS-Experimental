@@ -236,6 +236,24 @@ def format_for_briefing() -> str:
     state and decides whether an audit is warranted. Empty string when
     there is no meaningful drift to surface (e.g., fresh install with
     no events at all).
+
+    SOFT REFERENCE THRESHOLDS (NOT enforced — informational calibration only):
+    Per Perplexity audit Issue #6 (2026-06-29, round-a7fe5f413c47): without
+    suggested thresholds the numbers accumulate without calibrated intuition
+    for what warrants action. These starting estimates give the reader a
+    reference frame — the point is not to hit a number, it is to develop
+    intuition for what "normal" looks like so anomalies stand out.
+
+      turns_since_medium:          > 20 = notable,  > 50 = overdue
+      code_actions_since_medium:   >  5 = notable,  > 15 = overdue
+      rounds_filed_since_medium:   >  3 WEAK-only rounds = worth a MEDIUM pass
+      open_findings_above_low:     >  5 = backlog building,  > 10 = urgent clear
+
+    Calibrate against actual operational rhythm. If the substrate runs
+    intensely for hours (like tonight), the "notable" numbers will pass
+    routinely without warranting audit — what matters is the SHAPE of
+    accumulation, not a single dimension's absolute number. If three or
+    four dimensions are simultaneously past "notable," that's the signal.
     """
     state = compute_drift_state()
 
