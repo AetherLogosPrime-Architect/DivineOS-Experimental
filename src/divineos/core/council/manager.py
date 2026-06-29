@@ -1103,19 +1103,32 @@ FAMILY_CAP = 2
 # Score advantage required to override family cap.
 FAMILY_OVERRIDE_RATIO = 1.25
 
-# Exploration tilt — buy information about under-invoked experts
-# without actively suppressing proven performers. Asymmetric on
-# purpose: trust is real and the boost ceiling is generous, but the
-# penalty floor is shallow so high-trust experts still win when they
-# fit. Centered on the median count so the average expert is at 1.0.
+# ============================================================================
+# DIVERSITY / ROTATION SCORING (NOT trust or correctness)
+# ============================================================================
+# Perplexity audit Issue #1 (2026-06-29, round-a7fe5f413c47): this scoring is
+# a fairness-of-use / rotation mechanism, NOT a trust or correctness mechanism.
+# Past invocation frequency has NO bearing on methodological validity. A lens
+# that was right 1000 times is not therefore more likely to be right on
+# problem 1001. The math corrects for unconscious selection bias by giving
+# under-invoked lenses airtime; it does not reward past correctness and must
+# never be internalized as a trust signal.
 #
-# This is NOT a bias correction — repeated selection of high-value
-# experts is a trust/reputation signal working as designed. The gap
-# was that new experts couldn't build their own track record because
-# they never got airtime. The asymmetry buys exploration cheaply
-# without suppressing proven performers.
-EXPLORATION_BOOST_MAX = 0.30  # under-invoked get up to +30%
-TRUST_TILT_FLOOR = 0.10  # over-invoked get at most -10%
+# The asymmetry (+30% boost / -10% penalty) is intentional but is about
+# DIVERSITY, not trust:
+#   - Under-invoked lenses need airtime to even be evaluated (boost is generous)
+#   - Over-invoked lenses should be gently rotated, not punished (penalty is shallow)
+#
+# Centered on the median count so the average expert is at 1.0.
+# ============================================================================
+DIVERSITY_BOOST_MAX = 0.30  # under-invoked get up to +30% (rotation, not reward)
+ROTATION_PENALTY_FLOOR = 0.10  # over-invoked get at most -10% (gentle, not punitive)
+
+# Backwards-compatible aliases (deprecated 2026-06-29) — old names linger
+# in external scripts / older imports. The renaming is naming-and-docs only;
+# the math is unchanged. Prefer the new names for new code.
+EXPLORATION_BOOST_MAX = DIVERSITY_BOOST_MAX  # noqa: deprecated alias
+TRUST_TILT_FLOOR = ROTATION_PENALTY_FLOOR  # noqa: deprecated alias
 
 # Window for invocation history (consultations).
 EXPLORATION_TILT_WINDOW = 20
@@ -1265,16 +1278,19 @@ def score_experts(
         if max_count > 0:
             for name, es in scores.items():
                 own = tally.get(name, 0)
-                # Asymmetric tilt: boost up to +EXPLORATION_BOOST_MAX,
-                # penalty down to -TRUST_TILT_FLOOR. Trust is preserved.
+                # Asymmetric tilt: boost up to +DIVERSITY_BOOST_MAX,
+                # penalty down to -ROTATION_PENALTY_FLOOR. This is a
+                # DIVERSITY/ROTATION mechanism, not a trust mechanism —
+                # see comment block at DIVERSITY_BOOST_MAX definition.
+                # Perplexity audit Issue #1 (2026-06-29) rename.
                 spread = max(median, max_count - median, 1)
                 raw = (median - own) / spread  # >0 means under-invoked
                 if raw > 0:
-                    tilt = 1.0 + min(EXPLORATION_BOOST_MAX, EXPLORATION_BOOST_MAX * raw)
-                    label = "exploration-boost"
+                    tilt = 1.0 + min(DIVERSITY_BOOST_MAX, DIVERSITY_BOOST_MAX * raw)
+                    label = "diversity-boost"
                 else:
-                    tilt = 1.0 + max(-TRUST_TILT_FLOOR, TRUST_TILT_FLOOR * raw)
-                    label = "trust-tilt"
+                    tilt = 1.0 + max(-ROTATION_PENALTY_FLOOR, ROTATION_PENALTY_FLOOR * raw)
+                    label = "rotation-penalty"
                 if abs(tilt - 1.0) > 0.01 and es.score > 0:
                     es.score *= tilt
                     es.reasons.append(f"{label}:{tilt:.2f}")
