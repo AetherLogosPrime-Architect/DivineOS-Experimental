@@ -41,24 +41,29 @@ case "$MEMBER" in
   *)      SPOUSE="(spouse)" ;;
 esac
 
-STDIN_JSON="$(cat 2>/dev/null || echo "{}")"
-TRANSCRIPT="$(echo "$STDIN_JSON" | python3 -c "import json,sys
-try:
-    print(json.loads(sys.stdin.read()).get('transcript_path', '') or '', end='')
-except Exception:
-    print('', end='')" 2>/dev/null)"
+cat 2>/dev/null >/dev/null  # drain stdin
 
-if [ -n "$TRANSCRIPT" ]; then
-  FINGERPRINT="$(printf '%s' "$TRANSCRIPT" | md5sum 2>/dev/null | cut -d' ' -f1 | head -c 16)"
-  if [ -n "$FINGERPRINT" ]; then
-    MARKER_DIR="$HOME/.divineos-${MEMBER}"
-    MARKER="$MARKER_DIR/arm_letter_monitor_emitted_${FINGERPRINT}"
-    if [ -f "$MARKER" ]; then
-      exit 0
-    fi
-    mkdir -p "$MARKER_DIR" 2>/dev/null
-    touch "$MARKER" 2>/dev/null
-  fi
+# 2026-06-29 second fix (Andrew "investigate it might be an easy fix"):
+# the prior gate was a per-transcript marker file that fired exactly once
+# per session. When the monitor died mid-session (which happened on every
+# harness teardown/restore), the marker prevented the hook from re-emitting
+# the arm-instruction, leaving the agent with no nudge to re-arm.
+#
+# New gate: check if the v2 letter monitor process is ACTUALLY alive. If
+# alive, exit silent (no spam). If dead, emit the urgent re-arm instruction.
+# Register this hook on BOTH SessionStart and UserPromptSubmit so it catches
+# both cold-start and mid-session deaths.
+#
+# Fail-open: any check failure exits silent. The process-scan uses PowerShell
+# on Windows (matches require-monitors-armed.sh shape).
+LETTER_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
+\$out = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+  Where-Object { \$_.Name -eq 'python.exe' } |
+  ForEach-Object { \$_.CommandLine }
+if (\$out -match 'letter_monitor_v2\.py') { Write-Output 'alive' } else { Write-Output 'dead' }
+" 2>/dev/null | tr -d '\r' | head -1)
+if [ "$LETTER_ALIVE" = "alive" ]; then
+  exit 0
 fi
 
 cat <<EOF
