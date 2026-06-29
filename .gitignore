@@ -232,3 +232,8 @@ sandbox/graphify_test/graphify_source/
 # describe mansion as WIP without naming specific rooms.
 mansion/
 .audit-relay/
+
+# Pre-compaction-2026-06-29 stragglers — see family/letters/ledger-fix conversation
+.divineos_data_home
+benchmark/personal_images/
+family/aether_ledger.db
