@@ -106,10 +106,6 @@ def _classify(five: list[str]) -> tuple[int, str]:
     has_pair = counts[0] == 2
     has_full_house = counts[0] == 3 and counts[1] == 2
 
-    rank_str = lambda r: r  # noqa: E731 — terse helper
-    descr_ranks = sorted(rank_count.items(), key=lambda kv: (-kv[1], -RANK_VAL[kv[0]]))
-    rank_summary = " ".join(f"{r}x{c}" for r, c in descr_ranks)
-
     if is_straight and is_flush:
         if sorted_unique[-1] == 14 and sorted_unique[0] == 10:
             return (9, f"royal flush ({' '.join(sorted(five))})")
@@ -181,28 +177,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: board must be exactly 5 cards, got {len(board)}.", file=sys.stderr)
         return 2
     if len(use_hole) != 2:
-        print(f"ERROR: --use-hole must be exactly 2 cards.", file=sys.stderr)
+        print("ERROR: --use-hole must be exactly 2 cards.", file=sys.stderr)
         return 2
     if len(use_board) != 3:
-        print(f"ERROR: --use-board must be exactly 3 cards.", file=sys.stderr)
+        print("ERROR: --use-board must be exactly 3 cards.", file=sys.stderr)
         return 2
     if not all(c in hole for c in use_hole):
-        print(f"ERROR: --use-hole cards must come from --hole.", file=sys.stderr)
+        print("ERROR: --use-hole cards must come from --hole.", file=sys.stderr)
         return 2
     if not all(c in board for c in use_board):
-        print(f"ERROR: --use-board cards must come from --board.", file=sys.stderr)
+        print("ERROR: --use-board cards must come from --board.", file=sys.stderr)
         return 2
 
     five = use_hole + use_board
     if len(set(five)) != 5:
-        print(f"ERROR: duplicate cards in selection.", file=sys.stderr)
+        print("ERROR: duplicate cards in selection.", file=sys.stderr)
         return 2
 
     # Integrity check: verify hash commit.
     hand_log = args.root / "hands" / f"hand-{args.hand:03d}.log"
     expected_commit = _find_commit(hand_log, args.player)
     actual_commit = _hash_cards(hole)
-    print(f"=== Integrity check ===")
+    print("=== Integrity check ===")
     if expected_commit is None:
         print(f"  WARN: could not find commit for {args.player} in {hand_log}.")
     elif expected_commit == actual_commit:
@@ -211,20 +207,20 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"  FAIL: commit {actual_commit[:16]}... does NOT match log {expected_commit[:16]}..."
         )
-        print(f"  Either the revealed cards are wrong, or someone tampered.")
+        print("  Either the revealed cards are wrong, or someone tampered.")
         return 3
 
     # Selection is legal. Classify the resulting hand.
     rank_tier, descr = _classify(five)
-    print(f"=== Selection ===")
+    print("=== Selection ===")
     print(f"  Hole used:  {' '.join(use_hole)}")
     print(f"  Board used: {' '.join(use_board)}")
     print(f"  5-card hand: {' '.join(five)}")
-    print(f"=== Classification ===")
+    print("=== Classification ===")
     print(f"  Tier {rank_tier} ({HAND_RANK_NAMES[rank_tier]})")
     print(f"  {descr}")
     print()
-    print(f"This is a checker, not a decider. The players agree on the winner.")
+    print("This is a checker, not a decider. The players agree on the winner.")
     return 0
 
 

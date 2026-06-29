@@ -8,7 +8,7 @@ Usage:  vulture src/divineos/ scripts/vulture_whitelist.py --min-confidence 70
 """
 
 # Add false positives here as they arise, e.g.:
-# from divineos.some_module import some_function  # noqa: used by CLI
+# from divineos.some_module import some_function  # noqa: F401 — used by CLI
 # some_function  # mark as used
 
 # Add false positives here as needed
@@ -20,6 +20,6 @@ from divineos.core.operating_loop.detector_protocol import ContextualDetector, E
 
 _ = ContextualDetector
 _ = EnrichableDetector
-primary  # detector_protocol.py Protocol __call__ param
-secondary  # detector_protocol.py Protocol __call__ param
-enrichment  # detector_protocol.py Protocol __call__ param
+primary  # noqa: F821 — detector_protocol.py Protocol __call__ param (vulture whitelist by name)
+secondary  # noqa: F821 — detector_protocol.py Protocol __call__ param (vulture whitelist by name)
+enrichment  # noqa: F821 — detector_protocol.py Protocol __call__ param (vulture whitelist by name)

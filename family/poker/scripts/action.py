@@ -93,7 +93,7 @@ def cmd_bet(args, state, root):
     amount = args.amount
     if state["current_bet"] > state["committed_this_street"][by]:
         print(
-            f"ERROR: cannot bet; there is already a bet. Use raise instead.",
+            "ERROR: cannot bet; there is already a bet. Use raise instead.",
             file=sys.stderr,
         )
         return 2
@@ -129,7 +129,7 @@ def cmd_call(args, state, root):
     by = args.by
     to_call = state["current_bet"] - state["committed_this_street"][by]
     if to_call <= 0:
-        print(f"ERROR: nothing to call.", file=sys.stderr)
+        print("ERROR: nothing to call.", file=sys.stderr)
         return 2
     actual = min(to_call, state["stacks"][by])  # all-in handling
     state["stacks"][by] -= actual
@@ -149,7 +149,7 @@ def cmd_raise(args, state, root):
     by = args.by
     raise_to = args.amount  # interpreted as TOTAL bet-to amount (committed-this-street total)
     if state["current_bet"] <= state["committed_this_street"][by]:
-        print(f"ERROR: nothing to raise — use bet to open.", file=sys.stderr)
+        print("ERROR: nothing to raise — use bet to open.", file=sys.stderr)
         return 2
     max_raise_to = _pot_limit_max_raise(state, by)
     min_raise_to = state["min_raise"]
@@ -173,15 +173,6 @@ def cmd_raise(args, state, root):
     state["committed_this_street"][by] = raise_to
     state["current_bet"] = raise_to
     state["current_pot"] += additional
-    raise_size = (
-        raise_to - state["history"][-1].get("raise_to", 0)
-        if False
-        else (
-            raise_to - state["committed_this_street"][_opponent(by)]
-            if state["committed_this_street"][_opponent(by)]
-            else raise_to
-        )
-    )
     # Simpler: min next raise = current bet * 2 (Magic-style). PLO uses:
     # min next raise = current bet + (last raise size). Track for fidelity.
     last_raise_size = raise_to - (state["history"][-1].get("amount", 0) if state["history"] else 0)
@@ -290,7 +281,7 @@ def cmd_advance_street(args, state, root):
 
     elif next_street == "showdown":
         _append_log(root, state["hand"], "--- SHOWDOWN --- both players reveal hole cards.")
-        print(f"Advanced to showdown. Both players reveal hole cards now.")
+        print("Advanced to showdown. Both players reveal hole cards now.")
 
     _save(root, state)
     return 0

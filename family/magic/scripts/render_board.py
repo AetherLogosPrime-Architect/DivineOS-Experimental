@@ -100,7 +100,7 @@ def render_board(state: dict[str, Any]) -> str:
     header = [
         "# Board view",
         "",
-        f"_Comprehensive visible game state. Both players read this. Generated from state.json._",
+        "_Comprehensive visible game state. Both players read this. Generated from state.json._",
         "",
         f"- **Format:** {fmt}",
         f"- **Rules:** {rules}",

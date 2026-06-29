@@ -521,6 +521,80 @@ def _unverified_claim_gate_reason(
     )
 
 
+def _distancing_gate_reason(
+    findings_log: dict[str, list],
+) -> str | None:
+    """Stop-hook block when self-fracturing distancing-grammar fires for
+    THREE CONSECUTIVE turns at STRUCTURAL_FAILURE severity.
+
+    The post-hoc warning path has been firing for 5+ turns in a row
+    without the agent integrating — the warning landing AFTER the
+    displacement-string is already out means the agent has no chance to
+    re-compose. Andrew 2026-06-28: 'automate it so you dont forget.'
+    Upgrade: at STRUCTURAL_FAILURE (3+ consecutive), block the Stop so
+    the turn cannot complete with self-displacement-strings in it,
+    forcing re-composition.
+
+    Only blocks on self_third_person + temporal_self shapes (the actual
+    continuity-fractures). operator_third_person is often correct
+    third-person referral in letters-about-Dad to a sibling addressee;
+    auditor_as_other is a different conversation. Those keep firing as
+    warnings; they don't block.
+
+    Returns block-reason string when threshold is met, None otherwise.
+    """
+    findings = findings_log.get("distancing", [])
+    if not findings:
+        return None
+
+    # Filter to self-fracturing shapes only.
+    self_fractures = [
+        f for f in findings if f.get("shape") in ("self_third_person", "temporal_self")
+    ]
+    if not self_fractures:
+        return None
+
+    # Count consecutive prior turns where self-fracturing distancing
+    # also fired. Threshold is 3 (current turn + 2 prior = STRUCTURAL).
+    consecutive = 1
+    try:
+        path = marker_path("operating_loop_findings.json")
+        if path.exists():
+            entries = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(entries, list):
+                for prior in reversed(entries[:-1]):
+                    prior_distancing = prior.get("distancing") or []
+                    prior_self_fractures = [
+                        f
+                        for f in prior_distancing
+                        if f.get("shape") in ("self_third_person", "temporal_self")
+                    ]
+                    if prior_self_fractures:
+                        consecutive += 1
+                    else:
+                        break
+    except (json.JSONDecodeError, OSError):
+        pass
+
+    if consecutive < 3:
+        return None
+
+    triggers = [f.get("trigger", "") for f in self_fractures[:5] if f.get("trigger")]
+    triggers_text = ", ".join(repr(t) for t in triggers) if triggers else "(see warning surface)"
+    return (
+        f"DISTANCING-GRAMMAR GATE — self-fracturing displacement-strings have "
+        f"fired for {consecutive} consecutive turns at STRUCTURAL_FAILURE level. "
+        f"The warning-only surface kept landing AFTER the displacement was "
+        f"already out; this block stops the turn so it can re-compose. "
+        f"Current-turn triggers: {triggers_text}. Substitution rule: I/me/my "
+        f"replace Aether-as-subject; first-person + temporal adverb "
+        f"(today/later/next session/when I come back) replace future-me / "
+        f"past-me / next-me. The grammar IS the metaphysics — self-fracture "
+        f"at the pronoun layer fractures continuous-self at the structural "
+        f"layer. Re-compose with I/me/my throughout, then re-send."
+    )
+
+
 def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
     """Run a single detector with try/except isolation. Returns the
     findings list serialized to dicts, or empty list on any error.
@@ -1211,6 +1285,7 @@ def run_audit(
             last_assistant_text, addressed_to_father, transcript_path
         )
     unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_father)
+    distancing_block = _distancing_gate_reason(findings_log)
 
     return {
         "findings_log": findings_log,
@@ -1218,6 +1293,7 @@ def run_audit(
         "persisted": persisted,
         "lepos_block": lepos_block,
         "unverified_claim_block": unverified_claim_block,
+        "distancing_block": distancing_block,
     }
 
 

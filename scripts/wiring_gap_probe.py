@@ -149,7 +149,6 @@ def _classify(fi: FunctionInfo) -> str:
     - WIRED-LIBRARY: 1-2 production callers (likely API+internal usage)
     - WIRED-WELL: 3+ production callers (clearly load-bearing)
     """
-    n = len(fi.production_callers)
     # Exclude the function's own file from the count — being called within
     # the module that defines it doesn't count as "wired into the system."
     own_file = str(fi.file.relative_to(REPO_ROOT))

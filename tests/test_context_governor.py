@@ -85,9 +85,9 @@ def test_not_due_below_threshold(tmp_path):
 
 
 def test_not_due_in_old_warn_band(tmp_path):
-    # 950k used to be the warn line; after 2026-06-19 collapse, it's just ok.
+    # 940k is below the 950k hard line (lowered 2026-06-28 from 970k).
     tx = tmp_path / "t.jsonl"
-    _write_jsonl(tx, [_assistant_with_usage(950_000, 0, 0)])
+    _write_jsonl(tx, [_assistant_with_usage(940_000, 0, 0)])
     assert cg.consolidation_due(tx) is False
 
 
@@ -116,10 +116,10 @@ def _tx_with(tmp_path, tokens: int) -> Path:
 
 
 def test_state_ok_below_hard(tmp_path):
-    # Everything below HARD_THRESHOLD is quiet now — the old 950k warn line
-    # was removed 2026-06-19 because its only effect was pre-emptive panic.
+    # Everything below HARD_THRESHOLD is quiet. Hard line is 950k (lowered
+    # 2026-06-28 from 970k after a compaction landed mid-extract).
     assert cg.consolidation_state(_tx_with(tmp_path, 900_000)) == "ok"
-    assert cg.consolidation_state(_tx_with(tmp_path, 950_000)) == "ok"
+    assert cg.consolidation_state(_tx_with(tmp_path, 940_000)) == "ok"
     assert cg.consolidation_state(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == "ok"
 
 
@@ -150,8 +150,8 @@ def test_governor_context_empty_when_ok(tmp_path):
 
 
 def test_governor_context_empty_in_old_warn_band(tmp_path):
-    # 950k used to surface a WARN nudge; 2026-06-19 collapse made it silent.
-    assert cg.build_governor_context(_tx_with(tmp_path, 950_000)) == ""
+    # Below the 950k hard line is silent.
+    assert cg.build_governor_context(_tx_with(tmp_path, 940_000)) == ""
     assert cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD - 1)) == ""
 
 

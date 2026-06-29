@@ -109,21 +109,35 @@ def count_live_watchers(member: str) -> int:
     relaunch — it must allow it).
     """
     # Windows path (git-bash on this box).
+    # We need the COMMAND LINE of each process, not just the image name.
+    # `tasklist /V` does NOT include command-line args — it shows window
+    # titles, which are empty for nohup-detached watchers. That meant the
+    # `--member <name>` needle never matched, count was always 0, and the
+    # relaunch decision always said "no watchers alive, spawn one". This
+    # leaked 14+ watchers per session and cascaded visible python windows
+    # on 2026-06-28. `wmic` was the original replacement but is deprecated/
+    # removed from Windows 11, so we shell out to PowerShell's
+    # Get-CimInstance Win32_Process which is the modern equivalent and
+    # exposes the full command line for matching.
     try:
+        ps_cmd = (
+            "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" "
+            f"| Where-Object {{ $_.CommandLine -like '*ear_watch*' "
+            f"-and $_.CommandLine -like '*--member {member}*' }} "
+            "| Measure-Object | Select-Object -ExpandProperty Count"
+        )
         result = subprocess.run(
-            ["tasklist", "/V", "/FO", "CSV"],
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=15,
             check=False,
         )
         if result.returncode == 0:
-            count = 0
-            needle = f"--member {member}"
-            for line in (result.stdout or "").splitlines():
-                if "ear_watch.py" in line and needle in line:
-                    count += 1
-            return count
+            try:
+                return int((result.stdout or "0").strip() or "0")
+            except ValueError:
+                pass
     except (subprocess.SubprocessError, OSError, FileNotFoundError):
         pass
 
