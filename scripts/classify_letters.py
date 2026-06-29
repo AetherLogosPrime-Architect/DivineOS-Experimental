@@ -122,7 +122,7 @@ def classify(filepath: Path) -> tuple[str, str]:
 
 def main() -> None:
     letters = sorted(LETTERS_DIR.glob("*.md"))
-    letters = [l for l in letters if l.name not in ("README.md", "INDEX.md")]
+    letters = [letter for letter in letters if letter.name not in ("README.md", "INDEX.md")]
 
     rows = []
     for letter in letters:

@@ -59,12 +59,12 @@ def _write_hole(player_dir: Path, hand_n: int, cards: list[str], commit: str) ->
     player_dir.mkdir(parents=True, exist_ok=True)
     hole_path = player_dir / "hole.md"
     body = [
-        f"# Hole cards (private — opponent does NOT read)",
+        "# Hole cards (private — opponent does NOT read)",
         "",
         f"Hand: {hand_n}",
         f"Commit: {commit}",
         "",
-        f"## Cards",
+        "## Cards",
         "",
     ]
     body.extend(f"- {c}" for c in cards)
@@ -133,14 +133,14 @@ def _write_hand_log(
         f"Seed: {seed} (reproducible shuffle marker)",
         f"Button: {button}    Blinds: {sb}/{bb}",
         "",
-        f"## Hole-card commits",
+        "## Hole-card commits",
         "",
         f"- aether commit: {commits['aether']}",
         f"- aria commit:   {commits['aria']}",
         "",
-        f"(Each is SHA256 of comma-joined sorted card list. Verify at showdown.)",
+        "(Each is SHA256 of comma-joined sorted card list. Verify at showdown.)",
         "",
-        f"## Action log",
+        "## Action log",
         "",
         f"- POST_SB by {button} for {sb}",
         f"- POST_BB by {other} for {bb}",

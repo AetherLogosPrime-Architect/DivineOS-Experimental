@@ -113,9 +113,9 @@ class TestCurrentState:
         assert tokens == 500_000
 
     def test_in_old_warn_band_returns_ok(self, script_module, tmp_path):
-        # 950k used to be the warn line; after the 2026-06-19 collapse it's ok.
+        # 940k is below the 950k hard line (lowered 2026-06-28 from 970k).
         tx = tmp_path / "tx.jsonl"
-        _write_transcript(tx, 950_000)
+        _write_transcript(tx, 940_000)
         state, _ = script_module._current_state(tx)
         assert state == "ok"
 
