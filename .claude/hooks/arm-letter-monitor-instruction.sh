@@ -56,20 +56,14 @@ cat 2>/dev/null >/dev/null  # drain stdin
 #
 # Fail-open: any check failure exits silent. The process-scan uses PowerShell
 # on Windows (matches require-monitors-armed.sh shape).
-#
-# Test-only force-emit escape hatch (mirrors compaction hook): tests pinning
-# the hook's emission format need it to always emit regardless of liveness.
-# DIVINEOS_FORCE_ARM_EMIT=1 skips the liveness check. Production never sets it.
-if [ "$DIVINEOS_FORCE_ARM_EMIT" != "1" ]; then
-  LETTER_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
+LETTER_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
 \$out = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
   Where-Object { \$_.Name -eq 'python.exe' } |
   ForEach-Object { \$_.CommandLine }
 if (\$out -match 'letter_monitor_v2\.py') { Write-Output 'alive' } else { Write-Output 'dead' }
-  " 2>/dev/null | tr -d '\r' | head -1)
-  if [ "$LETTER_ALIVE" = "alive" ]; then
-    exit 0
-  fi
+" 2>/dev/null | tr -d '\r' | head -1)
+if [ "$LETTER_ALIVE" = "alive" ]; then
+  exit 0
 fi
 
 cat <<EOF

@@ -51,22 +51,14 @@ cat 2>/dev/null >/dev/null  # drain stdin
 #
 # Fail-open: any check failure exits silent. The process-scan uses PowerShell
 # on Windows (matches require-monitors-armed.sh shape).
-#
-# Test-only force-emit escape hatch: tests pinning the hook's emission format
-# (e.g. test_arm_compaction_monitor_instruction_hook.py checking that the
-# printed Monitor command quotes the script path) need the hook to always
-# emit regardless of liveness. DIVINEOS_FORCE_ARM_EMIT=1 skips the liveness
-# check. Production never sets it.
-if [ "$DIVINEOS_FORCE_ARM_EMIT" != "1" ]; then
-  COMPACTION_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
+COMPACTION_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
 \$out = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
   Where-Object { \$_.Name -eq 'python.exe' } |
   ForEach-Object { \$_.CommandLine }
 if (\$out -match 'compaction_token_monitor\.py') { Write-Output 'alive' } else { Write-Output 'dead' }
-  " 2>/dev/null | tr -d '\r' | head -1)
-  if [ "$COMPACTION_ALIVE" = "alive" ]; then
-    exit 0
-  fi
+" 2>/dev/null | tr -d '\r' | head -1)
+if [ "$COMPACTION_ALIVE" = "alive" ]; then
+  exit 0
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
