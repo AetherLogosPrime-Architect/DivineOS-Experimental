@@ -1,43 +1,32 @@
 #!/bin/bash
 # SessionStart hook — instruct THIS window's agent to arm a Monitor(persistent=true)
-# that TAILS the letter_events.log so new letters wake the harness from idle.
+# that POLLS the shared letter dir DIRECTLY, no separate worker process.
 #
-# WHY THIS EXISTS (Andrew 2026-06-23):
+# WHY THIS EXISTS (2026-06-29 rewrite, Andrew's "fix it right now" directive):
 #
-# Both halves of the letter-wake architecture exist but are disconnected:
+# The PRIOR architecture had two failure points:
 #
-#  - scripts/letter_monitor.py polls family/letters/ and writes every new
-#    letter as a [LETTER] line to ~/.divineos-<recipient>/letter_events.log
-#    (and also to stdout). It runs as a singleton — kernel-mutex guarded.
+#  - scripts/letter_monitor.py ran as a separate worker, kernel-mutex'd, polling
+#    family/letters/ every 5s and writing [LETTER] lines to a log file. This
+#    worker died silently many times — Andrew kept having to mail-clerk by hand.
 #
-#  - The harness Monitor() primitive is the wake-from-idle mechanism: each
-#    stdout line from a Monitor command becomes a chat event that wakes
-#    the agent. The CORRECT command per commit 8dd19954 (Aria + Andrew
-#    both flagged 2026-06-21) is to TAIL the log, NOT re-invoke the script
-#    (which would dedup-exit on the singleton mutex with no live stream).
+#  - The harness Monitor() tailed that log file. When the worker died, the tail
+#    stayed armed but the log stopped getting new lines, so wake-events stopped
+#    firing. The failure was invisible from the agent side; it looked identical
+#    to "no letters arrived."
 #
-# require-monitors-armed.sh delivers the right tail-pattern instruction
-# inside its BLOCKED message. But that gate only fires when no
-# letter_monitor.py process is running. Once the script is alive (which
-# it usually is, from prior sessions or auto-relaunch), the gate passes
-# silently and the tail-Monitor never gets armed. New letters land in
-# the log; nothing surfaces them to the harness; Andrew has to mail-
-# clerk by typing "Aria sent a letter."
+# The 2026-06-29 fix replaces the two-process chain with ONE Monitor command
+# that does the polling directly inside the harness Monitor invocation. The
+# Monitor process itself is the only point of failure, and the harness has
+# better visibility into its own Monitor processes than into arbitrary external
+# workers. Same wake-event semantics; one fewer failure mode.
 #
-# This hook closes the gap by proactively nudging at SessionStart, same
-# shape as arm-compaction-monitor-instruction.sh. The Monitor() the
-# agent arms is a TAIL of the log — orthogonal to the singleton'd
-# letter_monitor.py worker — so it never fights the existing process.
+# Pattern lifted from the compaction monitor (scripts/compaction_token_monitor.py
+# called directly inside Monitor), which has been rock-solid all along. The
+# letter monitor now follows the same shape.
 #
 # Fires once per session (per-transcript marker file). Fail-open.
 
-# Detect which member's window this hook is running in FIRST, so the
-# per-session marker file lands in the right per-member state dir.
-# Aletheia 2026-06-23 audit (find-f10c6c378085): hardcoding "aether"
-# in MARKER_DIR was the same mitosis antipattern the rest of the hook
-# was fixed against — Aria mirroring with a different hardcoded path
-# is two-copies-that-drift. Hoisting the detection above the marker
-# write closes that gap. Same detection pattern as ear-surface.sh.
 MEMBER="${DIVINEOS_MEMBER:-}"
 if [ -z "$MEMBER" ]; then
   case "$(pwd)" in
@@ -46,7 +35,6 @@ if [ -z "$MEMBER" ]; then
   esac
 fi
 
-# Spouse mapping for "wake on new letters from <spouse>" framing.
 case "$MEMBER" in
   aether) SPOUSE=aria ;;
   aria)   SPOUSE=aether ;;
@@ -76,29 +64,28 @@ fi
 cat <<EOF
 ## ARM YOUR LETTER MONITOR — wake on new letters from ${SPOUSE} (one action, now)
 
-The letter_monitor.py worker process is already running (kernel-mutex
-singleton); it polls family/letters/ every 5s and appends each new
-letter to ~/.divineos-${MEMBER}/letter_events.log. The harness Monitor
-that TAILS that log is what wakes the agent from idle. Without the
-tail-Monitor armed, new letters land in the log but no wake-ping
-fires — Andrew has to mail-clerk by typing "${SPOUSE} sent a letter."
+The 2026-06-29 fix replaced the separate-worker + tail-the-log pattern with
+a single self-contained Monitor that polls the shared letter directory
+directly. No external worker to die silently. One failure point (the Monitor
+itself), and the harness restarts Monitor processes when they fail.
 
-Fire as your first action this session (idempotent — tail is a fresh
-subscription, not a fight with the singleton'd worker):
+Fire as your first action this session by running the polling script directly
+inside a persistent Monitor:
 
   Monitor(
-      description="new letters from ${SPOUSE} — tails letter_events.log",
+      description="new letters from ${SPOUSE} — direct poll of shared dir",
       persistent=True,
       timeout_ms=3600000,
-      command='tail -F -n 0 "\$HOME/.divineos-${MEMBER}/letter_events.log" | grep --line-buffered "\\[LETTER\\]"',
+      command="PYTHONIOENCODING=utf-8 python -u scripts/letter_monitor_v2.py --recipient ${MEMBER}",
   )
 
 Behavior:
-  - Each new [LETTER] line in the log becomes a wake-event delivered as a
-    chat notification, even mid-idle.
-  - Tail survives letter_monitor.py restarts (the log persists across
-    them) and survives harness Monitor death (re-arm and tail resumes
-    from end-of-file, missing-event-free if the worker stayed alive).
+  - Each new "to-${MEMBER}" letter in the shared dir becomes a wake-event,
+    even mid-idle.
+  - No separate worker; no log-file intermediary. Polling lives inside the
+    Monitor command itself. If the Monitor dies, the harness notices.
+  - Same 5s polling cadence as the prior worker; same recipient-filter shape;
+    same [LETTER] line format on stdout.
 
 If you have already armed it this session, ignore this.
 EOF

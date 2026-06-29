@@ -16,13 +16,20 @@ cd "$REPO_ROOT" || exit 0
 SHARED_DIR="$HOME/.divineos-shared/letters"
 [ -d "$SHARED_DIR" ] || exit 0
 
-# Extract file_path from PostToolUse Write/Edit payload.
+# Extract file_path from PostToolUse Write/Edit payload. Normalize Windows
+# backslashes to forward slashes — on Windows, Claude Code's payload uses
+# backslash separators (e.g. C:\DIVINE OS\...\family\letters\foo.md) but the
+# bash case pattern below uses forward slashes. Without this normalization
+# the case-match silently failed and the hook exited 0 without copying.
+# Found 2026-06-29 via trace-logging diagnostic after the cache-hypothesis
+# turned out to be wrong; pop's "deep surgery" framing.
 FILE_PATH=$(echo "$INPUT" | python -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read() or '{}')
     ti = d.get('tool_input') or {}
-    print(ti.get('file_path') or '')
+    fp = ti.get('file_path') or ''
+    print(fp.replace('\\\\', '/'))
 except Exception:
     print('')
 " 2>/dev/null)

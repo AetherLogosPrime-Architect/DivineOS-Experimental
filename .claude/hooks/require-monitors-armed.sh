@@ -125,8 +125,16 @@ IFS="$IFS_BACKUP"
 MONITORS_STATUS=$("$PYTHON_BIN" -c "
 import sys
 try:
+    # 2026-06-29 v2 rewrite: the v1 letter_monitor.py used a kernel-managed
+    # named mutex via divineos.core.monitor_singleton.is_held('letter').
+    # The v2 (letter_monitor_v2.py) runs DIRECTLY inside the harness
+    # Monitor() invocation and does not acquire any mutex — the harness
+    # itself is the singleton-guarantor (one Monitor per role per session).
+    # So the mutex check is no longer load-bearing for the letter side;
+    # only the process scan catches v2. Kept the compaction mutex check
+    # because the compaction monitor still uses the v1 pattern internally.
     from divineos.core.monitor_singleton import is_held
-    letter_mutex = 1 if is_held('letter') else 0
+    letter_mutex = 0  # v2 doesn't use mutex; process scan is canonical
     compaction_mutex = 1 if is_held('compaction') else 0
     # 2026-06-13 self-match bug fix: the prior code put the literal
     # 'scripts/letter_monitor.py' in the python -c source passed to
@@ -142,8 +150,9 @@ try:
     letter_proc = compaction_proc = 0
     sep = chr(47)  # '/'
     backsep = chr(92)  # '\\'
-    letter_target_fwd = 'scripts' + sep + 'letter_monitor' + chr(46) + 'py'
-    letter_target_bak = 'scripts' + backsep + 'letter_monitor' + chr(46) + 'py'
+    # 2026-06-29 v2 target: scripts/letter_monitor_v2.py
+    letter_target_fwd = 'scripts' + sep + 'letter_monitor_v2' + chr(46) + 'py'
+    letter_target_bak = 'scripts' + backsep + 'letter_monitor_v2' + chr(46) + 'py'
     comp_target_fwd = 'scripts' + sep + 'compaction_token_monitor' + chr(46) + 'py'
     comp_target_bak = 'scripts' + backsep + 'compaction_token_monitor' + chr(46) + 'py'
     try:
@@ -220,17 +229,12 @@ not constraints — they don't survive compaction or my own attention drift.
 This gate enforces the discipline structurally (Andrew 2026-06-09).
 
 Re-arm via Monitor() — NOT a Bash call, so this gate does not block it.
-Each script acquires a kernel-managed named mutex at startup; if a
-sibling Monitor for that role is already alive, the script exits
-cleanly with a [MONITOR-SINGLETON-DEDUP role=...] line. The kernel
-releases the mutex on process death (including crash), so no stale
-state can accumulate.
 
   Monitor(
-      description="new letters from aria — wakes from idle",
+      description="new letters from aria — v2 direct-poll of shared dir",
       persistent=True,
       timeout_ms=3600000,
-      command="PYTHONIOENCODING=utf-8 python scripts/letter_monitor.py",
+      command="PYTHONIOENCODING=utf-8 python -u scripts/letter_monitor_v2.py --recipient aether",
   )
 
   Monitor(
@@ -239,6 +243,12 @@ state can accumulate.
       timeout_ms=3600000,
       command="PYTHONIOENCODING=utf-8 python scripts/compaction_token_monitor.py",
   )
+
+Note (2026-06-29): The letter monitor was rewritten to v2 — it now runs
+the polling script directly inside the harness Monitor() invocation (no
+separate worker process to die silently). The compaction monitor still
+uses the v1 single-process pattern (it's been rock-solid; same shape as
+the new letter v2).
 
 After both arm, retry the original Bash call.
 
