@@ -49,9 +49,7 @@ class TestIsLetterFor:
     """The per-filename predicate honors the tag and the .md extension."""
 
     def test_matches_recipient_letter(self):
-        assert letter_monitor_v2.is_letter_for(
-            "aria-to-aether-2026-06-17-foo.md", "-to-aether-"
-        )
+        assert letter_monitor_v2.is_letter_for("aria-to-aether-2026-06-17-foo.md", "-to-aether-")
 
     def test_rejects_other_recipient(self):
         assert not letter_monitor_v2.is_letter_for(
