@@ -24,7 +24,12 @@
 
 INPUT=$(cat)
 
-echo "$INPUT" | python -c "
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+
+echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, os, re, shlex, sys
 
 try:
