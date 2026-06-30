@@ -53,7 +53,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - **Real-DB test suite** (SQLite, minimal mocks)
 - **386 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
-- **38 Claude Code enforcement hooks**
+- **39 Claude Code enforcement hooks**
 - **42 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
 - **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
@@ -472,7 +472,7 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
-- **`.claude/hooks/`** — Claude Code enforcement hooks (38 hooks, shell-level entry points that invoke the consolidated Python hooks).
+- **`.claude/hooks/`** — Claude Code enforcement hooks (39 hooks, shell-level entry points that invoke the consolidated Python hooks).
 - **`.claude/skills/`** — 24 slash-command skills covering daily operations.
 - **`.claude/agents/`** — Subagent definitions. Includes `family-member-template.md` as a starting point for defining persistent family-member subagents; operators rename and customize per their family composition.
 
