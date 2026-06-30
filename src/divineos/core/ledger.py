@@ -330,6 +330,24 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
             pass
 
     event_id = str(uuid.uuid4())
+
+    # Secret redaction (2026-06-30, response to 2026-06-26 key-leak class).
+    # An Anthropic API key reached the ledger via a tool-call payload and
+    # then rode into git when the DB was unignored for an external audit.
+    # Aletheia 2026-06-30: redact-at-write-time is the structural fix;
+    # history-scrub is hygiene. This is the structural layer — secrets
+    # never enter the ledger in the first place. See secret_redactor.py
+    # for pattern coverage; fail-loud (WARNING log when redaction fires).
+    try:
+        from divineos.core.secret_redactor import redact_and_warn
+
+        payload = redact_and_warn(payload, context=event_type)
+    except ImportError:
+        # Pre-bootstrap path — redactor not available. Original payload
+        # passes through unchanged; the next emission will pick up the
+        # module once it's importable.
+        pass
+
     # NOTE on timestamp ordering (Aletheia round-49b2a6659d7f family-
     # audit): timestamp is generated INSIDE the lock-acquired section
     # below, not here. If two threads call log_event concurrently and
