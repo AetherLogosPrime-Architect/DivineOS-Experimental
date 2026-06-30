@@ -74,10 +74,20 @@ class DriftState:
     rounds_filed_since_medium: int
     open_findings_above_low: int
 
+    # 2026-06-29 (Perplexity audit Issue #7, round-a7fe5f413c47): findings
+    # can be marked ROUTED (acknowledged and classified) without being
+    # RESOLVED (underlying issue actually fixed). Previously
+    # open_findings_above_low dropped to zero just by routing a backlog —
+    # paperwork could manufacture a clean drift state without fixing
+    # anything. This counter distinguishes "routed but not yet fixed"
+    # from "filed but not yet routed." Together they show the full state
+    # of accountability work.
+    routed_unresolved_above_low: int = 0
+
     # Absolute ops-since counters (never reset by any audit), useful for
     # answering "how much has happened lifetime" questions in briefing.
-    last_medium_audit_ts: float | None  # None when no MEDIUM+ audit has ever fired
-    last_strong_audit_ts: float | None
+    last_medium_audit_ts: float | None = None  # None when no MEDIUM+ audit has ever fired
+    last_strong_audit_ts: float | None = None
 
 
 def _last_audit_ts_at_or_above(tier_values: tuple[str, ...]) -> float | None:
@@ -214,6 +224,30 @@ def _count_open_findings_above_low() -> int:
     return int(row[0]) if row else 0
 
 
+def _count_routed_unresolved_above_low() -> int:
+    """Count ROUTED-but-not-RESOLVED findings (MEDIUM/HIGH/CRITICAL).
+
+    Per Perplexity audit Issue #7 (round-a7fe5f413c47): routing a finding
+    is acknowledgment and classification, not resolution. A finding can
+    be routed to the knowledge store (creating an observation entry)
+    without anyone actually fixing the underlying issue. This counter
+    complements open_findings_above_low so the drift surface can show
+    "acknowledged but not addressed" separately from "not yet acknowledged"
+    — preventing the paperwork-clears-drift failure mode where routing
+    a backlog without resolving anything manufactures a clean drift state.
+    """
+    init_watchmen_tables()
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM audit_findings "
+            "WHERE status = 'ROUTED' AND severity IN ('MEDIUM', 'HIGH', 'CRITICAL')"
+        ).fetchone()
+    finally:
+        conn.close()
+    return int(row[0]) if row else 0
+
+
 def compute_drift_state() -> DriftState:
     """Compute the current drift dimensions in a single pass."""
     medium_ts = last_medium_plus_audit_ts()
@@ -224,6 +258,7 @@ def compute_drift_state() -> DriftState:
         code_actions_since_medium=_count_tool_calls_since(medium_ts, _CODE_ACTION_TOOLS),
         rounds_filed_since_medium=_count_rounds_since(medium_ts),
         open_findings_above_low=_count_open_findings_above_low(),
+        routed_unresolved_above_low=_count_routed_unresolved_above_low(),
         last_medium_audit_ts=medium_ts,
         last_strong_audit_ts=strong_ts,
     )
