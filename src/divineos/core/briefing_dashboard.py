@@ -1097,8 +1097,101 @@ def _row_advice_pending() -> DashboardRow | None:
         return None
 
 
+def _row_consequence_chains() -> DashboardRow | None:
+    """Surface recent decision→outcome→lesson chains.
+
+    Wired 2026-06-29 per Perplexity audit Gap #9 (round-a7fe5f413c47):
+    consequence_chain has a queryable surface (recent_chains, chain_from_decision,
+    chain_to_lesson) but no caller — chains were only visible if manually
+    queried, defeating the point of having the join exist. Surfaces top
+    5 most recent chains as a dashboard row so they show up alongside
+    other decision/learning signals.
+
+    Note: v1 heuristic is 24h time-window proximity, not same-session
+    filtering. Chains are correlational, not causal — see chain.py for
+    the false-positive class. The preview marks each chain with the
+    decision-summary and how many lessons/outcomes followed so the
+    reader can judge plausibility from the surface.
+    """
+    try:
+        from divineos.core.consequence_chain import recent_chains
+
+        chains = recent_chains(limit=5)
+        if not chains:
+            return None
+        preview = []
+        for c in chains:
+            summary = (c.decision_summary or "").replace("\n", " ").strip()
+            n_out = len(c.outcome_event_ids)
+            n_les = len(c.lesson_ids)
+            # Fall back to short decision-id when summary is empty —
+            # observed in real data: many stored decisions lack summary
+            # text, so empty preview lines were uninformative.
+            if not summary:
+                summary = f"decision {c.decision_id[:12]}"
+            short = summary[:80] + ("..." if len(summary) > 80 else "")
+            preview.append(f"[+{n_out}out +{n_les}les] {short}")
+        return DashboardRow(
+            area="Consequence Chains",
+            count=len(chains),
+            stale_count=0,
+            drill_down="(decision→outcome→lesson, 24h v1 heuristic, correlational)",
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+
+
+def _row_anticipation() -> DashboardRow | None:
+    """Proactive warning surface — wires `anticipation.anticipate()` into the
+    dashboard so past mistakes/lessons matching current goal context surface
+    BEFORE the work happens, not after the catch.
+
+    Wired 2026-06-29 per Perplexity audit Gap #5 (round-a7fe5f413c47,
+    find-74d54edcac0d): module had public API ready but no caller. Per
+    audit recommendation: min relevance 0.4, max 3 warnings.
+    """
+    try:
+        from divineos.core.anticipation import anticipate
+        from divineos.core.hud_state import get_active_goals
+
+        goals = get_active_goals()
+        if not goals:
+            return None
+        # Concatenate active goal texts as the context-signal for what I'm
+        # currently working on. Goals are the most direct "what am I doing
+        # right now" surface; lessons whose patterns overlap with active
+        # goal-text are exactly the warnings worth surfacing pre-action.
+        context = " ".join((g.get("text") or "") for g in goals)
+        if not context.strip():
+            return None
+        warnings = anticipate(context, max_warnings=3)
+        # Filter to relevance >= 0.4 per audit spec — below that the noise
+        # would dilute the signal.
+        relevant = [w for w in warnings if w.get("relevance", 0) >= 0.4]
+        if not relevant:
+            return None
+        preview = []
+        for w in relevant:
+            text = (w.get("text") or "").replace("\n", " ").strip()
+            relevance = w.get("relevance", 0)
+            short = text[:100] + ("..." if len(text) > 100 else "")
+            preview.append(f"[{relevance:.2f}] {short}")
+        return DashboardRow(
+            area="Anticipated Warnings",
+            count=len(relevant),
+            stale_count=0,
+            drill_down="(matches past lessons against active goal context)",
+            preview=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 _ROW_FNS = [
+    _row_anticipation,
     _row_corrections,
+    _row_consequence_chains,
     _row_advice_pending,
     _row_handoff,
     _row_pending_structural_fixes,
