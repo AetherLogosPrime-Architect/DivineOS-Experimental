@@ -107,6 +107,22 @@ def _validate_actor(actor: str) -> str:
             pass
     if not normalized:
         raise ValueError("Actor name cannot be empty")
+    # 2026-06-29 (Perplexity audit Issue #5, round-a7fe5f413c47): positive
+    # external-actor check. Previously the function only rejected INTERNAL_ACTORS
+    # and accepted anything else, which meant typo'd or unknown actors entered
+    # the audit-rounds system silently. The audit named that gap and noted that
+    # tier_for_actor handles claude-* dynamically but _validate_actor didn't
+    # mirror the symmetry — meaning a future strict whitelist enforcement would
+    # have rejected claude-opus-auditor. This check makes the policy explicit:
+    # accept actors named in EXTERNAL_ACTORS OR matching the claude-* prefix
+    # for disambiguated external Claude instances. Bare "claude" was already
+    # rejected above as INTERNAL_ACTORS.
+    if normalized not in EXTERNAL_ACTORS and not normalized.startswith("claude-"):
+        raise ValueError(
+            f"Actor {actor!r} is not a recognized external auditor. "
+            f"Expected one of: {', '.join(sorted(EXTERNAL_ACTORS))} or a "
+            f"claude-* prefixed name (e.g. claude-opus-auditor)."
+        )
     return normalized
 
 
