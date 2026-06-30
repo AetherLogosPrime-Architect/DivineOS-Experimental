@@ -1482,8 +1482,7 @@ def select_experts(
                 replaceable = [
                     s
                     for s in selected
-                    if s.expert_name not in ALWAYS_ON
-                    and "dissent-inject" not in (s.reasons or [])
+                    if s.expert_name not in ALWAYS_ON and "dissent-inject" not in (s.reasons or [])
                 ]
                 if replaceable:
                     drop = min(replaceable, key=lambda s: s.score)
