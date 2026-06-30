@@ -252,6 +252,20 @@ else
         done <<< "$HOOK_STDIN"
 
         PYTEST_LOG="$(mktemp)"
+
+        # Parallel pytest detection — applies to all three pytest paths below
+        # (worktree-isolated, worktree-fallback, and no-isolation). 2026-06-30,
+        # Aether: ~33min serial -> ~3-5min on a 16-core box with pytest-xdist's
+        # "-n auto" worker pool. The slow gate was the bypass-pressure source
+        # Aletheia flagged. Feature-detect xdist; fall back to serial silently
+        # if not installed. Opt out via DIVINEOS_PUSH_GATE_NO_PARALLEL=1.
+        PYTEST_PARALLEL=""
+        if [[ "${DIVINEOS_PUSH_GATE_NO_PARALLEL:-0}" != "1" ]]; then
+            if python -c "import xdist" >/dev/null 2>&1; then
+                PYTEST_PARALLEL="-n auto"
+            fi
+        fi
+
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
             # Isolated path: temp worktree at the pushed commit. Survives
             # concurrent pushes because each gets its own checkout.
@@ -278,7 +292,7 @@ else
                 # worktree's source must win — prepend it to PYTHONPATH the same
                 # way `.claude/hooks/_lib.sh::find_divineos_python` does for Claude
                 # hooks. Same fix-shape, applied to the pre-push gate's pytest call.
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m pytest tests/ -q --tb=line) >"$PYTEST_LOG" 2>&1
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -296,7 +310,7 @@ else
                 # than blocking the push outright — preserves the gate's
                 # safety-net role even when isolation is unavailable.
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
-                python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+                python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
             fi
         else
