@@ -105,8 +105,46 @@ def _validate_actor(actor: str) -> str:
             )
         except Exception:  # noqa: BLE001 — bypass-emission must not break
             pass
+        # 2026-06-30 (wire #1 fix): when the ablation toggle bypasses the
+        # internal-actor rejection, return immediately so the positive
+        # whitelist check below does NOT re-reject internal actors like
+        # "claude" / "system". Prior to this return, the warning fired and
+        # then the function fell through into the EXTERNAL_ACTORS membership
+        # check, which broke test_internal_actor_allowed_with_toggle and
+        # the ablation-runner off-rate measurement. The whole point of the
+        # toggle is "let this through for measurement"; falling through
+        # defeated that point.
+        return normalized
     if not normalized:
         raise ValueError("Actor name cannot be empty")
+    # 2026-06-29 (Perplexity audit Issue #5, round-a7fe5f413c47): positive
+    # external-actor recognition. Previously the function only rejected
+    # INTERNAL_ACTORS and silently accepted everything else, including typo'd
+    # actors. The audit named that gap. tier_for_actor handles the claude-*
+    # prefix dynamically; this surface mirrors that symmetry so the family-
+    # member names (aria, aletheia, perplexity) are explicitly recognized
+    # as external rather than slipping past as unknowns.
+    #
+    # 2026-06-30 (wire #1 calibration fix, round-a7fe5f413c47): the first
+    # implementation made this a HARD REJECT for unknown actors, which broke
+    # test_unknown_external_actor_allowed and would have required a code
+    # change to onboard any new auditor. That violated the "automatic and
+    # smooth" intent (Andrew 2026-06-30) and the over-correction-reflex
+    # need (motivation [2cc65fa2]) — the right answer is almost never the
+    # opposite of the wrong answer. The calibrated middle: WARN on
+    # unrecognized actors but accept them. Visibility preserved, onboarding
+    # not blocked. If a stricter mode is ever needed, gate it behind an env
+    # var instead of removing the auto-accept path.
+    if normalized not in EXTERNAL_ACTORS and not normalized.startswith("claude-"):
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "watchmen actor %r is not in the recognized allowlist (%s) and does "
+            "not match the claude-* prefix. Accepted on the auto-onboard path; "
+            "consider adding it to EXTERNAL_ACTORS if it becomes a regular auditor.",
+            actor,
+            ", ".join(sorted(EXTERNAL_ACTORS)),
+        )
     return normalized
 
 

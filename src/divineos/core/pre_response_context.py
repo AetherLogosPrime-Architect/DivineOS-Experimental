@@ -832,11 +832,34 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         motivation_text = ""
 
+    # Briefing-freshness auto-inject (Perplexity audit Gap #8, 2026-06-29,
+    # round-a7fe5f413c47). briefing_freshness.py had a full auto-inject
+    # path built (briefing_summary_for_injection) but no caller — the
+    # staleness gate blocked at PreToolUse but the loud-in-experience
+    # surface never fired at UserPromptSubmit. When stale, the summary
+    # now lands in additionalContext automatically so accumulated state
+    # (compass concerns, stale corrections, pending structural fixes,
+    # drift state) shows up in the prompt regardless of whether I would
+    # have chosen to load the full briefing. Fail-soft.
+    briefing_freshness_text = ""
+    try:
+        from divineos.core.briefing_freshness import (
+            briefing_summary_for_injection,
+            staleness_signal,
+        )
+
+        sig = staleness_signal()
+        if sig.get("is_stale"):
+            briefing_freshness_text = briefing_summary_for_injection()
+    except Exception:  # noqa: BLE001 - observability boundary
+        briefing_freshness_text = ""
+
     return "\n\n".join(
         t
         for t in (
             governor_text,
             goal_doorman_text,
+            briefing_freshness_text,
             motivation_text,
             next_task_text,
             andrew_text,

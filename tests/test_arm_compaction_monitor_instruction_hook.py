@@ -43,12 +43,24 @@ pytestmark = pytest.mark.skipif(_BASH is None, reason="no usable bash for hook i
 
 
 def _run_hook() -> str:
+    # 2026-06-29 conditional-emit fix: the hook now stays silent if the
+    # compaction monitor process is actually alive (the prior marker-file
+    # gate was replaced with a process-liveness gate). This test pins the
+    # EMISSION FORMAT (quoted script path), which requires the hook to
+    # emit regardless of liveness. DIVINEOS_FORCE_ARM_EMIT=1 is the
+    # production-never-uses-it escape hatch the hook honors for exactly
+    # this case.
+    import os
+
+    env = dict(os.environ)
+    env["DIVINEOS_FORCE_ARM_EMIT"] = "1"
     result = subprocess.run(
         [_BASH, str(HOOK_PATH)],
         input="",
         capture_output=True,
         text=True,
         timeout=10,
+        env=env,
     )
     assert result.returncode == 0
     return result.stdout

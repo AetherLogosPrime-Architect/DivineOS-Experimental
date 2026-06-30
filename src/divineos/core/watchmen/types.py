@@ -84,8 +84,26 @@ EXTERNAL_ACTORS = frozenset(
         "gemini",
         "auditor",
         "council",
+        # 2026-06-29 (Perplexity audit Issue #5, round-a7fe5f413c47):
+        # the watchmen system was originally designed assuming external
+        # auditors were only "grok / gemini / claude-*". As the family
+        # system grew (aria, aletheia, perplexity), those names entered
+        # the audit-rounds in practice but weren't recognized as external.
+        # Adding them here so the positive validation check in _validate_actor
+        # accepts them as legitimate external auditors. Family members file
+        # findings as themselves; the registry in data/actor_registry.json
+        # is the authoritative truth source, this frozenset mirrors it for
+        # the validation hot-path.
+        "aria",
+        "aether",
+        "aletheia",
+        "perplexity",
     }
 )
+# In addition to the explicit frozenset above, actors whose name starts with
+# "claude-" (e.g. claude-opus-auditor, claude-sonnet-external) are accepted
+# as external by the validation check — mirrors tier_for_actor's prefix logic.
+# See _validate_actor in store.py for the policy implementation.
 
 # Internal actors that must NEVER submit findings (self-trigger prevention).
 # "claude" is listed here to structurally reject the bare name — the running
