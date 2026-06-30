@@ -106,10 +106,10 @@ def _scan_string(value: str) -> tuple[str, list[str]]:
     # common case of "the key is the start of a long log line".
     if len(value) > _MAX_SCAN_LEN:
         head = value[:_MAX_SCAN_LEN]
-        redacted_head, fired = _scan_string(head)
-        if not fired:
+        redacted_head, head_fired = _scan_string(head)
+        if not head_fired:
             return value, []
-        return redacted_head + value[_MAX_SCAN_LEN:], fired
+        return redacted_head + value[_MAX_SCAN_LEN:], head_fired
 
     fired: list[str] = []
     out = value
@@ -161,7 +161,11 @@ def redact_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     redacted = _walk(payload, depth=0, fired_log=fired_log)
     # Deduplicate while preserving insertion order.
     seen: set[str] = set()
-    unique_fired = [n for n in fired_log if not (n in seen or seen.add(n))]
+    unique_fired: list[str] = []
+    for n in fired_log:
+        if n not in seen:
+            seen.add(n)
+            unique_fired.append(n)
     return redacted, unique_fired
 
 

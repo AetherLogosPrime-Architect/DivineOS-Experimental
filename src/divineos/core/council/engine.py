@@ -78,7 +78,8 @@ class CouncilResult:
         seen: set[tuple[str, str]] = set()
         for i, a in enumerate(self.analyses):
             for b in self.analyses[i + 1 :]:
-                key = tuple(sorted([a.expert_name, b.expert_name]))
+                pair = sorted([a.expert_name, b.expert_name])
+                key: tuple[str, str] = (pair[0], pair[1])
                 if key in seen:
                     continue
                 reasons: list[str] = []

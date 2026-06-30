@@ -20,10 +20,10 @@ import re
 import sqlite3
 from dataclasses import dataclass, field
 
-logger = logging.getLogger(__name__)
-
 from divineos.core.council.engine import CouncilEngine, CouncilResult
 from divineos.core.council.framework import ExpertWisdom
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------

@@ -553,6 +553,7 @@ src/divineos/
       absence_gap.py           Build 1a — absence-gap binding: closes assertion-of-absence failure mode.
       engagement_trail.py      Build 2 — engagement-trail binding: closes wallpaper-response failure mode.
     motivation.py              Motivation tier — needs, wants, desires, ambitions, dreams.
+    secret_redactor.py         Secret redactor — strip API keys and credential-shaped values from
 
   analysis/
     _session_types.py          Session analysis type definitions
