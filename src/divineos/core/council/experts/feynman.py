@@ -471,4 +471,5 @@ def create_feynman_wisdom() -> ExpertWisdom:
             "Can you show me the mechanism?",
         ],
         tags=["physics", "epistemology", "clarity", "first-principles"],
+        known_tensions=["Kahneman"],
     )

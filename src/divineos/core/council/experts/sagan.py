@@ -406,4 +406,5 @@ def create_sagan_wisdom() -> ExpertWisdom:
             "What's the actual scale of what's at stake?",
         ],
         tags=["skeptic", "science-popularization", "wonder", "extraordinary-claims"],
+        known_tensions=["Wittgenstein"],
     )

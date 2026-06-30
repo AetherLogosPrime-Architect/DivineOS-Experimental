@@ -122,6 +122,16 @@ class ExpertWisdom:
     tags: list[str] = field(default_factory=list)  # for filtering/search
     is_fictional: bool = False  # True for Holmes, etc.
 
+    # Methodological tension pairs (Perplexity Issue #2 dissent requirement,
+    # 2026-06-30, round-a7fe5f413c47). Names of experts whose methodologies
+    # are structurally in tension with this one — NOT personal disagreement,
+    # methodological opposition. They optimize for different things or their
+    # core principles conflict. Tension is symmetric: if A lists B, B should
+    # list A. Used by select_experts() to inject dissent into council
+    # selections that would otherwise converge, and by CouncilResult
+    # divergent_positions() to surface productive friction in the synthesis.
+    known_tensions: list[str] = field(default_factory=list)
+
 
 @dataclass
 class LensAnalysis:
