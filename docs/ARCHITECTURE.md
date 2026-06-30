@@ -556,6 +556,7 @@ src/divineos/
     motivation.py              Motivation tier — needs, wants, desires, ambitions, dreams.
     secret_redactor.py         Secret redactor — strip API keys and credential-shaped values from
     time_calibration.py        Time-estimate calibration — record predictions, close with actuals,
+    no_verify_cost.py          no-verify cost-escalation — core decision logic, moved out of the bash hook.
 
   analysis/
     _session_types.py          Session analysis type definitions

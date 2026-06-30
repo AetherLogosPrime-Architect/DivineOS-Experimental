@@ -343,11 +343,52 @@ def get_calibration_report(*, limit: int = 50) -> dict:
     }
 
 
+def hook_main() -> int:
+    """Entry point for the Stop hook to call.
+
+    Reads the Stop-hook JSON from stdin, pulls my just-completed
+    assistant text from the transcript via extract_turn, scans it for
+    time-estimate language, records each match as a prediction.
+    Fail-open on every error path — never blocks the workflow.
+
+    2026-06-30 Aether migration: moved out of the bash hook so the
+    convention can't drift. The hook is now a thin doorbell.
+    """
+    import json
+    import sys
+
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+    except Exception:  # noqa: BLE001
+        return 0
+    transcript_path = data.get("transcript_path") or data.get("transcript")
+    if not transcript_path:
+        return 0
+    try:
+        from divineos.core.operating_loop.turn_extraction import extract_turn
+    except ImportError:
+        return 0
+    try:
+        turn = extract_turn(transcript_path)
+        text = getattr(turn, "prior_assistant_text", "") or ""
+    except Exception:  # noqa: BLE001
+        return 0
+    if not text.strip():
+        return 0
+    try:
+        for est in detect_estimates(text):
+            record_prediction(est, actor="aether", task_hint=est.context[:120])
+    except Exception:  # noqa: BLE001
+        pass
+    return 0
+
+
 __all__ = [
     "TimeEstimate",
     "close_prediction",
     "detect_estimates",
     "get_calibration_report",
+    "hook_main",
     "list_open_predictions",
     "record_prediction",
 ]
