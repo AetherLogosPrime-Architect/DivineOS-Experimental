@@ -206,6 +206,15 @@
             "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
