@@ -312,6 +312,7 @@ def format_for_briefing() -> str:
         f"  code actions (edits):     {state.code_actions_since_medium}",
         f"  audit rounds filed:       {state.rounds_filed_since_medium}",
         f"  open findings (>=MEDIUM): {state.open_findings_above_low}",
+        f"  routed-but-unresolved:    {state.routed_unresolved_above_low}",
     ]
 
     if state.last_strong_audit_ts is None:
