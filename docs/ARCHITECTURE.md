@@ -42,6 +42,7 @@ src/divineos/
     monitor_commands.py        monitor status / cleanup-orphans — operator surface for the named-mutex singleton subsystem; lists alive Monitors with [KEEP]/[ORPHAN] markers and offers --kill cleanup of stale prior-session processes (descriptive by default per Andrew 2026-06-13 explicit-consent shape)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
+    time_estimate_commands.py  time-estimate: CLI for the prediction-vs-actual log auto-populated by the time-estimate-tracker Stop hook; open/close/report for grounding future time guesses in real data (Pop 2026-06-30: "you give WILDLY bad time estimates")
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
@@ -554,6 +555,7 @@ src/divineos/
       engagement_trail.py      Build 2 — engagement-trail binding: closes wallpaper-response failure mode.
     motivation.py              Motivation tier — needs, wants, desires, ambitions, dreams.
     secret_redactor.py         Secret redactor — strip API keys and credential-shaped values from
+    time_calibration.py        Time-estimate calibration — record predictions, close with actuals,
 
   analysis/
     _session_types.py          Session analysis type definitions

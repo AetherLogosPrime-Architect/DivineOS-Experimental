@@ -306,6 +306,7 @@ from divineos.cli import (  # noqa: E402
     deletion_commands,
     texture_commands,
     calibration_commands,
+    time_estimate_commands,
     backlog_commands,
     prs_commands,
     automerge_commands,
@@ -324,6 +325,7 @@ decision_commands.register(cli)
 deletion_commands.register(cli)
 texture_commands.register(cli)
 calibration_commands.register(cli)
+time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
 automerge_commands.register(cli)
