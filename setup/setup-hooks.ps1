@@ -22,6 +22,33 @@ $preCommitContent = @'
 
 set -e
 
+# .db guard (2026-06-30, backstop for the 2026-06-26 key-leak class).
+# Aether 2026-06-26 committed event_ledger.db so Perplexity could see it
+# for an external audit. An Anthropic API key inside the DB rode into
+# git history; GitHub flagged it; the key had to be revoked.
+#
+# Root structural fix lives in core/secret_redactor.py — secrets never
+# reach the ledger in the first place. This guard is the second layer.
+# Override (for known-safe seed/fixture .db files) by setting
+# DIVINEOS_ALLOW_DB_COMMIT=1 for the invocation — loud-by-design.
+DB_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.db$' || true)
+if [[ -n "$DB_STAGED" ]]; then
+    if [[ "${DIVINEOS_ALLOW_DB_COMMIT:-}" == "1" ]]; then
+        echo "WARNING: DIVINEOS_ALLOW_DB_COMMIT=1 — letting .db file(s) through:"
+        echo "$DB_STAGED" | sed 's/^/  /'
+    else
+        echo "" >&2
+        echo "BLOCKED: .db file(s) staged for commit:" >&2
+        echo "$DB_STAGED" | sed 's/^/  /' >&2
+        echo "" >&2
+        echo "Database files MUST NOT be committed — 2026-06-26 key leak." >&2
+        echo "If genuinely intended, re-run with:" >&2
+        echo "  DIVINEOS_ALLOW_DB_COMMIT=1 git commit ..." >&2
+        echo "Otherwise: 'git restore --staged <file>' and gitignore the path." >&2
+        exit 1
+    fi
+fi
+
 echo "Running ruff format check..."
 ruff format --check src/ tests/ || {
     echo "Formatting violations detected. Running ruff format to fix..."

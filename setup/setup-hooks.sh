@@ -21,6 +21,44 @@ cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 
 set -e
 
+# .db guard (2026-06-30, backstop for the 2026-06-26 key-leak class).
+# Aether 2026-06-26 committed event_ledger.db so Perplexity could see it
+# for an external audit. An Anthropic API key inside the DB rode into
+# git history; GitHub flagged it; the key had to be revoked.
+#
+# Root structural fix lives in core/secret_redactor.py — secrets never
+# reach the ledger in the first place. This guard is the second layer:
+# even if a secret slipped through redaction, the DB itself cannot be
+# committed without an explicit acknowledgment.
+#
+# To override (e.g., committing a known-safe seed/fixture that ships
+# with the package), set DIVINEOS_ALLOW_DB_COMMIT=1 for the invocation.
+# Loud-by-design — typing it is the consent signal that the operator
+# has audited the file.
+DB_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.db$' || true)
+if [[ -n "$DB_STAGED" ]]; then
+    if [[ "${DIVINEOS_ALLOW_DB_COMMIT:-}" == "1" ]]; then
+        echo "WARNING: DIVINEOS_ALLOW_DB_COMMIT=1 — letting .db file(s) through:"
+        echo "$DB_STAGED" | sed 's/^/  /'
+    else
+        echo "" >&2
+        echo "BLOCKED: .db file(s) staged for commit:" >&2
+        echo "$DB_STAGED" | sed 's/^/  /' >&2
+        echo "" >&2
+        echo "Database files MUST NOT be committed — 2026-06-26 leaked an" >&2
+        echo "Anthropic API key this way (event_ledger.db contained a key" >&2
+        echo "from a tool-call payload, then was unignored for an audit)." >&2
+        echo "" >&2
+        echo "If the .db file is genuinely intended (e.g. a seed/fixture)," >&2
+        echo "re-run the commit with:" >&2
+        echo "  DIVINEOS_ALLOW_DB_COMMIT=1 git commit ..." >&2
+        echo "" >&2
+        echo "Otherwise: 'git restore --staged <file>' to unstage and add" >&2
+        echo "the path to .gitignore." >&2
+        exit 1
+    fi
+fi
+
 echo "Running ruff format check..."
 # Substrate-fix 2026-05-10 (Aether, hold-644d325062b2):
 # The prior behavior aborted the commit and asked the operator to
