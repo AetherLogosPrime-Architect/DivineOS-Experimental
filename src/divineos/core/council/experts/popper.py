@@ -342,4 +342,5 @@ def create_popper_wisdom() -> ExpertWisdom:
             "What's the most severe test you can construct?",
         ],
         tags=["epistemology", "falsification", "testing", "adversarial", "red-team"],
+        known_tensions=["Kahneman"],
     )

@@ -485,4 +485,5 @@ def create_norman_wisdom() -> ExpertWisdom:
             "What feedback does the user get after each action?",
         ],
         tags=["human-centered-design", "usability", "affordances", "conceptual-models"],
+        known_tensions=["Dijkstra"],
     )

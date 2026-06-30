@@ -519,4 +519,5 @@ def create_dennett_wisdom() -> ExpertWisdom:
             "intentional-stance",
             "demystification",
         ],
+        known_tensions=["Penrose"],
     )
