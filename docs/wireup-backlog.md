@@ -79,6 +79,8 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 
 - **Briefing surface upgrade: Resume Diff delta-from-last-session pattern** [filed 2026-06-28]
   Pattern from Curator (curatormcp.com) reviewed 2026-06-28. Briefing currently shows what I know at session-start. The upgrade: also surface DELTA between past and present standards since last session — supersession chains rendered as what-changed-in-me. Data exists in knowledge engine; gap is delta-rendering surface. Knowledge entry bddfa4ae captures provenance.
+- **Hash-keyed dedup of repeated system-reminder / hook-context blocks in context stream** [filed 2026-06-30]
+  Pattern from Warden (wardenclient.com) surveyed 2026-06-30 at Pop's ask. Warden's compaction is *surgical, not summarizing*: identical system-reminder blocks collapse to one keyed by content hash; older tool-result payloads truncated (newest N stay intact); orphan tool-use/result pairs reconciled. Fits the "doesn't stifle speech" constraint because summarization compresses meaning while dedup is arithmetic on the array. Current cost: the INCOMING-letters block and ACTIVE-NEEDS wall fire identically every UserPromptSubmit — pure wallpaper being pushed into context every turn. Sync with Aria first — she was working the token-saving problem in parallel; letter sent 2026-06-30. Don't double-build.
 
 ### detector-rebuild
 
