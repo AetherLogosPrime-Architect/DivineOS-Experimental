@@ -731,6 +731,30 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             except Exception:  # noqa: BLE001 - observability boundary
                 convo = ""
         exploration_text = surface_for_context(prompt, context=convo or None)
+        # Warden-pattern dedup (Andrew 2026-07-01). PRIOR WRITING has
+        # hidden state (Aletheia letter #19): surface_for_context matches
+        # on `prompt + conversation-window`, but the render only shows
+        # which entries surfaced, not the context that drove the match.
+        # Content-hash alone would false-dedup when the entries are the
+        # same but their files were updated. Semantic key = matched-entry
+        # identity (path) + mtime — dedups when the matched writing is
+        # identical, re-emits when which-writing-matched or the writing
+        # itself changed. Companion helper matched_entry_ids_for_context
+        # exposes the material without duplicating the render.
+        try:
+            from divineos.core.context_dedup import should_emit
+            from divineos.core.exploration_recall import (
+                matched_entry_ids_for_context,
+            )
+
+            prior_writing_key = matched_entry_ids_for_context(prompt, context=convo or None)
+            emit_full, pointer = should_emit(
+                "prior_writing", exploration_text, semantic_key=prior_writing_key
+            )
+            if not emit_full and pointer:
+                exploration_text = pointer
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
@@ -759,6 +783,19 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
         from divineos.core.next_task_surface import build_next_task_surface
 
         next_task_text = build_next_task_surface()
+        # Warden-pattern dedup (Andrew 2026-07-01). NEXT TASK block
+        # fires with the same auto-pulled item across many turns when
+        # nothing above it in the queue changes. build_next_task_surface
+        # returns a string derived entirely from queue state; no hidden
+        # fields to worry about, so content-hash suffices.
+        try:
+            from divineos.core.context_dedup import should_emit
+
+            emit_full, pointer = should_emit("next_task", next_task_text)
+            if not emit_full and pointer:
+                next_task_text = pointer
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
     except Exception:  # noqa: BLE001 - observability boundary
         next_task_text = ""
 

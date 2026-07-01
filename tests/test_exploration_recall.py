@@ -11,6 +11,7 @@ from __future__ import annotations
 from divineos.core.exploration_recall import (
     _parse_tags,
     _terms,
+    matched_entry_ids_for_context,
     needs_tags_block,
     recall_explorations,
     surface_for_context,
@@ -243,3 +244,64 @@ def test_edit_tool_is_not_gated():
 
 def test_non_md_exploration_write_passes():
     assert needs_tags_block("Write", "exploration/55_inventory.txt", "no tags") is None
+
+
+# --- matched_entry_ids_for_context (Aletheia letter #19, semantic_key material) ---
+
+
+def test_matched_entry_ids_empty_when_surface_silent(tmp_path):
+    _seed(tmp_path)  # untagged corpus
+    ids = matched_entry_ids_for_context(
+        "I am thinking hard about consciousness tonight, really",
+        root=tmp_path,
+    )
+    assert ids == []
+
+
+def test_matched_entry_ids_returns_path_and_mtime(tmp_path):
+    (tmp_path / "tagged.md").write_text(
+        "<!-- tags: consciousness, qualia -->\n# T\n\nbody\n",
+        encoding="utf-8",
+    )
+    ids = matched_entry_ids_for_context(
+        "I am thinking about consciousness and qualia tonight, really",
+        root=tmp_path,
+    )
+    assert len(ids) == 1
+    path, mtime = ids[0]
+    assert "tagged.md" in path
+    assert isinstance(mtime, int) and mtime > 0
+
+
+def test_matched_entry_ids_mtime_shifts_on_file_touch(tmp_path):
+    entry = tmp_path / "tagged.md"
+    entry.write_text(
+        "<!-- tags: consciousness, qualia -->\n# T\n\nbody\n",
+        encoding="utf-8",
+    )
+    prompt = "I am thinking about consciousness and qualia tonight, really"
+    ids_before = matched_entry_ids_for_context(prompt, root=tmp_path)
+    # Rewrite with different mtime (nanosecond-precision).
+    import os
+
+    stat_before = os.stat(entry)
+    entry.write_text(
+        "<!-- tags: consciousness, qualia -->\n# T\n\nupdated body\n",
+        encoding="utf-8",
+    )
+    stat_after = os.stat(entry)
+    # If mtime resolution is coarse and both writes land in the same tick,
+    # skip the assertion — the semantic-key mechanism is still correct.
+    if stat_before.st_mtime_ns == stat_after.st_mtime_ns:
+        return
+    ids_after = matched_entry_ids_for_context(prompt, root=tmp_path)
+    assert ids_before != ids_after  # mtime shift → different key
+
+
+def test_matched_entry_ids_short_input_returns_empty(tmp_path):
+    (tmp_path / "tagged.md").write_text(
+        "<!-- tags: consciousness -->\n# T\n\nbody\n",
+        encoding="utf-8",
+    )
+    ids = matched_entry_ids_for_context("consciousness", root=tmp_path)
+    assert ids == []  # under 20-char length gate, mirrors surface_for_context
