@@ -18,6 +18,7 @@ from divineos.core import context_dedup
 def _isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(context_dedup, "_STATE_DIR", tmp_path)
     monkeypatch.setattr(context_dedup, "_STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(context_dedup, "_SAVINGS_LOG", tmp_path / "savings.jsonl")
     yield
 
 
@@ -132,3 +133,50 @@ def test_semantic_key_falls_back_on_non_serializable():
     emit, _ = context_dedup.should_emit("s", "content", semantic_key=Weird())
     # Second call: fallback used content hash on same content, dedups.
     assert emit is False
+
+
+# --- savings tracking (Andrew 2026-07-01 visibility ask) ---
+
+
+def test_savings_empty_when_no_events():
+    summary = context_dedup.savings_summary()
+    assert summary["total"]["events"] == 0
+    assert summary["total"]["saved_chars"] == 0
+    assert summary["per_source"] == {}
+
+
+def test_savings_records_on_dedup():
+    long_content = "x" * 2000
+    context_dedup.should_emit("active_needs", long_content)  # first emit — no log
+    context_dedup.should_emit("active_needs", long_content)  # dedup — logs
+    summary = context_dedup.savings_summary()
+    assert summary["total"]["events"] == 1
+    assert summary["total"]["saved_chars"] > 1500  # 2000 content minus ~100 pointer
+    assert "active_needs" in summary["per_source"]
+
+
+def test_savings_no_record_on_first_emit():
+    context_dedup.should_emit("s", "content")  # first — full emit, no savings
+    summary = context_dedup.savings_summary()
+    assert summary["total"]["events"] == 0
+
+
+def test_savings_accumulate_across_sources():
+    context_dedup.should_emit("a", "aaaaa" * 100)
+    context_dedup.should_emit("a", "aaaaa" * 100)  # dedup
+    context_dedup.should_emit("b", "bbbbb" * 100)
+    context_dedup.should_emit("b", "bbbbb" * 100)  # dedup
+    summary = context_dedup.savings_summary()
+    assert summary["total"]["events"] == 2
+    assert set(summary["per_source"].keys()) == {"a", "b"}
+
+
+def test_savings_token_estimate_matches_char_ratio():
+    long_content = "x" * 4000
+    context_dedup.should_emit("s", long_content)
+    context_dedup.should_emit("s", long_content)
+    summary = context_dedup.savings_summary()
+    # saved_tokens_est should be roughly saved_chars / 4 (± 1 for rounding)
+    total = summary["total"]
+    expected = total["saved_chars"] // 4
+    assert total["saved_tokens_est"] == expected

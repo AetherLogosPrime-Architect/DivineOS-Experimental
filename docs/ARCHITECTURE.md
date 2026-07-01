@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (386 commands across 34 modules)
+  cli/                         CLI package (390 commands across 34 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -56,6 +56,7 @@ src/divineos/
     letter_seen_commands.py    `divineos letter mark-on-read` — letter-on-read routing (migrated from .claude/hooks/post-read-mark-letter-seen.sh, 2026-06-24, per prereg-a30e8ff6cf0a)
     push_commands.py           `divineos push <branch>` — foreground push with file-lock + ledger-event alarms (per prereg-a9ecf79d250d, anti-silent-failure root fix for the 2026-06-24 stuck-branches incident)
     context_tokens_commands.py  `divineos context-tokens` — honest token-count gauge from Claude Code session transcript (anti-fabrication; per prereg-986ee5dda7be)
+    context_dedup_commands.py  `divineos dedup-stats` — per-source token savings from Warden-pattern context dedup (Andrew 2026-07-01 visibility ask)
     ear_sweep_commands.py      `divineos ear-sweep run` — SessionStart sweep of stale ear_watch processes (migrated from .claude/hooks/session-start-sweep-stale-watchers.sh, 2026-06-24, per prereg-82ca289a4074)
     audit_visibility_commands.py  `divineos audit-visibility check` — post-commit "auditable work not on origin" warning (migrated from .claude/hooks/post-commit-audit-visibility.sh, 2026-06-24, per prereg-69507d1a38db)
     pr_gate_commands.py        `divineos pr-gate create` — guardrail-touching-PR draft-requirement gate (migrated from .claude/hooks/gh-pr-create-draft-gate.sh, 2026-06-24, per prereg-17a6ff97ba67)

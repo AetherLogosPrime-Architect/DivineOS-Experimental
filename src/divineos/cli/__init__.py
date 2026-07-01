@@ -283,6 +283,7 @@ from divineos.cli import (  # noqa: E402
     letter_seen_commands,
     push_commands,
     context_tokens_commands,
+    context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
     pr_gate_commands,
@@ -363,6 +364,7 @@ progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
 context_tokens_commands.register(cli)
+context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
