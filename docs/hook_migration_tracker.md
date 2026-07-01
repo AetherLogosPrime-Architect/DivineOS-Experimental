@@ -63,6 +63,7 @@ Reference hook for stdin-reading PreToolUse: see `.claude/hooks/no-verify-cost-e
 - `time-estimate-tracker.sh` ← migrated 2026-06-30 (Aether), `hook_main()` added to `core/time_calibration.py`
 - `deletion-discipline.sh` ← migrated 2026-06-30 (Aether), `main()` added to `core/deletion_discipline.py`
 - `compass-check.sh` ← migrated 2026-06-30 (Aria wrote `main()`, Aether thinned the hook), uses `core/compass_rudder.main()`
+- `detect-correction.sh` ← migrated 2026-06-30 (Aether), `hook_main()` added to `core/correction_marker.py`
 
 **Still thick (need migration):**
 - `andrew-correction-attestation.sh` (84) — OS module exists; just needs hook trimming + main() added
@@ -72,7 +73,6 @@ Reference hook for stdin-reading PreToolUse: see `.claude/hooks/no-verify-cost-e
 - `check-cleanup-period.sh` (105)
 - `check-council-required.sh` (96) — OS module exists
 - `check-pending-obligations.sh` (120) — OS module exists
-- `detect-correction.sh` (81) — OS module exists
 - `ear-auto-relaunch.sh` (67)
 - `ear-surface.sh` (134)
 - `family-member-invocation-seal.sh` (82) — OS module exists (`seal_hook`); already mostly thin
