@@ -71,8 +71,11 @@ fi
 # infinite turn-by-turn auto-commit log without real content change.
 NON_STATE_FILES=$(echo "$STAGED" | grep -vE '^(\.divineos-state/|\.claude/state/|data/.*\.db$|\.divineos/.*\.json$)' || true)
 if [ -z "$NON_STATE_FILES" ]; then
-  # Only state-file churn — unstage and exit
-  git reset --quiet HEAD -- $STAGED 2>/dev/null
+  # Only state-file churn — unstage and exit. Reset without file args
+  # unstages everything currently staged, which at this point is only
+  # the state files we just added via `git add -u`. Avoids the SC2086
+  # unquoted-variable issue that would break on filenames with spaces.
+  git reset --quiet HEAD 2>/dev/null
   exit 0
 fi
 
