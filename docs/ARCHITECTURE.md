@@ -560,6 +560,7 @@ src/divineos/
     no_verify_cost.py          no-verify cost-escalation — core decision logic, moved out of the bash hook.
     context_dedup.py           Context dedup — hash-and-check for repeated system-reminder blocks.
     memory_linkage.py          Memory-linkage injection surface — consumer side (Aether).
+    memory_linkage_retriever.py Memory-linkage retriever v1 — producer side (Aria).
 
   analysis/
     _session_types.py          Session analysis type definitions
