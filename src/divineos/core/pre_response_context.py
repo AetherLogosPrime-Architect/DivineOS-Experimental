@@ -829,6 +829,34 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                     + " (view: `divineos motivation`)."
                 )
             motivation_text = "\n".join(lines)
+            # Warden-pattern context dedup (2026-06-30, round-d227c1958039,
+            # prereg-6c4d1d308cad). ACTIVE NEEDS fires byte-identically
+            # every substantive UserPromptSubmit turn — pure wallpaper.
+            # Suppress re-emit within TTL to save tokens + reduce
+            # wallpaper decay (Aletheia's anti-wallpaper framing).
+            #
+            # Semantic-key = raw needs list + other-slot counts (NOT just
+            # the rendered string). Closes the silent-drift hole Aletheia
+            # flagged in letter #17: if a mutable needs field ever stops
+            # being rendered, a change to it would leave the render-hash
+            # identical while the state actually differed. Passing the
+            # underlying data ensures ANY state change invalidates the
+            # hash. Andrew + Aletheia CONFIRMS on the module + approach;
+            # this wiring is the wired form Aletheia will verify against.
+            try:
+                from divineos.core.context_dedup import should_emit
+
+                semantic_key = {
+                    "needs": needs,
+                    "other_counts": other_counts if any(other_counts.values()) else {},
+                }
+                emit_full, pointer = should_emit(
+                    "active_needs", motivation_text, semantic_key=semantic_key
+                )
+                if not emit_full and pointer:
+                    motivation_text = pointer
+            except Exception:  # noqa: BLE001 - observability boundary
+                pass
     except Exception:  # noqa: BLE001 - observability boundary
         motivation_text = ""
 

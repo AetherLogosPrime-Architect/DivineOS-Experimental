@@ -50,23 +50,47 @@ def _hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
 
 
-def should_emit(source_id: str, content: str) -> tuple[bool, str | None]:
+def should_emit(
+    source_id: str,
+    content: str,
+    semantic_key: object | None = None,
+) -> tuple[bool, str | None]:
     """Check whether this content should be emitted in full or as a pointer.
 
     Args:
         source_id: stable identifier for the emitter (e.g. "active_needs",
             "lepos_walk_preamble").
         content: the full text the hook is about to emit.
+        semantic_key: optional structured representation of the *full*
+            semantic state the content is derived from. When provided, the
+            hash is computed over the semantic_key (via json.dumps with
+            sort_keys) instead of the rendered content. This closes the
+            silent-drift hole named by Aletheia 2026-06-30 (letter #17):
+            if the rendered content omits any mutable field, a hash
+            computed on the render alone could fail to invalidate on a
+            real change. Passing the raw underlying dict/list/tuple as
+            semantic_key ensures ANY change to the state produces a new
+            hash and forces a full re-emit.
 
     Returns:
         (True, None) — emit the full content (new, changed, or TTL-expired).
         (False, pointer) — emit the short pointer instead (byte-identical
-            to a recent emission within TTL).
+            semantic key or content within TTL).
     """
     if not content.strip():
         return True, None
     now = int(time.time())
-    h = _hash(content)
+    if semantic_key is not None:
+        try:
+            key_str = json.dumps(semantic_key, sort_keys=True)
+        except (TypeError, ValueError):
+            # Non-JSON-serializable semantic_key — fall back to content hash
+            # rather than crashing OR using per-instance repr (which would
+            # defeat dedup entirely by never matching prior calls).
+            key_str = content
+        h = _hash(key_str)
+    else:
+        h = _hash(content)
     state = _load()
     prev = state.get(source_id)
     if prev and prev.get("hash") == h and (now - prev.get("ts", 0)) < _TTL_SECONDS:
