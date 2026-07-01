@@ -509,10 +509,29 @@ class TestSessionScoring:
         assert health is None or isinstance(health, dict)
 
     def test_health_has_expected_keys(self):
-        """If health is returned, it should have grade and score."""
+        """If health is returned, it should have grade and score.
+
+        2026-06-30 fix: this test was flaking under parallel pytest
+        (-n auto) because the worker that picked it up had no
+        initialized session — earlier tests in the same suite were
+        side-effecting the init, so serial runs passed and parallel
+        runs failed depending on worker assignment. Now the test
+        initializes its own session so it's order-independent.
+        """
         from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.session_manager import (
+            get_current_session_id,
+            initialize_session,
+        )
 
         init_knowledge_table()
+
+        # Idempotent init — if a previous test in this worker already
+        # initialized, this is a no-op.
+        try:
+            get_current_session_id()
+        except RuntimeError:
+            initialize_session()
 
         from divineos.cli.pipeline_phases import run_session_scoring
 

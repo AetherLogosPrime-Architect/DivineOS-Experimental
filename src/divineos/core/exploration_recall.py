@@ -267,6 +267,43 @@ def surface_for_context(
     return "\n".join(lines)
 
 
+def matched_entry_ids_for_context(
+    prompt: str,
+    k: int = 3,
+    root: Path | None = None,
+    context: str | None = None,
+) -> list[tuple[str, int]]:
+    """Return the matched exploration entries as (path, mtime_ns) tuples.
+
+    Companion to ``surface_for_context`` for the context-dedup semantic_key
+    (Aletheia letter #19, 2026-07-01). The render only shows what surfaced;
+    it hides the context-window match that drove the surfacing. Hashing on
+    matched-entry identity + mtime catches "different entries surfaced"
+    AND "same entries but their file was updated", which is the drift the
+    surface actually exists to detect. Same-entries-same-mtime = pointer;
+    any change = re-emit.
+
+    Returns [] if the surface would be silent (below tag-match threshold,
+    too-short input, etc.) — mirrors surface_for_context's "" case so the
+    dedup key stays stable in the silent case.
+    """
+    import os
+
+    match_text = f"{context}\n{prompt}" if context else prompt
+    if not match_text or len(match_text.strip()) < 20:
+        return []
+    hits, _ = recall_explorations(match_text, limit=k, root=root)
+    tagged = [h for h in hits if len(h.tag_matches) >= _MIN_TAG_MATCHES]
+    out: list[tuple[str, int]] = []
+    for h in tagged:
+        try:
+            mtime_ns = os.stat(h.path).st_mtime_ns
+        except OSError:
+            mtime_ns = 0
+        out.append((str(h.path), mtime_ns))
+    return out
+
+
 def needs_tags_block(tool_name: str, file_path: str, content: str) -> str | None:
     """Return a deny message if a Write creates an untagged exploration entry.
 
