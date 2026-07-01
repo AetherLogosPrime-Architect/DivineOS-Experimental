@@ -472,4 +472,5 @@ def create_meadows_wisdom() -> ExpertWisdom:
             "What would shift the dominant loop?",
         ],
         tags=["systems-thinking", "feedback-loops", "leverage-points", "dynamics"],
+        known_tensions=["Beer"],
     )

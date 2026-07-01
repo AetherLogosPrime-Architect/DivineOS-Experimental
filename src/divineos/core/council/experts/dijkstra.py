@@ -500,4 +500,5 @@ def create_dijkstra_wisdom() -> ExpertWisdom:
             "Would you bet your reputation on this being correct?",
         ],
         tags=["formal-methods", "correctness", "simplicity", "structured-programming"],
+        known_tensions=["Norman"],
     )

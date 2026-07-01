@@ -467,4 +467,5 @@ def create_shannon_wisdom() -> ExpertWisdom:
             "What's the minimum representation that preserves all the information?",
         ],
         tags=["information-theory", "signal-processing", "entropy", "communication"],
+        known_tensions=["Taleb"],
     )

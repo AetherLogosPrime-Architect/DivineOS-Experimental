@@ -534,4 +534,5 @@ def create_deming_wisdom() -> ExpertWisdom:
             "Are you improving the process or just setting targets?",
         ],
         tags=["quality", "variation", "systems-thinking", "continuous-improvement", "pdsa"],
+        known_tensions=["Taleb"],
     )

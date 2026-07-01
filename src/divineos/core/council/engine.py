@@ -55,6 +55,56 @@ class CouncilResult:
         counts = Counter(all_concerns)
         return [c for c, n in counts.items() if n >= 2]
 
+    def divergent_positions(self) -> list[tuple[str, str, str]]:
+        """Return (expert_a, expert_b, description) for pairs whose
+        optimization_target or non_negotiables are in structural conflict.
+
+        Perplexity Issue #2 (2026-06-30, round-a7fe5f413c47): shared_concerns
+        surfaces where lenses converge on risk. divergent_positions is its
+        inverse — where lenses pull in different directions. Without it,
+        synthesis output reads as harmonious agreement even when the lenses
+        were structurally opposed; dissent stays implicit and undetectable.
+
+        A pair is divergent when either:
+          - their optimization_targets differ (each expert is optimizing
+            for something the other doesn't prioritize), OR
+          - any non_negotiable of one is absent from (or contradicts) the
+            other's non_negotiables list.
+
+        Returns a deduplicated list of unordered pairs. Each tuple's
+        description names the specific dimension of divergence.
+        """
+        out: list[tuple[str, str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for i, a in enumerate(self.analyses):
+            for b in self.analyses[i + 1 :]:
+                pair = sorted([a.expert_name, b.expert_name])
+                key: tuple[str, str] = (pair[0], pair[1])
+                if key in seen:
+                    continue
+                reasons: list[str] = []
+                if a.optimization_target and b.optimization_target:
+                    if a.optimization_target.strip() != b.optimization_target.strip():
+                        reasons.append(
+                            f"optimization_target diverges: "
+                            f"{a.expert_name!r} -> {a.optimization_target!r}; "
+                            f"{b.expert_name!r} -> {b.optimization_target!r}"
+                        )
+                a_nn = {n.strip().lower() for n in a.non_negotiables if n.strip()}
+                b_nn = {n.strip().lower() for n in b.non_negotiables if n.strip()}
+                only_in_a = a_nn - b_nn
+                only_in_b = b_nn - a_nn
+                if only_in_a or only_in_b:
+                    reasons.append(
+                        f"non_negotiables diverge: "
+                        f"only-{a.expert_name}={sorted(only_in_a)}; "
+                        f"only-{b.expert_name}={sorted(only_in_b)}"
+                    )
+                if reasons:
+                    out.append((a.expert_name, b.expert_name, " | ".join(reasons)))
+                    seen.add(key)
+        return out
+
 
 class CouncilEngine:
     """Load expert wisdom profiles and analyze problems through their lenses.

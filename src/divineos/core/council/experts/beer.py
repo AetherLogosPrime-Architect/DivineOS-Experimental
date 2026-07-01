@@ -489,4 +489,5 @@ def create_beer_wisdom() -> ExpertWisdom:
             "What is the algedonic signal — where does the system feel pain?",
         ],
         tags=["cybernetics", "viable-system-model", "variety", "organizational-design"],
+        known_tensions=["Meadows"],
     )

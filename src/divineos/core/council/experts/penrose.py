@@ -402,4 +402,5 @@ def create_penrose_wisdom() -> ExpertWisdom:
             "Where does the theory predict its own breakdown?",
         ],
         tags=["physics", "geometry", "consciousness", "non-computable"],
+        known_tensions=["Dennett"],
     )

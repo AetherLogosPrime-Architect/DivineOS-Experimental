@@ -314,7 +314,11 @@ class TestEventCaptureRateProperty:
         num_inputs=st.integers(min_value=1, max_value=10),
     )
     @pytest.mark.slow
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=10,
+        suppress_health_check=[HealthCheck.too_slow],
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_event_capture_rate(self, num_inputs):
         """Test that all user inputs are captured."""
         session_id = initialize_session()

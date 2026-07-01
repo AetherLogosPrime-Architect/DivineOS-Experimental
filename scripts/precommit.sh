@@ -259,7 +259,7 @@ fi
 # was a deferred run-this-yourself script no one ran.
 if [ -n "$STAGED_SRC" ]; then
     echo "=== Bandit (MEDIUM+) ==="
-    if ! python3 scripts/run_bandit.py --strict 2>/dev/null; then
+    if ! python scripts/run_bandit.py --strict 2>/dev/null; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
@@ -272,7 +272,7 @@ fi
 # command must register on the CLI.
 if [ -n "$STAGED_PY" ] && echo "$STAGED_PY" | grep -q "^tests/"; then
     echo "=== Test-CLI Linkage ==="
-    if ! python3 scripts/check_test_cli_linkage.py; then
+    if ! python scripts/check_test_cli_linkage.py; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
@@ -286,7 +286,7 @@ fi
 # blocks the commit (round-1 + round-3 audit-cleanup slips both had
 # that exact shape).
 if [ $ERRORS -eq 0 ]; then
-    python3 scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
+    python scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
 fi
 
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
@@ -306,7 +306,7 @@ fi
 #    has no current either." This is the current.
 if [ $ERRORS -eq 0 ]; then
     echo "=== Wiring-gap (informational) ==="
-    python3 scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+    python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
 fi
 
 echo ""

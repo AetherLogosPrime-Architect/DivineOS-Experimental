@@ -513,4 +513,5 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
             "Don't think — LOOK. How is this actually used?",
         ],
         tags=["language-games", "meaning-as-use", "dissolution", "grammar-investigation"],
+        known_tensions=["Sagan"],
     )
