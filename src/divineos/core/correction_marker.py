@@ -525,3 +525,70 @@ def format_gate_message(marker: dict) -> str:
         '--reason "<why CLI is broken + plan to log the correction after>" '
         "(>= 30 chars; logged to ~/.divineos/cli_broken_escapes.jsonl)."
     )
+
+
+def hook_main() -> int:
+    """Entry point for the UserPromptSubmit hook to call.
+
+    Reads UserPromptSubmit JSON from stdin, extracts the prior assistant
+    turn from the transcript, classifies the user's new prompt for
+    correction patterns, sets the gate-marker on block-tier matches,
+    prints an advisory to stdout on advise-tier matches (lands as
+    additional context for my next prompt), exits 0.
+
+    2026-06-30 Aether migration: moved out of the bash hook so the
+    convention can't drift. Hook is now a thin doorbell.
+
+    Fail-open on every error path — observational machinery, never
+    breaks the workflow.
+    """
+    import json
+    import sys
+
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+    except Exception:  # noqa: BLE001
+        return 0
+
+    prompt = data.get("prompt", "") or ""
+    if not prompt:
+        return 0
+
+    transcript = data.get("transcript_path", "") or ""
+    prior_text = ""
+    prior_calls: tuple[str, ...] = ()
+    if transcript:
+        try:
+            from divineos.core.operating_loop.turn_extraction import extract_turn
+
+            tt = extract_turn(transcript)
+            prior_text = tt.last_assistant_text or ""
+            prior_calls = tuple(tt.tool_calls_in_turn or ())
+        except Exception:  # noqa: BLE001
+            pass
+
+    try:
+        match = classify_correction(prompt, prior_text, prior_calls)
+    except Exception:  # noqa: BLE001
+        return 0
+    if match is None:
+        return 0
+
+    if match.verdict == "block":
+        try:
+            set_marker(prompt, match)
+        except Exception:  # noqa: BLE001
+            pass
+    elif match.verdict == "advise":
+        # Non-blocking advisory — surface to context without blocking the
+        # tool. UserPromptSubmit stdout becomes additional context for the
+        # next prompt.
+        print(
+            f"ADVISORY (correction-detector): {match.tier} pattern "
+            f"{match.pattern!r} matched {match.matched_text!r} at position "
+            f"{match.position}, but the prior turn does not look corrected "
+            "(no completion-claim, no substantive edit) - NOT blocking. If it "
+            "was a real correction, log it via: divineos learn"
+        )
+
+    return 0

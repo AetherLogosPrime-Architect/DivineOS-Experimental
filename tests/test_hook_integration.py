@@ -453,7 +453,14 @@ class TestEventDataIntegrity:
     """Test that event data is stored with integrity."""
 
     def test_event_payload_preserved(self):
-        """Test that event payload is preserved exactly."""
+        """Test that event payload is preserved exactly (modulo content_hash).
+
+        2026-06-30 update: the secret-redactor wire-in to log_event now makes
+        a defensive copy of the payload before adding ``content_hash``, so
+        the caller's payload dict is no longer mutated. The stored payload
+        equals the original plus the ledger's content_hash field. Strip
+        content_hash before comparing to assert the rest is preserved.
+        """
         payload = {
             "content": "Test message with special chars: !@#$%^&*()",
             "metadata": {"key": "value"},
@@ -466,7 +473,8 @@ class TestEventDataIntegrity:
         event = next((e for e in events if e["event_type"] == "USER_INPUT"), None)
 
         assert event is not None
-        assert event["payload"] == payload
+        stored = {k: v for k, v in event["payload"].items() if k != "content_hash"}
+        assert stored == payload
 
     def test_event_actor_recorded(self):
         """Test that event actor is recorded correctly."""

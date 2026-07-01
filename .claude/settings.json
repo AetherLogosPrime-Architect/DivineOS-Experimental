@@ -65,6 +65,14 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/token-state-surface.sh"
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -206,6 +214,15 @@
             "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -292,6 +309,14 @@
             "type": "command",
             "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/time-estimate-tracker.sh"
           }
         ]
       }

@@ -283,6 +283,7 @@ from divineos.cli import (  # noqa: E402
     letter_seen_commands,
     push_commands,
     context_tokens_commands,
+    context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
     pr_gate_commands,
@@ -306,6 +307,7 @@ from divineos.cli import (  # noqa: E402
     deletion_commands,
     texture_commands,
     calibration_commands,
+    time_estimate_commands,
     backlog_commands,
     prs_commands,
     automerge_commands,
@@ -324,6 +326,7 @@ decision_commands.register(cli)
 deletion_commands.register(cli)
 texture_commands.register(cli)
 calibration_commands.register(cli)
+time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
 automerge_commands.register(cli)
@@ -361,6 +364,7 @@ progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
 context_tokens_commands.register(cli)
+context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)

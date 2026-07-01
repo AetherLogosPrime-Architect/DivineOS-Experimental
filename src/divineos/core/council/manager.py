@@ -15,12 +15,15 @@ the caller can override. It never prevents an expert from being consulted.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 from dataclasses import dataclass, field
 
 from divineos.core.council.engine import CouncilEngine, CouncilResult
 from divineos.core.council.framework import ExpertWisdom
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------
@@ -1335,6 +1338,22 @@ def select_experts(
          times HARD_CAP_THRESHOLD_RATIO, push toward hard_cap.
       4. If we're below min_experts, fill with top-scored remaining
          experts regardless of score (small councils still need a quorum).
+      5. Dissent requirement: if no tension pair exists in the selection,
+         inject the highest-scoring unselected expert whose known_tensions
+         overlap with a selected expert (Perplexity Issue #2).
+
+    Evaluation-order clarification (Perplexity Issue #3, round-a7fe5f413c47):
+    family caps and dissent pairs are COMPLEMENTARY, not in conflict:
+      - Cross-family tension pairs (Feynman/Kahneman) are the ideal case —
+        family cap and dissent both satisfied at no extra cost.
+      - In-family tension pairs (rare) would normally be blocked by the
+        family cap. Phase 5 runs AFTER family caps have applied, and the
+        dissent injection is allowed to override the family cap by one
+        slot (it does not consult family_counts when picking a candidate;
+        it only respects hard_cap by dropping the lowest-scoring non-
+        ALWAYS_ON member if at hard cap). This preserves dissent as a
+        load-bearing structural property; family cap stays advisory in
+        the one specific moment dissent demands it.
     """
     scored = score_experts(problem, experts)
 
@@ -1405,6 +1424,87 @@ def select_experts(
             break
         if es.expert_name not in selected_names:
             _add(es, reason="min-fill")
+
+    # Phase 5: DISSENT REQUIREMENT (Perplexity Issue #2, round-a7fe5f413c47).
+    #
+    # After primary selection, verify at least one structural tension pair
+    # exists in the council. A tension pair is two experts whose methodologies
+    # are structurally opposed (declared in ExpertWisdom.known_tensions). If
+    # the selection has converged into a chorus — every expert optimizing for
+    # the same thing — the council produces harmonious synthesis with no
+    # internal friction, exactly the failure mode Beer's variety-deficit
+    # observation predicts (knowledge be7ee0fb).
+    #
+    # If no tension pair is found, iterate unselected candidates in score
+    # order and inject the first one whose known_tensions overlaps with a
+    # selected expert. If at hard_cap, replace the lowest-scoring selected
+    # expert (preserving the dissent-injected one).
+    #
+    # The spec calls for requiring ONE tension pair (not two) — sufficient
+    # for friction without forcing every council to be adversarial.
+    def _has_tension_pair(council: list[ExpertScore]) -> bool:
+        names = {es.expert_name for es in council}
+        for es in council:
+            wisdom = experts.get(es.expert_name)
+            if not wisdom:
+                continue
+            for opp in getattr(wisdom, "known_tensions", []) or []:
+                if opp in names and opp != es.expert_name:
+                    return True
+        return False
+
+    if not _has_tension_pair(selected):
+        selected_set = selected_names
+        # Find best unselected candidate whose known_tensions overlaps with
+        # any currently-selected expert.
+        injection: ExpertScore | None = None
+        injection_partner: str = ""
+        for candidate in scored:
+            if candidate.expert_name in selected_set:
+                continue
+            cand_wisdom = experts.get(candidate.expert_name)
+            if not cand_wisdom:
+                continue
+            cand_tensions = set(getattr(cand_wisdom, "known_tensions", []) or [])
+            if not cand_tensions:
+                continue
+            overlap = cand_tensions & selected_set
+            if overlap:
+                injection = candidate
+                injection_partner = sorted(overlap)[0]
+                break
+
+        if injection is not None:
+            if len(selected) >= hard_cap:
+                # Replace the lowest-scoring NON-dissenting member to keep
+                # within the hard cap. Don't displace ALWAYS_ON or already-
+                # injected dissenters.
+                replaceable = [
+                    s
+                    for s in selected
+                    if s.expert_name not in ALWAYS_ON and "dissent-inject" not in (s.reasons or [])
+                ]
+                if replaceable:
+                    drop = min(replaceable, key=lambda s: s.score)
+                    selected.remove(drop)
+                    selected_names.discard(drop.expert_name)
+                    fam = _family_of(drop.expert_name)
+                    if fam and family_counts.get(fam, 0) > 0:
+                        family_counts[fam] -= 1
+                    _add(
+                        injection,
+                        reason=f"dissent-inject (vs {injection_partner}; dropped {drop.expert_name})",
+                    )
+                # If everyone selected is ALWAYS_ON or already a dissenter,
+                # silently skip — better to ship without the new dissenter
+                # than to displace structural musts.
+            else:
+                _add(injection, reason=f"dissent-inject (vs {injection_partner})")
+            logger.info(
+                "dissent-inject: added %s to balance %s (tension pair)",
+                injection.expert_name,
+                injection_partner,
+            )
 
     return selected
 

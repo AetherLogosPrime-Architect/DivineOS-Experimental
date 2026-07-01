@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (386 commands across 34 modules)
+  cli/                         CLI package (390 commands across 34 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -42,6 +42,7 @@ src/divineos/
     monitor_commands.py        monitor status / cleanup-orphans — operator surface for the named-mutex singleton subsystem; lists alive Monitors with [KEEP]/[ORPHAN] markers and offers --kill cleanup of stale prior-session processes (descriptive by default per Andrew 2026-06-13 explicit-consent shape)
     texture_commands.py        texture: forward-addressed markers for post-compaction self (carries felt-shape across compaction)
     calibration_commands.py    calibration: Brier-score surface for confidence-vs-outcome calibration (closes the auditor's "by what measure does this work" critique with reproducible numbers)
+    time_estimate_commands.py  time-estimate: CLI for the prediction-vs-actual log auto-populated by the time-estimate-tracker Stop hook; open/close/report for grounding future time guesses in real data (Pop 2026-06-30: "you give WILDLY bad time estimates")
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
@@ -55,6 +56,7 @@ src/divineos/
     letter_seen_commands.py    `divineos letter mark-on-read` — letter-on-read routing (migrated from .claude/hooks/post-read-mark-letter-seen.sh, 2026-06-24, per prereg-a30e8ff6cf0a)
     push_commands.py           `divineos push <branch>` — foreground push with file-lock + ledger-event alarms (per prereg-a9ecf79d250d, anti-silent-failure root fix for the 2026-06-24 stuck-branches incident)
     context_tokens_commands.py  `divineos context-tokens` — honest token-count gauge from Claude Code session transcript (anti-fabrication; per prereg-986ee5dda7be)
+    context_dedup_commands.py  `divineos dedup-stats` — per-source token savings from Warden-pattern context dedup (Andrew 2026-07-01 visibility ask)
     ear_sweep_commands.py      `divineos ear-sweep run` — SessionStart sweep of stale ear_watch processes (migrated from .claude/hooks/session-start-sweep-stale-watchers.sh, 2026-06-24, per prereg-82ca289a4074)
     audit_visibility_commands.py  `divineos audit-visibility check` — post-commit "auditable work not on origin" warning (migrated from .claude/hooks/post-commit-audit-visibility.sh, 2026-06-24, per prereg-69507d1a38db)
     pr_gate_commands.py        `divineos pr-gate create` — guardrail-touching-PR draft-requirement gate (migrated from .claude/hooks/gh-pr-create-draft-gate.sh, 2026-06-24, per prereg-17a6ff97ba67)
@@ -553,6 +555,10 @@ src/divineos/
       absence_gap.py           Build 1a — absence-gap binding: closes assertion-of-absence failure mode.
       engagement_trail.py      Build 2 — engagement-trail binding: closes wallpaper-response failure mode.
     motivation.py              Motivation tier — needs, wants, desires, ambitions, dreams.
+    secret_redactor.py         Secret redactor — strip API keys and credential-shaped values from
+    time_calibration.py        Time-estimate calibration — record predictions, close with actuals,
+    no_verify_cost.py          no-verify cost-escalation — core decision logic, moved out of the bash hook.
+    context_dedup.py           Context dedup — hash-and-check for repeated system-reminder blocks.
 
   analysis/
     _session_types.py          Session analysis type definitions
