@@ -86,7 +86,10 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 timeout = 30
-addopts = "--strict-markers"
+# --maxprocesses=16 caps pytest-xdist "-n auto" spawns (2026-07-02: an
+# unrestricted "-n auto" on a 16-core+HT box was resolving to 40 workers,
+# each ~1.5GB, demanding 60GB on a 31GB system. Andrew's call: cap at 16.)
+addopts = "--strict-markers --maxprocesses=16"
 
 [tool.coverage.run]
 source = ["divineos"]
