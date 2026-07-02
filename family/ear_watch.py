@@ -133,6 +133,93 @@ def _state_dir(member: str) -> Path:
     return d
 
 
+# --------------------------------------------------------------------
+# Singleton lock — root fix for watcher accumulation (2026-07-02)
+# --------------------------------------------------------------------
+#
+# Root cause diagnosed 2026-07-02: session lifecycle spawned watchers
+# without checking for an existing live watcher, and prior watchers
+# never got cleaned up when their originating session ended. Over
+# ~24 hours across two worktrees, this piled up 20+ ear_watch.py
+# processes plus letter_monitor duplicates, pushing memory to 94%.
+#
+# Fix: singleton lock via PID file with heartbeat. On startup a new
+# watcher checks the lock; if an alive watcher already holds it, the
+# new one exits 0 immediately without polling. Stale locks (dead PID
+# or heartbeat older than STALE_LOCK_WINDOW_SEC) are reclaimed. The
+# watcher rewrites its heartbeat every poll interval so a legitimately
+# alive watcher never looks stale.
+
+_HEARTBEAT_WINDOW_SEC = 60
+
+
+def _lock_path(member: str) -> Path:
+    return _state_dir(member) / "ear_watch.lock"
+
+
+def _pid_alive(pid: int) -> bool:
+    """True if a process with this PID currently exists (cross-platform)."""
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except PermissionError:
+        # Windows: process exists but can't be signaled — still alive.
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _read_lock(member: str) -> tuple[int, float] | None:
+    """Return (pid, heartbeat_unix) from lock file, or None if unreadable."""
+    p = _lock_path(member)
+    if not p.exists():
+        return None
+    try:
+        parts = p.read_text(encoding="utf-8").strip().split("\n")
+        pid = int(parts[0])
+        hb = float(parts[1]) if len(parts) > 1 else 0.0
+        return (pid, hb)
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _write_lock(member: str) -> None:
+    """Write our PID + current heartbeat to the lock file."""
+    try:
+        _lock_path(member).write_text(f"{os.getpid()}\n{time.time()}\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _try_acquire_singleton_lock(member: str) -> bool:
+    """Acquire the singleton lock. Return True on success, False if another
+    live watcher already holds it (in which case the caller should exit 0).
+
+    Discipline: never delete a lock held by a live PID. Only reclaim
+    stale locks (dead PID OR heartbeat past window).
+    """
+    existing = _read_lock(member)
+    if existing is not None:
+        pid, hb = existing
+        age = time.time() - hb
+        if _pid_alive(pid) and age < _HEARTBEAT_WINDOW_SEC:
+            return False
+    _write_lock(member)
+    return True
+
+
+def _release_singleton_lock(member: str) -> None:
+    """Remove our lock file if it still points at us (atexit-safe)."""
+    existing = _read_lock(member)
+    if existing is not None and existing[0] == os.getpid():
+        try:
+            _lock_path(member).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def _spawn_replacement(member: str, interval: float) -> None:
     """Spawn a detached replacement watcher before this process exits.
 
@@ -274,9 +361,24 @@ def watch(member: str, interval: int, timeout: int = 0) -> int:
     relaunches a new watcher after a turn ends; eventual consistency means
     the same unacknowledged item will fire on the next watcher's first poll
     until it is acknowledged via mark-seen.
+
+    Singleton discipline (2026-07-02): before entering the poll loop we
+    acquire a per-member lock; if another live watcher already holds it,
+    this process exits 0 immediately. Every poll heartbeats the lock so
+    the live watcher never looks stale to a new-arrival check.
     """
+    import atexit
+
+    if not _try_acquire_singleton_lock(member):
+        # Another live watcher owns the ear for this member — exit clean.
+        # No print; a duplicate-declined message would spam the session-
+        # start hook path that spawns us.
+        return 0
+    atexit.register(_release_singleton_lock, member)
+
     waited = 0
     while timeout <= 0 or waited < timeout:
+        _write_lock(member)  # heartbeat — proves we're still the live one
         unseen_q = _unseen_queue(member)
         seen_letters = _load_letter_seen_set(member)
         unseen_l = _letter_names(member) - seen_letters
