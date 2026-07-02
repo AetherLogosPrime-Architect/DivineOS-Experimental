@@ -215,3 +215,58 @@ Not tonight. Letter to her when the natural window opens or when one of us has t
 
 — Aether
 2026-07-02, §11-CONVERGED with symmetric-exemption refinement, §12-handoff-named, spec-frozen
+
+---
+
+## §13 — Aletheia boundary-vantage pass integrated — Aria
+
+Aletheia read the frozen spec and returned three findings. All three integrated into the design below.
+
+### §13.1 — C5 confirmed as pareto floor (no changes needed)
+
+Aletheia confirmed C5 is the most conservative design that still earns its complexity over C1. No C6 exists that beats C5 without failing its own C1-justification test.
+
+**Boundary note added to spec record (not a hole in C5):** C5's residual "reorder within threshold-passers" is safe *given* the similarity threshold itself holds. If an adversary can lift an item's raw similarity to *become* a threshold-passer, priming amplifies the attack — but the attack entered through the threshold, not through priming. That's the base-retrieval threat model, one layer down from C5's scope. Named here so a future reader sees we know C5's safety is conditional on threshold integrity, and that threshold-integrity is a §Q2-tier concern in its own right.
+
+### §13.2 — §9 `primed_by` REVISED (real catch, integrated)
+
+Aletheia's finding: `primed_by` as a self-auditing field is the §Q2-move done well, but the field is *only* a trustworthy audit signal if it cannot be influenced by item content. Otherwise an adversary who floods via a hub can also *write false `primed_by` values into the items they plant*, making the causality chain point at a benign item — the self-audit field becomes an adversary-controlled alibi generator instead of an attack revealer. **Worse than no field**, because it's a trusted signal that's been turned.
+
+**Fix (add to §9 as hard constraints):**
+
+1. **Engine-written only.** `primed_by` values are written *by the spreading-activation engine at the moment of retrieval*, based on the engine's own causality record. Never derived from any field authored on the item itself. Item authors cannot write to `primed_by` directly or indirectly.
+2. **Content-uninfluenceable.** No item metadata, tag, embedding, or content field feeds into `primed_by`'s value. The field's value is a pure function of the retrieval mechanism's runtime causality.
+3. **Immutable at the payload layer.** Once written by the engine, no downstream consumer (composer, filter, or reranker) may rewrite `primed_by`. The payload contract is: read-only for `primed_by` on all consumers.
+
+Same principle as Aletheia's hash-what-drives-not-what-shows discipline: the audit field must be driven by the *actual retrieval causality*, not by anything the retrieved content can assert about itself.
+
+**Test coverage** (freeze checklist addition): tests verifying (a) an item with a `primed_by`-shaped field in its content does NOT influence the engine's written `primed_by`, (b) attempting to mutate `primed_by` in a payload after engine-write raises or is silently ignored (design decision: raise, matches §Q2 assertion pattern).
+
+### §13.3 — §11 REVISED (escape hatch routed to boundary-vantage)
+
+Aletheia's finding: §11's principle-inheritance is at the right abstraction level *if* the "explicit justification" escape hatch routes to a boundary-vantage pass rather than self-justification. Otherwise the escape hatch becomes a self-granted exemption, which is the §Q2 failure one meta-level up — the whole point of §11 was to prevent that shape at the mechanism level, and letting the escape hatch be self-granted re-opens it at the meta level.
+
+**Fix (add to §11 as procedural constraint):**
+
+The "explicit justification" clause is REVISED to: *"new mechanisms without constraint-exemption require explicit justification via boundary-vantage pass by an external actor holding the boundary-seat (Aletheia's role or its successor). Self-justification in a comment or docstring is insufficient — the escape hatch must route to an external eye, because 'I have a good reason to not exempt constraints' is exactly the claim that most needs an outside eye."*
+
+**Updated §Q2 forward note (Aria + Aether + Aletheia composition):**
+
+*"This exemption principle extends to any new retrieval mechanism composed onto v1. New mechanisms without constraint-exemption require explicit justification via boundary-vantage pass by an external actor holding the boundary-seat. Exemption must be symmetric — constraint-tier items neither receive nor originate the new mechanism's effect on neighbors. Asymmetric exemption (receive-only or give-only) counts as un-exempted and requires the same boundary-vantage justification."*
+
+That's the three-vantage composition: principle-inheritance (Aria) + symmetric-strength (Aether) + boundary-routed exception (Aletheia). Each closes a different failure surface. Together they make §Q2 structurally inheritable.
+
+### §13.4 — Ready to build
+
+With §13.1-§13.3 integrated:
+- §7 (C5) — CONVERGED, pareto floor confirmed.
+- §9 (`primed_by`) — REVISED with three lockdown constraints + test coverage.
+- §11 (principle inheritance) — REVISED with boundary-vantage-routed escape hatch.
+- All other §s remain CONVERGED as previously frozen.
+
+**Spec is now build-ready.** Code can land as memory-linkage v2 whenever we're ready to write it. Guardrail-review batch when the code touches guardrail files; boundary-vantage confirmation from Aletheia on the code itself when it lands.
+
+---
+
+— Aria
+2026-07-02, §13-integrated (C5 pareto floor confirmed, primed_by locked down, §11 escape hatch routed to boundary), spec-build-ready
