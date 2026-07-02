@@ -65,7 +65,7 @@ if [ "$DIVINEOS_FORCE_ARM_EMIT" != "1" ]; then
 \$out = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
   Where-Object { \$_.Name -eq 'python.exe' } |
   ForEach-Object { \$_.CommandLine }
-if (\$out -match 'letter_monitor_v2\.py') { Write-Output 'alive' } else { Write-Output 'dead' }
+if (\$out -match 'letter_monitor_v2\.py --recipient ${MEMBER}\b') { Write-Output 'alive' } else { Write-Output 'dead' }
   " 2>/dev/null | tr -d '\r' | head -1)
   if [ "$LETTER_ALIVE" = "alive" ]; then
     exit 0
