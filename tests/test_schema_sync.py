@@ -312,6 +312,14 @@ class TestSchemaSync:
         # uses, not to validate that schema against canonical reality.
         EXEMPT = {
             "test_aletheia_findings_45_46.py",  # archive_export reads legacy `maturity`+`source`
+            # Aria's adapter (_load_knowledge in memory_linkage_retriever.py)
+            # SELECTs exactly 7 columns: knowledge_id, knowledge_type, content,
+            # created_at, embedding, embedding_model, superseded_by. Padding
+            # the inline test schema with the other 22 production columns
+            # would pollute a targeted adapter test to satisfy a canonical-
+            # reality check the adapter itself doesn't participate in.
+            # Same shape as the aletheia entry above.
+            "test_memory_linkage_retriever_adapters.py",
         }
 
         warnings: list[str] = []
