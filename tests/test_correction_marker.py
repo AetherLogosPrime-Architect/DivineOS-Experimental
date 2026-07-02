@@ -441,7 +441,10 @@ class TestEvidenceBearingReturn:
     def test_pattern_field_captures_actual_regex(self) -> None:
         # The pattern field stores the regex that matched, verbatim. This is
         # what dismissals can cite: "pattern X over-fires on shape Y".
-        result = classify_correction("you missed the spec")
+        # Use \bnot what i\b as a stable STRONG-tier sample. (Prior sample
+        # \byou missed\b was demoted to WEAK on 2026-06-30 after repeated
+        # false-fires on Andrew's discursive use — see WEAK_CORRECTION_PATTERNS.)
+        result = classify_correction("not what i wanted")
         assert result is not None
         # The pattern must be one of the STRONG_CORRECTION_PATTERNS — caller
         # can use it to identify which specific pattern fired.

@@ -1,11 +1,11 @@
 #!/bin/bash
-# PreToolUse hook — thin doorbell for the compass rudder.
-# All judgment lives in `divineos.core.compass_rudder.main()`.
+# PreToolUse hook — thin doorbell for the compass-rudder gate.
 #
-# Migrated 2026-06-30 (Aria) per Aether's hook-thinness pattern:
-#   docs/hook_migration_tracker.md.
-# Prior thick version (~65 lines of embedded Python + bash) is in git
-# history if forensic comparison is ever needed.
+# All judgment lives in `divineos.core.compass_rudder.main()`. The OS-side
+# was migrated by Aria 2026-06-30; this commit (Aether) thins the bash
+# hook to match the pattern.
+#
+# Fail-open: any error exits 0 silently. Never blocks the workflow.
 
 set +e
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
@@ -21,6 +21,6 @@ try:
     sys.exit(main())
 except Exception:
     pass
-"
+" 2>/dev/null
 
 exit 0

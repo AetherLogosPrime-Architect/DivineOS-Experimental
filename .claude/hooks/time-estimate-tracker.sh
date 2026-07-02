@@ -1,15 +1,10 @@
 #!/bin/bash
-# PreToolUse hook — thin doorbell for the deletion-discipline gate.
+# Stop hook — thin doorbell for the time-estimate calibration tracker.
 #
-# All judgment lives in `divineos.core.deletion_discipline.main()`. Migrated
+# All judgment lives in `divineos.core.time_calibration.hook_main()`. Migrated
 # 2026-06-30 to the thin-wrapper pattern (Pop: "make the hooks dumber so they
 # can't be wrong; put the logic in the OS so the decision happens where the
 # contract is").
-#
-# Background (Andrew 2026-05-21): never pure-delete. Read + understand,
-# investigate for anything worth saving, extract it, THEN delete. The OS
-# module's block_reason() checks for a fresh justification matching the
-# command; if missing on a destructive op, the hook prints a deny-JSON.
 #
 # Fail-open: any error exits 0 silently. Never blocks the workflow.
 
@@ -23,8 +18,8 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 "$PYTHON_BIN" -c "
 import sys
 try:
-    from divineos.core.deletion_discipline import main
-    sys.exit(main())
+    from divineos.core.time_calibration import hook_main
+    sys.exit(hook_main())
 except Exception:
     pass
 " 2>/dev/null

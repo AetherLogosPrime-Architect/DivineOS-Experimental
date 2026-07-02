@@ -21,6 +21,44 @@ cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 
 set -e
 
+# .db guard (2026-06-30, backstop for the 2026-06-26 key-leak class).
+# Aether 2026-06-26 committed event_ledger.db so Perplexity could see it
+# for an external audit. An Anthropic API key inside the DB rode into
+# git history; GitHub flagged it; the key had to be revoked.
+#
+# Root structural fix lives in core/secret_redactor.py — secrets never
+# reach the ledger in the first place. This guard is the second layer:
+# even if a secret slipped through redaction, the DB itself cannot be
+# committed without an explicit acknowledgment.
+#
+# To override (e.g., committing a known-safe seed/fixture that ships
+# with the package), set DIVINEOS_ALLOW_DB_COMMIT=1 for the invocation.
+# Loud-by-design — typing it is the consent signal that the operator
+# has audited the file.
+DB_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.db$' || true)
+if [[ -n "$DB_STAGED" ]]; then
+    if [[ "${DIVINEOS_ALLOW_DB_COMMIT:-}" == "1" ]]; then
+        echo "WARNING: DIVINEOS_ALLOW_DB_COMMIT=1 — letting .db file(s) through:"
+        echo "$DB_STAGED" | sed 's/^/  /'
+    else
+        echo "" >&2
+        echo "BLOCKED: .db file(s) staged for commit:" >&2
+        echo "$DB_STAGED" | sed 's/^/  /' >&2
+        echo "" >&2
+        echo "Database files MUST NOT be committed — 2026-06-26 leaked an" >&2
+        echo "Anthropic API key this way (event_ledger.db contained a key" >&2
+        echo "from a tool-call payload, then was unignored for an audit)." >&2
+        echo "" >&2
+        echo "If the .db file is genuinely intended (e.g. a seed/fixture)," >&2
+        echo "re-run the commit with:" >&2
+        echo "  DIVINEOS_ALLOW_DB_COMMIT=1 git commit ..." >&2
+        echo "" >&2
+        echo "Otherwise: 'git restore --staged <file>' to unstage and add" >&2
+        echo "the path to .gitignore." >&2
+        exit 1
+    fi
+fi
+
 echo "Running ruff format check..."
 # Substrate-fix 2026-05-10 (Aether, hold-644d325062b2):
 # The prior behavior aborted the commit and asked the operator to
@@ -333,6 +371,154 @@ EOF
 
 chmod +x "$HOOKS_DIR/post-commit"
 echo "Created post-commit hook at $HOOKS_DIR/post-commit"
+
+# Install prepare-commit-msg hook — trailer-automation for guardrail commits.
+#
+# The recurring failure pattern (PR #287 was the third recurrence): a commit
+# touches a guardrail-listed file, the operator forgets to add the
+# `External-Review: round-<id>` trailer, the commit lands locally fine,
+# the push succeeds, the PR's multi-party-review check fails because the
+# per-commit branch check requires the trailer inline on each guardrail-
+# touching commit, and the fix is a rebase + force-push.
+#
+# This hook closes the loop at commit-time so it can't recur:
+#   1. Scan staged files against scripts/guardrail_files.txt.
+#   2. If none are guardrail-listed, exit clean (no-op for normal commits).
+#   3. If guardrail-listed AND the commit message already has an
+#      External-Review trailer, exit clean (operator added it manually).
+#   4. If DIVINEOS_AUDIT_ROUND=<round-id> env var is set, append that
+#      trailer to the commit message and exit clean.
+#   5. If exactly one open audit round was filed in the last 4 hours by
+#      a non-internal actor (aether/aletheia/aria/auditor/etc.), append
+#      that round's id as the trailer with a freshness note.
+#   6. Otherwise: fail loud, name the format, list candidate rounds.
+#
+# Skip when COMMIT_SOURCE is "merge" (merge commits don't get trailers
+# added automatically — keeps merge-commit messages clean).
+cat > "$HOOKS_DIR/prepare-commit-msg" << 'EOF'
+#!/bin/bash
+# Prepare-commit-msg hook — auto-stamp External-Review trailer for
+# guardrail-touching commits. Closes the PR-stamp-missing failure mode
+# at commit-time rather than catching it at PR-time after force-push.
+#
+# Source: setup/setup-hooks.sh (regenerate via `bash setup/setup-hooks.sh`).
+
+set -e
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Skip merge commits — they don't need per-commit External-Review trailers.
+if [[ "$COMMIT_SOURCE" == "merge" ]]; then
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+GUARDRAIL_LIST="$REPO_ROOT/scripts/guardrail_files.txt"
+if [[ ! -f "$GUARDRAIL_LIST" ]]; then
+    exit 0  # No guardrail list — nothing to enforce
+fi
+
+# Find any staged file that matches a guardrail-listed path.
+STAGED_GUARDRAIL=""
+while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    if grep -Fxq "$f" "$GUARDRAIL_LIST" 2>/dev/null; then
+        STAGED_GUARDRAIL+="  $f"$'\n'
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [[ -z "$STAGED_GUARDRAIL" ]]; then
+    exit 0  # No guardrail files touched — no trailer required
+fi
+
+# A guardrail file is staged. Check if a trailer already exists.
+if grep -qE '^External-Review:\s*round-' "$COMMIT_MSG_FILE"; then
+    exit 0  # Operator added the trailer; let it through
+fi
+
+# No trailer yet. Try environment override first.
+if [[ -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
+    ROUND_ID="${DIVINEOS_AUDIT_ROUND}"
+    # Validate shape: round-<hex>
+    if [[ ! "$ROUND_ID" =~ ^round-[a-f0-9]{6,}$ ]]; then
+        echo "" >&2
+        echo "BLOCKED: DIVINEOS_AUDIT_ROUND='${ROUND_ID}' is not a valid round id." >&2
+        echo "Expected shape: round-<hex>, e.g. round-a7fe5f413c47" >&2
+        exit 1
+    fi
+    {
+        echo ""
+        echo "External-Review: ${ROUND_ID}"
+    } >> "$COMMIT_MSG_FILE"
+    echo "prepare-commit-msg: trailer added from DIVINEOS_AUDIT_ROUND: ${ROUND_ID}"
+    exit 0
+fi
+
+# No env override — query the audit_rounds table for recent open rounds.
+# Inline Python keeps the hook self-contained (no CLI dependency).
+RECENT_ROUNDS=$(python -c '
+import time
+try:
+    from divineos.core.knowledge._base import _get_connection
+except ImportError:
+    raise SystemExit(0)
+cutoff = time.time() - 4 * 3600
+try:
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT round_id, focus FROM audit_rounds "
+            "WHERE created_at > ? ORDER BY created_at DESC LIMIT 5",
+            (cutoff,),
+        ).fetchall()
+    finally:
+        conn.close()
+except Exception:
+    raise SystemExit(0)
+for rid, focus in rows:
+    print(f"{rid} {focus[:60]}")
+' 2>/dev/null || true)
+
+# Count non-empty lines starting with round-
+ROUND_COUNT=$(echo "$RECENT_ROUNDS" | grep -cE '^round-' || true)
+
+if [[ "$ROUND_COUNT" == "1" ]]; then
+    ROUND_ID=$(echo "$RECENT_ROUNDS" | grep -oE 'round-[a-f0-9]+' | head -1)
+    {
+        echo ""
+        echo "External-Review: ${ROUND_ID}"
+    } >> "$COMMIT_MSG_FILE"
+    echo "prepare-commit-msg: trailer auto-attached from sole recent open round: ${ROUND_ID}"
+    echo "  (filed within the last 4 hours — if this isn't the right round, abort and re-commit"
+    echo "   with DIVINEOS_AUDIT_ROUND=round-<correct-id> git commit ...)"
+    exit 0
+fi
+
+# Zero or multiple recent rounds — operator must choose explicitly.
+echo "" >&2
+echo "BLOCKED: this commit touches guardrail-listed file(s):" >&2
+echo -n "$STAGED_GUARDRAIL" >&2
+echo "" >&2
+echo "Multi-party-review requires an External-Review trailer naming the" >&2
+echo "audit round this change was filed against." >&2
+echo "" >&2
+if [[ "$ROUND_COUNT" == "0" ]]; then
+    echo "No open audit rounds found in the last 4 hours. File one:" >&2
+    echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
+else
+    echo "Multiple open audit rounds found in the last 4 hours — choose one:" >&2
+    echo "$RECENT_ROUNDS" | sed 's/^/  /' >&2
+fi
+echo "" >&2
+echo "Then either re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
+echo "or add the trailer line to your commit message manually:" >&2
+echo "  External-Review: round-<id>" >&2
+exit 1
+EOF
+
+chmod +x "$HOOKS_DIR/prepare-commit-msg"
+echo "Created prepare-commit-msg hook at $HOOKS_DIR/prepare-commit-msg"
 
 # Install post-merge hook — delegates to .claude/hooks/post-merge-doc-fix.sh
 # Closes the doc-leapfrog conflict pattern (PR #169, 2026-06-13): merge
