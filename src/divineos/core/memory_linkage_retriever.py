@@ -138,7 +138,7 @@ def tier_weight(tier: MemoryLinkageTier) -> float:
 
 
 def recency_multiplier(days: int) -> float:
-    """Exponential decay: 1.0 at 0 days, ~0.5 at 180 days, ~0.3 at 365.
+    """Exponential decay: 1.0 at 0 days, 0.5 at 180 days, ~0.25 at 365.
 
     Gentle enough that a 90-day-old correction still competes with a
     fresh one when similarity is high. The decay reflects "recent
