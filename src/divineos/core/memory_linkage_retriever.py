@@ -327,12 +327,46 @@ _EMBEDDING_CACHE: dict[MemoryLinkageSource, list[_CachedItem]] = {}
 def _load_corrections() -> list[_CachedItem]:
     """Load corrections from the substrate.
 
-    NOT YET WIRED — next-turn work. Adapter walks the corrections
-    store, embeds each entry, tags Andrew-corrections as
-    ``constraint`` tier per §Q4 defaults, everything else as
-    ``topic``.
+    Wired 2026-07-01 as source-adapter #1 — proves the pipeline
+    end-to-end. Walks ``divineos.core.corrections.corrections_with_status``,
+    embeds each entry's text, tags all as ``constraint`` tier per §Q4
+    defaults (all corrections logged via ``divineos correction`` are
+    from Andrew per correction_commands.py line 36-42).
+
+    Empty list on any load error — behavior-neutral fallback.
     """
-    return []
+    try:
+        from divineos.core.corrections import corrections_with_status
+    except Exception:  # noqa: BLE001 - observability boundary
+        return []
+    try:
+        raw = corrections_with_status()
+    except Exception:  # noqa: BLE001 - observability boundary
+        return []
+    items: list[_CachedItem] = []
+    for idx, entry in enumerate(raw):
+        text = str(entry.get("text", "")).strip()
+        if not text:
+            continue
+        timestamp = float(entry.get("timestamp", 0.0))
+        embedding = _embed_text_impl(text)
+        if embedding is None:
+            continue
+        title = text[:60] + ("..." if len(text) > 60 else "")
+        items.append(
+            _CachedItem(
+                id=f"correction-{idx}-{int(timestamp)}",
+                source="correction",
+                tier="constraint",  # Andrew-corrections default per §Q4
+                title=title,
+                content=text,
+                path="",
+                filed_at_unix=timestamp,
+                importance_score=0.5,  # baseline; behavior-feedback adjusts
+                embedding=embedding,
+            )
+        )
+    return items
 
 
 def _load_knowledge() -> list[_CachedItem]:
@@ -390,36 +424,113 @@ def _ensure_cache() -> None:
     _EMBEDDING_CACHE["letter"] = _load_letters()
 
 
+_MODEL: Any = None
+_MODEL_LOADED: bool | None = None
+
+
+def _ensure_model() -> bool:
+    """Lazy-load the sentence-transformers model.
+
+    Mirrors the pattern from ``divineos.core.knowledge._text._ensure_embedding_model``
+    — same all-MiniLM-L6-v2 model, same device selection, so
+    embeddings computed here match embeddings computed in the
+    knowledge store (important for cross-substrate similarity).
+
+    Returns True if the model loaded successfully. False means the
+    retriever falls back to behavior-neutral (returns empty payloads)
+    rather than crashing on missing dependencies.
+    """
+    global _MODEL, _MODEL_LOADED
+    if _MODEL_LOADED is not None:
+        return _MODEL_LOADED
+    try:
+        import logging
+        import os
+        import warnings
+
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+        logging.getLogger("tensorflow").setLevel(logging.ERROR)
+        logging.getLogger("tf_keras").setLevel(logging.ERROR)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            from sentence_transformers import SentenceTransformer
+
+            from divineos.core._embedding_device import select_device
+
+            _MODEL = SentenceTransformer("all-MiniLM-L6-v2", device=select_device())
+        _MODEL_LOADED = True
+        return True
+    except (ImportError, RuntimeError, OSError):
+        _MODEL_LOADED = False
+        return False
+
+
+def _embed_text_impl(text: str) -> Any:
+    """Shared embedding helper used by both source-adapters and _embed_topic.
+
+    Returns a numpy 1D vector or None if the model is unavailable.
+    Source adapters that get None from this helper skip the item
+    (behavior-neutral fallback per the same pattern in _load_corrections).
+    """
+    if not text or not text.strip():
+        return None
+    if not _ensure_model() or _MODEL is None:
+        return None
+    try:
+        return _MODEL.encode([text], convert_to_numpy=True)[0]
+    except Exception:  # noqa: BLE001 - observability boundary
+        return None
+
+
 def _embed_topic(topic: str) -> Any:
-    """Embed the topic string.
+    """Embed the topic string using the shared model.
 
-    NOT YET WIRED — next-turn work wires this to
-    ``divineos.core.embeddings``. In v1-alpha returns a placeholder
-    that the cosine-similarity path can accept but that yields 0.0
-    against any cached item (so nothing crosses threshold).
+    Same model as source-adapters use so similarity scores are
+    meaningful across the whole pipeline. Returns None if the model
+    is unavailable — retrieve_v1 then returns empty and stays
+    behavior-neutral.
     """
-    _ = topic
-    return None
+    return _embed_text_impl(topic)
 
 
-def _cosine(_a: Any, _b: Any) -> float:
-    """Cosine similarity. NOT YET WIRED — returns 0.0 in v1-alpha.
+def _cosine(a: Any, b: Any) -> float:
+    """Cosine similarity between two embedding vectors.
 
-    Ensures no items cross threshold while the embedding layer is
-    unwired, keeping retrieve_v1 behavior-neutral on origin.
+    Returns 0.0 for None inputs (defensive against missing embeddings)
+    or for zero-norm vectors (which would produce NaN via 0/0).
+    Clamps to [0.0, 1.0].
     """
-    return 0.0
+    if a is None or b is None:
+        return 0.0
+    try:
+        import numpy as np
+
+        norm_a = float(np.linalg.norm(a))
+        norm_b = float(np.linalg.norm(b))
+        if norm_a == 0.0 or norm_b == 0.0:
+            return 0.0
+        sim = float(np.dot(a, b) / (norm_a * norm_b))
+        return max(0.0, min(1.0, sim))
+    except Exception:  # noqa: BLE001 - observability boundary
+        return 0.0
 
 
 def _days_since(filed_at_unix: float) -> int:
     """Days elapsed from a filed-at unix timestamp to now.
 
-    Used by composite_score. NOT YET WIRED against a real clock —
-    stub returns 0 to keep behavior deterministic in v1-alpha.
-    Next-turn work uses divineos.core.time helpers.
+    Returns 0 for zero or future timestamps (defensive; the
+    recency_multiplier flips to 1.0 for days<=0 anyway).
     """
-    _ = filed_at_unix
-    return 0
+    if filed_at_unix <= 0.0:
+        return 0
+    import time
+
+    now = time.time()
+    delta = now - filed_at_unix
+    if delta <= 0:
+        return 0
+    return int(delta // 86400)
 
 
 def _shape_content(
