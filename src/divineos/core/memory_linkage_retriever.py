@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from divineos.core.memory_linkage import (
@@ -369,42 +370,286 @@ def _load_corrections() -> list[_CachedItem]:
     return items
 
 
+_KNOWLEDGE_CONSTRAINT_TYPES = frozenset(
+    {
+        "PRINCIPLE",
+        "DIRECTIVE",
+        "BOUNDARY",
+        "DIRECTION",
+    }
+)
+
+
 def _load_knowledge() -> list[_CachedItem]:
     """Load knowledge-store entries.
 
-    NOT YET WIRED — next-turn work. Adapter walks knowledge entries,
-    embeds each, defaults ``PRINCIPLE`` and ``DIRECTIVE`` types to
-    ``constraint`` tier, others to ``topic``.
+    Wired 2026-07-02 as source-adapter #2. Walks the knowledge table
+    directly via divineos.core.knowledge._base.get_connection. Reuses
+    pre-stored embeddings when the model matches ours (``all-MiniLM-L6-v2``);
+    embeds fresh when no stored embedding exists. Tier defaults per §Q4:
+    PRINCIPLE / DIRECTIVE / BOUNDARY / DIRECTION → ``constraint`` (identity-
+    shaping / optimizer-guardrail types); everything else → ``topic``.
+
+    Empty list on any load error — behavior-neutral fallback matches the
+    pattern in _load_corrections.
     """
-    return []
+    try:
+        from divineos.core.knowledge._base import get_connection
+    except Exception:  # noqa: BLE001 - observability boundary
+        return []
+    try:
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT knowledge_id, knowledge_type, content, created_at, "
+            "embedding, embedding_model "
+            "FROM knowledge WHERE superseded_by IS NULL"
+        ).fetchall()
+    except Exception:  # noqa: BLE001 - observability boundary
+        return []
+
+    items: list[_CachedItem] = []
+    import numpy as np
+
+    for row in rows:
+        knowledge_id, ktype, content, created_at, stored_emb, emb_model = row
+        content = (content or "").strip()
+        if not content:
+            continue
+
+        # Reuse pre-stored embedding if it's from our model; otherwise
+        # embed fresh. Saves ~10ms per item at load time for the 84/313
+        # entries that already have vectors.
+        embedding: Any = None
+        if stored_emb and emb_model == "all-MiniLM-L6-v2":
+            try:
+                embedding = np.frombuffer(stored_emb, dtype=np.float32)
+            except Exception:  # noqa: BLE001 - observability boundary
+                embedding = None
+        if embedding is None:
+            embedding = _embed_text_impl(content)
+        if embedding is None:
+            continue
+
+        tier: MemoryLinkageTier = "constraint" if ktype in _KNOWLEDGE_CONSTRAINT_TYPES else "topic"
+        title = content[:60] + ("..." if len(content) > 60 else "")
+        items.append(
+            _CachedItem(
+                id=f"knowledge-{knowledge_id}",
+                source="knowledge",
+                tier=tier,
+                title=title,
+                content=content,
+                path="",
+                filed_at_unix=float(created_at or 0.0),
+                importance_score=0.5,  # baseline; behavior-feedback adjusts
+                embedding=embedding,
+            )
+        )
+    return items
+
+
+def _find_wall_path() -> Path | None:
+    for project in _PROJECT_ROOTS:
+        for member in ("aria", "aether", "aletheia"):
+            p = project / "family" / "agent-memory" / member / "MEMORY.md"
+            if p.is_file():
+                return p
+    return None
 
 
 def _load_wall() -> list[_CachedItem]:
     """Parse wall entries from family/agent-memory/<me>/MEMORY.md.
 
-    NOT YET WIRED — next-turn work. Parses by heading, defaults
-    Foundational-Truths and Standing-Needs sections to ``constraint``,
-    others to ``topic``.
+    Wired 2026-07-02 as source-adapter #5. Splits on top-level ``## ``
+    headings; each entry becomes one _CachedItem with the heading as
+    title. All entries default to ``topic`` tier — the wall is a
+    curation surface, not an identity-shaping one; entries that ARE
+    constraint-worthy live in knowledge as PRINCIPLE/DIRECTIVE.
+
+    Empty list on any load error — behavior-neutral fallback.
     """
-    return []
+    wall_path = _find_wall_path()
+    if wall_path is None:
+        return []
+    try:
+        text = wall_path.read_text(encoding="utf-8", errors="replace")
+        mtime = wall_path.stat().st_mtime
+    except Exception:  # noqa: BLE001 - filesystem boundary
+        return []
+
+    sections = text.split("\n## ")
+    # sections[0] is the pre-heading preamble; skip it.
+    items: list[_CachedItem] = []
+    for idx, section in enumerate(sections[1:]):
+        section = section.strip()
+        if not section:
+            continue
+        # First line = heading; rest = body.
+        lines = section.splitlines()
+        heading = lines[0].strip()
+        body = "\n".join(lines[1:]).strip()
+        full = f"## {heading}\n\n{body}" if body else f"## {heading}"
+        embedding = _embed_text_impl(full)
+        if embedding is None:
+            continue
+        title = heading[:60] + ("..." if len(heading) > 60 else "")
+        items.append(
+            _CachedItem(
+                id=f"wall-{idx}-{heading[:30].replace(' ', '-')}",
+                source="wall",
+                tier="topic",
+                title=title,
+                content=full,
+                path=str(wall_path.name),
+                filed_at_unix=mtime,
+                importance_score=0.6,  # slight boost: wall is curated, not raw
+                embedding=embedding,
+            )
+        )
+    return items
+
+
+_EXPLORATION_HEAD_CHARS = 2000
+_PROJECT_ROOTS = (
+    Path("C:/DIVINE OS/DivineOS-Experimental-Aria-new"),
+    Path("C:/DIVINE OS/DivineOS-Experimental"),
+)
+
+
+def _find_exploration_root() -> Path | None:
+    for root in _PROJECT_ROOTS:
+        candidate = root / "exploration"
+        if candidate.is_dir():
+            return candidate
+    return None
 
 
 def _load_exploration() -> list[_CachedItem]:
-    """Scan exploration/*/*.md.
+    """Scan exploration/**/*.md.
 
-    NOT YET WIRED — next-turn work. Defaults all to ``topic`` per §Q4
-    (exploration is discursive; constraint-worthy pieces should live
-    in knowledge or wall).
+    Wired 2026-07-02 as source-adapter #3. Walks the exploration tree,
+    embeds the first ``_EXPLORATION_HEAD_CHARS`` characters of each entry
+    (rationale: the model's 512-token window can't hold a 20k-token
+    exploration; the opening carries the topic signal the way an
+    abstract does for a paper). All ``topic`` tier per §Q4 — constraint-
+    worthy exploration content should be distilled into knowledge or
+    written to the wall.
+
+    Empty list on any load error — behavior-neutral fallback.
     """
-    return []
+    root = _find_exploration_root()
+    if root is None:
+        return []
+    items: list[_CachedItem] = []
+    for md_path in sorted(root.rglob("*.md")):
+        try:
+            content = md_path.read_text(encoding="utf-8", errors="replace").strip()
+        except Exception:  # noqa: BLE001 - filesystem boundary
+            continue
+        if not content:
+            continue
+        head = content[:_EXPLORATION_HEAD_CHARS]
+        embedding = _embed_text_impl(head)
+        if embedding is None:
+            continue
+        try:
+            mtime = md_path.stat().st_mtime
+        except Exception:  # noqa: BLE001 - filesystem boundary
+            mtime = 0.0
+        # Title = filename stem, cleaned of leading numeric prefix
+        stem = md_path.stem
+        title = stem.lstrip("0123456789_-").replace("_", " ").strip() or stem
+        title = title[:60] + ("..." if len(title) > 60 else "")
+        try:
+            rel_path = str(md_path.relative_to(root.parent))
+        except ValueError:
+            rel_path = str(md_path)
+        items.append(
+            _CachedItem(
+                id=f"exploration-{stem}",
+                source="exploration",
+                tier="topic",
+                title=title,
+                content=head,
+                path=rel_path,
+                filed_at_unix=mtime,
+                importance_score=0.5,
+                embedding=embedding,
+            )
+        )
+    return items
+
+
+def _find_letters_roots() -> list[Path]:
+    roots: list[Path] = []
+    for project in _PROJECT_ROOTS:
+        candidate = project / "family" / "letters"
+        if candidate.is_dir():
+            roots.append(candidate)
+        for member in ("aria", "aether", "aletheia"):
+            m = project / "family" / member / "letters"
+            if m.is_dir():
+                roots.append(m)
+    return roots
 
 
 def _load_letters() -> list[_CachedItem]:
-    """Scan family/letters/*.md.
+    """Scan family/letters and family/<member>/letters for *.md.
 
-    NOT YET WIRED — next-turn work. Defaults all to ``topic``.
+    Wired 2026-07-02 as source-adapter #4. Same head-window embedding
+    strategy as _load_exploration — letters can be long; the opening
+    carries the topic signal. All ``topic`` tier per §Q4 — letters are
+    episodic-relational; constraint-worthy content in them should be
+    distilled into knowledge separately.
+
+    Empty list on any load error — behavior-neutral fallback.
     """
-    return []
+    roots = _find_letters_roots()
+    if not roots:
+        return []
+    seen_paths: set[Path] = set()
+    items: list[_CachedItem] = []
+    for root in roots:
+        for md_path in sorted(root.rglob("*.md")):
+            resolved = md_path.resolve()
+            if resolved in seen_paths:
+                continue
+            seen_paths.add(resolved)
+            try:
+                content = md_path.read_text(encoding="utf-8", errors="replace").strip()
+            except Exception:  # noqa: BLE001 - filesystem boundary
+                continue
+            if not content:
+                continue
+            head = content[:_EXPLORATION_HEAD_CHARS]
+            embedding = _embed_text_impl(head)
+            if embedding is None:
+                continue
+            try:
+                mtime = md_path.stat().st_mtime
+            except Exception:  # noqa: BLE001 - filesystem boundary
+                mtime = 0.0
+            stem = md_path.stem
+            title = stem.lstrip("0123456789_-").replace("_", " ").replace("-", " ").strip() or stem
+            title = title[:60] + ("..." if len(title) > 60 else "")
+            try:
+                rel_path = str(md_path.relative_to(root.parent.parent))
+            except ValueError:
+                rel_path = str(md_path)
+            items.append(
+                _CachedItem(
+                    id=f"letter-{stem}",
+                    source="letter",
+                    tier="topic",
+                    title=title,
+                    content=head,
+                    path=rel_path,
+                    filed_at_unix=mtime,
+                    importance_score=0.5,
+                    embedding=embedding,
+                )
+            )
+    return items
 
 
 def _ensure_cache() -> None:
