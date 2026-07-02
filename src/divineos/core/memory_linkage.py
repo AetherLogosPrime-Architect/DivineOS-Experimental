@@ -98,6 +98,21 @@ class MemoryLinkagePayload:
     content_kind: MemoryLinkageContentKind = "full"
     path_or_ref: str = ""
 
+    # v2 priming interpretability field — §9 of priming spec.
+    #
+    # LOCKDOWN CONSTRAINTS (§13 Aletheia boundary-vantage catch):
+    #   - engine-written only: only the retriever module writes this
+    #   - content-uninfluenceable: value derives from item id, not prompt or item content
+    #   - immutable-post-write: dataclass is frozen; the field cannot mutate after construction
+    #
+    # None when item surfaced via direct similarity match on current prompt.
+    # Populated with the source item's id when this item surfaced because
+    # spreading-activation priming from a recently-surfaced neighbor.
+    #
+    # Constraint-tier items ALWAYS have primed_by=None per §Q2/C5 symmetric
+    # exemption (they neither receive nor originate priming).
+    primed_by: str | None = None
+
     def as_semantic_key(self) -> dict:
         """Return the raw dict for Warden ``should_emit(semantic_key=...)``.
 

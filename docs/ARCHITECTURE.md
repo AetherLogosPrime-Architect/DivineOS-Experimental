@@ -561,6 +561,7 @@ src/divineos/
     context_dedup.py           Context dedup — hash-and-check for repeated system-reminder blocks.
     memory_linkage.py          Memory-linkage injection surface — consumer side (Aether).
     memory_linkage_retriever.py Memory-linkage retriever v1 — producer side (Aria).
+    memory_linkage_retriever_v2.py Memory-linkage retriever v2 — priming / spreading-activation.
 
   analysis/
     _session_types.py          Session analysis type definitions
