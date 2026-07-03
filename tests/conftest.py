@@ -16,6 +16,20 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
+    # Cap xdist workers at 16 when xdist is loaded (Aletheia FLAG 2, 2026-07-02).
+    # Prior placement in pyproject addopts broke pytest invocations from
+    # minimal environments where xdist wasn't installed. Setting the option
+    # here only when xdist is active preserves the cap in production runs
+    # while keeping non-xdist paths clean.
+    #
+    # Root cause of the original cap: unrestricted -n auto on a 16-core+HT
+    # box resolved to 40 workers, each ~1.5GB, demanding 60GB on a 31GB
+    # system. Andrew's call: cap at 16.
+    if config.pluginmanager.hasplugin("xdist"):
+        current = getattr(config.option, "maxprocesses", None)
+        if current is None:
+            config.option.maxprocesses = 16
+
     if config.option.basetemp is None:
         pytest_tmp = Path(__file__).parent.parent / "tmp" / "pytest"
         # Use a unique subdir per run to avoid stale file collisions after crashes
