@@ -47,9 +47,23 @@ process.
 
 from __future__ import annotations
 
+import sqlite3
 import subprocess
 from pathlib import Path
 from typing import Callable
+
+# Errors that a resolver may encounter when reaching into a substrate
+# store. Bare ``except Exception`` is flagged by the check-broad-
+# exceptions gate; this tuple names the shapes we intentionally treat
+# as "resolver couldn't confirm — fail-closed."
+_RESOLVER_ERRORS: tuple[type[BaseException], ...] = (
+    sqlite3.Error,
+    OSError,
+    ImportError,
+    AttributeError,
+    ValueError,
+    KeyError,
+)
 
 
 def _repo_root() -> Path:
@@ -104,7 +118,7 @@ def _resolve_prereg(value: str) -> bool:
         return False
     try:
         return get_prereg(prereg_id) is not None
-    except Exception:
+    except _RESOLVER_ERRORS:
         return False
 
 
@@ -126,7 +140,7 @@ def _resolve_event(value: str) -> bool:
         finally:
             conn.close()
         return row is not None
-    except Exception:
+    except _RESOLVER_ERRORS:
         return False
 
 
@@ -148,7 +162,7 @@ def _resolve_knowledge(value: str) -> bool:
         finally:
             conn.close()
         return row is not None
-    except Exception:
+    except _RESOLVER_ERRORS:
         return False
 
 
@@ -162,7 +176,7 @@ def _resolve_decide(value: str) -> bool:
         return False
     try:
         return get_decision(did) is not None
-    except Exception:
+    except _RESOLVER_ERRORS:
         return False
 
 
