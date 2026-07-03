@@ -140,7 +140,11 @@ def _load_superposition_events() -> tuple[list[dict], list[dict]]:
     opens = []
     collapses = []
     try:
-        events = search_events(keyword="superposition_", limit=500) or []
+        # order="desc": newest first. Prior default of asc silently returned
+        # the OLDEST 500 events on a mature ledger, blinding this reader to
+        # the freshest open superposition — the one that's actually live.
+        # Fable audit 2026-07-02 finding #2.
+        events = search_events(keyword="superposition_", limit=500, order="desc") or []
     except _DS_ERRORS:
         return [], []
 

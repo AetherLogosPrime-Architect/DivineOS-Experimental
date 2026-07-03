@@ -129,3 +129,112 @@ class TestNonDictDefensive:
         out, fired = redact_payload("not a dict")  # type: ignore[arg-type]
         assert out == "not a dict"
         assert fired == []
+
+
+class TestFableAuditFinding6:
+    """2026-07-02 Fable audit: coverage gaps for stated-in-docstring key shapes.
+
+    The docstring commits to recall-over-precision. These four shapes were
+    named as gaps: Stripe live keys, HuggingFace tokens, PEM private key
+    blocks, URL-embedded credentials. Each is distinctive enough that
+    matching them is a real credential (low false-positive risk) and each
+    is high-severity by exposure impact. Tests defend the addition against
+    regression.
+    """
+
+    def test_redacts_stripe_live_key(self) -> None:
+        # Fixture is obviously-fake so GitHub's secret scanner doesn't
+        # flag this file as containing a real key. Regex is
+        # sk_live_[0-9a-zA-Z]{24,} — alphanumeric only, no underscores
+        # in the body. EXAMPLETESTfixture pattern is 26+ alphanumeric
+        # chars that don't match Stripe's real key format.
+        payload = {"k": "sk_live_EXAMPLETESTfixturenotarealkeyXYZ123abc"}
+        out, fired = redact_payload(payload)
+        assert "EXAMPLETESTfixture" not in out["k"]
+        assert "[REDACTED:stripe-live-key]" in out["k"]
+        assert "stripe-live-key" in fired
+
+    def test_redacts_stripe_test_key(self) -> None:
+        # Test keys are also secrets — smaller blast radius, but still
+        # need redaction so they don't leak into audit-exported ledgers.
+        # Alphanumeric-only body per regex.
+        payload = {"k": "sk_test_EXAMPLETESTfixturenotarealkeyXYZ123abc"}
+        out, fired = redact_payload(payload)
+        assert "EXAMPLETESTfixture" not in out["k"]
+        assert "[REDACTED:stripe-test-key]" in out["k"]
+
+    def test_redacts_huggingface_token(self) -> None:
+        # HuggingFace regex is hf_[A-Za-z0-9]{34,} — alphanumeric only.
+        payload = {"k": "hf_EXAMPLETESTfixturenotarealtoken1234567890abcd"}
+        out, fired = redact_payload(payload)
+        assert "EXAMPLETESTfixture" not in out["k"]
+        assert "[REDACTED:huggingface-token]" in out["k"]
+        assert "huggingface-token" in fired
+
+    def test_redacts_pem_rsa_private_key_block(self) -> None:
+        # Multi-line block — pattern uses DOTALL so the whole block
+        # BEGIN..END is redacted, not just the header line.
+        pem_block = (
+            "-----BEGIN RSA PRIVATE KEY-----\n"
+            "MIIEpAIBAAKCAQEA1234567890abcdefghijklmnop\n"
+            "qrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\n"
+            "-----END RSA PRIVATE KEY-----"
+        )
+        payload = {"k": pem_block}
+        out, fired = redact_payload(payload)
+        assert "MIIEpAIBAAKCAQEA" not in out["k"]  # key body gone
+        assert "-----END RSA PRIVATE KEY-----" not in out["k"]  # end line gone
+        assert "[REDACTED:pem-private-key]" in out["k"]
+        assert "pem-private-key" in fired
+
+    def test_redacts_pem_ec_private_key_block(self) -> None:
+        # Pattern matches BEGIN [A-Z ]* PRIVATE KEY — covers EC, DSA,
+        # ED25519, and plain "PRIVATE KEY" (pkcs8) forms.
+        pem_block = (
+            "-----BEGIN EC PRIVATE KEY-----\n"
+            "MHcCAQEEIExample_body_XYZ123\n"
+            "-----END EC PRIVATE KEY-----"
+        )
+        payload = {"k": pem_block}
+        out, _fired = redact_payload(payload)
+        assert "MHcCAQEEIExample_body" not in out["k"]
+        assert "[REDACTED:pem-private-key]" in out["k"]
+
+    def test_redacts_url_embedded_password(self) -> None:
+        # scheme://user:password@host/path — the scheme://user:password@
+        # prefix gets replaced with the marker; the host/path segment is
+        # preserved for debugging.
+        payload = {"k": "postgres://dbuser:s3cretPW@db.internal:5432/prod"}
+        out, fired = redact_payload(payload)
+        assert "s3cretPW" not in out["k"]
+        assert "[REDACTED:url-embedded-credential]" in out["k"]
+        # Host preserved
+        assert "db.internal:5432/prod" in out["k"]
+        assert "url-embedded-credential" in fired
+
+    def test_redacts_url_embedded_password_various_schemes(self) -> None:
+        # Multiple schemes redacted with same pattern.
+        for scheme in ("https", "http", "redis", "mongodb", "amqp", "mysql"):
+            payload = {"k": f"{scheme}://user:secretpass@host/path"}
+            out, _fired = redact_payload(payload)
+            assert "secretpass" not in out["k"], f"{scheme} url leaked"
+            assert "[REDACTED:url-embedded-credential]" in out["k"]
+
+    def test_url_without_credentials_not_redacted(self) -> None:
+        # Plain URLs (no user:pass@) should not fire.
+        payload = {"k": "https://example.com/path?query=1"}
+        out, fired = redact_payload(payload)
+        assert out["k"] == "https://example.com/path?query=1"
+        assert "url-embedded-credential" not in fired
+
+    def test_pem_public_key_block_not_redacted(self) -> None:
+        # Public keys are not secrets; pattern must not match them.
+        pem_public = (
+            "-----BEGIN PUBLIC KEY-----\n"
+            "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA\n"
+            "-----END PUBLIC KEY-----"
+        )
+        payload = {"k": pem_public}
+        out, fired = redact_payload(payload)
+        assert out["k"] == pem_public
+        assert "pem-private-key" not in fired

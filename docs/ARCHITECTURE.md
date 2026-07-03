@@ -365,6 +365,7 @@ src/divineos/
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
       classifier.py            Heuristic classifier: (content, knowledge_type, source) -> (Tier, Magnitude, audit reason)
+      pointer_resolver.py      Resolve artifact_pointer to a real artifact (test:/commit:/prereg:/event:/knowledge:/decide:) — closes Fable round 7 pre-wire gap where unresolvable pointers earned FALSIFIABLE tier.
       routing.py               Council-routing wrapper; LOAD_BEARING needs 1 round, FOUNDATIONAL needs 2
       receipt.py               evidence_receipts table + issue_receipt + verify_chain (hash-pointer forest traversal, distinguishes forks from tamper, dual chain per Hofstadter)
       gate.py                  Full pipeline orchestrator: classify -> burden -> route -> issue + receipt_id column migration

@@ -597,10 +597,20 @@ def score_all_tiers(text: str) -> dict[str, Any]:
         scores.append((semantic_result["ratio"] + 1) / 2)
         weights.append(0.45)  # highest weight — most reliable
 
+    # Full-weight-when-all-tiers-present = 0.25 + 0.30 + 0.45 = 1.0. Used
+    # to compute combined_coverage — the fraction of the intended tier
+    # weight that actually ran. Without this signal, a strong score from
+    # one weak tier is byte-identical to a strong score from all three
+    # tiers, and downstream consumers cannot distinguish them (Fable
+    # audit 2026-07-02 finding #4).
+    _MAX_POSSIBLE_WEIGHT = 1.00
+
     if scores:
         total_weight = sum(weights)
         result["combined_grounding"] = sum(s * w for s, w in zip(scores, weights)) / total_weight
+        result["combined_coverage"] = total_weight / _MAX_POSSIBLE_WEIGHT
     else:
         result["combined_grounding"] = None
+        result["combined_coverage"] = 0.0
 
     return result

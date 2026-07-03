@@ -256,6 +256,27 @@ def init_ledger(member_slug: str) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_member_events_type ON member_events(event_type)"
         )
+        # Head anchor for tail-truncation detection (Fable audit round 6
+        # finding #2, 2026-07-02 — same class as round 1 on the main
+        # ledger). Without a persisted head anchor, deleting the newest
+        # N events from a member's ledger leaves a shorter self-consistent
+        # prefix that verify_chain reports as CLEAN. That defeats the
+        # entire forensic guarantee of the per-member ledger — its whole
+        # reason to exist is tamper-evidence for that member's actions.
+        # Single-row design: row_id=1 is always the current head. Updates
+        # rewrite the row inside the same commit as the event insert in
+        # append_event.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS member_head_anchor (
+                row_id           INTEGER PRIMARY KEY CHECK (row_id = 1),
+                content_hash     TEXT NOT NULL,
+                event_count      INTEGER NOT NULL,
+                latest_event_id  TEXT NOT NULL,
+                updated_at       REAL NOT NULL
+            )
+            """
+        )
         conn.commit()
     finally:
         conn.close()
@@ -366,6 +387,18 @@ def append_event(
                 source_tag,
             ),
         )
+        # Update head anchor inside the same transaction — Fable round 6
+        # finding #2: without a persisted head anchor, tail-truncation
+        # of newest events is invisible to verify_chain. The event_count
+        # is computed from the table so it reflects the row we just
+        # inserted, closing the class of failure with the same shape as
+        # round 1's main-ledger fix.
+        conn.execute(
+            "INSERT OR REPLACE INTO member_head_anchor "
+            "(row_id, content_hash, event_count, latest_event_id, updated_at) "
+            "VALUES (1, ?, (SELECT COUNT(*) FROM member_events), ?, ?)",
+            (content_hash, event_id, timestamp),
+        )
         conn.commit()
         return {
             "event_id": event_id,
@@ -461,6 +494,14 @@ def verify_chain(member_slug: str) -> tuple[bool, str]:
     Genesis-chain invariant: the first event's ``prior_hash`` must equal
     ``_GENESIS_HASH``, and each subsequent event's ``prior_hash`` must
     equal the previous event's ``content_hash``.
+
+    Head anchor invariant (Fable audit round 6 finding #2, 2026-07-02):
+    after the walked chain verifies internally, the anchor row is
+    checked against the walked tail. If the anchor says N events ended
+    at hash X but the walked tail differs (or the ledger is empty while
+    the anchor claims N>0 events), the ledger has been tail-truncated
+    (or the anchor tampered independently — either way, integrity is
+    compromised). Same-class fix as round 1's main-ledger anchor.
     """
     init_ledger(member_slug)
     conn = _get_connection(member_slug)
@@ -468,13 +509,27 @@ def verify_chain(member_slug: str) -> tuple[bool, str]:
         rows = conn.execute(
             "SELECT * FROM member_events ORDER BY timestamp ASC, rowid ASC"
         ).fetchall()
+        anchor_row = conn.execute(
+            "SELECT content_hash, event_count, latest_event_id "
+            "FROM member_head_anchor WHERE row_id = 1"
+        ).fetchone()
     finally:
         conn.close()
 
     if not rows:
+        # Empty ledger — anchor should also be empty. If anchor exists
+        # for an empty ledger claiming events, that IS tail-truncation.
+        if anchor_row is not None and anchor_row["event_count"] > 0:
+            return False, (
+                f"tail truncation: anchor says {anchor_row['event_count']} "
+                f"events ended at {anchor_row['latest_event_id']} but "
+                f"ledger is empty (Fable round 6 finding #2)"
+            )
         return True, "empty ledger - chain vacuously valid"
 
     expected_prior = _GENESIS_HASH
+    last_content_hash = None
+    last_event_id = None
     for row in rows:
         if row["prior_hash"] != expected_prior:
             return False, (
@@ -495,6 +550,32 @@ def verify_chain(member_slug: str) -> tuple[bool, str]:
                 f"{row['content_hash'][:12]}... recomputed={recomputed[:12]}..."
             )
         expected_prior = row["content_hash"]
+        last_content_hash = row["content_hash"]
+        last_event_id = row["event_id"]
+
+    # Anchor consistency check — closes the tail-truncation gap
+    # (Fable round 6 finding #2). If the anchor exists AND disagrees
+    # with the walked tail on hash, count, or latest event id, the
+    # ledger has been truncated (or the anchor tampered independently).
+    if anchor_row is not None:
+        if anchor_row["content_hash"] != last_content_hash:
+            return False, (
+                f"tail truncation: anchor content_hash="
+                f"{anchor_row['content_hash'][:12]}... but walked tail="
+                f"{(last_content_hash or '')[:12]}... "
+                f"(Fable round 6 finding #2)"
+            )
+        if anchor_row["event_count"] != len(rows):
+            return False, (
+                f"tail truncation: anchor says {anchor_row['event_count']} "
+                f"events but walked {len(rows)} (Fable round 6 finding #2)"
+            )
+        if anchor_row["latest_event_id"] != last_event_id:
+            return False, (
+                f"tail truncation: anchor latest_event_id="
+                f"{anchor_row['latest_event_id']} but walked tail="
+                f"{last_event_id} (Fable round 6 finding #2)"
+            )
 
     return True, f"chain valid: {len(rows)} events verified"
 
