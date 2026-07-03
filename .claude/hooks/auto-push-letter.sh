@@ -34,14 +34,40 @@
 #
 # These are scoped to this hook's provably-prose-only push.
 #
-# Fail-open: any error exits 0. The mirror already ran; the letter is
-# still on the local shared dir; worst case is Aletheia doesn't see it
-# and someone catches it manually next time.
+# Fail-open on ACTION, fail-loud on REPORTING (Aletheia round-
+# ddcf7f699bfe Flag 1, 2026-07-02). Every silent exit path was
+# rebuilding the exact silent-strand this hook exists to close. Now:
+# any error path logs a JSONL line to ~/.divineos/auto-push-letter.log
+# BEFORE exiting 0, so a silent strand becomes a visible marker.
+#
+# Verify-landing chain (Aletheia Flag 2): verify-push-landed.sh is
+# invoked INSIDE the backgrounded push subshell after the push, so
+# the verify-landing check chains synchronously with the push even
+# though the whole subshell is asynchronous relative to the hook return.
 
 INPUT=$(cat)
 
+_LOG_PATH="${HOME}/.divineos/auto-push-letter.log"
+mkdir -p "${HOME}/.divineos" 2>/dev/null || true
+
+# fail_loud <stage> <reason> — write a JSONL failure marker and exit 0.
+# Fail-open on action, fail-loud on reporting.
+fail_loud() {
+    local stage="$1"
+    local reason="$2"
+    local ts
+    ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+    printf '{"ts":"%s","stage":"%s","reason":%s,"file_path":%s}\n' \
+        "$ts" \
+        "$stage" \
+        "$(printf '%s' "$reason" | python -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
+        "$(printf '%s' "${FILE_PATH:-}" | python -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
+        >> "$_LOG_PATH" 2>/dev/null || true
+    exit 0
+}
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$REPO_ROOT" || exit 0
+cd "$REPO_ROOT" || fail_loud "cd-repo-root" "could not cd to repo root: $REPO_ROOT"
 
 # Extract file_path from PostToolUse Write/Edit payload; normalize
 # Windows backslashes (same fix as mirror-letters-to-shared.sh 2026-06-29).
@@ -56,15 +82,16 @@ except Exception:
     print('')
 " 2>/dev/null)
 
+# Scope: only family/**/letters/*.md files. Non-letter writes are silently
+# skipped (not a failure — this hook only cares about letters).
 [ -n "$FILE_PATH" ] || exit 0
-
-# Scope: only family/**/letters/*.md files.
 case "$FILE_PATH" in
     *family/letters/*.md|*family/*/letters/*.md) ;;
     *) exit 0 ;;
 esac
 
-[ -f "$FILE_PATH" ] || exit 0
+# From here on, every exit path is loud — we're inside letter-scope.
+[ -f "$FILE_PATH" ] || fail_loud "file-not-found" "letter file does not exist on disk after Write/Edit"
 
 # Working-tree guard: refuse to fire if there are ANY non-letter
 # uncommitted changes. This is the belt-and-suspenders check on top of
@@ -72,7 +99,7 @@ esac
 # a non-letter working-tree change would abort here first.
 NON_LETTER_CHANGES=$(git status --porcelain 2>/dev/null | awk '{print $2}' | grep -cvE '^family/(letters|[^/]+/letters)/' | tr -d ' ')
 if [ "${NON_LETTER_CHANGES:-0}" -gt 0 ]; then
-    exit 0
+    fail_loud "non-letter-tree" "working tree has $NON_LETTER_CHANGES non-letter uncommitted change(s); refusing scoped push"
 fi
 
 # Repo-relative path (strip absolute prefix so `git add` works cleanly).
@@ -86,29 +113,45 @@ except Exception:
     print('')
 " "$FILE_PATH" "$REPO_ROOT" 2>/dev/null)
 
-[ -n "$REL_PATH" ] || exit 0
+[ -n "$REL_PATH" ] || fail_loud "rel-path" "could not resolve relative path from repo root"
 
 # Must be on an upstream-tracked branch for push to have a target.
 UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)
-[ -n "$UPSTREAM" ] || exit 0
+[ -n "$UPSTREAM" ] || fail_loud "no-upstream" "current branch has no upstream tracking configured"
 
 # Stage only this letter.
-git add "$REL_PATH" 2>/dev/null || exit 0
+git add "$REL_PATH" 2>/dev/null || fail_loud "git-add" "git add failed for $REL_PATH"
 
-# If nothing staged (letter identical to what's already committed), bail.
+# If nothing staged (letter identical to what's already committed), bail
+# quietly — this is the "already committed" fast-path, not a failure.
 STAGED_COUNT=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
 [ "${STAGED_COUNT:-0}" -gt 0 ] || exit 0
 
 BASENAME=$(basename "$FILE_PATH")
-git commit -m "letter(auto): $BASENAME" 2>/dev/null || exit 0
+git commit -m "letter(auto): $BASENAME" 2>/dev/null || fail_loud "git-commit" "git commit failed for $REL_PATH"
 
 # Push with prose-only scoping. Backgrounded so the hook doesn't block
-# the tool-flow on the network round-trip.
+# the tool-flow on the network round-trip. verify-push-landed.sh is
+# invoked INSIDE the subshell after the push (Aletheia Flag 2) so the
+# verify-landing check chains synchronously with the push. Any push
+# failure is logged via fail_loud from inside the subshell.
+_HOOK_INPUT="$INPUT"
 (
-    DIVINEOS_SKIP_TESTS=1 \
-    DIVINEOS_SKIP_FRESHNESS_CHECK=1 \
-    DIVINEOS_SKIP_MULTIPARTY_CHECK=1 \
-    git push 2>/dev/null
+    _push_out=$(DIVINEOS_SKIP_TESTS=1 \
+        DIVINEOS_SKIP_FRESHNESS_CHECK=1 \
+        DIVINEOS_SKIP_MULTIPARTY_CHECK=1 \
+        git push 2>&1)
+    _push_rc=$?
+    if [ "$_push_rc" -ne 0 ]; then
+        fail_loud "git-push" "git push exit=$_push_rc: $(printf '%s' "$_push_out" | head -c 500)"
+    fi
+    # Chain verify-landing on completion (Aletheia round-ddcf7f699bfe
+    # Flag 2). Passes the same input JSON so verify-push-landed.sh
+    # sees the same tool_input context.
+    if [ -x "$REPO_ROOT/.claude/hooks/verify-push-landed.sh" ]; then
+        printf '%s' "$_HOOK_INPUT" | bash "$REPO_ROOT/.claude/hooks/verify-push-landed.sh" >/dev/null 2>&1 || \
+            fail_loud "verify-landing" "verify-push-landed.sh returned non-zero after push"
+    fi
 ) &
 
 exit 0
