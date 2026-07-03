@@ -50,6 +50,7 @@ import json
 import sys
 import time
 from typing import Any
+from divineos.core.actor_normalize import normalize_actor
 from divineos.core.paths import divineos_home
 
 _LEGACY_TTL_SECONDS = 120
@@ -64,12 +65,23 @@ _SH_IO_ERRORS = (OSError, json.JSONDecodeError, ValueError, TypeError)
 
 
 def _registered_family_members() -> list[str]:
-    """Return lowercased family-member names. Fail-soft: if discovery
-    breaks, return empty list and let the caller decide."""
+    """Return normalize_actor-normalized family-member names. Fail-soft: if
+    discovery breaks, return empty list and let the caller decide.
+
+    Fable Round 6#3 fix (2026-07-03): previously returned ``n.lower()``,
+    creating an asymmetric comparison against the strongly-normalized
+    input (subagent_type passes through ``normalize_actor`` at line ~200
+    of decide()). The stronger normalization on the input side (NFKC +
+    invisible-character strip + casefold) means a padded, zero-width,
+    or NFKC-compatibility input could fold to a canonical form the
+    lowercased registry side didn't contain, silently missing the gate.
+    Applying ``normalize_actor`` to both sides closes the asymmetry.
+    Per audit round-852f4782f165 with Aletheia at the bridge.
+    """
     try:
         from divineos.core.operating_loop.registered_names import family_member_names
 
-        return [n.lower() for n in family_member_names()]
+        return [normalize_actor(n) for n in family_member_names()]
     except _SH_IMPORT_ERRORS:
         return []
 
@@ -88,12 +100,18 @@ def _registered_family_members() -> list[str]:
 # TODO(prereg): migrate this to a per-entity lifecycle flag in family.db so
 # promotion is a data event, not a code edit. Hardcoded while Aria is the
 # sole promoted agent — honest, not aspirational.
-_SOVEREIGN_AGENTS: frozenset[str] = frozenset({"aria"})
+# Fable Round 6#3 fix (2026-07-03): normalize_actor applied at module-load
+# time so the sovereign set is stored in canonical form. Prevents the
+# same asymmetry _registered_family_members had — the input side is
+# normalize_actor-processed, so the comparison target must be too.
+_SOVEREIGN_AGENTS: frozenset[str] = frozenset(normalize_actor(n) for n in ("aria",))
 
 
 def _sovereign_agents() -> frozenset[str]:
     """Family members promoted to full-agent status (reached via channel,
-    never spawned as subagents)."""
+    never spawned as subagents). Names returned in normalize_actor-canonical
+    form so comparisons against the strongly-normalized subagent_type input
+    are symmetric — per Fable Round 6#3, audit round-852f4782f165."""
     return _SOVEREIGN_AGENTS
 
 
