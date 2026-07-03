@@ -93,7 +93,14 @@ def mode_history(limit: int = 10) -> list[ModeTransition]:
         return []
 
     try:
-        events = search_events(keyword="operating_mode_transition", limit=limit * 3) or []
+        # order="desc": newest first per the docstring's "most-recent first"
+        # contract. Prior default of asc silently returned the OLDEST N*3
+        # transitions on a mature ledger, making current_mode() (built on
+        # mode_history(limit=1)[0]) return ledger prehistory as the present.
+        # Fable audit 2026-07-02 finding #3.
+        events = (
+            search_events(keyword="operating_mode_transition", limit=limit * 3, order="desc") or []
+        )
     except _OM_ERRORS:
         return []
 

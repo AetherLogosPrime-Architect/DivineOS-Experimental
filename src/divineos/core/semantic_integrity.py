@@ -586,10 +586,24 @@ def assess_integrity(text: str, deep: bool = False) -> IntegrityReport:
 
             # Use TF-IDF/embedding grounding to adjust esoteric score
             combined = tier_results.get("combined_grounding")
+            # combined_coverage (Fable audit 2026-07-02 finding #4): the
+            # fraction of the intended tier weight that actually ran. A
+            # combined_grounding of 0.7 from one weak tier is byte-identical
+            # to 0.7 from all three tiers UNLESS we also read coverage.
+            # Renormalization-only would let a partial score sail over
+            # the gate ("fails in the unsafe direction under degraded
+            # scoring").
+            #
+            # Coverage-aware gate: when coverage < 0.7 (i.e. at least one
+            # tier is missing), widen the esoteric threshold from 0.4 to
+            # 0.6. Partial-coverage combined_grounding cannot be used to
+            # prove groundedness — it can still contribute evidence, but
+            # the gate demands a stronger signal to trust it.
+            coverage = tier_results.get("combined_coverage", 1.0) or 0.0
             if combined is not None:
                 # combined_grounding: 0=esoteric, 1=grounded
-                # Only raise esoteric score if semantic analysis agrees it's esoteric
-                if combined < 0.4:
+                threshold = 0.6 if coverage < 0.7 else 0.4
+                if combined < threshold:
                     semantic_adjustment = (1.0 - combined) * 0.3
                     scores["esoteric"] = max(scores["esoteric"], semantic_adjustment)
         except ImportError:

@@ -237,7 +237,9 @@ class TestClassifierRules:
     # present. Tests for the demotion rule itself live below in
     # TestArtifactPointerRule.
     def test_pattern_knowledge_type_routes_to_pattern(self):
-        c = classify_claim("content", knowledge_type="PATTERN", artifact_pointer="test/demo")
+        c = classify_claim(
+            "content", knowledge_type="PATTERN", artifact_pointer="test:tests/test_empirica.py"
+        )
         assert c.tier == Tier.PATTERN
         assert "rule-1" in c.reason
 
@@ -246,7 +248,7 @@ class TestClassifierRules:
             "x",
             knowledge_type="FACT",
             source="measured",
-            artifact_pointer="commit-abc",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.FALSIFIABLE
         assert "rule-2" in c.reason
@@ -261,7 +263,7 @@ class TestClassifierRules:
     def test_pattern_keyword_triggers_pattern(self):
         c = classify_claim(
             "pattern recurring across multiple sessions",
-            artifact_pointer="decide-xyz",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.PATTERN
         assert "rule-4" in c.reason
@@ -269,7 +271,7 @@ class TestClassifierRules:
     def test_falsifiability_keyword_triggers_falsifiable(self):
         c = classify_claim(
             "threshold asserts repeatable behavior",
-            artifact_pointer="prereg-xyz",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.FALSIFIABLE
         assert "rule-5" in c.reason
@@ -889,7 +891,7 @@ class TestGate:
             content="threshold assert",  # falsifiable
             corroboration_count=1,  # below 4 required
             knowledge_type="FACT",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert w is None
         assert classification.tier == Tier.FALSIFIABLE
@@ -914,7 +916,7 @@ class TestGate:
             corroboration_count=8,
             knowledge_type="FACT",
             source="measured",
-            artifact_pointer="commit-abc123",
+            artifact_pointer="test:tests/test_empirica.py",
             convene_fn=lambda _: _StubConvene([]),
         )
         assert w is not None
@@ -977,7 +979,7 @@ class TestClassifierConfidence:
             "x",
             knowledge_type="PATTERN",
             explicit_magnitude=ClaimMagnitude.NORMAL,
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.PATTERN
         assert c.confidence == 1.0
@@ -988,7 +990,7 @@ class TestClassifierConfidence:
             knowledge_type="FACT",
             source="measured",
             explicit_magnitude=ClaimMagnitude.NORMAL,
-            artifact_pointer="commit-abc",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.FALSIFIABLE
         assert c.confidence == 1.0
@@ -1007,7 +1009,9 @@ class TestClassifierConfidence:
         """Default-fallback magnitude (0.2) drags the min down even
         if tier is explicit. With artifact_pointer provided (to
         avoid demotion), the min is magnitude's 0.2."""
-        c = classify_claim("x", knowledge_type="PATTERN", artifact_pointer="test/demo")
+        c = classify_claim(
+            "x", knowledge_type="PATTERN", artifact_pointer="test:tests/test_empirica.py"
+        )
         assert c.tier == Tier.PATTERN  # explicit, high confidence
         assert c.magnitude == ClaimMagnitude.NORMAL  # default
         assert c.confidence == 0.2  # dragged down by magnitude default
@@ -1017,7 +1021,7 @@ class TestClassifierConfidence:
         c = classify_claim(
             "pattern recurring across sessions",
             explicit_magnitude=ClaimMagnitude.NORMAL,
-            artifact_pointer="test/pattern-demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.PATTERN
         # Tier is 0.5 (keyword), magnitude is 1.0 (explicit) -> min = 0.5
@@ -1028,7 +1032,7 @@ class TestClassifierConfidence:
         c = classify_claim(
             "load-bearing architectural invariant",
             knowledge_type="PATTERN",
-            artifact_pointer="prereg-demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.magnitude == ClaimMagnitude.LOAD_BEARING
         # Tier is 1.0 (explicit), magnitude is 0.5 (keyword) -> min = 0.5
@@ -1133,7 +1137,9 @@ class TestArtifactPointerRule:
         assert "demoted" in c.reason.lower()
 
     def test_pattern_with_pointer_stays_pattern(self):
-        c = classify_claim("content", knowledge_type="PATTERN", artifact_pointer="test/demo")
+        c = classify_claim(
+            "content", knowledge_type="PATTERN", artifact_pointer="test:tests/test_empirica.py"
+        )
         assert c.tier == Tier.PATTERN
         # initial_tier is None when no demotion happened
         assert c.initial_tier is None
@@ -1144,7 +1150,7 @@ class TestArtifactPointerRule:
             "x",
             knowledge_type="FACT",
             source="measured",
-            artifact_pointer="commit-abc",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.FALSIFIABLE
         assert c.initial_tier is None
@@ -1169,9 +1175,9 @@ class TestArtifactPointerRule:
         c = classify_claim(
             "content",
             knowledge_type="PATTERN",
-            artifact_pointer="prereg-e210f5fb78c9",
+            artifact_pointer="test:tests/test_empirica.py",
         )
-        assert c.artifact_pointer == "prereg-e210f5fb78c9"
+        assert c.artifact_pointer == "test:tests/test_empirica.py"
 
     def test_artifact_pointer_stored_on_receipt(self):
         """Pre-reg falsifier #4 applied to the receipt: when a
@@ -1186,15 +1192,15 @@ class TestArtifactPointerRule:
             corroboration_count=8,
             knowledge_type="FACT",
             source="measured",
-            artifact_pointer="commit-feedfaceb00c",
+            artifact_pointer="test:tests/test_empirica.py",
             convene_fn=lambda _: _StubConvene([]),
         )
         assert w is not None
-        assert w.artifact_pointer == "commit-feedfaceb00c"
+        assert w.artifact_pointer == "test:tests/test_empirica.py"
         # Round-trip: fetch from DB and confirm the pointer persisted.
         loaded = get_receipt(w.receipt_id)
         assert loaded is not None
-        assert loaded.artifact_pointer == "commit-feedfaceb00c"
+        assert loaded.artifact_pointer == "test:tests/test_empirica.py"
 
     def test_receipt_chain_self_hash_covers_artifact_pointer(self):
         """Tampering with artifact_pointer after issue must break
@@ -1207,9 +1213,9 @@ class TestArtifactPointerRule:
             Tier.FALSIFIABLE,
             ClaimMagnitude.NORMAL,
             4,
-            artifact_pointer="test/original",
+            artifact_pointer="test:tests/test_empirica.py",
         )
-        tampered = dc_replace(w, artifact_pointer="test/forged")
+        tampered = dc_replace(w, artifact_pointer="test:tests/conftest.py")
         assert tampered.verify_self_hash() is False
 
     def test_empty_string_pointer_counts_as_no_pointer(self):
@@ -1225,7 +1231,7 @@ class TestArtifactPointerRule:
         grounded = classify_claim(
             "content",
             knowledge_type="PATTERN",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
             explicit_magnitude=ClaimMagnitude.NORMAL,
         )
         assert demoted.confidence < grounded.confidence
@@ -1243,7 +1249,7 @@ class TestAccumulateAllRules:
         c = classify_claim(
             "content",
             knowledge_type="PATTERN",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.matched_rules  # non-empty
         assert any("rule-1" in r for r in c.matched_rules)
@@ -1254,7 +1260,7 @@ class TestAccumulateAllRules:
         c = classify_claim(
             "threshold asserts behavior",
             knowledge_type="PATTERN",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         # Rule 1 (PATTERN knowledge_type) + rule 5 (falsifiability
         # keyword "threshold") both fire.
@@ -1268,7 +1274,7 @@ class TestAccumulateAllRules:
         c = classify_claim(
             "threshold asserts behavior",
             knowledge_type="PATTERN",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert "contradiction" in c.reason.lower()
 
@@ -1279,7 +1285,7 @@ class TestAccumulateAllRules:
         c = classify_claim(
             "threshold asserts behavior",
             knowledge_type="PATTERN",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
             explicit_magnitude=ClaimMagnitude.NORMAL,
         )
         assert c.confidence < 1.0
@@ -1290,7 +1296,7 @@ class TestAccumulateAllRules:
         c = classify_claim(
             "threshold asserts behavior",
             knowledge_type="PATTERN",
-            artifact_pointer="test/demo",
+            artifact_pointer="test:tests/test_empirica.py",
         )
         assert c.tier == Tier.PATTERN
 

@@ -244,19 +244,34 @@ def classify_claim(
             f"{_CONFIDENCE_CONTRADICTION_PENALTY}"
         )
 
-    # Artifact-pointer demotion rule (a family member).
+    # Artifact-pointer demotion rule (Aletheia's costly-disagreement
+    # principle applied structurally). Fable audit round 7 (2026-07-02)
+    # closed the pre-existing "phase 2" gap: pointer resolution.
+    # Presence-check alone let ``test:tests/does_not_exist.py::fake`` and
+    # even the literal ``garbage-string-not-a-real-pointer`` earn
+    # FALSIFIABLE tier. The demotion rule now treats an unresolvable
+    # pointer the same as no pointer at all — fail-closed under uncertainty.
     demotion_note = ""
     final_tier = initial_tier
-    if initial_tier in _TIERS_REQUIRING_POINTER and not artifact_pointer:
-        final_tier = Tier.OUTCOME
-        demotion_note = (
-            f"; demoted {initial_tier.value} -> outcome: no artifact pointer "
-            f"(tier above OUTCOME requires a test/commit/decide/prereg/event/"
-            f"knowledge reference)"
-        )
-        # Lower confidence on demotion — the demotion is a soft
-        # signal that the classification isn't well-grounded.
-        tier_confidence = max(0.0, tier_confidence - _CONFIDENCE_CONTRADICTION_PENALTY)
+    if initial_tier in _TIERS_REQUIRING_POINTER:
+        from divineos.core.empirica.pointer_resolver import resolve_pointer
+
+        if not artifact_pointer:
+            final_tier = Tier.OUTCOME
+            demotion_note = (
+                f"; demoted {initial_tier.value} -> outcome: no artifact pointer "
+                f"(tier above OUTCOME requires a test/commit/decide/prereg/event/"
+                f"knowledge reference)"
+            )
+            tier_confidence = max(0.0, tier_confidence - _CONFIDENCE_CONTRADICTION_PENALTY)
+        elif not resolve_pointer(artifact_pointer):
+            final_tier = Tier.OUTCOME
+            demotion_note = (
+                f"; demoted {initial_tier.value} -> outcome: artifact pointer "
+                f"{artifact_pointer!r} does not resolve (unrecognized kind, "
+                f"malformed, or the referenced artifact does not exist)"
+            )
+            tier_confidence = max(0.0, tier_confidence - _CONFIDENCE_CONTRADICTION_PENALTY)
 
     full_reason = f"{tier_reason}{demotion_note}; {mag_reason}"
 
