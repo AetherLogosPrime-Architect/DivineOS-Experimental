@@ -87,6 +87,10 @@ markers = [
 ]
 timeout = 30
 addopts = "--strict-markers"
+# xdist worker cap (--maxprocesses=16) is applied conditionally in
+# tests/conftest.py::pytest_configure so it only fires when xdist is
+# loaded. Putting it in addopts broke minimal envs without xdist —
+# Aletheia FLAG 2 (2026-07-02).
 
 [tool.coverage.run]
 source = ["divineos"]
