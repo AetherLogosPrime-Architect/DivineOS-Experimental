@@ -415,8 +415,16 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
             content = entry.get("content", "")
             created = entry.get("created_at", 0)
 
-            # Directives are permanent by design
-            if ktype == "DIRECTIVE":
+            # Constraint-tier types are categorically exempt from hygiene
+            # deletion. DIRECTIVE (imperative), BOUNDARY (hard-limit), and
+            # PRINCIPLE (foundational) all encode load-bearing constraints
+            # whose false-positive-cost is catastrophic. Fable audit round 5
+            # (2026-07-02) confirmed BOUNDARY entries like "the append-only
+            # ledger is sacred" were being marked noise-superseded 24h after
+            # creation because they lacked prescriptive keywords. The
+            # categorical fix matches Round 2's ranking asymmetry: same three
+            # types protected at ranking, deletion, and orphan-flagging paths.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
                 continue
             # Don't touch recent entries — give them time to prove value
             if created > cutoff:
@@ -485,8 +493,9 @@ def _sweep_stale(
             updated = entry.get("updated_at", 0)
             confidence = entry.get("confidence", 0.5)
 
-            # Directives are permanent by design
-            if ktype == "DIRECTIVE":
+            # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) are
+            # categorically exempt — see _audit_types for full reasoning.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
                 continue
             # Only touch old entries with temporal markers
             if updated > stale_cutoff:
@@ -564,8 +573,9 @@ def _flag_orphans(entries: list[dict[str, Any]], now: float, min_age_days: float
             source = entry.get("source", "")
             created = entry.get("created_at", 0)
 
-            # Directives are exempt (permanent by design)
-            if ktype == "DIRECTIVE":
+            # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) are
+            # categorically exempt — see _audit_types for full reasoning.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
                 continue
             # Seed knowledge is constitutional, not an extracted claim
             if source == "INHERITED":
@@ -619,9 +629,11 @@ def _reap_dead_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
             content = entry.get("content", "")
             confidence = entry.get("confidence", 0.5)
 
-            # Directives and pinned entries are sacred. Pin lives in
-            # active_memory, so check membership (not a row field).
-            if ktype == "DIRECTIVE" or kid in pinned_ids:
+            # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) and pinned
+            # entries are sacred. Pin lives in active_memory, so check
+            # membership (not a row field). See _audit_types for the
+            # categorical-exemption reasoning across all four hygiene paths.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE") or kid in pinned_ids:
                 continue
             # Already superseded — skip
             if entry.get("superseded_by"):

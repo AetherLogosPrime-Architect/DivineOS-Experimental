@@ -422,52 +422,50 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
             logger.debug(f"Self-critique failed: {e}")
 
-        # ── Phase 8h1b: Council review on significant sessions ───
-        # The council is a thinking tool — 40 expert lenses that force
-        # multi-angle analysis. Without enforcement, it never gets used.
-        # Fire it on sessions with corrections or significant code work.
+        # ── Phase 8h1b: Council OBLIGATION on significant sessions ───
+        # The council is a thinking tool. Mechanical convene() output is
+        # NOT a substitute for a thinker engaging expert lenses. Fable
+        # audit round 4 (2026-07-02) confirmed: prior implementation
+        # auto-ran mgr.convene() and persisted mechanical output as
+        # OBSERVATION knowledge tagged "council-review, auto-extracted".
+        # That let the keyword matcher's output stand in as if a council
+        # had deliberated — the optimizer-defaults-to-cheapest-path
+        # substitution the council exists to prevent. Worse, the tension-
+        # pair enforcement made it look more legitimate: theater with a
+        # certificate of dissent.
+        #
+        # Fix: stage an OBLIGATION for the next thinking session rather
+        # than fabricate a conclusion. The obligation gets discharged by
+        # a real logged walk (`divineos council log`) with substance_binding
+        # — the same discipline check-council-required already enforces.
         try:
             corrections_count = len(analysis.corrections)
             tool_calls = getattr(analysis, "tool_calls_total", 0)
             if corrections_count >= 2 or tool_calls >= 20:
-                from divineos.core.council.engine import get_council_engine
-                from divineos.core.council.manager import CouncilManager
-
-                engine = get_council_engine()
-                mgr = CouncilManager(engine)
                 character = reflection.character if reflection else "code session"
-                council_problem = (
-                    f"Session review ({character}): "
-                    f"{corrections_count} corrections, {tool_calls} tool calls, "
-                    f"{stored} knowledge entries stored. "
-                    f"What patterns should I watch for? "
-                    f"What might I be missing?"
-                )
-                council_result = mgr.convene(council_problem, max_experts=5)
-                if council_result.selected_experts:
-                    expert_names = [e.expert_name for e in council_result.selected_experts]
-                    click.secho(
-                        f"[~] Council: {', '.join(expert_names)} reviewed session",
-                        fg="cyan",
-                    )
-                    # Store top council concerns as knowledge — readable on resumption
-                    for a in council_result.analyses[:3]:
-                        if a.concerns:
-                            from divineos.core.knowledge.extraction import store_knowledge_smart
+                from divineos.core.knowledge.extraction import store_knowledge_smart
 
-                            store_knowledge_smart(
-                                knowledge_type="OBSERVATION",
-                                content=(
-                                    f"Council ({a.expert_name}) concern: {a.concerns[0][:200]}"
-                                ),
-                                confidence=0.7,
-                                source="SYNTHESIZED",
-                                maturity="HYPOTHESIS",
-                                tags=["council-review", "auto-extracted", a.expert_name.lower()],
-                            )
-                            stored += 1
+                store_knowledge_smart(
+                    knowledge_type="DIRECTIVE",
+                    content=(
+                        f"[council-obligation] Next thinking session should run "
+                        f"a council walk on this session's pattern: {character} "
+                        f"with {corrections_count} corrections and {tool_calls} "
+                        f"tool calls. Discharge via `divineos council log` with "
+                        f"substance_binding — not a bare mechanical convene."
+                    ),
+                    confidence=0.9,
+                    source="SYNTHESIZED",
+                    maturity="HYPOTHESIS",
+                    tags=["council-obligation", "auto-staged"],
+                )
+                stored += 1
+                click.secho(
+                    "[~] Council obligation staged for next thinking session",
+                    fg="cyan",
+                )
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
-            logger.debug(f"Council review failed: {e}")
+            logger.debug(f"Council obligation staging failed: {e}")
 
         # ── Phase 8h2: Convergence detection (Circuit 3) ────────
         try:

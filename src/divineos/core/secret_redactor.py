@@ -91,6 +91,33 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # require at least 24 chars of token body to avoid false-positives on
     # toy/test strings.
     ("bearer-token", re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]{24,}={0,2}")),
+    # Stripe live secret keys (2026-07-02 Fable audit finding #6).
+    # Live keys start with sk_live_; test keys sk_test_ are also secrets but
+    # much lower blast radius — included at slightly reduced sensitivity.
+    ("stripe-live-key", re.compile(r"\bsk_live_[0-9a-zA-Z]{24,}\b")),
+    ("stripe-test-key", re.compile(r"\bsk_test_[0-9a-zA-Z]{24,}\b")),
+    # HuggingFace API tokens (2026-07-02 Fable audit finding #6).
+    ("huggingface-token", re.compile(r"\bhf_[A-Za-z0-9]{34,}\b")),
+    # PEM private key blocks (2026-07-02 Fable audit finding #6).
+    # DOTALL so . matches newlines — the whole block from BEGIN to END
+    # gets redacted, not just the header line. The auditor named this as
+    # the highest-severity gap in the current pattern set.
+    (
+        "pem-private-key",
+        re.compile(
+            r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+            re.DOTALL,
+        ),
+    ),
+    # Credentials embedded in URLs (2026-07-02 Fable audit finding #6).
+    # Matches the scheme://user:password@ prefix; the host/path after the
+    # @ is preserved in the surrounding text (only this prefix is replaced
+    # with the marker). This deletes the credential while keeping the URL
+    # context visible for debugging/audit.
+    (
+        "url-embedded-credential",
+        re.compile(r"[a-z][a-z0-9+.\-]*://[^:/\s@]+:[^@/\s]+@"),
+    ),
 )
 
 

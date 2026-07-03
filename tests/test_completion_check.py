@@ -13,6 +13,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from divineos.core.completion_check import (
     Unfinished,
     _has_test_for,
@@ -92,9 +94,23 @@ def test_format_for_compass_names_flags() -> None:
     assert "untested" in msg
 
 
+@pytest.mark.slow
+@pytest.mark.timeout(30)
 def test_unfinished_mechanisms_returns_list() -> None:
     """Smoke: the live probe runs against the real repo without error.
-    Result shape is list[Unfinished] — content depends on git state."""
+    Result shape is list[Unfinished] — content depends on git state.
+
+    Marked `slow` per 2026-07-02 Fable audit finding #8: this test
+    shells out to real git and its runtime scales with recently-added
+    file count in the actual repo. Under -n auto in the pre-push hook
+    it was observed hanging parallel workers when git state was noisy.
+    Also given an explicit 30s timeout as a hard cap: if the subprocess
+    calls inside _has_wiring_for / _has_test_for get slow for any reason
+    (network-mounted repo, hot git cache miss, etc.), the test fails
+    loud rather than hanging the suite.
+
+    Skipped from the default -m "not slow" runs; re-enable with
+    `pytest -m slow` for full-coverage runs (e.g. nightly CI)."""
     out = unfinished_mechanisms(days=1)
     assert isinstance(out, list)
     for u in out:

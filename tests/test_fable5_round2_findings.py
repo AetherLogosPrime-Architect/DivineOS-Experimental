@@ -93,17 +93,37 @@ class TestFinding4VerifyChainCatchesDeletion:
         assert "prior_hash mismatch" in (chain_result.get("broken_reason") or "")
 
     def test_verify_chain_catches_tail_truncation(self, tmp_path):
-        """The audit's second attack: truncate the tail. Truncation
-        leaves a valid prefix → chain still walks cleanly. Pin: the
-        chain catches mid-chain delete; truncation alone is survivable
-        (a chain-prefix is still a valid chain)."""
+        """The audit's second attack: truncate the tail.
+
+        UPDATED 2026-07-02 for Fable audit finding #1: the previous
+        pin ("truncation is survivable — a chain-prefix is still a
+        valid chain") was pinning the exact gap the Fable auditor
+        confirmed with runnable repro. That gap was the CRITICAL
+        finding — the ledger's non-repudiation promise defeated by
+        the most natural attack.
+
+        Fix landed via external head anchor in ledger_head_anchor
+        table, atomic-updated with each event write. verify_chain
+        now cross-checks the walked tip against the anchor; the
+        anchor says "5 events ended at X" and the truncated ledger
+        walks to "3 events ending at Y" → mismatch caught.
+
+        This test now pins the CORRECT behavior: tail truncation
+        must fail verify_chain with an anchor-mismatch reason.
+        """
         _seed_chain(5)
         db_path = str(tmp_path / "test.db")
         _truncate_tail(db_path, keep_n=3)
 
         chain_result = verify_chain()
-        assert chain_result["ok"] is True
-        assert chain_result["total"] == 3
+        assert chain_result["ok"] is False, (
+            f"verify_chain must catch tail truncation (Fable finding #1). Got: {chain_result}"
+        )
+        # Reason should reference the anchor mismatch or tail truncation.
+        reason = (chain_result.get("broken_reason") or "").lower()
+        assert "anchor" in reason or "truncation" in reason, (
+            f"expected anchor/truncation reason, got: {reason}"
+        )
 
     def test_per_event_check_misses_deletion(self, tmp_path):
         """Critical: the OLD behavior. verify_all_events on a

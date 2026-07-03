@@ -74,16 +74,24 @@ def _get_entry(kid):
 class TestAuditTypes:
     """Re-running the noise filter on existing PRINCIPLE/BOUNDARY entries."""
 
-    def test_pure_noise_gets_superseded(self, tmp_path, monkeypatch):
+    def test_pure_noise_typed_as_principle_is_exempt_from_hygiene(self, tmp_path, monkeypatch):
+        """Fable round 5 (2026-07-02): PRINCIPLE is categorically exempt.
+
+        Correct layer for rejecting 'yes lets do it' mis-typed as
+        PRINCIPLE is the STORE-TIME gate (Fable Round 5 finding #2,
+        separate scope), not delete-time hygiene. This test pins the
+        corrected architecture: once stored as PRINCIPLE, an entry
+        cannot be silently deleted by hygiene, regardless of
+        prescriptive-signal presence.
+        """
         _setup(tmp_path, monkeypatch)
-        # "yes lets do it" is pure affirmation noise
         kid = _insert_entry("yes lets do it", "PRINCIPLE", created_days_ago=3)
         entries = [_get_entry(kid)]
-        cutoff = time.time() - 86400  # 1 day ago
+        cutoff = time.time() - 86400
         result = _audit_types(entries, cutoff)
-        assert result["superseded"] >= 1
+        assert result["superseded"] == 0
         entry = _get_entry(kid)
-        assert entry["superseded_by"] == "hygiene-audit"
+        assert entry["superseded_by"] is None
 
     def test_prescriptive_principle_kept(self, tmp_path, monkeypatch):
         _setup(tmp_path, monkeypatch)
@@ -116,8 +124,13 @@ class TestAuditTypes:
         result = _audit_types(entries, cutoff)
         assert result["superseded"] == 0
 
-    def test_no_prescriptive_signal_superseded(self, tmp_path, monkeypatch):
-        """Long content without prescriptive signal → superseded as noise."""
+    def test_no_prescriptive_signal_principle_is_exempt_from_hygiene(self, tmp_path, monkeypatch):
+        """Fable round 5 (2026-07-02): PRINCIPLE without prescriptive
+        keywords must still survive hygiene. The declarative-truth
+        wording 'the project has a lot of files' is not a legitimate
+        PRINCIPLE, but the rejection layer is store-time, not
+        delete-time. Once stored, categorical exemption fires.
+        """
         _setup(tmp_path, monkeypatch)
         kid = _insert_entry(
             "The project has a lot of files and directories and modules and packages "
@@ -128,9 +141,9 @@ class TestAuditTypes:
         entries = [_get_entry(kid)]
         cutoff = time.time() - 86400
         result = _audit_types(entries, cutoff)
-        assert result["superseded"] >= 1
+        assert result["superseded"] == 0
         entry = _get_entry(kid)
-        assert entry["superseded_by"] == "hygiene-audit"
+        assert entry["superseded_by"] is None
 
     def test_noisy_observation_gets_superseded(self, tmp_path, monkeypatch):
         """Noise detection now covers all types, not just PRINCIPLE/BOUNDARY."""
@@ -457,12 +470,17 @@ class TestPinProtection:
         entry = _get_entry(kid)
         assert entry["superseded_by"] is None
 
-    def test_unpinned_entry_still_gets_reaped(self, tmp_path, monkeypatch):
-        """Control: the reaper still works for non-pinned entries."""
+    def test_unpinned_observation_still_gets_reaped(self, tmp_path, monkeypatch):
+        """Control: the reaper still works for non-pinned, non-constraint-tier
+        entries. Uses OBSERVATION rather than PRINCIPLE — Fable round 5
+        (2026-07-02) added categorical exemption for constraint-tier types
+        (DIRECTIVE/BOUNDARY/PRINCIPLE), so this control needs a non-exempt
+        type to verify the reaper hasn't been globally disabled.
+        """
         _setup(tmp_path, monkeypatch)
         kid = _insert_entry(
             "A struggling unpinned entry",
-            "PRINCIPLE",
+            "OBSERVATION",
             confidence=0.05,
             created_days_ago=10,
         )

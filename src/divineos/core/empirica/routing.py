@@ -83,16 +83,26 @@ def route_for_approval(
 ) -> RoutingResult:
     """Route a claim through the required number of council rounds.
 
-    ``convene_fn`` is an injected callable for testability — it takes a
+    ``convene_fn`` is an injected callable for TESTABILITY — it takes a
     problem string and returns an object with ``shared_concerns() ->
-    list[str]``. When None, the real council is used. Tests pass a
-    stub that returns canned concerns.
+    list[str]``. Tests pass a stub returning canned concerns.
 
-    The injection seam is deliberate: the council is heavy to invoke in
-    tests (loads all council experts, runs analyses), and we want the routing
-    logic to be testable in isolation without setting up the full
-    council fixtures. Callers in production code do NOT pass
-    ``convene_fn`` — they get the real council.
+    Fable audit round 4 (2026-07-02) removed the production ``convene_fn``
+    default. The prior implementation auto-loaded ``CouncilManager.convene``
+    and gated approval on the keyword-matcher's ``shared_concerns()`` — a
+    mechanical path standing in for a thinker actually engaging expert
+    lenses. Per the code-cannot-think principle, mechanical convene output
+    is not a council. When ``convene_fn`` is None on LOAD_BEARING or
+    FOUNDATIONAL claims, this now returns ``approved=False`` with a
+    rationale directing the caller to migrate to a walk-record-gated
+    approval path (which discharges via ``divineos council log`` +
+    substance_binding — the discipline ``check-council-required`` enforces).
+
+    The injection seam is preserved so tests continue to work by passing
+    ``convene_fn`` explicitly. Fail-closed for production is the intended
+    behavior: LOAD_BEARING claims should NOT auto-approve via keyword
+    matching. If a legitimate production path needs to approve a
+    LOAD_BEARING claim, it must plumb through a walk record.
     """
     needed = rounds_required(magnitude)
     if needed == 0:
@@ -106,7 +116,20 @@ def route_for_approval(
         )
 
     if convene_fn is None:
-        convene_fn = _default_convene
+        # Production path with no walk-record integration yet. Fail closed.
+        return RoutingResult(
+            approved=False,
+            council_count=0,
+            rationale=(
+                f"magnitude={magnitude.name} requires {needed} council "
+                "round(s), but the mechanical convene path was removed "
+                "(Fable audit round 4, 2026-07-02). Provide a walk_record "
+                "from a real logged council walk via `divineos council "
+                "log` with substance_binding, or migrate this caller to "
+                "the walk-record-gated approval path. Refusing "
+                "auto-approval on the keyword-matcher output."
+            ),
+        )
 
     round_rationales: list[str] = []
     approved_rounds = 0
@@ -128,26 +151,6 @@ def route_for_approval(
         council_count=approved_rounds,
         rationale=rationale,
     )
-
-
-def _default_convene(claim_content: str) -> object:
-    """Lazy-load the real council. Import here so routing.py has no
-    upfront dependency on the council package — keeps the routing
-    module importable even when the council fixtures aren't available
-    (e.g., minimal test environments).
-
-    Constructs a CouncilEngine and registers default experts before
-    handing it to CouncilManager; this mirrors the public usage
-    pattern in the council package's own examples.
-    """
-    from divineos.core.council.engine import CouncilEngine
-    from divineos.core.council.manager import CouncilManager
-
-    engine = CouncilEngine()
-    # Let CouncilManager pick up whatever experts its own registry
-    # knows about — the wrapper does not override expert selection.
-    manager = CouncilManager(engine=engine)
-    return manager.convene(claim_content)
 
 
 __all__ = [

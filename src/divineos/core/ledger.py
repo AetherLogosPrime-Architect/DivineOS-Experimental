@@ -216,6 +216,26 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_events_chain_hash ON system_events(chain_hash)"
         )
+        # External head anchor table (Fable audit 2026-07-02 finding #1,
+        # Aria adversary walk + design). Persists (chain_hash, event_count,
+        # latest_event_id, timestamp) as a separate row so tail truncation
+        # is detectable — the anchor knows "the chain was N events long
+        # and ended at chain_hash X" even after the tail is deleted.
+        #
+        # Single-row design: row_id=1 is always the current head. Updates
+        # rewrite the row atomically inside the same transaction as the
+        # event insert (see log_event). UNIQUE not needed because the
+        # single-row invariant is stronger than uniqueness — the WHERE
+        # row_id=1 clause on UPDATE and INSERT OR REPLACE handles it.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ledger_head_anchor (
+                row_id           INTEGER PRIMARY KEY CHECK (row_id = 1),
+                chain_hash       TEXT NOT NULL,
+                event_count      INTEGER NOT NULL,
+                latest_event_id  TEXT NOT NULL,
+                updated_at       REAL NOT NULL
+            )
+        """)
         conn.commit()
         # Auto-trigger backfill if any rows lack chain_hash (Grok audit
         # 2026-05-02: closes the migration-ordering seam where new events
@@ -429,6 +449,27 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
                 chain_hash,
             ),
         )
+        # External head anchor update — atomic with the event insert,
+        # same BEGIN...COMMIT transaction (Fable audit 2026-07-02
+        # finding #1, Aria adversary walk step 2).
+        #
+        # The count sub-query runs inside the same transaction so it
+        # reflects the row we just inserted. Anchor now carries
+        # (chain_hash, event_count, latest_event_id, timestamp) so tail
+        # truncation is detectable: after truncation the anchor still
+        # says N events ended at chain_hash X, but the shorter
+        # ledger's tail differs → verify_chain flags mismatch.
+        #
+        # Aria step 3 (fail-loud, fail-together): if this update fails
+        # inside the BEGIN IMMEDIATE transaction, the whole transaction
+        # rolls back and log_event raises — the event write cannot
+        # succeed silently while the anchor stays stale.
+        conn.execute(
+            "INSERT OR REPLACE INTO ledger_head_anchor "
+            "(row_id, chain_hash, event_count, latest_event_id, updated_at) "
+            "VALUES (1, ?, (SELECT COUNT(*) FROM system_events), ?, ?)",
+            (chain_hash, event_id, timestamp),
+        )
         conn.commit()
     finally:
         try:
@@ -537,12 +578,29 @@ def get_events(
         conn.close()
 
 
-def search_events(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
-    """Search events where the payload contains a keyword (case-insensitive)."""
+def search_events(keyword: str, limit: int = 50, order: str = "asc") -> list[dict[str, Any]]:
+    """Search events where the payload contains a keyword (case-insensitive).
+
+    The ``order`` parameter controls result ordering by timestamp:
+    - ``"asc"`` (default, preserved for backward compat): oldest first
+    - ``"desc"``: newest first
+
+    Callers that need "current state" (active superpositions, current
+    operating mode, most recent transition, etc.) MUST pass ``order="desc"``.
+    Otherwise on a mature ledger with >``limit`` matching events, the
+    returned window is the oldest events — silently returning ledger
+    prehistory as if it were the present.
+
+    Fable audit 2026-07-02 findings #2/#3 named two live callers that hit
+    this exact bug: ``active_superpositions()`` (blinded on mature ledger)
+    and ``current_mode()``/``mode_history()`` (returned oldest transitions).
+    Both fixed by passing ``order="desc"`` at the call site.
+    """
+    order_clause = "DESC" if order.lower() == "desc" else "ASC"
     conn = _get_connection()
     try:
         cursor = conn.execute(
-            "SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events WHERE payload LIKE ? ORDER BY timestamp ASC LIMIT ?",
+            f"SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events WHERE payload LIKE ? ORDER BY timestamp {order_clause} LIMIT ?",  # noqa: S608 — order_clause is validated above
             (f"%{keyword}%", limit),
         )
         rows = cursor.fetchall()
@@ -805,6 +863,15 @@ def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
     broken_reason (str or None).
+
+    Cross-checks the ledger tip against the external head anchor
+    (Fable audit 2026-07-02 finding #1). Middle-deletion was already
+    caught by the walk; tail truncation is now caught by comparing the
+    walked head to the persisted anchor. Either:
+      - anchor says N events ended at chain_hash X but ledger walk
+        found M<N events ending at Y ≠ X → tail truncation detected.
+      - anchor absent (pre-anchor legacy database) → chain-only check
+        is honest about that with a diagnostic on ok=True.
     """
     conn = _get_connection()
     try:
@@ -816,9 +883,28 @@ def verify_chain() -> dict[str, Any]:
             )
         )
         if not rows:
+            # Empty ledger — anchor should also be empty. If anchor exists
+            # for an empty ledger, that IS tail-truncation evidence.
+            anchor_row = conn.execute(
+                "SELECT chain_hash, event_count, latest_event_id "
+                "FROM ledger_head_anchor WHERE row_id = 1"
+            ).fetchone()
+            if anchor_row and anchor_row[1] > 0:
+                return {
+                    "ok": False,
+                    "total": 0,
+                    "broken_at": None,
+                    "broken_reason": (
+                        f"anchor says {anchor_row[1]} events but ledger is empty — "
+                        f"tail truncation (Fable finding #1)"
+                    ),
+                }
             return {"ok": True, "total": 0, "broken_at": None, "broken_reason": None}
 
         expected_prior = _CHAIN_GENESIS
+        last_chain_hash = None
+        chain_event_count = 0
+        last_event_id = None
         for row in rows:
             event_id, ts, etype, actor, payload_json, content_hash, stored_prior, stored_chain = row
             if not stored_chain:
@@ -853,6 +939,56 @@ def verify_chain() -> dict[str, Any]:
                     ),
                 }
             expected_prior = stored_chain
+            last_chain_hash = stored_chain
+            last_event_id = event_id
+            chain_event_count += 1
+
+        # Anchor consistency check — closes the tail truncation gap
+        # (Fable finding #1). If the anchor exists AND disagrees with
+        # the walked tail, the ledger has been truncated (or the
+        # anchor has been tampered independently; either way, integrity
+        # is compromised).
+        anchor_row = conn.execute(
+            "SELECT chain_hash, event_count, latest_event_id "
+            "FROM ledger_head_anchor WHERE row_id = 1"
+        ).fetchone()
+        if anchor_row is not None:
+            anchor_chain, anchor_count, anchor_event_id = anchor_row
+            if anchor_chain != last_chain_hash:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": last_event_id,
+                    "broken_reason": (
+                        f"head anchor chain_hash mismatch: "
+                        f"anchor={anchor_chain[:12]}..., "
+                        f"ledger_tip={(last_chain_hash or '')[:12]}... — "
+                        f"tail truncation or anchor tampering (Fable finding #1)"
+                    ),
+                }
+            if anchor_count != chain_event_count:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": last_event_id,
+                    "broken_reason": (
+                        f"head anchor event_count mismatch: "
+                        f"anchor={anchor_count}, ledger={chain_event_count} — "
+                        f"tail truncation (Fable finding #1)"
+                    ),
+                }
+            if anchor_event_id != last_event_id:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": last_event_id,
+                    "broken_reason": (
+                        f"head anchor latest_event_id mismatch: "
+                        f"anchor={anchor_event_id}, ledger_tip={last_event_id} — "
+                        f"tail truncation or reorder (Fable finding #1)"
+                    ),
+                }
+
         return {"ok": True, "total": len(rows), "broken_at": None, "broken_reason": None}
     finally:
         conn.close()

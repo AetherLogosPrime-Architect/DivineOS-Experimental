@@ -196,15 +196,23 @@ def generate_briefing(
             + recency * RETRIEVAL_WEIGHT_RECENCY
         )
 
-        # Directives always surface — they're the operating principles
-        if entry["knowledge_type"] == "DIRECTIVE":
+        # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) always
+        # surface — they're the load-bearing operating principles and
+        # hard limits. Fable audit round 2 (2026-07-02) confirmed
+        # BOUNDARY entries were being scored below the top-N cutoff
+        # and silently dropped from the briefing, buried by fresh
+        # high-access routine observations. Round 5 confirmed the same
+        # asymmetry at the deletion path. Categorical exemption here
+        # closes Round 2 at the ranking layer.
+        ktype = entry["knowledge_type"]
+        if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
             score += 1.0
-            # Named/consolidated directives get an extra boost. These
+            # Named/consolidated entries get an extra boost. These
             # are agent-curated `[bracketed-name]` entries (e.g.
             # `[memory-hierarchy]`, `[yes-and]`) — intentional
             # principles, not auto-generated regression alerts. Without
             # this, STRUCTURAL ENFORCEMENT entries with high access
-            # counts outrank named directives in the briefing surface.
+            # counts outrank named entries in the briefing surface.
             content = entry.get("content", "")
             if content.startswith("[") and 0 < content.find("]") < 40:
                 score += 0.5
