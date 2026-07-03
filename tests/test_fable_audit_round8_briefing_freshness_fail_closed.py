@@ -106,30 +106,29 @@ def test_current_tool_count_propagates_ledger_exception(monkeypatch):
     )
 
 
-def test_staleness_signal_reports_stale_on_current_tool_count_failure(tmp_path, monkeypatch):
+def test_staleness_signal_reports_stale_on_current_tool_count_failure(monkeypatch):
     """Integration: outer fail-closed guard catches propagated exception.
 
-    Confirms the two fixes compose. current_tool_count raises (primary
-    fix). The outer try/except in staleness_signal (already existed) now
-    catches it and correctly reports is_stale: True.
+    Aletheia caught the first version 2026-07-03: it patched
+    briefing_freshness._state_path which is not a real symbol, so the
+    test AttributeError'd at setup (false-red, muted, not guarding).
+    Corrected shape: patch the real _read_state directly to inject a
+    "loaded this session" state, patch current_tool_count on briefing_id
+    to raise, assert staleness_signal reports stale.
     """
-    # Point state file at tmp so we can seed a "loaded this session" state.
-    state_file = tmp_path / "briefing_freshness_state.json"
-    monkeypatch.setattr(briefing_freshness, "_state_path", lambda: state_file)
+    monkeypatch.setattr(
+        briefing_freshness,
+        "_read_state",
+        lambda: {"last_loaded_ts": 1234567890.0, "prompts_since_load": 0},
+    )
 
-    # Seed state as if briefing was loaded this session.
-    briefing_freshness._write_state({"last_loaded_ts": 1234567890.0, "prompts_since_load": 0})
-
-    # Break the ledger read.
-    def broken_count_events():
+    def broken_current_tool_count() -> int:
         raise RuntimeError("simulated ledger read failure")
 
-    monkeypatch.setattr("divineos.core.ledger.count_events", broken_count_events)
+    monkeypatch.setattr(briefing_id, "current_tool_count", broken_current_tool_count)
 
     result = briefing_freshness.staleness_signal()
 
-    # The outer guard catches the propagated exception; result is stale
-    # with the "briefing-id freshness unavailable" reason.
     assert result["is_stale"] is True, (
         f"staleness_signal must report is_stale=True when current_tool_count raises. Got {result}"
     )
