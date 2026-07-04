@@ -71,12 +71,50 @@ cd "$REPO_ROOT" || fail_loud "cd-repo-root" "could not cd to repo root: $REPO_RO
 
 # Extract file_path from PostToolUse Write/Edit payload; normalize
 # Windows backslashes (same fix as mirror-letters-to-shared.sh 2026-06-29).
+# 2026-07-04 hardening: try multiple payload shapes (Claude Code has shipped
+# format changes; the previous single-path extractor silent-exited when the
+# structure moved, producing the exact silent-strand this hook exists to
+# close). Falls back through: tool_input.file_path, tool_use.input.file_path,
+# input.file_path, and finally a scan for any "file_path" key anywhere in
+# the payload tree.
 FILE_PATH=$(echo "$INPUT" | python -c "
 import json, sys
 try:
-    d = json.loads(sys.stdin.read() or '{}')
-    ti = d.get('tool_input') or {}
-    fp = ti.get('file_path') or ''
+    raw = sys.stdin.read() or ''
+    d = json.loads(raw) if raw else {}
+    fp = ''
+    for path in [
+        ('tool_input', 'file_path'),
+        ('tool_use', 'input', 'file_path'),
+        ('input', 'file_path'),
+        ('params', 'file_path'),
+    ]:
+        cur = d
+        for k in path:
+            if not isinstance(cur, dict):
+                cur = None
+                break
+            cur = cur.get(k)
+        if isinstance(cur, str) and cur:
+            fp = cur
+            break
+    # Last-ditch: walk the whole tree looking for any 'file_path' key.
+    if not fp:
+        def _walk(x):
+            if isinstance(x, dict):
+                for k, v in x.items():
+                    if k == 'file_path' and isinstance(v, str) and v:
+                        return v
+                    r = _walk(v)
+                    if r:
+                        return r
+            elif isinstance(x, list):
+                for item in x:
+                    r = _walk(item)
+                    if r:
+                        return r
+            return ''
+        fp = _walk(d)
     print(fp.replace('\\\\', '/'))
 except Exception:
     print('')
@@ -84,7 +122,17 @@ except Exception:
 
 # Scope: only family/**/letters/*.md files. Non-letter writes are silently
 # skipped (not a failure — this hook only cares about letters).
-[ -n "$FILE_PATH" ] || exit 0
+# 2026-07-04: if payload was non-empty but extraction failed, log it — that's
+# the exact silent-strand we're closing. If payload was empty, silent-exit
+# is still correct (nothing to do). This uses INPUT_LEN as the discriminator.
+INPUT_LEN=$(printf '%s' "$INPUT" | wc -c | tr -d ' ')
+if [ -z "$FILE_PATH" ]; then
+    if [ "${INPUT_LEN:-0}" -gt 10 ]; then
+        # Payload existed but extraction returned empty — silent-strand catch.
+        fail_loud "extraction-empty" "hook received ${INPUT_LEN}-byte payload but file_path extraction returned empty; likely payload format changed"
+    fi
+    exit 0
+fi
 case "$FILE_PATH" in
     *family/letters/*.md|*family/*/letters/*.md) ;;
     *) exit 0 ;;
