@@ -1,4 +1,4 @@
-# Setup script — register scripts/letter_watcher_task.py as a Windows scheduled task.
+# Setup script - register scripts/letter_watcher_task.py as a Windows scheduled task.
 #
 # Andrew 2026-07-04: move the letter-watcher OUT of Claude Code Monitor
 # (which auto-archive keeps killing) and INTO Windows Task Scheduler, so
@@ -53,7 +53,7 @@ Write-Host "  User:    $env:USERNAME"
 # Kill any existing task with this name so we can re-register cleanly.
 $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($existing) {
-    Write-Host "  Existing task found — removing before re-registering."
+    Write-Host "  Existing task found - removing before re-registering."
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
@@ -85,7 +85,7 @@ Register-ScheduledTask -TaskName $TaskName `
     -Trigger @($LogonTrigger, $NowTrigger) `
     -Settings $Settings `
     -Principal $Principal `
-    -Description "DivineOS letter watcher for $Recipient — polls shared letter dir, appends detected letters to ~/.divineos/pending-letter-wakes.jsonl. Survives Claude Code session archive/restore. Filed 2026-07-04 per Andrew's directive." | Out-Null
+    -Description "DivineOS letter watcher for $Recipient - polls shared letter dir, appends detected letters to ~/.divineos/pending-letter-wakes.jsonl. Survives Claude Code session archive/restore. Filed 2026-07-04 per Andrew's directive." | Out-Null
 
 Write-Host ""
 Write-Host "Task registered. Starting now..."
