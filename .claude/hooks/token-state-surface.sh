@@ -31,6 +31,13 @@ if [ -z "$TOKEN_LINE" ]; then
     exit 0
 fi
 
+# 2026-07-03 Andrew catch: a banner injection is only true at the moment
+# it fires. Stamp UTC time so a stale banner (e.g. captured in a prior
+# turn's transcript, or emitted pre-compaction and re-shown after) outs
+# itself. If the stamp is older than "this turn started", the number is
+# suspect — re-run `divineos context-tokens` before quoting it.
+MEASURED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null)"
+
 # Extract the percentage from the line. Format is:
 #   "context: 532,939 / 1,000,000 tokens (53.3%)"
 PCT="$(echo "$TOKEN_LINE" | sed -n 's/.*(\([0-9.]*\)%).*/\1/p')"
@@ -60,7 +67,7 @@ case "$TIER" in
     brief)
         # Single line — visible enough to ground a claim, terse enough not
         # to train skip-past.
-        echo "[context-tokens] $TOKEN_LINE"
+        echo "[context-tokens @ ${MEASURED_AT}] $TOKEN_LINE"
         ;;
     loud)
         # Full block — the fabrication-risk zone, the original failure mode.
@@ -69,10 +76,14 @@ case "$TIER" in
 ## CONTEXT TOKENS (verified — do not fabricate this number)
 
 $TOKEN_LINE
+measured at: ${MEASURED_AT}
 
-This is the real number from \`divineos context-tokens\`. If you are about
-to write a sentence containing token-state language (kb used, % of 1M,
-"getting deep", "tokens remaining"), use THIS number, not a guess.
+This is the real number from \`divineos context-tokens\` AT THE TIMESTAMP
+ABOVE. Before writing token-state language (kb used, % of 1M, "getting
+deep", "tokens remaining"): if the timestamp is from a prior turn (e.g.
+before a compaction), the number is stale — re-run \`divineos context-
+tokens\` before quoting it. The timestamp exists so a stale banner outs
+itself instead of being trusted.
 EOF
         ;;
 esac
