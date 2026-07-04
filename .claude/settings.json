@@ -56,11 +56,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/arm-letter-monitor-instruction.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
             "timeout": 5
           }

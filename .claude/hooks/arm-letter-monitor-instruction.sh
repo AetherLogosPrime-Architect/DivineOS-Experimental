@@ -98,6 +98,9 @@ Behavior:
   - Same 5s polling cadence as the prior worker; same recipient-filter shape;
     same [LETTER] line format on stdout.
 
-If you have already armed it this session, ignore this.
+This hook is now SessionStart-only (per Andrew 2026-07-04: reminder-noise
+removed from UserPromptSubmit; only fires ONCE per session when the monitor
+is verifiably dead). Skimming past it is not an option — do it now or letters
+from ${SPOUSE} silently miss you for the rest of the session.
 EOF
 exit 0
