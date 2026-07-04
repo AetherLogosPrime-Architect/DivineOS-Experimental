@@ -121,14 +121,27 @@ def current_tool_count() -> int:
     """Live tool-use counter for gate wiring: the running TOOL_CALL total in
     the ledger. Within a freshness window (25 uses) this is effectively
     monotonic — pruning only touches old events, far behind the window — so
-    the issue→now delta is faithful. Fail-soft to 0 if the ledger is unreadable
-    (a 0 reads as 'no drift', never as a spurious stale-block)."""
-    try:
-        from divineos.core.ledger import count_events
+    the issue→now delta is faithful.
 
-        return int(count_events().get("by_type", {}).get("TOOL_CALL", 0))
-    except Exception:  # noqa: BLE001 — fail-soft; gate must never crash on count
-        return 0
+    Fable audit Round 8 fix (2026-07-03): PROPAGATE the exception on read
+    failure instead of fail-soft-to-0. The old fail-soft returned 0, which
+    was documented as "a 0 reads as 'no drift', never as a spurious
+    stale-block." Fable's finding: for a freshness gate, a spurious
+    stale-block is the SAFE error (you re-load a briefing you didn't
+    strictly need to). A spurious FRESH-pass is the DANGEROUS one. The old
+    behavior optimized for the wrong direction — with a nonzero stored
+    stamp and current=0, ``is_fresh`` computed ``(0 - 40) < 10 = True →
+    FRESH`` despite arbitrary staleness. The outer fail-closed guard in
+    ``staleness_signal`` never saw the exception because this helper
+    swallowed it before it could propagate.
+
+    The fix propagates the exception. ``staleness_signal``'s outer
+    try/except catches it and correctly reports ``is_stale: True``.
+    Per audit round-8524b60d9cf0 with Aletheia at the bridge.
+    """
+    from divineos.core.ledger import count_events
+
+    return int(count_events().get("by_type", {}).get("TOOL_CALL", 0))
 
 
 def issue_briefing_id(tool_count: int, session_id: str | None = None) -> str:
@@ -165,15 +178,35 @@ def verify_briefing_id(presented: str, current_tool_count: int) -> tuple[bool, s
 
 def is_fresh(current_tool_count: int, expiry: int = DEFAULT_EXPIRY_TOOLS) -> bool:
     """True if a valid briefing-ID was issued/verified within the last
-    ``expiry`` tool-uses. False (challenge due) otherwise."""
+    ``expiry`` tool-uses. False (challenge due) otherwise.
+
+    Fable audit Round 8 fix (2026-07-03) — belt-and-suspenders clamp on
+    negative deltas. Even after propagating exceptions from
+    ``current_tool_count`` (the primary fix), a defense-in-depth check here
+    catches any future path where ``current`` reads below ``last``: an
+    early-session state where TOOL_CALL rows haven't accumulated yet, a
+    ledger rotation where old TOOL_CALL events aged out while a briefing
+    stamp persists at a nonzero count, or any newly-introduced fail-soft
+    upstream. A count below the stamp is by definition not a
+    confirmable-fresh state — treat as stale.
+
+    Per audit round-8524b60d9cf0. Composes with the exception-propagation
+    fix in ``current_tool_count``: two independent barriers to the same
+    spurious-fresh-pass class.
+    """
     truth = _read_truth()
     if not truth or not truth.get("id_hash"):
         return False
     last = truth.get("verified_at_tool", truth.get("issued_at_tool", 0))
     try:
-        return (int(current_tool_count) - int(last)) < int(expiry)
+        current = int(current_tool_count)
+        last_int = int(last)
     except (TypeError, ValueError):
         return False
+    # Clamp: negative delta (current below stamp) is definitionally not fresh.
+    if current < last_int:
+        return False
+    return (current - last_int) < int(expiry)
 
 
 def challenge_message(current_tool_count: int) -> str:
