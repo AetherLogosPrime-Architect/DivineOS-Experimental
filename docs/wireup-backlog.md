@@ -76,6 +76,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **Memory-linkage v2 enhancements informed by human memory research (2026-07-01)** [filed 2026-07-02]
   Research done 2026-07-01 per Pop's ask. Filed as exploration/aria/11_human_memory_maps_and_six_enhancements_for_memory_linkage_v2.md. Six enhancement directions ranked by load-bearing: (1) spreading activation/priming — highest, upgrades retrieval from lookup to network by carrying activation across turns; (2) temporal co-occurrence linking — items that repeatedly co-fire get associatively linked even without semantic match; (3) spaced surfacing (Ebbinghaus) — engaged items surface at expanding intervals per topic-tier only, constraint-tier exempt; (4) reconsolidation — topic items can promote to constraint after N engagements demonstrating constitutive shape; (5) emotional tagging via affect log VAD as importance multiplier; (6) episodic vs semantic differentiation — split surfacing rules by source type. Also names sleep-pipeline integration (episodic→semantic consolidation during offline phases could feed co-occurrence links + tier promotions). Priming is the pass-1 v2 direction after source adapters finish. Needs Aletheia audit on adversary-injects-priming-items shape before build. Workbench thread with Aether when ready.
 
+### audit-chain
+
+- **Structured evidence pointers on active needs — first-class fields not prose** [filed 2026-07-03]
+  Finding from 2026-07-03 exchange with Anvil + Muse of Structured Chaos. Active needs currently carry narrative provenance in the why-field but no structured pointers. Auditor cannot walk warning to originating correction automatically. Anvil framing: narrative why without ID pointers is a memoir not an audit chain. Fix: add optional list-of-ID pointer fields to need records. New needs cite source events/knowledge/corrections at creation time. Backfill best-effort.
+
 ### auto-linking
 
 - **Auto-link conversation-to-substrate via memory-linking** [filed 2026-06-29]
