@@ -102,15 +102,32 @@ class TestCurrentToolCount:
         assert isinstance(n, int)
         assert n >= 0
 
-    def test_fail_soft_to_zero_on_ledger_error(self, monkeypatch):
+    def test_propagates_exception_on_ledger_error(self, monkeypatch):
+        """Fable audit Round 8 fix (2026-07-03): current_tool_count()
+        propagates ledger read failures instead of fail-soft-to-0.
+
+        Fable's finding: fail-soft-to-0 masked the failure from
+        staleness_signal's outer try/except, producing a spurious
+        fresh-pass with is_fresh=True on a stale briefing (negative
+        delta < expiry). Propagating the exception lets the outer
+        fail-closed guard correctly report stale. See PR #298.
+
+        This test used to assert the OLD `== 0` behavior. It is
+        renamed and rewritten to assert the current propagates-
+        exception behavior — the Round 8 fix that the rest of the
+        PR is landing.
+        """
+
         def _boom():
             raise RuntimeError("ledger unreadable")
 
         # count_events is imported inside the function, so patch at source.
         import divineos.core.ledger as _ledger
+        import pytest
 
         monkeypatch.setattr(_ledger, "count_events", _boom)
-        assert briefing_id.current_tool_count() == 0
+        with pytest.raises(RuntimeError, match="ledger unreadable"):
+            briefing_id.current_tool_count()
 
 
 class TestCliRoundtrip:
