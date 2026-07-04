@@ -31,6 +31,35 @@ from divineos.core.moral_compass import (
 from divineos.core.trust_tiers import SignalTier
 
 
+@pytest.fixture(autouse=True)
+def _stub_unfinished_mechanisms(monkeypatch):
+    """Autouse: stub completion_check.unfinished_mechanisms to return [] by default.
+
+    Fixes the xdist timeout on TestReflectOnSession / TestNewSpectrumAutoObservations
+    (2026-07-04). The real unfinished_mechanisms(days=14) spawns ~98 subprocess
+    calls (grep, git, AST scans) taking ~2.8s locally. Under xdist -n auto with
+    16 workers, that becomes 16×98 = 1568 concurrent OS calls fighting for
+    resources, pushing individual tests past pytest-timeout's 30s ceiling.
+
+    Compass reflect_on_session tests are asserting the truthfulness /
+    encouragement / tool-call codepaths — NOT the completion-check codepath.
+    Mocking with []-return keeps them fast without affecting what they test.
+
+    Tests that specifically test the initiative/completion-check codepath
+    (search for `unfinished_mechanisms` in this file) already re-monkeypatch
+    with their own return values — monkeypatch composes, so those overrides
+    still apply cleanly.
+
+    Root-cause fix, not a timeout bump. Same discipline as the phase1 flake
+    fix in PR #299 (2026-07-03) — reduce the test's real footprint rather
+    than raise the ceiling for it.
+    """
+    monkeypatch.setattr(
+        "divineos.core.completion_check.unfinished_mechanisms",
+        lambda **kw: [],
+    )
+
+
 class TestSpectrums:
     """The ten spectrums are well-defined."""
 
