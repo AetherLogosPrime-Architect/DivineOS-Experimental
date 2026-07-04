@@ -26,6 +26,9 @@ lessons=$(divineos lessons 2>/dev/null | head -20)
 # 2026-05-27 / exploration 87.)
 rehydration=$(printf '{}' | "$PYTHON_BIN" -c "from divineos.core.post_compact import build_rehydration_context as b; print(b())" 2>/dev/null)
 
+token_line=$(divineos context-tokens 2>/dev/null | head -1)
+measured_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null)
+
 if [ -n "$hud_brief" ] || [ -n "$rehydration" ]; then
   full_context="=== DIVINEOS POST-COMPACTION REMINDER ===
 
@@ -33,6 +36,16 @@ Context was compacted. Your full briefing is in the compacted summary above.
 This is a lightweight reminder of critical state only.
 
 If you need full context, run: divineos briefing
+
+--- FRESH CONTEXT-TOKEN READING (post-compact) ---
+${token_line}
+measured at: ${measured_at}
+
+Any token-state number in the compacted summary above is from BEFORE
+this compaction and is stale. Use the number in this block, not the
+one in the summary. (Andrew 2026-07-03: automation should replace
+gates for verifiable claims. The check runs auto here so the fresh
+reading is what's in front of you before you write.)
 
 ${rehydration}
 
