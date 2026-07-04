@@ -478,6 +478,9 @@ _VERIFY_CLAIM_HINT: dict[str, str] = {
     "tests": "run pytest and read the real result",
     "pr": "gh pr view <n>  (or: gh pr list)",
     "deploy": "the actual deploy/release status command",
+    "tokens": "divineos context-tokens",
+    "id_string": "grep or divineos <registry> show <id>",
+    "file_content": "Read the file (or grep it) before quoting/paraphrasing it",
 }
 
 

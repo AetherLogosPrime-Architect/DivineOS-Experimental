@@ -200,6 +200,45 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             re.IGNORECASE,
         ),
     ),
+    # 2026-07-03 Andrew catch: I stated "99.7%" of context-window from a
+    # stale banner-injection without running the tool THIS turn. He named
+    # the fix: "you have a tool to verify it.. so thats the issue.. is you
+    # made a claim without verification so lets automate it so you dont
+    # need to remember." Same shape as merge/push/tests: an assertion
+    # about a checkable external state (my own context-window usage) that
+    # requires the actual command (`divineos context-tokens`) to be run
+    # in-turn to substantiate. Verification-signature: any Bash call whose
+    # text contains "context-tokens" silences.
+    #
+    # Patterns cover the shapes I actually fabricate in: bare percentage
+    # ("99.7%"), fraction over 1M ("996k of 1M", "996,589 / 1,000,000"),
+    # and "context (is) at N%" / "at Nk". The number must LOOK like a
+    # context-window claim, so bare "99.7%" alone is safe unless preceded
+    # by a context-word within a short window — otherwise the gate fires
+    # on every percentage in prose. Enforced via the anchor below.
+    (
+        "tokens",
+        re.compile(
+            r"(?:"
+            # explicit "context at Nk / N%" / "context (is) at N%"
+            r"\bcontext(?:\s+(?:is|at))?\s+(?:at\s+)?\d{1,3}(?:[.,]\d+)?\s*[k%]"
+            r"|"
+            # "Nk of 1M", "N,NNN,NNN / 1,000,000", "N / 1M tokens"
+            r"\b\d{2,3}(?:[.,]\d+)?\s*%\s+of\s+(?:1[mM]|1[,.]?000[,.]?000)"
+            r"|"
+            r"\b\d{1,3}(?:[.,]\d{3})*\s*/\s*1[,.]?000[,.]?000"
+            r"|"
+            r"\b\d{2,4}k\s+of\s+1[mM]"
+            r"|"
+            # "tokens remaining" figurative token-state claim
+            r"\btokens?\s+remaining"
+            r"|"
+            # "at N% of context / of 1M / of my window"
+            r"\bat\s+\d{1,3}(?:[.,]\d+)?\s*%\s+of\s+(?:context|1[mM]|(?:my|the)\s+window)"
+            r")",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 # A merge/land completion-claim names a mergeable code object. Without one
@@ -546,6 +585,10 @@ _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
     "deploy": re.compile(
         r"gh\s+release|kubectl\s+apply|docker\s+push|\bdeploy(?:\.sh|\s)", re.IGNORECASE
     ),
+    # 2026-07-03: token-state assertions substantiate on any invocation of
+    # `divineos context-tokens` this turn (the tool that reads the real
+    # value from the session's tokens.json).
+    "tokens": re.compile(r"context-tokens", re.IGNORECASE),
 }
 
 
