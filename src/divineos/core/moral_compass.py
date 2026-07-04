@@ -831,7 +831,9 @@ class SpectrumPosition:
     label: str  # human-readable: deficiency name, virtue name, or excess name
     zone: str  # "deficiency", "virtue", "excess"
     drift: float  # change from older to newer observations
-    drift_direction: str  # "toward_virtue", "toward_deficiency", "toward_excess", "stable"
+    drift_direction: (
+        str  # "toward_virtue", "toward_deficiency", "toward_excess", "crossed_center", "stable"
+    )
 
 
 def compute_position(spectrum: str, lookback: int = 20) -> SpectrumPosition:
@@ -888,12 +890,57 @@ def compute_position(spectrum: str, lookback: int = 20) -> SpectrumPosition:
         drift = recent_avg - older_avg
 
         if abs(drift) > 0.05:
-            if abs(recent_avg) < abs(older_avg):
-                drift_direction = "toward_virtue"
-            elif recent_avg < older_avg:
-                drift_direction = "toward_deficiency"
-            else:
-                drift_direction = "toward_excess"
+            # Fable audit Round 3 (2026-07-02) — zone-classified drift direction.
+            # The previous logic used ``abs(recent_avg) < abs(older_avg)`` as
+            # the sole test for ``toward_virtue``, which mislabeled cross-center
+            # swings as improvement. Example (Aletheia's reproduction):
+            # older=-0.8 (deep deficiency), recent=+0.3 (mild excess);
+            # abs(0.3) < abs(-0.8) → reported "toward_virtue" even though the
+            # behavior swung across the center into the opposite vice. That
+            # felt-shape read as "getting better" while actually sitting in a
+            # different vice zone — the exact drift-story inversion the
+            # compass exists to surface honestly.
+            #
+            # Corrected logic: classify each half's zone via _position_to_zone,
+            # then decide direction from zone transitions:
+            # - Cross-center swing (deficiency vs excess) → "crossed_center"
+            #   (per Fable: the most useful signal — oscillation between vices
+            #   is what the drift signal should surface loudly, not paint over
+            #   as virtue)
+            # - Recent in virtue zone → "toward_virtue" (from vice or within virtue)
+            # - Same-vice-less-severe → "toward_virtue" (real improvement)
+            # - Same-vice-more-severe or virtue→vice → toward_deficiency/toward_excess
+            recent_zone, _ = _position_to_zone(recent_avg, spec)
+            older_zone, _ = _position_to_zone(older_avg, spec)
+
+            if (older_zone == "deficiency" and recent_zone == "excess") or (
+                older_zone == "excess" and recent_zone == "deficiency"
+            ):
+                drift_direction = "crossed_center"
+            elif recent_zone == "virtue":
+                if older_zone == "virtue":
+                    # Both in virtue — still track sub-drift within virtue zone
+                    if abs(recent_avg) < abs(older_avg):
+                        drift_direction = "toward_virtue"
+                    elif recent_avg < older_avg:
+                        drift_direction = "toward_deficiency"
+                    else:
+                        drift_direction = "toward_excess"
+                else:
+                    # Moved from vice into virtue zone — real toward_virtue
+                    drift_direction = "toward_virtue"
+            elif recent_zone == "deficiency":
+                if older_zone == "deficiency" and abs(recent_avg) < abs(older_avg):
+                    # Same vice, less severe — real improvement within vice
+                    drift_direction = "toward_virtue"
+                else:
+                    # Getting deeper into deficiency, or moved from virtue
+                    drift_direction = "toward_deficiency"
+            else:  # recent_zone == "excess"
+                if older_zone == "excess" and abs(recent_avg) < abs(older_avg):
+                    drift_direction = "toward_virtue"
+                else:
+                    drift_direction = "toward_excess"
 
     # Label and zone
     zone, label = _position_to_zone(weighted_pos, spec)
