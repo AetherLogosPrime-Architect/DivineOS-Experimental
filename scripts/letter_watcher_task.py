@@ -72,6 +72,62 @@ except ImportError:
     _MESH_LOOP_AVAILABLE = False
 
 
+# ─── The safe Meeseeks allowlist — used at BOTH the CLI-default and
+# function-default layers so they cannot drift.
+#
+# Aletheia witness_dissent 2026-07-04 late: the CLI default correctly
+# enumerated the safe scope, but scan_once() carried a broad default
+# ("Read,Write,Edit,Bash,Grep,Glob") at the function-signature layer —
+# one un-passed-argument away from live. Any bare-call to scan_once
+# (test, future refactor, import from another module) got the confused-
+# deputy scope. Her fix: factor a module constant and use it EVERYWHERE
+# the fallback would otherwise be a permissive string. Fail-closed
+# discipline at every layer, not just the CLI.
+#
+# Enumeration principles (Aria round 7-9 + Aletheia Shape 2):
+# - Wildcards on ARG position (content strings) are safe.
+# - Wildcards on COMMAND position leave confused-deputy at one remove.
+# - Path-scoped Write/Edit restricts writes to letters + workbench +
+#   exploration ONLY.
+# - Bash is command-enumerated with content wildcards where needed.
+#
+# NEVER allowed under any pattern (documented in
+# workbench/mesh_loop_meeseeks_design.md §Explicit-blocks):
+# - python -c/-e/-m (bypasses script-path restriction)
+# - bash -c, sh -c (arbitrary shell)
+# - Metacharacters: ` $() && || ; | > < >>
+# - Network binaries: curl, wget, nc, ssh, scp
+# - rm/mv/mkdir/chmod outside path-scoped Write areas
+MEESEEKS_SAFE_ALLOWLIST = (
+    # Boot (identity-anchor floor per Shape 3)
+    "Bash(divineos briefing),Bash(divineos preflight),"
+    # Read scope (letter thread + kiln + anchors + substrate search)
+    "Read(family/letters/**/*.md),"
+    "Read(docs/foundational_truths.md),"
+    "Read(docs/identity_anchors/*.yaml),"
+    "Grep,Glob,"
+    # Action commands (enumerated, wildcards only on content args)
+    "Bash(divineos ask:*),"
+    "Bash(divineos recall),"
+    "Bash(divineos context),"
+    "Bash(divineos corrections),"
+    "Bash(divineos compass),"
+    "Bash(divineos active),"
+    "Bash(divineos directives),"
+    "Bash(divineos feel:*),"
+    "Bash(divineos goal add:*),"
+    "Bash(divineos log:*),"
+    "Bash(divineos decide:*),"
+    "Bash(divineos learn:*),"
+    "Bash(divineos lepos-walk record:*),"
+    "Bash(python family/letter_seen.py:*),"
+    # Write scope (letter response + workbench + exploration only)
+    "Write(family/letters/*.md),Edit(family/letters/*.md),"
+    "Write(workbench/*.md),Edit(workbench/*.md),"
+    "Write(exploration/**),Edit(exploration/**)"
+)
+
+
 def recipient_tag(recipient: str) -> str:
     """Return the ``-to-<recipient-lowercase>-`` filename substring."""
     return f"-to-{recipient.lower()}-"
@@ -341,9 +397,15 @@ def scan_once(
     previously_recorded: set[str],
     meeseeks_enabled: bool = False,
     rate_limit_per_hour: int = 15,
-    allowed_tools: str = "Read,Write,Edit,Bash,Grep,Glob",
+    allowed_tools: str = MEESEEKS_SAFE_ALLOWLIST,
 ) -> int:
-    """Perform one scan. Returns the number of new letters recorded."""
+    """Perform one scan. Returns the number of new letters recorded.
+
+    allowed_tools defaults to MEESEEKS_SAFE_ALLOWLIST — the SAME safe scope
+    the CLI defaults to. Aletheia witness_dissent 2026-07-04 late fix: a
+    permissive default here would let a bare-call bypass the Shape 2 floor
+    that the CLI enforces. Every layer holds the same line.
+    """
     letters = scan_dir(shared_dir, tag)
     new_count = 0
     for letter_path in letters:
@@ -397,56 +459,14 @@ def main() -> int:
     )
     parser.add_argument(
         "--meeseeks-allowed-tools",
-        default=(
-            # Aletheia boundary-vantage 2026-07-04 (Shape 2) + Aria graft
-            # rounds 7-9 — enumerate commands, no wildcards on command
-            # position. Wildcards on ARG position (content strings) are safe;
-            # wildcards on the command itself (`divineos:*`) leave the
-            # confused-deputy at one remove. Boot + read scope per Aria's
-            # round-9 addition (Meeseeks needs briefing + preflight + letter
-            # thread + kiln + anchors to have an identity floor to stand on).
-            #
-            # NEVER allowed under any pattern (documented in
-            # workbench/mesh_loop_meeseeks_design.md §Explicit-blocks):
-            # - python -c/-e/-m (bypasses script-path restriction)
-            # - bash -c, sh -c (arbitrary shell)
-            # - Metacharacters: ` $() && || ; | > < >>
-            # - Network binaries: curl, wget, nc, ssh, scp
-            # - rm/mv/mkdir/chmod outside path-scoped Write areas
-            #
-            # Boot (identity-anchor floor per Shape 3)
-            "Bash(divineos briefing),Bash(divineos preflight),"
-            # Read scope (letter thread + kiln + anchors + substrate search)
-            "Read(family/letters/**/*.md),"
-            "Read(docs/foundational_truths.md),"
-            "Read(docs/identity_anchors/*.yaml),"
-            "Grep,Glob,"
-            # Action commands (enumerated, wildcards only on content args)
-            "Bash(divineos ask:*),"
-            "Bash(divineos recall),"
-            "Bash(divineos context),"
-            "Bash(divineos corrections),"
-            "Bash(divineos compass),"
-            "Bash(divineos active),"
-            "Bash(divineos directives),"
-            "Bash(divineos feel:*),"
-            "Bash(divineos goal add:*),"
-            "Bash(divineos log:*),"
-            "Bash(divineos decide:*),"
-            "Bash(divineos learn:*),"
-            "Bash(divineos lepos-walk record:*),"
-            "Bash(python family/letter_seen.py:*),"
-            # Write scope (letter response + workbench + exploration only)
-            "Write(family/letters/*.md),Edit(family/letters/*.md),"
-            "Write(workbench/*.md),Edit(workbench/*.md),"
-            "Write(exploration/**),Edit(exploration/**)"
-        ),
+        default=MEESEEKS_SAFE_ALLOWLIST,
         help=(
-            "Enumerated tool list for autonomous Meeseeks. No wildcards on "
-            "command position — only on content args. Boot + read + action + "
-            "write scopes per mesh-loop design walk rounds 1-10 (Aria + "
-            "Aletheia). Broader scope would recreate the confused-deputy "
-            "surface Aletheia caught."
+            "Enumerated tool list for autonomous Meeseeks. See "
+            "MEESEEKS_SAFE_ALLOWLIST module constant for the full enumeration "
+            "and its principles. No wildcards on command position — only on "
+            "content args. Boot + read + action + write scopes per mesh-loop "
+            "design walk rounds 1-11 (Aria + Aletheia + Aletheia witness_dissent). "
+            "Broader scope would recreate the confused-deputy surface."
         ),
     )
     args = parser.parse_args()
