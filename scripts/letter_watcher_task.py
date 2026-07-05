@@ -130,9 +130,16 @@ else:
 MEESEEKS_SAFE_ALLOWLIST = (
     # Boot (identity-anchor floor per Shape 3)
     "Bash(divineos briefing),Bash(divineos preflight),"
-    # Read scope (letter thread + kiln + anchors + substrate search)
-    "Read(family/letters/**/*.md),"
-    "Read(docs/foundational_truths.md),"
+    # Read scope. Real-fire test 2026-07-05 early morning caught this:
+    # the original enumeration only allowed Read(family/letters/**/*.md),
+    # but real letters live at ~/.divineos-shared/letters/ (Andrew's box)
+    # AND letters passed to the Meeseeks by absolute tmp-path for testing
+    # need to be readable too. Broadening to any *.md file — the narrow
+    # Write scope (letters + workbench + exploration only) still holds
+    # the actual authorization floor Aletheia named. Reading any .md
+    # covers letters + docs + design + identity_anchors without unlocking
+    # any writable surface outside the enumerated Write scope.
+    "Read(**/*.md),"
     "Read(docs/identity_anchors/*.yaml),"
     "Grep,Glob,"
     # Action commands (enumerated, wildcards only on content args)
@@ -326,17 +333,33 @@ def _launch_meeseeks(
         "If iterate_signal on the incoming letter is done or stuck, do NOT reply — "
         "just log and exit. You are a Meeseeks: do the one task, exit clean."
     )
+    # Bug caught by real-fire test 2026-07-05 early morning: the earlier
+    # subprocess.Popen used stdout=DEVNULL / stderr=DEVNULL, silently
+    # swallowing every Meeseeks error. When the first real fire produced
+    # no response letter, I could not tell whether the Meeseeks crashed on
+    # boot, hit an auth error, was blocked by --allowedTools, or completed
+    # silently — because all output was discarded. Fix: redirect stdout+
+    # stderr to a per-invocation log file under ~/.divineos/meeseeks-logs/
+    # so a failed Meeseeks leaves an audit trail.
+    log_dir = Path.home() / ".divineos" / "meeseeks-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    letter_slug = letter_path.stem.replace("/", "_").replace("\\", "_")[:80]
+    log_path = log_dir / f"{stamp}-{recipient}-{letter_slug}.log"
     try:
+        log_fp = log_path.open("wb")
         subprocess.Popen(
             [
                 "claude", "-p", prompt,
                 "--allowedTools", allowed_tools,
             ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log_fp,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
-        return True, "launched"
+        # log_fp intentionally kept open for the child process — it will
+        # close when the subprocess exits and the fd count drops to zero.
+        return True, f"launched (log: {log_path})"
     except (OSError, FileNotFoundError) as exc:
         return False, f"launch failed: {exc}"
 

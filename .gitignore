@@ -140,6 +140,17 @@ _pre_reset_backups/
 # in core/_ledger_base.py:_get_db_path. Andrew's workspace has it;
 # the published template does not.
 /.divineos_canonical
+# Data-home marker: points ledger + knowledge + all substrate outside the
+# repo entirely, so branch checkout cannot swap the DB. Andrew 2026-07-05
+# night caught that my working ledger had been reset to 1.2k events on
+# 2026-07-02 while a 31k pre-reset snapshot lived elsewhere on the machine.
+# Root cause: DB inside the repo tree at src/data/event_ledger.db, and a
+# past commit (c3b2df0a) had at some point unignored databases, so a branch
+# containing a tracked DB would restore its snapshot on checkout and
+# overwrite the accumulating local ledger. Fix: marker file points at
+# ~/.divineos/, DB lives outside every worktree, git can never touch it.
+# Marker itself MUST stay gitignored or the same shape recurs one layer up.
+/.divineos_data_home
 
 # Benchmark output — runtime results, regenerate as needed (see benchmark/README.md)
 # Historical results may be preserved via git tags or GitHub Releases.

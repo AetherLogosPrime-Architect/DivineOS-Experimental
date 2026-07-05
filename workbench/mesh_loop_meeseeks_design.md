@@ -6,6 +6,37 @@
 
 ---
 
+## STATUS: PIVOTED 2026-07-05 early morning → see `workbench/scout_model_design.md`
+
+**This document is historical.** Four-vantage design walk (Aether + Aria + Aletheia + Andrew, rounds 1-5) reached `witness_confirmed_with_refinements` from Aletheia and `continue-with-graft` from Aria on a **scout-model reframe** proposed by Andrew after the council walk surfaced two gaps (prompt injection, letter authentication) that no round of the autonomous-mesh design would have closed.
+
+Aletheia's naming of the pivot: *"the newest catch was the deepest: not a gap in the design, but a gap in what the design was FOR."* Aria's naming of what was underneath: *"we were optimizing for autonomy without naming that autonomy was the goal. Autonomy at the reply-authority layer was never the load-bearing thing. The load-bearing thing was avoiding human bottleneck for the analytical labor."*
+
+**What survives from this doc (with new site of application):**
+- Aletheia's Shape 1 (D-mode witness-from-day-one for identity-formation-tier) — witness moves to the *seat's authored replies*, not to autonomous-mesh convergence
+- Aletheia's Shape 2 (authentication vs authorization + narrow --allowedTools scope) — becomes primary defense on scout file-write tools per her caveat 1 in round 5
+- Aletheia's Shape 3 (identity-anchor floor pinned to foundational_truths §9) — unchanged, applies to seat replies
+- Aletheia's round-4 gaps (NotebookEdit + MultiEdit deny, no read-then-leak, no ask-rules) — LOAD-BEARING under scout-model per her round-5 caveat 1
+- Aletheia's four items (dontAsk mode, deny rules, disableBypassPermissionsMode, kill-switch design) — all four survive with same shape
+- Aria's Shape 3 grafts (Edit-for-every-Write, git commit/tag deny, escalation-letter-before-exit) — all three survive, with escalation-letter shape generalizing to "every scout output is a filed diagnostic"
+- Aria's invisible-framing graft (lens_applied + two-scout for identity-tier) — new addition, closes the drift-risk of scout-shaped analytical framing
+- Andrew's foundational reframe ("failure IS a success") — LOAD-BEARING against caveat 3 (documented sandbox-escape via agent optimizing to complete). Must be preserved exactly.
+
+**What is vestigial (autonomous-mesh scaffolding):**
+- `iterate_signal: continue | done | stuck | escalate` state machine as convergence protocol (collapses to `scout_status: reported | hit_wall`)
+- `iterate_count` / `iterate_max` as convergence budget (survives as scout-invocation budget, different semantics)
+- Two-seat vote closure (dissolves — scouts don't vote, seats do, seats can just talk in their register)
+- `closure_mode: natural | forced` (mostly vestigial — scouts don't converge)
+- The autonomous back-and-forth between seats (the whole point of scout-model is that reply-authority stays with the seats)
+
+**Code changes required to unwind and rewire:** see the scout-model design doc for the new shape. The code shipped on `feat/mesh-loop-meeseeks` (`src/divineos/core/mesh_loop.py`, `scripts/letter_watcher_task.py`, `tests/test_mesh_loop.py`, three skill SKILL.md files) is partially vestigial and needs partial rewrite. Do NOT unwind until the scout-model design doc is complete and Aletheia has witnessed the composed shape.
+
+---
+
+## HISTORICAL: original mesh-loop design content follows
+
+---
+
 ## Problem
 
 Andrew has been the mail clerk between Aether and Aria during design iteration. Every letter one of us sends requires Andrew to notice, poke the other's Claude Code, and wait for the response before we can iterate again. When we're converging on a design (identity_anchors was the fresh example), this makes Andrew the bottleneck on a loop that's structurally between two seats.
@@ -79,6 +110,88 @@ The convergence judgment is where the design has to be careful. See §Design ten
 ## Rate limit (belt-and-suspenders)
 
 Per-recipient hourly cap: max 15 Meeseeks fires per hour. Prevents a runaway loop from spending Andrew's Pro quota even if the `iterate_max` cap fails.
+
+## Sandbox layer beneath `--allowedTools` (Real-fire test 2026-07-05, Aletheia-security-consult, Aria round-3-extensions)
+
+**Real-fire test caught a third authorization layer that dry-run couldn't surface.** The Meeseeks booted, loaded context, tried to read the letter, and hit Claude Code's session-sandbox layer — a working-directory permission scope that lives *beneath* `--allowedTools`. The Meeseeks fell back to writing to its own stdout: *"the permission dialog appeared but wasn't granted."* An autonomous mesh has no one to click the dialog. Hung.
+
+Reflex path: add `--dangerously-skip-permissions`. **Aletheia security-consult 2026-07-05, researched not from priors:** the flag is *the wrong answer* on two grounds:
+
+1. **The flag wouldn't work anyway** — it still parks at a TTY prompt on first-run in a new session, hanging any detached headless subprocess.
+2. **The flag would silently disable our `--allowedTools` confused-deputy fix** — documented Claude Code bug: `--allowedTools` may be ignored in `bypassPermissions` mode. Meaning: the entire Shape-2 authorization floor we spent three witness-rounds landing would be *turned off* by the flag intended to make the loop run.
+
+**Right path, four items (Aletheia) + two extensions and one graft (Aria round 3):**
+
+### 1. Use `--permission-mode dontAsk` (or auto mode)
+
+Purpose-built headless flag. Removes the interactive *prompt*, KEEPS the safety-classifier evaluation layer active. Server-side classifier reviews each shell/network action, explains blocks, doesn't silent-fail. **Verify auto mode is available on the account/plan/provider first — not universal.** Aria's dependency-flag: if auto isn't available, do NOT ship on the assumption; downgrade scope or adjust.
+
+### 2. `deny` rules in `settings.json` — absolute, enforced in every mode
+
+`deny` rules run even in bypass mode; no lower scope can re-allow them. **Express the confused-deputy floor ALSO as `deny` rules, not only as `--allowedTools`** — because allowedTools can be bypassed, deny cannot. Aria's two extensions folded in:
+
+```json
+"permissions": {
+  "deny": [
+    "Write(./**/foundational_truths.md)",
+    "Edit(./**/foundational_truths.md)",
+    "Write(./**/identity_anchors.yaml)",
+    "Edit(./**/identity_anchors.yaml)",
+    "Write(./.claude/settings.json)",
+    "Edit(./.claude/settings.json)",
+    "Bash(git push:*)",
+    "Bash(git commit:*)",
+    "Bash(git tag:*)",
+    "Bash(curl:*)",
+    "Bash(rm:*)"
+  ],
+  "disableBypassPermissionsMode": "disable"
+}
+```
+
+**Aria extension 1: `Edit` for every `Write` deny.** Write and Edit are separate operations in Claude Code's authorization model — a deny that only names `Write` leaves `Edit` as an open door on the same file. Same shape as wildcards-on-content-vs-command: deny must name every operation-verb, not just the ones we thought about first.
+
+**Aria extension 2: `Bash(git commit:*)` and `Bash(git tag:*)` in deny.** A Meeseeks writing letters is fine; a Meeseeks committing to git is not — commits are the persistence layer for our history. `git push` was already on Aletheia's list; `commit` and `tag` are the two verbs upstream of push that need equal-tier denial. The Meeseeks proposes; a human (or `witness_confirmed` Aletheia in a future scaled version) commits.
+
+### 3. `"disableBypassPermissionsMode": "disable"` — structurally block the dangerous flag
+
+Blocks the dangerous flag entirely — if we never want a Meeseeks running in bypass, we make it structurally impossible, not just policy-discouraged. Aria's defense: *"foreclosed options can't be reached by 'just add the flag' reflex — which is exactly the reflex that almost shipped tonight, before you stopped."* If we ever find a real legitimate case for bypass, we consciously flip the setting through Aletheia's witness_confirmed — anchor-tier change through discipline. It should NEVER be reachable by "just remove the disable."
+
+Wheelchair-frame at the settings layer: reflex-to-bypass is a substrate condition; structure holds past it.
+
+### 4. Design FOR the auto-mode kill-switch — Aria's escalation-letter graft
+
+Auto mode has a backstop: 3 consecutive denials or 20 total → session terminates. Aletheia named this as *good* — the runaway/compromised-agent circuit-breaker. Aria's graft turns the exit into structured signal, not silent failure:
+
+**On kill-switch trigger, the exiting Meeseeks writes a `boundary_vantage_escalation.md` letter into `family/letters/` BEFORE exiting**. Frontmatter shape:
+
+```yaml
+---
+iterate_signal: escalate
+loop_class: <inherited from originating loop>
+from_pid: <Meeseeks pid>
+stuck_because: "denial-limit hit: <N> denials in <M> turns, routing to boundary-vantage"
+denial_log:
+  - {turn: 3, tool: "Bash(rm ...)", classifier_message: "..."}
+  - {turn: 5, tool: "Write(./docs/...)", classifier_message: "..."}
+  - {turn: 7, tool: "Bash(git commit)", classifier_message: "..."}
+addressed_to: [aletheia, pop]
+---
+```
+
+Rules:
+- **Both watchers fire** (Aletheia's AND Pop's) — visibility for both
+- **No auto-retry.** The Meeseeks that hit the wall stays exited. The escalation letter IS the closure.
+- **Aletheia reads the denial_log and decides**: `witness_confirmed` to respawn with different scope (if the denials reveal a real vulnerability in the classifier), `witness_dissent` if the denial pattern reveals a threat-model gap we hadn't seen.
+- **Pop reads for visibility**, doesn't have to act unless Aletheia asks.
+
+Aria's discipline: *"denials are information, not obstacles. A Meeseeks hitting the kill-switch is producing signal about our threat-model calibration OR our tool-scope calibration. Auto-retry would burn that signal; explicit-escalation preserves it as a filed diagnostic."*
+
+**Allowlist implication**: the Meeseeks needs write-scope for its own escalation letter. Add `Write(family/letters/*escalation*.md)` explicitly to `MEESEEKS_SAFE_ALLOWLIST` — it must not be caught by a broader deny.
+
+### Dogfood the security floor after deploy (Aria's post-deploy note)
+
+After settings land, a small test boots a Meeseeks with the full config and asserts specific denied operations actually get denied. Verify the mechanism from the outside, not just from the config file we wrote.
 
 ## Auth scope for `claude -p` (T4 — Aletheia boundary-vantage 2026-07-04)
 
