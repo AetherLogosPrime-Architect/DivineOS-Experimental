@@ -481,6 +481,11 @@ _VERIFY_CLAIM_HINT: dict[str, str] = {
     "tokens": "divineos context-tokens",
     "id_string": "grep or divineos <registry> show <id>",
     "file_content": "Read the file (or grep it) before quoting/paraphrasing it",
+    "past_experience": (
+        "divineos ask '<topic>' (or recall / corrections / claims search / "
+        "active) — cite the substrate entry that backs the claim, or "
+        "rephrase to 'from principle' / 'hypothetically'"
+    ),
 }
 
 
