@@ -10,7 +10,29 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from divineos.core.moral_compass import _session_had_substantive_output
+
+
+@pytest.fixture(autouse=True)
+def _stub_unfinished_mechanisms(monkeypatch):
+    """Autouse: stub completion_check.unfinished_mechanisms to return [] by default.
+
+    Same fix as test_moral_compass.py (2026-07-04) — the calibration tests
+    call record_obs → reflect_on_session → unfinished_mechanisms, which does
+    filesystem walking (~98 subprocess calls, ~2.8s locally). Under CI's
+    pytest-timeout ceiling that exceeds 30s and hangs the loguru-writer.
+
+    Same root-cause discipline: reduce the test's real footprint rather than
+    raise the timeout. Fourth instance of "expensive real-system dependency
+    in unit test" this week (Round 3 hang, phase1 flake, test_moral_compass,
+    now here).
+    """
+    monkeypatch.setattr(
+        "divineos.core.completion_check.unfinished_mechanisms",
+        lambda **kw: [],
+    )
 
 
 class TestSubstantiveOutputHelper:
