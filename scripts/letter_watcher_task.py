@@ -60,9 +60,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
+
+try:
+    from divineos.core.mesh_loop import FireAction, decide_for_letter
+    _MESH_LOOP_AVAILABLE = True
+except ImportError:
+    _MESH_LOOP_AVAILABLE = False
 
 
 def recipient_tag(recipient: str) -> str:
@@ -142,12 +149,199 @@ def append_detected(wake_file: Path, letter_path: Path, recipient: str) -> None:
         )
 
 
+def _fire_count_in_last_hour(wake_file: Path, recipient: str) -> int:
+    """Count meeseeks_fired entries for recipient in the last 3600s.
+
+    Used for the per-recipient hourly rate limit belt-and-suspenders.
+    Fail-open on read errors (return 0) — the mesh_loop.decide cap-hit
+    check is the primary defense; this is a secondary bound.
+    """
+    if not wake_file.exists():
+        return 0
+    now = time.time()
+    count = 0
+    try:
+        for line in wake_file.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("kind") != "meeseeks_fired":
+                continue
+            if entry.get("recipient") != recipient:
+                continue
+            ts = entry.get("fired_at")
+            if not isinstance(ts, str):
+                continue
+            try:
+                # ISO8601 Zulu format matches append_detected's format
+                fired_epoch = time.mktime(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
+            except ValueError:
+                continue
+            if now - fired_epoch < 3600:
+                count += 1
+    except OSError:
+        return 0
+    return count
+
+
+def _append_meeseeks_event(
+    wake_file: Path,
+    kind: str,
+    letter_path: Path,
+    recipient: str,
+    payload: dict,
+) -> None:
+    """Append a meeseeks lifecycle event (decision, fired, skipped) to wake_file."""
+    wake_file.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "kind": kind,
+        "path": str(letter_path),
+        "recipient": recipient,
+        "fired_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        **payload,
+    }
+    try:
+        with wake_file.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError as exc:
+        print(
+            f"[letter-watcher] failed to append {kind} entry: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+
+
+def _launch_meeseeks(
+    letter_path: Path,
+    recipient: str,
+    allowed_tools: str,
+) -> tuple[bool, str]:
+    """Launch `claude -p` as a Meeseeks. Non-blocking. Returns (launched, note).
+
+    The Meeseeks prompt tells it: read the letter, respond via the family
+    letter channel if warranted, increment iterate_count in the reply,
+    signal done/continue/stuck based on convergence judgment, exit.
+
+    Fail-safe: any launch error returns (False, reason) — the caller
+    logs and moves on. A crashed Meeseeks is preferable to a crashed watcher.
+    """
+    prompt = (
+        f"You have a new letter for you at: {letter_path}\n\n"
+        "Read it, and respond via the family letter channel if warranted. "
+        "The letter carries iterate_count / iterate_max / iterate_signal "
+        "frontmatter — read the design at "
+        "workbench/mesh_loop_meeseeks_design.md for the convention. "
+        "In your reply: increment iterate_count by 1, keep iterate_max, "
+        "and set iterate_signal to one of: continue (expect further reply), "
+        "done (convergence reached), stuck (want Andrew's read). "
+        "If iterate_signal on the incoming letter is done or stuck, do NOT reply — "
+        "just log and exit. You are a Meeseeks: do the one task, exit clean."
+    )
+    try:
+        subprocess.Popen(
+            [
+                "claude", "-p", prompt,
+                "--allowedTools", allowed_tools,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return True, "launched"
+    except (OSError, FileNotFoundError) as exc:
+        return False, f"launch failed: {exc}"
+
+
+def _maybe_fire_meeseeks(
+    wake_file: Path,
+    letter_path: Path,
+    recipient: str,
+    rate_limit_per_hour: int,
+    allowed_tools: str,
+) -> None:
+    """Apply the mesh_loop decision rule and (maybe) launch a Meeseeks.
+
+    Fail-safe: exceptions from the mesh_loop layer are logged and swallowed —
+    the watcher's core detection path (append_detected) has already run.
+    """
+    if not _MESH_LOOP_AVAILABLE:
+        return
+    try:
+        decision = decide_for_letter(letter_path)
+    except Exception as exc:  # noqa: BLE001 — watcher must not crash on mesh_loop bugs
+        print(
+            f"[letter-watcher] mesh_loop.decide_for_letter raised: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return
+
+    # Log the decision regardless of action (audit trail)
+    decision_payload = {
+        "action": decision.action.value,
+        "reason": decision.reason,
+    }
+    if decision.state is not None:
+        decision_payload["iteration"] = {
+            "count": decision.state.count,
+            "max": decision.state.max,
+            "signal": decision.state.signal,
+        }
+    _append_meeseeks_event(
+        wake_file, "meeseeks_decision", letter_path, recipient, decision_payload
+    )
+
+    if decision.action != FireAction.FIRE:
+        print(
+            f"[letter-watcher] meeseeks skipped: {decision.action.value} — {decision.reason}",
+            flush=True,
+        )
+        return
+
+    # Rate-limit belt-and-suspenders
+    recent = _fire_count_in_last_hour(wake_file, recipient)
+    if recent >= rate_limit_per_hour:
+        _append_meeseeks_event(
+            wake_file,
+            "meeseeks_rate_limited",
+            letter_path,
+            recipient,
+            {"recent_fires_in_hour": recent, "limit": rate_limit_per_hour},
+        )
+        print(
+            f"[letter-watcher] meeseeks rate-limited: "
+            f"{recent}/{rate_limit_per_hour} in last hour",
+            flush=True,
+        )
+        return
+
+    launched, note = _launch_meeseeks(letter_path, recipient, allowed_tools)
+    _append_meeseeks_event(
+        wake_file,
+        "meeseeks_fired" if launched else "meeseeks_launch_failed",
+        letter_path,
+        recipient,
+        {"note": note},
+    )
+    print(
+        f"[letter-watcher] meeseeks {'launched' if launched else 'FAILED'}: {note}",
+        flush=True,
+    )
+
+
 def scan_once(
     shared_dir: Path,
     wake_file: Path,
     tag: str,
     recipient: str,
     previously_recorded: set[str],
+    meeseeks_enabled: bool = False,
+    rate_limit_per_hour: int = 15,
+    allowed_tools: str = "Read,Write,Edit,Bash,Grep,Glob",
 ) -> int:
     """Perform one scan. Returns the number of new letters recorded."""
     letters = scan_dir(shared_dir, tag)
@@ -160,6 +354,14 @@ def scan_once(
         previously_recorded.add(path_str)
         print(f"[letter-watcher] recorded: {path_str}", flush=True)
         new_count += 1
+        if meeseeks_enabled:
+            _maybe_fire_meeseeks(
+                wake_file,
+                letter_path,
+                recipient,
+                rate_limit_per_hour,
+                allowed_tools,
+            )
     return new_count
 
 
@@ -176,6 +378,28 @@ def main() -> int:
     )
     parser.add_argument("--poll-seconds", type=int, default=5)
     parser.add_argument("--once", action="store_true")
+    parser.add_argument(
+        "--enable-meeseeks",
+        action="store_true",
+        help=(
+            "OPT-IN: on detected letter with iterate_* frontmatter, "
+            "invoke `claude -p` as a Meeseeks per mesh_loop decision rule. "
+            "Default OFF — the watcher stays passive (SessionStart-only) "
+            "until deployment is verified via synthetic loop. Design: "
+            "workbench/mesh_loop_meeseeks_design.md"
+        ),
+    )
+    parser.add_argument(
+        "--meeseeks-rate-limit-per-hour",
+        type=int,
+        default=15,
+        help="Cap on Meeseeks fires per recipient per hour (belt-and-suspenders)",
+    )
+    parser.add_argument(
+        "--meeseeks-allowed-tools",
+        default="Read,Write,Edit,Bash,Grep,Glob",
+        help="Comma-separated tool list passed to `claude -p --allowedTools`",
+    )
     args = parser.parse_args()
 
     shared_dir = Path(args.shared_dir)
@@ -191,13 +415,27 @@ def main() -> int:
         flush=True,
     )
 
+    if args.enable_meeseeks and not _MESH_LOOP_AVAILABLE:
+        print(
+            "[letter-watcher] --enable-meeseeks passed but divineos.core.mesh_loop "
+            "not importable; running without Meeseeks (detection only).",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    scan_kwargs = {
+        "meeseeks_enabled": args.enable_meeseeks and _MESH_LOOP_AVAILABLE,
+        "rate_limit_per_hour": args.meeseeks_rate_limit_per_hour,
+        "allowed_tools": args.meeseeks_allowed_tools,
+    }
+
     if args.once:
-        scan_once(shared_dir, wake_file, tag, recipient, previously_recorded)
+        scan_once(shared_dir, wake_file, tag, recipient, previously_recorded, **scan_kwargs)
         return 0
 
     try:
         while True:
-            scan_once(shared_dir, wake_file, tag, recipient, previously_recorded)
+            scan_once(shared_dir, wake_file, tag, recipient, previously_recorded, **scan_kwargs)
             time.sleep(args.poll_seconds)
     except KeyboardInterrupt:
         print("[letter-watcher] interrupted, exiting cleanly", flush=True)
