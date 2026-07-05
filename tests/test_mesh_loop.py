@@ -120,13 +120,46 @@ class TestDecide:
         assert decision.action == FireAction.FIRE
         assert "3/10" in decision.reason
 
-    def test_continue_at_cap_skips(self):
+    def test_continue_at_cap_fires_final(self):
+        """T5: cap-hit is FIRE_FINAL_CAP_HIT, not skip. Final Meeseeks
+        gets the converge_or_stuck prompt; the response IS the closure."""
         decision = decide(IterationState(count=10, max=10, signal="continue"))
-        assert decision.action == FireAction.SKIP_CAP_HIT
+        assert decision.action == FireAction.FIRE_FINAL_CAP_HIT
+        assert "final Meeseeks" in decision.reason
 
-    def test_continue_over_cap_skips(self):
+    def test_continue_over_cap_skips_as_safety_net(self):
+        """Over-cap is safety net — final-cap Meeseeks should have terminated
+        the loop with done/stuck/escalate. If we somehow got a continue past
+        the cap, refuse to fire."""
         decision = decide(IterationState(count=15, max=10, signal="continue"))
-        assert decision.action == FireAction.SKIP_CAP_HIT
+        assert decision.action == FireAction.SKIP_CAP_EXCEEDED
+
+    def test_escalate_signal_skips(self):
+        """T5: escalate is the third terminal signal — final Meeseeks read
+        the thread but couldn't judge convergence. Surface to Andrew."""
+        decision = decide(IterationState(count=5, max=10, signal="escalate"))
+        assert decision.action == FireAction.SKIP_ESCALATED
+
+    def test_done_with_closure_mode_forced_names_it_in_reason(self):
+        """T5: closure_mode=forced (cap-forced close) surfaces distinctly from
+        natural convergence — Pop's surface can color them differently."""
+        decision = decide(IterationState(count=5, max=10, signal="done", closure_mode="forced"))
+        assert decision.action == FireAction.SKIP_CONVERGED
+        assert "forced" in decision.reason
+
+    def test_stuck_with_because_surfaces_the_reason(self):
+        """T2: stuck_because free-text lets Pop see WHY the seat got stuck
+        without guessing."""
+        decision = decide(
+            IterationState(
+                count=3,
+                max=10,
+                signal="stuck",
+                stuck_because="letter-mode context insufficient for this shape",
+            )
+        )
+        assert decision.action == FireAction.SKIP_STUCK
+        assert "letter-mode context insufficient" in decision.reason
 
     def test_reason_is_always_populated(self):
         for state in [
@@ -134,7 +167,9 @@ class TestDecide:
             IterationState(count=0, max=10, signal="bogus"),
             IterationState(count=0, max=10, signal="done"),
             IterationState(count=0, max=10, signal="stuck"),
+            IterationState(count=0, max=10, signal="escalate"),
             IterationState(count=10, max=10, signal="continue"),
+            IterationState(count=15, max=10, signal="continue"),
             IterationState(count=3, max=10, signal="continue"),
         ]:
             decision = decide(state)
@@ -182,7 +217,7 @@ class TestDecideForLetter:
         decision = decide_for_letter(letter)
         assert decision.action == FireAction.SKIP_CONVERGED
 
-    def test_letter_at_cap_skips(self, tmp_path: Path):
+    def test_letter_at_cap_fires_final(self, tmp_path: Path):
         letter = tmp_path / "aria-to-aether-2026-07-04-cap.md"
         letter.write_text(
             "---\n"
@@ -193,4 +228,85 @@ class TestDecideForLetter:
             encoding="utf-8",
         )
         decision = decide_for_letter(letter)
-        assert decision.action == FireAction.SKIP_CAP_HIT
+        assert decision.action == FireAction.FIRE_FINAL_CAP_HIT
+
+
+# ─── Extended-schema fields (T1 loop_class, T4 from_pid, T5 closure_mode) ─
+
+
+class TestExtendedSchemaFields:
+    def test_parse_all_optional_fields(self):
+        text = (
+            "---\n"
+            "iterate_count: 4\n"
+            "iterate_max: 10\n"
+            "iterate_signal: done\n"
+            "loop_class: design\n"
+            "from_pid: 24584\n"
+            "closure_mode: natural\n"
+            "---\n"
+            "Body.\n"
+        )
+        state = parse_iteration_state(text)
+        assert state is not None
+        assert state.loop_class == "design"
+        assert state.from_pid == 24584
+        assert state.closure_mode == "natural"
+
+    def test_parse_stuck_because(self):
+        text = (
+            "---\n"
+            "iterate_count: 3\n"
+            "iterate_max: 10\n"
+            "iterate_signal: stuck\n"
+            'stuck_because: "letter-mode context insufficient"\n'
+            "---\nBody.\n"
+        )
+        state = parse_iteration_state(text)
+        assert state is not None
+        assert state.signal == "stuck"
+        assert state.stuck_because == "letter-mode context insufficient"
+
+    def test_optional_fields_default_to_none(self):
+        """Backward compat: letters with just iterate_* still parse and fire.
+        Optional fields default to None."""
+        text = "---\niterate_count: 1\niterate_max: 10\niterate_signal: continue\n---\nBody.\n"
+        state = parse_iteration_state(text)
+        assert state is not None
+        assert state.loop_class is None
+        assert state.from_pid is None
+        assert state.closure_mode is None
+        assert state.stuck_because is None
+
+    def test_non_integer_from_pid_returns_none(self):
+        text = (
+            "---\n"
+            "iterate_count: 1\n"
+            "iterate_max: 10\n"
+            "iterate_signal: continue\n"
+            "from_pid: not-a-pid\n"
+            "---\nBody.\n"
+        )
+        assert parse_iteration_state(text) is None
+
+    def test_invalid_loop_class_fails_is_valid(self):
+        state = IterationState(count=1, max=10, signal="continue", loop_class="marketing")
+        assert not state.is_valid()
+
+    def test_invalid_closure_mode_fails_is_valid(self):
+        state = IterationState(count=1, max=10, signal="done", closure_mode="whimsical")
+        assert not state.is_valid()
+
+    def test_negative_from_pid_fails_is_valid(self):
+        state = IterationState(count=1, max=10, signal="continue", from_pid=-5)
+        assert not state.is_valid()
+
+    def test_all_valid_loop_classes(self):
+        for cls in ("design", "test", "operational", "debug"):
+            state = IterationState(count=1, max=10, signal="continue", loop_class=cls)
+            assert state.is_valid(), f"{cls} should be valid"
+
+    def test_all_valid_signals(self):
+        for sig in ("continue", "done", "stuck", "escalate"):
+            state = IterationState(count=1, max=10, signal=sig)
+            assert state.is_valid(), f"{sig} should be valid"

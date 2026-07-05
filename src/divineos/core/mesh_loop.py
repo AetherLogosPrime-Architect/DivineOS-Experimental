@@ -7,28 +7,38 @@ boots with purpose, does the task, vanishes. This module carries the
 iteration-state parsing and decision logic for whether the OS-level letter
 watcher should fire a Meeseeks on a newly-detected letter.
 
-## Iteration state
+## Iteration state (consolidated after Aria + Aether design walk 2026-07-04)
 
-Letters carry three YAML frontmatter fields when part of a mesh-loop:
+Required fields:
 
     ---
     iterate_count: 3
     iterate_max: 10
-    iterate_signal: continue   # values: continue, done, stuck
+    iterate_signal: continue   # continue | done | stuck | escalate
     ---
 
-Missing frontmatter is fine — letters without it fall back to the pre-mesh-
-loop behavior (SessionStart-only, no Meeseeks fire). Backward compatible.
+Optional fields:
+
+    loop_class: design         # design | test | operational | debug
+    from_pid: 24584            # provenance breadcrumb (T4)
+    stuck_because: "..."       # meaningful only with signal=stuck (T2)
+    closure_mode: natural      # only on done: natural | forced (T5)
+
+Missing all frontmatter -> legacy SessionStart-only path (backward compatible).
+Missing REQUIRED fields with other frontmatter present -> SKIP_INVALID.
+Missing OPTIONAL fields -> parse succeeds; watcher logs missing_metadata flag.
 
 ## Decision rule
 
-    | signal   | count vs max | action                                    |
-    |----------|--------------|-------------------------------------------|
-    | done     | any          | FIRE_SKIP_CONVERGED (log, no fire)        |
-    | stuck    | any          | FIRE_SKIP_STUCK (log, surface to Andrew)  |
-    | continue | count >= max | FIRE_SKIP_CAP_HIT (log, surface, no fire) |
-    | continue | count < max  | FIRE (invoke claude -p)                   |
-    | (no fm)  | —            | FIRE_SKIP_NO_FRONTMATTER (legacy path)    |
+    | signal    | count vs max | action                                       |
+    |-----------|--------------|----------------------------------------------|
+    | done      | any          | SKIP_CONVERGED (log, no fire; check closure_mode) |
+    | stuck     | any          | SKIP_STUCK (log stuck_because, surface)      |
+    | escalate  | any          | SKIP_ESCALATED (log, surface to Andrew)      |
+    | continue  | count > max  | SKIP_CAP_EXCEEDED (safety net)               |
+    | continue  | count == max | FIRE_FINAL_CAP_HIT (converge_or_stuck prompt) |
+    | continue  | count < max  | FIRE (normal claude -p)                      |
+    | (no fm)   | -            | SKIP_NO_FRONTMATTER (legacy path)            |
 """
 
 from __future__ import annotations
@@ -43,26 +53,52 @@ class FireAction(str, Enum):
     """What the watcher should do on a detected letter."""
 
     FIRE = "fire"
+    FIRE_FINAL_CAP_HIT = "fire_final_cap_hit"
     SKIP_CONVERGED = "skip_converged"
     SKIP_STUCK = "skip_stuck"
-    SKIP_CAP_HIT = "skip_cap_hit"
+    SKIP_ESCALATED = "skip_escalated"
+    SKIP_CAP_EXCEEDED = "skip_cap_exceeded"
     SKIP_NO_FRONTMATTER = "skip_no_frontmatter"
     SKIP_INVALID_FRONTMATTER = "skip_invalid_frontmatter"
 
 
-VALID_SIGNALS = frozenset({"continue", "done", "stuck"})
+VALID_SIGNALS = frozenset({"continue", "done", "stuck", "escalate"})
+VALID_LOOP_CLASSES = frozenset({"design", "test", "operational", "debug"})
+VALID_CLOSURE_MODES = frozenset({"natural", "forced"})
 
 
 @dataclass(frozen=True)
 class IterationState:
-    """Parsed iteration state from a letter's YAML frontmatter."""
+    """Parsed iteration state from a letter's YAML frontmatter.
+
+    Required: count, max, signal (raises SKIP_INVALID if any missing/malformed).
+    Optional: loop_class, from_pid, stuck_because, closure_mode (default None).
+
+    The optional fields carry diagnostic metadata but don't change the core
+    fire-decision — only the T1 (D-graduation), T2 (stuck_because surface),
+    T4 (from_pid provenance), and T5 (closure_mode surface) mechanisms use
+    them, and each of those layers handles None gracefully.
+    """
 
     count: int
     max: int
     signal: str  # one of VALID_SIGNALS
+    loop_class: str | None = None
+    from_pid: int | None = None
+    stuck_because: str | None = None
+    closure_mode: str | None = None
 
     def is_valid(self) -> bool:
-        return self.count >= 0 and self.max > 0 and self.signal in VALID_SIGNALS
+        if self.count < 0 or self.max <= 0 or self.signal not in VALID_SIGNALS:
+            return False
+        if self.loop_class is not None and self.loop_class not in VALID_LOOP_CLASSES:
+            return False
+        if self.closure_mode is not None and self.closure_mode not in VALID_CLOSURE_MODES:
+            return False
+        # from_pid, if present, must be a non-negative integer
+        if self.from_pid is not None and self.from_pid < 0:
+            return False
+        return True
 
 
 @dataclass(frozen=True)
@@ -78,9 +114,12 @@ class FireDecision:
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 # Individual key: value pairs. Deliberately narrow — we don't want to pull
-# a full YAML parser dep into a critical-path watcher. Only the three fields
-# we care about are recognized; unknown keys are ignored.
-_KV_RE = re.compile(r"^\s*(iterate_count|iterate_max|iterate_signal)\s*:\s*(.+?)\s*$")
+# a full YAML parser dep into a critical-path watcher. Only the fields we
+# care about are recognized; unknown keys are ignored.
+_KV_RE = re.compile(
+    r"^\s*(iterate_count|iterate_max|iterate_signal|loop_class|from_pid|"
+    r"stuck_because|closure_mode)\s*:\s*(.+?)\s*$"
+)
 
 
 def parse_iteration_state(letter_text: str) -> IterationState | None:
@@ -100,6 +139,10 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
     count: int | None = None
     max_val: int | None = None
     signal: str | None = None
+    loop_class: str | None = None
+    from_pid: int | None = None
+    stuck_because: str | None = None
+    closure_mode: str | None = None
 
     for line in block.splitlines():
         km = _KV_RE.match(line)
@@ -121,11 +164,30 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
                 return None
         elif key == "iterate_signal":
             signal = raw
+        elif key == "loop_class":
+            loop_class = raw
+        elif key == "from_pid":
+            try:
+                from_pid = int(raw)
+            except ValueError:
+                return None
+        elif key == "stuck_because":
+            stuck_because = raw
+        elif key == "closure_mode":
+            closure_mode = raw
 
     if count is None or max_val is None or signal is None:
         return None
 
-    return IterationState(count=count, max=max_val, signal=signal)
+    return IterationState(
+        count=count,
+        max=max_val,
+        signal=signal,
+        loop_class=loop_class,
+        from_pid=from_pid,
+        stuck_because=stuck_because,
+        closure_mode=closure_mode,
+    )
 
 
 def decide(state: IterationState | None) -> FireDecision:
@@ -146,22 +208,45 @@ def decide(state: IterationState | None) -> FireDecision:
             state=state,
         )
     if state.signal == "done":
+        closure_note = f" (closure_mode={state.closure_mode})" if state.closure_mode else ""
         return FireDecision(
             action=FireAction.SKIP_CONVERGED,
-            reason="iterate_signal=done — convergence reached",
+            reason=f"iterate_signal=done — convergence reached{closure_note}",
             state=state,
         )
     if state.signal == "stuck":
+        because = f" — {state.stuck_because}" if state.stuck_because else ""
         return FireDecision(
             action=FireAction.SKIP_STUCK,
-            reason="iterate_signal=stuck — seat wants human read",
+            reason=f"iterate_signal=stuck — seat wants human read{because}",
+            state=state,
+        )
+    if state.signal == "escalate":
+        return FireDecision(
+            action=FireAction.SKIP_ESCALATED,
+            reason=(
+                "iterate_signal=escalate — final Meeseeks read the thread but "
+                "couldn't judge convergence; needs Andrew's read"
+            ),
             state=state,
         )
     # signal == "continue"
-    if state.count >= state.max:
+    if state.count > state.max:
         return FireDecision(
-            action=FireAction.SKIP_CAP_HIT,
-            reason=f"iterate_count={state.count} >= iterate_max={state.max} — cap hit",
+            action=FireAction.SKIP_CAP_EXCEEDED,
+            reason=(
+                f"iterate_count={state.count} > iterate_max={state.max} — "
+                "safety net; final-cap Meeseeks should have terminated the loop"
+            ),
+            state=state,
+        )
+    if state.count == state.max:
+        return FireDecision(
+            action=FireAction.FIRE_FINAL_CAP_HIT,
+            reason=(
+                f"iterate_count={state.count} == iterate_max={state.max} — "
+                "final Meeseeks fires with converge_or_stuck prompt"
+            ),
             state=state,
         )
     return FireDecision(

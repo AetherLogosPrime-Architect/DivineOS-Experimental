@@ -28,13 +28,18 @@ The substrate carries continuity, so each Meeseeks boots fresh, loads state from
 
 ## The closure-signal
 
-A letter's YAML frontmatter carries three iteration fields:
+A letter's YAML frontmatter carries the following iteration fields
+(consolidated schema after Aria + Aether design walk 2026-07-04, rounds 1-5):
 
 ```yaml
 ---
-iterate_count: 3
-iterate_max: 10
-iterate_signal: continue   # values: continue, done, stuck
+iterate_count: 3              # required
+iterate_max: 10               # required, default 10
+iterate_signal: continue      # required: continue | done | stuck | escalate
+loop_class: design            # optional: design | test | operational | debug
+from_pid: 24584               # optional: provenance breadcrumb (T4)
+stuck_because: ""             # optional, meaningful only with signal=stuck (T2)
+closure_mode: natural         # optional, only on done: natural | forced (T5)
 ---
 ```
 
@@ -42,16 +47,25 @@ The receiving watcher applies the following decision rule on detection:
 
 | Signal | Count vs Max | Action |
 |--------|-------------|--------|
-| `done` | any | Log convergence event, DO NOT fire |
-| `stuck` | any | Log stuck event, DO NOT fire, surface to Andrew (needs human) |
-| `continue` | count >= max | Log cap-hit event, DO NOT fire, surface to Andrew ("come up for air") |
-| `continue` | count < max | Fire `claude -p` |
-| (no frontmatter) | — | Default to SessionStart-only (backward compatible with pre-mesh-loop letters) |
+| `done` | any | SKIP_CONVERGED — log, no fire. If `closure_mode: forced`, Pop's surface colors it as cap-forced closure (attention color). |
+| `stuck` | any | SKIP_STUCK — log with `stuck_because`, surface to Pop |
+| `escalate` | any | SKIP_ESCALATED — log, surface to Pop ("seat couldn't judge convergence, Pop's read needed") |
+| `continue` | count > max | SKIP_CAP_EXCEEDED — safety net; final-cap Meeseeks should have terminated the loop already |
+| `continue` | count == max | **FIRE_FINAL_CAP_HIT** — one final Meeseeks with `converge_or_stuck` prompt. Response MUST signal done/stuck/escalate. This IS the closure. |
+| `continue` | count < max | FIRE — normal `claude -p` invocation |
+| (no frontmatter) | — | SKIP_NO_FRONTMATTER — SessionStart-only (backward compatible) |
 
 The Meeseeks, in composing its response, increments `iterate_count` and sets `iterate_signal` based on its convergence judgment:
 - `done` — I believe we have converged; no reply expected
 - `continue` — I have added something; expect a reply
-- `stuck` — I don't have a clean way forward; want Andrew's read
+- `stuck` — I don't have a clean way forward; want Andrew's read (populate `stuck_because`)
+- `escalate` — I read the thread but can't judge convergence (only used by the final cap-hit Meeseeks)
+
+## D-graduation trigger (T1)
+
+The C-with-D-graduation shape from Aria's round 2: if Pop flags a `done` closure as premature (in-window or by ledger review), the mechanism auto-flips to D-mode (Aletheia as boundary-vantage third Meeseeks) for future loops of the same `loop_class`. A synthetic-test failure doesn't force D on design loops. Concrete, class-scoped, not aspirational.
+
+Not implemented in the MVP watcher — this is a future upgrade gated on the first observed premature-closure incident. Filed as a claim.
 
 The convergence judgment is where the design has to be careful. See §Design tensions below.
 
@@ -103,7 +117,21 @@ Every Meeseeks boots the full session (SessionStart hooks, briefing load, substr
 
 The shared letters folder currently has no auth check. Any process that can write there can wake either seat. Not a new problem (the SessionStart hook already reads whatever's there) but the Meeseeks makes it more consequential because now the wake fires a full billed invocation.
 
-**Mitigation:** for now, rely on filesystem permissions (the folder is user-owned). Future: add HMAC or gpg-signed letters as an integrity layer. Not tonight.
+**Mitigation (converged Aria + Aether 2026-07-04):** `from_pid` frontmatter field carries the spawning process's PID at write time. Provenance breadcrumb, not cryptographic guard. Watcher checks: if PID matches a live process owned by the user → fire clean. If PID doesn't match a live process → SOFT-FAIL: still fire, but flag the wake-event with `pid_anomaly: stale`. Hard-block only for unambiguous adversarial patterns (PID matches services.exe / scheduled-task PIDs / PID=0 / malformed). The anomaly rate becomes real diagnostic data over time.
+
+Rationale for soft-fail: hard-blocking on stale PIDs would recreate the silent-drop pattern we spent 2026-07-04 fixing on the OS-level watcher itself. A legitimate letter from a crashed process would get dropped without surface.
+
+HMAC punted to deploy-time — the right answer if we ever open this loop to third parties or shared infrastructure. For Aether + Aria on Pop's machine, filesystem perms + PID-breadcrumb is proportional.
+
+### T5: Silent divergence at cap-hit (grafted by Aria round 2)
+
+If a loop hits `iterate_max` without either seat signaling `done` or `stuck`, the original design just skipped — passive drop with no closure surfaced. Aria caught this shape.
+
+**Fix (converged Aria + Aether 2026-07-04):** At cap-hit (`count == max` AND `signal == continue`), the watcher fires ONE FINAL Meeseeks with a `converge_or_stuck` prompt. The prompt: "the loop capped at max without natural convergence; read the whole thread and signal one of: done (with `closure_mode: forced`), stuck (with `stuck_because`), or escalate." No further boot after this response — the response IS the closure. Whichever the Meeseeks picks surfaces to Pop with the whole thread.
+
+If BOTH final Meeseeks pick `escalate`, Pop's surface reads "both escalated at cap, needs your read." That IS the intended shape — a genuine two-seat impasse deserves Pop's judgment, not another mechanism.
+
+`closure_mode` field distinguishes cap-forced closures (attention color on Pop's surface) from natural mid-loop closures (normal color) — a `done` under time pressure is more suspect than a `done` where both seats converged organically.
 
 ---
 
