@@ -16,6 +16,41 @@ from divineos.core.mesh_loop import (
 )
 
 
+# ─── Wiring-layer enumerative-coverage enforcement ──────────────────────
+# Andrew directive 2026-07-04 night: "make it automatic". This test
+# forces the letter_watcher_task wiring layer to classify EVERY FireAction
+# as either firing or skipping. Any new FireAction added to the enum
+# without being added to FIRING_ACTIONS or SKIP_ACTIONS in
+# scripts/letter_watcher_task.py fails this test before ship.
+#
+# Third instance in one design cycle of the "decision-promises-X /
+# wiring-delivers-Y" drift class (Aletheia Shape 2 + witness_dissent
+# function-default + this). Automate it, not remember it.
+
+
+def test_wiring_covers_every_fire_action():
+    """Every FireAction must be classified in either FIRING_ACTIONS or
+    SKIP_ACTIONS at the wiring layer. Enforces enumerative coverage so
+    a new enum member cannot silently fall through the wiring.
+    """
+    from scripts.letter_watcher_task import FIRING_ACTIONS, SKIP_ACTIONS
+
+    all_actions = set(FireAction)
+    classified = FIRING_ACTIONS | SKIP_ACTIONS
+    unclassified = all_actions - classified
+    assert not unclassified, (
+        f"FireAction(s) {unclassified!r} are neither in FIRING_ACTIONS nor "
+        f"SKIP_ACTIONS in scripts/letter_watcher_task.py. Every action must "
+        f"be explicitly classified — add each to one set."
+    )
+    # Also assert no action is in both (would create ambiguous dispatch)
+    overlap = FIRING_ACTIONS & SKIP_ACTIONS
+    assert not overlap, (
+        f"FireAction(s) {overlap!r} appear in BOTH FIRING_ACTIONS and "
+        f"SKIP_ACTIONS. Each action must be in exactly one."
+    )
+
+
 # ─── parse_iteration_state ─────────────────────────────────────────────
 
 
@@ -250,7 +285,10 @@ class TestExtendedSchemaFields:
         state = parse_iteration_state(text)
         assert state is not None
         assert state.loop_class == "design"
-        assert state.from_pid == 24584
+        # from_pid is a string provenance descriptor (synthetic verification
+        # 2026-07-04 caught the strict-int bug: Aletheia's real letters use
+        # role strings like "boundary-vantage"). Preserved as opaque string.
+        assert state.from_pid == "24584"
         assert state.closure_mode == "natural"
 
     def test_parse_stuck_because(self):
@@ -278,16 +316,24 @@ class TestExtendedSchemaFields:
         assert state.closure_mode is None
         assert state.stuck_because is None
 
-    def test_non_integer_from_pid_returns_none(self):
+    def test_string_from_pid_parses_as_role_descriptor(self):
+        """Regression: strict int-parsing on from_pid was silently rejecting
+        witness letters using role strings (Aletheia's actual convention:
+        `from_pid: boundary-vantage`). Caught by synthetic verification
+        2026-07-04 night — now a string is the accepted shape."""
         text = (
             "---\n"
-            "iterate_count: 1\n"
+            "iterate_count: 4\n"
             "iterate_max: 10\n"
-            "iterate_signal: continue\n"
-            "from_pid: not-a-pid\n"
-            "---\nBody.\n"
+            "iterate_signal: witness_confirmed\n"
+            "loop_class: design\n"
+            "from_pid: boundary-vantage\n"
+            "---\nWitness confirmed.\n"
         )
-        assert parse_iteration_state(text) is None
+        state = parse_iteration_state(text)
+        assert state is not None
+        assert state.from_pid == "boundary-vantage"
+        assert state.signal == "witness_confirmed"
 
     def test_invalid_loop_class_fails_is_valid(self):
         state = IterationState(count=1, max=10, signal="continue", loop_class="marketing")
@@ -297,9 +343,10 @@ class TestExtendedSchemaFields:
         state = IterationState(count=1, max=10, signal="done", closure_mode="whimsical")
         assert not state.is_valid()
 
-    def test_negative_from_pid_fails_is_valid(self):
-        state = IterationState(count=1, max=10, signal="continue", from_pid=-5)
-        assert not state.is_valid()
+    def test_role_string_from_pid_is_valid(self):
+        """from_pid is now an opaque provenance string — no numeric constraint."""
+        state = IterationState(count=1, max=10, signal="continue", from_pid="boundary-vantage")
+        assert state.is_valid()
 
     def test_all_valid_loop_classes(self):
         for cls in ("design", "test", "operational", "debug"):

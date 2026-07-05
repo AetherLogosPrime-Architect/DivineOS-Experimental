@@ -20,7 +20,7 @@ Required fields:
 Optional fields:
 
     loop_class: design         # design | test | operational | debug
-    from_pid: 24584            # provenance breadcrumb (T4)
+    from_pid: boundary-vantage # provenance breadcrumb (T4) — opaque string
     stuck_because: "..."       # meaningful only with signal=stuck (T2)
     closure_mode: natural      # only on done: natural | forced (T5)
 
@@ -97,7 +97,14 @@ class IterationState:
     max: int
     signal: str  # one of VALID_SIGNALS
     loop_class: str | None = None
-    from_pid: int | None = None
+    # from_pid is an opaque provenance identifier (seat role, process id,
+    # or descriptor). Bug caught by synthetic verification 2026-07-04 night:
+    # Aletheia's real letters use `from_pid: boundary-vantage` as a role
+    # descriptor, not an integer PID. Strict int-parsing rejected the entire
+    # letter's frontmatter as invalid, silently falling through to
+    # skip_no_frontmatter — a catastrophic close-loop failure hiding in
+    # plain sight. Loosened to string to match actual convention.
+    from_pid: str | None = None
     stuck_because: str | None = None
     closure_mode: str | None = None
     boundary_vantage_required: bool | None = None
@@ -108,9 +115,6 @@ class IterationState:
         if self.loop_class is not None and self.loop_class not in VALID_LOOP_CLASSES:
             return False
         if self.closure_mode is not None and self.closure_mode not in VALID_CLOSURE_MODES:
-            return False
-        # from_pid, if present, must be a non-negative integer
-        if self.from_pid is not None and self.from_pid < 0:
             return False
         return True
 
@@ -168,7 +172,7 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
     max_val: int | None = None
     signal: str | None = None
     loop_class: str | None = None
-    from_pid: int | None = None
+    from_pid: str | None = None
     stuck_because: str | None = None
     closure_mode: str | None = None
     boundary_vantage_required: bool | None = None
@@ -196,10 +200,12 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
         elif key == "loop_class":
             loop_class = raw
         elif key == "from_pid":
-            try:
-                from_pid = int(raw)
-            except ValueError:
-                return None
+            # Accept opaque string provenance descriptors ("boundary-vantage",
+            # "aria", integer-like strings, etc.). Synthetic verification
+            # 2026-07-04 night caught this: strict int-parsing silently
+            # rejected the entire frontmatter of any witness letter using a
+            # role-string from_pid, falling through to skip_no_frontmatter.
+            from_pid = raw
         elif key == "stuck_because":
             stuck_because = raw
         elif key == "closure_mode":

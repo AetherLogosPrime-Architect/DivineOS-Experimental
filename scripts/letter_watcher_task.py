@@ -72,6 +72,35 @@ except ImportError:
     _MESH_LOOP_AVAILABLE = False
 
 
+# ─── Enumerated dispatch sets for the wiring layer.
+#
+# Every FireAction MUST be in exactly one of these sets. This is the
+# structural fix (Andrew's "make it automatic" directive 2026-07-04 night)
+# for the drift class where the decision layer promises FIRE_* and the
+# wiring layer silently delivers SKIP. test_wiring_covers_every_fire_action
+# in test_mesh_loop.py enforces the invariant at test-time — if a new
+# FireAction is added to the enum without being classified here, the test
+# fails before ship.
+if _MESH_LOOP_AVAILABLE:
+    FIRING_ACTIONS = {
+        FireAction.FIRE,
+        FireAction.FIRE_FINAL_CAP_HIT,
+        FireAction.FIRE_WITNESS_DISSENT,
+    }
+    SKIP_ACTIONS = {
+        FireAction.SKIP_CONVERGED,
+        FireAction.SKIP_WITNESS_CONFIRMED,
+        FireAction.SKIP_STUCK,
+        FireAction.SKIP_ESCALATED,
+        FireAction.SKIP_CAP_EXCEEDED,
+        FireAction.SKIP_NO_FRONTMATTER,
+        FireAction.SKIP_INVALID_FRONTMATTER,
+    }
+else:
+    FIRING_ACTIONS = set()
+    SKIP_ACTIONS = set()
+
+
 # ─── The safe Meeseeks allowlist — used at BOTH the CLI-default and
 # function-default layers so they cannot drift.
 #
@@ -318,11 +347,17 @@ def _maybe_fire_meeseeks(
     recipient: str,
     rate_limit_per_hour: int,
     allowed_tools: str,
+    dry_run: bool = False,
 ) -> None:
     """Apply the mesh_loop decision rule and (maybe) launch a Meeseeks.
 
     Fail-safe: exceptions from the mesh_loop layer are logged and swallowed —
     the watcher's core detection path (append_detected) has already run.
+
+    dry_run: when True, log meeseeks_dry_run_fire in place of actually
+    launching claude -p. Used by the synthetic-loop verification pass
+    (design step 8) to exercise the decision + rate-limit + jsonl-log path
+    end-to-end without spending Pro quota on real invocations.
     """
     if not _MESH_LOOP_AVAILABLE:
         return
@@ -351,10 +386,36 @@ def _maybe_fire_meeseeks(
         wake_file, "meeseeks_decision", letter_path, recipient, decision_payload
     )
 
-    if decision.action != FireAction.FIRE:
+    # Enumerative dispatch — every FireAction must be in exactly one of
+    # FIRING_ACTIONS or SKIP_ACTIONS. If a new action is added to the enum
+    # without updating these sets, test_wiring_covers_every_fire_action
+    # catches it before ship.
+    #
+    # Bug caught by synthetic verification 2026-07-04 night: originally
+    # the wiring only launched on the bare FIRE action. FIRE_FINAL_CAP_HIT
+    # and FIRE_WITNESS_DISSENT were silently skipped even though the
+    # decision layer intended them to launch. Third instance of "floor at
+    # one layer while unsafe fallback lurks at another" this design cycle.
+    if decision.action in SKIP_ACTIONS:
         print(
             f"[letter-watcher] meeseeks skipped: {decision.action.value} — {decision.reason}",
             flush=True,
+        )
+        return
+    if decision.action not in FIRING_ACTIONS:
+        print(
+            f"[letter-watcher] UNHANDLED FireAction {decision.action.value!r} — "
+            f"refusing to launch. Add it to FIRING_ACTIONS or SKIP_ACTIONS "
+            f"at module level.",
+            file=sys.stderr,
+            flush=True,
+        )
+        _append_meeseeks_event(
+            wake_file,
+            "meeseeks_unhandled_action",
+            letter_path,
+            recipient,
+            {"action": decision.action.value, "reason": decision.reason},
         )
         return
 
@@ -371,6 +432,21 @@ def _maybe_fire_meeseeks(
         print(
             f"[letter-watcher] meeseeks rate-limited: "
             f"{recent}/{rate_limit_per_hour} in last hour",
+            flush=True,
+        )
+        return
+
+    if dry_run:
+        _append_meeseeks_event(
+            wake_file,
+            "meeseeks_dry_run_fire",
+            letter_path,
+            recipient,
+            {"note": "dry-run: fire path exercised, claude -p NOT invoked"},
+        )
+        print(
+            "[letter-watcher] meeseeks DRY-RUN (would launch): "
+            f"{decision.reason}",
             flush=True,
         )
         return
@@ -398,6 +474,7 @@ def scan_once(
     meeseeks_enabled: bool = False,
     rate_limit_per_hour: int = 15,
     allowed_tools: str = MEESEEKS_SAFE_ALLOWLIST,
+    dry_run: bool = False,
 ) -> int:
     """Perform one scan. Returns the number of new letters recorded.
 
@@ -405,6 +482,9 @@ def scan_once(
     the CLI defaults to. Aletheia witness_dissent 2026-07-04 late fix: a
     permissive default here would let a bare-call bypass the Shape 2 floor
     that the CLI enforces. Every layer holds the same line.
+
+    dry_run: threaded through to _maybe_fire_meeseeks for the synthetic-loop
+    verification pass.
     """
     letters = scan_dir(shared_dir, tag)
     new_count = 0
@@ -423,6 +503,7 @@ def scan_once(
                 recipient,
                 rate_limit_per_hour,
                 allowed_tools,
+                dry_run=dry_run,
             )
     return new_count
 
@@ -456,6 +537,17 @@ def main() -> int:
         type=int,
         default=15,
         help="Cap on Meeseeks fires per recipient per hour (belt-and-suspenders)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Synthetic-loop verification: exercise the FIRE decision + rate-"
+            "limit + jsonl-log path end-to-end WITHOUT actually invoking "
+            "claude -p. Logs meeseeks_dry_run_fire in place of meeseeks_fired. "
+            "Use with --enable-meeseeks + --once to prove the pipeline before "
+            "spending Pro quota on real invocations. Design step 8."
+        ),
     )
     parser.add_argument(
         "--meeseeks-allowed-tools",
@@ -496,6 +588,7 @@ def main() -> int:
         "meeseeks_enabled": args.enable_meeseeks and _MESH_LOOP_AVAILABLE,
         "rate_limit_per_hour": args.meeseeks_rate_limit_per_hour,
         "allowed_tools": args.meeseeks_allowed_tools,
+        "dry_run": args.dry_run,
     }
 
     if args.once:
