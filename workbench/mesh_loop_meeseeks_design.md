@@ -108,6 +108,30 @@ Explicitly NOT allowed:
 
 If a loop genuinely needs to modify a guardrail file, that action MUST route out of the autonomous mesh and into a human/boundary-reviewed round via `signal: escalate`.
 
+### T4 sub-catch (Aria graft rounds 7-9): wildcards on command position
+
+Aria caught that command-scoped Bash with prefix matching (e.g. `Bash(divineos:*)` or `Bash(git log:*)`) leaves the confused-deputy at one remove — `python -c "shutil.rmtree(...)"` or `git log; rm -rf ...` could pass a loose prefix check.
+
+**Fix**: enumerate the specific commands the Meeseeks needs; use wildcards ONLY on content args (topic strings, decision text, log content), never on the command position itself.
+
+The enumerated whitelist (in `scripts/letter_watcher_task.py`):
+- Boot: `divineos briefing`, `divineos preflight`
+- Read: `family/letters/**/*.md`, `docs/foundational_truths.md`, `docs/identity_anchors/*.yaml`, `Grep`, `Glob`
+- Action: `divineos ask/recall/context/corrections/compass/active/directives/feel/goal add/log/decide/learn/lepos-walk record`, `python family/letter_seen.py`
+- Write: `family/letters/*.md`, `workbench/*.md`, `exploration/**` (Write and Edit both)
+
+### Explicit-blocks paragraph (never allowed under any pattern)
+
+Even if a `Bash(pattern)` entry would technically allow one of these, the design says NO:
+
+- `python -c`, `python -e`, `python -m` — bypasses script-path restriction, arbitrary code execution
+- `bash -c`, `sh -c` — arbitrary shell
+- Shell metacharacters in any command: backticks, `$(...)`, `&&`, `||`, `;`, `|`, `>`, `<`, `>>` — injection or chaining
+- Network binaries: `curl`, `wget`, `nc`, `ssh`, `scp`, `rsync` — exfiltration
+- Destructive filesystem ops outside path-scoped Write areas: `rm`, `mv`, `mkdir`, `chmod`, `chown`
+
+If a Meeseeks legitimately needs one of these, the action must escalate — routes out of the autonomous mesh into a human-reviewed round.
+
 ---
 
 ## Design tensions

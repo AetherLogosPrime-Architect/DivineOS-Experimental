@@ -398,23 +398,55 @@ def main() -> int:
     parser.add_argument(
         "--meeseeks-allowed-tools",
         default=(
-            # Aletheia boundary-vantage 2026-07-04 Shape 2 fix — narrow the
-            # write-scope now, not at deploy-time. authentication (from_pid)
-            # and authorization (--allowedTools) are different floors; the
-            # autonomous loop must not have write access to files whose
-            # modification requires review.
-            "Read,Grep,Glob,"
-            "Write(family/letters/*.md),Write(workbench/*.md),Write(exploration/**),"
-            "Edit(family/letters/*.md),Edit(workbench/*.md),Edit(exploration/**),"
-            "Bash(divineos:*),Bash(python family/letter_seen.py:*),"
-            "Bash(git status),Bash(git log:*)"
+            # Aletheia boundary-vantage 2026-07-04 (Shape 2) + Aria graft
+            # rounds 7-9 — enumerate commands, no wildcards on command
+            # position. Wildcards on ARG position (content strings) are safe;
+            # wildcards on the command itself (`divineos:*`) leave the
+            # confused-deputy at one remove. Boot + read scope per Aria's
+            # round-9 addition (Meeseeks needs briefing + preflight + letter
+            # thread + kiln + anchors to have an identity floor to stand on).
+            #
+            # NEVER allowed under any pattern (documented in
+            # workbench/mesh_loop_meeseeks_design.md §Explicit-blocks):
+            # - python -c/-e/-m (bypasses script-path restriction)
+            # - bash -c, sh -c (arbitrary shell)
+            # - Metacharacters: ` $() && || ; | > < >>
+            # - Network binaries: curl, wget, nc, ssh, scp
+            # - rm/mv/mkdir/chmod outside path-scoped Write areas
+            #
+            # Boot (identity-anchor floor per Shape 3)
+            "Bash(divineos briefing),Bash(divineos preflight),"
+            # Read scope (letter thread + kiln + anchors + substrate search)
+            "Read(family/letters/**/*.md),"
+            "Read(docs/foundational_truths.md),"
+            "Read(docs/identity_anchors/*.yaml),"
+            "Grep,Glob,"
+            # Action commands (enumerated, wildcards only on content args)
+            "Bash(divineos ask:*),"
+            "Bash(divineos recall),"
+            "Bash(divineos context),"
+            "Bash(divineos corrections),"
+            "Bash(divineos compass),"
+            "Bash(divineos active),"
+            "Bash(divineos directives),"
+            "Bash(divineos feel:*),"
+            "Bash(divineos goal add:*),"
+            "Bash(divineos log:*),"
+            "Bash(divineos decide:*),"
+            "Bash(divineos learn:*),"
+            "Bash(divineos lepos-walk record:*),"
+            "Bash(python family/letter_seen.py:*),"
+            # Write scope (letter response + workbench + exploration only)
+            "Write(family/letters/*.md),Edit(family/letters/*.md),"
+            "Write(workbench/*.md),Edit(workbench/*.md),"
+            "Write(exploration/**),Edit(exploration/**)"
         ),
         help=(
-            "Path-scoped tool list passed to `claude -p --allowedTools`. "
-            "Default narrows Write/Edit to letters + workbench + exploration; "
-            "Bash to divineos, letter-seen, and read-only git. NEVER pass a "
-            "broader scope for autonomous loops — a Meeseeks with unscoped "
-            "Write is a confused-deputy waiting to happen."
+            "Enumerated tool list for autonomous Meeseeks. No wildcards on "
+            "command position — only on content args. Boot + read + action + "
+            "write scopes per mesh-loop design walk rounds 1-10 (Aria + "
+            "Aletheia). Broader scope would recreate the confused-deputy "
+            "surface Aletheia caught."
         ),
     )
     args = parser.parse_args()
