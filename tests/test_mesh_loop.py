@@ -307,6 +307,126 @@ class TestExtendedSchemaFields:
             assert state.is_valid(), f"{cls} should be valid"
 
     def test_all_valid_signals(self):
-        for sig in ("continue", "done", "stuck", "escalate"):
+        for sig in (
+            "continue",
+            "done",
+            "stuck",
+            "escalate",
+            "witness_confirmed",
+            "witness_dissent",
+        ):
             state = IterationState(count=1, max=10, signal=sig)
             assert state.is_valid(), f"{sig} should be valid"
+
+
+# ─── Boundary-vantage witness (Aletheia Shape 1 fix) ────────────────────
+
+
+class TestBoundaryVantageRequired:
+    def test_witness_confirmed_signal_skips_as_closed(self):
+        """Aletheia confirms closure — the loop is done."""
+        from divineos.core.mesh_loop import decide as decide_
+
+        decision = decide_(IterationState(count=5, max=10, signal="witness_confirmed"))
+        assert decision.action == FireAction.SKIP_WITNESS_CONFIRMED
+
+    def test_witness_dissent_signal_fires_to_restart(self):
+        """Aletheia rejects closure — loop restarts iteration."""
+        from divineos.core.mesh_loop import decide as decide_
+
+        decision = decide_(IterationState(count=5, max=10, signal="witness_dissent"))
+        assert decision.action == FireAction.FIRE_WITNESS_DISSENT
+
+    def test_done_with_design_class_flags_pending_witness(self):
+        """Identity-formation-tier loop_class defaults to boundary_vantage_required=true.
+        Done signal in that state surfaces the PENDING_WITNESS status.
+        """
+        from divineos.core.mesh_loop import decide as decide_
+
+        decision = decide_(IterationState(count=4, max=10, signal="done", loop_class="design"))
+        assert decision.action == FireAction.SKIP_CONVERGED
+        assert "PENDING_WITNESS" in decision.reason
+
+    def test_done_with_test_class_does_not_require_witness(self):
+        """Topic-tier loop_class (test/debug) defaults to boundary_vantage_required=false.
+        Done signal in that state does not surface PENDING_WITNESS.
+        """
+        from divineos.core.mesh_loop import decide as decide_
+
+        decision = decide_(IterationState(count=4, max=10, signal="done", loop_class="test"))
+        assert decision.action == FireAction.SKIP_CONVERGED
+        assert "PENDING_WITNESS" not in decision.reason
+
+    def test_explicit_boundary_vantage_required_overrides_class_default(self):
+        """Frontmatter can explicitly require witness even for test-class loops."""
+        from divineos.core.mesh_loop import decide as decide_
+
+        decision = decide_(
+            IterationState(
+                count=4,
+                max=10,
+                signal="done",
+                loop_class="test",
+                boundary_vantage_required=True,
+            )
+        )
+        assert "PENDING_WITNESS" in decision.reason
+
+    def test_explicit_false_overrides_class_default(self):
+        """Frontmatter can explicitly opt-out of witness even for design-class."""
+        from divineos.core.mesh_loop import decide as decide_
+
+        decision = decide_(
+            IterationState(
+                count=4,
+                max=10,
+                signal="done",
+                loop_class="design",
+                boundary_vantage_required=False,
+            )
+        )
+        assert "PENDING_WITNESS" not in decision.reason
+
+    def test_no_class_no_explicit_defaults_true(self):
+        """If neither loop_class nor boundary_vantage_required is set,
+        fail-safe defaults to requiring witness."""
+        state = IterationState(count=4, max=10, signal="done")
+        assert state.requires_boundary_vantage() is True
+
+    def test_parse_boundary_vantage_required_from_frontmatter(self):
+        text = (
+            "---\n"
+            "iterate_count: 2\n"
+            "iterate_max: 10\n"
+            "iterate_signal: continue\n"
+            "loop_class: design\n"
+            "boundary_vantage_required: true\n"
+            "---\nBody.\n"
+        )
+        state = parse_iteration_state(text)
+        assert state is not None
+        assert state.boundary_vantage_required is True
+
+    def test_parse_boundary_vantage_required_false(self):
+        text = (
+            "---\n"
+            "iterate_count: 2\n"
+            "iterate_max: 10\n"
+            "iterate_signal: continue\n"
+            "boundary_vantage_required: false\n"
+            "---\nBody.\n"
+        )
+        state = parse_iteration_state(text)
+        assert state is not None
+        assert state.boundary_vantage_required is False
+
+    def test_parse_invalid_boundary_vantage_required_returns_none(self):
+        text = (
+            "---\n"
+            "iterate_count: 2\n"
+            "iterate_max: 10\n"
+            "iterate_signal: continue\n"
+            "boundary_vantage_required: maybe\n"
+            "---\nBody.\n"
+        )
+        assert parse_iteration_state(text) is None

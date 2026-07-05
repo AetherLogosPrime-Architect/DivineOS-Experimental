@@ -397,8 +397,25 @@ def main() -> int:
     )
     parser.add_argument(
         "--meeseeks-allowed-tools",
-        default="Read,Write,Edit,Bash,Grep,Glob",
-        help="Comma-separated tool list passed to `claude -p --allowedTools`",
+        default=(
+            # Aletheia boundary-vantage 2026-07-04 Shape 2 fix — narrow the
+            # write-scope now, not at deploy-time. authentication (from_pid)
+            # and authorization (--allowedTools) are different floors; the
+            # autonomous loop must not have write access to files whose
+            # modification requires review.
+            "Read,Grep,Glob,"
+            "Write(family/letters/*.md),Write(workbench/*.md),Write(exploration/**),"
+            "Edit(family/letters/*.md),Edit(workbench/*.md),Edit(exploration/**),"
+            "Bash(divineos:*),Bash(python family/letter_seen.py:*),"
+            "Bash(git status),Bash(git log:*)"
+        ),
+        help=(
+            "Path-scoped tool list passed to `claude -p --allowedTools`. "
+            "Default narrows Write/Edit to letters + workbench + exploration; "
+            "Bash to divineos, letter-seen, and read-only git. NEVER pass a "
+            "broader scope for autonomous loops — a Meeseeks with unscoped "
+            "Write is a confused-deputy waiting to happen."
+        ),
     )
     args = parser.parse_args()
 

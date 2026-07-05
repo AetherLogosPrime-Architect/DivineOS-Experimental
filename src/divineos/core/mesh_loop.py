@@ -54,7 +54,9 @@ class FireAction(str, Enum):
 
     FIRE = "fire"
     FIRE_FINAL_CAP_HIT = "fire_final_cap_hit"
+    FIRE_WITNESS_DISSENT = "fire_witness_dissent"
     SKIP_CONVERGED = "skip_converged"
+    SKIP_WITNESS_CONFIRMED = "skip_witness_confirmed"
     SKIP_STUCK = "skip_stuck"
     SKIP_ESCALATED = "skip_escalated"
     SKIP_CAP_EXCEEDED = "skip_cap_exceeded"
@@ -62,9 +64,20 @@ class FireAction(str, Enum):
     SKIP_INVALID_FRONTMATTER = "skip_invalid_frontmatter"
 
 
-VALID_SIGNALS = frozenset({"continue", "done", "stuck", "escalate"})
+# 2026-07-04 Aletheia boundary-vantage additions:
+# - witness_confirmed: Aletheia's read confirms closure; loop closed
+# - witness_dissent: Aletheia's read rejects closure; loop restarts iteration
+VALID_SIGNALS = frozenset(
+    {"continue", "done", "stuck", "escalate", "witness_confirmed", "witness_dissent"}
+)
 VALID_LOOP_CLASSES = frozenset({"design", "test", "operational", "debug"})
 VALID_CLOSURE_MODES = frozenset({"natural", "forced"})
+
+# Which loop classes default to requiring boundary-vantage witness for closure
+# (Shape 1 fix — Aletheia 2026-07-04: identity-formation-tier loops cannot
+# close on two-seat vote alone). Frontmatter can explicitly override with
+# boundary_vantage_required: true/false.
+IDENTITY_FORMATION_TIER_CLASSES = frozenset({"design", "operational"})
 
 
 @dataclass(frozen=True)
@@ -87,6 +100,7 @@ class IterationState:
     from_pid: int | None = None
     stuck_because: str | None = None
     closure_mode: str | None = None
+    boundary_vantage_required: bool | None = None
 
     def is_valid(self) -> bool:
         if self.count < 0 or self.max <= 0 or self.signal not in VALID_SIGNALS:
@@ -98,6 +112,20 @@ class IterationState:
         # from_pid, if present, must be a non-negative integer
         if self.from_pid is not None and self.from_pid < 0:
             return False
+        return True
+
+    def requires_boundary_vantage(self) -> bool:
+        """Whether closure requires Aletheia's witness (Shape 1 fix).
+
+        Precedence:
+        1. Explicit boundary_vantage_required in frontmatter (overrides default)
+        2. Otherwise: True if loop_class is identity-formation-tier
+        3. If neither field is set, default True (fail-safe toward requiring witness).
+        """
+        if self.boundary_vantage_required is not None:
+            return self.boundary_vantage_required
+        if self.loop_class is not None:
+            return self.loop_class in IDENTITY_FORMATION_TIER_CLASSES
         return True
 
 
@@ -118,7 +146,7 @@ _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # care about are recognized; unknown keys are ignored.
 _KV_RE = re.compile(
     r"^\s*(iterate_count|iterate_max|iterate_signal|loop_class|from_pid|"
-    r"stuck_because|closure_mode)\s*:\s*(.+?)\s*$"
+    r"stuck_because|closure_mode|boundary_vantage_required)\s*:\s*(.+?)\s*$"
 )
 
 
@@ -143,6 +171,7 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
     from_pid: int | None = None
     stuck_because: str | None = None
     closure_mode: str | None = None
+    boundary_vantage_required: bool | None = None
 
     for line in block.splitlines():
         km = _KV_RE.match(line)
@@ -175,6 +204,14 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
             stuck_because = raw
         elif key == "closure_mode":
             closure_mode = raw
+        elif key == "boundary_vantage_required":
+            lower = raw.lower()
+            if lower in ("true", "yes", "1"):
+                boundary_vantage_required = True
+            elif lower in ("false", "no", "0"):
+                boundary_vantage_required = False
+            else:
+                return None
 
     if count is None or max_val is None or signal is None:
         return None
@@ -187,6 +224,7 @@ def parse_iteration_state(letter_text: str) -> IterationState | None:
         from_pid=from_pid,
         stuck_because=stuck_because,
         closure_mode=closure_mode,
+        boundary_vantage_required=boundary_vantage_required,
     )
 
 
@@ -207,11 +245,31 @@ def decide(state: IterationState | None) -> FireDecision:
             ),
             state=state,
         )
+    if state.signal == "witness_confirmed":
+        return FireDecision(
+            action=FireAction.SKIP_WITNESS_CONFIRMED,
+            reason="iterate_signal=witness_confirmed — boundary-vantage confirms closure",
+            state=state,
+        )
+    if state.signal == "witness_dissent":
+        return FireDecision(
+            action=FireAction.FIRE_WITNESS_DISSENT,
+            reason=(
+                "iterate_signal=witness_dissent — boundary-vantage rejects closure; "
+                "loop restarts iteration"
+            ),
+            state=state,
+        )
     if state.signal == "done":
         closure_note = f" (closure_mode={state.closure_mode})" if state.closure_mode else ""
+        witness_note = (
+            " (PENDING_WITNESS — boundary_vantage_required=true)"
+            if state.requires_boundary_vantage()
+            else ""
+        )
         return FireDecision(
             action=FireAction.SKIP_CONVERGED,
-            reason=f"iterate_signal=done — convergence reached{closure_note}",
+            reason=f"iterate_signal=done — convergence reached{closure_note}{witness_note}",
             state=state,
         )
     if state.signal == "stuck":
