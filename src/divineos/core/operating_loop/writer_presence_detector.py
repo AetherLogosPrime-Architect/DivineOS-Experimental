@@ -452,6 +452,18 @@ def detect_writer_presence_v2(
     """
     if not text:
         return []
+    # Short-reply exemption (v2 restoration of v1's _DEFAULT_MIN_WORDS
+    # behavior, 2026-07-06). Voice can be three sentences — a curt "it's
+    # done and it works" reply doesn't need writer-presence on the same
+    # scale as a substantive turn. v2's original design dropped the min-
+    # word gate because paragraph classification was expected to handle
+    # this via prose-block substance checking. But when the gate widened
+    # to block on MEDIUM (2026-07-06 evening), short voiceless replies
+    # started blocking too — that misses the point. Below _DEFAULT_MIN_WORDS,
+    # v2 passes cleanly (same as v1). Wall-of-jargon behavior requires
+    # substantive length.
+    if _count_words(text) < _DEFAULT_MIN_WORDS:
+        return []
     paragraphs = _split_into_paragraphs(text)
     if not paragraphs:
         return []
