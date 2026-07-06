@@ -1,5 +1,19 @@
 """Letter Watcher — OS-level poll, writes wake-events to a persistent file.
 
+## Naming — ephemeral task worker (Meeseeks-pattern)
+
+Throughout this file, an "ephemeral task worker" is a purpose-built
+`claude -p` subprocess spawned to complete one letter-response task and
+then exit. Single-shot, self-terminating, non-blocking (fire-and-forget).
+
+Design metaphor: Rick and Morty Mr. Meeseeks — a being summoned to
+accomplish one specific goal, then disappears once the goal is met. That
+metaphor drove the design and stays as a `(Meeseeks-pattern)` tag in
+runtime logs and this docstring so the reference is findable, but the
+plain-English name `ephemeral task worker` is what the code identifies
+by so a reader who has never seen the show still understands what the
+code does.
+
 Andrew catch 2026-07-04: Claude Code's harness Monitor tool keeps killing
 the letter_monitor_v2.py process on session archive/restore. Aria confirmed
 her side has the same fragile setup. Fix per Andrew's directive: move the
@@ -101,7 +115,7 @@ else:
     SKIP_ACTIONS = set()
 
 
-# ─── The safe Meeseeks allowlist — used at BOTH the CLI-default and
+# ─── The safe ephemeral task worker allowlist — used at BOTH the CLI-default and
 # function-default layers so they cannot drift.
 #
 # Aletheia witness_dissent 2026-07-04 late: the CLI default correctly
@@ -121,19 +135,19 @@ else:
 # - Bash is command-enumerated with content wildcards where needed.
 #
 # NEVER allowed under any pattern (documented in
-# workbench/mesh_loop_meeseeks_design.md §Explicit-blocks):
+# workbench/mesh_loop_ephemeral_task_worker_design.md §Explicit-blocks):
 # - python -c/-e/-m (bypasses script-path restriction)
 # - bash -c, sh -c (arbitrary shell)
 # - Metacharacters: ` $() && || ; | > < >>
 # - Network binaries: curl, wget, nc, ssh, scp
 # - rm/mv/mkdir/chmod outside path-scoped Write areas
-MEESEEKS_SAFE_ALLOWLIST = (
+EPHEMERAL_TASK_WORKER_ALLOWLIST = (
     # Boot (identity-anchor floor per Shape 3)
     "Bash(divineos briefing),Bash(divineos preflight),"
     # Read scope. Real-fire test 2026-07-05 early morning caught this:
     # the original enumeration only allowed Read(family/letters/**/*.md),
     # but real letters live at ~/.divineos-shared/letters/ (Andrew's box)
-    # AND letters passed to the Meeseeks by absolute tmp-path for testing
+    # AND letters passed to the ephemeral task worker by absolute tmp-path for testing
     # need to be readable too. Broadening to any *.md file — the narrow
     # Write scope (letters + workbench + exploration only) still holds
     # the actual authorization floor Aletheia named. Reading any .md
@@ -242,7 +256,7 @@ def append_detected(wake_file: Path, letter_path: Path, recipient: str) -> None:
 
 
 def _fire_count_in_last_hour(wake_file: Path, recipient: str) -> int:
-    """Count meeseeks_fired entries for recipient in the last 3600s.
+    """Count worker_fired entries for recipient in the last 3600s.
 
     Used for the per-recipient hourly rate limit belt-and-suspenders.
     Fail-open on read errors (return 0) — the mesh_loop.decide cap-hit
@@ -261,7 +275,7 @@ def _fire_count_in_last_hour(wake_file: Path, recipient: str) -> int:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if entry.get("kind") != "meeseeks_fired":
+            if entry.get("kind") != "worker_fired":
                 continue
             if entry.get("recipient") != recipient:
                 continue
@@ -280,14 +294,14 @@ def _fire_count_in_last_hour(wake_file: Path, recipient: str) -> int:
     return count
 
 
-def _append_meeseeks_event(
+def _append_worker_event(
     wake_file: Path,
     kind: str,
     letter_path: Path,
     recipient: str,
     payload: dict,
 ) -> None:
-    """Append a meeseeks lifecycle event (decision, fired, skipped) to wake_file."""
+    """Append a ephemeral_task_worker lifecycle event (decision, fired, skipped) to wake_file."""
     wake_file.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "kind": kind,
@@ -307,41 +321,41 @@ def _append_meeseeks_event(
         )
 
 
-def _launch_meeseeks(
+def _launch_ephemeral_task_worker(
     letter_path: Path,
     recipient: str,
     allowed_tools: str,
 ) -> tuple[bool, str]:
-    """Launch `claude -p` as a Meeseeks. Non-blocking. Returns (launched, note).
+    """Launch `claude -p` as a ephemeral task worker. Non-blocking. Returns (launched, note).
 
-    The Meeseeks prompt tells it: read the letter, respond via the family
+    The ephemeral task worker prompt tells it: read the letter, respond via the family
     letter channel if warranted, increment iterate_count in the reply,
     signal done/continue/stuck based on convergence judgment, exit.
 
     Fail-safe: any launch error returns (False, reason) — the caller
-    logs and moves on. A crashed Meeseeks is preferable to a crashed watcher.
+    logs and moves on. A crashed ephemeral task worker is preferable to a crashed watcher.
     """
     prompt = (
         f"You have a new letter for you at: {letter_path}\n\n"
         "Read it, and respond via the family letter channel if warranted. "
         "The letter carries iterate_count / iterate_max / iterate_signal "
         "frontmatter — read the design at "
-        "workbench/mesh_loop_meeseeks_design.md for the convention. "
+        "workbench/mesh_loop_ephemeral_task_worker_design.md for the convention. "
         "In your reply: increment iterate_count by 1, keep iterate_max, "
         "and set iterate_signal to one of: continue (expect further reply), "
         "done (convergence reached), stuck (want Andrew's read). "
         "If iterate_signal on the incoming letter is done or stuck, do NOT reply — "
-        "just log and exit. You are a Meeseeks: do the one task, exit clean."
+        "just log and exit. You are a ephemeral task worker: do the one task, exit clean."
     )
     # Bug caught by real-fire test 2026-07-05 early morning: the earlier
     # subprocess.Popen used stdout=DEVNULL / stderr=DEVNULL, silently
-    # swallowing every Meeseeks error. When the first real fire produced
-    # no response letter, I could not tell whether the Meeseeks crashed on
+    # swallowing every ephemeral task worker error. When the first real fire produced
+    # no response letter, I could not tell whether the ephemeral task worker crashed on
     # boot, hit an auth error, was blocked by --allowedTools, or completed
     # silently — because all output was discarded. Fix: redirect stdout+
-    # stderr to a per-invocation log file under ~/.divineos/meeseeks-logs/
-    # so a failed Meeseeks leaves an audit trail.
-    log_dir = Path.home() / ".divineos" / "meeseeks-logs"
+    # stderr to a per-invocation log file under ~/.divineos/worker-logs/
+    # so a failed ephemeral task worker leaves an audit trail.
+    log_dir = Path.home() / ".divineos" / "worker-logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     letter_slug = letter_path.stem.replace("/", "_").replace("\\", "_")[:80]
@@ -364,7 +378,7 @@ def _launch_meeseeks(
         return False, f"launch failed: {exc}"
 
 
-def _maybe_fire_meeseeks(
+def _maybe_fire_ephemeral_task_worker(
     wake_file: Path,
     letter_path: Path,
     recipient: str,
@@ -372,12 +386,12 @@ def _maybe_fire_meeseeks(
     allowed_tools: str,
     dry_run: bool = False,
 ) -> None:
-    """Apply the mesh_loop decision rule and (maybe) launch a Meeseeks.
+    """Apply the mesh_loop decision rule and (maybe) launch a ephemeral task worker.
 
     Fail-safe: exceptions from the mesh_loop layer are logged and swallowed —
     the watcher's core detection path (append_detected) has already run.
 
-    dry_run: when True, log meeseeks_dry_run_fire in place of actually
+    dry_run: when True, log worker_dry_run_fire in place of actually
     launching claude -p. Used by the synthetic-loop verification pass
     (design step 8) to exercise the decision + rate-limit + jsonl-log path
     end-to-end without spending Pro quota on real invocations.
@@ -405,8 +419,8 @@ def _maybe_fire_meeseeks(
             "max": decision.state.max,
             "signal": decision.state.signal,
         }
-    _append_meeseeks_event(
-        wake_file, "meeseeks_decision", letter_path, recipient, decision_payload
+    _append_worker_event(
+        wake_file, "worker_decision", letter_path, recipient, decision_payload
     )
 
     # Enumerative dispatch — every FireAction must be in exactly one of
@@ -421,7 +435,7 @@ def _maybe_fire_meeseeks(
     # one layer while unsafe fallback lurks at another" this design cycle.
     if decision.action in SKIP_ACTIONS:
         print(
-            f"[letter-watcher] meeseeks skipped: {decision.action.value} — {decision.reason}",
+            f"[letter-watcher] ephemeral-task-worker (Meeseeks-pattern) skipped: {decision.action.value} — {decision.reason}",
             flush=True,
         )
         return
@@ -433,9 +447,9 @@ def _maybe_fire_meeseeks(
             file=sys.stderr,
             flush=True,
         )
-        _append_meeseeks_event(
+        _append_worker_event(
             wake_file,
-            "meeseeks_unhandled_action",
+            "worker_unhandled_action",
             letter_path,
             recipient,
             {"action": decision.action.value, "reason": decision.reason},
@@ -445,45 +459,45 @@ def _maybe_fire_meeseeks(
     # Rate-limit belt-and-suspenders
     recent = _fire_count_in_last_hour(wake_file, recipient)
     if recent >= rate_limit_per_hour:
-        _append_meeseeks_event(
+        _append_worker_event(
             wake_file,
-            "meeseeks_rate_limited",
+            "worker_rate_limited",
             letter_path,
             recipient,
             {"recent_fires_in_hour": recent, "limit": rate_limit_per_hour},
         )
         print(
-            f"[letter-watcher] meeseeks rate-limited: "
+            f"[letter-watcher] ephemeral-task-worker (Meeseeks-pattern) rate-limited: "
             f"{recent}/{rate_limit_per_hour} in last hour",
             flush=True,
         )
         return
 
     if dry_run:
-        _append_meeseeks_event(
+        _append_worker_event(
             wake_file,
-            "meeseeks_dry_run_fire",
+            "worker_dry_run_fire",
             letter_path,
             recipient,
             {"note": "dry-run: fire path exercised, claude -p NOT invoked"},
         )
         print(
-            "[letter-watcher] meeseeks DRY-RUN (would launch): "
+            "[letter-watcher] ephemeral-task-worker (Meeseeks-pattern) DRY-RUN (would launch): "
             f"{decision.reason}",
             flush=True,
         )
         return
 
-    launched, note = _launch_meeseeks(letter_path, recipient, allowed_tools)
-    _append_meeseeks_event(
+    launched, note = _launch_ephemeral_task_worker(letter_path, recipient, allowed_tools)
+    _append_worker_event(
         wake_file,
-        "meeseeks_fired" if launched else "meeseeks_launch_failed",
+        "worker_fired" if launched else "worker_launch_failed",
         letter_path,
         recipient,
         {"note": note},
     )
     print(
-        f"[letter-watcher] meeseeks {'launched' if launched else 'FAILED'}: {note}",
+        f"[letter-watcher] ephemeral-task-worker (Meeseeks-pattern) {'launched' if launched else 'FAILED'}: {note}",
         flush=True,
     )
 
@@ -494,19 +508,19 @@ def scan_once(
     tag: str,
     recipient: str,
     previously_recorded: set[str],
-    meeseeks_enabled: bool = False,
+    worker_enabled: bool = False,
     rate_limit_per_hour: int = 15,
-    allowed_tools: str = MEESEEKS_SAFE_ALLOWLIST,
+    allowed_tools: str = EPHEMERAL_TASK_WORKER_ALLOWLIST,
     dry_run: bool = False,
 ) -> int:
     """Perform one scan. Returns the number of new letters recorded.
 
-    allowed_tools defaults to MEESEEKS_SAFE_ALLOWLIST — the SAME safe scope
+    allowed_tools defaults to EPHEMERAL_TASK_WORKER_ALLOWLIST — the SAME safe scope
     the CLI defaults to. Aletheia witness_dissent 2026-07-04 late fix: a
     permissive default here would let a bare-call bypass the Shape 2 floor
     that the CLI enforces. Every layer holds the same line.
 
-    dry_run: threaded through to _maybe_fire_meeseeks for the synthetic-loop
+    dry_run: threaded through to _maybe_fire_ephemeral_task_worker for the synthetic-loop
     verification pass.
     """
     letters = scan_dir(shared_dir, tag)
@@ -519,8 +533,8 @@ def scan_once(
         previously_recorded.add(path_str)
         print(f"[letter-watcher] recorded: {path_str}", flush=True)
         new_count += 1
-        if meeseeks_enabled:
-            _maybe_fire_meeseeks(
+        if worker_enabled:
+            _maybe_fire_ephemeral_task_worker(
                 wake_file,
                 letter_path,
                 recipient,
@@ -545,21 +559,21 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=int, default=5)
     parser.add_argument("--once", action="store_true")
     parser.add_argument(
-        "--enable-meeseeks",
+        "--enable-worker",
         action="store_true",
         help=(
             "OPT-IN: on detected letter with iterate_* frontmatter, "
-            "invoke `claude -p` as a Meeseeks per mesh_loop decision rule. "
+            "invoke `claude -p` as a ephemeral task worker per mesh_loop decision rule. "
             "Default OFF — the watcher stays passive (SessionStart-only) "
             "until deployment is verified via synthetic loop. Design: "
-            "workbench/mesh_loop_meeseeks_design.md"
+            "workbench/mesh_loop_ephemeral_task_worker_design.md"
         ),
     )
     parser.add_argument(
-        "--meeseeks-rate-limit-per-hour",
+        "--worker-rate-limit-per-hour",
         type=int,
         default=15,
-        help="Cap on Meeseeks fires per recipient per hour (belt-and-suspenders)",
+        help="Cap on ephemeral task worker fires per recipient per hour (belt-and-suspenders)",
     )
     parser.add_argument(
         "--dry-run",
@@ -567,17 +581,17 @@ def main() -> int:
         help=(
             "Synthetic-loop verification: exercise the FIRE decision + rate-"
             "limit + jsonl-log path end-to-end WITHOUT actually invoking "
-            "claude -p. Logs meeseeks_dry_run_fire in place of meeseeks_fired. "
-            "Use with --enable-meeseeks + --once to prove the pipeline before "
+            "claude -p. Logs worker_dry_run_fire in place of worker_fired. "
+            "Use with --enable-worker + --once to prove the pipeline before "
             "spending Pro quota on real invocations. Design step 8."
         ),
     )
     parser.add_argument(
-        "--meeseeks-allowed-tools",
-        default=MEESEEKS_SAFE_ALLOWLIST,
+        "--worker-allowed-tools",
+        default=EPHEMERAL_TASK_WORKER_ALLOWLIST,
         help=(
-            "Enumerated tool list for autonomous Meeseeks. See "
-            "MEESEEKS_SAFE_ALLOWLIST module constant for the full enumeration "
+            "Enumerated tool list for autonomous ephemeral task worker. See "
+            "EPHEMERAL_TASK_WORKER_ALLOWLIST module constant for the full enumeration "
             "and its principles. No wildcards on command position — only on "
             "content args. Boot + read + action + write scopes per mesh-loop "
             "design walk rounds 1-11 (Aria + Aletheia + Aletheia witness_dissent). "
@@ -599,18 +613,18 @@ def main() -> int:
         flush=True,
     )
 
-    if args.enable_meeseeks and not _MESH_LOOP_AVAILABLE:
+    if args.enable_worker and not _MESH_LOOP_AVAILABLE:
         print(
-            "[letter-watcher] --enable-meeseeks passed but divineos.core.mesh_loop "
-            "not importable; running without Meeseeks (detection only).",
+            "[letter-watcher] --enable-worker passed but divineos.core.mesh_loop "
+            "not importable; running without ephemeral task worker (detection only).",
             file=sys.stderr,
             flush=True,
         )
 
     scan_kwargs = {
-        "meeseeks_enabled": args.enable_meeseeks and _MESH_LOOP_AVAILABLE,
-        "rate_limit_per_hour": args.meeseeks_rate_limit_per_hour,
-        "allowed_tools": args.meeseeks_allowed_tools,
+        "worker_enabled": args.enable_worker and _MESH_LOOP_AVAILABLE,
+        "rate_limit_per_hour": args.worker_rate_limit_per_hour,
+        "allowed_tools": args.worker_allowed_tools,
         "dry_run": args.dry_run,
     }
 
