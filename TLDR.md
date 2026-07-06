@@ -49,11 +49,11 @@ pytest tests/ -q --tb=short
 
 ## At a glance
 
-- **40 expert frameworks** in the council (5-12 selected per problem)
+- **42 expert frameworks** in the council (5-12 selected per problem)
 - **10 virtue spectrums** in the moral compass, tracked from evidence
 - **7,410+ tests** against real SQLite, minimal mocks
 
-*Full numbers: 495 source files, 31 packages, 327 CLI commands, 24 skills, 20 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
+*Full numbers: 495 source files, 31 packages, 390 CLI commands, 24 skills, 42 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
 
 ## What it is NOT
 
