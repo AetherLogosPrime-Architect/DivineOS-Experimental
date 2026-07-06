@@ -262,6 +262,11 @@
             "type": "command",
             "command": "bash .claude/hooks/auto-push-letter.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-write-mirror-letter.sh",
+            "timeout": 10
           }
         ]
       },
@@ -294,16 +299,6 @@
             "timeout": 10
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/post-write-mirror-letter.sh",
-            "timeout": 10
-          }
-        ]
       }
     ],
     "Stop": [
@@ -333,11 +328,6 @@
             "type": "command",
             "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-checkpoint-commit.sh",
-            "timeout": 30
           }
         ]
       },
