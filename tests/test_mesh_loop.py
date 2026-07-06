@@ -1,6 +1,6 @@
 """Tests for mesh_loop — iteration-state parsing + fire-decision rule.
 
-Design: workbench/mesh_loop_meeseeks_design.md
+Design: workbench/mesh_loop_ephemeral_task_worker_design.md
 """
 
 from __future__ import annotations
@@ -156,21 +156,21 @@ class TestDecide:
         assert "3/10" in decision.reason
 
     def test_continue_at_cap_fires_final(self):
-        """T5: cap-hit is FIRE_FINAL_CAP_HIT, not skip. Final Meeseeks
+        """T5: cap-hit is FIRE_FINAL_CAP_HIT, not skip. Final ephemeral task worker
         gets the converge_or_stuck prompt; the response IS the closure."""
         decision = decide(IterationState(count=10, max=10, signal="continue"))
         assert decision.action == FireAction.FIRE_FINAL_CAP_HIT
-        assert "final Meeseeks" in decision.reason
+        assert "final ephemeral task worker" in decision.reason
 
     def test_continue_over_cap_skips_as_safety_net(self):
-        """Over-cap is safety net — final-cap Meeseeks should have terminated
+        """Over-cap is safety net — final-cap ephemeral task worker should have terminated
         the loop with done/stuck/escalate. If we somehow got a continue past
         the cap, refuse to fire."""
         decision = decide(IterationState(count=15, max=10, signal="continue"))
         assert decision.action == FireAction.SKIP_CAP_EXCEEDED
 
     def test_escalate_signal_skips(self):
-        """T5: escalate is the third terminal signal — final Meeseeks read
+        """T5: escalate is the third terminal signal — final ephemeral task worker read
         the thread but couldn't judge convergence. Surface to Andrew."""
         decision = decide(IterationState(count=5, max=10, signal="escalate"))
         assert decision.action == FireAction.SKIP_ESCALATED

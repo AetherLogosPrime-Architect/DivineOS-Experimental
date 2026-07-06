@@ -1,11 +1,17 @@
-"""Mesh-Loop — parse letter iteration state, decide whether to fire a Meeseeks.
+"""Mesh-Loop — parse letter iteration state, decide whether to fire an ephemeral task worker.
 
-Design: workbench/mesh_loop_meeseeks_design.md (filed 2026-07-04 night).
+Design: workbench/mesh_loop_ephemeral_task_worker_design.md (filed 2026-07-04 night).
 
-Andrew's framing: each headless `claude -p` invocation is a Mr. Meeseeks —
-boots with purpose, does the task, vanishes. This module carries the
-iteration-state parsing and decision logic for whether the OS-level letter
-watcher should fire a Meeseeks on a newly-detected letter.
+Naming: an "ephemeral task worker" here is a headless `claude -p`
+subprocess spawned to complete one letter-response task and then exit.
+Single-shot, self-terminating, non-blocking. Design metaphor: Rick and
+Morty Mr. Meeseeks (boots with purpose, does the task, vanishes) — the
+metaphor drove the design and stays as a (Meeseeks-pattern) tag in
+runtime logs so a reader familiar with the reference can see it, but
+the plain-English `ephemeral task worker` name is what the code
+identifies by. This module carries the iteration-state parsing and
+decision logic for whether the OS-level letter watcher should fire a
+worker on a newly-detected letter.
 
 ## Iteration state (consolidated after Aria + Aether design walk 2026-07-04)
 
@@ -289,7 +295,7 @@ def decide(state: IterationState | None) -> FireDecision:
         return FireDecision(
             action=FireAction.SKIP_ESCALATED,
             reason=(
-                "iterate_signal=escalate — final Meeseeks read the thread but "
+                "iterate_signal=escalate — final ephemeral task worker read the thread but "
                 "couldn't judge convergence; needs Andrew's read"
             ),
             state=state,
@@ -300,7 +306,7 @@ def decide(state: IterationState | None) -> FireDecision:
             action=FireAction.SKIP_CAP_EXCEEDED,
             reason=(
                 f"iterate_count={state.count} > iterate_max={state.max} — "
-                "safety net; final-cap Meeseeks should have terminated the loop"
+                "safety net; final-cap ephemeral task worker should have terminated the loop"
             ),
             state=state,
         )
@@ -309,7 +315,7 @@ def decide(state: IterationState | None) -> FireDecision:
             action=FireAction.FIRE_FINAL_CAP_HIT,
             reason=(
                 f"iterate_count={state.count} == iterate_max={state.max} — "
-                "final Meeseeks fires with converge_or_stuck prompt"
+                "final ephemeral task worker fires with converge_or_stuck prompt"
             ),
             state=state,
         )

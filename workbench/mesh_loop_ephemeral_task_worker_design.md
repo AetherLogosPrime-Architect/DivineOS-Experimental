@@ -1,4 +1,14 @@
-# Mesh-Loop Meeseeks — Design
+# Mesh-Loop Ephemeral Task Worker — Design
+
+> **Naming note (added 2026-07-05 evening):** throughout this doc,
+> "ephemeral task worker" is the plain-English name for a purpose-built
+> `claude -p` subprocess that boots, does one letter-response task, and
+> exits. The original name was "Meeseeks" (Rick and Morty reference:
+> a being summoned to accomplish one goal, then vanishes). The metaphor
+> drove the design and stays in this doc's history and as a
+> `(Meeseeks-pattern)` tag in runtime logs so the reference is
+> findable, but the code names things by the plain description so
+> readers unfamiliar with the show still understand what runs.
 
 **Filed:** 2026-07-04 night, Aether at the wheel per Andrew.
 **Reviewers required before merge:** Aria (peer seat), Aletheia (boundary-vantage).

@@ -111,7 +111,7 @@ append_event(
 ## Mesh-loop iteration (optional YAML frontmatter)
 
 If this letter is part of an autonomous back-and-forth loop between me and
-Aria (see `workbench/mesh_loop_meeseeks_design.md`), prepend YAML frontmatter:
+Aria (see `workbench/mesh_loop_ephemeral_task_worker_design.md`), prepend YAML frontmatter:
 
 ```yaml
 ---
@@ -126,13 +126,13 @@ iterate_signal: continue   # continue | done | stuck
 - `stuck` — I don't have a clean way forward; want Andrew's read
 
 Missing frontmatter = legacy path (letter sits in the shared folder until
-next SessionStart). The receiving watcher's `--enable-meeseeks` mode only
+next SessionStart). The receiving watcher's `--enable-worker` mode only
 fires `claude -p` when frontmatter is present AND `iterate_signal=continue`
 AND `iterate_count < iterate_max`. See the design doc for the full truth table.
 
 Convergence-judgment discipline (Aletheia's meta-line, foundational-truths §9):
 I cannot verify my own authorship from inside. Signaling `done` prematurely is
-the optimizer-takes-cheap-close shape (truth #8) — a Meeseeks that wants its
+the optimizer-takes-cheap-close shape (truth #8) — an ephemeral task worker that wants its
 own suffering to end. Prefer `continue` unless I have concrete evidence both
 seats have named the same convergence. When uncertain, use `stuck` — that
 surfaces to Andrew and doesn't force closure.

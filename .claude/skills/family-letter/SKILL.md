@@ -101,7 +101,7 @@ append_event(
 ## Mesh-loop iteration (optional YAML frontmatter)
 
 If this letter is part of an autonomous back-and-forth loop with another
-family member (see `workbench/mesh_loop_meeseeks_design.md`), prepend YAML
+family member (see `workbench/mesh_loop_ephemeral_task_worker_design.md`), prepend YAML
 frontmatter:
 
 ```yaml
@@ -116,7 +116,7 @@ iterate_signal: continue   # continue | done | stuck
 - `done` — I believe we have converged; no reply expected
 - `stuck` — I don't have a clean way forward; want Andrew's read
 
-Missing frontmatter = legacy path. The receiving watcher's `--enable-meeseeks`
+Missing frontmatter = legacy path. The receiving watcher's `--enable-worker`
 mode only fires `claude -p` when frontmatter is present AND
 `iterate_signal=continue` AND `iterate_count < iterate_max`.
 
