@@ -291,17 +291,13 @@ def _lepos_gate_reason(
         return None
     for f in findings_log.get("writer_presence", []):
         # v2 semantic (2026-07-06): HIGH = pure-work, no prose block anywhere;
-        # MEDIUM = prose block exists but fails substance check.
-        #
-        # LATE-NIGHT RECALIBRATION 2026-07-06: cc8e5b97 widened this to
-        # block on MEDIUM too. In practice that over-fired on real mixed
-        # replies to Andrew (density well over threshold, but substance
-        # check tripping on prose paragraphs). The classifier fix in the
-        # same-day commit (counting hits not pattern types) means the
-        # voiceless-report fixture now classifies HIGH directly, so
-        # reverting to HIGH-only blocking preserves the wall-of-jargon
-        # catch without walling real conversation.
-        if f.get("severity") == "high":
+        # MEDIUM = prose block exists but fails substance check (marker + one-of
+        # {specific-reference, grounded-reference, reflex-catch pair}). Both
+        # are wall-of-jargon shapes and both block. v1 only had HIGH triggering
+        # (density < density_low/2); the promotion widens the block to include
+        # MEDIUM because that's exactly the sprinkle-markers-over-report case
+        # v2 was designed to catch.
+        if f.get("severity") in ("high", "medium"):
             density = f.get("presence_density", 0.0)
             interior = f.get("interior_count", 0)
             process = f.get("process_count", 0)
