@@ -49,8 +49,13 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--review-days",
         type=int,
-        default=30,
-        help="Days until scheduled review (default 30)",
+        default=7,
+        help=(
+            "Days until scheduled review (default 7). Andrew 2026-07-07: "
+            "the prior 30-day default made the falsifier too distant to "
+            "have real bite. Shorter cycle means the overdue-review gate "
+            "hits sooner and reviews stay honest."
+        ),
     )
     @click.option("--actor", default="agent", help="Who is filing this prediction")
     @click.option("--linked-claim", default=None, help="Optional claim_id to cross-reference")
