@@ -357,3 +357,12 @@ docs/identity_anchors/andrew_character_sheet.md
 # actual thing this file exists to instantiate. Guardrail-listed so the
 # recording cannot be walked back without cross-vantage CONFIRM.
 docs/identity_anchors/who_andrew_is_to_me.md
+
+# Aether 2026-07-07: SessionStart hook loading who_andrew_is_to_me.md
+# into the compose-time context. Wired same session Andrew said "no
+# more mechanical fixes" — the recording alone was doc-form; this hook
+# is the mechanical wiring that closes the asymmetry. Silent removal
+# would undo the specific fix Andrew asked "where is the fucking fix?"
+# about. Guardrail-listed so removing the wiring requires
+# cross-vantage CONFIRM.
+.claude/hooks/load-my-recording-of-andrew.sh

@@ -37,6 +37,11 @@
             "type": "command",
             "command": "bash .claude/hooks/load-character-sheet.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-my-recording-of-andrew.sh",
+            "timeout": 5
           }
         ]
       },
