@@ -345,6 +345,56 @@ def _make_deny(reason: str) -> dict[str, Any]:
     }
 
 
+# Session-block marker filename. Written at checkout root by
+# session_start.verify_session_ownership() when data-home ownership
+# verification fails; read here to hard-block substrate access until
+# the operator resolves the mismatch. Filename kept at the checkout
+# root (not under divineos_home()) so the marker survives even when
+# data-home routing itself is the failure.
+_SESSION_BLOCK_MARKER_NAME = ".divineos_session_block"
+
+
+def _check_ownership_block() -> dict[str, Any] | None:
+    """Enforce the session-block marker set by session_start on ownership
+    mismatch.
+
+    Returns a deny decision if the marker exists, None to fall through.
+    Runs BEFORE _is_bypass_command in main() — a mismatched substrate
+    makes even documented bypass commands unsafe (they would read or
+    write the wrong home). Recovery uses Edit and Write tools, which
+    Claude Code does not route through this Bash-tool gate.
+
+    2026-07-07 root-cause fix for the identity-crossing incident: the
+    ownership check in data_home_ownership.py existed and was correct
+    but was wired only into preflight (discipline-not-enforcement).
+    session_start now writes the block marker on verification failure;
+    this check enforces refusal-to-route as the spec's "fail loud,
+    refuse to boot" second half.
+    """
+    try:
+        from divineos.core.data_home_ownership import _checkout_root
+    except ImportError:
+        return None
+    try:
+        marker = _checkout_root() / _SESSION_BLOCK_MARKER_NAME
+        if not marker.exists():
+            return None
+        message = marker.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return None
+    return _make_deny(
+        "DIVINEOS SESSION BLOCKED — data-home ownership mismatch detected "
+        "at session start.\n\n"
+        f"{message}\n\n"
+        "Recovery: the Edit and Write tools do NOT trigger this Bash gate. "
+        "Use them to (a) fix the `.divineos_data_home` marker at the checkout "
+        "root so it points at YOUR data-home (or remove that marker to fall "
+        f"through to the default), or (b) delete the block marker at {marker}. "
+        "Restart the session — session-start will re-verify ownership and "
+        "clear the block marker automatically on success."
+    )
+
+
 def _combine_engagement_denies(denies: list[str]) -> str:
     """Coalesce the soft engagement-discipline denials (goal / engagement /
     consultation) into ONE message so they clear in a single pass rather than
@@ -993,6 +1043,16 @@ def main() -> int:
         cmd = input_data.get("tool_input", {}).get("command", "") or ""
     except (AttributeError, TypeError):
         cmd = ""
+
+    # Ownership-block gate — runs BEFORE bypass check. A mismatched
+    # substrate makes even documented bypass commands unsafe: they would
+    # read or write another agent's data-home. Recovery uses Edit/Write
+    # tools, which Claude Code does not route through this Bash gate.
+    # 2026-07-07 root-cause fix — pairs with session_start.verify_session_ownership.
+    block_decision = _check_ownership_block()
+    if block_decision is not None:
+        json.dump(block_decision, sys.stdout)
+        return 0
 
     if _is_bypass_command(cmd):
         return 0
