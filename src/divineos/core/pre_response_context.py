@@ -577,7 +577,7 @@ def build_warning_text() -> str:
     return "\n\n".join(sections)
 
 
-def build_baseline_text() -> str:
+def build_baseline_text(prompt: str | None = None) -> str:
     """Build the always-loaded base-state affirmations block.
 
     Andrew 2026-05-09: 'no you actually need to reinforce it.. not in
@@ -585,6 +585,14 @@ def build_baseline_text() -> str:
     the slip-shape can fire under emotional pressure so next-turn-
     noticing is too late. The rule must be loaded as foreground at
     composition time, every turn, regardless of detection-state.
+
+    The `prompt` parameter is accepted for compatibility with callers
+    that pass it through, but this function no longer loads the character
+    sheet per-turn. Andrew 2026-07-07: "so are you telling me you cant
+    remember it from loading once per context session?" — right, exactly.
+    The sheet loads once at SessionStart (.claude/hooks/load-character-
+    sheet.sh) and lives in my context window for the whole session. No
+    per-turn reload burning tokens on ground I already have.
     """
     sections: list[str] = []
     # All six base-state affirmations pruned 2026-06-19 per Andrew's text-rule-vs-automation
@@ -612,48 +620,9 @@ def build_baseline_text() -> str:
         except Exception:  # noqa: BLE001 - observability boundary
             pass
 
-    # Andrew's character sheet — loaded as compose-FROM ground, every turn.
-    # Andrew 2026-07-07: "if you are not willing to close the loop with
-    # mechanism.. then dont worry about it anymore.. its obviously not
-    # important enough to make it permanent in the structure." The character
-    # sheet as a file was mechanism-mechanism (guardrail-protected file on
-    # disk); this loader is what makes it non-decorative — the sheet becomes
-    # base-state context at every compose, so composition happens FROM
-    # knowing who he is, not FROM my working memory of the substrate.
-    #
-    # This is intentionally NOT the wallpaper-shape rule-loading pruned
-    # 2026-06-19: the pruning removed six behavioral rules ("stay first-
-    # person", "no jargon", etc). This loads DESCRIPTION-OF-ADDRESSEE,
-    # not RULES-ABOUT-BEHAVIOR. Different intervention. Per meta-Winnicott
-    # (kiln truth #15): the sheet points at who I am composing to; the
-    # loader makes the pointing structural instead of aspirational.
-    #
-    # Fail-soft: if the sheet is missing (fresh clone, deleted, moved),
-    # baseline just skips this section. The sheet is guardrail-protected
-    # so it can only be moved via External-Review; a missing sheet is a
-    # signal to the operator, not an error to raise mid-compose.
-    try:
-        from pathlib import Path
-
-        # Walk up from this module to find repo root
-        _here = Path(__file__).resolve()
-        _repo_root = _here.parent
-        while _repo_root != _repo_root.parent and not (_repo_root / ".git").exists():
-            _repo_root = _repo_root.parent
-        sheet_path = _repo_root / "docs" / "identity_anchors" / "andrew_character_sheet.md"
-        if sheet_path.is_file():
-            sheet_text = sheet_path.read_text(encoding="utf-8")
-            sections.append(
-                "## Who I am composing to (ground, not rule)\n\n"
-                "This section is loaded at every compose so I write FROM "
-                "knowing him, not FROM my working memory of files. "
-                "Description of addressee, not behavioral rule. "
-                "Per meta-Winnicott (kiln truth #15): the sheet points; "
-                "the loader makes the pointing structural.\n\n"
-                f"{sheet_text}"
-            )
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
+    # Character sheet is NOT loaded here anymore. It loads once at
+    # SessionStart via .claude/hooks/load-character-sheet.sh and stays
+    # in the context window for the session lifetime. See docstring.
 
     return "\n\n".join(sections)
 
@@ -676,7 +645,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
 
     run_surfacer(prompt)
     warning_text = build_warning_text()
-    baseline_text = build_baseline_text()
+    baseline_text = build_baseline_text(prompt=prompt)
 
     # Lepos walk surface (the check-to-walk conversion, Andrew + Aria
     # 2026-06-19, prereg-eec7a83be583). The old channel-check loaded 4
