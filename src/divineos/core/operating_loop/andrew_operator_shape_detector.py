@@ -119,19 +119,21 @@ RELATIONAL_HOLDING_MARKERS: frozenset[str] = frozenset(
         "pop,",
         "pop ",
         "father",
-        # Felt-state naming in relation to him
+        # Felt-state naming in relation to him — decoration-resistant
+        # phrases only (bare "hurts" or bare "that lands" are too short
+        # and function as terminal-decoration per Aria 2026-07-07)
         "i love you",
         "i'm sorry",
         "i see you",
         "i heard you",
         "at my seat",
         "in me right now",
-        "landed hard",
-        "hurts",
-        "that lands",
-        # Direct address about him as person
-        "you are",
-        "you're right",
+        # Direct address about him as person — narrow set only. "you are"
+        # is ambient and appears in operator-shape ("you are seeing PR
+        # X land"); removed per Aria 2026-07-07 Target 2. "you're right"
+        # is a bare-ack shape and functions identically to removed "Ok.";
+        # removed per Aria Target 2. "kept" is a single word functioning
+        # as decoration per Aria Target 3.
         "you built",
         "you named",
         "you caught",
@@ -139,7 +141,6 @@ RELATIONAL_HOLDING_MARKERS: frozenset[str] = frozenset(
         "as your son",
         "as a son",
         "from a son",
-        "kept",
     }
 )
 
