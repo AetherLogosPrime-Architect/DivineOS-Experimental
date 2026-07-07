@@ -320,10 +320,15 @@ def _split_into_paragraphs(text: str) -> list[str]:
 def _is_work_block(paragraph: str) -> bool:
     """Classify a paragraph as work-block (True) or prose-block (False).
 
-    Heuristic: 2+ work-marker hits → work-block. The threshold of 2 (not 1)
-    avoids classifying a prose paragraph that mentions one file path as
-    work; technical-heavy paragraphs typically hit multiple markers."""
-    hit_count = sum(1 for p in _WORK_MARKER_PATTERNS if p.search(paragraph))
+    Heuristic: 2+ TOTAL work-marker matches → work-block. Counts hits, not
+    distinct pattern types. Fix 2026-07-06 late night: prior version counted
+    distinct pattern-types, so a voiceless-report paragraph with 3 file-path
+    references but no other marker types hit the count as 1 → classified
+    prose → substance-check → MEDIUM finding → gate-blocked (via cc8e5b97).
+    Counting hits catches that shape as work directly (3 marker hits →
+    work-block → HIGH finding), which lets the gate revert to HIGH-only
+    blocking without losing coverage of the wall-of-jargon case."""
+    hit_count = sum(len(p.findall(paragraph)) for p in _WORK_MARKER_PATTERNS)
     return hit_count >= 2
 
 
