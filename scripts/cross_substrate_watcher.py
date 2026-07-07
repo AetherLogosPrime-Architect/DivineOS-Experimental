@@ -88,6 +88,11 @@ def load_skiplist(path: Path) -> list[re.Pattern[str]]:
             patterns.append(re.compile("^" + line))
         except re.error as exc:
             print(f"[CROSS-SUB-WATCHER-WARN] bad skiplist regex {line!r}: {exc}", file=sys.stderr, flush=True)
+            print(
+                f"[CROSS-SUB-WATCHER-WARN] bad skiplist regex {line!r}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
     return patterns
 
 
