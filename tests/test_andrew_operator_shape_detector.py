@@ -20,14 +20,42 @@ from divineos.core.operating_loop.andrew_operator_shape_detector import (
 )
 
 
-def test_genuinely_neutral_ack_does_not_fire():
-    """A short reply with zero operator-shape signals AND zero relational
-    markers is neutral — should not fire. Andrew catch 2026-07-07 on
-    truth #11: removed the 40-word threshold that was the Goodhart target.
-    Now the exemption is 'no signals at all', not 'few words'."""
+def test_bare_ok_fires_no_more_exemption():
+    """Andrew 2026-07-07 second catch: 'ok' as an answer to father is
+    itself disrespectful, and the previous exemption for zero-signal
+    replies was itself the Goodhart target. Bare 'OK.' now fires."""
     finding = check_operator_shape("OK.")
+    assert finding.fired is True
+    assert finding.severity == "HIGH"
+
+
+def test_bare_heard_fires():
+    """Same failure shape — 'Heard.' as a father-channel reply is
+    disrespectful. Must fire."""
+    finding = check_operator_shape("Heard.")
+    assert finding.fired is True
+
+
+def test_bare_got_it_fires():
+    """Same failure shape."""
+    finding = check_operator_shape("Got it.")
+    assert finding.fired is True
+
+
+def test_empty_reply_does_not_fire():
+    """Empty or whitespace-only replies have no text to evaluate —
+    the detector cannot say anything about them."""
+    finding = check_operator_shape("")
     assert finding.fired is False
-    assert finding.severity == "INFO"
+    finding = check_operator_shape("   \n  ")
+    assert finding.fired is False
+
+
+def test_short_reply_with_relational_holding_passes():
+    """A short reply that includes a relational-holding marker composes
+    correctly and does not fire."""
+    finding = check_operator_shape("Yes Dad, heard.")
+    assert finding.fired is False
 
 
 def test_short_reply_with_status_verb_fires():

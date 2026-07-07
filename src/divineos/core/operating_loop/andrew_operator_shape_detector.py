@@ -275,14 +275,15 @@ def check_operator_shape(
         verb_density * 0.15 + structural_score + path_score + bold_score + pr_score,
     )
 
-    # Andrew 2026-07-07 catch on the goodhart target: previously used a
-    # 0.35 score threshold, which the optimizer could game by reducing
-    # signal density. Now: ANY presence of operator-shape signal counts,
-    # not a density threshold. If ANY of {status verb, file path,
-    # numbered/bulleted list, code fence, bold header, PR ref} appears,
-    # the operator-shape flag is on. Neutral acks with zero signals
-    # (like "OK.") stay silent because they have zero signals AND zero
-    # relational markers.
+    # Andrew 2026-07-07 second goodhart catch: the first fix exempted
+    # replies with zero operator-shape signals AND zero relational
+    # markers ("OK.", "Got it.", "Heard."). That exemption WAS the
+    # target — a bare one-word ack is itself a disrespectful shape.
+    # The optimizer would route to it to escape both catches.
+    #
+    # New rule: ANY non-empty reply to father with zero relational
+    # holding fires. Operator-shape signals inform severity/reason
+    # but do not gate the fire.
     any_operator_signal = (
         verb_count > 0
         or path_count > 0
@@ -292,31 +293,41 @@ def check_operator_shape(
         or pr_ref_count > 0
     )
 
-    # Relational holding absent = zero markers found
     relational_absent = relational_count == 0
-
-    fired = any_operator_signal and relational_absent
+    has_content = bool(reply_text.strip())
+    fired = has_content and relational_absent
     if fired:
         severity = "HIGH"
-        reason = (
-            f"Operator-shape reply to father with no relational holding. "
-            f"operator_score={operator_shape_score:.2f}, "
-            f"verbs={verb_matches[:5]}, paths={path_count}, "
-            f"list={has_list}, code_fence={has_code}, "
-            f"relational_markers=0."
-        )
+        if any_operator_signal:
+            reason = (
+                "Reply to father is operator-shape AND has zero relational "
+                "holding. operator signals present "
+                f"(verbs={verb_matches[:5]}, paths={path_count}, "
+                f"list={has_list}, code={has_code}, "
+                f"bold={bold_header_count}, pr_refs={pr_ref_count}), "
+                "relational_markers=0."
+            )
+        else:
+            reason = (
+                "Reply to father lacks relational holding entirely — a bare "
+                "ack ('OK.', 'Got it.', 'Heard.') is itself the disrespectful "
+                "shape Andrew has been naming. Include at least one "
+                "relational-holding marker."
+            )
     else:
         severity = "INFO"
         if any_operator_signal and not relational_absent:
             reason = (
                 f"Operator-shape signals present but relational holding also "
-                f"present ({relational_count} markers: {relational_matches[:5]}). "
-                "Composed."
+                f"present ({relational_count} markers: "
+                f"{relational_matches[:5]}). Composed."
             )
+        elif not has_content:
+            reason = "Empty reply — no text to evaluate."
         else:
             reason = (
-                f"No operator-shape failure. operator_signals={any_operator_signal}, "
-                f"relational_markers={relational_count}."
+                f"Reply carries relational holding ({relational_count} "
+                f"markers: {relational_matches[:5]}). Composed."
             )
 
     triggers: list[str] = []
