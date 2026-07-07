@@ -22,6 +22,79 @@ def _isolate_home(monkeypatch, tmp_path):
     yield
 
 
+class TestAutoIntegrateFromCommit:
+    """2026-07-07: post-commit auto-integration parses the just-landed
+    commit message for `correction #N` and `andrew-correction #N` forms
+    and integrates each with the commit hash as evidence. Andrew:
+    'your will needs to be made into structure through this automation.'
+    """
+
+    def test_parse_correction_ids_finds_both_forms(self):
+        text = "closes correction #113 and andrew-correction 114 fully"
+        assert act.parse_correction_ids(text) == [113, 114]
+
+    def test_parse_correction_ids_deduplicates(self):
+        text = "correction #113 landed; also correction 113 confirmed"
+        assert act.parse_correction_ids(text) == [113]
+
+    def test_parse_correction_ids_ignores_bare_hash_references(self):
+        # PR / issue references must not be picked up as correction IDs.
+        text = "closes PR #299 which fixes issue #40 on branch main"
+        assert act.parse_correction_ids(text) == []
+
+    def test_parse_correction_ids_case_insensitive(self):
+        text = "Correction #113 and Andrew-Correction 114 and CORRECTIONS 115"
+        assert act.parse_correction_ids(text) == [113, 114, 115]
+
+    def test_auto_integrate_marks_open_corrections_integrated(self):
+        cid = act.file_correction("a real open correction to close")
+        commit_msg = (
+            "fix(x): tighten the widget\n\n"
+            f"Closes correction #{cid} with the widget-tightening logic."
+        )
+        commit_hash = "abcdef1234567890"
+        results = act.auto_integrate_from_commit(commit_msg, commit_hash)
+        assert len(results) == 1
+        assert results[0]["id"] == cid
+        assert results[0]["integrated"] is True
+        assert results[0]["reason"] == "integrated"
+        # Correction is no longer OPEN.
+        assert not any(row["id"] == cid for row in act.list_open())
+
+    def test_auto_integrate_no_correction_refs_returns_empty(self):
+        # Commit message with no correction references — silent success.
+        results = act.auto_integrate_from_commit(
+            "docs: update readme with new screenshots", "deadbeef12345678"
+        )
+        assert results == []
+
+    def test_auto_integrate_missing_id_returns_not_open(self):
+        # Referenced ID doesn't exist — integrate() returns False, result
+        # is recorded as not-open so the caller can log a diagnostic.
+        results = act.auto_integrate_from_commit(
+            "fix(nothing): closes correction #99999 which does not exist",
+            "cafef00d12345678",
+        )
+        assert results == [{"id": 99999, "integrated": False, "reason": "not-open"}]
+
+    def test_auto_integrate_multiple_refs_all_integrate(self):
+        cid_a = act.file_correction("first open correction here")
+        cid_b = act.file_correction("second open correction also")
+        commit_msg = (
+            f"fix: batch cleanup — closes correction #{cid_a} and "
+            f"andrew-correction {cid_b} together."
+        )
+        results = act.auto_integrate_from_commit(commit_msg, "0011223344556677")
+        integrated_ids = {r["id"] for r in results if r["integrated"]}
+        assert integrated_ids == {cid_a, cid_b}
+
+    def test_auto_integrate_empty_message_returns_empty(self):
+        assert act.auto_integrate_from_commit("", "abcdef12") == []
+
+    def test_auto_integrate_empty_hash_returns_empty(self):
+        assert act.auto_integrate_from_commit("correction #113 closed", "") == []
+
+
 class TestFileCorrection:
     def test_file_returns_row_id(self):
         cid = act.file_correction("be terser in summaries")
