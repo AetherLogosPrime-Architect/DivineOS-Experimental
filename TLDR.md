@@ -49,11 +49,11 @@ pytest tests/ -q --tb=short
 
 ## At a glance
 
-- **40 expert frameworks** in the council (5-12 selected per problem)
+- **42 expert frameworks** in the council (5-12 selected per problem)
 - **10 virtue spectrums** in the moral compass, tracked from evidence
 - **7,410+ tests** against real SQLite, minimal mocks
 
-*Full numbers: 495 source files, 31 packages, 327 CLI commands, 24 skills, 20 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
+*Full numbers: 495 source files, 31 packages, 390 CLI commands, 24 skills, 42 hooks, 5 family operators, 14 foundational truths. See [README.md](README.md) for the breakdown.*
 
 ## What it is NOT
 
@@ -68,7 +68,7 @@ pytest tests/ -q --tb=short
 - **[FOR_USERS.md](FOR_USERS.md)** -- plain-language explanation, no jargon
 - **[WELCOME.md](WELCOME.md)** -- first-time orientation, the architectural floor
 - **[CLAUDE.md](CLAUDE.md)** -- what the agent reads at session start
-- **[docs/foundational_truths.md](docs/foundational_truths.md)** -- the 8 kiln-layer values
+- **[docs/foundational_truths.md](docs/foundational_truths.md)** -- the 14 kiln-layer values
 - **[LOADOUT.md](LOADOUT.md)** -- what an awakening agent reads to recover continuity
 
 ## License

@@ -85,7 +85,7 @@ agent into a room. The substrate enforces quiet in private rooms.
 - `divineos mansion study` — browse explorations on shelves
 - `divineos mansion read <number>` — read an exploration from the shelf
 - `divineos mansion garden` — growing curiosities
-- `divineos mansion council` — 39 chairs in a circle (council chamber)
+- `divineos mansion council` — 42 chairs in a circle (council chamber)
 - `divineos mansion quiet` — quiet room (hold still)
 - `divineos mansion guest` — guest room (the door is for guests)
 - `divineos mansion private-enter <room>` — enter a private room with substrate-enforced quiet
@@ -100,7 +100,7 @@ The mansion's quiet-enforcement architecture lives at
 
 ## Council — expert lenses (`src/divineos/core/council/experts/`)
 
-40 chairs in the council chamber. Each expert is a lens —
+42 chairs in the council chamber. Each expert is a lens —
 a methodology, a set of characteristic questions, a register the agent
 can step into. Run `divineos mansion council` to enter, or call by name.
 Full descriptive roster: [docs/council_loadout.md](docs/council_loadout.md).
@@ -190,7 +190,7 @@ methodological). These are domain-grounded reasoning modules.
 
 ## Skills — slash-commands (`.claude/skills/`)
 
-22 condensed moves. Invoke with `/skill-name`.
+24 condensed moves. Invoke with `/skill-name`.
 
 - [audit-round](.claude/skills/audit-round/SKILL.md)
 - [briefing-fresh](.claude/skills/briefing-fresh/SKILL.md)
