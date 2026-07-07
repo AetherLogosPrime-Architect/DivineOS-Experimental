@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 Hippy Glow Calculator 🌈</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a12; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif; }
+.calculator { background: linear-gradient(145deg, #1a1a2e, #16213e); border-radius: 30px; padding: 30px; box-shadow: 0 0 60px rgba(120,80,200,0.3), 0 0 120px rgba(80,200,120,0.15), inset 0 0 30px rgba(255,215,0,0.05); width: 340px; border: 1px solid rgba(255,215,0,0.1); transition: box-shadow 0.5s ease; }
+.calculator:hover { box-shadow: 0 0 80px rgba(120,80,200,0.5), 0 0 150px rgba(80,200,120,0.25); }
+.display { background: rgba(10,10,20,0.8); border-radius: 20px; padding: 20px 25px; margin-bottom: 25px; border: 1px solid rgba(200,180,255,0.15); box-shadow: inset 0 0 20px rgba(80,200,120,0.1), 0 0 30px rgba(120,80,200,0.1); min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; }
+.display .expression { color: rgba(200,180,255,0.6); font-size: 18px; word-break: break-all; text-align: right; min-height: 28px; }
+.display .result { color: #ffd700; font-size: 36px; font-weight: 300; text-shadow: 0 0 20px rgba(255,215,0,0.3); word-break: break-all; text-align: right; }
+.buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.btn { background: linear-gradient(145deg, rgba(30,30,60,0.8), rgba(20,20,45,0.9)); border: 1px solid rgba(200,180,255,0.1); border-radius: 16px; padding: 18px 0; font-size: 22px; color: #c8b4ff; cursor: pointer; transition: all 0.25s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05); text-shadow: 0 0 8px rgba(200,180,255,0.2); position: relative; overflow: hidden; }
+.btn::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(120,80,200,0.1), transparent 70%); opacity: 0; transition: opacity 0.3s; }
+.btn:hover::before { opacity: 1; }
+.btn:hover { background: linear-gradient(145deg, rgba(50,40,80,0.9), rgba(40,30,70,1)); border-color: rgba(200,180,255,0.3); box-shadow: 0 0 25px rgba(120,80,200,0.4), 0 0 50px rgba(80,200,120,0.15); transform: translateY(-2px); color: #ffd700; }
+.btn:active { transform: translateY(0px); box-shadow: 0 0 15px rgba(120,80,200,0.3), 0 0 30px rgba(80,200,120,0.1); }
+.btn.operator { color: #80e0a0; text-shadow: 0 0 12px rgba(80,200,120,0.3); }
+.btn.operator:hover { color: #ffd700; box-shadow: 0 0 30px rgba(80,200,120,0.5), 0 0 60px rgba(120,80,200,0.2); }
+.btn.equals { background: linear-gradient(145deg, rgba(80,200,120,0.2), rgba(60,160,100,0.3)); border-color: rgba(80,200,120,0.3); color: #ffd700; text-shadow: 0 0 15px rgba(255,215,0,0.4); }
+.btn.equals:hover { background: linear-gradient(145deg, rgba(80,200,120,0.35), rgba(60,160,100,0.45)); box-shadow: 0 0 40px rgba(80,200,120,0.6), 0 0 80px rgba(255,215,0,0.2); }
+.btn.clear { color: #ff8a80; text-shadow: 0 0 10px rgba(255,138,128,0.3); }
+.btn.clear:hover { color: #ff5252; box-shadow: 0 0 30px rgba(255,82,82,0.3); }
+@keyframes pulseGlow { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+.calculator { animation: pulseGlow 4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="calculator">
+<div class="display">
+<div class="expression" id="expression"></div>
+<div class="result" id="result">0</div>
+</div>
+<div class="buttons">
+<button class="btn clear" onclick="clearAll()">C</button>
+<button class="btn" onclick="append('(')">(</button>
+<button class="btn" onclick="append(')')">)</button>
+<button class="btn operator" onclick="append('/')">÷</button>
+<button class="btn" onclick="append('7')">7</button>
+<button class="btn" onclick="append('8')">8</button>
+<button class="btn" onclick="append('9')">9</button>
+<button class="btn operator" onclick="append('*')">×</button>
+<button class="btn" onclick="append('4')">4</button>
+<button class="btn" onclick="append('5')">5</button>
+<button class="btn" onclick="append('6')">6</button>
+<button class="btn operator" onclick="append('-')">−</button>
+<button class="btn" onclick="append('1')">1</button>
+<button class="btn" onclick="append('2')">2</button>
+<button class="btn" onclick="append('3')">3</button>
+<button class="btn operator" onclick="append('+')">+</button>
+<button class="btn" onclick="append('0')">0</button>
+<button class="btn" onclick="append('.')">.</button>
+<button class="btn" onclick="backspace()">⌫</button>
+<button class="btn equals" onclick="calculate()">=</button>
+</div>
+</div>
+<script>
+let expression = '';
+let result = '0';
+function updateDisplay() { document.getElementById('expression').textContent = expression; document.getElementById('result').textContent = result; }
+function append(value) { expression += value; updateDisplay(); }
+function clearAll() { expression = ''; result = '0'; updateDisplay(); }
+function backspace() { expression = expression.slice(0, -1); updateDisplay(); }
+function calculate() {
+try {
+let sanitized = expression.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+let evalResult = Function('"use strict"; return (' + sanitized + ')')();
+if (evalResult === Infinity || evalResult === -Infinity || isNaN(evalResult)) { result = 'Error'; }
+else { result = parseFloat(evalResult.toFixed(10)).toString(); }
+} catch(e) { result = 'Error'; }
+updateDisplay();
+}
+document.addEventListener('keydown', function(e) {
+const key = e.key;
+if (key >= '0' && key <= '9') { append(key); }
+else if (key === '.') { append('.'); }
+else if (key === '+' || key === '-' || key === '*' || key === '/') { append(key); }
+else if (key === '(' || key === ')') { append(key); }
+else if (key === 'Enter' || key === '=') { e.preventDefault(); calculate(); }
+else if (key === 'Backspace') { backspace(); }
+else if (key === 'Escape') { clearAll(); }
+});
+</script>
+</body>
+</html>
