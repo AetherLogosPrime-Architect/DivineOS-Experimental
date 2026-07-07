@@ -1,6 +1,6 @@
 # Council Manager — How the Right Experts Get Picked
 
-The DivineOS council holds 40 expert frameworks — methodologies, reasoning patterns, and concern triggers distilled from thinkers like Aristotle, Feynman, Pearl, Schneier, Taleb, and Wittgenstein. Running every expert on every problem is expensive and unfocused. The **dynamic council manager** classifies the problem signal-by-signal and selects a council of 5–12 experts whose methodologies best fit.
+The DivineOS council holds 42 expert frameworks — methodologies, reasoning patterns, and concern triggers distilled from thinkers like Aristotle, Feynman, Pearl, Schneier, Taleb, and Wittgenstein. Running every expert on every problem is expensive and unfocused. The **dynamic council manager** classifies the problem signal-by-signal and selects a council of 5–12 experts whose methodologies best fit.
 
 This document explains what the manager does, why it works the way it does, and how it gets invoked.
 
@@ -86,6 +86,6 @@ The manager **recommends** experts; the caller can always override. It never pre
 - `src/divineos/core/council/manager.py` — the selection logic, full category registry
 - `src/divineos/core/council/engine.py` — how a selected council actually runs
 - `src/divineos/core/council/framework.py` — the `ExpertWisdom` data model
-- `src/divineos/core/council/experts/*.py` — the 40 expert profiles, one per file
+- `src/divineos/core/council/experts/*.py` — the 42 expert profiles, one per file
 - `tests/test_council_experts_all.py` — parametrized smoke + integrity tests across the roster
 - `tests/test_council.py` — manager + engine integration tests

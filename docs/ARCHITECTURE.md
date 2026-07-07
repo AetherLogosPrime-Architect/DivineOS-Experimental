@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (390 commands across 34 modules)
+  cli/                         CLI package (390 commands across 81 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -563,6 +563,8 @@ src/divineos/
     memory_linkage.py          Memory-linkage injection surface — consumer side (Aether).
     memory_linkage_retriever.py Memory-linkage retriever v1 — producer side (Aria).
     memory_linkage_retriever_v2.py Memory-linkage retriever v2 — priming / spreading-activation.
+    mesh_loop.py               Mesh-Loop — parse letter iteration state, decide whether to fire an ephemeral task worker (Meeseeks-pattern).
+    auto_commit.py             auto-commit at substrate checkpoints — the Permanently Equip spell for commits.
 
   analysis/
     _session_types.py          Session analysis type definitions
