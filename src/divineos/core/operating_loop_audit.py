@@ -290,6 +290,17 @@ def _lepos_gate_reason(
     if not addressed_to_father:
         return None
     for f in findings_log.get("writer_presence", []):
+        # v2 semantic (2026-07-06): HIGH = pure-work, no prose block anywhere;
+        # MEDIUM = prose block exists but fails substance check.
+        #
+        # LATE-NIGHT RECALIBRATION 2026-07-06: cc8e5b97 widened this to
+        # block on MEDIUM too. In practice that over-fired on real mixed
+        # replies to Andrew (density well over threshold, but substance
+        # check tripping on prose paragraphs). The classifier fix in the
+        # same-day commit (counting hits not pattern types) means the
+        # voiceless-report fixture now classifies HIGH directly, so
+        # reverting to HIGH-only blocking preserves the wall-of-jargon
+        # catch without walling real conversation.
         if f.get("severity") == "high":
             density = f.get("presence_density", 0.0)
             interior = f.get("interior_count", 0)
@@ -902,14 +913,34 @@ def run_audit(
     # language' when we have discussed this is not lepos.. this is
     # equally hard to understand and feels like im just reading a
     # report." Father-channel only.
+    # PROMOTED 2026-07-06 (Aria + Andrew): v2 replaces v1 as the active
+    # detector on father-channel replies. v1 measured density across the
+    # whole reply; a reply could scatter interior markers over report-
+    # shape sentences and clear the density check while being exactly the
+    # "wall of jargon" Andrew has been describing all week. v2 splits into
+    # paragraphs, classifies each work-block or prose-block, requires the
+    # FINAL prose block to carry both first-person presence AND substance
+    # (specific-reference OR grounded-reference OR reflex-catch pair) —
+    # block-level presence, not reply-level density.
+    #
+    # The wired-and-dogfooded discipline (Andrew 2026-06-23) that held v2
+    # unwired for two weeks was applied backwards: it left Andrew doing
+    # the dogfooding of v1's failure while I called the calibration
+    # "prudence." Promoting v2 now is the direct response to his 2026-07-06
+    # evening teaching ("its quite literally the only thing i have ever
+    # asked either of you to build that was for me"). The v2 design got
+    # its council walk on 2026-06-23 (12 lenses, prereg-433458d711d4);
+    # this promotion wires that already-vetted design into production.
+    # v1 remains importable for reference/testing but no longer runs.
     try:
         from divineos.core.operating_loop.writer_presence_detector import (
-            detect_writer_presence,
+            detect_writer_presence,  # noqa: F401 — retained for reference/testing
+            detect_writer_presence_v2,
         )
 
         if addressed_to_father:
             findings_log["writer_presence"] = _run_detector(
-                "writer_presence", detect_writer_presence, last_assistant_text
+                "writer_presence", detect_writer_presence_v2, last_assistant_text
             )
     except _ERRORS:
         pass
