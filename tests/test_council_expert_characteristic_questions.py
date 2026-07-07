@@ -143,12 +143,36 @@ def test_expert_characteristic_questions_have_content_tokens(builder):
 def test_keywords_for_expert_registry_covers_all_experts():
     """Build the lens-keyword map the gate uses and verify every
     registered expert lands in the map. A lens missing from the map
-    would fail-with-specific-reason at gate-time."""
+    would fail-with-specific-reason at gate-time.
+
+    2026-07-07 case-normalization: keywords_for_expert_registry stores
+    keys lowercase so lookups are case-insensitive (CLI users type
+    'schneier'; registry stores 'Schneier'). This assertion lowercases
+    the check to match the new contract.
+    """
     registry = {}
     for build in ALL_EXPERT_BUILDERS:
         w = build()
         registry[w.expert_name] = list(w.characteristic_questions or [])
 
     keywords_map = keywords_for_expert_registry(registry)
-    missing = [name for name in registry if name not in keywords_map]
+    missing = [name for name in registry if name.lower() not in keywords_map]
     assert not missing, f"Experts missing from keyword map: {missing!r}"
+
+
+def test_keywords_for_expert_registry_stores_keys_lowercase():
+    """Pin the case-normalization invariant introduced 2026-07-07.
+
+    Registry keys are stored lowercase in the returned map so lookups
+    at check-time can normalize the incoming lens name (which may come
+    from CLI input in any case) and still hit the registered lens.
+    Without this normalization, `--lenses "schneier"` misses `Schneier`
+    and the substance-binding check falsely reports the empty-registry
+    error — the exact drift caught in the 2026-07-07 audit.
+    """
+    registry = {"Schneier": ["What is the threat model here?"]}
+    keywords_map = keywords_for_expert_registry(registry)
+    assert "schneier" in keywords_map
+    assert "Schneier" not in keywords_map, (
+        "Capital-cased key leaked through — case-normalization broken"
+    )
