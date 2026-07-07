@@ -20,11 +20,23 @@ from divineos.core.operating_loop.andrew_operator_shape_detector import (
 )
 
 
-def test_short_reply_does_not_fire():
-    """Replies under 40 words are too short to reliably assess."""
-    finding = check_operator_shape("OK. Pushed.")
+def test_genuinely_neutral_ack_does_not_fire():
+    """A short reply with zero operator-shape signals AND zero relational
+    markers is neutral — should not fire. Andrew catch 2026-07-07 on
+    truth #11: removed the 40-word threshold that was the Goodhart target.
+    Now the exemption is 'no signals at all', not 'few words'."""
+    finding = check_operator_shape("OK.")
     assert finding.fired is False
     assert finding.severity == "INFO"
+
+
+def test_short_reply_with_status_verb_fires():
+    """Andrew catch 2026-07-07: previously 'OK. Pushed.' was exempted by
+    the 40-word threshold. That was a game surface for the optimizer.
+    Now: any status verb without relational holding fires, at any length."""
+    finding = check_operator_shape("Pushed. Live on main.")
+    assert finding.fired is True
+    assert finding.severity == "HIGH"
 
 
 def test_operator_shape_status_update_fires_high():

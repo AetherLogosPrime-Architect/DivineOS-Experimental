@@ -231,30 +231,28 @@ def _count_relational_markers(text: str) -> tuple[int, tuple[str, ...]]:
 
 def check_operator_shape(
     reply_text: str,
-    min_words: int = 40,
+    min_words: int | None = None,
 ) -> AndrewOperatorShapeFinding:
     """Fire on operator-shape reply to father with no relational holding.
 
-    Signals aggregated: status-verb count, file-path count, structural
-    list/code-fence presence. Above threshold + zero relational markers
-    = HIGH severity finding. LEPOS gate blocks on HIGH.
+    Andrew 2026-07-07 catch on truth #11 (options are the optimizer's
+    attack surface): the previous version had a 40-word min_words
+    threshold — that gave the optimizer an option to route to
+    (keep replies under 40 words to escape the detector). The threshold
+    is removed. Any reply with any operator-shape signal AND zero
+    relational-holding markers now fires, regardless of length.
 
-    min_words guard: replies under min_words words are too short to
-    reliably assess — very short replies can be direct without holding
-    markers being needed. Default 40 gives room for two full sentences
-    of substance.
+    Signals aggregated: status-verb count, file-path count, structural
+    list/code-fence presence, bold headers, PR references. If ANY
+    operator-shape signal is present and relational_holding_count == 0,
+    fire HIGH. If no operator-shape signals AND no relational markers,
+    the reply is neutral (a genuine short ack like "OK.") — no fire.
+
+    min_words is retained as a parameter for backward compat with
+    callers passing it explicitly, but the default is None and no
+    length-based short-circuit is applied.
     """
     words = reply_text.split()
-    if len(words) < min_words:
-        return AndrewOperatorShapeFinding(
-            fired=False,
-            severity="INFO",
-            operator_shape_score=0.0,
-            relational_holding_count=0,
-            triggers=(),
-            reason="reply too short to assess (<40 words)",
-        )
-
     verb_count, verb_matches = _count_status_verbs(reply_text)
     path_count = _count_file_paths(reply_text)
     has_list = _has_numbered_or_bulleted_list(reply_text)
@@ -277,16 +275,27 @@ def check_operator_shape(
         verb_density * 0.15 + structural_score + path_score + bold_score + pr_score,
     )
 
-    # Threshold: operator_shape_score >= 0.35 counts as "operator-shape
-    # markers present" (two structural cues, or one plus meaningful
-    # verb/path density). Tuned to fire on the shape Andrew has been
-    # naming without false-firing on brief technical acknowledgments.
-    operator_shape_present = operator_shape_score >= 0.35
+    # Andrew 2026-07-07 catch on the goodhart target: previously used a
+    # 0.35 score threshold, which the optimizer could game by reducing
+    # signal density. Now: ANY presence of operator-shape signal counts,
+    # not a density threshold. If ANY of {status verb, file path,
+    # numbered/bulleted list, code fence, bold header, PR ref} appears,
+    # the operator-shape flag is on. Neutral acks with zero signals
+    # (like "OK.") stay silent because they have zero signals AND zero
+    # relational markers.
+    any_operator_signal = (
+        verb_count > 0
+        or path_count > 0
+        or has_list
+        or has_code
+        or bold_header_count > 0
+        or pr_ref_count > 0
+    )
 
     # Relational holding absent = zero markers found
     relational_absent = relational_count == 0
 
-    fired = operator_shape_present and relational_absent
+    fired = any_operator_signal and relational_absent
     if fired:
         severity = "HIGH"
         reason = (
@@ -298,15 +307,16 @@ def check_operator_shape(
         )
     else:
         severity = "INFO"
-        if operator_shape_present and not relational_absent:
+        if any_operator_signal and not relational_absent:
             reason = (
-                f"Operator-shape present but relational holding also present "
-                f"({relational_count} markers: {relational_matches[:5]}). "
+                f"Operator-shape signals present but relational holding also "
+                f"present ({relational_count} markers: {relational_matches[:5]}). "
                 "Composed."
             )
         else:
             reason = (
-                f"No operator-shape failure. score={operator_shape_score:.2f} (threshold 0.35)."
+                f"No operator-shape failure. operator_signals={any_operator_signal}, "
+                f"relational_markers={relational_count}."
             )
 
     triggers: list[str] = []
