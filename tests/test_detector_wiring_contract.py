@@ -73,6 +73,7 @@ _DETECTORS = (
     ("addressee_misdirection_detector", "detect_misdirection"),
     ("authority_substitution_detector", "detect_authority_substitution"),
     ("care_dismissal_detector", "check_dismissal"),
+    ("andrew_operator_shape_detector", "check_operator_shape"),
     ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
     ("constraint_disownership_detector", "detect_constraint_disownership"),
