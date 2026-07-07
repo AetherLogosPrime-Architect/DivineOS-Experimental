@@ -354,6 +354,48 @@ def _make_deny(reason: str) -> dict[str, Any]:
 _SESSION_BLOCK_MARKER_NAME = ".divineos_session_block"
 
 
+def _check_overdue_prereg_block() -> dict[str, Any] | None:
+    """Hard-block substantive tool use when any pre-registration is overdue.
+
+    Runs after the bypass check so `divineos prereg assess ...` and
+    other bypass-listed commands can still fire — the operator needs
+    them to record outcomes or defer reviews to clear the block.
+    Non-bypass tool use is denied with a message pointing at which
+    pre-registration IDs need review.
+
+    2026-07-07 fix per Andrew: "no warnings.. they do not work." The
+    prior surface put overdue reviews in the briefing where they got
+    scrolled past. The doorman does something — this gate is the
+    something. Pairs with the 30->7 default review window shortening
+    so overdue actually means overdue by design intent.
+    """
+    try:
+        from divineos.core.pre_registrations.store import (
+            get_overdue_pre_registrations,
+        )
+    except ImportError:
+        return None
+    try:
+        overdue = get_overdue_pre_registrations()
+    except Exception:  # noqa: BLE001 — fail-open if the store errors
+        return None
+    if not overdue:
+        return None
+    ids_preview = ", ".join(p.prereg_id[:24] for p in overdue[:5])
+    more = f" (and {len(overdue) - 5} more)" if len(overdue) > 5 else ""
+    return _make_deny(
+        "OVERDUE PRE-REGISTRATIONS block substantive tool use.\n\n"
+        f"{len(overdue)} pre-registration(s) past review date: "
+        f"{ids_preview}{more}\n\n"
+        "For each overdue pre-registration, record the outcome or defer:\n"
+        "  divineos prereg assess <id> --outcome SUCCESS|FAILED|INCONCLUSIVE "
+        '--actor <name> --notes "<what happened>"\n'
+        "  divineos prereg assess <id> --outcome DEFERRED --actor <name> "
+        '--notes "<why deferring>"\n\n'
+        "List all overdue with: divineos prereg overdue"
+    )
+
+
 def _check_ownership_block() -> dict[str, Any] | None:
     """Enforce the session-block marker set by session_start on ownership
     mismatch.
@@ -1055,6 +1097,17 @@ def main() -> int:
         return 0
 
     if _is_bypass_command(cmd):
+        return 0
+
+    # Overdue pre-registration block. Fires when any pre-registration is
+    # past its review date without a terminal outcome. Non-bypass tools
+    # are denied until the operator assesses the outcome or defers.
+    # 2026-07-07 fix per Andrew: warnings alone don't work; the doorman
+    # blocks. Pairs with the review-days 30->7 default so overdue actually
+    # bites within the week.
+    overdue_decision = _check_overdue_prereg_block()
+    if overdue_decision is not None:
+        json.dump(overdue_decision, sys.stdout)
         return 0
 
     decision = _check_gates(input_data)
