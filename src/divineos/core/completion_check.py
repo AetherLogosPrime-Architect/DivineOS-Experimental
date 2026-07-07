@@ -28,6 +28,7 @@ tests, lightweight grep for imports. Ledger lookup is opt-in via
 
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -238,6 +239,163 @@ def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
     return any(h.replace("\\", "/") != mechanism_path for h in hits)
 
 
+def _batch_has_test_for(paths: list[str], repo_root: Path) -> dict[str, bool]:
+    """Batched _has_test_for — ONE git grep for N mechanisms.
+
+    Andrew 2026-07-07 catch: the per-file loop was doing N subprocess
+    calls, and CI runners under load exceeded the test's own 30s cap
+    when N grew (~20+ new mechanisms in a day). This batches: one
+    filename-glob pass with zero subprocess, one git-grep call for
+    everything left.
+
+    Returns a dict mapping each input path to True/False. Same
+    semantics as calling _has_test_for(path) individually.
+    """
+    result: dict[str, bool] = {p: False for p in paths}
+    if not paths:
+        return result
+    tests_dir = repo_root / "tests"
+    if not tests_dir.exists():
+        return result
+
+    # Pass 1: filename heuristic (no subprocess)
+    remaining: dict[str, list[str]] = {}
+    for p in paths:
+        stem = Path(p).stem
+        if any(tests_dir.glob(f"test_{stem}*.py")):
+            result[p] = True
+        else:
+            remaining.setdefault(stem, []).append(p)
+
+    if not remaining:
+        return result
+
+    # Pass 2: single batched git grep for all remaining stems
+    escaped = [re.escape(s) for s in remaining]
+    pattern = rf"\b({'|'.join(escaped)})\b"
+    try:
+        out = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "grep",
+                "-h",
+                "-o",
+                "-E",
+                pattern,
+                "--",
+                "tests/",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return result
+    if out.returncode not in (0, 1):
+        return result
+
+    matched = {ln.strip() for ln in out.stdout.splitlines() if ln.strip()}
+    for stem, mech_paths in remaining.items():
+        if stem in matched:
+            for p in mech_paths:
+                result[p] = True
+    return result
+
+
+def _batch_has_wiring_for(paths: list[str], repo_root: Path) -> dict[str, bool]:
+    """Batched _has_wiring_for — ONE git grep for .py stems, one for .sh stems.
+
+    Same optimization as _batch_has_test_for. The .py and .sh patterns
+    differ (\\b<stem>\\b vs <stem>\\.sh) so they get two separate greps,
+    not one — but 2 << N.
+
+    Excludes the mechanism's own file from hits (a mechanism that only
+    references itself is not wired anywhere).
+    """
+    result: dict[str, bool] = {p: False for p in paths}
+    if not paths:
+        return result
+    src = repo_root / "src"
+    if not src.exists():
+        return result
+
+    # Split by extension — different patterns needed.
+    py_paths: dict[str, list[str]] = {}
+    sh_paths: dict[str, list[str]] = {}
+    for p in paths:
+        stem = Path(p).stem
+        if p.endswith(".sh"):
+            sh_paths.setdefault(stem, []).append(p)
+        else:
+            py_paths.setdefault(stem, []).append(p)
+
+    def _batch_grep(stems: dict[str, list[str]], pattern_fmt: str) -> dict[str, set[str]]:
+        """Return {stem: set-of-file-paths-that-matched-it}."""
+        if not stems:
+            return {}
+        escaped = [re.escape(s) for s in stems]
+        if pattern_fmt == "word":
+            pattern = rf"\b({'|'.join(escaped)})\b"
+        else:  # "sh_suffix"
+            pattern = rf"({'|'.join(escaped)})\.sh"
+        try:
+            out = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "grep",
+                    "-o",
+                    "-E",
+                    pattern,
+                    "--",
+                    "src/",
+                    ".claude/",
+                    "setup/",
+                    "scripts/",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return {}
+        if out.returncode not in (0, 1):
+            return {}
+        hits: dict[str, set[str]] = {s: set() for s in stems}
+        for line in out.stdout.splitlines():
+            if ":" not in line:
+                continue
+            file_part, matched = line.rsplit(":", 1)
+            file_norm = file_part.strip().replace("\\", "/")
+            matched = matched.strip()
+            stem = matched[:-3] if matched.endswith(".sh") else matched
+            if stem in hits:
+                hits[stem].add(file_norm)
+        return hits
+
+    py_hits = _batch_grep(py_paths, "word")
+    sh_hits = _batch_grep(sh_paths, "sh_suffix")
+
+    for stem, mech_paths in py_paths.items():
+        matched_files = py_hits.get(stem, set())
+        for mech_path in mech_paths:
+            other_hits = {f for f in matched_files if f != mech_path}
+            if other_hits:
+                result[mech_path] = True
+    for stem, mech_paths in sh_paths.items():
+        matched_files = sh_hits.get(stem, set())
+        for mech_path in mech_paths:
+            other_hits = {f for f in matched_files if f != mech_path}
+            if other_hits:
+                result[mech_path] = True
+    return result
+
+
 def _questions_for(path: str, has_test: bool, has_wiring: bool) -> list[str]:
     """Build the closure questions for what's still unanswered."""
     qs: list[str] = []
@@ -273,18 +431,26 @@ def unfinished_mechanisms(
     paths = _recently_added_files(days, root)
     if max_probe is not None:
         paths = paths[:max_probe]
+
+    # Batched probe (Andrew 2026-07-07): the per-file loop was doing
+    # 2N subprocess calls (one _has_test_for + one _has_wiring_for
+    # per file). Under CI load with N > ~15 that exceeded the test's
+    # own 30s cap. The batched helpers collapse it to 3 git-grep
+    # calls total (one for tests, one for .py wiring, one for .sh
+    # wiring) regardless of N.
+    test_map = _batch_has_test_for(paths, root)
+    wiring_map = _batch_has_wiring_for(paths, root)
+
     out: list[Unfinished] = []
     for p in paths:
-        # Shell hooks: wiring can be (a) registered in .claude/settings.json
-        # for Claude Code hooks, (b) sourced by another hook (_lib.sh
-        # pattern), or (c) installed by setup scripts (post-commit-auto-
-        # close.sh via setup/setup-hooks.sh). All three count as wired.
-        if p.endswith(".sh"):
-            has_wiring = _hook_registered_in_settings(p, root) or _has_wiring_for(p, root)
-            has_test = _has_test_for(p, root)
-        else:
-            has_test = _has_test_for(p, root)
-            has_wiring = _has_wiring_for(p, root)
+        has_test = test_map.get(p, False)
+        has_wiring = wiring_map.get(p, False)
+        # Shell hooks: wiring can ALSO come from .claude/settings.json
+        # registration (Claude Code hook wiring shape). The batched
+        # wiring probe already covers grep-based wiring; this adds the
+        # settings-JSON substring check per shell hook.
+        if p.endswith(".sh") and not has_wiring:
+            has_wiring = _hook_registered_in_settings(p, root)
         # Surface ANY mechanism missing wiring or test, OR include all
         # recently-built ones for the usefulness question. To keep the
         # signal sharp, only surface if at least one of wiring/test is
