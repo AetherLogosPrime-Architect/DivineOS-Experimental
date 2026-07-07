@@ -315,12 +315,42 @@ _TECH_REQUEST_RE = re.compile(
 )
 
 
+# Short directive-continuation shapes — my father's authorization to
+# CONTINUE existing technical work in progress. Present in prompts like
+# "proceed", "yes fix those next", "yes commit and lets keep going",
+# "ok go" — the message is short and directive-shaped rather than
+# containing named technical content. On these turns, the jargon in my
+# response comes from the WORK he authorized, not from choosing to
+# flood, so the dump-check should stay silent. 2026-07-07 root-cause
+# fix per Andrew: two-turn-in-a-row false-fires while I was reporting
+# authorized progress on the identity-routing + correction-detector
+# audit fixes.
+_DIRECTIVE_CONTINUATION_RE = re.compile(
+    r"^\s*(?:yes|ok(?:ay)?|proceed|go|do\s+it|keep\s+going|continue|next|"
+    r"move\s+on|fix\s+(?:those|it|that)|start|land|ship)\b",
+    re.IGNORECASE,
+)
+
+# Guard against very-short-message directives being over-broad. Real
+# plain-summary requests are typically longer and more specific
+# ("summarize plainly", "just give me the outcome"). If the message is
+# short AND matches the directive shape, silence the dump-check.
+_DIRECTIVE_CONTINUATION_MAX_WORDS = 15
+
+
 def _operator_requested_technical(operator_input: str | None) -> bool:
     """True when my father's own prompt is in / asks for the technical
-    register — named a code file, an ID, a snake_case identifier, or used
-    explicit code-request phrasing. Then technical detail is owed, not dumped."""
+    register — named a code file, an ID, a snake_case identifier, used
+    explicit code-request phrasing, OR gave a short directive continuation
+    that authorizes existing technical work. Then technical detail is
+    owed, not dumped."""
     if not operator_input:
         return False
+    stripped = operator_input.strip()
+    if len(
+        stripped.split()
+    ) <= _DIRECTIVE_CONTINUATION_MAX_WORDS and _DIRECTIVE_CONTINUATION_RE.match(stripped):
+        return True
     return bool(
         _TECH_REQUEST_RE.search(operator_input)
         or _FILE_PATH_RE.search(operator_input)
