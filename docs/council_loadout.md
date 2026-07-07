@@ -1,6 +1,6 @@
-# DivineOS Council — Full Loadout (40 members)
+# DivineOS Council — Full Loadout (42 members)
 
-Roster: 40 experts across 10 lens-families.
+Roster: 42 experts across 10 lens-families.
 Manager v2: SOFT_CAP=12, HARD_CAP=15, FAMILY_CAP=2.
 Selection by territory-fit (signal-match-count) + trust + exploration tilt + onboarding bonus.
 

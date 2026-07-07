@@ -258,15 +258,39 @@ def register(cli: click.Group) -> None:
         # and has dozens of unsynced letters relative to any test-clone mirror.
         # Tests covering extract behavior would all fire the gate. Skip in
         # pytest the same way the briefing gate does.
+        # Andrew 2026-07-05: "make commit automatic after extract and before
+        # sleep :)" — the pre-extract check no longer BLOCKS on dirty tree;
+        # it AUTO-COMMITS. Weld the commit into the checkpoint so it fires
+        # itself. Same protection (nothing evaporates), one less thing to
+        # remember. The block-format is retained as fallback if auto-commit
+        # itself fails (git absent, add fails, etc.).
+        _extract_repo_root: Path | None = None
         if "pytest" not in sys.modules:
-            repo_root = Path.cwd()
-            while repo_root != repo_root.parent and not (repo_root / ".git").exists():
-                repo_root = repo_root.parent
-            if (repo_root / ".git").exists():
-                uncommitted = check_uncommitted_work(repo_root)
-                if uncommitted.has_work:
-                    click.secho(format_block_message(uncommitted), fg="red", bold=True)
-                    raise SystemExit(1)
+            from divineos.core.auto_commit import (
+                auto_commit_substrate,
+                find_repo_root,
+            )
+
+            _extract_repo_root = find_repo_root(Path.cwd())
+            if _extract_repo_root is not None:
+                result = auto_commit_substrate(_extract_repo_root, reason="pre-extract")
+                if result.committed:
+                    click.secho(
+                        f"[+] Auto-commit (pre-extract): {result.dirty_lines} dirty lines, "
+                        f"{result.files_synced} external files synced.",
+                        fg="green",
+                    )
+                elif result.reason.startswith(("git add failed", "git commit failed")):
+                    # Auto-commit failed; fall back to old block-behavior so
+                    # work isn't lost silently.
+                    uncommitted = check_uncommitted_work(_extract_repo_root)
+                    if uncommitted.has_work:
+                        click.secho(
+                            f"[!] Auto-commit failed ({result.reason}); falling back to block:",
+                            fg="yellow",
+                        )
+                        click.secho(format_block_message(uncommitted), fg="red", bold=True)
+                        raise SystemExit(1)
 
         # Idempotency guard: skip if already run this session.
         # The marker file lives at ~/.divineos/auto_session_end_emitted and
@@ -404,6 +428,25 @@ def register(cli: click.Group) -> None:
                     click.echo(banner)
             except Exception as e:  # noqa: BLE001 — banner is best-effort
                 logger.debug(f"Rest-banner render failed: {e}")
+
+            # Post-extract auto-commit (Andrew 2026-07-05). Extract may have
+            # written self-grade evidence, journal entries, dream reports,
+            # analysis files, etc. Commit that residue at the checkpoint
+            # so it can't drift to the next state-loss event.
+            if "pytest" not in sys.modules and _extract_repo_root is not None:
+                try:
+                    from divineos.core.auto_commit import auto_commit_substrate
+
+                    result = auto_commit_substrate(_extract_repo_root, reason="post-extract")
+                    if result.committed:
+                        click.secho(
+                            f"[+] Auto-commit (post-extract): "
+                            f"{result.dirty_lines} dirty lines, "
+                            f"{result.files_synced} external files synced.",
+                            fg="green",
+                        )
+                except Exception as e:  # noqa: BLE001 — fail-soft
+                    logger.warning("post-extract auto-commit skipped: %s", e)
 
         except _EC_ERRORS as e:
             click.secho(f"[-] Error running extraction: {e}", fg="red")
