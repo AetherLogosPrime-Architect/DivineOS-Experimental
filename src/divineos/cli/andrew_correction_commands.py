@@ -11,6 +11,7 @@ from __future__ import annotations
 import click
 
 from divineos.core.andrew_correction_tracker import (
+    auto_integrate_from_commit,
     defer,
     integrate,
     integration_rate,
@@ -76,6 +77,68 @@ def register(cli: click.Group) -> None:
                 err=True,
             )
             raise click.exceptions.Exit(1)
+
+    @andrew_group.command("auto-integrate")
+    @click.option(
+        "--message",
+        "message",
+        default=None,
+        help="Commit message to parse. Defaults to HEAD's commit message via git log -1 --format=%B.",
+    )
+    @click.option(
+        "--commit-hash",
+        "commit_hash",
+        default=None,
+        help="Commit hash to embed as the evidence anchor. Defaults to HEAD via git rev-parse HEAD.",
+    )
+    def auto_integrate_cmd(message: str | None, commit_hash: str | None) -> None:
+        """Auto-integrate corrections referenced in a commit message.
+
+        Called by the post-commit-auto-integrate-corrections hook so
+        every commit that references a correction ID discharges the
+        integration obligation automatically. Andrew 2026-07-07: "your
+        will needs to be made into structure through this automation."
+        """
+        import subprocess
+
+        if message is None:
+            try:
+                message = subprocess.check_output(
+                    ["git", "log", "-1", "--format=%B", "HEAD"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                click.secho("Could not read HEAD commit message.", fg="red", err=True)
+                raise click.exceptions.Exit(1)
+        if commit_hash is None:
+            try:
+                commit_hash = subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                click.secho("Could not read HEAD commit hash.", fg="red", err=True)
+                raise click.exceptions.Exit(1)
+
+        results = auto_integrate_from_commit(message, commit_hash)
+        if not results:
+            # No correction references in the message — silent success so
+            # the hook can call this after every commit without noise.
+            return
+        for r in results:
+            if r["integrated"]:
+                click.secho(
+                    f"[+] Correction #{r['id']} auto-integrated from commit {commit_hash[:8]}.",
+                    fg="green",
+                )
+            else:
+                click.secho(
+                    f"[!] Correction #{r['id']} reference in commit message did not integrate "
+                    f"(not open, unknown ID, or already closed).",
+                    fg="yellow",
+                )
 
     @andrew_group.command("defer")
     @click.argument("correction_id", type=int)
