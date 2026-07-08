@@ -611,6 +611,7 @@ src/divineos/
   hooks/                       Hook integration
     clarity_enforcement.py     Clarity enforcement engine (AGENT_RUNTIME — invoked from .claude/hooks/, not from the CLI pipeline)
     pre_tool_use_gate.py       PreToolUse consolidated gate (bypass, briefing, goal, pull, engagement, cadence) — single-process replacement for require-goal.sh Python spawn chain
+    user_prompt_submit_gate.py UserPromptSubmit consolidated gate (WIP scaffold, 2026-07-08) — six-check single-interpreter replacement for the six UserPromptSubmit shell hooks; targets warm _embedding_model reuse (Aletheia diagnostic 2026-07-08)
     post_tool_use_checkpoint.py  PostToolUse consolidated checkpoint (state, counters, warnings, nudges) — single-process replacement for session-checkpoint.sh spawn chain
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     hook_diagnostics.py        Hook health diagnostics
