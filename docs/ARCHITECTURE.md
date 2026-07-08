@@ -566,6 +566,7 @@ src/divineos/
     memory_linkage_retriever_v2.py Memory-linkage retriever v2 — priming / spreading-activation.
     mesh_loop.py               Mesh-Loop — parse letter iteration state, decide whether to fire an ephemeral task worker (Meeseeks-pattern).
     auto_commit.py             auto-commit at substrate checkpoints — the Permanently Equip spell for commits.
+    translation_floor.py       Translation Floor — Andrew's reach mechanism (authored by Andrew, scribed
 
   analysis/
     _session_types.py          Session analysis type definitions
