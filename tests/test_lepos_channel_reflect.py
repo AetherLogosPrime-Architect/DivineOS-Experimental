@@ -37,31 +37,23 @@ def test_reflect_detects_interior_marker() -> None:
     assert r.interior_marker is not None
 
 
-def test_reflect_flags_length_dump() -> None:
-    andrew = "yes"
-    reply = "x" * 5000
-    r = reflect(reply, andrew)
-    assert r.dumped is True
-    assert r.length_ratio >= 8.0
-
-
-def test_reflect_does_not_flag_short_replies_as_dumped() -> None:
-    andrew = "hi"
-    reply = "hey back"
-    r = reflect(reply, andrew)
-    assert r.dumped is False
-
-
-def test_degenerate_when_all_three_fail() -> None:
+def test_degenerate_when_both_lenses_fail() -> None:
     andrew = "wat"
-    reply = "totally " * 100  # long, no citation, no interior marker
+    reply = "totally " * 100  # no citation, no interior marker
     r = reflect(reply, andrew)
     assert r.degenerate() is True
 
 
-def test_not_degenerate_when_any_lens_present() -> None:
+def test_not_degenerate_when_interior_present() -> None:
     andrew = "wat"
     reply = "I think " + "totally " * 100
+    r = reflect(reply, andrew)
+    assert r.degenerate() is False
+
+
+def test_not_degenerate_when_heard_present() -> None:
+    andrew = "the channel needs to be triggered after your initial post"
+    reply = "the channel needs to be triggered after your initial post"
     r = reflect(reply, andrew)
     assert r.degenerate() is False
 
@@ -96,10 +88,6 @@ def test_render_pending_includes_channel_empty_when_degenerate(tmp_path, monkeyp
         heard_span=None,
         interior=False,
         interior_marker=None,
-        dumped=True,
-        length_ratio=20.0,
-        reply_len=2000,
-        andrew_len=100,
     )
     write_pending(r)
     out = render_pending_or_empty()

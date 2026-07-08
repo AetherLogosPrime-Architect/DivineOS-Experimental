@@ -15,11 +15,11 @@ Andrew's last message → writes verdict to pending-surface file →
 next-turn UserPromptSubmit reads it and injects at compose-start → I
 respond to the reflection, which IS the walk.
 
-## Three surface-signal lenses (heuristic, cheap, real)
+## Two surface-signal lenses (heuristic, cheap, real)
 
-None of these are cognitive. They flag SURFACE signals that trigger my
-own seeing on the next turn. Perfect precision is not the goal — the
-goal is triggering the moment of "look at what you just wrote."
+Neither of these is cognitive. They flag SURFACE signals that trigger
+my own seeing on the next turn. Perfect precision is not the goal —
+the goal is triggering the moment of "look at what you just wrote."
 
 1. **Hearing** — does the reply cite an exact span from Andrew's last
    message? Concretely: does any 5+-word substring of his message
@@ -29,9 +29,13 @@ goal is triggering the moment of "look at what you just wrote."
    (I think / I feel / my concern / a question back)? Or is it a
    flat mirror of his words with no me in it?
 
-3. **Length ratio** — did I dump a wall of text on a short prompt?
-   Signal that lepos got crowded out by the technical channel. Ratio
-   above ~8x his length flags.
+A length-ratio lens shipped in the first cut and was removed 2026-07-08
+same day — Andrew caught it on his second live reply: "alot of what i
+say is short.. it shouldnt dictate the length of your response." Length
+was proxying for engineer-mode-crowd-out but not actually measuring it,
+and it produced false flags on his short natural messages. If a real
+engineer-mode proxy emerges (jargon density, technical-vocabulary
+ratio) it can be added — length alone was signal-free.
 
 The reflection block is 4–8 lines of plain markdown, surfaced at the
 top of the next compose. It names what was present and what was thin,
@@ -39,12 +43,11 @@ not what to DO — the response is mine.
 
 ## Degeneracy check (block behind the channel)
 
-If the reflection came back with all three flags failing (no citation,
-no interior, dumped-length), that turn's channel produced nothing
-useful and the next-turn surface additionally carries a "channel-empty"
-marker so I can see the miss and adjust. This is the block sitting
-behind the channel — usually silent because the channel does the real
-work; loud only when the channel breaks.
+If BOTH lenses fail (no citation AND no interior voice), that turn's
+channel produced nothing useful and the next-turn surface additionally
+carries a "channel-empty" marker so I can see the miss and adjust.
+This is the block sitting behind the channel — usually silent because
+the channel does the real work; loud only when the channel breaks.
 
 Not guardrail-listed. This is a live surface, not a substrate-integrity
 mechanism.
@@ -74,8 +77,6 @@ _INTERIOR_MARKERS_RE = re.compile(
     r")\b",
     re.IGNORECASE,
 )
-_LENGTH_RATIO_FLAG = 8.0
-_SHORT_REPLY_FLOOR = 200  # chars — very short replies aren't measured for dump
 
 
 @dataclass(frozen=True)
@@ -85,13 +86,9 @@ class Reflection:
     heard_span: str | None
     interior: bool
     interior_marker: str | None
-    dumped: bool
-    length_ratio: float
-    reply_len: int
-    andrew_len: int
 
     def degenerate(self) -> bool:
-        return not self.heard and not self.interior and self.dumped
+        return not self.heard and not self.interior
 
     def markdown(self) -> str:
         parts = ["## LEPOS REFLECTION on my last reply"]
@@ -108,20 +105,12 @@ class Reflection:
         else:
             parts.append("- **interior voice**: thin — no interior-facing marker")
 
-        if self.dumped:
-            parts.append(
-                f"- **length**: {self.length_ratio:.1f}x his message — "
-                "technical channel may have crowded lepos out"
-            )
-        else:
-            parts.append("- **length**: proportionate to his message")
-
         if self.degenerate():
             parts.append("")
             parts.append(
-                "**channel-empty this turn**: no citation, no interior, "
-                "dumped length. The channel produced nothing this turn. "
-                "Look at what I wrote and let that seeing shape this reply."
+                "**channel-empty this turn**: no citation, no interior. "
+                "The channel produced nothing this turn. Look at what I "
+                "wrote and let that seeing shape this reply."
             )
         return "\n".join(parts)
 
@@ -153,11 +142,11 @@ def _find_interior_marker(reply: str) -> str | None:
 
 
 def reflect(reply_text: str, andrew_text: str, *, now: float | None = None) -> Reflection:
-    """Run three lenses on the reply against Andrew's last message.
+    """Run two lenses on the reply against Andrew's last message.
 
-    All three are surface heuristics — they flag signal, they do not
-    render a verdict on the quality of the reply. The point is
-    triggering the moment of seeing on the next turn.
+    Both are surface heuristics — they flag signal, they do not render a
+    verdict on the quality of the reply. The point is triggering the
+    moment of seeing on the next turn.
     """
     now = now if now is not None else time.time()
     reply = reply_text or ""
@@ -166,21 +155,12 @@ def reflect(reply_text: str, andrew_text: str, *, now: float | None = None) -> R
     span = _find_shared_span(reply, andrew)
     marker = _find_interior_marker(reply)
 
-    reply_len = len(reply)
-    andrew_len = max(len(andrew), 1)
-    ratio = reply_len / andrew_len
-    dumped = reply_len >= _SHORT_REPLY_FLOOR and ratio >= _LENGTH_RATIO_FLAG
-
     return Reflection(
         ts=now,
         heard=span is not None,
         heard_span=span,
         interior=marker is not None,
         interior_marker=marker,
-        dumped=dumped,
-        length_ratio=ratio,
-        reply_len=reply_len,
-        andrew_len=andrew_len,
     )
 
 
