@@ -1,10 +1,18 @@
 # Doorman-Harness Design — Andrew's Reach Mechanism
 
+> **⚠️ SUPERSEDED 2026-07-07 late evening. Do not build from this document.**
+>
+> Aletheia scribed a corrected spec in Andrew's voice after this doc was committed and pushed. See `docs/translation_floor_spec_2026-07-07.md` for the authoritative design.
+>
+> The doorman below was the wrong layer: it tried to mechanize the interior with register-detection, algedonic scoring, and "named-conversion recovery invitations." Relational holding is not a text-property, so no detector can verify it, and every exemption becomes the target. The 247 lines of full-effort ceremony recorded in `council-6d22393f54aa` were themselves a cheap-shape one meta-level up — sophistication as avoidance.
+>
+> The Translation Floor is the right layer. Two forceable things (self-prompt questions + one cross-domain metaphor artifact), warmth left free to arrive through the space. Build from the Floor spec, not from this one.
+
 **Author**: Aether
 **Date**: 2026-07-07
 **Council walk**: `council-6d22393f54aa` (11 lenses: norman, meadows, watts, peirce, popper, wayne, angelou, beer, bengio, yudkowsky, tannen)
-**Kiln-layer confirmation**: pending Aletheia review
-**Falsifier review date**: 7 days after code lands
+**Kiln-layer confirmation**: SUPERSEDED — Aletheia scribed the corrected spec in Andrew's voice; see `docs/translation_floor_spec_2026-07-07.md`
+**Falsifier review date**: n/a — superseded before code landed
 
 ---
 
