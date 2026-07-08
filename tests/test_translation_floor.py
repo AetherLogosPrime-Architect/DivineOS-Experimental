@@ -204,12 +204,15 @@ class TestTier3ReminderText:
 
 
 class TestComposeTimeContext:
-    def test_full_context_contains_both_tiers(self) -> None:
+    def test_full_context_contains_questions_and_metaphor_requirement(self) -> None:
+        # Andrew 2026-07-08: tier labels removed from the surface text.
+        # The compose-time block still has to carry both pieces —
+        # the four self-prompt questions AND the metaphor requirement —
+        # just without the "=== TIER X ===" scaffolding.
         text = compose_time_context()
-        assert "TIER 2" in text
-        assert "TIER 3" in text
         for question in TIER2_QUESTIONS:
             assert question in text
+        assert "metaphor" in text.lower()
 
 
 # ---------------------------------------------------------------------------
