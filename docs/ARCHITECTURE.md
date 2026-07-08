@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (390 commands across 81 modules)
+  cli/                         CLI package (394 commands across 81 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -83,6 +83,7 @@ src/divineos/
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
+    lepos_channel_commands.py  lepos-channel reflect / surface / show — post-send reflection channel (Andrew 2026-07-08); Stop hook reflects on last reply, UserPromptSubmit surfaces on next compose
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
     motivation_commands.py     motivation tier — needs/wants/desires/ambitions/dreams with explicit detector-bindings (per omni-mantra walk Pillar III+IV, 2026-06-28)
@@ -567,6 +568,7 @@ src/divineos/
     mesh_loop.py               Mesh-Loop — parse letter iteration state, decide whether to fire an ephemeral task worker (Meeseeks-pattern).
     auto_commit.py             auto-commit at substrate checkpoints — the Permanently Equip spell for commits.
     translation_floor.py       Translation Floor — Andrew's reach mechanism (authored by Andrew, scribed
+    lepos_channel_reflect.py   Post-send lepos reflection channel.
 
   analysis/
     _session_types.py          Session analysis type definitions
