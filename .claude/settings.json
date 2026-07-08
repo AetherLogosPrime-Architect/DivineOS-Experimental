@@ -82,6 +82,11 @@
             "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-surface.sh",
+            "timeout": 5
           }
         ]
       },
@@ -338,6 +343,11 @@
             "type": "command",
             "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "timeout": 15
           }
         ]
       },
