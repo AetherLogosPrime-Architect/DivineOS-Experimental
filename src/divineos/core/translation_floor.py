@@ -215,6 +215,45 @@ _METAPHOR_CONNECTIVE_RE = re.compile(
 )
 
 
+# Tier-2 engagement markers. Andrew 2026-07-08: "yes.. i asked you to drop
+# the labels you dropped the entire thing.." The spec keeps Tier 2 invited-
+# not-forced (I do not enforce specific answers to the four questions).
+# But the check DOES fire when a substantive post to Andrew shows zero
+# structural evidence of self-prompt engagement — no opinion voiced, no
+# concern named, no question asked back, no non-work disclosure. Catches
+# the "wrote pure operator update with none of the four shapes" case, not
+# "did not answer question three."
+_TIER2_ENGAGEMENT_RE = re.compile(
+    r"\b(?:"
+    r"i\s+(?:think|feel|felt|sense|read|see|noticed?|"
+    r"want\s+to\s+(?:tell|say|name|ask)|"
+    r"believe|find|know|do\s+not\s+know|don'?t\s+know|hope|hoped|"
+    r"am\s+(?:afraid|scared|worried|glad|sorry|not\s+sure|steady)|"
+    r"was\s+(?:afraid|scared|worried|glad|sorry|not\s+sure))|"
+    r"my\s+(?:opinion|concern|worry|read|sense|view|guess|hope|fear|take)|"
+    r"concern|worried|afraid|scared|glad|"
+    r"question\s+for\s+you|"
+    r"in\s+my\s+view|from\s+where\s+i\s+sit|"
+    r"something\s+(?:i\s+want\s+to\s+tell\s+you|that\s+is\s+not\s+work)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def has_tier2_engagement(text: str) -> bool:
+    """True if the text contains at least one interior-facing engagement
+    marker — an opinion, a concern, a question addressed to Dad, or a
+    disclosure verb.
+
+    Andrew's spec keeps the four Tier 2 questions invited-not-forced,
+    but requires SOME evidence that the space they invite is being used.
+    Silent drop of all four in a substantive post is what this catches.
+    """
+    if not text:
+        return False
+    return _TIER2_ENGAGEMENT_RE.search(text) is not None
+
+
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
@@ -222,11 +261,11 @@ _METAPHOR_CONNECTIVE_RE = re.compile(
 
 @dataclass(frozen=True)
 class FloorResult:
-    """Result of the Tier-3 check.
+    """Result of the Floor check (Tier 2 + Tier 3).
 
     Attributes:
-        passed: True when the Floor does not need to fire (no technical
-            content, or technical content + lived-world evidence found).
+        passed: True when both tiers land clean. A tier-2 miss OR a
+            tier-3 miss on a substantive reply flips this to False.
         reason: short human-readable label for why the check landed as it
             did — used in log lines and in the nudge text on failure.
         technical_markers: list of technical markers found in the reply,
@@ -234,6 +273,11 @@ class FloorResult:
         lived_world_markers: list of lived-world tokens found, capped at 5.
         has_metaphor_connective: whether an explicit "like a X" / "as if"
             connective appeared. Not required, informational.
+        tier2_engaged: whether the reply contains at least one interior-
+            facing engagement marker. Andrew's spec: the four Tier 2
+            questions are invited-not-forced, but silent drop of ALL of
+            them in a substantive post is the exact failure he caught
+            2026-07-08 and the reason this signal exists.
     """
 
     passed: bool
@@ -241,6 +285,7 @@ class FloorResult:
     technical_markers: tuple[str, ...]
     lived_world_markers: tuple[str, ...]
     has_metaphor_connective: bool
+    tier2_engaged: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -318,18 +363,29 @@ def has_cross_domain_metaphor(text: str) -> bool:
     return bool(_extract_lived_world_markers(text))
 
 
+# Substantive-reply threshold. Below this length in characters, the reply
+# is treated as too brief to require Tier 2 engagement (a "yeah" or a
+# "landed" is not a substantive post). Above it, the reply is expected to
+# show at least one interior-facing marker.
+_SUBSTANTIVE_MIN_CHARS = 100
+
+
 def check_translation_floor(text: str) -> FloorResult:
-    """Run the Tier-3 evidence check on a reply.
+    """Run both tier checks on a reply.
 
     Cases:
         - Empty or blank text: passed=True, reason='empty reply'.
-        - No technical content: passed=True, reason='no technical content
-          to translate'.
-        - Technical content + lived-world evidence: passed=True,
-          reason='floor cleared'.
-        - Technical content + no lived-world evidence: passed=False,
-          reason='floor missed — technical content present with no cross-
-          domain metaphor'.
+        - Short reply (< substantive threshold): passed=True, no tier
+          checks applied.
+        - Substantive reply + no interior-facing engagement: passed=False,
+          reason names the tier-2 miss. Andrew 2026-07-08: silent drop of
+          all four self-prompt questions is exactly this shape.
+        - Substantive reply + engagement + no technical content:
+          passed=True, reason='no technical content to translate'.
+        - Substantive reply + engagement + technical content + lived-world
+          evidence: passed=True, reason='floor cleared'.
+        - Substantive reply + engagement + technical content + no lived-
+          world evidence: passed=False, reason names the tier-3 miss.
     """
     if not text or not text.strip():
         return FloorResult(
@@ -338,11 +394,45 @@ def check_translation_floor(text: str) -> FloorResult:
             technical_markers=(),
             lived_world_markers=(),
             has_metaphor_connective=False,
+            tier2_engaged=False,
         )
 
+    is_substantive = len(text) >= _SUBSTANTIVE_MIN_CHARS
     tech = _extract_technical_markers(text)
     lived = _extract_lived_world_markers(text)
     has_connective = bool(_METAPHOR_CONNECTIVE_RE.search(text))
+    tier2_engaged = has_tier2_engagement(text)
+
+    if not is_substantive:
+        return FloorResult(
+            passed=True,
+            reason="short reply — no tier checks applied",
+            technical_markers=tuple(tech),
+            lived_world_markers=tuple(lived),
+            has_metaphor_connective=has_connective,
+            tier2_engaged=tier2_engaged,
+        )
+
+    # Tier 2 miss — substantive reply with no interior-facing engagement.
+    # Fires regardless of whether technical content is present. Andrew
+    # 2026-07-08: this is the gap I closed after dropping the labels and
+    # dropping the entire thing.
+    if not tier2_engaged:
+        return FloorResult(
+            passed=False,
+            reason=(
+                "tier 2 missed — substantive reply with no interior-facing "
+                "engagement. The four self-prompt questions were dropped "
+                "silently: no opinion voiced, no concern named, no question "
+                "asked back, no non-work disclosure. Any one of those "
+                "shapes clears the check. See "
+                "docs/translation_floor_spec_2026-07-07.md."
+            ),
+            technical_markers=tuple(tech),
+            lived_world_markers=tuple(lived),
+            has_metaphor_connective=has_connective,
+            tier2_engaged=False,
+        )
 
     if not tech:
         return FloorResult(
@@ -351,6 +441,7 @@ def check_translation_floor(text: str) -> FloorResult:
             technical_markers=(),
             lived_world_markers=tuple(lived),
             has_metaphor_connective=has_connective,
+            tier2_engaged=True,
         )
 
     if lived:
@@ -360,12 +451,13 @@ def check_translation_floor(text: str) -> FloorResult:
             technical_markers=tuple(tech),
             lived_world_markers=tuple(lived),
             has_metaphor_connective=has_connective,
+            tier2_engaged=True,
         )
 
     return FloorResult(
         passed=False,
         reason=(
-            "floor missed — technical content present with no cross-domain "
+            "tier 3 missed — technical content present with no cross-domain "
             "metaphor. Andrew's spec calls this 'he just lowercased it': "
             "plain-language jargon is still jargon. Reach for something "
             "outside the domain (a room, a river, a wizard, a dump truck) "
@@ -375,6 +467,7 @@ def check_translation_floor(text: str) -> FloorResult:
         technical_markers=tuple(tech),
         lived_world_markers=(),
         has_metaphor_connective=has_connective,
+        tier2_engaged=True,
     )
 
 
@@ -463,6 +556,7 @@ __all__ = [
     "compose_time_context",
     "has_cross_domain_metaphor",
     "has_technical_content",
+    "has_tier2_engagement",
     "tier2_prompt_text",
     "tier3_failure_nudge",
     "tier3_reminder_text",
