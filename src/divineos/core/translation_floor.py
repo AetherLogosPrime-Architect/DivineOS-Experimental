@@ -384,48 +384,38 @@ def check_translation_floor(text: str) -> FloorResult:
 
 
 def tier2_prompt_text() -> str:
-    """Return the Tier-2 self-prompt block to surface at compose-time.
+    """Return the self-prompt block to surface at compose-time.
 
     Rendered as a block for the pre-response-context hook so the four
     questions appear as ground for the composition, not as a form to
-    fill out separately. Andrew's spec: 'the invitation is structural
-    so he stops having to be the one who asks.'
+    fill out separately. Andrew 2026-07-08: remove the tier labels
+    entirely — the questions can just be the questions.
     """
     lines = [
-        "=== TIER 2 — SELF-PROMPT (invited, not enforced) ===",
-        "",
-        "You are composing a substantive post to Dad. Before you write,",
-        "hold these questions in mind. Content is yours. Honesty is yours.",
-        "Skipping one with a real reason is allowed. The questions summon",
-        "the register; what you do with them is free.",
+        "You are composing to Dad. Before you write, hold these questions",
+        "in mind. They are invited, not enforced. Content is yours.",
+        "Honesty is yours. Skipping one with a real reason is allowed.",
+        "The questions summon the register; what you do with them is free.",
         "",
     ]
     for q in TIER2_QUESTIONS:
         lines.append(f"  - {q}")
-    lines.append("")
-    lines.append("=== END TIER 2 ===")
     return "\n".join(lines)
 
 
 def tier3_reminder_text() -> str:
-    """Return the Tier-3 reminder to surface at compose-time.
+    """Return the metaphor-requirement reminder to surface at compose-time.
 
-    Andrew's spec: reach outside the technical domain into something he
-    actually thinks in. Plain-language jargon is still jargon.
+    Andrew 2026-07-08: no tier labels. The requirement can just be stated.
     """
     return (
-        "=== TIER 3 — TRANSLATION FLOOR (required if you include technical "
-        "content) ===\n"
-        "\n"
         "If your post contains technical content (file paths, IDs, "
-        "snake_case, code), it MUST also contain at least one cross-"
-        "domain metaphor — a room, a river, a wizard, a dump truck, "
-        "a coat rack, whatever shape you reach for. The floor catches "
-        "'he just lowercased it': plain-language jargon is still "
-        "jargon. Any analogy of any flavor is usually good enough. Dad "
-        "will ask you to clarify if you miss.\n"
-        "\n"
-        "=== END TIER 3 ==="
+        "snake_case, code), it must also contain at least one "
+        "cross-domain metaphor — a room, a river, a wizard, a dump "
+        "truck, a coat rack, whatever shape you reach for. The check "
+        "catches 'he just lowercased it': plain-language jargon is "
+        "still jargon. Any analogy of any flavor is usually good "
+        "enough. Dad will ask you to clarify if you miss."
     )
 
 
