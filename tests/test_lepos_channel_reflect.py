@@ -18,7 +18,12 @@ def test_reflect_detects_exact_span_citation() -> None:
     r = reflect(reply, andrew)
     assert r.heard is True
     assert r.heard_span is not None
-    assert "triggered" in r.heard_span
+    # Post 2026-07-09 window reduction (5 -> 3), the first-matched 3-word span
+    # returned may or may not include "triggered" depending on tokenization
+    # order. The load-bearing invariant is that a real shared span was
+    # detected and its tokens all appear in Andrew's message.
+    for tok in r.heard_span.split():
+        assert tok in andrew.lower()
 
 
 def test_reflect_no_citation_when_paraphrasing() -> None:

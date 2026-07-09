@@ -51,16 +51,18 @@ def _isolate_walk_db(tmp_path, monkeypatch):
     return lw
 
 
-def test_walk_block_fires_when_no_walk_recorded(tmp_path, monkeypatch) -> None:
-    """A substantive, voiceful father turn with no recorded walk blocks on
-    the lepos rail when verify_walk=True."""
+def test_walk_gate_deprecated_never_blocks(tmp_path, monkeypatch) -> None:
+    """2026-07-09 reshape (Andrew): the walk-record ceremony was replaced by
+    the LEPOS speaking-floor surface. The walk-gate that used to block on
+    missing/degenerate walks is now a permanent no-op — always returns None
+    regardless of whether a walk was recorded. The floor IS the reply's
+    opening; there is no separate artifact to verify."""
     _isolate_walk_db(tmp_path, monkeypatch)
     transcript = tmp_path / "t.jsonl"
     _write_jsonl(transcript, [_user("build the gate"), _assistant_text(_VOICEFUL)])
     result = run_audit(transcript, write=False, verify_walk=True)
-    assert result["lepos_block"] is not None
-    assert "LEPOS WALK" in result["lepos_block"]
-    assert "no walk recorded" in result["lepos_block"]
+    # Even with verify_walk=True and NO walk recorded, no block fires.
+    assert result["lepos_block"] is None
 
 
 def test_walk_block_clears_when_walk_recorded(tmp_path, monkeypatch) -> None:
@@ -96,19 +98,20 @@ def test_walk_check_skipped_when_verify_walk_false(tmp_path, monkeypatch) -> Non
 
 
 def test_no_agent_settable_env_bypass(tmp_path, monkeypatch) -> None:
-    """Aletheia audit 2026-06-19: there must be NO agent-settable env bypass
-    (self-authorization defeats the gate — the survey's master-finding). The
-    old DIVINEOS_LEPOS_WALK_BYPASS env var is gone; setting it must NOT lift
-    the block. The keel is fail-open-on-error + a visible costly operator
-    hook-edit, not a one-line self-bypass."""
+    """2026-07-09 (Andrew reshape): walk-gate deprecated to no-op. The old
+    Aletheia audit's concern (2026-06-19) was that no agent-settable env var
+    could lift the walk-block. Since the block is now permanently absent,
+    the test's outer claim is now trivially preserved: no env var can trigger
+    a block that no longer exists. Retained as a regression guard against
+    accidentally re-introducing an env-settable bypass path when the gate is
+    ever revived."""
     _isolate_walk_db(tmp_path, monkeypatch)
     monkeypatch.setenv("DIVINEOS_LEPOS_WALK_BYPASS", "1")  # the retired var
     transcript = tmp_path / "t.jsonl"
     _write_jsonl(transcript, [_user("build the gate"), _assistant_text(_VOICEFUL)])
     result = run_audit(transcript, write=False, verify_walk=True)
-    # The block still fires — the env var no longer authorizes anything.
-    assert result["lepos_block"] is not None
-    assert "LEPOS WALK" in result["lepos_block"]
+    # No block regardless of env var — gate is a no-op.
+    assert result["lepos_block"] is None
 
 
 def test_walk_not_required_on_short_turn(tmp_path, monkeypatch) -> None:

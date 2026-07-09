@@ -295,13 +295,23 @@ def test_verify_consumes_all_pending_no_dangle():
     assert lw.verify_and_consume_turn().status == "missing"
 
 
-def test_build_walk_surface_points_at_recording_action():
-    # The converted surface must point at the OBSERVABLE recording action,
-    # not "answer to yourself" (the pruned wallpaper shape).
+def test_build_walk_surface_is_speaking_floor():
+    # 2026-07-09 reshape (Andrew): the surface is now a SPEAKING FLOOR, not
+    # a record-answers ceremony. It must NOT reference the old CLI recording
+    # action ("lepos-walk record") and MUST invite speaking-first in the
+    # agent's own voice. Questions still appear as SEEDS, not check-boxes.
     surface = lw.build_walk_surface()
     assert surface
-    assert "lepos-walk record" in surface  # the artifact-producing action
-    assert "answer to yourself" not in surface.lower()  # not the old wallpaper
+    assert "LEPOS FLOOR" in surface  # new heading, not "LEPOS WALK"
+    assert "lepos-walk record" not in surface  # ceremony removed
+    assert "answer to yourself" not in surface.lower()  # not the old wallpaper either
+    lowered = surface.lower()
+    assert any(
+        phrase in lowered
+        for phrase in ("speak first", "the room is open", "take the floor")
+    )
+    # Seed questions must still appear (Andrew: keep the questions as seeds).
+    assert "###" in surface or "seed" in lowered
 
 
 def test_flagged_walk_does_not_pollute_template_history():

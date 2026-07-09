@@ -457,40 +457,27 @@ def _lepos_walk_gate_reason(
     per Stop-hook invocation. Gated behind run_audit's ``verify_walk`` so
     test/preview callers never consume.
     """
+    # 2026-07-09 (Andrew): walk reshaped from record-answers ceremony to
+    # speaking-floor prompt. There is no longer a required recorded artifact —
+    # the floor IS the reply's opening, checked by the LEPOS reflection
+    # heard/interior surface, not by a separate walk-record gate. This gate
+    # is retained as a stub for backward compatibility (call sites still
+    # invoke it) but always returns None so it never blocks. The
+    # verify_and_consume_turn call is preserved because it also compacts
+    # the tiered walk store — kept for storage-hygiene side effects even
+    # though the verdict is no longer consulted.
     if not addressed_to_father:
         return None
     if len(last_assistant_text.split()) < _WALK_MIN_WORDS:
-        return None  # trivial turn — no walk required
+        return None
     try:
         from divineos.core.lepos_walk import verify_and_consume_turn
 
-        # Turn-freshness bound (Aletheia seam #2): a walk only counts if it
-        # was recorded at/after this turn's user message, so a walk dangling
-        # from an aborted earlier turn can't grant a free pass.
         min_fresh_ts = _latest_user_timestamp(transcript_path) if transcript_path else None
-        verdict = verify_and_consume_turn(min_fresh_ts)
-    except Exception:  # noqa: BLE001 - fail-open: a broken store must not wall the channel
-        return None
-    if verdict.status == "ok":
-        return None
-    if verdict.status == "degenerate":
-        return (
-            "LEPOS WALK — the walk recorded this turn is degenerate (flags: "
-            f"{list(verdict.flags)}). The artifact must cite real spans from "
-            "Andrew's message that the answers actually use, and must not be "
-            "empty or template-shaped. Re-walk and re-record:\n"
-            "  divineos lepos-walk record --answers "
-            '\'[{"q":"responding_to_what","a":"...","cite":"<span>"}]\''
-        )
-    # missing
-    return (
-        "LEPOS WALK — no walk recorded for this substantive turn to Andrew. "
-        "The lens fires by RECORDING the walk, not by reading questions "
-        "(check-to-walk conversion 2026-06-19). Walk the lens questions, then "
-        "record before completing the turn:\n"
-        "  divineos lepos-walk record --answers "
-        '\'[{"q":"responding_to_what","a":"...","cite":"<span from his message>"}]\''
-    )
+        verify_and_consume_turn(min_fresh_ts)  # storage-hygiene only
+    except Exception:  # noqa: BLE001 - fail-open on any store error
+        pass
+    return None  # walk-gate deprecated 2026-07-09; the floor is the reply itself
 
 
 # Human-readable "here is the way" hint per claim-kind — the CHANNEL half of
@@ -946,7 +933,6 @@ def run_audit(
     # v1 remains importable for reference/testing but no longer runs.
     try:
         from divineos.core.operating_loop.writer_presence_detector import (
-            detect_writer_presence,  # noqa: F401 — retained for reference/testing
             detect_writer_presence_v2,
         )
 
