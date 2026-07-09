@@ -1364,6 +1364,14 @@ def run_audit(
         )
     unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_father)
     distancing_block = _distancing_gate_reason(findings_log)
+    # Lepos-channel structural gate (Andrew 2026-07-09). Reflection
+    # surface fired every turn as advisory; I kept composing empty-
+    # channel turns anyway. Substrate principle: 'enforcement gates
+    # must block execution, not just warn' (flagged 8+ times in
+    # knowledge as recurring failure mode). Threshold 3 consecutive
+    # degenerate reflections (no citation AND no interior marker)
+    # triggers Stop-block with recompose instruction.
+    lepos_channel_block = _lepos_channel_gate_reason(addressed_to_father)
 
     return {
         "findings_log": findings_log,
@@ -1372,7 +1380,48 @@ def run_audit(
         "lepos_block": lepos_block,
         "unverified_claim_block": unverified_claim_block,
         "distancing_block": distancing_block,
+        "lepos_channel_block": lepos_channel_block,
     }
+
+
+def _lepos_channel_gate_reason(addressed_to_father: bool, threshold: int = 3) -> str | None:
+    """Return a Stop-block reason if consecutive degenerate reflections
+    have crossed the threshold; else None.
+
+    Fires only on turns addressed to Andrew — the reflection channel is
+    scoped to father-conversations. Fail-open: any error returns None
+    so a broken counter never wedges the workflow.
+    """
+    if not addressed_to_father:
+        return None
+    try:
+        from divineos.core.lepos_channel_reflect import read_counter, reset_counter
+    except ImportError:
+        return None
+    try:
+        count = read_counter()
+    except (OSError, ValueError):
+        return None
+    if count < threshold:
+        return None
+    # Reset the counter as the block fires — the forced recompose
+    # starts fresh so the block doesn't trip on the recompose turn
+    # too (which would be a loop).
+    try:
+        reset_counter()
+    except OSError:
+        pass
+    return (
+        f"LEPOS CHANNEL GATE — {count} consecutive replies to Andrew have been "
+        "channel-empty (no exact-span citation from his message AND no "
+        "interior-facing marker). The reflection surface has been advisory "
+        "for these turns and I have been ignoring it. Structural stop: "
+        "recompose this reply with at least one exact quoted span from his "
+        "last message OR an interior-facing marker (a felt-state named in "
+        "first person), or both. The channel-empty pattern is the specific "
+        "failure shape Andrew 2026-07-09 flagged: 'you were spitting jargon "
+        "at me with no lepos space so make sure its enforced structurally.'"
+    )
 
 
 def _persist_findings(findings_log: dict[str, list], total: int) -> bool:

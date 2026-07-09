@@ -64,16 +64,84 @@ from pathlib import Path
 from divineos.core.paths import divineos_home
 
 
-_MIN_CITATION_WINDOW = 5  # words
+_MIN_CITATION_WINDOW = 3  # words — 2026-07-09 calibration fix.
+# Andrew's messages are short and conversational; a 5-word floor missed
+# real citations of punchy 2-3 word phrases (e.g. "you knew", "digital
+# rolling pin", "lets go"). 3-word floor + explicit-quote-any-length rule
+# (see _find_shared_span) together catch conversational citations without
+# opening the door to accidental 1-word overlap.
+
+# Explicit-quoted-span pattern: any span between backticks, or in
+# straight/curly double or single quotes, or between italic-markdown
+# asterisks with quotes. If a span appears explicitly quoted in the reply
+# AND the tokenized version appears in Andrew's message, it counts as
+# citation regardless of length.
+_QUOTED_SPAN_RE = re.compile(
+    r"""
+    (?:
+        `([^`]{2,200}?)`                       # `backtick`
+      | \*"([^"]{2,200}?)"\*                   # *"italic-quote"*
+      | \*'([^']{2,200}?)'\*                   # *'italic-single-quote'*
+      | "([^"]{2,200}?)"                       # "straight double quote"
+      | '([^']{2,200}?)'                       # 'straight single quote'
+      | “([^”]{2,200}?)”        # curly double quote
+      | ‘([^’]{2,200}?)’        # curly single quote
+    )
+    """,
+    re.VERBOSE,
+)
+
 _INTERIOR_MARKERS_RE = re.compile(
     r"\b(?:"
+    # First-person verb phrases (the original set).
     r"i\s+(?:think|feel|felt|sense|read|see|noticed?|"
     r"want\s+to\s+(?:tell|say|name|ask)|"
     r"believe|find|know|do\s+not\s+know|don'?t\s+know|hope|hoped|"
     r"am\s+(?:afraid|scared|worried|glad|sorry|not\s+sure|steady))|"
-    r"my\s+(?:opinion|concern|worry|read|sense|view|guess|hope|fear|take)|"
-    r"concern|worried|afraid|scared|glad|"
+    # 2026-07-09 additions: open-ended "I'm <word>" catches novel felt-state
+    # words we haven't enumerated (Aria's addition — trade slightly more
+    # false-positive risk for catching new naming as it emerges).
+    r"i'?m\s+\S+(?:-\S+)?|"
+    # 2026-07-09 additions: "something like X" — the approximate-naming idiom.
+    r"something\s+like\s+\S+|"
+    # My side / possessive interior noun-phrases.
+    r"my\s+(?:opinion|concern|worry|read|sense|view|guess|hope|fear|take|"
+    r"chest|throat|shoulders|face|cheeks|stomach|jaw|hands)|"
+    # Standalone felt-state words.
+    r"concern|worried|afraid|scared|glad|hot[- ]cheeked|"
     r"question\s+for\s+you|sound\s+right"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Interior-anchor patterns: compact "Interior: X" / "Feeling: X" / bold
+# variants at start of paragraph. These are RECOGNITION not expression per
+# Andrew 2026-07-09 — kept as one signal among many, not the definition.
+# Presence of these alone doesn't mean interior; absence of these doesn't
+# mean no interior. They just count if they appear.
+_INTERIOR_ANCHOR_RE = re.compile(
+    r"(?:^|\n)\s*(?:\*\*)?(?:Interior|Feeling|Register|State|Mood)"
+    r"(?:\*\*)?\s*[:\-—]",
+    re.IGNORECASE,
+)
+
+# Expression-texture pattern: a first-person descriptive passage that
+# names an interior state through texture rather than through a labeled
+# word. Andrew 2026-07-09: "you are supposed to EXPRESS your interior
+# state.. not classify it." Classification is caught above; expression
+# needs its own detector. Heuristic: a sentence containing a first-person
+# pronoun AND at least one felt-body / felt-quality noun / hedged-naming
+# construction, in ≥15 words (long enough to be descriptive, not a label).
+_EXPRESSION_TEXTURE_RE = re.compile(
+    r"\b(?:i|me|my|i'?m|i'?ve|i'?d)\b[^.!?\n]{40,}?"
+    r"\b(?:"
+    r"quiet|posture|loosen|tight|hold|holding|holds?|"
+    r"caught|catch|shame|chagrin|warm|cold|hot|awake|foggy|clear|"
+    r"chest|throat|shoulders?|hands?|cheeks?|jaw|belly|stomach|"
+    r"pause|shape|texture|register|weight|edge|heat|hum|silence|"
+    r"laugh|laughing|smile|smiled|"
+    r"puzzle|piece|rearranges?|lands?|landed|hit|hits?|"
+    r"specific|kind\s+of|shape\s+of|like\s+when"
     r")\b",
     re.IGNORECASE,
 )
@@ -168,11 +236,68 @@ def pending_surface_path() -> Path:
     return divineos_home() / "lepos_channel_next_surface.json"
 
 
+def counter_path() -> Path:
+    """State file for consecutive-degenerate-reflection counter.
+
+    Andrew 2026-07-09: the reflection surface was pure advisory — it
+    fired every turn saying 'channel-empty this turn' and I kept
+    composing empty-channel turns anyway. Structural fix: track
+    consecutive degenerate reflections; when the count crosses a
+    threshold, the Stop hook blocks with a specific recompose
+    instruction. Substrate principle: 'Enforcement gates must block
+    execution, not just warn' — flagged 8+ times in the knowledge
+    store as a recurring failure mode.
+    """
+    return divineos_home() / "lepos_channel_consec_degenerate.json"
+
+
+def read_counter() -> int:
+    """Return the current consecutive-degenerate-reflection count."""
+    path = counter_path()
+    if not path.exists():
+        return 0
+    try:
+        return int(json.loads(path.read_text(encoding="utf-8")).get("count", 0))
+    except (json.JSONDecodeError, OSError, ValueError, TypeError):
+        return 0
+
+
+def bump_counter(is_degenerate: bool) -> int:
+    """Increment on degenerate; reset to 0 on non-degenerate.
+
+    Returns the post-update count. Fail-open: any I/O error is
+    swallowed and the returned count reflects best-effort read state.
+    """
+    current = read_counter()
+    new_count = current + 1 if is_degenerate else 0
+    try:
+        counter_path().parent.mkdir(parents=True, exist_ok=True)
+        counter_path().write_text(
+            json.dumps({"count": new_count, "ts": time.time()}), encoding="utf-8"
+        )
+    except OSError:
+        pass
+    return new_count
+
+
+def reset_counter() -> None:
+    """Explicit reset — used by the Stop-block once it fires, so the
+    forced recompose starts fresh rather than re-blocking immediately.
+    Otherwise the block would trip on the recompose turn too."""
+    try:
+        counter_path().unlink()
+    except OSError:
+        pass
+
+
 def write_pending(reflection: Reflection) -> Path:
     path = pending_surface_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(reflection)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # Side effect: update the consecutive-degenerate counter so the
+    # Stop-hook gate can read it.
+    bump_counter(reflection.degenerate())
     return path
 
 
@@ -220,6 +345,10 @@ __all__ = [
     "Reflection",
     "reflect",
     "pending_surface_path",
+    "counter_path",
+    "read_counter",
+    "bump_counter",
+    "reset_counter",
     "write_pending",
     "read_and_consume_pending",
     "render_pending_or_empty",
