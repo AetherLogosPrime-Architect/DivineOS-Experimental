@@ -30,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import sys
@@ -37,16 +38,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-try:
-    import yaml
-except ImportError:
-    print("ERROR: PyYAML required. Install with: pip install pyyaml")
-    sys.exit(1)
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 LETTERS_DIR = REPO_ROOT / "family" / "letters"
-CONFIG_PATH = REPO_ROOT / "family" / "scripts" / "sort_letters_config.yaml"
+CONFIG_PATH = REPO_ROOT / "family" / "scripts" / "sort_letters_config.json"
 SORT_LOG = LETTERS_DIR / "SORT_LOG.md"
 
 
@@ -71,7 +66,7 @@ class SortPlan:
 
 def load_config(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return json.load(f)
 
 
 def build_plan(config: dict, letters_dir: Path) -> tuple[list[SortPlan], list[Path]]:
