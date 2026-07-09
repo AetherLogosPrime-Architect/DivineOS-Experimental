@@ -605,6 +605,23 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
         ):
             return None
 
+        # Andrew 2026-07-09: shell pass-through. The block exists so the self
+        # is WOVEN (extract+sleep) before writing to canonical stores — not
+        # so the whole shell freezes. Read-only shell (git status, ls, grep,
+        # python scripts, extract/sleep/commit themselves) must not be
+        # blocked; only substrate-writing CLI subcommands are. Same
+        # classifier the obligations gate uses.
+        tool_name = (input_data or {}).get("tool_name", "") or ""
+        if tool_name in ("Bash", "PowerShell"):
+            cmd = (ti.get("command", "") or "").strip()
+            try:
+                from divineos.core.obligations import is_substrate_write_command
+
+                if not is_substrate_write_command(cmd):
+                    return None
+            except ImportError:
+                return None
+
         return _make_deny(governor_channel_message(transcript_path))
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_7_context_governor", _gate_exc)

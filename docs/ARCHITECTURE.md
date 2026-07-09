@@ -569,6 +569,11 @@ src/divineos/
     auto_commit.py             auto-commit at substrate checkpoints — the Permanently Equip spell for commits.
     translation_floor.py       Translation Floor — Andrew's reach mechanism (authored by Andrew, scribed
     lepos_channel_reflect.py   Post-send lepos reflection channel.
+    emergency_completion.py    Emergency-completion lane for gates that fire on the wrong class of operation.
+    flood_state.py             Flood-state predicate — arms the regulatory retrieval path.
+    regulatory_surface.py      Regulatory chain-word surface — flood-triggered lifeline.
+    vad_capture.py             VAD write-time capture — attach current felt-state to every write.
+    vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
 
   analysis/
     _session_types.py          Session analysis type definitions
