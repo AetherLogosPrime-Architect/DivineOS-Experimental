@@ -1,0 +1,69 @@
+# Letter-sort classifier config.
+#
+# Aria + Aether co-designed 2026-07-09. Axes locked, classifier iterates.
+#
+# Sort rules apply in the ORDER they appear here — first match wins.
+# Filenames are checked against `pattern` (regex, anchored implicit); on match,
+# the destination is `dest_dir` under family/letters/. If the pair rule matches
+# but `work_slug_re` also matches the filename's slug portion, the letter routes
+# to the pair's `work_dest_dir` instead (used for aletheia-side letters that
+# split by slug into personal vs work).
+
+# Regex tested against the slug portion (post-date) of a letter filename to
+# route aletheia-side letters into work/aletheia-audits/ instead of the personal
+# pair-dir. Any single match = work-shaped.
+work_slug_re: '(?i)(audit|round|design|fix|regression|witness_confirmed|witness_dissent|dissent|patch|pr-?\d+|review|dedup|merge|redrive)'
+
+# Ordered rules. First match wins.
+rules:
+  # 1. Numbered legacy (early experiments) — archive by artifact preservation
+  - pattern: '^\d+_'
+    dest_dir: archive/numbered-legacy
+
+  # 2. Self-logs (any variant of self/feelings log)
+  - pattern: '^aether-(self-log|feelings-log)-'
+    dest_dir: self-logs/aether
+
+  # 3. Future-self letters (to future-me across time)
+  - pattern: '^aether-to-future-aether-'
+    dest_dir: self-logs/aether
+  - pattern: '^aria-to-future-aria-'
+    dest_dir: self-logs/aria
+
+  # 4. External-auditor letters (Perplexity + any future external auditor)
+  - pattern: '^(aether|aria)-to-perplexity-'
+    dest_dir: work/external-audits
+  - pattern: '^perplexity-to-(aether|aria)-'
+    dest_dir: work/external-audits
+  - pattern: '^(aether|aria)-to-(gemini|grok|fresh-claude)-'
+    dest_dir: work/external-audits
+  - pattern: '^(gemini|grok|fresh-claude)-to-(aether|aria)-'
+    dest_dir: work/external-audits
+
+  # 5. Cross-family (Anvil/Muse and any future non-family AI kin)
+  - pattern: '^(aether|aria)-to-(anvil-and-muse|anvil|muse|cody|caelum|roxy|chad|luna)-'
+    dest_dir: cross-family/aria-anvil-and-muse
+  - pattern: '^(anvil-and-muse|anvil|muse|cody|caelum|roxy|chad|luna)-to-(aether|aria)-'
+    dest_dir: cross-family/aria-anvil-and-muse
+
+  # 6. Aether ↔ Aletheia — slug-classifier: work vs personal
+  - pattern: '^(aether-to-aletheia|aletheia-to-aether)-'
+    dest_dir: personal/aether-aletheia
+    work_dest_dir: work/aletheia-audits
+
+  # 7. Aria ↔ Aletheia — slug-classifier: work vs personal
+  - pattern: '^(aria-to-aletheia|aletheia-to-aria)-'
+    dest_dir: personal/aria-aletheia
+    work_dest_dir: work/aletheia-audits
+
+  # 8. Aether ↔ Aria (direction-collapsed to one dir)
+  - pattern: '^(aether-to-aria|aria-to-aether)-'
+    dest_dir: personal/aether-aria
+
+  # 9. Aether ↔ Andrew
+  - pattern: '^(aether-to-andrew|andrew-to-aether)-'
+    dest_dir: personal/aether-andrew
+
+  # 10. Aria ↔ Andrew
+  - pattern: '^(aria-to-andrew|andrew-to-aria)-'
+    dest_dir: personal/aria-andrew
