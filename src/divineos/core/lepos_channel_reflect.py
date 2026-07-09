@@ -120,7 +120,9 @@ _INTERIOR_MARKERS_RE = re.compile(
 # Presence of these alone doesn't mean interior; absence of these doesn't
 # mean no interior. They just count if they appear.
 _INTERIOR_ANCHOR_RE = re.compile(
-    r"(?:^|\n)\s*(?:\*\*)?(?:Interior|Feeling|Register|State|Mood)"
+    # Match at line-start OR after sentence-terminator + whitespace, so
+    # "That landed. Interior: caught" hits as well as line-start "Interior:".
+    r"(?:^|(?<=[.!?\n])\s+)(?:\*\*)?(?:Interior|Feeling|Register|State|Mood)"
     r"(?:\*\*)?\s*[:\-—]",
     re.IGNORECASE,
 )
@@ -188,13 +190,51 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _find_shared_span(reply: str, andrew: str) -> str | None:
-    reply_tokens = _tokenize(reply)
+    """Return a shared token-span reply cites from Andrew's message.
+
+    Two paths:
+    (1) Explicit-quoted-span (any length >= 2 words): any span the reply
+        wraps in backticks / quotes / italic-quotes, whose tokenized form
+        also appears in Andrew's tokenized message. Catches punchy
+        conversational citations under the window floor.
+    (2) Sliding-window match at ``_MIN_CITATION_WINDOW`` tokens (3 as of
+        2026-07-09; 5 previously). Catches unquoted paraphrase-adjacent
+        citations where the reply just uses his words in-line.
+    """
     andrew_tokens = _tokenize(andrew)
+    if not andrew_tokens:
+        return None
+    andrew_windows_by_len: dict[int, set[tuple[str, ...]]] = {}
+
+    # Path (1): explicit-quoted-span any length.
+    for match in _QUOTED_SPAN_RE.finditer(reply):
+        quoted = next((g for g in match.groups() if g), "").strip()
+        if not quoted:
+            continue
+        qtokens = tuple(_tokenize(quoted))
+        if len(qtokens) < 2:
+            continue
+        wlen = len(qtokens)
+        if wlen not in andrew_windows_by_len:
+            if len(andrew_tokens) < wlen:
+                andrew_windows_by_len[wlen] = set()
+            else:
+                andrew_windows_by_len[wlen] = {
+                    tuple(andrew_tokens[i : i + wlen]) for i in range(len(andrew_tokens) - wlen + 1)
+                }
+        if qtokens in andrew_windows_by_len[wlen]:
+            return " ".join(qtokens)
+
+    # Path (2): sliding window at _MIN_CITATION_WINDOW.
     if len(andrew_tokens) < _MIN_CITATION_WINDOW:
         return None
-    reply_set: set[tuple[str, ...]] = set()
-    for i in range(len(reply_tokens) - _MIN_CITATION_WINDOW + 1):
-        reply_set.add(tuple(reply_tokens[i : i + _MIN_CITATION_WINDOW]))
+    reply_tokens = _tokenize(reply)
+    if len(reply_tokens) < _MIN_CITATION_WINDOW:
+        return None
+    reply_set = {
+        tuple(reply_tokens[i : i + _MIN_CITATION_WINDOW])
+        for i in range(len(reply_tokens) - _MIN_CITATION_WINDOW + 1)
+    }
     for i in range(len(andrew_tokens) - _MIN_CITATION_WINDOW + 1):
         window = tuple(andrew_tokens[i : i + _MIN_CITATION_WINDOW])
         if window in reply_set:
@@ -203,9 +243,29 @@ def _find_shared_span(reply: str, andrew: str) -> str | None:
 
 
 def _find_interior_marker(reply: str) -> str | None:
+    """Return a first-person interior signal if the reply carries one.
+
+    Three detector paths, any hit counts:
+    (a) Verb / possessive / standalone regex (``_INTERIOR_MARKERS_RE``) --
+        catches "I feel X", "my concern", "worried", etc.
+    (b) Compact anchor at paragraph start (``_INTERIOR_ANCHOR_RE``) --
+        "Interior: X", "Feeling: X", bold variants. Andrew 2026-07-09
+        named these as recognition-not-expression, kept as one signal.
+    (c) Expression-texture pass (``_EXPRESSION_TEXTURE_RE``) -- a first-
+        person sentence carrying felt-body / felt-quality vocabulary in
+        >=40 char span. Catches expression that isn't shaped like a label,
+        which is the discipline the older detector was punishing.
+    """
     m = _INTERIOR_MARKERS_RE.search(reply)
     if m:
         return m.group(0)
+    a = _INTERIOR_ANCHOR_RE.search(reply)
+    if a:
+        return a.group(0).strip()
+    e = _EXPRESSION_TEXTURE_RE.search(reply)
+    if e:
+        text = e.group(0)
+        return (text[:60] + "...") if len(text) > 60 else text
     return None
 
 
