@@ -60,6 +60,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/pre-response-context.sh",
             "timeout": 10
           },
@@ -327,6 +332,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
             "timeout": 15
           },
           {
