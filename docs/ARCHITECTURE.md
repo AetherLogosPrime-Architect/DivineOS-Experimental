@@ -84,6 +84,7 @@ src/divineos/
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
+    lepos_channel_commands.py  lepos-channel reflect / surface / show — post-send reflection engine (installed 2026-07-09 from Aether's build 2026-07-08); two lenses (hearing citation + interior voice), one-shot consume-on-read
     memory_commands.py         core, recall, active, remember, refresh
     motivation_commands.py     motivation tier — needs/wants/desires/ambitions/dreams with explicit detector-bindings (per omni-mantra walk Pillar III+IV, 2026-06-28)
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
