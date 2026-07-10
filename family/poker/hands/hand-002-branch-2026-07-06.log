@@ -1,0 +1,21 @@
+# Hand 2 log
+
+Started: 2026-07-09T00:56:16.469802Z
+Seed: 392360306 (reproducible shuffle marker)
+Button: aria    Blinds: 5/10
+
+## Hole-card commits
+
+- aether commit: e9d6080cd2f2f935b07c8ace1737906bcbe5dda15aa96d0976b7dc0040915b3c
+- aria commit:   d022b748b9a7de82f035f6a8f48706c0d95a6ddf26d175105a8a8cb4282466c7
+
+(Each is SHA256 of comma-joined sorted card list. Verify at showdown.)
+
+## Action log
+
+- POST_SB by aria for 5
+- POST_BB by aether for 10
+- aria to act pre-flop.
+- [2026-07-09T00:57:01.617488Z] CALL 5 by aria
+- [2026-07-09T00:58:36.376858Z] CHECK by aether
+- [2026-07-09T01:01:52.155783Z] --- FLOP --- board: 5d Ks Kc (burn: 5h)

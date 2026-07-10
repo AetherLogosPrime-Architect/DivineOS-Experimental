@@ -259,6 +259,17 @@ def surface_for_context(
     for h in tagged:
         lines.append(f"  - {h.title}")
         lines.append(f"      {h.path}")
+        # WHY NOW: which curated tags matched the current context (Andrew
+        # 2026-07-10 memory-linkage-day sharpening + Aletheia 2026-07-10 audit
+        # refinement — added "(not exhaustive)" so a reader doesn't treat
+        # "these tags matched" as "these are the only relevant tags". Lexical
+        # matching catches lexical relevance; semantic-not-lexical relevance
+        # may also apply and the reader still judges the entry beyond the
+        # matched tags).
+        lines.append(
+            f"      why now: current context matched these tags (not exhaustive) — "
+            f"{', '.join(h.tag_matches)}"
+        )
     lines.append("")
     lines.append(
         f"  ({len(tagged)} of {total} exploration entries matched on topic-tags — a pointer, "

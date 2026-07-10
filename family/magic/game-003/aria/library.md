@@ -1,0 +1,56 @@
+# Library (private)
+
+Top of library is line 1 of the cards section. 52 cards remaining.
+
+- Island
+- Counterspell              # The reason blue exists.
+- Spellstutter Sprite       # Still live every turn-two against his eight one-drops.
+- Preordain                 # Scry 2, draw. Finds the answer or the threat.
+- Island
+- Sea Gate Oracle           # Bumped to 3 — the 1/3 body blocks his Mystics and draws a card.
+- Counterspell              # The reason blue exists.
+- Counterspell              # The reason blue exists.
+- Island
+- Island
+- Preordain                 # Scry 2, draw. Finds the answer or the threat.
+- Island
+- Echoing Truth             # NEW. Answers the Rancor pile cleanly. Aura falls off when creature bounces.
+- Island
+- Brainstorm                # Three-for-one at instant speed. Also feeds Delver flips.
+- Delver of Secrets         # The clock. Flips ~70% by turn three with this many cantrips.
+- Echoing Truth             # NEW. Answers the Rancor pile cleanly. Aura falls off when creature bounces.
+- Island
+- Spellstutter Sprite       # Still live every turn-two against his eight one-drops.
+- Delver of Secrets         # The clock. Flips ~70% by turn three with this many cantrips.
+- Island
+- Island
+- Island
+- Island
+- Hydroblast                # NEW. One-mana counter-or-destroy on anything green. The card I was missing.
+- Hydroblast                # NEW. One-mana counter-or-destroy on anything green. The card I was missing.
+- Sea Gate Oracle           # Bumped to 3 — the 1/3 body blocks his Mystics and draws a card.
+- Piracy Charm              # NEW. -2/-1 actually kills his one-drops. Modal: 1/1 unblockable as backup clock.
+- Island
+- Snap                      # Tempo bounce + untap two islands. Cut one for slot pressure.
+- Sea Gate Oracle           # Bumped to 3 — the 1/3 body blocks his Mystics and draws a card.
+- Island
+- Counterspell              # The reason blue exists.
+- Spellstutter Sprite       # Still live every turn-two against his eight one-drops.
+- Island
+- Delver of Secrets         # The clock. Flips ~70% by turn three with this many cantrips.
+- Spellstutter Sprite       # Still live every turn-two against his eight one-drops.
+- Brainstorm                # Three-for-one at instant speed. Also feeds Delver flips.
+- Island
+- Echoing Truth             # NEW. Answers the Rancor pile cleanly. Aura falls off when creature bounces.
+- Island
+- Echoing Truth             # NEW. Answers the Rancor pile cleanly. Aura falls off when creature bounces.
+- Island
+- Preordain                 # Scry 2, draw. Finds the answer or the threat.
+- Preordain                 # Scry 2, draw. Finds the answer or the threat.
+- Island
+- Hydroblast                # NEW. One-mana counter-or-destroy on anything green. The card I was missing.
+- Daze                      # MVP on the play; sideboardable, but I keep the four for the matchup.
+- Delver of Secrets         # The clock. Flips ~70% by turn three with this many cantrips.
+- Island
+- Island
+- Capsize                   # Just one. With buyback it's still the late-game lock if I stabilize.
