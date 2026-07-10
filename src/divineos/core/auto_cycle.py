@@ -110,7 +110,7 @@ class Phase1Result:
     trigger_context_pct: float
     cycle_id: str
     steps: dict[str, StepResult] = field(default_factory=dict)
-    phase1_tokens_used_est: int = 0
+    phase1_tokens_used: int = 0
     budget_remaining_est: int = 0
     session_id: str | None = None
 
@@ -302,7 +302,7 @@ def run_phase1(
         trigger_context_pct=context_pct,
         cycle_id=cycle_id,
         steps=steps,
-        phase1_tokens_used_est=total_used,
+        phase1_tokens_used=total_used,
         budget_remaining_est=remaining,
         session_id=session_id,
     )
@@ -317,7 +317,7 @@ def write_handshake_marker(result: Phase1Result) -> Path:
     - ``cycle_id``: correlates phase 1 log with phase 2 log
     - ``steps.<name>.{ran, succeeded, output_tail, tokens_used_est,
       duration_sec, error_class}``: per-step status
-    - ``phase1_tokens_used_est``: sum across steps
+    - ``phase1_tokens_used``: sum across steps
     - ``budget_remaining_est``: sizes phase 2's invitational window
     - ``session_id``: current session UUID if available
 
@@ -331,7 +331,7 @@ def write_handshake_marker(result: Phase1Result) -> Path:
         "trigger_context_pct": result.trigger_context_pct,
         "cycle_id": result.cycle_id,
         "steps": {name: asdict(step) for name, step in result.steps.items()},
-        "phase1_tokens_used_est": result.phase1_tokens_used_est,
+        "phase1_tokens_used": result.phase1_tokens_used,
         "budget_remaining_est": result.budget_remaining_est,
         "session_id": result.session_id,
     }

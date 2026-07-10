@@ -192,7 +192,7 @@ def test_phase1_result_default_values():
         cycle_id="auto-cycle-abcdef12",
     )
     assert r.steps == {}
-    assert r.phase1_tokens_used_est == 0
+    assert r.phase1_tokens_used == 0
     assert r.session_id is None
 
 
@@ -203,5 +203,5 @@ def test_budget_remaining_reflects_total_used(tmp_path, monkeypatch):
     monkeypatch.setattr("divineos.core.auto_cycle.marker_path", lambda: tmp_path / "marker.json")
     result = run_phase1(context_pct=0.85, dry_run=True)
     # dry-run uses 0 tokens per step
-    assert result.phase1_tokens_used_est == 0
+    assert result.phase1_tokens_used == 0
     assert result.budget_remaining_est == FULL_CYCLE_BUDGET_TOKENS

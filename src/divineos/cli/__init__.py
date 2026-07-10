@@ -239,6 +239,7 @@ from divineos.cli import (  # noqa: E402
     andrew_state_commands,
     audit_artifact_commands,
     audit_commands,
+    auto_cycle_commands,
     bio_commands,
     body_commands,
     branch_health_commands,
@@ -340,6 +341,7 @@ claim_commands.register(cli)
 audit_commands.register(cli)
 audit_artifact_commands.register(cli)  # MUST be after audit_commands (attaches to its group)
 pattern_attribution_commands.register(cli)
+auto_cycle_commands.register(cli)
 bio_commands.register(cli)
 loadout_commands.register(cli)
 lepos_channel_commands.register(cli)
