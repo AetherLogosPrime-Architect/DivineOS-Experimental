@@ -202,6 +202,54 @@ class TestOfferCycle:
         assert "handshake_summary" in data
 
 
+class TestMarkerAbsenceSafety:
+    """Aletheia audit 2026-07-10: absent marker = phase 1 did NOT complete;
+    never treated as 'nothing to do, proceed.' These tests pin the
+    invariant in code so a regression can't silently return.
+    """
+
+    def test_no_marker_from_never_ran(self, marker_paths: Path):
+        """Case 1: phase 1 never ran. Marker never existed."""
+        assert not ac._HANDSHAKE_MARKER.exists()
+        record, text = offer_cycle()
+        assert record is None, "must NOT fire invitational when phase 1 never ran"
+        assert text == ""
+        # Pending marker also must not be written — the invariant is that
+        # phase 2 leaves no state changes when the handshake is absent.
+        assert not ac._PENDING_MARKER.exists()
+
+    def test_no_marker_from_write_failure(self, marker_paths: Path):
+        """Case 2 (Aletheia's specific concern): phase 1 ran but the
+        marker-write itself failed (disk full, permission error). Phase 1
+        exits, no marker on disk, phase 2 must NOT fire silently."""
+        # Simulate: phase 1 ran but no marker landed. Indistinguishable from
+        # case 1 by design — both must fail toward not-firing.
+        assert not ac._HANDSHAKE_MARKER.exists()
+        record, text = offer_cycle()
+        assert record is None, (
+            "marker-write-failure must NOT be treated as successful no-op — "
+            "phase 2 must fail toward not-firing-the-invitational"
+        )
+        assert text == ""
+        assert not ac._PENDING_MARKER.exists()
+
+    def test_no_marker_from_malformed_content(self, marker_paths: Path):
+        """Case 3: marker exists but is malformed. Same treatment."""
+        ac._HANDSHAKE_MARKER.write_text("{not json at all", encoding="utf-8")
+        record, text = offer_cycle()
+        assert record is None
+        assert text == ""
+        assert not ac._PENDING_MARKER.exists()
+
+    def test_no_marker_from_wrong_top_level_type(self, marker_paths: Path):
+        """Case 3-adjacent: valid JSON but not a dict."""
+        ac._HANDSHAKE_MARKER.write_text("[1, 2, 3]", encoding="utf-8")
+        record, text = offer_cycle()
+        assert record is None
+        assert text == ""
+        assert not ac._PENDING_MARKER.exists()
+
+
 class TestCloseCycle:
     def test_no_pending_returns_none(self, marker_paths: Path):
         assert close_cycle("no-pull-honest") is None

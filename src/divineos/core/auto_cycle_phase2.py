@@ -145,8 +145,29 @@ _TRANSIENT_ERROR_CLASSES = frozenset(
 def read_handshake() -> HandshakeResult | None:
     """Read phase 1's handshake marker. Return None if absent or malformed.
 
-    Malformed markers are treated as absent — the phase 2 flow shouldn't
-    fire on garbage input. When the format is off, phase 1 should re-emit.
+    ## Marker-absence safety invariant (Aletheia audit 2026-07-10)
+
+    **Absent marker = "phase 1 did NOT complete." Never "nothing to do,
+    proceed."** This is the safe reading, and it's the ONLY reading phase 2
+    takes. Any caller receiving ``None`` from this function must fail
+    toward not-firing-the-invitational. Do NOT treat ``None`` as
+    "no work needed, continue silently."
+
+    Three ways ``None`` can arise, all treated identically:
+
+    1. Phase 1 never ran.
+    2. Phase 1 ran but the marker-write itself failed (disk full, permission
+       error, etc.) — phase 1 exits and no marker lands on disk.
+    3. The marker file exists but is malformed / unparseable.
+
+    Case 2 is Aletheia's specific concern: a subtle failure mode where a
+    write-failure looks like a successful no-op if the caller assumes
+    "no marker = no problem." The invariant closes it — no marker means
+    phase 2 does not fire.
+
+    ``offer_cycle`` respects the invariant by returning ``(None, "")`` when
+    this function returns ``None``. The CLI surfaces "no handshake found"
+    and refuses to render the invitational menu.
     """
     if not _HANDSHAKE_MARKER.exists():
         return None

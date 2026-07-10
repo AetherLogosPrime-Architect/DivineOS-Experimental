@@ -51,12 +51,18 @@ def register(cli: click.Group) -> None:
         record, text = offer_cycle()
         if record is None:
             click.secho(
-                "[~] No phase 1 handshake found. Nothing to offer.",
+                "[~] No phase 1 handshake found — refusing to fire.",
                 fg="bright_black",
             )
             click.secho(
+                "    Per Aletheia audit 2026-07-10 marker-absence invariant: "
+                "absent marker = 'phase 1 did NOT complete,' never "
+                "'nothing to do, proceed.' Phase 2 fails toward not-firing "
+                "so a write-failure at phase 1 cannot silently look like a "
+                "successful no-op.\n"
                 "    Phase 1 writes ~/.divineos/auto_cycle_phase1_done.json "
-                "when the mechanical pipeline completes.",
+                "when the mechanical pipeline completes; if that path is "
+                "missing, either phase 1 never ran OR its write itself failed.",
                 fg="bright_black",
             )
             return
