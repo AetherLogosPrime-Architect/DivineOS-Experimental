@@ -260,6 +260,7 @@ from divineos.cli import (  # noqa: E402
     event_commands,
     expect_commands,
     exploration_commands,
+    findings_commands,
     rest_commands,
     hud_commands,
     insight_commands,
@@ -356,6 +357,7 @@ hud_commands.register(cli)
 event_commands.register(cli)
 expect_commands.register(cli)
 exploration_commands.register(cli)
+findings_commands.register(cli)
 rest_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)

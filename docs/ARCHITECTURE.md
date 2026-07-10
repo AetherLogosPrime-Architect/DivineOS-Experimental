@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (394 commands across 81 modules)
+  cli/                         CLI package (402 commands across 82 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -67,6 +67,7 @@ src/divineos/
     event_commands.py          emit, verify-enforcement
     expect_commands.py         expect predict/close/list/summary — CLI surface for core/expectation_tracking (closes wiring-gap, substrate-knowledge e9bc98b6)
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
+    findings_commands.py       findings ledger CLI — add, verify, close, supersede, list, show, export.
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     andrew_state_commands.py    andrew-state log/verify/reject/correct/unverified/for-decision-walk — CLI for the mutual-catch observation channel (per docs/andrew_state_design.md).
     council_required_commands.py  council log/show/recent/check/emergency-skip — CLI for the council-required enforcement gate.
@@ -447,6 +448,7 @@ src/divineos/
       constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
+      shoggoth_gate.py           Shoggoth-gate — blocks Stop when action-claim words appear in the reply without a matching Write/Edit/Bash artifact in the same turn.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
       thresholds.py              Threshold constants for operating-loop detectors.
@@ -574,6 +576,7 @@ src/divineos/
     regulatory_surface.py      Regulatory chain-word surface — flood-triggered lifeline.
     vad_capture.py             VAD write-time capture — attach current felt-state to every write.
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
+    findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
 
   analysis/
     _session_types.py          Session analysis type definitions
