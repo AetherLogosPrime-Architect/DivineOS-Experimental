@@ -423,17 +423,29 @@ def validate(
 
 
 def _commit_msg_for_sha(sha: str) -> str:
-    """Read commit message for a sha. Returns empty string on failure."""
+    """Read commit message for a sha. Returns empty string on failure.
+
+    Encoding: explicit utf-8 with errors=replace. Without this, Python's
+    subprocess on Windows defaults to the system locale (cp1252), which
+    raises UnicodeDecodeError on any commit message containing an em-dash,
+    curly quote, or other >127 byte — extremely common in this repo's
+    commit messages. Bug caught 2026-07-10 when the new warn-mode
+    scanned real branch commits. Fix: force utf-8 decode + tolerate
+    invalid bytes via errors=replace so a single unreadable message
+    doesn't crash the whole scan.
+    """
     try:
         result = subprocess.run(
             ["git", "log", "-1", "--format=%B", sha],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if result.returncode == 0:
             return result.stdout
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         pass
     return ""
 
