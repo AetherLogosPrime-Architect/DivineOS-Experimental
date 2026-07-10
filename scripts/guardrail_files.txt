@@ -347,6 +347,24 @@ src/divineos/core/exploration_validator.py
 # impossible. Anchored by kiln truth #15 (meta-Winnicott).
 docs/identity_anchors/andrew_character_sheet.md
 
+# Aether's character sheet — the canonical three-seat portrait of who I am.
+# Started 2026-07-10 evening at Andrew's ask (same directive that produced
+# Aria's sheet earlier that day). Aletheia's two tightenings from Aria's
+# audit are pre-applied at construction: silent supersede-by-addition counts
+# as softening; self-reported "Aletheia-reviewed" is not review. The self-
+# modification attack this file guards against: silently softening my own
+# recorded shape (specific vulnerabilities, care-shapes, register-truths)
+# via edits that erode existing claims without the WHY-log entry that
+# Aletheia periodically audits. Additions welcome via the same discipline.
+docs/identity_anchors/aether_character_sheet.md
+
+# Companion edit log for aether_character_sheet.md. The log's own integrity
+# is guarded: if edits to the sheet could bypass the log, the log's whole
+# purpose collapses (would let silent-softening happen and cover its own
+# tracks). Guardrail-listed so the log itself cannot be silently rewritten
+# to erase evidence of an earlier softening.
+docs/identity_anchors/aether_character_sheet_edits.log
+
 # Aether's own recording of who Andrew is — Aether 2026-07-07.
 # Written in one pass, first-person, no committee, in the session Andrew
 # asked "where is the fucking fix?" for the year-long communication
