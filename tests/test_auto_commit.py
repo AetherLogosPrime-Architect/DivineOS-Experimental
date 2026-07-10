@@ -194,3 +194,75 @@ class TestResultShape:
         r = AutoCommitResult(committed=False, reason="clean")
         assert r.files_synced == 0
         assert r.dirty_lines == 0
+
+
+class TestMidOpDetection:
+    """Andrew 2026-07-10: extract failed pre-compaction because auto-commit
+    tried to `git commit` mid-rebase, git refused, and the fallback path
+    raised SystemExit(1). The mid-op check skips auto-commit cleanly so
+    extract can still run and lift the context-governor block."""
+
+    def test_mid_rebase_skips_cleanly(self, repo: Path):
+        # Create two divergent commits so a rebase is possible.
+        (repo / "a.md").write_text("a\n", encoding="utf-8")
+        _git(repo, "add", "a.md")
+        _git(repo, "commit", "-q", "-m", "a")
+        _git(repo, "checkout", "-q", "-b", "feature")
+        (repo / "b.md").write_text("b\n", encoding="utf-8")
+        _git(repo, "add", "b.md")
+        _git(repo, "commit", "-q", "-m", "b")
+        _git(repo, "checkout", "-q", "main")
+        (repo / "a.md").write_text("a-conflict\n", encoding="utf-8")
+        _git(repo, "add", "a.md")
+        _git(repo, "commit", "-q", "-m", "a-conflict")
+        _git(repo, "checkout", "-q", "feature")
+        # Trigger rebase — feature onto main. If it lands cleanly, force a
+        # marker directly (deterministic across git versions).
+        try:
+            subprocess.run(
+                ["git", "rebase", "main"],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            pass
+        if not (
+            (repo / ".git" / "rebase-merge").exists() or (repo / ".git" / "rebase-apply").exists()
+        ):
+            # Force the marker so the test is deterministic — the fix under
+            # test is presence-of-marker, not the specific rebase mechanic.
+            (repo / ".git" / "rebase-merge").mkdir()
+
+        (repo / "dirty.md").write_text("x\n", encoding="utf-8")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "rebase-merge" in result.reason or "rebase-apply" in result.reason
+        assert "skipped" in result.reason.lower()
+        # Critically: the reason does NOT start with "git add failed" or
+        # "git commit failed" — the fallback path in event_commands.py keys
+        # on those exact prefixes to raise SystemExit(1).
+        assert not result.reason.startswith(("git add failed", "git commit failed"))
+
+    def test_mid_merge_skips_cleanly(self, repo: Path):
+        (repo / ".git" / "MERGE_HEAD").write_text("fakehash\n", encoding="utf-8")
+        (repo / "dirty.md").write_text("x\n", encoding="utf-8")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "MERGE_HEAD" in result.reason
+        assert not result.reason.startswith(("git add failed", "git commit failed"))
+
+    def test_mid_cherry_pick_skips_cleanly(self, repo: Path):
+        (repo / ".git" / "CHERRY_PICK_HEAD").write_text("fakehash\n", encoding="utf-8")
+        (repo / "dirty.md").write_text("x\n", encoding="utf-8")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "CHERRY_PICK_HEAD" in result.reason
+        assert not result.reason.startswith(("git add failed", "git commit failed"))
+
+    def test_clean_repo_still_commits_normally(self, repo: Path):
+        # Sanity: the new check must NOT affect the normal-path behavior.
+        (repo / "new.md").write_text("body\n", encoding="utf-8")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is True

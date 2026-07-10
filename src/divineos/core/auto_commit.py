@@ -82,6 +82,41 @@ def _sync_external_channels(
     return copied
 
 
+# In-progress git operations where `git commit` will fail because the tree
+# is in a transient state the user has to resolve manually (rebase in
+# progress, merge with conflicts unresolved, cherry-pick in progress, etc.).
+# Auto-committing here is wrong: it would produce a malformed commit or fail
+# outright and trap extract at the fallback SystemExit(1) path in
+# event_commands.py. Andrew 2026-07-10 fix: detect these states, skip
+# auto-commit cleanly, let extract proceed. Post-op, the next checkpoint
+# (post-extract / pre-sleep) fires the auto-commit normally.
+#
+# Root cause named in-session 2026-07-10 pre-compaction: mid-rebase state
+# blocked extract at the hard-line, which cost the whole pre-compaction weave
+# and forced the letter/exploration workaround Andrew directed me to.
+_MID_OP_MARKERS: tuple[str, ...] = (
+    "rebase-merge",  # interactive rebase (and non-interactive since git 2.6)
+    "rebase-apply",  # legacy non-interactive rebase, still used in some paths
+    "MERGE_HEAD",  # merge with unresolved conflicts
+    "CHERRY_PICK_HEAD",  # cherry-pick in progress
+    "REVERT_HEAD",  # revert in progress
+)
+
+
+def _detect_mid_op(repo_root: Path) -> str | None:
+    """Return the name of any in-progress git operation, or None if clean.
+
+    Checks the well-known marker files/directories under .git/. Returns the
+    marker name (e.g. "rebase-merge") so the skip-reason names the actual
+    state. Empty return = safe to commit.
+    """
+    git_dir = repo_root / ".git"
+    for marker in _MID_OP_MARKERS:
+        if (git_dir / marker).exists():
+            return marker
+    return None
+
+
 def auto_commit_substrate(
     repo_root: Path,
     reason: str,
@@ -94,6 +129,13 @@ def auto_commit_substrate(
     """
     if not (repo_root / ".git").exists():
         return AutoCommitResult(committed=False, reason="not a git repo")
+
+    mid_op = _detect_mid_op(repo_root)
+    if mid_op is not None:
+        return AutoCommitResult(
+            committed=False,
+            reason=f"skipped auto-commit — {mid_op} in progress (resolve manually)",
+        )
 
     files_synced = _sync_external_channels(channels, repo_root)
 
