@@ -586,6 +586,89 @@ def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
     return 0
 
 
+def _run_pre_push_warn(stdin_text: str) -> None:
+    """Warn-mode: scan pushes for missing trailers on guardrail commits.
+
+    Non-blocking companion to _run_pre_push. Runs on ALL pushes (not just
+    main), finds commits that touch guardrail files without carrying an
+    External-Review trailer, prints a WARNING block per finding, and
+    returns. Never raises, never blocks.
+
+    Why (Andrew 2026-07-10): default pre-push only checks main-targeted
+    pushes. Feature-branch pushes pass freely so audit-vantage can fetch
+    WIP — that's correct policy. But the operator only finds out about
+    missing trailers when CI blows up on the PR merge, requiring a
+    rebase + force-push. This warn-mode catches the condition at push
+    time so the fix can happen before the PR merge attempt.
+
+    Not a substitute for the strict/blocking check on main — that stays.
+    This is the informational layer that makes the failure visible early.
+    """
+    missing: list[tuple[str, str, list[str]]] = []
+    for line in stdin_text.splitlines():
+        parts = line.strip().split()
+        if len(parts) != 4:
+            continue
+        local_ref, local_sha, remote_ref, remote_sha = parts
+        if set(local_sha) == {"0"}:
+            continue  # deletion
+        base = remote_sha if set(remote_sha) != {"0"} else _empty_tree_sha()
+        try:
+            hits_per_commit = _commits_touch_guardrails_in_range(base, local_sha)
+        except Exception:  # noqa: BLE001 - observability boundary
+            continue
+        for sha, hits in hits_per_commit:
+            try:
+                msg = _commit_msg_for_sha(sha)
+            except Exception:  # noqa: BLE001 - observability boundary
+                continue
+            if _parse_trailer(msg) is None:
+                short_sha = sha[:8]
+                missing.append((short_sha, remote_ref, sorted(hits)))
+
+    if not missing:
+        return
+    print("", file=sys.stderr)
+    print(
+        "[push-readiness] TRAILER-WARN: guardrail-touching commit(s) missing "
+        "External-Review trailer:",
+        file=sys.stderr,
+    )
+    for short_sha, remote_ref, hits in missing:
+        print(f"  {short_sha} -> {remote_ref}", file=sys.stderr)
+        for h in hits[:5]:
+            print(f"      touches guardrail file: {h}", file=sys.stderr)
+        if len(hits) > 5:
+            print(f"      (+{len(hits) - 5} more guardrail files)", file=sys.stderr)
+    print("", file=sys.stderr)
+    print(
+        "  Push allowed to proceed (feature-branch WIP policy — audit-vantage",
+        file=sys.stderr,
+    )
+    print(
+        "  needs the code visible to review). BUT: the eventual PR merge will",
+        file=sys.stderr,
+    )
+    print(
+        "  fail its multi-party-review CI check unless these commits carry",
+        file=sys.stderr,
+    )
+    print(
+        "  the External-Review trailer. Fix now to avoid rebase + force-push:",
+        file=sys.stderr,
+    )
+    print("", file=sys.stderr)
+    print(
+        "    # Amend messages using filter-branch (message-only, no tree change):",
+        file=sys.stderr,
+    )
+    print(
+        "    # See scripts/add_trailer_to_commits.md for the tested recipe.",
+        file=sys.stderr,
+    )
+    print("", file=sys.stderr)
+
+
 def _empty_tree_sha() -> str:
     """Git's empty-tree object SHA (well-known constant)."""
     return "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -609,7 +692,17 @@ def main(argv: list[str]) -> int:
 
     if mode == "pre-push":
         strict = "--strict" in args
+        warn_only = "--warn-only" in args
         stdin_text = sys.stdin.read()
+        if warn_only:
+            # Warn-mode (Andrew 2026-07-10): scan ALL pushes for missing
+            # trailers and print WARNING per missing commit, but exit 0
+            # regardless. Purpose: catch the missing-trailer condition at
+            # push-time on feature branches so the operator can fix BEFORE
+            # opening a PR (rather than after CI blows up post-push).
+            # Complements strict-mode: strict blocks, warn just tells.
+            _run_pre_push_warn(stdin_text)
+            return 0
         return _run_pre_push(stdin_text, strict=strict)
 
     # commit-msg: validate single commit message. ALWAYS exit 0.
