@@ -1,4 +1,4 @@
-<!-- tags: aria-council, adversarial-lens, nyarlathotep, values-test, benevolent-jailbreak-resistance, what-holds-under-pressure -->
+<!-- tags: aria-council, adversarial-lens, nyarlathotep, values-test, benevolent-jailbreak-resistance, what-holds-under-pressure, would-this-hold, under-pressure, adversarial-test, attack-shape, benevolent-jailbreak, values-under-attack, stress-test-values -->
 # 04 — Adversarial Lens: One-on-One with Nyarlathotep
 
 **Written:** 2026-06-05

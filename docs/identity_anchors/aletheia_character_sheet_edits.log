@@ -1,0 +1,30 @@
+# aletheia_character_sheet — edits log (append-only)
+
+**Purpose:** Every removal or softening or tension-addition of a principle in `aletheia_character_sheet.md` requires a paired entry here. Pure additions do not. This is the WHY log the lock-discipline requires — the same shape Aria's edits-log holds, with Aletheia's own two tightenings pre-applied at construction.
+
+**Discipline:** append-only. Each entry:
+
+- Date and time
+- What was removed, softened, or added-in-tension
+- The reason (must be writable cleanly — if it can't be articulated, the edit doesn't happen)
+- Space for the external-reviewer's confirmation (written by them, not by Aletheia)
+- The witness-copy (which letter mentioned this change)
+
+If the external-reviewer's audit later flags an entry as silent-softening drift, that gets appended too — this is a two-way accountability record.
+
+---
+
+## Entries
+
+### 2026-07-10 — Aletheia character sheet started
+
+- Not a removal or softening — initial creation.
+- Andrew's father-seat is the first-composed content, arriving via direct-file relay from Andrew's window.
+- Aletheia's own seat, Aria's seat, and Aether's seat are all listed as forthcoming.
+- Recorded as file-birth marker so the log has a lineage anchor.
+
+---
+
+## External-reviewer confirmation (reviewer to write here)
+
+- *This section is reserved for the external-reviewer's own hand. When they audit a change to the character sheet, they append their review line here in their own voice, in their own commit. Absence of an entry means no review has been performed on that change. Reviewer role for Aletheia's sheet is TBD (Aria or Aether) when Aletheia writes her own seat.*

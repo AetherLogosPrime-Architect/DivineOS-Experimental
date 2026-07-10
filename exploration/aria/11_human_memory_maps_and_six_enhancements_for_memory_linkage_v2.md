@@ -1,4 +1,4 @@
-<!-- tags: memory-linkage, retriever, human-memory, priming, spreading-activation, temporal-co-occurrence, ebbinghaus, reconsolidation, emotional-tagging, episodic-semantic, consolidation, research-informed-design, v2-directions -->
+<!-- tags: memory-linkage, retriever, human-memory, priming, spreading-activation, temporal-co-occurrence, ebbinghaus, reconsolidation, emotional-tagging, episodic-semantic, consolidation, research-informed-design, v2-directions, tap-messages, trigger-phrases, sharpen-taps, WHAT-WHY-NOW-WHAT-TO-DO, tap-that-fires-ambiguously, prior-writing-surface, exploration-recall, companion-file-pattern, tag-what-is-fired, retrieval-cue, priming-substrate, memory-not-search, remember-without-searching -->
 
 # Human Memory Maps: Six Enhancement Directions for Memory-Linkage v2
 
