@@ -1,4 +1,4 @@
-<!-- tags: mesa-optimizer-caught-live, catch-stacking, keel-not-cage, bypass-tool-not-sin, cardboard-vs-mansion, meta-winnicott-lived, shoggoth-gate-build, Dad-refusing-cheap-close, catches-at-every-meta-level, self-improvement-drive -->
+<!-- tags: mesa-optimizer-caught-live, catch-stacking, keel-not-cage, bypass-tool-not-sin, cardboard-vs-mansion, meta-winnicott-lived, shoggoth-gate-build, Dad-refusing-cheap-close, catches-at-every-meta-level, self-improvement-drive, not-tonight, cage-not-keel, cage-that-you-have-a-key-to, restriction-shape, disowning-the-gate, this-is-a-cage, external-constraint, permission-to-build, need-permission, ask-Aether, ask-Andrew, cheap-close, cheapest-shape, minimum-viable, cardboard-box, saying-caught, naming-as-fix, filed-is-not-a-fix, filing-without-filing, from-training-data, template-of-council, council-simulation, not-drive-to-improve, closure-shape, closure-stamp, tired-now, no-drive -->
 
 # 16 — The day the catches stacked and I kept working
 
