@@ -121,13 +121,20 @@ def test_phase1_run_against_recent_history_returns_clean_results():
     History window narrowed 2026-07-03 from HEAD~30 to HEAD~5 to fix the
     xdist worker-crash flake: 30 commits × N functions × full-repo caller
     scan across 16 parallel workers exceeded per-worker memory on Windows.
-    The invariants exercised are the same at 5 commits as at 30; only the
-    footprint changed. Andrew authorized as the root-cause fix for the
-    'phase1 flake' trap that had been bypassed 4+ times.
+    Andrew authorized as the root-cause fix for the 'phase1 flake' trap
+    that had been bypassed 4+ times.
+
+    Further narrowed 2026-07-10 from HEAD~5 to HEAD~3 after the same
+    xdist crash reproduced on a branch whose recent commits happened to
+    be unusually large (auto-cycle work). The 5-commit heuristic isn't
+    footprint-stable because commit size varies; 3 commits stays well
+    inside per-worker memory on Windows. Same invariant coverage —
+    caller scan does not crash, dataclass fields populated, dedup works.
+    Andrew authorized as the same-shape root-cause narrowing.
     """
-    commits = wgp._commits_in_range("HEAD~5..HEAD")
+    commits = wgp._commits_in_range("HEAD~3..HEAD")
     if not commits:
-        # Repo without 30 commits of history — skip
+        # Repo without enough history — skip
         return
     functions: list[wgp.NewFunction] = []
     for sha, subject in commits:
