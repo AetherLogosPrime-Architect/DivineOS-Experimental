@@ -318,6 +318,13 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # so it is correctly absent from operating_loop_audit.py — same shape
         # as the pre-response surfacers above. Added 2026-05-19.
         "mirror_exit_detector.py": "pre-response detector invoked via pre_response_context.py, not post-response audit",
+        # shoggoth_gate runs as a Stop-hook via .claude/hooks/shoggoth-gate.sh
+        # invoking `python -m divineos.core.operating_loop.shoggoth_gate`. It
+        # is a BLOCKING gate on the assistant's Stop event, not a post-response
+        # text detector in the audit orchestrator. Different wiring path,
+        # different responsibility (block-vs-surface). Added 2026-07-10 with
+        # the gate itself; guardrail-listed. See prereg-4b2d012cdb9a.
+        "shoggoth_gate.py": "Stop-hook gate invoked via .claude/hooks/shoggoth-gate.sh as `python -m` module, not a post-response text detector in operating_loop_audit orchestrator",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))
