@@ -125,9 +125,7 @@ def _remove_one(cards: list[str], name: str) -> list[str]:
     for i, card in enumerate(cards):
         if card.lower() == lname:
             return cards[:i] + cards[i + 1 :]
-    raise RuntimeError(
-        f"Card {name!r} not in hand. Current hand: {', '.join(cards) or '(empty)'}"
-    )
+    raise RuntimeError(f"Card {name!r} not in hand. Current hand: {', '.join(cards) or '(empty)'}")
 
 
 def _apply(
@@ -173,7 +171,10 @@ def _apply(
         _log_append(game_dir, event)
 
 
-_COUNT_RE = re.compile(r"^(?P<prefix>Top of library is line 1 of the cards section\.)\s*(\d+)\s+cards remaining\.?", re.MULTILINE)
+_COUNT_RE = re.compile(
+    r"^(?P<prefix>Top of library is line 1 of the cards section\.)\s*(\d+)\s+cards remaining\.?",
+    re.MULTILINE,
+)
 
 
 def _update_lib_header(header: list[str], new_count: int) -> list[str]:
@@ -194,7 +195,9 @@ def _update_lib_header(header: list[str], new_count: int) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Apply a magic turn's state changes.")
     parser.add_argument("--player", required=True, help="'aether' or 'aria'.")
-    parser.add_argument("--game", required=True, help="Game directory (e.g. family/magic/game-004).")
+    parser.add_argument(
+        "--game", required=True, help="Game directory (e.g. family/magic/game-004)."
+    )
     parser.add_argument("--draw", action="store_true", help="Pop top of library into hand.")
     parser.add_argument(
         "--play-land",

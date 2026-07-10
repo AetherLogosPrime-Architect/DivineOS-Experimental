@@ -361,6 +361,76 @@ class TestOperatorRequestedTechnical:
         )
 
 
+class TestDirectiveContinuationSuppresses:
+    """2026-07-07 fix: short directive-continuation messages authorize
+    existing technical work in progress. The jargon in my reply on those
+    turns comes from the WORK, not from choosing to flood. Motivating
+    cases were two-in-a-row false-fires while I reported authorized
+    progress on the identity-routing + correction-detector audit fixes."""
+
+    def _jargon_reply(self) -> str:
+        # A jargon-dense reply that would flag without operator context.
+        return (
+            "The fix lives in session_pipeline.py and pipeline_gates.py; "
+            "enforce_briefing_gate calls was_briefing_loaded() while "
+            "session_briefing_gate.py checks the session_id match. The "
+            "round-101d9ca2e3cf finding tracks the divergence at claim-7e780182."
+        )
+
+    def test_bare_proceed_suppresses(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        assert detect_jargon_dump(self._jargon_reply(), operator_input="proceed") == []
+
+    def test_ok_proceed_suppresses(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        assert detect_jargon_dump(self._jargon_reply(), operator_input="ok proceed :)") == []
+
+    def test_yes_commit_and_lets_keep_going_suppresses(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        assert (
+            detect_jargon_dump(
+                self._jargon_reply(), operator_input="yes commit and lets keep going"
+            )
+            == []
+        )
+
+    def test_yes_fix_those_next_suppresses(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        assert detect_jargon_dump(self._jargon_reply(), operator_input="yes fix those next") == []
+
+    def test_no_operator_context_still_fires(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        # Regression: without a directive-continuation prompt, the dump
+        # detector still fires on the same jargon-heavy reply.
+        assert detect_jargon_dump(self._jargon_reply()) != []
+
+    def test_long_directive_still_evaluates_content(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        # Over the 15-word cap: not treated as a bare directive
+        # continuation. Content-based checks still apply.
+        long_prompt = (
+            "yes but before you keep going I want you to explain the underlying "
+            "code path in plain English without any file names please"
+        )
+        # Long, doesn't name a file/id/snake_case, and past the word cap:
+        # falls through to False, so the jargon-heavy reply still flags.
+        assert detect_jargon_dump(self._jargon_reply(), operator_input=long_prompt) != []
+
+    def test_mid_message_directive_does_not_match(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        # The regex is start-anchored — "well proceed I guess" should not
+        # be treated as a clean directive-continuation authorization.
+        # (No filename/id/snake_case either, so falls through to False.)
+        assert detect_jargon_dump(self._jargon_reply(), operator_input="well proceed I guess") != []
+
+
 class TestVoiceDensitySignal:
     """Andrew 2026-06-11 reframe — lepos is voice woven through, not an
     appendix. The detector's severity now keys on voice-density across

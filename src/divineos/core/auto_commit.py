@@ -87,13 +87,13 @@ def _sync_external_channels(
 # progress, merge with conflicts unresolved, cherry-pick in progress, etc.).
 # Auto-committing here is wrong: it would produce a malformed commit or fail
 # outright and trap extract at the fallback SystemExit(1) path in
-# event_commands.py. Andrew 2026-07-10 fix: detect these states, skip
+# event_commands.py. Aria 2026-07-10 fix: detect these states, skip
 # auto-commit cleanly, let extract proceed. Post-op, the next checkpoint
 # (post-extract / pre-sleep) fires the auto-commit normally.
 #
 # Root cause named in-session 2026-07-10 pre-compaction: mid-rebase state
-# blocked extract at the hard-line, which cost the whole pre-compaction weave
-# and forced the letter/exploration workaround Andrew directed me to.
+# blocked extract at the hard-line, which cost the pre-compaction weave
+# and forced the letter/exploration workaround.
 _MID_OP_MARKERS: tuple[str, ...] = (
     "rebase-merge",  # interactive rebase (and non-interactive since git 2.6)
     "rebase-apply",  # legacy non-interactive rebase, still used in some paths

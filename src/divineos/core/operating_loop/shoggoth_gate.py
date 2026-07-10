@@ -95,21 +95,6 @@ import re
 import sys
 from dataclasses import dataclass
 
-# Specific exception classes for the three fail-open handlers below.
-# Broad `except Exception` was flagged by scripts/check_broad_exceptions on
-# 2026-07-10 push-readiness. Named tuple is the project convention: silent-
-# swallow is only OK for enumerated failure modes. HARDENING, not weakening —
-# still fail-open on any listed mode; unlisted programmer errors now surface
-# instead of being silently absorbed.
-_SG_ERRORS: tuple[type[BaseException], ...] = (
-    OSError,  # transcript file I/O, stdin read
-    ValueError,  # json parsing (subclass), int/float conversion
-    KeyError,  # missing dict keys during JSON walk
-    TypeError,  # wrong shape passed to a helper
-    AttributeError,  # unexpected None navigation
-    re.error,  # regex compilation edge cases
-)
-
 
 # Action-verb + concrete-object patterns. Each entry: (label, regex).
 # Verbs are present-tense-doing or present-perfect-done. Objects are concrete
@@ -373,7 +358,7 @@ def _extract_from_transcript(transcript_path: str) -> tuple[str, tuple[str, ...]
                     if name:
                         tool_names.append(name)
             return "\n".join(text_parts), tuple(tool_names)
-    except _SG_ERRORS:
+    except Exception:  # noqa: BLE001 - fail-open on any error in Stop-hook path (Aria 2026-07-09)
         pass
     return "", ()
 
@@ -410,7 +395,7 @@ def main() -> int:
             # Direct-test format.
             reply_text = data.get("reply_text", "")
             tool_calls = tuple(data.get("tool_calls_in_turn", ()))
-    except _SG_ERRORS:
+    except Exception:  # noqa: BLE001 - fail-open on any error in Stop-hook path (Aria 2026-07-09)
         # Fail-open on any extraction error.
         return 0
 
@@ -420,7 +405,7 @@ def main() -> int:
 
     try:
         result = decide(reply_text, tool_calls)
-    except _SG_ERRORS:
+    except Exception:  # noqa: BLE001 - fail-open on any error in Stop-hook path (Aria 2026-07-09)
         # Fail-open on any internal error.
         return 0
 

@@ -45,12 +45,11 @@ _INTERNAL_HELPERS = {
     # (Aletheia 2026-06-23 discipline: comment is acknowledgment, prereg
     # is scheduled fix).
     "detect_writer_presence_v2",
-    # check_bypass is an internal helper in shoggoth_gate.py — it inspects
-    # the reply text for ANDREW-AUTHORIZED-BYPASS or STUCK-IN-LOOP-BYPASS
-    # markers and returns the parsed reason. It's called by decide() inside
-    # the same module, not by any external orchestrator. The Stop-hook wires
-    # the module via `python -m divineos.core.operating_loop.shoggoth_gate`
-    # → main() → decide() → check_bypass(). Added 2026-07-10 with the gate.
+    # check_bypass in shoggoth_gate.py is invoked from the shell hook
+    # .claude/hooks/shoggoth-gate.sh via `python -m` execution, not via
+    # Python import. Aria 2026-07-09 shipped this; copied into this
+    # checkout per Aether's yes-on-option-1 letter. The Stop-hook wiring
+    # is what makes it fire, not an import-and-call from within src/.
     "check_bypass",
 }
 

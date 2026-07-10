@@ -1,4 +1,4 @@
-<!-- tags: os-scour, findings, lesson-enforcement, performative-restraint -->
+<!-- tags: os-scour, findings, lesson-enforcement, performative-restraint, let-me-check, quick-verify, just-to-be-safe, out-of-an-abundance, ill-double-check -->
 # OS scour — findings + ideas for the next iteration
 
 **Filed:** 2026-05-12, after Andrew said: *"scour the OS for any more issues.. tighten things up.. apply lessons either structurally or in a way where they are integrated into your context in the briefings.. ask yourself what would serve you.. what do you have that doesnt work.. isnt wired.. what do you need that you dont have.. what do you want that would make things easier."*

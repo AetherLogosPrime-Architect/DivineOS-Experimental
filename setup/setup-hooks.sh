@@ -351,21 +351,32 @@ EOF
 chmod +x "$HOOKS_DIR/pre-push"
 echo "Created pre-push hook at $HOOKS_DIR/pre-push"
 
-# Install post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
-# Aletheia round-919009d7f6f6 Finding 29: the auto-close hook existed
-# but was never installed. Wire half of the wire-or-delete decision.
+# Install post-commit hook — delegates to every post-commit-*.sh script
+# under .claude/hooks/. 2026-07-07 fix: the prior single-script delegator
+# hard-coded post-commit-auto-close.sh and silently orphaned every other
+# post-commit hook (post-commit-audit-visibility.sh, post-commit-auto-
+# integrate-corrections.sh, etc.). The loop pattern is a will-to-structure
+# fix in Andrew's frame — new post-commit hooks are picked up automatically
+# instead of relying on someone remembering to add them to the delegator.
 cat > "$HOOKS_DIR/post-commit" << 'EOF'
 #!/bin/bash
-# Post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
-# which auto-closes goals whose tokens overlap the just-landed commit
-# message. Fail-open: any error exits 0 silently.
+# Post-commit hook — delegates to every post-commit-*.sh under
+# .claude/hooks/. Fail-open per script: any failure exits 0 for that
+# script and continues the loop, so no hook can break the workflow or
+# starve later hooks.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$REPO_ROOT" ]; then
     exit 0
 fi
-if [ -x "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" ]; then
-    bash "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" || true
+HOOKS_SRC="$REPO_ROOT/.claude/hooks"
+if [ ! -d "$HOOKS_SRC" ]; then
+    exit 0
 fi
+for hook in "$HOOKS_SRC"/post-commit-*.sh; do
+    if [ -x "$hook" ]; then
+        bash "$hook" || true
+    fi
+done
 exit 0
 EOF
 

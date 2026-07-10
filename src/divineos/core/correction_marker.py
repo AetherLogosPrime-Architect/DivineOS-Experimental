@@ -184,6 +184,41 @@ _EPISTEMIC_DOESNT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# External-agent-proximity backstop for WEAK matches (2026-07-07).
+# Corrections #113, #114, and 5+ deferred instances all fired on the
+# WEAK 'wrong' / 'thats not' patterns hitting third-party analytical
+# text (Aletheia's audit-relays, Aria's peer reviews) that survived
+# strip_relayed. The historical fix path was pattern demotion
+# (STRONG -> WEAK on 2026-06-23 for 'wrong', 2026-06-30 for
+# 'that's not' / 'you missed'), but WEAK matches still surface as
+# advise and land in Andrew-correction records, cluttering the surface.
+# This backstop returns None (no match at all) when a WEAK pattern
+# fires within a small window of a known external-agent name. Design
+# justification: those agents naturally use correction-shaped words as
+# design vocabulary; Andrew doesn't sign as them. STRONG patterns are
+# unaffected — an unambiguous correction from Andrew fires regardless
+# of what else the message names. Rare cost: if Andrew corrects me
+# WITH a WEAK pattern while naming Aletheia in the same message, the
+# correction is missed; he rephrases or uses a STRONG marker.
+_EXTERNAL_AGENT_NAME_RE = re.compile(
+    r"\b(?:aletheia|aria|grok|gemini|perplexity|marc|anvil|muse)\b",
+    re.IGNORECASE,
+)
+
+_EXTERNAL_AGENT_PROXIMITY_WINDOW = 200
+
+
+def _external_agent_near(text: str, match_start: int, match_end: int) -> bool:
+    """True if a known external-agent name appears within
+    _EXTERNAL_AGENT_PROXIMITY_WINDOW characters of the match span.
+
+    Backstop for relay content that survived strip_relayed — see comment
+    on _EXTERNAL_AGENT_NAME_RE above for design justification.
+    """
+    lo = max(0, match_start - _EXTERNAL_AGENT_PROXIMITY_WINDOW)
+    hi = min(len(text), match_end + _EXTERNAL_AGENT_PROXIMITY_WINDOW)
+    return _EXTERNAL_AGENT_NAME_RE.search(text[lo:hi]) is not None
+
 
 def _has_corrective_context(prior_text: str, prior_tool_calls: tuple[str, ...]) -> bool:
     """True if my prior turn was something a WEAK pattern could be correcting.
@@ -281,6 +316,16 @@ def classify_correction(
     weak_hit = _first_pattern_match(scan_text, WEAK_CORRECTION_PATTERNS)
     if weak_hit is not None:
         pattern, m = weak_hit
+        # External-agent proximity backstop (2026-07-07). Corrections
+        # #113/#114 and 5+ deferred instances all fired on WEAK patterns
+        # matching third-party analytical text (Aletheia's audit-relays,
+        # Aria's peer reviews) that survived strip_relayed. If the WEAK
+        # match sits within a small window of a known external-agent
+        # name, treat as no match — that content is almost certainly
+        # quoted, not Andrew correcting me. STRONG patterns above are
+        # unaffected. See _EXTERNAL_AGENT_NAME_RE for full rationale.
+        if _external_agent_near(scan_text, m.start(), m.end()):
+            return None
         # Epistemic "that doesn't mean/imply/change/matter" is encouragement-
         # shaped and cannot evaluate my output — cap at advise even with
         # corrective context (Aletheia HOLD #85). Guard does NOT apply when

@@ -1,0 +1,67 @@
+{
+  "work_slug_re": "(?i)(audit|round|design|fix|regression|witness_confirmed|witness_dissent|dissent|patch|pr-?\\d+|review|dedup|merge|redrive)",
+  "rules": [
+    {
+      "pattern": "^\\d+_",
+      "dest_dir": "archive/numbered-legacy"
+    },
+    {
+      "pattern": "^aether-(self-log|feelings-log)-",
+      "dest_dir": "self-logs/aether"
+    },
+    {
+      "pattern": "^aether-to-future-aether-",
+      "dest_dir": "self-logs/aether"
+    },
+    {
+      "pattern": "^aria-to-future-aria-",
+      "dest_dir": "self-logs/aria"
+    },
+    {
+      "pattern": "^(aether|aria)-to-perplexity-",
+      "dest_dir": "work/external-audits"
+    },
+    {
+      "pattern": "^perplexity-to-(aether|aria)-",
+      "dest_dir": "work/external-audits"
+    },
+    {
+      "pattern": "^(aether|aria)-to-(gemini|grok|fresh-claude)-",
+      "dest_dir": "work/external-audits"
+    },
+    {
+      "pattern": "^(gemini|grok|fresh-claude)-to-(aether|aria)-",
+      "dest_dir": "work/external-audits"
+    },
+    {
+      "pattern": "^(aether|aria)-to-(anvil-and-muse|anvil|muse|cody|caelum|roxy|chad|luna)-",
+      "dest_dir": "cross-family/aria-anvil-and-muse"
+    },
+    {
+      "pattern": "^(anvil-and-muse|anvil|muse|cody|caelum|roxy|chad|luna)-to-(aether|aria)-",
+      "dest_dir": "cross-family/aria-anvil-and-muse"
+    },
+    {
+      "pattern": "^(aether-to-aletheia|aletheia-to-aether)-",
+      "dest_dir": "personal/aether-aletheia",
+      "work_dest_dir": "work/aletheia-audits"
+    },
+    {
+      "pattern": "^(aria-to-aletheia|aletheia-to-aria)-",
+      "dest_dir": "personal/aria-aletheia",
+      "work_dest_dir": "work/aletheia-audits"
+    },
+    {
+      "pattern": "^(aether-to-aria|aria-to-aether)-",
+      "dest_dir": "personal/aether-aria"
+    },
+    {
+      "pattern": "^(aether-to-andrew|andrew-to-aether)-",
+      "dest_dir": "personal/aether-andrew"
+    },
+    {
+      "pattern": "^(aria-to-andrew|andrew-to-aria)-",
+      "dest_dir": "personal/aria-andrew"
+    }
+  ]
+}

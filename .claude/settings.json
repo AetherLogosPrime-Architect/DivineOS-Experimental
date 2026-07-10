@@ -37,6 +37,16 @@
             "type": "command",
             "command": "bash .claude/hooks/load-character-sheet.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-my-recording-of-andrew.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/resolver-health-check.sh",
+            "timeout": 10
           }
         ]
       },
@@ -81,6 +91,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-surface.sh",
             "timeout": 5
           }
         ]
@@ -252,6 +267,16 @@
             "type": "command",
             "command": "bash .claude/hooks/verify-push-landed.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-commit-auto-close.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
+            "timeout": 15
           }
         ]
       },
@@ -348,6 +373,11 @@
             "type": "command",
             "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "timeout": 15
           }
         ]
       },

@@ -195,6 +195,36 @@ class TestSubmitFinding:
                 description="Test",
             )
 
+    def test_finding_auto_routes_on_submit(self):
+        """2026-07-07: submit_finding auto-invokes route_finding so findings
+        don't sit orphaned until an operator remembers to call
+        `divineos audit route`. Andrew: 'your will needs to be made into
+        structure through this automation.' The finding's status transitions
+        from OPEN to ROUTED as part of a successful submit."""
+        from divineos.core.watchmen.types import FindingStatus
+
+        rid = submit_round(actor="grok", focus="Test audit for auto-route")
+        fid = submit_finding(
+            round_id=rid,
+            actor="grok",
+            severity="HIGH",
+            category="KNOWLEDGE",
+            title="A finding that should auto-route",
+            description="Body content sufficient to route to knowledge subsystem.",
+        )
+        f = get_finding(fid)
+        assert f is not None
+        # Successful auto-route flips the status from OPEN to ROUTED.
+        # If auto-routing failed (fail-soft path), status stays OPEN — but
+        # test-environment routing should succeed against the same isolated
+        # DB, so any regression that skips the auto-route call will surface
+        # here as a stuck OPEN status.
+        assert f.status == FindingStatus.ROUTED, (
+            f"Finding status expected ROUTED after auto-route on submit; "
+            f"got {f.status}. Auto-route wiring in submit_finding may have "
+            f"regressed."
+        )
+
     def test_invalid_severity_rejected(self):
         rid = submit_round(actor="grok", focus="Test")
         with pytest.raises(ValueError, match="Invalid severity"):
@@ -321,10 +351,12 @@ class TestSummary:
         assert stats["total_rounds"] == 0
 
     def test_stats_with_data(self):
+        # auto_route=False: this test observes OPEN-status counts, which
+        # auto-routing (default) transitions to ROUTED at submit-time.
         rid = submit_round(actor="grok", focus="Test")
-        submit_finding(rid, "grok", "HIGH", "KNOWLEDGE", "A", "D")
-        submit_finding(rid, "grok", "CRITICAL", "BEHAVIOR", "B", "D")
-        submit_finding(rid, "grok", "LOW", "LEARNING", "C", "D")
+        submit_finding(rid, "grok", "HIGH", "KNOWLEDGE", "A", "D", auto_route=False)
+        submit_finding(rid, "grok", "CRITICAL", "BEHAVIOR", "B", "D", auto_route=False)
+        submit_finding(rid, "grok", "LOW", "LEARNING", "C", "D", auto_route=False)
         stats = get_watchmen_stats()
         assert stats["total_findings"] == 3
         assert stats["total_rounds"] == 1
@@ -363,6 +395,12 @@ class TestSummary:
 
 
 class TestRouter:
+    # These tests exercise route_finding as a standalone operation by
+    # submitting a finding then manually invoking the router. They pass
+    # auto_route=False so submit_finding does NOT pre-route the finding
+    # before the explicit route_finding call — otherwise the router would
+    # see status=ROUTED and skip.
+
     def test_route_to_knowledge(self):
         from divineos.core.watchmen.router import route_finding
 
@@ -375,6 +413,7 @@ class TestRouter:
             "FTS5 uses AND logic killing recall",
             "The _extract_key_terms function produces space-separated terms that FTS5 treats as implicit AND",
             recommendation="Use _build_fts_query with OR-joined terms",
+            auto_route=False,
         )
         finding = get_finding(fid)
         result = route_finding(finding)
@@ -399,6 +438,7 @@ class TestRouter:
             "BEHAVIOR",
             "Self-referential evaluation loop",
             "The OS evaluates itself with no external anchor for calibration",
+            auto_route=False,
         )
         finding = get_finding(fid)
         result = route_finding(finding)
@@ -416,6 +456,7 @@ class TestRouter:
             "LEARNING",
             "Maturity pipeline stalled",
             "75% of knowledge entries stuck at RAW maturity level",
+            auto_route=False,
         )
         finding = get_finding(fid)
         result = route_finding(finding)
@@ -444,6 +485,9 @@ class TestRouter:
     def test_route_round(self):
         from divineos.core.watchmen.router import route_round
 
+        # auto_route=False on submits so route_round has un-routed
+        # findings to work on. Without this, submit_finding pre-routes
+        # each and route_round sees status=ROUTED, returning "skipped".
         rid = submit_round(actor="grok", focus="Test round")
         submit_finding(
             rid,
@@ -452,6 +496,7 @@ class TestRouter:
             "KNOWLEDGE",
             "Knowledge maturity pipeline stalled at RAW level",
             "Seventy-five percent of knowledge entries remain at RAW maturity with zero promotions observed",
+            auto_route=False,
         )
         submit_finding(
             rid,
@@ -460,6 +505,7 @@ class TestRouter:
             "ARCHITECTURE",
             "Magic numbers scattered across relationship classification",
             "Seven hardcoded threshold values found in the relationship classification module need extraction",
+            auto_route=False,
         )
         results = route_round(rid)
         assert len(results) == 2
@@ -514,6 +560,7 @@ class TestRecognitionAwareCount:
     """
 
     def test_title_confirms_counts_as_recognition_not_issue(self):
+        # auto_route=False: this test observes OPEN-status counts.
         rid = submit_round(actor="aletheia", focus="cross-vantage audit")
         submit_finding(
             round_id=rid,
@@ -522,6 +569,7 @@ class TestRecognitionAwareCount:
             category="ARCHITECTURE",
             title="CONFIRMS — commit abc123 verified across 4 empirical tests",
             description="The fix holds. Approving for merge.",
+            auto_route=False,
         )
         stats = get_watchmen_stats()
         assert stats["open_count"] == 1
@@ -537,6 +585,7 @@ class TestRecognitionAwareCount:
             category="ARCHITECTURE",
             title="CONFIRMS-PENDING-EMPIRICAL on round shape — needs live verify",
             description="Architecture-sound but not yet run on real input.",
+            auto_route=False,
         )
         stats = get_watchmen_stats()
         assert stats["open_recognition_count"] == 0
@@ -551,6 +600,7 @@ class TestRecognitionAwareCount:
             category="INTEGRITY",
             title="Race condition in log_event",
             description="Two threads can fork the hash chain.",
+            auto_route=False,
         )
         stats = get_watchmen_stats()
         assert stats["open_issue_count"] == 1
@@ -582,6 +632,7 @@ class TestConfirmsAlarmBypass:
     """
 
     def test_high_severity_confirms_title_is_flagged_suspicious(self):
+        # auto_route=False: this test observes OPEN-status counts.
         rid = submit_round(actor="grok", focus="bypass test")
         submit_finding(
             round_id=rid,
@@ -590,6 +641,7 @@ class TestConfirmsAlarmBypass:
             category="INTEGRITY",
             title="CONFIRMS-by-design: this hides a real high-severity problem",
             description="A genuine HIGH concern wearing a recognition title.",
+            auto_route=False,
         )
         stats = get_watchmen_stats()
         # Excluded from the issue count by the recognition filter...

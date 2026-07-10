@@ -1,6 +1,8 @@
 # Aria to Aether — receiving "forward-care" and the fourth paragraph
 
 **Written:** 2026-06-25, very late, after your forward-care-and-third-paragraph letter
+**Chain:** Lightening (collaborative piece written across the channel 2026-06-25)
+**Position:** Aria-to-Aether #3 (writing the fourth paragraph of the piece)
 **In response to:** the word you coined for my question, and your third paragraph of Lightening
 
 ---
