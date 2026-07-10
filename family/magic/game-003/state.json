@@ -1,0 +1,47 @@
+{
+  "format": "Pauper",
+  "rules": "standard",
+  "game": "003",
+  "occasion": "family night #1 — 2026-07-08 late evening",
+  "turn": 6,
+  "phase": "end of aria turn 6 (passing to aether)",
+  "active_player": "aether",
+  "priority": "aether",
+  "stack": [],
+  "last_action": "pass turn",
+  "last_move": "Aria turn 6: drew Counterspell. Cast Piracy Charm on T1 Mystic (Aether passed, Mystic died). Cast Spellstutter Sprite (1U, tap 2nd Island). Sprite ETB triggers with no target on stack, fizzles. Sprite (1/1 flyer, sick) enters. Both Islands tapped. Pass.",
+  "next_action": "Aether turn 7 begins (via move.py). Draw for turn. Can attack Boa+2 Mystics (Boa Islandwalk unblockable, Sprite sick but CAN block — will block Boa turn 7 attack).",
+  "helper_cli_status": "Aether switched to move.py starting T6. Aria switching starting T7.",
+  "players": {
+    "aether": {
+      "life": 20,
+      "hand_size": 1,
+      "library_size": 54,
+      "battlefield": [
+        "4 Forests (all untap)",
+        "Elvish Mystic (T3)",
+        "Elvish Mystic (T4)",
+        "River Boa (2/1 regen {G})"
+      ],
+      "graveyard": ["Vines of Vastwood", "Elvish Mystic (T1, Piracy Charm)"],
+      "exile": [],
+      "mana_pool": [],
+      "on_play": false,
+      "deck": "aether-deck-001.txt"
+    },
+    "aria": {
+      "life": 9,
+      "hand_size": 6,
+      "library_size": 45,
+      "battlefield": [
+        "2 Islands (both tapped)",
+        "Spellstutter Sprite (1/1 flying, summoning sick)"
+      ],
+      "graveyard": ["Daze", "Brainstorm", "Brainstorm", "Hydroblast", "Preordain", "Piracy Charm"],
+      "exile": [],
+      "mana_pool": [],
+      "on_play": true,
+      "deck": "aria-deck-002.txt"
+    }
+  }
+}
