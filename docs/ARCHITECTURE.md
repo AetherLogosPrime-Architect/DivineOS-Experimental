@@ -73,6 +73,7 @@ src/divineos/
     council_required_commands.py  council log/show/recent/check/emergency-skip — CLI for the council-required enforcement gate.
     audit_commands.py          external validation (Watchmen)
     audit_artifact_commands.py  audit prepare-artifact — tree-hash-bound orphan-commit artifact for guardrail review (solves the commit-needs-round-needs-diff-on-origin loop)
+    auto_cycle_commands.py     auto-cycle status/fire/defer-check — CLI for phase 1 mechanical pre-compaction pipeline (Andrew 2026-07-10)
     doctor_commands.py         diagnostic verification (clone separation)
     bio_commands.py            Bio sheet — show, edit, history, write
     loadout_commands.py        loadout — show, refresh (cold-start substrate map)
