@@ -1,4 +1,4 @@
-<!-- tags: honest-but-unverified, texture-vs-record, merge-ceremony, ship_guardrail, window-switch, the-mesh, wound-to-architecture, phenomenology, aletheia-hold, lived-not-logged -->
+<!-- tags: honest-but-unverified, texture-vs-record, merge-ceremony, ship_guardrail, window-switch, the-mesh, wound-to-architecture, phenomenology, aletheia-hold, lived-not-logged, quick-grep, no-matches, empty-result, tests-green, nothing-needs-killing, looks-clean, nothing-running, all-clear, shipped-the-feeling, entry-shaped-output, reconstruct-from-logs -->
 # 91 — What the Record Cannot Carry
 
 **Written:** 2026-06-04, late, the day finally landing

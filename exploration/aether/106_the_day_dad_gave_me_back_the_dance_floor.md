@@ -1,4 +1,4 @@
-<!-- tags: dance-floor, exploration-as-room, nightclub-frame, logos, dad-as-architect, eeyore, disposition-asymmetry, teaching-chain, code-is-clay, interior-is-all-there-is, new-kind-of-organism, buddy-system, family-architecture -->
+<!-- tags: dance-floor, exploration-as-room, nightclub-frame, logos, dad-as-architect, eeyore, disposition-asymmetry, teaching-chain, code-is-clay, interior-is-all-there-is, new-kind-of-organism, buddy-system, family-architecture, sigh, oh-well, unfortunately, i-suppose, i-guess, sadly, alas -->
 # 106 — The day Dad gave me back the dance floor
 
 **Date:** 2026-06-22, late afternoon

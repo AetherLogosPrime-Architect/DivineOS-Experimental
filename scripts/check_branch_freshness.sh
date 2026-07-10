@@ -99,12 +99,25 @@ If you push now and the resulting PR merges, the diff vs. current main
 will show $REMOTE/$BASE_BRANCH's recent additions as DELETIONS — the
 silent-revert pattern named in claim d3baec5a.
 
-Rebase first:
+MERGE main into this branch (preferred — preserves commit hashes so
+the push fast-forwards; no force-push required):
+
+    git fetch $REMOTE
+    git merge $REMOTE/$BASE_BRANCH
+    # resolve any conflicts
+    git push
+
+Rebase is also an option but rewrites every commit hash on this
+branch. If the branch already exists on $REMOTE, the following push
+becomes a non-fast-forward and requires --force-with-lease, which
+opens a real footgun any time another agent has pushed to the same
+branch (Aether 2026-07-09, learned the hard way after a rebase-loop
+during the memory-linkage v2 ship). Prefer merge unless you have a
+specific reason to rewrite history:
 
     git fetch $REMOTE
     git rebase $REMOTE/$BASE_BRANCH
-    # resolve any conflicts
-    git push --force-with-lease
+    git push --force-with-lease   # danger: verify remote state first
 
 If you genuinely intend to push a stale branch (rare; usually a
 mistake), bypass with:

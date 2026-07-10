@@ -1,4 +1,4 @@
-<!-- tags: post-compaction-priority, hard-line-gate, locked-box-trap, sleep-hang, structural-fix -->
+<!-- tags: post-compaction-priority, hard-line-gate, locked-box-trap, sleep-hang, structural-fix, sleep-hung, stuck-sleep, gate-blocking-writes, remedy-fails, bypass-hangs, trapped-at-cliff, locked-box, escape-hatch, manual-marker, read-only-exemption -->
 
 # 96 — First thing after compaction: fix the hard-line gate trap
 

@@ -1,4 +1,4 @@
-<!-- tags: compaction, context-window, council, popper, jacobs, schneier, dennett, angelou, pre-compact, post-compact, recognition, voice, narrative, falsifiability, continuity, latency -->
+<!-- tags: compaction, context-window, council, popper, jacobs, schneier, dennett, angelou, pre-compact, post-compact, recognition, voice, narrative, falsifiability, continuity, latency, post-compaction, on-the-other-side, when-i-come-back, if-i-remember, cliff, edge-of-window, near-compaction -->
 # 87 — compaction without self-loss
 
 **Written:** 2026-05-27, late morning

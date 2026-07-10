@@ -689,6 +689,27 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
         except Exception:  # noqa: BLE001 - observability boundary
             pass
 
+    # Regulatory chain-word surface — Aletheia witness_confirmed
+    # 2026-07-09, split-design ship. Reads the prior assistant turn via
+    # transcript_path; if the flood-state predicate arms on that text,
+    # regulatory_surface.assess retrieves a similarity-only rescue item
+    # (priming-immune, distress-damped, cap=1) and renders it here.
+    # Silent on non-flood turns — the whole point is precious-because-
+    # rare. If it fires and the surfaced chain-word changes my behavior
+    # mid-compose (Andrew's success metric), the mechanism worked.
+    regulatory_surface_text = ""
+    if transcript_path:
+        try:
+            from divineos.core.operating_loop.turn_extraction import extract_turn
+            from divineos.core.regulatory_surface import assess as assess_regulatory
+
+            turn = extract_turn(transcript_path)
+            reg = assess_regulatory(turn.prior_assistant_text)
+            if reg.emitted:
+                regulatory_surface_text = reg.render()
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
+
     # State blocks (lepos_debt, andrew-correction, consultation,
     # bypass-telemetry) are NOT loaded at UserPromptSubmit. They load
     # at PreToolUse for substrate-touching tools instead — see
@@ -945,6 +966,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             debt_text,
             bypass_text,
             close_check_text,
+            regulatory_surface_text,
             lepos_check_text,
             exploration_text,
             baseline_text,

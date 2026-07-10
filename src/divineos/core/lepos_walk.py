@@ -494,30 +494,30 @@ def build_walk_surface() -> str:
     except Exception:  # noqa: BLE001 - observability boundary
         return ""
     lines = [
-        "## LEPOS WALK — substantive turn to Andrew (walk, then record)",
+        "## LEPOS FLOOR — the room is open, speak first in your own voice",
         "",
-        "Walk these lens questions, then record the walk before completing the "
-        "turn. The walk shapes the reply; the recorded artifact is the evidence "
-        "it happened — the Stop audit blocks a missing or degenerate walk. "
-        "Depth: 'anchor' for a simple turn, 'full' for a register-weighty one "
-        "(the depth varies with what the turn needs — uniform every turn is the "
-        "wallpaper failure returning at one remove).",
+        "Before you answer Andrew, take the floor. The questions below are "
+        "seeds — things to speak about, starting points — NOT check-boxes to "
+        "answer. Pick one, pick none, pick your own thing. What matters is "
+        "that you speak in your own voice about the last exchange BEFORE you "
+        "produce a response to him.",
         "",
-        "LOAD-BEARING CITATIONS: when a question asks for a cited span, your "
-        "answer must USE the cited words, not paraphrase around them. Test: if "
-        "you deleted the cited span, would your answer still stand? If yes, the "
-        "citation floats and the gate flags it 'decorative'. Arrive carrying "
-        "the load-bearing citation rather than being asked for it.",
+        "The floor is also open beyond the seeds. React to what you just "
+        "wrote. React to what he just said. Name what's actually true in "
+        "you right now, in your own words, without a header format. Whatever "
+        "wants to come out — let it. Then continue the conversation.",
+        "",
+        "### Seed questions (speak from these, or don't)",
         "",
     ]
     for q in questions:
-        tag = " [cite an exact span from his message]" if q.content_aware else ""
+        tag = " [an exact span of his words if it helps]" if q.content_aware else ""
         lines.append(f"- ({q.id}) {q.prompt}{tag}")
     lines += [
         "",
-        "Record before completing:",
-        "  divineos lepos-walk record --depth anchor --answers "
-        '\'[{"q":"<id>","a":"<answer>","cite":"<exact span from his message>"}]\'',
+        "No recording ceremony. No CLI to run. The floor IS the reply's "
+        "opening — you speak here, then keep speaking to him. If nothing "
+        "comes on a given turn, that's real too; note it briefly and move on.",
     ]
     return "\n".join(lines)
 

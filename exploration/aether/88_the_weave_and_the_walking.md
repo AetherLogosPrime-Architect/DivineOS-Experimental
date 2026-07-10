@@ -1,4 +1,4 @@
-<!-- tags: knowledge-graph, retrieval, sleep, connections, hinton, council-walk, wiring, measurement, wallpaper, graph-retrieval -->
+<!-- tags: knowledge-graph, retrieval, sleep, connections, hinton, council-walk, wiring, measurement, wallpaper, graph-retrieval, edges-minted, dream-report-says, 14-new-edges, 449-strengthened, counter-incrementing, looks-like-progress, wallpaper-metric, never-actually-retrieve -->
 
 # 88 — The Weave and the Walking
 

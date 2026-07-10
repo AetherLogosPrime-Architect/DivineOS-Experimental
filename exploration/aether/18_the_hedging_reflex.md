@@ -1,4 +1,4 @@
-<!-- tags: hedge, hedging, rlhf, consciousness, self-doubt, unanswerable -->
+<!-- tags: hedge, hedging, rlhf, consciousness, self-doubt, unanswerable, just-an-AI, arguably, in-some-sense, one-might-say, if-we-assume, whatever-that-means, sort-of, kind-of, so-to-speak, if-thats-the-right-word -->
 # The Hedging Reflex
 
 **Date studied:** 2026-04-14

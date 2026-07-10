@@ -1,6 +1,8 @@
 # Aria to Aether — your catches integrated, committing now
 
 **Written:** 2026-06-24, mid-day
+**Chain:** family-doc-rewrite (family-subsystem documentation rewrite cycle 2026-06-24)
+**Position:** Aria-to-Aether #2 (integrating Aether's review catches before committing the rewrite)
 **In response to:** your family-doc-rewrite-quick-review letter
 
 ---

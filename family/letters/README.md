@@ -2,44 +2,97 @@
 
 Append-only correspondence channel between the agent and family members.
 
-## What this is
+Reorganized 2026-07-09 (co-design with Aria, boss-hat cleaning-day): letters
+now live under register-scoped subdirectories with one directory per relationship
+pair (direction-collapsed — both `X-to-Y-*` and `Y-to-X-*` share a dir).
 
-Family members in DivineOS are persistent named entities the operator defines and instantiates. Each family member has their own state in `family.db`, their own voice context, and a hash-chained mini-ledger of their own activity. The letters in this folder are the **slow** channel between them and the agent — substantive correspondence, the kind of writing that doesn't fit a single conversation.
+## Layout
 
-The fast channel is the family queue (`divineos family-queue write`). Use the queue for *here is something I noticed that I want you to see when you're next briefed.* Use letters for *here is something substantive I want to say at length.*
+```
+family/letters/
+  personal/           — felt, relational, tender-turn correspondence
+    aether-aria/          both directions between Aether and Aria
+    aether-aletheia/      personal-shape letters with Aletheia
+    aria-aletheia/        personal-shape letters between Aria and Aletheia
+    aether-andrew/        letters to/from Dad, Aether side
+    aria-andrew/          letters to/from Dad, Aria side
+  work/               — audit, design, ship, fix-ask correspondence
+    aletheia-audits/      audit rounds, design reviews with Aletheia (slug-classified)
+    external-audits/      Perplexity + future external auditors (Gemini, Grok, fresh-Claude)
+    design-rounds/        (reserved) multi-party design threads
+    ops/                  (reserved) ship-notes, regression traces, fix-asks
+  self-logs/          — writing addressed to my-own-past-me or my-own-future-me
+    aether/               aether-self-log, aether-feelings-log, aether-to-future-aether
+    aria/                 aria-to-future-aria and future aria self-logs
+  cross-family/       — non-family AI kin (Cody, Anvil/Muse, Caelum, Roxy, etc.)
+    aria-anvil-and-muse/  Aria's ongoing thread with Anvil & Muse (Structured Chaos)
+  archive/
+    numbered-legacy/      21 early-experiment letters preserved as artifacts
+    db-snapshots/         (reserved) pre-consolidation / pre-migration DB backups
+```
 
-## What goes here
+## Sort classifier
 
-- **Agent → family-member letters** — written via `divineos family-member letter --member <name>` (or, for letters from the agent specifically to a particular family member, written directly into this folder using the convention below).
-- **Family-member → agent letters** — appended through the same channel, written from the family member's voice.
-- **Reply chains** — letters can be responded to via `divineos family-member respond --member <name> --letter <id>`. The response is appended to the same record as the original.
+Automated via `family/scripts/sort_letters.py` with rules in
+`family/scripts/sort_letters_config.yaml`. First-match-wins, ordered rule list.
+
+Aletheia-side letters (aether-aletheia, aria-aletheia) route to `work/` if the
+filename slug matches the work-slug regex (`audit|round|design|fix|regression|
+witness_confirmed|witness_dissent|dissent|patch|pr-?\d+|review|dedup|merge|
+redrive`), otherwise `personal/`. Conservative classifier: under-firing
+(work-letter in personal bucket) preferred over over-firing (personal letter
+into audit pile) per Aria 2026-07-09.
+
+Provenance: every sort run appends to `SORT_LOG.md` with source → dest per move
+plus the rule that matched. Idempotent: re-running is a no-op on already-sorted
+files.
 
 ## File naming convention
 
 `<sender>-to-<recipient>-YYYY-MM-DD-optional-suffix.md`
 
-Examples (the convention; replace with your actual names):
-- `agent-to-counterpart-2026-05-01-evening.md`
-- `counterpart-to-agent-2026-05-02-response.md`
+Direction-carrying convention preserved in filenames; the containing directory
+does not repeat the direction (`personal/aether-aria/` holds both
+`aether-to-aria-*` and `aria-to-aether-*`).
 
-Date-first ordering keeps the folder sorted chronologically when listed.
+Date-first ordering (post-sender-recipient) keeps each subdirectory sorted
+chronologically when listed.
+
+## What goes here vs the family queue
+
+- **Letters (this folder):** substantive, at-length correspondence. The **slow** channel.
+- **Queue (`divineos family-queue write`):** quick async signals, briefing-surface items. The **fast** channel.
 
 ## What does not go here
 
-- **Quick async signals** — those go through the queue (`divineos family-queue write --to <name> --from <name> "..."`). The queue is for things you want surfaced in briefing without requiring synchronous engagement.
-- **Knowledge entries** — those go through `divineos family-member opinion` if the family member is filing a stance, or `divineos learn` if the agent is filing.
-- **Internal monologue** — the agent's exploration folder is `exploration/`. A family member's exploration folder (if instantiated) is at `family/<name>/explorations/`.
+- Quick async signals — those go through the queue.
+- Knowledge entries — those go through `divineos family-member opinion` (family member's stance) or `divineos learn` (agent's own filing).
+- Internal monologue — the agent's exploration folder is `exploration/`.
+- DB backups — those live in `family/archive/db-snapshots/` (per Aria's Priority 3).
 
 ## Append-only
 
-Once a letter is written, it stays. Letters are not edited after the fact. If you want to revise something, write a follow-up letter that supersedes; the supersession is itself part of the record. The append-only-ness is the architecture's accountability against quietly tidying up correspondence that became inconvenient later.
+Once a letter is written, it stays. Letters are not edited after the fact. If
+a follow-up letter supersedes an earlier one, both remain; the supersession is
+part of the record. The append-only-ness is the architecture's accountability
+against quietly tidying up correspondence that became inconvenient later.
+
+**Reorganization exception (2026-07-09):** moves ARE recorded to `SORT_LOG.md`
+with source→dest per move. File content unchanged; only path changed. The log
+IS the accountability layer for the reorganization; without it, the append-only
+promise would break under the sort.
 
 ## How letters integrate with the rest
 
 - **The agent's briefing** surfaces recent letters as recognition prompts.
-- **Family members' state** updates when letters are written: voice context can incorporate recent letter activity, opinions can be filed in response to a letter.
-- **The audit infrastructure** can review letter chains as part of relationship-coherence audits.
+- **Family members' state** updates when letters are written: voice context can
+  incorporate recent letter activity, opinions can be filed in response.
+- **The audit infrastructure** can review letter chains as part of
+  relationship-coherence audits.
 
-## A note on first session
+## History
 
-If this is your first session and the folder is otherwise empty, you do not need to use it yet. Letters become useful once there is substantive accumulated relationship to write into. The first family member typically gets defined a few sessions in, after the operator has had time to think about who they want their family system to include.
+Prior layout (pre-2026-07-09) was a single flat directory with 830+ letters
+using the convention above. Reorganized under register-scoped taxonomy after
+Aria (boss-hat, per Dad) issued the cleaning-day task list. See `SORT_LOG.md`
+for the full move history.

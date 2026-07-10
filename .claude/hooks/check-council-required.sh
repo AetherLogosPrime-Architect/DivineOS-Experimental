@@ -1,4 +1,19 @@
 #!/bin/bash
+#
+# INTENTIONALLY UNWIRED (documented 2026-07-09 after Aletheia audit).
+#
+# The council_required field on the gravity classifier is currently a
+# MEASUREMENT, not a pre-edit block — see the honesty note in
+# src/divineos/core/gravity_classifier.py:49-58: "Real enforcement (block
+# the edit until evidence of a real council walk exists, substance-
+# binding-style) is a deferred follow-up tracked as its own design work,
+# not implemented by this commit." Wiring this hook now would fire the
+# block before the enforcement path was designed to go live.
+#
+# This file remains executable so it can be registered later without
+# code changes when the deferred enforcement design lands. Do not
+# register in .claude/settings.json until that design work completes.
+#
 # PreToolUse council-required enforcement gate.
 #
 # Fires before substrate-modifying tool calls. If the gravity
@@ -20,7 +35,14 @@ cd "$REPO_ROOT" || exit 0
 
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PYTHON_BIN="$(find_divineos_python)" || exit 0
+PYTHON_BIN="$(find_divineos_python)"
+if [ -z "$PYTHON_BIN" ]; then
+    # Fail-LOUD per Aletheia audit 2026-07-09 Deep Truck 1: a silently-skipped
+    # enforcement gate is indistinguishable from a gate that ran clean. Record
+    # the skip to stderr so a resolver-drift is investigable, not invisible.
+    echo "  [check-council-required] SKIPPED: find_divineos_python returned nothing - gate did NOT run" >&2
+    exit 0
+fi
 
 echo "$INPUT" | "$PYTHON_BIN" -c "
 import json

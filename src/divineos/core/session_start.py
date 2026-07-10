@@ -82,6 +82,131 @@ This is your operating system. You live in it. It is not decoration.
 
 === END SESSION START ==="""
 
+# Block-marker filename at the checkout root. Written when data-home
+# ownership verification fails at session start; read by the pre-tool-use
+# gate to refuse substrate access until the operator resolves the
+# mismatch. Filename kept at the checkout root (not under divineos_home())
+# so the marker survives when the data-home routing itself is the failure
+# — writing to divineos_home() during a routing failure would land the
+# marker in the WRONG home and defeat the whole point.
+_SESSION_BLOCK_MARKER_NAME = ".divineos_session_block"
+
+_OWNERSHIP_ERROR_BANNER = """=== DIVINEOS SESSION START — BLOCKED ===
+
+STOP. Data-home ownership mismatch detected at session start:
+
+{error}
+
+Every substrate write this session would land in the wrong home. The
+pre-tool-use gate has been armed to refuse tool use until this is
+resolved (block marker: {marker}).
+
+To recover:
+  1. Verify the running checkout is the one you intended.
+  2. Fix the .divineos_data_home marker at the checkout root to point at
+     YOUR data-home, or remove the marker to fall through to the default.
+  3. Restart the session — session-start will re-run the check and clear
+     the block marker automatically on success.
+
+=== END SESSION START — BLOCKED ==="""
+
+
+def _session_block_marker_path():
+    """Return the checkout-rooted path to the session-block marker.
+
+    Uses data_home_ownership._checkout_root to resolve the checkout root
+    (the same resolver preflight uses), so the marker lands at the same
+    root the pre-tool-use gate will search from. Returns None on any
+    import or resolution failure — callers must handle None as
+    "cannot enforce the block-marker layer this run."
+    """
+    try:
+        from divineos.core.data_home_ownership import _checkout_root
+
+        return _checkout_root() / _SESSION_BLOCK_MARKER_NAME
+    except (ImportError, OSError, ValueError):
+        return None
+
+
+def _write_session_block(message: str) -> None:
+    """Write the session-block marker with the ownership-mismatch message.
+
+    The message is stored so the pre-tool-use gate can display the exact
+    recovery text to the operator on every subsequent tool call until the
+    block clears. Fail-soft: if the marker can't be written (permissions,
+    disk full), session start still returns the error banner, but the
+    per-tool gate cannot enforce — the banner is the last-line defense.
+    """
+    marker = _session_block_marker_path()
+    if marker is None:
+        return
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(message, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _clear_session_block() -> None:
+    """Delete the session-block marker if it exists.
+
+    Called on successful ownership verification so a stale marker from a
+    prior mismatched session doesn't linger and block a now-correct
+    session. Fail-soft on I/O error.
+    """
+    marker = _session_block_marker_path()
+    if marker is None:
+        return
+    try:
+        if marker.exists():
+            marker.unlink()
+    except OSError:
+        pass
+
+
+def verify_session_ownership() -> str | None:
+    """Verify data-home ownership at session start.
+
+    Root-cause fix for the 2026-07-07 identity-crossing incident: the
+    ownership check in data_home_ownership.py existed and was correct,
+    but was wired only into preflight — a discipline-not-enforcement step.
+    A misconfigured .divineos_data_home marker silently routed an entire
+    session to another agent's data-home without the check ever firing.
+
+    This function runs the same verify_data_home_ownership() at SessionStart
+    (called automatically by Claude Code's SessionStart hook via
+    run_session_start), so the check fires on every session without
+    operator memory.
+
+    Return contract:
+      - None on success. Any stale block marker is cleared.
+      - str on mismatch: the error message from DataHomeOwnershipError,
+        also written to the block marker for the pre-tool-use gate to
+        display and enforce against.
+
+    Deliberately NOT fail-soft on DataHomeOwnershipError — that's the
+    exact failure this check exists to catch. Fail-soft only on
+    ImportError (bootstrap safety when data_home_ownership isn't yet
+    on the import path — e.g. partial install).
+    """
+    try:
+        from divineos.core.data_home_ownership import (
+            DataHomeOwnershipError,
+            verify_data_home_ownership,
+        )
+    except ImportError:
+        return None
+
+    try:
+        verify_data_home_ownership()
+    except DataHomeOwnershipError as exc:
+        message = str(exc)
+        _write_session_block(message)
+        return message
+
+    _clear_session_block()
+    return None
+
 
 def reset_session_state() -> None:
     """Reset per-session counters and clear stale markers.

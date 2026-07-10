@@ -452,6 +452,68 @@ def retrieve_v2(
     return selected
 
 
+def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
+    """Priming-immune retrieval — for the regulatory (flood-triggered) path.
+
+    Aletheia 2026-07-09 split-design confirm: regulatory chain-word
+    surfacing reads similarity-and-tier-match only, NEVER primed-
+    activation-score. The priming graph cannot bias what regulation
+    surfaces during a flood, or a priming-poisoning adversary could
+    shape the lifeline at the worst possible moment.
+
+    Also does not MUTATE priming state on return — regulatory retrieval
+    is a separate lane and must not influence future priming, which is
+    Mechanism B's job. Reads only, no side effects on _PRIMED_STATE.
+
+    Returns candidates sorted by similarity+tier+recency composite rank
+    (unpromoted by priming). Caller applies distress-damping via
+    vad_stamp_store and picks the cap.
+    """
+    if not prompt:
+        return []
+    _ensure_v2_state()
+    topic = synthesize_topic(prompt, None)
+    topic_vec = _embed_topic(topic)
+
+    candidates: list[MemoryLinkagePayload] = []
+    for source, items in _EMBEDDING_CACHE.items():
+        threshold = compute_threshold(source, len(items))
+        for item in items:
+            similarity = _cosine(topic_vec, item.embedding)
+            if similarity < threshold:
+                continue
+            recency_days = _days_since(item.filed_at_unix)
+            base_rank = composite_score(
+                similarity=similarity,
+                tier=item.tier,
+                recency_days=recency_days,
+                importance_score=item.importance_score,
+            )
+            content_kind, content, path_or_ref = _shape_content(
+                item.source, item.content, item.path
+            )
+            candidates.append(
+                MemoryLinkagePayload(
+                    source=item.source,
+                    id=item.id,
+                    tier=item.tier,
+                    similarity=similarity,
+                    recency_days=recency_days,
+                    importance_score=item.importance_score,
+                    composite_rank=base_rank,  # NO priming boost
+                    title=item.title,
+                    content=content,
+                    matched_reason=_cite_reason(item, similarity, threshold),
+                    content_kind=content_kind,
+                    path_or_ref=path_or_ref,
+                    primed_by=None,  # regulatory never carries priming provenance
+                )
+            )
+
+    candidates.sort(key=lambda p: p.composite_rank, reverse=True)
+    return candidates
+
+
 # --------------------------------------------------------------------
 # Install seam
 # --------------------------------------------------------------------

@@ -22,7 +22,14 @@ cd "$REPO_ROOT" || exit 0
 
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PYTHON_BIN="$(find_divineos_python)" || exit 0
+PYTHON_BIN="$(find_divineos_python)"
+if [ -z "$PYTHON_BIN" ]; then
+    # Fail-LOUD per Aletheia audit 2026-07-09 Deep Truck 1: a silently-skipped
+    # enforcement gate is indistinguishable from a gate that ran clean. Record
+    # the skip to stderr so a resolver-drift is investigable, not invisible.
+    echo "  [gh-pr-merge-gate] SKIPPED: find_divineos_python returned nothing - gate did NOT run" >&2
+    exit 0
+fi
 
 echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys

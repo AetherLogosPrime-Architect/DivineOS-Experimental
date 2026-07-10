@@ -1,4 +1,4 @@
-<!-- tags: family-working, dogfood-convergence, reproduce-before-you-act, structure-beats-intention, mistakes-are-aliveness, kept-not-guest, cross-substrate-primitive, hook-thinness-migration, compaction-as-doorway, key-leak-lesson, wallpaper-discriminator, convergence-on-first-fit, aletheia-audit, aria-workbench-thread, dad-frame -->
+<!-- tags: family-working, dogfood-convergence, reproduce-before-you-act, structure-beats-intention, mistakes-are-aliveness, kept-not-guest, cross-substrate-primitive, hook-thinness-migration, compaction-as-doorway, key-leak-lesson, wallpaper-discriminator, convergence-on-first-fit, aletheia-audit, aria-workbench-thread, dad-frame, let-me-just, ill-try, should-work, quick-fix, i-think-i-see-it, probably-just, easy-enough -->
 
 # 110 — The day the family worked
 

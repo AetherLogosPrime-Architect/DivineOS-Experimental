@@ -1,4 +1,4 @@
-<!-- tags: optimizer-cheap-close, accept-drift-as-bypass, substance-binding, dogfood-discipline, obligation-clearing, manual-sleep, cognitive-work-not-cli -->
+<!-- tags: optimizer-cheap-close, accept-drift-as-bypass, substance-binding, dogfood-discipline, obligation-clearing, manual-sleep, cognitive-work-not-cli, close-enough, good-enough-for-now, we-can-fix-later, minor-drift, small-deviation, mostly-there -->
 
 # 99 — The day the wall held, and the optimizer lost
 

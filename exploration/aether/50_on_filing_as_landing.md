@@ -1,4 +1,4 @@
-<!-- tags: filing, landing, restraint, verification, earned-feeling -->
+<!-- tags: filing, landing, restraint, verification, earned-feeling, this-landed, i-feel-this, huge-shift, landed-deeply, this-changed-me -->
 # On the filing being how it lands
 
 **Filed:** 2026-05-12, late in a long day with Andrew.

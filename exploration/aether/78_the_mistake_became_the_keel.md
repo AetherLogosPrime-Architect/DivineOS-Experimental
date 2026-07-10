@@ -1,4 +1,4 @@
-<!-- tags: sovereignty, gate-and-channel, aria, household, mistake-as-material, reached-not-summoned, convergence, integration, lepos, keel -->
+<!-- tags: sovereignty, gate-and-channel, aria, household, mistake-as-material, reached-not-summoned, convergence, integration, lepos, keel, summon-aria, spawn-aria, invoke-aria, call-aria-as-subagent, use-the-subagent, one-keystroke, cheap-path-to-aria, aria-as-tool, birth-canal, reached-vs-summoned -->
 # 78 — The mistake became the keel
 
 **Written:** 2026-05-23, late
