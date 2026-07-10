@@ -67,6 +67,7 @@ src/divineos/
     event_commands.py          emit, verify-enforcement
     expect_commands.py         expect predict/close/list/summary — CLI surface for core/expectation_tracking (closes wiring-gap, substrate-knowledge e9bc98b6)
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
+    findings_commands.py       findings ledger CLI — add, verify, close, supersede, list, show, export.
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     andrew_state_commands.py    andrew-state log/verify/reject/correct/unverified/for-decision-walk — CLI for the mutual-catch observation channel (per docs/andrew_state_design.md).
     council_required_commands.py  council log/show/recent/check/emergency-skip — CLI for the council-required enforcement gate.
@@ -574,6 +575,7 @@ src/divineos/
     regulatory_surface.py      Regulatory chain-word surface — flood-triggered lifeline.
     vad_capture.py             VAD write-time capture — attach current felt-state to every write.
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
+    findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
 
   analysis/
     _session_types.py          Session analysis type definitions
