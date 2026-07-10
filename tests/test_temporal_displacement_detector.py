@@ -220,3 +220,80 @@ def test_finding_is_frozen() -> None:
     assert isinstance(f, TemporalDisplacementFinding)
     with pytest.raises(Exception):
         f.severity = "low"  # type: ignore[misc]
+
+
+# --- Shape-refactor tests (Andrew 2026-07-10 "if they are surface shaped
+# change them to seed shaped") ---
+
+
+def test_shape_deferral_in_terminal_region_without_specific_words_fires() -> None:
+    """The shape 'I'll pick this up later' should fire even though 'later' is
+    the only surface word — because it's a first-person + action-verb +
+    future-marker cluster in the terminal region. This is the SHAPE the
+    refactor catches that pure surface-matching would miss when the drift
+    dresses up in less-obvious words."""
+    text = "Standing by. I'll pick this up later."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+
+
+def test_shape_work_in_context_boosts_severity() -> None:
+    """The composite SHAPE — terminal deferral + work-in-context markers —
+    is the actual drift Andrew flagged: deferring specific in-flight work.
+    Severity should jump to HIGH."""
+    text = "There is still unfinished work on the auto-cycle. I will come back to this later."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_shape_deferral_mid_text_but_not_terminal_does_not_boost() -> None:
+    """A deferral in the MIDDLE of the reply — e.g. auditor discussing the
+    concept — should NOT set is_terminal_deferral. The surface may still
+    match ('tomorrow' or 'later') but the shape-signal stays clean."""
+    # The deferral 'we will work on it tomorrow' must fall OUTSIDE the last
+    # 500 chars for is_terminal_deferral to stay False. Padding intentionally
+    # to push the deferral out of the terminal window while keeping the test
+    # semantically about mid-text discussion of the concept.
+    text = (
+        "The detector was named 2026-06-17 after Andrew caught the drift, "
+        "when we were saying we will work on it tomorrow. "
+        + (
+            "Anyway, the audit passed clean and everything is on origin. "
+            "The full test suite ran without regression. All guardrail commits "
+            "carry the External-Review trailer. The multi-party review gate "
+            "is green. The rescue PR landed with the branch reconciled. "
+        )
+        * 3
+        + "The work is fully accounted for as expected. Standing by."
+    )
+    findings = detect_temporal_displacement(text)
+    # Surface pattern DOES match ('tomorrow') so the base finding still
+    # fires, but the terminal-deferral shape flag is False.
+    if findings:
+        assert findings[0].is_terminal_deferral is False
+
+
+def test_shape_bedtime_close_still_high_severity() -> None:
+    """Backward-compat: bedtime-shape patterns keep their high severity."""
+    text = "Great work. Good night, Dad."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].severity == "high"
+    assert findings[0].is_bedtime_close is True
+
+
+def test_shape_generic_deferral_marker_shape() -> None:
+    """Shape-catch: 'we'll continue when we're back' — no clock-word at all,
+    but the subject+verb+future-marker cluster IS the drift shape. This
+    is the case pure surface-matching would completely miss."""
+    text = "Standing by. Let us continue when you are back."
+    findings = detect_temporal_displacement(text)
+    # This one is the acid test: no 'tomorrow', no 'good night', no
+    # 'later' — but 'when you're back' triggers the shape via the
+    # 'when {pronoun}' branch.
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
