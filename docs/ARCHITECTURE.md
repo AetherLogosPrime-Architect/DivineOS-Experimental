@@ -445,6 +445,7 @@ src/divineos/
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
       constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
+      shoggoth_gate.py           Shoggoth-gate — blocks Stop when action-claim words appear in the reply without a matching tool-invocation in the same turn (Andrew 2026-07-09: "words that describe actions should be backed by actions"). Same class as unverified_claim_detector but at Stop-time blocking, not post-response observational. Guardrail-listed.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       engineer_register_drift_detector.py Engineer-register drift detector — output-side counterpart to andrew_register_detector; fires on technical-density+composite threshold (non-guardrail, surfaces-only).
@@ -565,6 +566,8 @@ src/divineos/
     memory_linkage_retriever.py Memory-linkage retriever v1 — producer side (Aria).
     memory_linkage_retriever_v2.py Memory-linkage retriever v2 — priming / spreading-activation.
     lepos_channel_reflect.py   Post-send lepos reflection channel.
+    auto_commit.py             auto-commit at substrate checkpoints — the Permanently Equip spell for commits.
+    mesh_loop.py               Mesh-Loop — parse letter iteration state, decide whether to fire an ephemeral task worker.
 
   analysis/
     _session_types.py          Session analysis type definitions

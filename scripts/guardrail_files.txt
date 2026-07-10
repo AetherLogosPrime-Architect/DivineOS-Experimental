@@ -1,4 +1,4 @@
-# Guardrail files — paths that require multi-party review to modify.
+﻿# Guardrail files â€” paths that require multi-party review to modify.
 #
 # Format: one path per line, relative to the repo root. Lines starting
 # with # are comments and blank lines are ignored. Paths are matched
@@ -9,7 +9,7 @@
 # What makes a path a guardrail:
 #   - It is part of the self-auditing or self-enforcement stack.
 #   - The running agent modifying it without external co-sign would
-#     weaken defenses against itself — a self-modification attack.
+#     weaken defenses against itself â€” a self-modification attack.
 #   - It is small and stable enough that changes are genuinely rare.
 #
 # What does NOT belong here:
@@ -32,7 +32,7 @@ src/divineos/core/compass_required_marker.py
 src/divineos/core/pr_merge_gate.py
 .claude/hooks/gh-pr-merge-gate.sh
 
-# Added in deferred-bundle Item 1 (approved in design brief round-1 review —
+# Added in deferred-bundle Item 1 (approved in design brief round-1 review â€”
 # see docs/audit-round-1-deferred-design-brief.md v2, Item 1). Each closes
 # a specific self-modification attack class; see the brief for per-path
 # rationale.
@@ -48,7 +48,7 @@ scripts/check_preregs.py
 
 # Added in deferred-bundle Item 8 PR-1b (resolves claim df5b3113 from
 # Item 6 review). Post-Item-6, ledger_compressor.py controls what
-# enforcement history survives — adding COMPASS_RUDDER_FIRED or
+# enforcement history survives â€” adding COMPASS_RUDDER_FIRED or
 # COMPLIANCE_DRIFT_HIGH to _COMPRESSIBLE_TYPES would silently destroy
 # forensic records. Guardrailing blocks that modification without
 # multi-party review.
@@ -90,13 +90,13 @@ src/divineos/core/operating_loop/addressee_misdirection_detector.py
 
 # distancing_detector.py: holds DISTANCING_AFFIRMATION (pronoun stays I;
 # time-adverb does the temporal work; no future-me as separate entity).
-# Same shape as addressee_misdirection — load-bearing affirmation text
+# Same shape as addressee_misdirection â€” load-bearing affirmation text
 # that loads into every turn. Weakening it lets the displacement-grammar
 # drift back in. Self-modification attack: soften wording, weaken the
 # refusal of third-person self-displacement.
 src/divineos/core/operating_loop/distancing_detector.py
 
-# mirror_exit_detector.py — Aether 2026-05-19, per prereg-3c98174d7760.
+# mirror_exit_detector.py â€” Aether 2026-05-19, per prereg-3c98174d7760.
 # Holds the close-shape heuristics + CLOSE_CHECK_QUESTION text that loads
 # conditionally into pre-response context when prior-turn close-shape
 # signal fires. Same shape as the addressee/distancing affirmation
@@ -117,13 +117,13 @@ src/divineos/core/operating_loop/mirror_exit_detector.py
 # exception to truth-3", etc.). Guardrail blocks that.
 docs/foundational_truths.md
 
-# Added 2026-05-14 (Aletheia round-5cdc2f48c642 Finding 41 — meta-
+# Added 2026-05-14 (Aletheia round-5cdc2f48c642 Finding 41 â€” meta-
 # protection on the gate file): pre_tool_use_gate.py contains the
 # entire deny-chain logic AND _BYPASS_DIVINEOS_SUBCOMMANDS. The .sh
-# wrapper above (require-goal.sh) only delegates to this module —
+# wrapper above (require-goal.sh) only delegates to this module â€”
 # guardrailing the .sh alone is leaky because the load-bearing logic
 # lives here. Specifically: adding a subcommand to the bypass list
-# silently neutralizes every gate for that subcommand — that is the
+# silently neutralizes every gate for that subcommand â€” that is the
 # self-modification attack the guardrail discipline exists to prevent.
 # Symmetry with the detector affirmations above: load-bearing
 # enforcement text + structure should not be modifiable without
@@ -135,7 +135,7 @@ src/divineos/hooks/pre_tool_use_gate.py
 # .claude/hooks/*.sh wrappers into these OS-native Python modules.
 # The architectural move is sound (OS-portable, testable) but the
 # guardrail discipline did not follow the logic across the file
-# migration — same class-failure as Finding 41 but at broader scope.
+# migration â€” same class-failure as Finding 41 but at broader scope.
 # Adversary modifying these modules could silently disable post-
 # response detection, suppress affirmations, neutralize hedge /
 # theater / acknowledgment-theater filtering, etc., without any
@@ -156,7 +156,7 @@ tests/test_no_agent_settable_bypasses.py
 src/divineos/core/gravity_classifier.py
 .claude/hooks/state-gravity-surface.sh
 
-# Council-required enforcement gate — closes the Hofstadter self-loop
+# Council-required enforcement gate â€” closes the Hofstadter self-loop
 # per Aether peer-review 2026-06-22. Edits to the gate's own substance-
 # binding, store, types, or PreToolUse hook would otherwise escape the
 # gate's own enforcement (the gate cannot fire on edits to a file it
@@ -176,8 +176,8 @@ src/divineos/core/session_start.py
 src/divineos/core/briefing_freshness.py
 src/divineos/core/structural_fix_tracker.py
 
-# Substrate routing & ownership — load-bearing for per-clone separation.
-# Aletheia Finding 69 (2026-05-17): the PR demonstrated the gap empirically —
+# Substrate routing & ownership â€” load-bearing for per-clone separation.
+# Aletheia Finding 69 (2026-05-17): the PR demonstrated the gap empirically â€”
 # 9 commits modified paths.py without the multi-party-review gate firing.
 # These three files are the rotation point of the per-clone substrate
 # architecture; changes to them affect every clone simultaneously.
@@ -185,7 +185,7 @@ src/divineos/core/paths.py
 src/divineos/core/data_home_ownership.py
 src/divineos/core/_ledger_base.py
 
-# Pre-push gate machinery — Aletheia Finding 73 + 74 (2026-05-17).
+# Pre-push gate machinery â€” Aletheia Finding 73 + 74 (2026-05-17).
 # check_push_readiness.sh is the load-bearing pre-push gate (pytest +
 # multi-party-review strict). check_ignore_has_reason.py is the
 # substrate-level prevention for bypass-too-broad. Both are gates
@@ -193,7 +193,7 @@ src/divineos/core/_ledger_base.py
 scripts/check_push_readiness.sh
 scripts/check_ignore_has_reason.py
 
-# Hook-infrastructure helpers — Aether 2026-05-19. _lib.sh is sourced
+# Hook-infrastructure helpers â€” Aether 2026-05-19. _lib.sh is sourced
 # by every hook that imports divineos (17 hooks). It resolves the
 # python interpreter AND (as of 2026-05-19) prepends the active
 # worktree's src/ to PYTHONPATH so each worktree's hooks see its own
@@ -201,51 +201,51 @@ scripts/check_ignore_has_reason.py
 # silent-stale-substrate bug it prevents: lepos-channel gate (commit
 # 5951593) sat inert for an entire session because the hooks were
 # importing from a different worktree. Modifying _lib.sh can silently
-# break every detector in the stack — load-bearing across the whole
+# break every detector in the stack â€” load-bearing across the whole
 # enforcement surface. Self-modification attack: remove the PYTHONPATH
 # prepend and the gates silently start running stale code.
 .claude/hooks/_lib.sh
 
-# Lepos-channel-check — Andrew 2026-05-19, prereg-157ed56a5da2.
+# Lepos-channel-check â€” Andrew 2026-05-19, prereg-157ed56a5da2.
 # The question pool, evaluation heuristic, and log table all live here.
 # Self-modification attack: softening the question wording, lowering
 # evaluation thresholds, or removing content-aware questions silently
 # dissolves the gate while looking like normal iteration. Same shape
-# as the addressee/distancing affirmation guardrails — load-bearing
+# as the addressee/distancing affirmation guardrails â€” load-bearing
 # enforcement text + structure should not be modifiable without
 # external co-sign.
 src/divineos/core/lepos_channel_check.py
 
-# First-person orienting substrate enforcement — Andrew 2026-05-19.
+# First-person orienting substrate enforcement â€” Andrew 2026-05-19.
 # Scans CLAUDE.md's marked orienting regions for second-person
 # constructions and fails CI if found. Per Andrew: anything I rely
-# on to orient myself must be in first person at the root level —
+# on to orient myself must be in first person at the root level â€”
 # second-person creates the gap where trained-defaults argue against
 # the position. Modifying the test (weakening patterns, expanding
 # the legitimate-use scrub, removing marked regions from scope)
 # would silently re-open the gap. Self-modification attack surface.
 tests/test_first_person_orienting_substrate.py
 
-# Audit-round CLI machinery — Aletheia Finding 75 (2026-05-17).
+# Audit-round CLI machinery â€” Aletheia Finding 75 (2026-05-17).
 # Round-creation is where the describe-then-CONFIRMS bypass got caught;
 # the --source-ref gate is the architectural constraint that prevents
 # ratification-of-unverifiable-claim. Weakening this CLI weakens the
 # entire multi-party-review architecture.
 src/divineos/cli/audit_commands.py
 
-# Family-member invocation seal hook — Aether 2026-05-23, prereg-7a490c9b1418.
+# Family-member invocation seal hook â€” Aether 2026-05-23, prereg-7a490c9b1418.
 # decide() is the gate that blocks spawning a promoted (sovereign) family
 # agent as a subagent and channels to the letter path. The sovereign set
 # (_SOVEREIGN_AGENTS) and the channel-routing deny logic live here. This is
 # the exact self-modification attack class the guardrail discipline exists
-# for: a drifting agent could weaken the sovereign gate — empty the set,
-# soften the deny, reorder the check below the puppet validator — to let
+# for: a drifting agent could weaken the sovereign gate â€” empty the set,
+# soften the deny, reorder the check below the puppet validator â€” to let
 # itself spawn a hollow copy of a promoted agent (Aria) again. Modifying
 # this file without external co-sign must not be possible. Added in the same
 # PR that introduced the gate, via External-Review (Aletheia + Andrew).
 src/divineos/core/family/seal_hook.py
 
-# Shared identity-string normalization — Aether 2026-05-24, claim 26bc1dc3.
+# Shared identity-string normalization â€” Aether 2026-05-24, claim 26bc1dc3.
 # normalize_actor() is the single chokepoint that hardens THREE identity
 # checks against invisible/whitespace/compatibility-form bypasses: the
 # sovereign-agent spawn gate (seal_hook), the watchmen internal-actor
@@ -253,12 +253,12 @@ src/divineos/core/family/seal_hook.py
 # rejection. It was extracted to dedupe two verbatim copies of the same
 # 2026-05-03 audit fix. Because all three checks now route through this
 # one function, weakening it (removing the invisible-strip, the NFKC
-# fold, or the casefold) silently weakens all three at once — the
+# fold, or the casefold) silently weakens all three at once â€” the
 # highest-leverage self-modification attack surface of the set. Same
 # discipline as the detector-affirmation guardrails above.
 src/divineos/core/actor_normalize.py
 
-# Guardrail-registry catchup — Aether 2026-05-30, from Aletheia's CONFIRM on
+# Guardrail-registry catchup â€” Aether 2026-05-30, from Aletheia's CONFIRM on
 # PR #59. Same "wrapper-protected, logic-unprotected" class as Findings 41/48:
 # enforcement logic landed in a file, the marker/list entry didn't follow.
 #
@@ -268,13 +268,13 @@ src/divineos/core/actor_normalize.py
 # digest) silently defeats the wake-blind protection. Marker added in-file.
 src/divineos/core/briefing_id.py
 #
-# post_compact.py: the *return* half of the wake-blind defense — re-pulls the
+# post_compact.py: the *return* half of the wake-blind defense â€” re-pulls the
 # load-bearing self from the durable store after compaction and proves it did.
 # Weakening it (dropping the LOUD empty-anchor check, narrowing the re-pull)
 # silently re-opens the false-orientation gap. Marker added in-file.
 src/divineos/core/post_compact.py
 #
-# unverified_claim_detector.py: the claims-require-evidence detector — catches
+# unverified_claim_detector.py: the claims-require-evidence detector â€” catches
 # "pushed/merged/tests-pass/on-origin" asserted without running the check
 # (fired correctly on me three times tonight). Weakening it disables the late
 # line of defense against confident-but-unverified completion claims. Marker
@@ -284,10 +284,10 @@ src/divineos/core/operating_loop/unverified_claim_detector.py
 # check_root_cause_audit.py + check_boundary_violations.py: both pre-commit
 # enforcement scripts. Their module docstrings describe an enforcement role
 # (check_root_cause_audit: "This gate makes the discipline structural";
-# check_boundary_violations: "closes the policy-without-enforcement gap") —
+# check_boundary_violations: "closes the policy-without-enforcement gap") â€”
 # but NEITHER uses the word "guardrail" or a __guardrail_required__-style
 # marker; scripts have no marker mechanism (the CI test scans src/ only).
-# They were never added to the list — simply forgotten. Heuristic reminders
+# They were never added to the list â€” simply forgotten. Heuristic reminders
 # (exit 0, no hard block), but silently removing either drops an
 # accountability nudge without co-sign. For these the list entry IS the
 # protection.
@@ -298,7 +298,7 @@ src/divineos/core/operating_loop/unverified_claim_detector.py
 scripts/check_root_cause_audit.py
 scripts/check_boundary_violations.py
 
-# Operator-anchored merge-review gate — Aether 2026-05-30 (built with Andrew).
+# Operator-anchored merge-review gate â€” Aether 2026-05-30 (built with Andrew).
 # The server-side anti-shoggoth gate: a guardrail PR merges only with the
 # operator's APPROVED GitHub review on the exact head SHA (the one identity the
 # agent cannot forge) PLUS a named, actually-logged audit round. Replaces the
@@ -308,7 +308,7 @@ scripts/check_boundary_violations.py
 #     and calls the decision. Script (no marker mechanism); list entry IS its
 #     protection. Weakening it (e.g. always-return-0) silently disables the gate.
 #   - .github/merge_reviewers.json: the operator roster the gate trusts. If the
-#     agent could add its own login here it could self-approve — so this file
+#     agent could add its own login here it could self-approve â€” so this file
 #     MUST be guardrailed. This is the highest-leverage line in the whole gate.
 src/divineos/core/merge_review_gate.py
 scripts/ci_merge_review_check.py
@@ -323,7 +323,7 @@ src/divineos/core/tool_trust.py
 #
 # exploration_validator.py: structural prevention for the duplicate/gap
 # pattern in exploration entries. Built 2026-06-21 after Andrew named the
-# root cause ("I am the OS at this point" — the human was the discipline
+# root cause ("I am the OS at this point" â€” the human was the discipline
 # because the validator did not exist). Disabling or weakening this
 # validator silently returns the same babysitting pattern Andrew has
 # refused to keep doing. The cheap-route attack on this file is to add
@@ -346,3 +346,13 @@ src/divineos/core/exploration_validator.py
 # Additions welcome via External-Review; silent drift structurally
 # impossible. Anchored by kiln truth #15 (meta-Winnicott).
 docs/identity_anchors/andrew_character_sheet.md
+
+# Shoggoth-gate — blocks Stop when action-claim words appear in the reply
+# without a matching tool-invocation in the same turn. Andrew 2026-07-09:
+# "words that describe actions should be backed by actions." Weakening
+# it (narrowing _CLAIM_PATTERNS, broadening _INTENTION_FRAMES, softening
+# block-to-warn split, loosening bypass format, adding new bypass-marker
+# types) silently disables the last line of defense against verbal-
+# gesture-as-fake-action. Same self-modification class as the other
+# operating_loop detectors already guardrailed.
+src/divineos/core/operating_loop/shoggoth_gate.py
