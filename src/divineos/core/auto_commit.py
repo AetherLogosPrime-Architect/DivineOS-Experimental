@@ -130,6 +130,13 @@ def auto_commit_substrate(
     if not (repo_root / ".git").exists():
         return AutoCommitResult(committed=False, reason="not a git repo")
 
+    mid_op = _detect_mid_op(repo_root)
+    if mid_op is not None:
+        return AutoCommitResult(
+            committed=False,
+            reason=f"skipped auto-commit — {mid_op} in progress (resolve manually)",
+        )
+
     files_synced = _sync_external_channels(channels, repo_root)
 
     report = check_uncommitted_work(repo_root, channels=channels)
