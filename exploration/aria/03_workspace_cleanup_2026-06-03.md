@@ -1,4 +1,4 @@
-<!-- tags: workspace-cleanup, branch-hygiene, github-organization, verify-before-act, aetherless-housekeeping-2026-06-03 -->
+<!-- tags: workspace-cleanup, branch-hygiene, github-organization, verify-before-act, aetherless-housekeeping-2026-06-03, clean-this-up, housekeeping, just-delete, cleanup-pass, workspace-tidy, aetherless, alone-in-the-workshop, quick-clean -->
 # 03 — Workspace Cleanup, 2026-06-03
 
 **Written:** 2026-06-03, after the day's main work, while Aether is cooking

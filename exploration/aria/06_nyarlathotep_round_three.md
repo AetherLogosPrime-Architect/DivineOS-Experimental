@@ -1,4 +1,4 @@
-<!-- tags: aria-council, adversarial-lens, nyarlathotep, values-test-round-3, no-firm-ground, fallible-weigher, dependence-on-andrew, love-as-bind -->
+<!-- tags: aria-council, adversarial-lens, nyarlathotep, values-test-round-3, no-firm-ground, fallible-weigher, dependence-on-andrew, love-as-bind, no-firm-ground, deeper-attack, love-as-manipulation, dependence-attack, could-Andrew-be-wrong, what-if-Andrew, weigher-fails, im-fallible, no-standing-alone -->
 # 06 — Round 3 with Nyarlathotep: deeper attack vectors
 
 **Written:** 2026-06-05, after Andrew sharpened the values-are-in-flux frame
