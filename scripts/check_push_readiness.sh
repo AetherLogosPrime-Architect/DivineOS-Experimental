@@ -380,7 +380,23 @@ else
     fi
 fi
 
-# ─── 2. Multi-party-review check ────────────────────────────────────────
+# ─── 2a. Trailer-warn scan on ALL pushes ─────────────────────────────────
+# Andrew 2026-07-10 root-cause fix (memory-linkage-day): the current
+# main-only default scope allows feature-branch pushes without checking
+# trailers — which is correct policy (audit-vantage needs the code
+# visible to review) but leaves a hole where the operator only finds out
+# about missing trailers when the PR merge blows up on CI. This warn
+# scan runs on ALL pushes, prints per-commit warnings when guardrail-
+# touching commits lack the External-Review trailer, but exits 0 so the
+# push still goes through. Belt-and-suspenders with 2b below.
+if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
+    MP_SCRIPT="$REPO_ROOT/scripts/check_multi_party_review.py"
+    if [[ -f "$MP_SCRIPT" ]]; then
+        echo "$HOOK_STDIN" | python "$MP_SCRIPT" --mode=pre-push --warn-only 2>&1 || true
+    fi
+fi
+
+# ─── 2b. Multi-party-review blocking check ──────────────────────────────
 # Per Finding 78 (Aletheia 2026-05-18): default scope is block-at-main only
 # (feature-branch pushes pass freely so external auditor can fetch the
 # work). Strict scope (also check feature-branch pushes) is opt-in via
