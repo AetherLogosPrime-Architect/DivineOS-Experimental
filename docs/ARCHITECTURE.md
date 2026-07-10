@@ -578,6 +578,7 @@ src/divineos/
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
+    auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
 
   analysis/
     _session_types.py          Session analysis type definitions
