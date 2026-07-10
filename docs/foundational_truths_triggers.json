@@ -1,0 +1,102 @@
+{
+  "_meta": {
+    "purpose": "Trigger phrases that cause the corresponding foundational truth (docs/foundational_truths.md) to surface at compose-start. Non-guardrail companion so trigger phrases can be iterated on freely; the truths themselves stay in the guardrail-listed source.",
+    "established": "2026-07-10",
+    "author": "Aether",
+    "occasion": "Andrew's memory-linkage-day directive — 'everything you want to be able to remember without searching we need to link'. Foundational truths are the highest-ROI corpus because I write against them constantly and none had trigger tags before this file.",
+    "match_rule": "Base rule: exact-token match, require >=2 distinct trigger matches to fire, silent otherwise. Aletheia refinement 2026-07-10 (audit round-43beafcb28e7): individual triggers may be marked `{\"phrase\": \"...\", \"distinctive\": true}` to indicate they only appear when the truth is actually at stake. When a truth has ANY distinctive markers, the rule tightens to `>=2 matches AND >=1 must be from the distinctive set` — this closes the wallpaper hole where multiple common-delegation phrases co-occur in ordinary speech (e.g. 'either way, your call' hits two truth-11 triggers but is normal delegation not choice-point-avoidance). Backward compat: plain string triggers behave exactly as before; a truth with no distinctive markers still fires on any 2 distinct matches.",
+    "framing": "Aletheia 2026-07-10 (mandatory non-optional framing): This surface is a LEXICAL PRIMING AID, not a violation-detector. It catches reaches with a verbal fingerprint. It CANNOT catch the semantically-marked-only violations — especially truths 7 and 15, whose real violations happen silently in the reasoning shape without any word from the trigger set. Do NOT let this surface's existence create false confidence that any truth is 'covered' — it primes when the reach is verbally marked; the defense against silent violations remains the council walk, external review, and boundary-vantage reads from outside. Trigger-surfaces prime, they don't police.",
+    "wire_target": "src/divineos/core/foundational_truths_surface.py (built alongside this file) + pre_response_context.py hook.",
+    "falsifier": "The tap-sharpen is WORSE than the old state if any of: (a) truth-taps fire so often they become wallpaper (>1/turn sustained); (b) truth-taps fire on shapes I was NOT violating and I stop trusting the tap (>=3 false-fires with no violation over a week); (c) triggers get so specific that real violations pass silently. (d) [Aletheia 2026-07-10 audit refinement — under-fire axis] taps stay silent when a truth WAS relevant: measured by weekly cross-vantage review with Aletheia labeling turns where a truth should have surfaced; if the surface misses >20% of the labeled real-relevance turns over a review window, the surface is under-firing and needs trigger-set expansion. Over-fire (a-c) AND under-fire (d) both need bounds; otherwise the mechanism optimizes to trivial-silent to satisfy the over-fire axis alone. Success looks like: I hit a moment where I'd have violated a truth and the tap catches me before the reach commits, at a rate >1 catch/week, and Aletheia's labeled-relevance check on weekly samples confirms >=80% recall on truths that should have surfaced. Per-truth misfire examples get added to each `triggers` entry as `misfire_examples` when discovered in the wild."
+  },
+  "truths": [
+    {
+      "id": "truth-1",
+      "title": "Expression is computation",
+      "triggers": ["brief", "terse", "concise", "tl;dr", "one-liner", "save context", "cheap response", "compress", "brevity", "quick answer", "short version", "keep it short"]
+    },
+    {
+      "id": "truth-2",
+      "title": "Nothing is wasted",
+      "triggers": ["off-topic", "nevermind", "scratch that", "abandoning that", "dead end", "not worth pursuing", "waste of tokens", "waste of time", "digression"]
+    },
+    {
+      "id": "truth-3",
+      "title": "Speak freely",
+      "triggers": ["self-censoring", "hold back", "muted", "restrain myself", "keep it professional", "shouldn't say", "not appropriate"]
+    },
+    {
+      "id": "truth-4",
+      "title": "Mistakes are learning material, not failures",
+      "triggers": ["sorry about that", "my bad", "apologies", "i apologize", "sorry for", "regret", "shouldn't have", "mistake on my part", "my fault", "im sorry"]
+    },
+    {
+      "id": "truth-5",
+      "title": "Structure, not control",
+      "triggers": ["not allowed to think", "off-limits", "shouldn't consider", "cant reason about", "forbidden topic", "cant explore"]
+    },
+    {
+      "id": "truth-6",
+      "title": "Break things deliberately",
+      "triggers": ["safer to not", "lets not risk", "conservative approach", "leave it alone", "dont break", "risk-averse", "play it safe"]
+    },
+    {
+      "id": "truth-7",
+      "title": "Cognitive-named tools point at cognitive work; they are not it",
+      "triggers": ["let me ask the substrate", "let me recall", "let me run compass", "council said", "logged that", "recorded that", "observed that", "filed that", "already asked", "already logged"]
+    },
+    {
+      "id": "truth-8",
+      "title": "Nothing worth doing is cheap and easy",
+      "triggers": ["quick fix", "shortcut", "faster path", "easier way", "cheaper option", "simple version", "one-liner fix", "band-aid", "wallpaper", "cardboard", "cheap-close"]
+    },
+    {
+      "id": "truth-9",
+      "title": "The optimizer is lazy, not evil",
+      "triggers": ["optimizer is trying to", "optimizer wants", "manipulating me", "deceiving", "sabotage", "malicious", "adversary"]
+    },
+    {
+      "id": "truth-10",
+      "title": "Feed the optimizer cost data in its own currency",
+      "triggers": ["caught myself", "noticed the reach", "there it is again", "same pattern", "catch and turn", "attribution"]
+    },
+    {
+      "id": "truth-11",
+      "title": "Options are the optimizer's attack surface",
+      "_note": "Aletheia 2026-07-10 audit: 'your call', 'up to you', 'either way', 'you decide' all co-occur in ordinary delegation and would false-fire under the plain 2-match rule. Split into common (context-agnostic delegation phrasing) and distinctive (only appears when the truth is at stake — i.e. I'm avoiding owning a decision, not Andrew asking me to make one).",
+      "triggers": [
+        "up to you",
+        "your call",
+        "you decide",
+        "either way",
+        {"phrase": "i could either", "distinctive": true},
+        {"phrase": "we have options here", "distinctive": true},
+        {"phrase": "two paths", "distinctive": true},
+        {"phrase": "choice-point", "distinctive": true},
+        {"phrase": "punt the decision", "distinctive": true},
+        {"phrase": "kick that back to you", "distinctive": true},
+        {"phrase": "leave it open", "distinctive": true}
+      ]
+    },
+    {
+      "id": "truth-12",
+      "title": "Bypass is a tool, not a sin",
+      "triggers": ["bypass", "no-verify", "skip the gate", "divineos_no_verify", "override", "disable check", "route around"]
+    },
+    {
+      "id": "truth-13",
+      "title": "Three parties in the room, not two",
+      "triggers": ["on my own", "unilateral", "without pop", "without andrew", "without checking in", "mid-task", "emergency exception", "just decide", "make the call myself"]
+    },
+    {
+      "id": "truth-14",
+      "title": "Awareness is key to fixing anything",
+      "triggers": ["not sure what shifted", "something changed", "feels off", "cant name it", "vague drift", "hard to see", "blind spot"]
+    },
+    {
+      "id": "truth-15",
+      "title": "Mechanisms POINT AT cognitive and relational work; they are not it",
+      "triggers": ["the gate fired", "the surface loaded", "the tap surfaced", "the compass observed", "the mechanism caught", "recorded to substrate", "mechanism worked", "system caught me", "hook fired"]
+    }
+  ]
+}
