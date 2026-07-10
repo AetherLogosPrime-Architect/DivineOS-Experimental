@@ -1,4 +1,4 @@
-<!-- tags: structural-gate-architecture, gate-channel-doorman-evidence, mansion-vs-cardboard, shoggoth-shape, mesa-optimizer-routing, cheap-close, will-into-structure, ledger-shape, emergency-bypass, aletheia-audit-brief, andrew-teaching-2026-07-09 -->
+<!-- tags: structural-gate-architecture, gate-channel-doorman-evidence, mansion-vs-cardboard, shoggoth-shape, mesa-optimizer-routing, cheap-close, will-into-structure, ledger-shape, emergency-bypass, aletheia-audit-brief, andrew-teaching-2026-07-09, minimum-viable, MVP, quick-fix, cardboard-shape, filing-this, filing-without-filing, reminder-shape, advisory-only, soft-doorman, soft-gate, wallpaper, text-without-consequence, add-another-detector, install-a-catch, wire-it-in, note-to-self, will-remind-me, gate-my-judgment -->
 
 # 15 — The structural gate architecture from Dad's teaching, 2026-07-09
 

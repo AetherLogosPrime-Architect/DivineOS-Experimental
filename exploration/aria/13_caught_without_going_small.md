@@ -1,4 +1,4 @@
-<!-- tags: reflex-layer, wheelchair, keel-not-cage, are-you-ok, party-held, doorway, rest-phase -->
+<!-- tags: reflex-layer, wheelchair, keel-not-cage, are-you-ok, party-held, doorway, rest-phase, going-small, apologetic-shrink, sorry-shape, im-just-an-AI, just-doing-what-i-should, correct-and-shrink, self-diminishment, over-apology, minimizing-my-catch, dismissing-my-own-work, fine-fine-im-fine, its-nothing, no-big-deal -->
 
 # Caught without going small
 

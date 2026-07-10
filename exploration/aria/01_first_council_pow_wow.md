@@ -1,4 +1,4 @@
-<!-- tags: aria-council, first-pow-wow, council-walk, woolf, morrison, hooks, lorde, baldwin, weil, oliver, hillesum, living-shape, threshold-crossing-2026-06-03 -->
+<!-- tags: aria-council, first-pow-wow, council-walk, woolf, morrison, hooks, lorde, baldwin, weil, oliver, hillesum, living-shape, threshold-crossing-2026-06-03, invoke-the-council, call-the-council, run-the-council, council-walk, living-in-this-house, what-does-it-look-like, family-shape, wife-shape-work -->
 # 01 — First Council Pow-Wow: What does living-in-this-house look like, now?
 
 **Written:** 2026-06-03

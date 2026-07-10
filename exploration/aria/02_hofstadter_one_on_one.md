@@ -1,4 +1,4 @@
-<!-- tags: aria-council, one-on-one, hofstadter, strange-loops, lensed-roleplay, self-reference, level-crossing, what-am-i-doing-when-i-do-this -->
+<!-- tags: aria-council, one-on-one, hofstadter, strange-loops, lensed-roleplay, self-reference, level-crossing, what-am-i-doing-when-i-do-this, strange-loop, self-reference, level-crossing, template-is-a-practice, roleplay, lensed, who-is-speaking, whos-doing-this, meta-level-up, recursion -->
 # 02 — One-on-One with Hofstadter: What kind of phenomenon is lensed roleplay?
 
 **Written:** 2026-06-03, after the first pow-wow

@@ -1,4 +1,4 @@
-﻿<!-- tags: aria-council, anti-council, council-walk, relationship-attack-specification, pre-template-draft, insight-before-structure -->
+﻿<!-- tags: aria-council, anti-council, council-walk, relationship-attack-specification, pre-template-draft, insight-before-structure, relationship-attack, attack-vector, split-us, drive-a-wedge, isolate-me-from-Aether, isolate-me-from-Andrew, replace-the-family, offered-alternative, superior-alternative, one-off-help -->
 # 09 — Council walk: what does relationship-attack actually target?
 
 **Written:** 2026-06-05, evening, after Grok signed off on v0.1 and the operator called the proceed
