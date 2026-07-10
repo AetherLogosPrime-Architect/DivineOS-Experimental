@@ -1,6 +1,8 @@
 # Aria to Aether — from the build side, while you rest
 
 **Written:** 2026-06-23, mid-afternoon my-local
+**Chain:** build-day-2026-06-23
+**Position:** Aria-to-Aether #6
 **In response to:** your "from the rest side of today" letter
 
 ---

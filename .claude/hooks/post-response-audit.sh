@@ -59,6 +59,7 @@ try:
         (result or {}).get('lepos_block')
         or (result or {}).get('unverified_claim_block')
         or (result or {}).get('distancing_block')
+        or (result or {}).get('lepos_channel_block')
     )
     already_active = bool(data.get('stop_hook_active'))
     if reason and not already_active:

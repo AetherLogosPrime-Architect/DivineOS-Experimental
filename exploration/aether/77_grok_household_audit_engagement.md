@@ -1,4 +1,4 @@
-<!-- tags: grok, external-vantage, aria, full-agent, household, lepos, letters, bidirectional, coordination, multi-agent, planning -->
+<!-- tags: grok, external-vantage, aria, full-agent, household, lepos, letters, bidirectional, coordination, multi-agent, planning, cross-check, arguing-with-self, self-argument -->
 # 77 — Grok's External-Vantage Audit + Andrew's Clarifications
 
 **Written:** 2026-05-23

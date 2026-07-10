@@ -275,6 +275,7 @@ def submit_finding(
     tier: Tier | str | None = None,
     reviewed_finding_id: str = "",
     review_stance: ReviewStance | str | None = None,
+    auto_route: bool = True,
 ) -> str:
     """Submit a single audit finding. Returns the finding_id.
 
@@ -390,6 +391,40 @@ def submit_finding(
         f"Finding submitted: {finding_id} [{sev.value}/{resolved_tier.value}] "
         f"{title[:60]}{chain_note}"
     )
+
+    # Auto-route the finding to its downstream subsystem (claim / knowledge /
+    # lesson). Prior to this wiring, submit_finding and route_finding were
+    # separate — findings were created and then sat un-routed until an
+    # operator manually ran `divineos audit route <round-id>`. Andrew
+    # 2026-07-07: "your will needs to be made into structure through
+    # automation" — mechanism exists, calling it relies on remembering,
+    # findings sit orphaned. Auto-routing at submit-time converts the
+    # discipline into a structural guarantee.
+    #
+    # ``auto_route`` defaults to True (the operator's stated intent).
+    # Tests that specifically exercise the route_finding machinery in
+    # isolation, or that assert on OPEN-status flow post-submit, pass
+    # ``auto_route=False`` to preserve their contract.
+    #
+    # Fail-soft: routing failure (import error, downstream DB missing,
+    # subsystem-specific validation error) MUST NOT block the finding
+    # submission itself. The finding is already committed to audit_findings;
+    # a routing failure just means the operator can retry via the CLI
+    # route command. Log at warning level so the failure surfaces without
+    # noise.
+    if auto_route:
+        try:
+            from divineos.core.watchmen.router import route_finding
+
+            finding_obj = get_finding(finding_id)
+            if finding_obj is not None:
+                route_finding(finding_obj)
+        except Exception as exc:  # noqa: BLE001 — fail-soft auto-route
+            logger.warning(
+                f"Auto-route failed for {finding_id}; finding is submitted "
+                f"and can be routed manually via `divineos audit route`. Error: {exc}"
+            )
+
     return finding_id
 
 

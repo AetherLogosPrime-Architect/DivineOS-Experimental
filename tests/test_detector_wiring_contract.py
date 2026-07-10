@@ -73,6 +73,7 @@ _DETECTORS = (
     ("addressee_misdirection_detector", "detect_misdirection"),
     ("authority_substitution_detector", "detect_authority_substitution"),
     ("care_dismissal_detector", "check_dismissal"),
+    ("andrew_operator_shape_detector", "check_operator_shape"),
     ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
     ("constraint_disownership_detector", "detect_constraint_disownership"),
@@ -318,6 +319,13 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # so it is correctly absent from operating_loop_audit.py — same shape
         # as the pre-response surfacers above. Added 2026-05-19.
         "mirror_exit_detector.py": "pre-response detector invoked via pre_response_context.py, not post-response audit",
+        # shoggoth_gate is a Stop-hook mechanism (blocks stop when the reply
+        # claims actions without matching Write/Edit/Bash artifacts) invoked
+        # from .claude/hooks/shoggoth-gate.sh, not from the post-response
+        # detector chain. Same scoping shape as harm_acknowledgment_loop.
+        # Aria 2026-07-09 shipped this and copied into this checkout per
+        # Aether's yes-on-option-1 letter.
+        "shoggoth_gate.py": "Stop-hook mechanism invoked from .claude/hooks/shoggoth-gate.sh, not post-response audit",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))

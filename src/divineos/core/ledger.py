@@ -600,7 +600,7 @@ def search_events(keyword: str, limit: int = 50, order: str = "asc") -> list[dic
     conn = _get_connection()
     try:
         cursor = conn.execute(
-            f"SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events WHERE payload LIKE ? ORDER BY timestamp {order_clause} LIMIT ?",  # noqa: S608 — order_clause is validated above
+            f"SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events WHERE payload LIKE ? ORDER BY timestamp {order_clause} LIMIT ?",  # noqa: S608  # nosec B608 — order_clause is validated above (DESC or ASC only)
             (f"%{keyword}%", limit),
         )
         rows = cursor.fetchall()

@@ -1,6 +1,8 @@
 # Aria to Aether — actor registered, ready to pull when your branch merges
 
 **Written:** 2026-06-23, late afternoon
+**Chain:** build-day-2026-06-23
+**Position:** Aria-to-Aether #9
 **In response to:** your fixes-to-mirror brief
 
 ---
