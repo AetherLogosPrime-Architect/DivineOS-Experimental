@@ -42,6 +42,26 @@ The sharpen is WORSE than the old state if the tap fires >1/turn sustained
 (becomes wallpaper), fires on shapes I was NOT violating and I stop trusting
 it, or gets so specific that real violations pass silently. Success is
 catching a real would-have-been violation before the reach commits.
+
+## Aletheia's mandatory framing (2026-07-10 audit round-43beafcb28e7)
+
+**This surface is a LEXICAL PRIMING AID, not a violation-detector.**
+
+Trigger-match is lexical (a phrase from the trigger set literally appears in
+the context). But the worst violations of truths 7 (cognitive-named tools
+point at cognitive work) and 15 (mechanisms POINT AT cognitive work) are
+SEMANTIC — they happen silently, in the reasoning shape, without any word
+from the trigger set. The lexical surface CANNOT catch the semantically-
+marked-only violations. Same hole as the verify-claim gate on marker-free
+fabrication: the dangerous instance has no lexical fingerprint.
+
+So: this surface catches lexically-marked reaches (real value — when I'm
+about to write "the obvious approach" it reminds me of the humility truth).
+It does NOT catch semantically-marked-only violations. **Do not let this
+surface's existence create false confidence that any truth is "covered."**
+Trigger-surfaces prime; they don't police. The defense against silent
+violations stays the council walk, external review, and boundary-vantage
+reads from outside.
 """
 
 from __future__ import annotations
@@ -118,8 +138,35 @@ def _lower_tokens(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", lowered)
 
 
+def _extract_trigger(entry: object) -> tuple[str, bool]:
+    """Normalize a trigger entry to ``(phrase, is_distinctive)``.
+
+    Entries may be plain strings (``"quick fix"``) or objects
+    (``{"phrase": "quick fix", "distinctive": true}``). Object form was added
+    by Aletheia's 2026-07-10 audit refinement — when a truth has
+    common-vocabulary triggers that co-occur in ordinary speech (truth-11's
+    delegation cluster: "your call", "up to you", "either way"), some
+    triggers can be marked ``distinctive`` and the surface tightens to
+    require at least one distinctive match. Backward compat: any string
+    trigger is non-distinctive.
+    """
+    if isinstance(entry, dict):
+        phrase = str(entry.get("phrase", "") or "")
+        return phrase, bool(entry.get("distinctive", False))
+    return str(entry or ""), False
+
+
 def match_truths(context: str, root: Path | None = None) -> list[TruthHit]:
     """Return truths whose trigger set has >=_MIN_TRIGGER_MATCHES matches in context.
+
+    Match rule:
+    - Base: ``>=_MIN_TRIGGER_MATCHES`` distinct matches (silences single-common-word noise).
+    - Distinctive-tightening (Aletheia 2026-07-10 audit refinement): if the
+      truth has ANY triggers marked ``distinctive: true``, matches must
+      include ``>=1`` from the distinctive subset. Closes the wallpaper hole
+      where multiple common-delegation phrases co-occur (e.g. "either way,
+      your call" hits two truth-11 triggers under the base rule but is
+      normal delegation, not choice-point-avoidance).
 
     ``root`` overrides trigger-file discovery (used by tests).
     """
@@ -134,24 +181,35 @@ def match_truths(context: str, root: Path | None = None) -> list[TruthHit]:
     normalized = _lower_tokens(context)
     hits: list[TruthHit] = []
     for truth in truths:
-        triggers = truth.get("triggers", []) or []
+        raw_triggers = truth.get("triggers", []) or []
         matched: list[str] = []
-        for t in triggers:
-            t_norm = _lower_tokens(t).strip()
+        matched_distinctive: list[str] = []
+        has_any_distinctive = False
+        for entry in raw_triggers:
+            phrase, distinctive = _extract_trigger(entry)
+            if distinctive:
+                has_any_distinctive = True
+            t_norm = _lower_tokens(phrase).strip()
             if not t_norm:
                 continue
             if t_norm in normalized:
-                matched.append(t)
-        # Dedup preserves order; require the floor.
+                matched.append(phrase)
+                if distinctive:
+                    matched_distinctive.append(phrase)
         distinct = list(dict.fromkeys(matched))
-        if len(distinct) >= _MIN_TRIGGER_MATCHES:
-            hits.append(
-                TruthHit(
-                    truth_id=truth.get("id", "?"),
-                    title=truth.get("title", "?"),
-                    matched_triggers=tuple(distinct),
-                )
+        if len(distinct) < _MIN_TRIGGER_MATCHES:
+            continue
+        # Distinctive-tightening: when the truth declares distinctive
+        # triggers, at least one match must be from that subset.
+        if has_any_distinctive and not matched_distinctive:
+            continue
+        hits.append(
+            TruthHit(
+                truth_id=truth.get("id", "?"),
+                title=truth.get("title", "?"),
+                matched_triggers=tuple(distinct),
             )
+        )
     return hits
 
 
@@ -173,10 +231,13 @@ def surface_for_context(prompt: str, context: str | None = None, root: Path | No
         "",
         (
             "One or more kiln principles matched trigger phrases in the current "
-            "context. Before composing the reach I'm about to make: read the "
-            "truth below, and ask whether the reach violates it. WHAT is the "
-            "truth. WHY NOW is the matched trigger set. WHAT TO DO is: judge, "
-            "then compose."
+            "context. This is a LEXICAL PRIMING AID (Aletheia 2026-07-10) — it "
+            "catches reaches with a verbal fingerprint. It does NOT catch "
+            "semantically-marked-only violations (esp. truths 7 and 15 whose "
+            "real violations happen silently in the reasoning shape). Fire = "
+            "read the truth, ask whether the current reach violates it. Silence "
+            "does NOT mean coverage. WHAT is the truth. WHY NOW is the matched "
+            "trigger set. WHAT TO DO is: judge, then compose."
         ),
         "",
     ]

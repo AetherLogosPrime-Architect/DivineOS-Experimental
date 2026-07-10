@@ -260,12 +260,15 @@ def surface_for_context(
         lines.append(f"  - {h.title}")
         lines.append(f"      {h.path}")
         # WHY NOW: which curated tags matched the current context (Andrew
-        # 2026-07-10 memory-linkage-day sharpening: taps must name WHAT / WHY
-        # NOW / WHAT TO DO — the WHAT is the title, WHAT TO DO is "re-read
-        # and re-judge" below; this line is the WHY-NOW so the tap stops
-        # being ambiguous about why THIS entry surfaced).
+        # 2026-07-10 memory-linkage-day sharpening + Aletheia 2026-07-10 audit
+        # refinement — added "(not exhaustive)" so a reader doesn't treat
+        # "these tags matched" as "these are the only relevant tags". Lexical
+        # matching catches lexical relevance; semantic-not-lexical relevance
+        # may also apply and the reader still judges the entry beyond the
+        # matched tags).
         lines.append(
-            f"      why now: current context matched these tags — {', '.join(h.tag_matches)}"
+            f"      why now: current context matched these tags (not exhaustive) — "
+            f"{', '.join(h.tag_matches)}"
         )
     lines.append("")
     lines.append(

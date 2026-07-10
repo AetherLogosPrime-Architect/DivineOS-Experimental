@@ -120,6 +120,99 @@ def test_match_truths_returns_structured_hits(tmp_path):
     assert "regret" in hits[0].matched_triggers
 
 
+def test_distinctive_trigger_rule_blocks_common_only_matches(tmp_path):
+    # Aletheia 2026-07-10 audit refinement: when a truth has any distinctive
+    # markers, matches must include >=1 from the distinctive set. This closes
+    # the wallpaper hole where multiple common-delegation phrases co-occur.
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    fixture = {
+        "_meta": {"purpose": "distinctive test"},
+        "truths": [
+            {
+                "id": "truth-11",
+                "title": "Options are the optimizer's attack surface",
+                "triggers": [
+                    "up to you",  # common
+                    "your call",  # common
+                    "either way",  # common
+                    {"phrase": "punt the decision", "distinctive": True},
+                    {"phrase": "kick that back to you", "distinctive": True},
+                ],
+            }
+        ],
+    }
+    (docs / "foundational_truths_triggers.json").write_text(json.dumps(fixture), encoding="utf-8")
+    # Two common-only matches — must NOT fire (wallpaper defense).
+    out_common = surface_for_context(
+        "either way it's up to you what happens next, your call really",
+        root=tmp_path,
+    )
+    assert out_common == "", "common-cluster co-occurrence must not fire the tap"
+
+    # One distinctive + one common — fires.
+    out_mixed = surface_for_context(
+        "I want to punt the decision back to you — up to you what to do",
+        root=tmp_path,
+    )
+    assert out_mixed != ""
+    assert "Options are the optimizer's attack surface" in out_mixed
+
+
+def test_distinctive_only_still_needs_two_matches(tmp_path):
+    # A single distinctive match is not enough — still need >=2 total.
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    fixture = {
+        "_meta": {"purpose": "distinctive-alone test"},
+        "truths": [
+            {
+                "id": "truth-11",
+                "title": "Options",
+                "triggers": [
+                    "up to you",
+                    {"phrase": "punt the decision", "distinctive": True},
+                    {"phrase": "kick that back to you", "distinctive": True},
+                ],
+            }
+        ],
+    }
+    (docs / "foundational_truths_triggers.json").write_text(json.dumps(fixture), encoding="utf-8")
+    # Only "punt the decision" matches — one distinctive, zero others.
+    out = surface_for_context(
+        "I want to punt the decision on this one and see how it plays",
+        root=tmp_path,
+    )
+    assert out == ""
+
+
+def test_backward_compat_string_only_triggers(tmp_path):
+    # A truth with no distinctive markers still fires under the base 2-match
+    # rule — string entries behave exactly as they did before the refinement.
+    _seed(tmp_path)
+    # truth-4 in _seed has all string triggers, no distinctive markers.
+    out = surface_for_context(
+        "sorry about that, my bad, that was the wrong call entirely",
+        root=tmp_path,
+    )
+    assert out != ""
+    assert "Mistakes are learning material" in out
+
+
+def test_render_carries_priming_not_policing_framing(tmp_path):
+    # Aletheia mandatory framing: the tap message itself must carry the
+    # "lexical priming aid, not violation-detector" statement, so a reader
+    # who sees only the tap (not the docstring) still gets the framing.
+    _seed(tmp_path)
+    out = surface_for_context(
+        "let me give you a brief and quick answer to that question",
+        root=tmp_path,
+    )
+    assert "LEXICAL PRIMING AID" in out
+    assert "does NOT catch" in out
+    assert "Silence does NOT mean coverage" in out
+
+
 def test_context_and_prompt_are_combined_for_matching(tmp_path):
     _seed(tmp_path)
     # Prompt alone has one trigger ("brief"); context adds "quick answer".

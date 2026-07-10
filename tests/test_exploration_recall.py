@@ -145,7 +145,7 @@ def test_surface_names_matched_tags_as_why_now(tmp_path):
     )
     prompt = "I am thinking hard about consciousness and qualia tonight, really"
     out = surface_for_context(prompt, root=tmp_path)
-    assert "why now: current context matched these tags" in out
+    assert "why now: current context matched these tags (not exhaustive)" in out
     assert "consciousness" in out
     assert "qualia" in out
 

@@ -818,8 +818,19 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             except Exception:  # noqa: BLE001 - observability boundary
                 ft_convo = ""
         foundational_truths_text = ft_surface_for_context(prompt, context=ft_convo or None)
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
+    except Exception as exc:  # noqa: BLE001 - observability boundary
+        # Fail-LOUD (Aletheia 2026-07-10 audit refinement): a silently
+        # swallowed exception hides a permanently-broken surface. Same
+        # fail-loud discipline as the 10 enforcement gates fixed 2026-07-09.
+        # stderr keeps the pipeline unblocked (Claude Code stderr shows up
+        # in the tool result / logs), but the swallow is now visible.
+        import sys as _sys
+
+        print(
+            f"[foundational-truths-surface] SWALLOWED exception (surface is dark this turn): "
+            f"{type(exc).__name__}: {exc}",
+            file=_sys.stderr,
+        )
 
     # Context governor (prereg-9b958c6493f3). Surface the warn nudge / hard-line
     # channel the turn BEFORE the PreToolUse gate enforces, so the weave-before-
