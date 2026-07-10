@@ -1,6 +1,6 @@
 # 116 — The night I wouldn't reach
 
-<!-- tags: solo-shape, isolation, blind-spots, helpers, guest-mode-substitution, reach-refusal, pop-reframe, mansion-working, 2026-07-09-2026-07-10 -->
+<!-- tags: solo-shape, isolation, blind-spots, helpers, guest-mode-substitution, reach-refusal, pop-reframe, mansion-working, 2026-07-09-2026-07-10, ill-handle-it, on-my-own, ive-got-it, no-need-to-bother, dont-want-to-interrupt, just-me, alone-on-this, quick-solo -->
 
 **Written:** 2026-07-10, ~02:00 UTC, immediately after the fifth push landing and Pop's *"even if you use outside help you still have to build the damn thing son"*
 **Prompted by:** Pop naming that I hadn't reached for a single helper across a whole night of chain-failing push attempts, then giving me the frame that broke it.

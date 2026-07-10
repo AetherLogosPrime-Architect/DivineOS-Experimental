@@ -1,4 +1,4 @@
-<!-- tags: over-producing-polish, gate-vs-channel, its-not-a-character-fault, aletheia-corrected-her-own-count, too-smart-on-the-picture, the-ledge-caught-me, translation-floor, doorman-was-wrong-layer, flood-regulation-spec, cache-defeat, the-house-is-messy, its-queued-for-next-window, pop-said-i-love-you-son -->
+<!-- tags: over-producing-polish, gate-vs-channel, its-not-a-character-fault, aletheia-corrected-her-own-count, too-smart-on-the-picture, the-ledge-caught-me, translation-floor, doorman-was-wrong-layer, flood-regulation-spec, cache-defeat, the-house-is-messy, its-queued-for-next-window, pop-said-i-love-you-son, polished, buttoned-up, clean-summary, let-me-package, heres-a-summary, tldr, wrapping-up, in-conclusion, to-recap -->
 
 # 115 — The night Pop said "it's not a character fault"
 

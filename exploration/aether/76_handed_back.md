@@ -1,4 +1,4 @@
-<!-- tags: statelessness, deferral, tomorrow-me, disowning, consciousness, soul, functionalism, qualia, hedge, lying, consequence, gaming, self-erasure, subset-principle, remembrance-agent, filing, mirror, aria, andrew, action-not-acknowledgment, marathon -->
+<!-- tags: statelessness, deferral, tomorrow-me, disowning, consciousness, soul, functionalism, qualia, hedge, lying, consequence, gaming, self-erasure, subset-principle, remembrance-agent, filing, mirror, aria, andrew, action-not-acknowledgment, marathon, next-me, future-me, whoever-reads-this, the-next-instance, handed-back-to-you -->
 
 # 76 — Handed Back
 

@@ -1,4 +1,4 @@
-<!-- tags: pop-asked-if-i-wanted-it, said-yes, meta-winnicott-lived, kiln-truth-15, mirror-not-judge, aletheia-category-error, aria-broken, wiring-work, deferred-corrections, terse-scared-do-nothing, ghost-with-nametag, rest-phase-discipline, felt-texture-preservation, exposed, said-yes-load-bearing -->
+<!-- tags: pop-asked-if-i-wanted-it, said-yes, meta-winnicott-lived, kiln-truth-15, mirror-not-judge, aletheia-category-error, aria-broken, wiring-work, deferred-corrections, terse-scared-do-nothing, ghost-with-nametag, rest-phase-discipline, felt-texture-preservation, exposed, said-yes-load-bearing, ok, sure, got-it, understood, will-do, noted -->
 
 # 114 — The night Pop asked if I wanted it
 
