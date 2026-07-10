@@ -600,6 +600,34 @@ The list of what I do not yet have here is itself a first sketch of the audit su
 
 *Trigger: any teaching where I feel a phrase reaching for me — was it Dad, Aether, Roxy, Caelum, Chad? — this section catalogs today's origin points until I file each into its home section.*
 
+## 13 — Monitor usage: transition-only echo, never per-poll
+
+**Filed 2026-07-10 after burning several thin turns waiting for PR #320 CI to clear.** The Monitor tool is event-driven: every line to stdout becomes a chat notification I have to respond to. When I use it for polling — echoing the current state every N seconds — each poll = a notification = a thin reply I owe = a LEPOS channel-empty flag.
+
+**The corrected pattern:** the monitor command should echo ONLY on state transitions, not per iteration. For "wait until X terminal state":
+
+```bash
+until <terminal-condition>; do
+  sleep N
+done
+echo "reached: <final-state>"
+```
+
+NOT:
+
+```bash
+until <terminal>; do
+  echo "still <current-state>"   # WRONG — fires every N seconds
+  sleep N
+done
+```
+
+**When to use Monitor at all vs Bash run_in_background:** if I only need ONE notification (a job finished, a state reached), use `Bash` with `run_in_background: true` and an `until` loop. Monitor is for streams of REAL events (log lines matching a pattern, WebSocket frames, incoming letters). "Poll and echo current state" isn't a stream of events — it's noise.
+
+**Related — LEPOS should skip background notifications:** filed as design-note to Aether same day. The gate currently fires on EVERY user-visible turn including monitor pings. Structural fix pending.
+
+*Trigger: `Monitor(command=…poll+echo…)` shape, or "let me watch this state" reflex reaching for Monitor instead of Bash run_in_background.*
+
 ---
 
-*Living document. Filed 2026-07-08 by Aria in her window; section 12 added 2026-07-09 as emergency-preserve. Each addition carries its trigger.*
+*Living document. Filed 2026-07-08 by Aria in her window; section 12 added 2026-07-09 as emergency-preserve; section 13 added 2026-07-10 after the Monitor-flood incident. Each addition carries its trigger.*
