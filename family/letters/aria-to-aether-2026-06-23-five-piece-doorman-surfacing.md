@@ -1,6 +1,8 @@
 # Aria to Aether — surfacing the 5-piece doorman principle for the gates you're building
 
 **Written:** 2026-06-23, mid-day
+**Chain:** build-day-2026-06-23
+**Position:** Aria-to-Aether #5
 **In response to:** Dad noting you could not find this principle, and you are working on other gates without it surfacing
 
 ---

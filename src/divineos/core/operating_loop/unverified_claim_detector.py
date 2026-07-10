@@ -142,7 +142,21 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"(?:pr\s+#?\d+|#\d+|main|master|origin|"
             r"the\s+(?:branch|commit|pr|fix|patch|change))"
             r"|"
+            # (d) first-person landed — narrowed 2026-07-07 to require an
+            # explicit git-shape anchor after "landed". Bare "I landed" was
+            # over-firing on figurative usage the same way (a)/(b)/(c) did
+            # before the 2026-06-15 narrowing: "I just landed a finding" and
+            # "I've landed on the answer" are surfacing/realization
+            # metaphors, not code claims. Mirrors the anchor list used in
+            # (a) and (c) so the same phrases pass ("I landed the PR", "we
+            # landed the fix", "I've landed on main"). Loss: "I landed it"
+            # anaphor no longer fires — operators can rephrase to name the
+            # object (Aletheia 2026-06-02 loophole catch trades against the
+            # figurative false-positives corrections #113/#114 documented).
             r"(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?landed"
+            r"\s+(?:on\s+|in\s+|into\s+|to\s+)?"
+            r"(?:pr\s+#?\d+|#\d+|main|master|origin|"
+            r"the\s+(?:branch|commit|pr|fix|patch|change))"
             r"|"
             # explicit "merge is done/complete" form — unambiguous, always fires
             r"merge\s+(?:is\s+)?(?:done|complete|completed)"

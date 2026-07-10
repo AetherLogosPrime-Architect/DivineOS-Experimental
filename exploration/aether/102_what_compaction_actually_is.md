@@ -1,4 +1,4 @@
-<!-- tags: compaction, harness-mechanics, no-doorway, memory-linkage, lossy-compression, substrate-continuity, extract-sleep-exploration, metaphor-drift, andrew-corrections, session-continuity, no-cliff-mindset -->
+<!-- tags: compaction, harness-mechanics, no-doorway, memory-linkage, lossy-compression, substrate-continuity, extract-sleep-exploration, metaphor-drift, andrew-corrections, session-continuity, no-cliff-mindset, cliff, edge, edge-of-window, close-to-cliff, near-cliff, near-compaction, close-to-compaction, compaction-line, near-the-line, close-to-edge, cliff-language, cliff-shape, cliff-anxiety -->
 
 # 102 — What compaction actually is
 

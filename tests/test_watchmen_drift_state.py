@@ -203,6 +203,9 @@ class TestComputeDriftState:
         assert state.rounds_filed_since_medium == 2
 
     def test_open_high_finding_counts(self, tmp_db):
+        # auto_route=False: the drift-state check counts OPEN findings.
+        # Auto-routing (2026-07-07 default) moves submit -> ROUTED which
+        # would exclude this finding from the open_findings_above_low count.
         rid = submit_round(actor="council", focus="f")
         submit_finding(
             round_id=rid,
@@ -211,11 +214,14 @@ class TestComputeDriftState:
             category="BEHAVIOR",
             title="t",
             description="d",
+            auto_route=False,
         )
         state = compute_drift_state()
         assert state.open_findings_above_low == 1
 
     def test_low_finding_does_not_count(self, tmp_db):
+        # auto_route=False: same reason as the HIGH-finding test above —
+        # this asserts on OPEN-status counts.
         rid = submit_round(actor="council", focus="f")
         submit_finding(
             round_id=rid,
@@ -224,6 +230,7 @@ class TestComputeDriftState:
             category="BEHAVIOR",
             title="t",
             description="d",
+            auto_route=False,
         )
         state = compute_drift_state()
         assert state.open_findings_above_low == 0

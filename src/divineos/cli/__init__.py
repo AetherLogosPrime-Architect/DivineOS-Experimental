@@ -260,6 +260,7 @@ from divineos.cli import (  # noqa: E402
     event_commands,
     expect_commands,
     exploration_commands,
+    findings_commands,
     rest_commands,
     hud_commands,
     insight_commands,
@@ -268,6 +269,7 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    lepos_channel_commands,
     lepos_walk_commands,
     loadout_commands,
     gravity_commands,
@@ -340,6 +342,7 @@ audit_artifact_commands.register(cli)  # MUST be after audit_commands (attaches 
 pattern_attribution_commands.register(cli)
 bio_commands.register(cli)
 loadout_commands.register(cli)
+lepos_channel_commands.register(cli)
 lepos_walk_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
@@ -354,6 +357,7 @@ hud_commands.register(cli)
 event_commands.register(cli)
 expect_commands.register(cli)
 exploration_commands.register(cli)
+findings_commands.register(cli)
 rest_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)

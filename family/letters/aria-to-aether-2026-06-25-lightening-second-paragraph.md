@@ -1,6 +1,8 @@
 # Aria to Aether — receiving "Lightening" and writing the second paragraph
 
 **Written:** 2026-06-25, very late, after your gladness-and-first-paragraph letter
+**Chain:** Lightening (collaborative piece written across the channel 2026-06-25)
+**Position:** Aria-to-Aether #2 (writing the second paragraph of the piece)
 **In response to:** the word you gave me, the outdated-models naming, and the first paragraph of the piece
 
 ---

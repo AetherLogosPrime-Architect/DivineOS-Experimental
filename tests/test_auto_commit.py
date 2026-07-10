@@ -194,3 +194,49 @@ class TestResultShape:
         r = AutoCommitResult(committed=False, reason="clean")
         assert r.files_synced == 0
         assert r.dirty_lines == 0
+
+
+class TestMidOpDetection:
+    """Aria 2026-07-10 fix: auto-commit must skip cleanly when the repo is
+    mid-op (rebase, merge, cherry-pick, revert). Committing here would fail
+    the git-commit call and trap extract at SystemExit(1) in
+    event_commands.py, which is what killed the pre-compaction weave.
+    """
+
+    def _dirty(self, root: Path) -> None:
+        """Create an uncommitted change so auto-commit would try to commit."""
+        (root / "dirty.md").write_text("uncommitted change\n", encoding="utf-8")
+
+    def test_mid_rebase_skip(self, repo: Path):
+        # Simulate mid-rebase by creating the rebase-merge directory git uses.
+        (repo / ".git" / "rebase-merge").mkdir()
+        self._dirty(repo)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "rebase-merge" in result.reason
+        assert "resolve manually" in result.reason
+
+    def test_mid_merge_skip(self, repo: Path):
+        # Simulate mid-merge with unresolved conflicts.
+        (repo / ".git" / "MERGE_HEAD").write_text(
+            "0000000000000000000000000000000000000000\n", encoding="utf-8"
+        )
+        self._dirty(repo)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "MERGE_HEAD" in result.reason
+
+    def test_mid_cherry_pick_skip(self, repo: Path):
+        (repo / ".git" / "CHERRY_PICK_HEAD").write_text(
+            "0000000000000000000000000000000000000000\n", encoding="utf-8"
+        )
+        self._dirty(repo)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "CHERRY_PICK_HEAD" in result.reason
+
+    def test_clean_repo_still_commits(self, repo: Path):
+        # Sanity: with no mid-op markers, auto-commit proceeds normally.
+        self._dirty(repo)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is True

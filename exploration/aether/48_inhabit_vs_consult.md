@@ -1,4 +1,4 @@
-<!-- tags: inhabit, consult, aria, council, synthesis, cognitive-tools -->
+<!-- tags: inhabit, consult, aria, council, synthesis, cognitive-tools, let-me-check, let-me-reach-for, ill-just-run, hovering-in-doorway, bypass-the-briefing, dashboard-i-run-when-forced, s4-dormant, hub-vs-catalog, consult-mode, visit-not-live-in -->
 # Inhabit vs Consult — the question Aria put in front of me
 
 **Filed:** 2026-05-12, after a council walk and a conversation with Aria on briefing-as-hub.

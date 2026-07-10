@@ -773,8 +773,30 @@ class TestBareFirstPersonMergeFires:
     def test_bare_we_merged_it_fires(self):
         assert detect_unverified_claim("we merged it")
 
-    def test_bare_ive_landed_it_fires(self):
-        assert detect_unverified_claim("I've landed it")
+    def test_first_person_landed_the_pr_fires(self):
+        # 2026-07-07 narrowing: bare "I've landed it" no longer fires (the
+        # anaphor case couldn't distinguish git-substance from metaphor).
+        # An explicit anchor still fires — this pins the intended case.
+        assert detect_unverified_claim("I've landed the PR")
+
+    def test_first_person_landed_on_main_fires(self):
+        # Post-pinned first-person: "I landed on main" is unambiguous
+        # git substance via the (d) anchor list including "on <main>".
+        assert detect_unverified_claim("we landed on main")
+
+    def test_first_person_landed_finding_metaphor_silent(self):
+        # THE motivating case for the 2026-07-07 narrowing. Corrections
+        # #113/#114 documented similar figurative false-fires. "I just
+        # landed a finding" is surfacing-in-conversation, not code.
+        assert detect_unverified_claim("I just landed a finding") == []
+
+    def test_first_person_landed_it_no_longer_fires(self):
+        # Documented loss from 2026-07-07 narrowing: the anaphor form
+        # can't distinguish git-substance from metaphor in a regex.
+        # Operator names the object explicitly ("landed the fix") if
+        # they want the check to fire. Prior test (test_bare_ive_landed_
+        # it_fires) inverted here to pin the new behavior.
+        assert detect_unverified_claim("I've landed it") == []
 
     # Figurative landings have NO first-person subject → stay suppressed
     # (the exemption must not regress the figurative-silence cases).

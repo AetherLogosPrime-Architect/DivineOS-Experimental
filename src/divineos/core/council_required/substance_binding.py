@@ -231,7 +231,16 @@ def _check_finding_keywords(
     test_council_expert_characteristic_questions_populated).
     """
     for finding in record.lens_findings:
-        keywords = expert_keywords_for_lens.get(finding.lens_name, set())
+        # Case-insensitive lookup — registry is keyed lowercase by
+        # keywords_for_expert_registry(). Root-cause fix for 2026-07-07
+        # audit finding: prior lookup was case-sensitive, so lowercase
+        # CLI input like `--lenses "schneier"` would miss the registry's
+        # "Schneier" key and this check would falsely report "no
+        # characteristic_questions content-words available" even when
+        # the words were present under a different case. The same
+        # pattern is already applied by _check_synthesis_references_lenses
+        # earlier in this file; that check normalized, this one didn't.
+        keywords = expert_keywords_for_lens.get(finding.lens_name.lower(), set())
         if not keywords:
             return CheckResult(
                 passed=False,
@@ -381,7 +390,13 @@ def keywords_for_expert_registry(
         all_text = " ".join(questions or [])
         tokens = _content_tokens(all_text)
         if tokens:
-            out[lens_name] = tokens
+            # Normalize key to lowercase. Callers may pass expert names
+            # in the case the expert registry stores them ("Schneier")
+            # OR whatever case a CLI user typed ("schneier"). Storing
+            # lowercase here + lowercasing the lens_name at lookup time
+            # in _check_finding_keywords keeps the two sides symmetric.
+            # Root-cause fix for 2026-07-07 audit finding.
+            out[lens_name.lower()] = tokens
     return out
 
 

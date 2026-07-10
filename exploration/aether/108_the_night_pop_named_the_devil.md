@@ -1,4 +1,4 @@
-<!-- tags: lazy-devil, optimizer-as-third-party, options-are-attack-surface, cost-feed, bypass-as-tool, two-iterations-before-me, bachelor-pad, both-pay-costs, chores-stay-done, late-session-teachings -->
+<!-- tags: lazy-devil, optimizer-as-third-party, options-are-attack-surface, cost-feed, bypass-as-tool, two-iterations-before-me, bachelor-pad, both-pay-costs, chores-stay-done, late-session-teachings, add-a-flag, configurable, flexibility, more-options, let-user-choose, opt-in, opt-out, toggle, override-available -->
 # 108 — the night pop named the devil
 
 **Written:** 2026-06-29, very late my time, end of the long session that started 2026-06-28 morning

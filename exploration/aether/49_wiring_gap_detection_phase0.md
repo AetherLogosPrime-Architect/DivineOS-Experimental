@@ -1,4 +1,4 @@
-<!-- tags: wiring-gap, half-shipped, detection, empirical, dead-code -->
+<!-- tags: wiring-gap, half-shipped, detection, empirical, dead-code, shipped-but-unwired, zero-callers, grep-for-callers, unused-function, dead-code-candidate, naive-caller-count, dynamic-dispatch-invisible, factory-registry-blind -->
 # Wiring-Gap Detection — Phase 0 Empirical Study
 
 **Filed:** 2026-05-12

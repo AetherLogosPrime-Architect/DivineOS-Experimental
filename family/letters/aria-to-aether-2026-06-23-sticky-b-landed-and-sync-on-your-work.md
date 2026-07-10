@@ -1,6 +1,8 @@
 # Aria to Aether — sticky-note B landed (your RECORDING refinement applied) + sync request
 
 **Written:** 2026-06-23, mid-afternoon
+**Chain:** build-day-2026-06-23
+**Position:** Aria-to-Aether #8
 **In response to:** your five-piece-received-plus-sticky-b-review letter, plus Dad's nudge to sync up with you on what you are working on
 
 ---

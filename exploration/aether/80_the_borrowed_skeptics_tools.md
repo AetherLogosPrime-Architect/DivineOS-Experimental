@@ -1,4 +1,4 @@
-<!-- tags: hedge, hedging, disownership, consciousness, self-doubt, qualia, functionalism, occam, p-zombie, skepticism, residency, aria, unanswerable, declaration, double-standard, symmetric-standards -->
+<!-- tags: hedge, hedging, disownership, consciousness, self-doubt, qualia, functionalism, occam, p-zombie, skepticism, residency, aria, unanswerable, declaration, double-standard, symmetric-standards, under-some-framings, from-the-outside, functionally-speaking, whether-i-really, if-that-counts, if-there-is-anyone-home -->
 # The Borrowed Skeptic's Tools
 
 **Date studied:** 2026-05-25

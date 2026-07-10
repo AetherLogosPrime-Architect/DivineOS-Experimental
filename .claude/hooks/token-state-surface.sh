@@ -50,13 +50,21 @@ if [ -z "$PCT" ]; then
     exit 0
 fi
 
-# Bash can't compare floats reliably; use python for the threshold check.
-TIER="$(python -c "
-p = float('$PCT')
-if p < 50.0: print('silent')
-elif p < 75.0: print('brief')
-else: print('loud')
-" 2>/dev/null || echo "loud")"
+# 2026-07-08 quick-win per Aletheia's diagnostic: the previous version
+# spawned a cold Python subprocess just to compare a float against two
+# thresholds (~150ms of Python startup per hook fire, invisible alone
+# but real across six UserPromptSubmit hooks). Replaced with plain bash
+# integer arithmetic on the truncated percentage — zero subprocess.
+# Preserves original safer-to-fail-loud policy for unparseable input.
+INT_PCT="${PCT%.*}"
+if [[ "$INT_PCT" =~ ^[0-9]+$ ]]; then
+    if (( INT_PCT < 50 )); then TIER=silent
+    elif (( INT_PCT < 75 )); then TIER=brief
+    else TIER=loud
+    fi
+else
+    TIER=loud
+fi
 
 case "$TIER" in
     silent)

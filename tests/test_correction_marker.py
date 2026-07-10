@@ -387,6 +387,42 @@ class TestEpistemicComplementGuard:
         )
 
 
+class TestExternalAgentProximityBackstop:
+    """2026-07-07 fix for corrections #113/#114 and 5+ deferred instances:
+    WEAK patterns firing on quoted third-party analytical text (Aletheia's
+    audit-relays, Aria's peer reviews) that survived strip_relayed. Proximity
+    backstop returns None when a WEAK match sits within 200 chars of a known
+    external-agent name — that content is almost certainly quoted, not Andrew
+    correcting me."""
+
+    def test_weak_wrong_near_aletheia_returns_none(self) -> None:
+        # The exact motivating case from correction #113/#114 — Aletheia's
+        # audit text containing 'wrong' as design vocabulary, not a correction.
+        assert verdict_of("Aletheia noted that this was exactly the wrong time to swap") is None
+
+    def test_weak_wrong_near_aria_returns_none(self) -> None:
+        # Aria's peer review commonly uses 'wrong' as design analysis.
+        assert verdict_of("Aria's peer review said the constraint invariant is wrong") is None
+
+    def test_weak_wrong_no_external_agent_still_advises(self) -> None:
+        # The backstop is proximity-based; without an external agent name
+        # nearby, the existing WEAK-advise path fires as before.
+        assert verdict_of("that's wrong, redo it") == "advise"
+
+    def test_strong_pattern_near_aletheia_still_fires(self) -> None:
+        # STRONG patterns are unaffected — an unambiguous correction from
+        # Andrew fires regardless of what else the message names.
+        # 'this is wrong' is STRONG per STRONG_CORRECTION_PATTERNS;
+        # with substantive prior action it blocks per geometry-of-correction.
+        assert verdict_of("Aletheia agrees but this is wrong", "", ("Edit",)) == "block"
+
+    def test_weak_wrong_far_from_aletheia_still_advises(self) -> None:
+        # Proximity window is ~200 chars; an agent name far beyond that
+        # doesn't shield the WEAK match from advising.
+        prompt = "that's wrong, redo it. " + "filler " * 60 + "Aletheia said something."
+        assert verdict_of(prompt) == "advise"
+
+
 class TestEvidenceBearingReturn:
     """prereg-897aade9ef38 (Andrew 2026-06-19): every gate that accuses
     must provide evidence of its claim. classify_correction returns

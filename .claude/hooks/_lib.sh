@@ -50,9 +50,34 @@
 # precedence over any installed copy. Each worktree's hooks now reflect
 # its own state. Prevents the entire class.
 
+# 2026-07-08 quick-win per Aletheia's diagnostic: git rev-parse was
+# being spawned as a subprocess on every call across find_divineos_python
+# and is_bypass_command. Within a single hook process, once we have the
+# repo root (or common-dir), it does not change — the hook does not
+# navigate directories mid-run. Memoize in shell variables so the second
+# and later callers within the same hook reuse the cached value. Each
+# hook is still a separate process (cache does not survive across hooks
+# — that is what the single-process consolidation will fix), but the
+# quick-win takes the redundant calls out of the picture cheaply.
+_LIB_REPO_ROOT_CACHE=""
+_lib_repo_root() {
+  if [ -z "$_LIB_REPO_ROOT_CACHE" ]; then
+    _LIB_REPO_ROOT_CACHE="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  fi
+  printf '%s' "$_LIB_REPO_ROOT_CACHE"
+}
+
+_LIB_COMMON_DIR_CACHE=""
+_lib_common_dir() {
+  if [ -z "$_LIB_COMMON_DIR_CACHE" ]; then
+    _LIB_COMMON_DIR_CACHE="$(git rev-parse --git-common-dir 2>/dev/null)"
+  fi
+  printf '%s' "$_LIB_COMMON_DIR_CACHE"
+}
+
 find_divineos_python() {
   local repo_root
-  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  repo_root="$(_lib_repo_root)"
   # Side effect: prepend active worktree's src/ to PYTHONPATH so the
   # active source-of-truth wins over any stale editable install. See
   # the docstring's "Side effect" section for the bug this prevents.
@@ -80,7 +105,7 @@ find_divineos_python() {
   # --git-common-dir; (b) validate each candidate runs
   # `-c "import sys; sys.exit(0)"` before returning it.
   local common_dir
-  common_dir="$(git rev-parse --git-common-dir 2>/dev/null)"
+  common_dir="$(_lib_common_dir)"
   local main_repo=""
   if [ -n "$common_dir" ] && [ -d "$common_dir" ]; then
     main_repo="$(dirname "$(cd "$common_dir" && pwd)")"
@@ -137,7 +162,7 @@ is_bypass_command() {
   local cmd="$1"
   [ -z "$cmd" ] && return 1
   local repo_root
-  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  repo_root="$(_lib_repo_root)"
   local bypass_file="$repo_root/scripts/hook_bypass_commands.txt"
   [ -f "$bypass_file" ] || return 1
   # Split the command on shell separators into segments.

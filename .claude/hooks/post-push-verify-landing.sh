@@ -1,4 +1,15 @@
 #!/bin/bash
+#
+# SUPERSEDED 2026-07-09 by verify-push-landed.sh (2026-06-04, older but
+# more robust — has retry loop + marker-file state that this simpler
+# draft lacks). Both implement the same "auto-confirm push landing"
+# discipline; the older wired file was doing the job when this newer
+# draft was authored. Aletheia's 2026-07-09 audit flagged this file as
+# unwired-and-dark; correct at the file level, but the function IS
+# firing via verify-push-landed.sh. Kept here (not deleted) as a
+# reference implementation of the simpler flow in case the retry-loop
+# approach is ever rejected. Not registered in .claude/settings.json.
+#
 # Post-push verify-landing — auto-confirms that a claimed push actually
 # landed on origin, and surfaces the result so the agent cannot claim
 # "everything on origin" without evidence.

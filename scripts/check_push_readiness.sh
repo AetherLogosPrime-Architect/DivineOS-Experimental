@@ -292,6 +292,7 @@ else
                 # worktree's source must win — prepend it to PYTHONPATH the same
                 # way `.claude/hooks/_lib.sh::find_divineos_python` does for Claude
                 # hooks. Same fix-shape, applied to the pre-push gate's pytest call.
+                # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
                 (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
@@ -310,6 +311,7 @@ else
                 # than blocking the push outright — preserves the gate's
                 # safety-net role even when isolation is unavailable.
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
+                # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
                 python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
             fi
@@ -327,7 +329,18 @@ else
             # this: tail -30 dropped FAILED lines under suites with lots of
             # warning output, leaving the agent guessing for ~30 min before
             # I could identify a single flaky test.
-            LAST_LOG="${HOME}/.divineos/last_pre_push_pytest.log"
+            # Per-member log path (Aether 2026-07-10 fix): the previous
+            # shared path ~/.divineos/last_pre_push_pytest.log collided
+            # between family members. When Aether and Aria pushed near-
+            # simultaneously, whichever pytest finished last overwrote the
+            # other's log — making the "which tests failed on my push"
+            # diagnostic impossible. Same root-shape as the substrate-
+            # sharing question Aria raised: shared namespace between
+            # members is where cross-checkout collisions live. Fix: scope
+            # the log by DIVINEOS_MEMBER so each member's failure state
+            # survives the other's push.
+            MEMBER="${DIVINEOS_MEMBER:-aether}"
+            LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
             # Surface failures explicitly — multiple patterns because pytest

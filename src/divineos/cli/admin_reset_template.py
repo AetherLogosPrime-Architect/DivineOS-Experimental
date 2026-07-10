@@ -315,7 +315,13 @@ def reset_template(
     checkout = _checkout_root()
     is_external, target = _is_canonical_external()
 
-    if is_external and not force_canonical:
+    # Dry-run doesn't execute the destructive phases (Aether 2026-07-09) —
+    # it just prints the plan. Blocking dry-run on the canonical-marker
+    # would prevent operators (or CI regression tests) from ever seeing
+    # the reset plan on a checkout that legitimately routes to an
+    # external personal store. The marker guard only needs to fire
+    # before an actual destructive run.
+    if is_external and not force_canonical and not dry_run:
         click.echo(
             f"[!] The .divineos_canonical marker at {checkout} routes to an external path:",
             err=True,

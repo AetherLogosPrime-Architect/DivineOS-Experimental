@@ -72,6 +72,9 @@ class TestBuildNextTaskSurface:
             actor="user",
             focus="test round for next-task surface fallthrough",
         )
+        # auto_route=False: this surface enumerates OPEN findings.
+        # Auto-routing (2026-07-07 default) transitions submit -> ROUTED
+        # which would move the finding out of the surface's scope.
         finding_id = watchmen_store.submit_finding(
             round_id=round_id,
             actor="user",
@@ -79,6 +82,7 @@ class TestBuildNextTaskSurface:
             severity=Severity.HIGH,
             category=FindingCategory.BEHAVIOR,
             description="A high-severity finding the surface should pick up.",
+            auto_route=False,
         )
 
         out = build_next_task_surface()

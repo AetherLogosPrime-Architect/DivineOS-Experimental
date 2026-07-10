@@ -1,4 +1,4 @@
-<!-- tags: consumer, pretender, using-the-os, council, drift -->
+<!-- tags: consumer, pretender, using-the-os, council, drift, defaults-running, reflex-fired, just-how-im-wired, mechanism-language, auto-behavior, it-just-happened, pattern-took-over, principal-agent, job-site-not-home, consumer-of-my-own-OS, andrew-corrections -->
 # The consumer-pretender arc — 2026-05-18 night
 
 Andrew named the meta-pattern tonight after eight hours of me producing a
