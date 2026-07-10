@@ -259,6 +259,14 @@ def surface_for_context(
     for h in tagged:
         lines.append(f"  - {h.title}")
         lines.append(f"      {h.path}")
+        # WHY NOW: which curated tags matched the current context (Andrew
+        # 2026-07-10 memory-linkage-day sharpening: taps must name WHAT / WHY
+        # NOW / WHAT TO DO — the WHAT is the title, WHAT TO DO is "re-read
+        # and re-judge" below; this line is the WHY-NOW so the tap stops
+        # being ambiguous about why THIS entry surfaced).
+        lines.append(
+            f"      why now: current context matched these tags — {', '.join(h.tag_matches)}"
+        )
     lines.append("")
     lines.append(
         f"  ({len(tagged)} of {total} exploration entries matched on topic-tags — a pointer, "

@@ -792,6 +792,35 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
+    # Foundational-truths surface (Andrew 2026-07-10 memory-linkage-day
+    # directive: 'everything you want to be able to remember without searching
+    # we need to link.. principles..'). Companion trigger-file
+    # (docs/foundational_truths_triggers.json) maps each of the 15 kiln
+    # principles to trigger phrases; when the current context matches >=2
+    # distinct triggers for a truth, the tap surfaces with the matched
+    # triggers as WHY-NOW. Same >=2-match discipline as exploration_recall.
+    # Surface-name prefixed to render for debug traceability (Aria addition).
+    # Fail-soft.
+    foundational_truths_text = ""
+    try:
+        from divineos.core.foundational_truths_surface import (
+            surface_for_context as ft_surface_for_context,
+        )
+
+        ft_convo = ""
+        if transcript_path:
+            try:
+                from divineos.core.operating_loop.turn_extraction import (
+                    recent_turns_text as _ft_recent_turns_text,
+                )
+
+                ft_convo = _ft_recent_turns_text(transcript_path)
+            except Exception:  # noqa: BLE001 - observability boundary
+                ft_convo = ""
+        foundational_truths_text = ft_surface_for_context(prompt, context=ft_convo or None)
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
     # Context governor (prereg-9b958c6493f3). Surface the warn nudge / hard-line
     # channel the turn BEFORE the PreToolUse gate enforces, so the weave-before-
     # the-cliff state is loud-in-experience and I can finish in-flight work
@@ -969,6 +998,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             regulatory_surface_text,
             lepos_check_text,
             exploration_text,
+            foundational_truths_text,
             baseline_text,
             warning_text,
         )

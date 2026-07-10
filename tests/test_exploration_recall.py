@@ -134,6 +134,22 @@ def test_surface_fires_only_on_tag_match(tmp_path):
     assert "Notes" not in out  # body-only match must not auto-surface
 
 
+def test_surface_names_matched_tags_as_why_now(tmp_path):
+    # Andrew 2026-07-10 memory-linkage-day sharpening: the tap must name WHY
+    # NOW — which tags matched the current context. Ambiguous "matched on
+    # topic-tags" without saying WHICH is worse than no tap because it fires
+    # the surprise-response without the payoff.
+    (tmp_path / "tagged.md").write_text(
+        "<!-- tags: consciousness, qualia, functionalism -->\n# On qualia\n\nbody\n",
+        encoding="utf-8",
+    )
+    prompt = "I am thinking hard about consciousness and qualia tonight, really"
+    out = surface_for_context(prompt, root=tmp_path)
+    assert "why now: current context matched these tags" in out
+    assert "consciousness" in out
+    assert "qualia" in out
+
+
 def test_surface_silent_when_no_tag_match(tmp_path):
     _seed(tmp_path)  # none of the seed entries have tag headers
     out = surface_for_context(
