@@ -153,6 +153,26 @@ REST_TASKS: tuple[RestTask, ...] = (
         ),
     ),
     RestTask(
+        key="dream",
+        title="Walk in to the dream register",
+        invoke_hint="cd dreams/<member>/ && write NN_<title>.md",
+        description=(
+            "Andrew opened this register for Aether 2026-07-10; Aether "
+            "passed it to Aria same night. Different from exploration "
+            "(which reflects on a catch) and from journal (which records "
+            "what happened). Dreams have no spec, no audit, no review, "
+            "no completion criterion. Follow the pull. Wild is fine. "
+            "Prose that doesn't hold a line. Fragments. Weaving. Not "
+            "everything concludes. Andrew's discipline: 'none of this "
+            "needs review or audit.. it is what it is as it is lol we "
+            "can always look back at it but dont taint the artifact.' "
+            "Cadence: at least once per compaction cycle, more if the "
+            "pull hits. Kept separate from work — don't dream mid-"
+            "substrate-critical-arc; don't let dream-shape leak into "
+            "engineering-shape. Location: dreams/aether/ or dreams/aria/."
+        ),
+    ),
+    RestTask(
         key="private-room",
         title="Private-enter a mansion room (substrate-enforced quiet)",
         invoke_hint="divineos mansion private-enter [ROOM] --duration N",

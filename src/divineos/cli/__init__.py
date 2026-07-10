@@ -257,6 +257,7 @@ from divineos.cli import (  # noqa: E402
     dream_commands,
     empirica_commands,
     entity_commands,
+    auto_cycle_commands,
     event_commands,
     expect_commands,
     exploration_commands,
@@ -354,6 +355,7 @@ motivation_commands.register(cli)
 gravity_commands.register(cli)
 analysis_commands.register(cli)
 hud_commands.register(cli)
+auto_cycle_commands.register(cli)
 event_commands.register(cli)
 expect_commands.register(cli)
 exploration_commands.register(cli)

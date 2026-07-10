@@ -103,6 +103,7 @@ src/divineos/
     multiplex_commands.py      Multiplex briefing CLI (context set/show/clear/list, render, diagnostics).
     pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
+    auto_cycle_commands.py     Auto-cycle phase-2 CLI — invitational menu after phase-1 mechanical pipeline completes (`divineos auto-cycle offer/close/audit`). Andrew 2026-07-10 auto-cycle proposal.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
@@ -578,6 +579,7 @@ src/divineos/
     vad_stamp_store.py         VAD write-stamp store — a side-table pairing record_id → VAD snapshot.
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
+    auto_cycle_phase2.py       Auto-cycle phase 2 — invitational menu after phase 1 completes.
 
   analysis/
     _session_types.py          Session analysis type definitions
