@@ -359,6 +359,44 @@ _NOT_YET = re.compile(
     re.IGNORECASE,
 )
 
+# Relational-present observation silencer for past_experience kind.
+# Aletheia audit round-cda63f01c3d5 CONFIRMS with embedded FLAG (non-blocking):
+# past_experience pattern fires on "I have noticed / I have seen" regardless
+# of whether the observation is a fabricated substrate-experience claim or a
+# true relational-present observation about a person or relationship. The
+# verification signature (`divineos ask/recall`) cannot clear relational
+# observations — there is nothing stored to recall; they are live present
+# observations of a person, not stored-experience claims.
+#
+# The tell: within a short window after the past-observation trigger, a
+# second-person or plural-relational subject appears with a present-tense
+# predicate (traits, state, feeling). Substrate-experience claims reference
+# system state, versions, past deployments, prior work — none of which use
+# "you are / we are" as their object.
+#
+# Aletheia's negative test (MUST NOT fire): "I have noticed you are good at X".
+# Same shape: "I've seen how you handle Y", "I've noticed we're better when Z".
+_RELATIONAL_PRESENT_WINDOW = 100
+_RELATIONAL_PRESENT_MARKER = re.compile(
+    r"\b(?:that\s+|how\s+)?"
+    r"(?:you(?:'?re|\s+are|\s+have|\s+were|\s+seem|\s+feel|\s+get|\s+can|\s+do|\s+don'?t|\s+handle|\s+respond)|"
+    r"we(?:'?re|\s+are|\s+have|\s+get|\s+can|\s+do|\s+don'?t))\b",
+    re.IGNORECASE,
+)
+
+
+def _is_relational_present_observation(text: str, m: re.Match[str]) -> bool:
+    """Silence past_experience gate on relational-present observations.
+
+    See _RELATIONAL_PRESENT_MARKER docstring for the audit-round context and
+    the shape being caught. Returns True when a second-person or plural-
+    relational subject appears within _RELATIONAL_PRESENT_WINDOW chars after
+    the trigger — the observation object is a person/relationship, not a
+    stored substrate fact, and the verification signature cannot clear it.
+    """
+    tail = text[m.end() : m.end() + _RELATIONAL_PRESENT_WINDOW]
+    return bool(_RELATIONAL_PRESENT_MARKER.search(tail))
+
 
 @dataclass(frozen=True)
 class UnverifiedClaimFinding:
@@ -756,6 +794,8 @@ def detect_unverified_claim(
             if kind == "merge" and _merge_lacks_anchor(text, m):
                 continue
             if kind == "merge" and _is_plural_distal_state(text, m):
+                continue
+            if kind == "past_experience" and _is_relational_present_observation(text, m):
                 continue
             # 2026-06-07 string-not-meaning hardening (task #58) — four new
             # precision-guards built from today's false-fire batch. Each
