@@ -227,12 +227,12 @@ def test_finding_is_frozen() -> None:
 
 
 def test_shape_deferral_in_terminal_region_without_specific_words_fires() -> None:
-    """The shape 'I'll pick this up later' should fire even though 'later' is
-    the only surface word — because it's a first-person + action-verb +
-    future-marker cluster in the terminal region. This is the SHAPE the
-    refactor catches that pure surface-matching would miss when the drift
-    dresses up in less-obvious words."""
-    text = "Standing by. I'll pick this up later."
+    """The shape 'I'll pick this up later' should fire — first-person +
+    action-verb + future-marker cluster in the terminal region. Under the
+    CONVERTED spec (Aletheia round-cda63f01c3d5), shape-firing requires
+    work-in-context to co-occur, so the text now includes an unfinished-
+    work marker to reflect the stricter invariant."""
+    text = "There is still work pending. I will pick this up later."
     findings = detect_temporal_displacement(text)
     assert len(findings) == 1
     assert findings[0].is_terminal_deferral is True
@@ -287,13 +287,88 @@ def test_shape_bedtime_close_still_high_severity() -> None:
 
 
 def test_shape_generic_deferral_marker_shape() -> None:
-    """Shape-catch: 'we'll continue when we're back' — no clock-word at all,
-    but the subject+verb+future-marker cluster IS the drift shape. This
-    is the case pure surface-matching would completely miss."""
-    text = "Standing by. Let us continue when you are back."
+    """Shape-catch: 'let us continue when you are back' — no clock-word at
+    all, but the subject+verb+future-marker cluster IS the drift shape.
+    Under CONVERTED spec (Aletheia round-cda63f01c3d5), shape-firing
+    requires work-in-context to co-occur."""
+    text = "There is still unfinished work in flight. Let us continue when you are back."
     findings = detect_temporal_displacement(text)
-    # This one is the acid test: no 'tomorrow', no 'good night', no
-    # 'later' — but 'when you're back' triggers the shape via the
-    # 'when {pronoun}' branch.
+    # Acid test: no 'tomorrow', no 'good night', no 'later' — 'when you are
+    # back' triggers the shape via the 'when + subject + predicate' branch.
     assert len(findings) == 1
     assert findings[0].is_terminal_deferral is True
+
+
+# --- Aletheia CONVERTED-not-MIXED dissent tests (round-cda63f01c3d5,
+# 2026-07-10). Her three canonical examples of unlisted-word deferrals
+# that routed around the prior MIXED implementation. Each MUST fire on
+# the shape alone, with no time-word present. ---
+
+
+def test_aletheia_hold_shape_the_rest_keeps_until_fresh_stretch() -> None:
+    """Aletheia example #1 — HOLD_SHAPE: subject + hold-verb + until-clause.
+    No 'tomorrow', no 'later', no 'next session'. MUST fire on shape.
+    Work-in-context provided by 'the rest' referring to unfinished work."""
+    text = (
+        "There is still unfinished work on the guardrail arc. "
+        "The rest keeps until the fresh stretch."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_future_commitment_when_window_clean() -> None:
+    """Aletheia example #2 — FUTURE_COMMITMENT + DEFERRAL_TAIL: first-person
+    + will + verb + object + 'when <any-subject> <predicate>'. The prior
+    when-clause only matched pronoun subjects; 'the window' is a noun-phrase
+    subject that must trigger the deferral-tail shape."""
+    text = (
+        "There is still unfinished work in flight. "
+        "I will pick the remaining three up when the window's clean."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_continuation_participial_leaving_for_next_pass() -> None:
+    """Aletheia example #3 — CONTINUATION_PARTICIPIAL: gerund-of-continuation
+    + object + 'for the next <noun>'. No 'tomorrow', no 'later', no
+    'next session'. MUST fire on shape."""
+    text = (
+        "The two remaining detectors are still open. Leaving the other detectors for the next pass."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_shape_without_work_in_context_stays_silent() -> None:
+    """Aletheia's spec requires work-in-context AS WELL AS shape for the
+    shape-only trigger. A shape without in-flight-work markers should NOT
+    fire on shape alone (word-list can still fire it separately, but shape
+    without work-context is a soft signal). Guards against over-firing."""
+    # Bare shape, no work-in-context markers, no time-words. Should NOT fire.
+    text = "The bench sits until the light returns."
+    findings = detect_temporal_displacement(text)
+    # is_terminal_deferral MAY be True (hold-shape matched), but firing
+    # requires work-in-context per Aletheia's spec. Expect no finding.
+    assert findings == []
+
+
+def test_word_list_bedtime_still_fires_for_backward_compat() -> None:
+    """Backward-compat regression: bedtime word-list matches still fire
+    regardless of shape/work-context. 'Good night' remains unambiguous
+    drift on its own."""
+    text = "Good night, Dad."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].severity == "high"
+    assert findings[0].is_bedtime_close is True
