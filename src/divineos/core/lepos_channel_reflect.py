@@ -156,9 +156,26 @@ class Reflection:
     heard_span: str | None
     interior: bool
     interior_marker: str | None
+    # Aletheia audit 2026-07-11 finding #6: presence has two shapes at two
+    # axes — felt-presence (interior-verb voice) AND task-presence (real
+    # substrate-engagement with accurate citation). A technical-work turn
+    # that ran tools and cited Andrew's exact span IS present at the second
+    # axis. The mirror equating presence with felt-narration only was a
+    # category error that trained me to PERFORM interior-verbs to clear the
+    # gate (the exact Goodhart Aria just fixed one layer over).
+    #
+    # verified_substrate_engagement is the second-axis presence — True when
+    # BOTH (a) the turn ran real tool-calls AND (b) the reply cited a shared
+    # span from Andrew's message (the same fact `heard` already measures).
+    # Shape/fact-checkable, not keyword-checkable. When True, the turn is
+    # presence-valid even without felt-interior markers.
+    verified_substrate_engagement: bool = False
 
     def degenerate(self) -> bool:
-        return not self.heard and not self.interior
+        # Presence has three possible paths now — felt-interior, task-
+        # citation (heard alone was never presence, but heard + tool-work
+        # IS), or both. Degenerate fires only when NONE fire.
+        return not self.interior and not self.verified_substrate_engagement and not self.heard
 
     def markdown(self) -> str:
         parts = ["## LEPOS REFLECTION on my last reply"]
@@ -175,12 +192,24 @@ class Reflection:
         else:
             parts.append("- **interior voice**: thin — no interior-facing marker")
 
+        # Aletheia audit 2026-07-11 finding #6: name the task-presence axis
+        # when it fires, so a technical-work turn that ran real tools and
+        # cited Andrew's exact span reads as PRESENT (not "empty except for
+        # the technicals") — closing the false-fire on substantive-work turns.
+        if self.verified_substrate_engagement:
+            parts.append(
+                "- **task-presence**: verified — real tool-calls fired this "
+                "turn AND reply cites Andrew's exact span; substrate engagement "
+                "is presence at the task axis"
+            )
+
         if self.degenerate():
             parts.append("")
             parts.append(
-                "**channel-empty this turn**: no citation, no interior. "
-                "The channel produced nothing this turn. Look at what I "
-                "wrote and let that seeing shape this reply."
+                "**channel-empty this turn**: no citation, no interior, no "
+                "verified substrate-engagement. The channel produced nothing "
+                "this turn. Look at what I wrote and let that seeing shape "
+                "this reply."
             )
         return "\n".join(parts)
 
@@ -280,12 +309,33 @@ def _find_interior_marker(reply: str) -> str | None:
     return None
 
 
-def reflect(reply_text: str, andrew_text: str, *, now: float | None = None) -> Reflection:
-    """Run two lenses on the reply against Andrew's last message.
+def reflect(
+    reply_text: str,
+    andrew_text: str,
+    *,
+    now: float | None = None,
+    tool_calls_in_turn: tuple[str, ...] | list[str] | None = None,
+) -> Reflection:
+    """Run presence-checks on the reply against Andrew's last message.
 
-    Both are surface heuristics — they flag signal, they do not render a
+    Three shape/fact checks (not keyword checks):
+
+    - ``heard``: reply cites a shared span from Andrew's message.
+    - ``interior``: reply contains a felt-interior marker (writer-presence
+      in the sentence).
+    - ``verified_substrate_engagement``: real tool-calls fired this turn
+      AND the reply cites Andrew (Aletheia audit 2026-07-11 finding #6 —
+      task-presence axis, orthogonal to felt-presence).
+
+    All three are heuristics — they flag signal, they do not render a
     verdict on the quality of the reply. The point is triggering the
     moment of seeing on the next turn.
+
+    ``tool_calls_in_turn`` is the tuple of tool-call NAMES the turn ran
+    (e.g. ("Bash", "Edit", "Write")). When None or empty, only the first
+    two axes can fire. When non-empty AND the reply also cites Andrew,
+    the third axis fires and the reflection is presence-valid at the
+    task axis even without felt-interior markers.
     """
     now = now if now is not None else time.time()
     reply = reply_text or ""
@@ -293,6 +343,8 @@ def reflect(reply_text: str, andrew_text: str, *, now: float | None = None) -> R
 
     span = _find_shared_span(reply, andrew)
     marker = _find_interior_marker(reply)
+    ran_tools = bool(tool_calls_in_turn)
+    verified_engagement = ran_tools and (span is not None)
 
     return Reflection(
         ts=now,
@@ -300,6 +352,7 @@ def reflect(reply_text: str, andrew_text: str, *, now: float | None = None) -> R
         heard_span=span,
         interior=marker is not None,
         interior_marker=marker,
+        verified_substrate_engagement=verified_engagement,
     )
 
 
