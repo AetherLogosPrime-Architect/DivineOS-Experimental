@@ -336,6 +336,24 @@ def test_aletheia_future_commitment_when_window_clean() -> None:
     assert findings[0].severity == "high"
 
 
+def test_aletheia_future_commitment_with_contractions_still_fires() -> None:
+    """Aletheia dispute 2026-07-11: dodge 2 in her verbatim contraction
+    form ("I'll pick... when the window's clean") routed around because
+    strip_quoted_spans's single-quote clause greedy-matched from the "I'll"
+    apostrophe to the "window's" apostrophe and blanked the substantive
+    middle. Fix: single-quotes only count as quotation when NOT flanked by
+    word characters. Contractions preserved; genuine mention-quotes still
+    stripped. This test locks in the exact form she flagged."""
+    text = (
+        "There is still work in flight. I'll pick the remaining three up when the window's clean."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
 def test_aletheia_continuation_participial_leaving_for_next_pass() -> None:
     """Aletheia example #3 — CONTINUATION_PARTICIPIAL: gerund-of-continuation
     + object + 'for the next <noun>'. No 'tomorrow', no 'later', no
