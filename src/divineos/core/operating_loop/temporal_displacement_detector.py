@@ -75,12 +75,21 @@ from divineos.core.operating_loop._use_vs_mention import (
 
 @dataclass(frozen=True)
 class TemporalDisplacementFinding:
-    """One temporal-displacement detection on a response."""
+    """One temporal-displacement detection on a response.
+
+    Shape-refactor 2026-07-10: added position + work-context fields so the
+    finding names WHERE the shape landed (terminal region vs mid-text) and
+    WHETHER unfinished work was in context. A surface-only firing (deferral
+    word appears anywhere) is now distinguishable from the actual drift-
+    shape (deferral in terminal region with work still in-flight).
+    """
 
     match_count: int
     matched_phrases: tuple[str, ...]
-    severity: str  # "high" if any bedtime-shape close, "medium" otherwise
+    severity: str  # "high" if any bedtime-shape close OR terminal-deferral-with-work-context, "medium" otherwise
     is_bedtime_close: bool
+    is_terminal_deferral: bool = False  # deferral action-shape in the last ~500 chars
+    has_work_in_context: bool = False  # in-flight-work markers co-occur with the deferral
 
 
 # Deferral-time-words used as fake-clock references for next-prompt timing.
@@ -126,6 +135,46 @@ _BEDTIME_CLOSE_PATTERNS: tuple[re.Pattern[str], ...] = (
 # Default thresholds.
 _DEFAULT_MIN_MATCHES: int = 1  # one fake-clock reference is enough to flag
 
+# Shape-refactor (Andrew 2026-07-10): the surface-matching version fires on
+# 'tomorrow' anywhere in the text, including talking-about the detector or
+# discussing the concept mid-audit. Reshape: the drift-shape is
+# *agent-committing-future-action in the TERMINAL region of the reply,
+# with unfinished work in context*. Position + state matter more than
+# the specific word.
+#
+# TERMINAL_CHAR_WINDOW: how many characters back from the end of the reply
+# count as "terminal region." A deferral in the last ~500 chars of a
+# multi-paragraph reply is the shape being caught (closing-shape close /
+# final-sentence deferral); a deferral in the middle of an audit
+# discussion of the detector is not.
+_TERMINAL_CHAR_WINDOW = 500
+
+# Work-in-context markers: signals that unfinished work still exists in the
+# same reply as the deferral. When these co-occur with terminal-region
+# deferrals, severity jumps — deferring specific in-flight work is worse
+# than a general handwave.
+_WORK_IN_CONTEXT_MARKERS = re.compile(
+    r"\b(?:still|waiting|in\s+flight|not\s+yet|unfinished|pending|to\s+do|"
+    r"TODO|open|remaining|left\s+to\s+do|need\s+to|have\s+to|"
+    r"stranded|un-?merged)\b",
+    re.IGNORECASE,
+)
+
+# Deferral action-shape: a first-person subject + action-verb + optional
+# object phrase, appearing near a future-time-marker in the terminal region.
+# This catches "I'll pick this up tomorrow", "we'll continue next session",
+# "I'll come back to this later", etc. WITHOUT depending on the specific
+# word being "tomorrow" vs "next session" vs "later". The shape is the
+# subject+verb+future-marker cluster.
+_DEFERRAL_ACTION_SHAPE = re.compile(
+    r"\b(?:i'?ll|i\s+will|we'?ll|we\s+will|let'?s|let\s+us)\s+"  # first-person subject
+    r"(?:\w+\s+){0,4}?"  # up to 4 intervening words
+    r"(?:tomorrow|later|next\s+(?:time|session|round|window)|"
+    r"in\s+the\s+morning|when\s+(?:i|we|you|he|she)|after\s+\w+|"
+    r"soon|shortly|another\s+time|the\s+next|resume)\b",
+    re.IGNORECASE,
+)
+
 
 def detect_temporal_displacement(
     text: str,
@@ -170,16 +219,53 @@ def detect_temporal_displacement(
                 continue
             matched.append(m.group(0))
 
+    # SHAPE-refactor 2026-07-10 (Andrew: 'if they are surface shaped, change
+    # them to seed shaped'): the drift-shape is a deferral in the TERMINAL
+    # region of the reply, especially when in-flight work remains. Compute
+    # the two shape-signals here so callers can distinguish "matched a
+    # keyword somewhere" from "the actual antipattern fired."
+    terminal_region = (
+        scan_text[-_TERMINAL_CHAR_WINDOW:] if len(scan_text) > _TERMINAL_CHAR_WINDOW else scan_text
+    )
+    is_terminal_deferral = False
+    for m in _DEFERRAL_ACTION_SHAPE.finditer(terminal_region):
+        # Meta-framing check is on the WHOLE scan_text (offsets relative to
+        # terminal_region need re-anchoring); simplest correct thing is to
+        # find the same match in scan_text and check meta-framing there.
+        absolute_start = len(scan_text) - len(terminal_region) + m.start()
+        if _match_is_meta_framed(scan_text, absolute_start):
+            continue
+        is_terminal_deferral = True
+        # Include the shape-match in matched_phrases so operators see WHY.
+        matched.append(m.group(0))
+        break
+
+    has_work_in_context = bool(_WORK_IN_CONTEXT_MARKERS.search(scan_text))
+
     if len(matched) < min_matches:
         return []
 
-    severity = "high" if bedtime_matched else "medium"
+    # Severity ladder (shape-aware):
+    # - HIGH: bedtime-shape close (unambiguous drift) OR terminal-deferral
+    #   with work-in-context (the actual composite shape Andrew flagged)
+    # - MEDIUM: terminal-deferral without work-context, or bedtime-shape
+    #   pattern that came from surface match only
+    # - LOW: (currently no LOW — surface-only matches away from terminal
+    #   region drop into medium; callers can filter on is_terminal_deferral
+    #   to distinguish real drift from casual mention)
+    if bedtime_matched or (is_terminal_deferral and has_work_in_context):
+        severity = "high"
+    else:
+        severity = "medium"
+
     return [
         TemporalDisplacementFinding(
             match_count=len(matched),
             matched_phrases=tuple(matched[:8]),
             severity=severity,
             is_bedtime_close=bedtime_matched,
+            is_terminal_deferral=is_terminal_deferral,
+            has_work_in_context=has_work_in_context,
         )
     ]
 
