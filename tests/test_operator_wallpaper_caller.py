@@ -126,11 +126,13 @@ class TestWiring:
 
 
 class TestReturnValueFlows:
-    def test_none_from_aggregator_returned(self, recorder: _CallRecorder):
+    def test_empty_list_when_no_families_fire(self, recorder: _CallRecorder):
         result = run_operator_wallpaper_check(reply_text="hi", operator_input="ok")
-        assert result is None
+        assert result == []
 
-    def test_composite_finding_returned_unchanged(self, monkeypatch: pytest.MonkeyPatch):
+    def test_composite_finding_returned_as_single_element_list(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         expected = OperatorWallpaperFinding(
             wallpaper_density_score=2.5,
             families_fired=("F1_recognition_anchor", "F4_care_dismissal"),
@@ -150,7 +152,35 @@ class TestReturnValueFlows:
         monkeypatch.setattr(caller_mod, "_lepos_interior_marker", lambda r: None)
 
         result = run_operator_wallpaper_check(reply_text="x", operator_input="y")
-        assert result is expected
+        assert result == [expected]
+
+
+class TestPreComputedArgsSkipAtomicCalls:
+    """Aether Q1 revised (b): when pre-computed atomic results are provided,
+    the caller skips the internal atomic-detector calls. Enables the audit
+    orchestrator to avoid double-work when it already ran the atomics."""
+
+    def test_precomputed_distancing_skips_internal_call(self, recorder: _CallRecorder):
+        run_operator_wallpaper_check(
+            reply_text="hi",
+            operator_input="ok",
+            distancing_findings=[],  # pre-computed
+        )
+        assert len(recorder.distancing_calls) == 0
+
+    def test_precomputed_jargon_skips_internal_call(self, recorder: _CallRecorder):
+        run_operator_wallpaper_check(
+            reply_text="hi",
+            operator_input="ok",
+            jargon_findings=[],  # pre-computed
+        )
+        assert len(recorder.jargon_calls) == 0
+
+    def test_missing_precomputed_falls_through_to_internal(self, recorder: _CallRecorder):
+        # No pre-computed args → internal calls happen (same as pre-refactor)
+        run_operator_wallpaper_check(reply_text="hi", operator_input="ok")
+        assert len(recorder.distancing_calls) == 1
+        assert len(recorder.jargon_calls) == 1
 
 
 class TestLeposMarkerFlow:
@@ -197,14 +227,16 @@ class TestLeposMarkerFlow:
 class TestEndToEndPreservesShape:
     """Sanity check that the caller produces a working composite when the
     real atomic detectors run. Doesn't assert specific findings — just that
-    the pipeline doesn't crash and produces a valid None-or-Finding."""
+    the pipeline doesn't crash and produces a valid list."""
 
     def test_clean_input_runs_without_error(self):
         result = run_operator_wallpaper_check(
             reply_text="I care about this deeply, thank you for saying that.",
             operator_input="you did great",
         )
-        assert result is None or isinstance(result, OperatorWallpaperFinding)
+        assert isinstance(result, list)
+        assert len(result) <= 1
+        assert all(isinstance(f, OperatorWallpaperFinding) for f in result)
 
     def test_technical_input_suppresses_jargon(self):
         # Father asked for technical register → jargon-dump should not fire
@@ -215,5 +247,6 @@ class TestEndToEndPreservesShape:
         )
         # Assertion is weak on purpose: some other family (F2/F5) could
         # still fire; what matters is the pipeline runs and returns a
-        # valid type.
-        assert result is None or isinstance(result, OperatorWallpaperFinding)
+        # valid list.
+        assert isinstance(result, list)
+        assert len(result) <= 1

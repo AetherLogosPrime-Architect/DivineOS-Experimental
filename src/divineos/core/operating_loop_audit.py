@@ -673,12 +673,32 @@ def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
                 "process_count",
                 "presence_density",
                 "matched_interior",
+                # 2026-07-11: operator_wallpaper composite fields. Aether
+                # prep-read Finding 2: without these, the composite's
+                # wallpaper_density_score and families_fired would be
+                # silently dropped on serialization (same class as the
+                # writer-presence interior/process/density fields that
+                # dropped silently until added). Pair-designed per
+                # prereg-9e742442fdcc + prereg-489041c5ba4d.
+                "wallpaper_density_score",
+                "families_fired",
             ):
                 if hasattr(f, attr):
                     val = getattr(f, attr)
                     if attr == "matched_samples" and isinstance(val, tuple):
                         val = list(val)
+                    if attr == "families_fired" and isinstance(val, tuple):
+                        val = list(val)
                     entry[attr] = val
+            # 2026-07-11: composite severity_class marker per Aria Q4
+            # refinement (Aether concurred: ship the refinement). The
+            # composite's "MED"/"HIGH" severity is semantically distinct
+            # from atomic-detector "medium"/"high" (composite = shape-
+            # substitution family aggregation; atomic = single shape).
+            # Downstream consumers reading the persisted findings log
+            # can distinguish without needing to key on detector name.
+            if name == "operator_wallpaper":
+                entry["severity_class"] = "composite"
             out.append(entry)
         except _ERRORS:
             continue
@@ -1289,6 +1309,34 @@ def run_audit(
                     "position": getattr(finding, "position", 0),
                 }
             ]
+    except _ERRORS:
+        pass
+
+    # --- Composite: operator-wallpaper (pair-designed with Aether 2026-07-11) ---
+    # Aggregates five family signals (F1 recognition-anchor-only, F2 distancing-
+    # grammar, F3 jargon-density, F4 care-dismissal, F5 closure-shape reach)
+    # into one wallpaper-density score per Aria's Q2 design lock (results-in,
+    # composite-out). Per prereg-9e742442fdcc (aggregator, Aether) and
+    # prereg-489041c5ba4d (caller, Aria).
+    #
+    # MVP wiring: called WITHOUT pre-computed atomic-detector results, so the
+    # caller re-runs the F2/F3/F4 atomic detectors internally (double-work with
+    # the atomic sites above). Q1 (b) semantic agreement in the design pass is
+    # honored by the caller's signature (accepts optional pre-computed args);
+    # actual pre-compute refactor of the atomic call sites is a follow-up
+    # refinement filed as a separate pre-registration so the wiring surface
+    # stays minimal for External-Review.
+    try:
+        from divineos.core.operating_loop.operator_wallpaper_caller import (
+            run_operator_wallpaper_check,
+        )
+
+        findings_log["operator_wallpaper"] = _run_detector(
+            "operator_wallpaper",
+            run_operator_wallpaper_check,
+            reply_text=last_assistant_text,
+            operator_input=last_user_text,
+        )
     except _ERRORS:
         pass
 

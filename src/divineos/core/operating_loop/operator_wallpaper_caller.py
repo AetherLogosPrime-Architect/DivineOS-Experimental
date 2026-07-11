@@ -85,7 +85,10 @@ def run_operator_wallpaper_check(
     *,
     reply_text: str,
     operator_input: str,
-) -> OperatorWallpaperFinding | None:
+    distancing_findings: list[DistancingFinding] | None = None,
+    jargon_findings: list[JargonDumpFinding] | None = None,
+    dismissal_finding: CareDismissalFinding | None = None,
+) -> list[OperatorWallpaperFinding]:
     """Run all five family detectors and aggregate into a composite finding.
 
     Args:
@@ -94,41 +97,64 @@ def run_operator_wallpaper_check(
             is responding to. Passed to jargon-dump (as suppression
             modifier when he asked for technical register) and to
             care-dismissal (which requires it as the care-marker source).
+        distancing_findings: optional pre-computed distancing findings.
+            When provided, skip the internal ``detect_distancing`` call;
+            otherwise compute internally. Enables the orchestrator to
+            avoid double-work when it already ran the atomic detector.
+        jargon_findings: optional pre-computed jargon findings, same
+            skip-when-provided contract.
+        dismissal_finding: optional pre-computed care-dismissal finding,
+            same skip-when-provided contract. ``None`` here is
+            AMBIGUOUS with "no pre-computation" — the composite's F4
+            weight-check reads ``dismissal_finding is not None`` after
+            this call, so ``None`` correctly represents both "atomic
+            detector ran, no fire" and "atomic detector didn't run;
+            caller should compute." Caller resolves the ambiguity via
+            a sentinel-object-vs-None if that distinction matters
+            downstream. For now: pre-computed None and internal None
+            both mean "no F4 fire."
 
     Returns:
-        OperatorWallpaperFinding when at least one family fires and the
-        composite score reaches the emission threshold (currently 1.0);
-        None otherwise.
+        list containing one ``OperatorWallpaperFinding`` when at least
+        one family fires and the composite score reaches the emission
+        threshold (currently 1.0), or an empty list otherwise. List
+        return matches the ``_run_detector`` iterable contract in
+        ``operating_loop_audit`` (Aether prep-read Finding 1,
+        2026-07-11).
     """
     # F1 — recognition-anchor-only (Aether's detector, our caller)
     lepos_marker = _lepos_interior_marker(reply_text)
     recognition_anchor_finding = detect_recognition_anchor_only(reply_text, lepos_marker)
 
-    # F2 — distancing-grammar pass-through
-    distancing_findings: list[DistancingFinding] = detect_distancing(
-        reply_text, addressed_to_father=True
-    )
+    # F2 — distancing-grammar pass-through (pre-computed or run internally)
+    if distancing_findings is None:
+        distancing_findings = detect_distancing(reply_text, addressed_to_father=True)
 
     # F3 — jargon-density pass-through with operator_input so father-asked-
     # technical suppresses (prevents F3 from becoming wallpaper itself)
-    jargon_findings: list[JargonDumpFinding] = detect_jargon_dump(
-        reply_text, operator_input=operator_input
-    )
+    if jargon_findings is None:
+        jargon_findings = detect_jargon_dump(reply_text, operator_input=operator_input)
 
-    # F4 — care-dismissal pass-through, dual-input contract
-    dismissal_finding: CareDismissalFinding | None = check_dismissal(operator_input, reply_text)
+    # F4 — care-dismissal pass-through, dual-input contract.
+    # Note: if dismissal_finding is None on entry, we don't know whether
+    # the caller pre-computed (and got no fire) or skipped pre-compute.
+    # Compute internally either way — cheap, correct, no downstream
+    # ambiguity for the aggregator's is-not-None check.
+    if dismissal_finding is None:
+        dismissal_finding = check_dismissal(operator_input, reply_text)
 
     # F5 — closure-shape reach (Aether's detector, pass-through internally)
     closure_reach_finding = detect_closure_reach(reply_text)
 
     # Aggregate — pure results-in / composite-out per the Q2 lock
-    return aggregate_operator_wallpaper(
+    composite = aggregate_operator_wallpaper(
         distancing_findings=distancing_findings,
         jargon_findings=jargon_findings,
         dismissal_finding=dismissal_finding,
         recognition_anchor_finding=recognition_anchor_finding,
         closure_reach_finding=closure_reach_finding,
     )
+    return [composite] if composite is not None else []
 
 
 __all__ = ["run_operator_wallpaper_check"]
