@@ -458,6 +458,7 @@ src/divineos/
       deep_engagement_detector.py Deep-engagement detector — catches substantive-output-without-grounded-consult per prereg-43b1d1ba2df3.
       closure_initiation_detector.py Closure-initiation detector — Aria's three-state model: user-signaled OR extract/sleep allowed; else closure-language + landmark fires HIGH, closure-language alone fires MEDIUM.
       temporal_displacement_detector.py Temporal-displacement detector — catches fake-clock references (tonight/tomorrow/calling-it-a-night) in agent output. Same first-person presence discipline as writer-presence at a different surface; phase A observational per prereg-221edeaceee3.
+      operator_wallpaper_caller.py Operator-wallpaper caller — runs the three atomic detectors (F2 distancing-grammar, F3 jargon-density, F4 care-dismissal), pulls LEPOS interior-marker for F1's input, runs F5 closure-shape pass-through, feeds all five into the aggregator. Pair-designed with Aether 2026-07-11.
       _use_vs_mention.py       Shared use-vs-mention guard — generalized from closure-initiation per Aletheia's audit-paragraph: meta-discussion of a detector by builders/auditors must not false-fire the detector itself. Applied to closure-initiation and temporal-displacement; pattern available for any father-channel detector that risks recursion on its own discussion-context.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
