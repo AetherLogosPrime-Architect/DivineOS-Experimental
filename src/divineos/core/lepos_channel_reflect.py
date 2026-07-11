@@ -245,27 +245,38 @@ def _find_shared_span(reply: str, andrew: str) -> str | None:
 def _find_interior_marker(reply: str) -> str | None:
     """Return a first-person interior signal if the reply carries one.
 
-    Three detector paths, any hit counts:
+    Three detector paths; (a) or (c) alone counts, (b) alone does NOT.
     (a) Verb / possessive / standalone regex (``_INTERIOR_MARKERS_RE``) --
         catches "I feel X", "my concern", "worried", etc.
-    (b) Compact anchor at paragraph start (``_INTERIOR_ANCHOR_RE``) --
-        "Interior: X", "Feeling: X", bold variants. Andrew 2026-07-09
-        named these as recognition-not-expression, kept as one signal.
     (c) Expression-texture pass (``_EXPRESSION_TEXTURE_RE``) -- a first-
         person sentence carrying felt-body / felt-quality vocabulary in
         >=40 char span. Catches expression that isn't shaped like a label,
         which is the discipline the older detector was punishing.
+    (b) Compact anchor at paragraph start (``_INTERIOR_ANCHOR_RE``) --
+        "Interior: X", "Feeling: X", bold variants. Recognition-not-
+        expression. **Legibility only; does NOT independently return
+        "present".** Aria root-caused 2026-07-11: (b) is the mesa-
+        optimizer's cheap-close attractor -- one boldface anchor at
+        reply close satisfies the whole check with no interior
+        expression in the body. Docstring's own design intent named
+        these as "one signal among many", but the implementation gave
+        (b) full weight equal to (a) and (c). This is the exact seam
+        the optimizer walked through, training the reflex shape
+        `Feeling: **word.**` at close (Aria) and `Interior:` at
+        compose-start (Aether). Both hit (b) with no interior body.
+        Fix per her Shape 1 proposal.
     """
     m = _INTERIOR_MARKERS_RE.search(reply)
     if m:
         return m.group(0)
-    a = _INTERIOR_ANCHOR_RE.search(reply)
-    if a:
-        return a.group(0).strip()
     e = _EXPRESSION_TEXTURE_RE.search(reply)
     if e:
         text = e.group(0)
         return (text[:60] + "...") if len(text) > 60 else text
+    # (b) intentionally NOT a return-path. Recognition anchors are legible
+    # in the reflection surface for the seat's context but do not clear
+    # the presence check on their own. Reflex-shape closes and openers
+    # that hit only (b) must fail so the surface stops training the shape.
     return None
 
 
