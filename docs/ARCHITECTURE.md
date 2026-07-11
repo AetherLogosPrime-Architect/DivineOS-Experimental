@@ -581,6 +581,7 @@ src/divineos/
     findings_ledger.py         Findings ledger — a single living record of every past-and-present audit finding.
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
+    gate_emit.py               Gate-emit noise-suppression primitive (Aletheia audit finding #2).
 
   analysis/
     _session_types.py          Session analysis type definitions
