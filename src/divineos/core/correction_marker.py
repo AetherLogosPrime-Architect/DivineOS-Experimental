@@ -184,6 +184,131 @@ _EPISTEMIC_DOESNT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Question-shape and authorization-shape guards for WEAK matches
+# (prereg-55bcdb01e2fa, filed 2026-06-24, built 2026-07-11). WEAK patterns
+# (\bthat doesn'?t\b, \bwrong\b, \bthat'?s not\b, \byou missed\b) fire on
+# user QUESTIONS and AUTHORIZATIONS that carry the trigger token without
+# actually correcting me:
+#
+# Live examples the prereg cites:
+#   - "anything that doesnt need Aether?"                     → question
+#   - "yes we can edit the kiln number that doesnt require an audit" → authorization
+#   - "i wanted you to check out"                              → statement of desire
+#
+# The existing `_has_corrective_context` check catches whether MY prior turn
+# was correctable — that's necessary but not sufficient. The USER's message
+# shape also has to be corrective; a question about my capability isn't a
+# correction of me even if my prior turn was correctable.
+#
+# Design principle: additive-precision, not replacement. Question or
+# authorization → treat as no-match (return None). Preserves recall on
+# real corrections that don't fit either shape; kills the specific
+# false-positive classes named in the prereg.
+_QUESTION_LEADING_WORDS = (
+    r"is|are|was|were|do|does|did|can|could|would|should|will|"
+    r"which|what|when|where|why|who|how|"
+    r"any(?:thing|one|body|where)?|"
+    r"need\s+aether"
+)
+_QUESTION_SENTENCE_START_RE = re.compile(
+    rf"^\s*(?:{_QUESTION_LEADING_WORDS})\b",
+    re.IGNORECASE,
+)
+
+# Authorization / user-desire phrasings. These grant permission or express
+# what the user wants me to do — the opposite of correction. Anchored to
+# the sentence-containing-trigger window so we're specifically asking
+# whether the trigger lives inside an authorization construct.
+#
+# Andrew 2026-07-11: extended to cover bare "we can [action]" without
+# requiring "yes" prefix. The prior pattern required "yes we can"; his
+# exact catch — "if a shape is wrong we can fix it.. make it better" —
+# has bare "we can fix" with no "yes" and false-fired. Same fix-class
+# as prereg-55bcdb01e2fa. Also added conditional/hypothetical starters
+# ("if", "when", "whether") since those frame the sentence as a
+# hypothetical about what-if-wrong, not a live correction of what-IS-wrong.
+_AUTHORIZATION_PRE_RE = re.compile(
+    r"\b(?:yes(?:\s+we\s+can|\s+lets?|\s+go)?|"
+    r"go\s+ahead|"
+    r"lets?\s+(?:do|go|move|proceed|try|see)|"
+    r"i\s+(?:want(?:ed)?|need(?:ed)?)\s+you\s+to|"
+    r"you\s+(?:can|should|might|may)\s+(?:go|proceed|do|try|start)|"
+    r"please\s+(?:go|proceed|do|try|start|edit)|"
+    r"we\s+can\s+(?:fix|do|make|change|edit|build|try|move|proceed|"
+    r"start|see|handle)|"
+    r"we\s+(?:should|need\s+to|could)\s+(?:fix|make|change|edit|build|try))\b",
+    re.IGNORECASE,
+)
+
+# Hypothetical/conditional sentence starters. When the sentence containing
+# the WEAK trigger begins with one of these, the whole sentence is framed
+# as a what-if not a live-correction. Andrew's exact catch 2026-07-11:
+# "if a shape is wrong we can fix it" — the "if" makes it hypothetical,
+# not a claim that a specific shape IS wrong.
+_HYPOTHETICAL_SENTENCE_START_RE = re.compile(
+    r"^\s*(?:if|when(?:ever)?|whether|suppose|imagine|hypothetically)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_question_or_authorization(text: str, match: re.Match[str]) -> bool:
+    """True if the WEAK match sits inside a user-question, user-authorization,
+    or hypothetical/conditional shape — the trigger token is present but the
+    message is not correcting me.
+
+    Question detection (any of):
+      (a) The message ends with '?'
+      (b) The sentence containing the match starts with a question-word
+
+    Authorization detection:
+      (c) Authorization phrasing anywhere in the SAME SENTENCE as the
+          trigger. Sentence-scoped rather than pre-window-only per
+          Andrew 2026-07-11 catch: "if a shape is wrong we can fix it"
+          has "we can fix" AFTER the trigger, so pre-window-only misses
+          it. Sentence-boundary preserves the correct-correction case
+          where authorization is in a SEPARATE sentence ("yes lets
+          refactor. also, your last change was wrong.") — the trigger
+          is in a different sentence and the widened window doesn't
+          silence.
+
+    Hypothetical/conditional detection:
+      (d) The sentence starts with a conditional/hypothetical word
+          ("if", "when", "whether", "suppose", "imagine") — the whole
+          sentence is framed as a what-if not a live correction.
+          Andrew 2026-07-11 catch: "if a shape is wrong" is
+          hypothetical about wrongness, not a claim that something IS
+          wrong.
+
+    Kills the false-positive classes named in prereg-55bcdb01e2fa without
+    weakening true-positive recall on straightforward corrections.
+    """
+    # (a) trailing question mark on the whole prompt
+    if text.rstrip().endswith("?"):
+        return True
+    # Find the sentence containing the match — start (walk back) and end
+    # (walk forward). Bounds the authorization + hypothetical checks so
+    # separate sentences don't cross-silence.
+    sent_start = 0
+    for sm in re.finditer(r"[.!?]\s+|\n\n", text[: match.start()]):
+        sent_start = sm.end()
+    sent_end = len(text)
+    end_search = re.search(r"[.!?]\s+|\n\n", text[match.end() :])
+    if end_search is not None:
+        sent_end = match.end() + end_search.start()
+    sentence_before = text[sent_start : match.start()]
+    sentence_full = text[sent_start:sent_end]
+    # (b) question-word at the start of the sentence containing the match
+    if _QUESTION_SENTENCE_START_RE.search(sentence_before):
+        return True
+    # (c) authorization phrasing anywhere in the sentence (pre OR post
+    # the trigger). Sentence-bounded so separate-sentence authorizations
+    # don't silence real corrections.
+    if _AUTHORIZATION_PRE_RE.search(sentence_full):
+        return True
+    # (d) conditional/hypothetical sentence start.
+    return bool(_HYPOTHETICAL_SENTENCE_START_RE.search(sentence_before))
+
+
 # External-agent-proximity backstop for WEAK matches (2026-07-07).
 # Corrections #113, #114, and 5+ deferred instances all fired on the
 # WEAK 'wrong' / 'thats not' patterns hitting third-party analytical
@@ -316,6 +441,16 @@ def classify_correction(
     weak_hit = _first_pattern_match(scan_text, WEAK_CORRECTION_PATTERNS)
     if weak_hit is not None:
         pattern, m = weak_hit
+        # Question / authorization guard (prereg-55bcdb01e2fa, built
+        # 2026-07-11). WEAK patterns fire on user questions and
+        # authorizations that carry the trigger token without correcting me:
+        #   "anything that doesnt need Aether?"         → question
+        #   "yes we can edit... that doesnt require..." → authorization
+        # See `_is_question_or_authorization` for the shape catalog. Kills
+        # the false-positive class the prereg names without weakening
+        # true-positive recall.
+        if _is_question_or_authorization(scan_text, m):
+            return None
         # External-agent proximity backstop (2026-07-07). Corrections
         # #113/#114 and 5+ deferred instances all fired on WEAK patterns
         # matching third-party analytical text (Aletheia's audit-relays,
