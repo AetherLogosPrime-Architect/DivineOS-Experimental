@@ -587,6 +587,7 @@ src/divineos/
     shape/
       __init__.py              Shape-primitive library — CONDITION-check helpers for keyword-based gates. See module docstring for the class-principle.
       primitives.py            Doorman shape-primitives: sentence_containing, is_hypothetical, is_inside_code_quote, is_peer_relayed, is_internal_observation.
+    subprocess_jobs.py         Windows Job Object subprocess wrapper — kernel-guaranteed parent-death-kills-children.
 
   analysis/
     _session_types.py          Session analysis type definitions

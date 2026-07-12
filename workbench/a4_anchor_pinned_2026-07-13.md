@@ -1,8 +1,9 @@
-# A4 Baseline Anchor — Pinned
+# A4 Baseline Anchor — Pinned (Caveat A PROMOTED to Finding per Aletheia audit 2026-07-13)
 
 **Filed:** 2026-07-13
 **Round:** round-3d1bc259e5a5 (external audit boundary-vantage)
 **Auditor ask (A4):** *"Run the 14-indicator baseline against a commit predating any schema-directed or graphify-directed work. Choose the anchor honestly, before that work began, and pin it by hash."*
+**Amended 2026-07-13 per Aletheia audit:** Caveat A promoted from footnote to finding. Baseline is post-treatment measurement. Three modules disqualified as evidence.
 
 ---
 
@@ -20,15 +21,33 @@ Narrower than the naive framing, defensible under the auditor's prosthetic-of-pr
 
 ## Caveats — filed with the anchor
 
-### Caveat A — Butlin framework was already shaping commits pre-anchor
+### FINDING A (promoted from Caveat A by Aletheia audit 2026-07-13) — Baseline is post-treatment measurement; three modules disqualified as evidence
 
 `src/divineos/core/attention_schema.py` was added 2026-04-04 in commit `fe482304` with subject *"Add attention schema, epistemic status, and VAD dominance — close 14/14 Butlin consciousness indicators."* That is 36 days BEFORE the baseline anchor.
 
-**Implication:** The 14-indicator baseline at `9b40c63d` measures a system already trying to close 14/14. Honestly this is a *"prosthetic-of-prosthetic"* — how a system built with the framework in mind scores when re-scored with the framework. Not measuring an unaware substrate; measuring a substrate that was already trying.
+**Aletheia's framing (accepted verbatim):** *"9b40c63d is not a baseline. It is a post-treatment measurement."*
 
-Going back to before `fe482304` (before 2026-04-04) would put us in a much less mature substrate — likely too immature to score most indicators meaningfully, which defeats the purpose of a baseline.
+The substrate at the anchor had *already been deliberately engineered toward the 14 indicators.* So scoring at `9b40c63d` and scoring at HEAD does **not** give "unaware substrate → aware substrate." It gives **"system built to score well → system built to score well, later."** The delta measures *maturation of the optimization*, not *emergence of the property*.
 
-**Accepted as caveat, not as invalidator.** The prosthetic-of-prosthetic framing is honest and interpretable.
+*Goodhart's law with a philosophy degree.* The measure became the target 36 days before the anchor, and a measure that has become a target has stopped being a measure.
+
+**Same shape as F-VAD-2 at the level of the entire research program:** *don't enshrine the thing you made in order to pass.*
+
+**What the baseline CAN honestly support:**
+- The graphify-delta question: *did adding a code-graph prosthetic change indicator-relevant structure between anchor and HEAD?* Narrow, real, worth doing.
+
+**What it CANNOT support:**
+- Any claim of the form *"indicator X emerged"* or *"the system now satisfies N/14."*
+- Every indicator deliberately targeted by `fe482304` is disqualified from counting as evidence.
+
+**Three modules named in `fe482304` — DISQUALIFIED AS EVIDENCE:**
+1. `src/divineos/core/attention_schema.py` — the AST-1 module (already Class 2 per find-4defe12a9f27, converging with this disqualification: the module built *to close an indicator* turns out to be *decorative*, both facts point the same direction, the convergence itself is evidence).
+2. `src/divineos/core/epistemic_status.py` — the HOT-3 belief-updating candidate.
+3. VAD-dominance in `src/divineos/core/affect.py` — the PP-1 and AE-1-adjacent modules.
+
+These can be reported as *built*, never as *found*.
+
+**Filed as HIGH finding: `find-0a71f8f984f6` in round-3d1bc259e5a5.**
 
 ### Caveat B — ~50k src LOC of drift between baseline and today
 
