@@ -430,6 +430,51 @@ def register(cli: click.Group) -> None:
         total = len(results) + len(core_matches)
         click.secho(f"\n=== {total} results for '{query}' ===\n", fg="cyan", bold=True)
 
+        # Aletheia audit 2026-07-11 finding #3: substrate-search returns
+        # keyword-match noise dressed as signal. When top hits are pure
+        # word-overlap with no semantic connection ("retinal sampling
+        # frequency" surfaces for "frustration signal empathy" because it
+        # matched "signal"), the tool must ADMIT it doesn't have signal
+        # rather than presenting noise as signal. This is the "code knocks,
+        # mind answers" move at the tool boundary.
+        #
+        # Implementation: for each entry, compute cosine similarity between
+        # query and entry content via semantic_store.similarity(). Sub-
+        # threshold entries get a "[keyword-match only]" tag. If the embedding
+        # infrastructure is unavailable (no model cached, offline, etc.),
+        # print a one-time caveat at the top instead of silently degrading.
+        # Threshold pick: 0.30 — below that, similarity is coincidence-of-
+        # tokens rather than semantic relatedness.
+        _KEYWORD_MATCH_THRESHOLD = 0.30
+        entry_semantic_scores: dict[str, float | None] = {}
+        semantic_available = None  # None = not-yet-probed, True/False after probe
+        try:
+            from divineos.core.semantic_store import similarity as _sem_sim
+
+            for entry in results:
+                content_preview = (entry.get("content") or "")[:500]
+                if not content_preview:
+                    entry_semantic_scores[entry["knowledge_id"]] = None
+                    continue
+                score = _sem_sim(query, content_preview)
+                entry_semantic_scores[entry["knowledge_id"]] = score
+                if score is not None:
+                    semantic_available = True
+                elif semantic_available is None and results:
+                    # First entry returned None — model likely unavailable
+                    semantic_available = False
+                    break
+        except Exception:  # noqa: BLE001 - observability boundary
+            semantic_available = False
+
+        if semantic_available is False:
+            click.secho(
+                "  [keyword search only — semantic re-rank unavailable; "
+                "verify each result's relevance manually]",
+                fg="yellow",
+            )
+            click.echo()
+
         for slot_id, content in core_matches:
             label = slot_id.replace("_", " ").title()
             click.secho("  [CORE] ", fg="magenta", bold=True, nl=False)
@@ -455,6 +500,25 @@ def register(cli: click.Group) -> None:
             }.get(entry["knowledge_type"], "white")
             click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
             click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
+            # Aletheia audit 2026-07-11 finding #3: mark low-similarity results
+            # as keyword-match only so the reader knows the substrate can't
+            # confirm semantic relevance. Only tagged when embeddings ran
+            # successfully AND the score fell below threshold — silent when
+            # embeddings unavailable (the caveat at the top covers that case)
+            # or when similarity is above threshold (result is genuinely
+            # relevant).
+            sem_score = entry_semantic_scores.get(entry["knowledge_id"])
+            if (
+                semantic_available is True
+                and sem_score is not None
+                and sem_score < _KEYWORD_MATCH_THRESHOLD
+            ):
+                click.secho(
+                    f"[keyword-match only, sim={sem_score:.2f}] ",
+                    fg="yellow",
+                    bold=True,
+                    nl=False,
+                )
             content = entry["content"]
             if len(content) > 300:
                 _safe_echo(content[:300] + "...")

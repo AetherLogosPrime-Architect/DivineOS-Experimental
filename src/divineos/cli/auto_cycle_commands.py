@@ -37,28 +37,34 @@ def auto_cycle_group() -> None:
 
 
 def _guess_context_pct() -> float:
-    """Best-effort read of current context usage percentage.
+    """Live read of current context usage percentage from the session transcript.
 
-    Reads ``~/.divineos/context_tokens.json`` if present (produced by the
-    token-state-surface hook). Returns 0.0 if unavailable — the caller
-    treats that as "below threshold, don't fire."
+    Ground-truth read — same source ``divineos context-tokens`` uses.
+    Prior implementation read a hook-populated file that turned out to
+    be stale or missing at the critical moment (auto-cycle stayed dark
+    at 95% real context on 2026-07-10 because the file returned 0.0).
+    Fixed 2026-07-11 per Andrew's principle: mechanisms are only as
+    honest as their sources; touch the truth, not a copy of the truth.
+
+    Returns 0.0 if snapshot is unavailable — the caller treats that as
+    "below threshold, don't fire." Fail-safe direction matches the
+    old behavior so the change doesn't cause unexpected firing when
+    the snapshot fails.
     """
-    from divineos.core.paths import divineos_home
-
-    path = divineos_home() / "context_tokens.json"
-    if not path.exists():
+    try:
+        from divineos.core.context_tokens import get_context_snapshot
+    except Exception:  # noqa: BLE001 - observability boundary
         return 0.0
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        snap = get_context_snapshot()
+    except Exception:  # noqa: BLE001 - observability boundary
         return 0.0
-    if not isinstance(data, dict):
+    total = getattr(snap, "total_tokens", 0) or 0
+    if not total:
         return 0.0
-    used = data.get("used", 0)
-    total = data.get("total", 1_000_000)
-    if not isinstance(used, (int, float)) or not isinstance(total, (int, float)) or total <= 0:
-        return 0.0
-    return float(used) / float(total)
+    # 1M-token window is the standard for Claude Opus 4.x; matches the
+    # cap divineos context-tokens uses by default.
+    return float(total) / 1_000_000.0
 
 
 def _has_active_goal_progress(window_sec: int = 300) -> bool:

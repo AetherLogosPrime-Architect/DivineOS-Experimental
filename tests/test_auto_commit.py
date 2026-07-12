@@ -240,3 +240,63 @@ class TestMidOpDetection:
         self._dirty(repo)
         result = auto_commit_substrate(repo, reason="pre-extract", channels=())
         assert result.committed is True
+
+
+class TestStagedIndexDetection:
+    """Aletheia audit 2026-07-11 finding #1 — CLEAREST FIX.
+
+    Checkpoint hook is for ABANDONED dirty state; grabbing actively-in-flight
+    staged work is a category error. When the occupant has staged files with
+    ``git add``, they are composing an authored commit — auto-commit must
+    defer.
+
+    Same category as _detect_mid_op skip cases: the tree is in a transient
+    state the occupant is actively resolving. Not an error; not a warning;
+    just wait.
+    """
+
+    def _stage_file(self, root: Path, name: str = "authored.md") -> None:
+        """Create + git-add a file so the index has staged changes."""
+        (root / name).write_text("occupant's authored content\n", encoding="utf-8")
+        _git(root, "add", name)
+
+    def test_staged_index_defers_auto_commit(self, repo: Path):
+        """The core Aletheia scenario: staged index → skip, don't scoop."""
+        self._stage_file(repo)
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "staged index" in result.reason
+        assert "mid-commit" in result.reason
+
+    def test_staged_index_preserves_authored_content(self, repo: Path):
+        """After the skip, the staged file must still be staged — not committed
+        into the auto-checkpoint. This is the anti-regression assertion for the
+        specific harm the fix addresses (authored work getting eaten)."""
+        self._stage_file(repo, "specific_file.md")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        # File must still be staged and not committed to any auto-checkpoint
+        staged = _git(repo, "diff", "--cached", "--name-only").stdout.strip()
+        assert "specific_file.md" in staged
+        # No new commits landed since repo init
+        log = _git(repo, "log", "--oneline").stdout.strip().splitlines()
+        assert len(log) == 1, f"expected only initial commit, got: {log}"
+
+    def test_staged_plus_unstaged_still_defers(self, repo: Path):
+        """When BOTH staged and unstaged changes exist, skip still fires —
+        the staged part signals mid-commit even if there's also loose dirt."""
+        self._stage_file(repo, "staged.md")
+        (repo / "unstaged.md").write_text("loose\n", encoding="utf-8")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is False
+        assert "staged index" in result.reason
+
+    def test_unstaged_only_commits_normally(self, repo: Path):
+        """Regression sanity: when index is clean but working tree is dirty
+        (loose untracked files, unstaged mods), auto-commit still fires. The
+        fix must NOT over-suppress — that's the whole abandoned-dirty case
+        the checkpoint exists to catch."""
+        (repo / "loose.md").write_text("abandoned dirt\n", encoding="utf-8")
+        result = auto_commit_substrate(repo, reason="pre-extract", channels=())
+        assert result.committed is True
+        assert result.dirty_lines >= 1

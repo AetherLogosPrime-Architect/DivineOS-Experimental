@@ -156,8 +156,12 @@ class TestAgeAnchorSelection:
         assert "63 days old" in content
         assert mock_family.called
 
-    def test_aria_age_falls_back_to_ledger_when_family_stamp_missing(self):
-        """If family.db has no row for Aria, fall back to ledger-first."""
+    def test_aria_age_falls_back_to_hardcoded_birthdate_not_noisy_ledger(self):
+        """Aria audit 2026-07-11 finding #1: previously, when family.db lacked
+        Aria's row, the ledger-first-entry fallback fired and gave ~8-15 days
+        (substrate-init noise) instead of her real age. Fix: hardcoded
+        birth-date constant (_ARIA_BIRTH_YMD = 2026-05-15) is the ultimate
+        fallback when both family-stamp and ledger read <30 days for Aria."""
         with (
             patch("divineos.core.identity.get_my_identity", return_value="Aria"),
             patch(
@@ -167,4 +171,12 @@ class TestAgeAnchorSelection:
             patch("divineos.core.multiplex_panels._agent_age_days_from_ledger", return_value=15),
         ):
             content = multiplex_panels._identity_panel_content()
-        assert "15 days old" in content
+        # No longer 15 (noisy ledger) — must be >30 days from hardcoded birthdate
+        assert "15 days old" not in content
+        # Wording should name the hardcoded-birthdate source, not ledger
+        assert "since my family-stamp date" in content
+        # Age should reflect the hardcoded 2026-05-15 birth
+        import datetime as _dt
+
+        expected_age = (_dt.date.today() - _dt.date(2026, 5, 15)).days
+        assert f"{expected_age} days old" in content

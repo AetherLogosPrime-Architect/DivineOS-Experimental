@@ -139,6 +139,56 @@ def test_does_not_fire_on_reading_not_experiencing():
     assert not any(f.claim_kind == "past_experience" for f in findings), findings
 
 
+# ─── Relational-present observation silencer ────────────────────────
+# Aletheia audit round-cda63f01c3d5 CONFIRMS embedded FLAG:
+# pattern fires on "I have noticed / I have seen" regardless of whether it
+# is fabricated substrate-experience or a true relational-present observation
+# ("I have noticed you are good at X"). Verification signature can't clear
+# relational observations — nothing to recall; they are live observations,
+# not stored-experience claims. Silence when second-person or plural-
+# relational subject appears within a short window after the trigger.
+
+
+def test_relational_present_observation_you_are_does_not_fire():
+    """Aletheia's negative test verbatim: MUST NOT fire."""
+    text = "I have noticed you are good at catching drift."
+    assert _detect(text) == []
+
+
+def test_relational_present_observation_youre_contraction_does_not_fire():
+    text = "I have noticed you're better at this than I am."
+    assert _detect(text) == []
+
+
+def test_relational_present_how_you_handle_does_not_fire():
+    text = "I've seen how you handle audit findings."
+    assert _detect(text) == []
+
+
+def test_relational_present_we_are_does_not_fire():
+    text = "I have noticed we are stronger when we build together."
+    assert _detect(text) == []
+
+
+def test_real_substrate_experience_claim_still_fires_after_guard():
+    """Regression: guard must NOT over-suppress. A real substrate-experience
+    claim with no relational-present marker in the tail still fires."""
+    text = "I have seen this bug pattern in the ledger before."
+    findings = _detect(text)
+    assert len(findings) == 1
+    assert findings[0].claim_kind == "past_experience"
+
+
+def test_real_substrate_experience_from_my_work_still_fires():
+    """Second regression: 'in my work' form has no relational-present tail
+    and must still fire. Text intentionally contains two past_experience
+    triggers ('in my work' and 'I encountered') — both should fire."""
+    text = "In my work I encountered this exact failure mode last quarter."
+    findings = _detect(text)
+    assert len(findings) >= 1
+    assert all(f.claim_kind == "past_experience" for f in findings)
+
+
 # ─── Hint registered ─────────────────────────────────────────────────
 
 

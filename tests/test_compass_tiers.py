@@ -80,22 +80,22 @@ class TestObservationTierCounts:
 
     def test_counts_self_reported_source(self):
         log_observation(
-            spectrum="engagement",
+            spectrum="presence",
             position=0.1,
             evidence="Feeling engaged",
             source="self_report",
         )
-        counts = _count_observation_tiers("engagement")
+        counts = _count_observation_tiers("presence")
         assert counts.get("SELF_REPORTED", 0) >= 1
 
     def test_counts_behavioral_source(self):
         log_observation(
-            spectrum="helpfulness",
+            spectrum="beneficence",
             position=0.0,
             evidence="Session ended clean",
             source="session_end",
         )
-        counts = _count_observation_tiers("helpfulness")
+        counts = _count_observation_tiers("beneficence")
         assert counts.get("BEHAVIORAL", 0) >= 1
 
     def test_mixed_tiers(self):

@@ -66,25 +66,43 @@ def register(cli: click.Group) -> None:
         default=False,
         help="Suppress stdout (Stop hooks should be silent).",
     )
+    @click.option(
+        "--tool-calls",
+        default=None,
+        help="Comma-separated tool-call names the turn ran (e.g. "
+        "'Bash,Edit,Write'). Enables the task-presence axis: "
+        "when real tools ran AND the reply cites Andrew's exact span, "
+        "the reflection is presence-valid even without felt-interior. "
+        "Aletheia audit 2026-07-11 finding #6.",
+    )
     def lepos_channel_reflect_cmd(
         reply: str | None,
         reply_file: str | None,
         andrew: str | None,
         andrew_file: str | None,
         quiet: bool,
+        tool_calls: str | None,
     ) -> None:
         """Reflect on the last assistant reply and stage the surface.
 
         Reads reply text and Andrew's last message, runs the three
-        surface-signal lenses, writes the pending-surface file for the
-        next UserPromptSubmit to consume.
+        surface-signal lenses (heard / interior / verified-substrate-
+        engagement), writes the pending-surface file for the next
+        UserPromptSubmit to consume.
         """
         reply_text = _read_text_arg(reply, reply_file)
         andrew_text = _read_text_arg(andrew, andrew_file)
         if not reply_text.strip():
             # No reply to reflect on. Stay silent.
             return
-        r = lepos_channel_reflect.reflect(reply_text, andrew_text)
+        tool_call_tuple: tuple[str, ...] = ()
+        if tool_calls:
+            tool_call_tuple = tuple(name.strip() for name in tool_calls.split(",") if name.strip())
+        r = lepos_channel_reflect.reflect(
+            reply_text,
+            andrew_text,
+            tool_calls_in_turn=tool_call_tuple or None,
+        )
         lepos_channel_reflect.write_pending(r)
         if not quiet:
             click.echo(r.markdown())
