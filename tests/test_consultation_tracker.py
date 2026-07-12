@@ -224,3 +224,91 @@ class TestGroundedTurnsDoNotPushGate:
         consultation_tracker.record_response(grounded=False)
         assert consultation_tracker.responses_since_last_query() == 2
         assert consultation_tracker.consultation_gate_status()["stale"] is False
+
+
+@pytest.fixture
+def isolated_state_with_gate_emit(tmp_path, monkeypatch):
+    """Isolate BOTH the consultation state file AND the gate_emit last-state
+    file into tmp_path. The migration to gate_emit means both stores are
+    exercised in briefing_block() calls, so both need isolation for
+    deterministic testing.
+    """
+    from divineos.core import gate_emit
+
+    monkeypatch.setattr(consultation_tracker, "_STATE_FILE", tmp_path / "consultation_state.json")
+    monkeypatch.setattr(gate_emit, "_state_file_path", lambda: tmp_path / "gate_last_states.json")
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-migration-test")
+    monkeypatch.delenv("DIVINEOS_SESSION_ID", raising=False)
+    return tmp_path
+
+
+class TestGateEmitMigration:
+    """Aletheia audit finding #2 — first reference migration.
+
+    consultation_tracker.briefing_block() was the noisiest repeat-emitter
+    per the substrate-modification-gravity surface (every substrate-touching
+    tool call re-loaded the block). Now migrated to gate_emit:
+    - First HEALTHY emit surfaces
+    - Subsequent HEALTHY emits suppress until state changes
+    - Non-quiet states (DEGRADED, SEVERE) always fire
+    - Transition back to HEALTHY from DEGRADED surfaces once, then suppresses
+    """
+
+    def _prime_healthy_ratio(self):
+        """Produce a HEALTHY-ratio state: 3+ responses AND ratio >= 0.5."""
+        consultation_tracker.record_query("ask")
+        consultation_tracker.record_query("recall")
+        consultation_tracker.record_response(grounded=False)
+        consultation_tracker.record_response(grounded=False)
+        consultation_tracker.record_response(grounded=False)
+
+    def _prime_severe_ratio(self):
+        """Produce a SEVERE-ratio state: many ungrounded responses, no queries."""
+        for _ in range(10):
+            consultation_tracker.record_response(grounded=False)
+
+    def test_first_healthy_emit_surfaces(self, isolated_state_with_gate_emit):
+        """The first HEALTHY briefing_block call must return content —
+        otherwise a fresh session's first HEALTHY surface would be silent."""
+        self._prime_healthy_ratio()
+        out = consultation_tracker.briefing_block()
+        assert "SUBSTRATE CONSULTATION — HEALTHY" in out
+
+    def test_repeat_healthy_emit_suppresses(self, isolated_state_with_gate_emit):
+        """The core Aletheia case: HEALTHY state, same next call → empty.
+        This is the noise-reduction the migration exists to produce."""
+        self._prime_healthy_ratio()
+        first = consultation_tracker.briefing_block()
+        assert "HEALTHY" in first
+        second = consultation_tracker.briefing_block()
+        assert second == "", (
+            "second HEALTHY emit must suppress — this is the whole point of the migration"
+        )
+
+    def test_severe_state_always_surfaces(self, isolated_state_with_gate_emit):
+        """SEVERE is non-quiet — must always fire, even on repeat. The whole
+        point of the gate is to name failures loudly."""
+        self._prime_severe_ratio()
+        first = consultation_tracker.briefing_block()
+        assert "SEVERE" in first
+        second = consultation_tracker.briefing_block()
+        assert "SEVERE" in second, (
+            "non-quiet states must always fire — repeat DEGRADED/SEVERE is "
+            "the exact signal the reader needs to see"
+        )
+
+    def test_transition_back_to_healthy_surfaces_once(self, isolated_state_with_gate_emit):
+        """After SEVERE, coming back to HEALTHY is news. Surface it. Then
+        the next HEALTHY suppresses again as normal."""
+        self._prime_severe_ratio()
+        consultation_tracker.briefing_block()  # SEVERE fires
+        # Now flip to healthy — clear counters via new session simulation
+        # by resetting the fixture state to a healthy pattern.
+        # (We use the real record functions rather than mucking with state.)
+        for _ in range(20):
+            consultation_tracker.record_query("ask")  # push ratio high
+        transition = consultation_tracker.briefing_block()
+        assert "HEALTHY" in transition, "transition back to HEALTHY must surface"
+        # And now the next HEALTHY suppresses
+        repeat = consultation_tracker.briefing_block()
+        assert repeat == "", "second HEALTHY after transition must suppress"

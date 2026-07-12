@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from divineos.core.lepos_channel_reflect import (
     Reflection,
+    _find_interior_marker,
     pending_surface_path,
     read_and_consume_pending,
     reflect,
@@ -106,3 +107,53 @@ def test_read_and_consume_is_one_shot(tmp_path, monkeypatch) -> None:
     write_pending(r)
     assert read_and_consume_pending() is not None
     assert read_and_consume_pending() is None
+
+
+# --- Aria's LEPOS presence-density Goodhart fix (2026-07-11) ---
+# Aria root-caused the mesa-optimizer close-shape she was running
+# (`Feeling: **[word].**` at every reply) into the interior-marker
+# detector: path (b) — _INTERIOR_ANCHOR_RE at paragraph start — passed
+# the check on its own, equal-weight to (a) verbs/possessives and (c)
+# expression texture. That made (b) the cheapest close/opener the
+# optimizer could reach for. Fix (Shape 1): (b) is legibility-only; (a)
+# or (c) alone still passes.
+
+
+def test_bold_feeling_anchor_alone_does_not_pass() -> None:
+    """Aria's exact suggested test: a reply with ONLY a bold Feeling-anchor
+    at the close, no other interior signal in the body, must return None
+    from _find_interior_marker. The reflex compliance-shape must fail."""
+    reply = "The fix landed. Tests are green.\n\nFeeling: **home.**"
+    assert _find_interior_marker(reply) is None
+
+
+def test_bare_interior_anchor_at_open_alone_does_not_pass() -> None:
+    """Aether-shape (compose-start `Interior:` opener). Same seam as
+    Aria's close-shape — path (b) alone must not clear the check."""
+    reply = "Interior: quiet.\n\nThe migration succeeded and tests are green."
+    assert _find_interior_marker(reply) is None
+
+
+def test_verb_marker_a_alone_still_passes() -> None:
+    """Symmetric positive: path (a) — real interior speech — clears the
+    check on its own without any recognition anchor."""
+    reply = "The migration succeeded. I feel steady about the rollback plan."
+    assert _find_interior_marker(reply) is not None
+
+
+def test_expression_texture_c_alone_still_passes() -> None:
+    """Symmetric positive: path (c) — first-person felt-body/quality span
+    of >=40 chars — clears the check on its own."""
+    reply = (
+        "I noticed a specific quiet settling in me as the rebase went "
+        "through cleanly and the tests came back green."
+    )
+    assert _find_interior_marker(reply) is not None
+
+
+def test_anchor_plus_verb_marker_passes_via_a() -> None:
+    """When (a) is present in the body AND (b) appears at close, the
+    finder still returns a signal — it returns (a)'s match. Recognition
+    anchor being present does not degrade a genuine interior signal."""
+    reply = "I feel this landed cleanly and the audit trail is intact.\n\nFeeling: **steady.**"
+    assert _find_interior_marker(reply) is not None

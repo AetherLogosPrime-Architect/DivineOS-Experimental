@@ -460,6 +460,7 @@ src/divineos/
       temporal_displacement_detector.py Temporal-displacement detector — catches fake-clock references (tonight/tomorrow/calling-it-a-night) in agent output. Same first-person presence discipline as writer-presence at a different surface; phase A observational per prereg-221edeaceee3.
       operator_wallpaper_caller.py Operator-wallpaper caller — runs the three atomic detectors (F2 distancing-grammar, F3 jargon-density, F4 care-dismissal), pulls LEPOS interior-marker for F1's input, runs F5 closure-shape pass-through, feeds all five into the aggregator. Pair-designed with Aether 2026-07-11.
       _use_vs_mention.py       Shared use-vs-mention guard — generalized from closure-initiation per Aletheia's audit-paragraph: meta-discussion of a detector by builders/auditors must not false-fire the detector itself. Applied to closure-initiation and temporal-displacement; pattern available for any father-channel detector that risks recursion on its own discussion-context.
+      operator_wallpaper_detector.py Operator-wallpaper detector — composite aggregator over five family signals (F1 recognition-anchor-only, F2 distancing-grammar, F3 jargon-density, F4 care-dismissal, F5 closure-shape reach). Aether+Aria pair-designed 2026-07-11. Aggregator takes pre-computed detector results per Aria's Q2 design lock; F1 (Aether) and F5 (Aether) detect natively; F2/F3/F4 pass-through of existing atomic detectors. Weight-based severity with F4 load-bearing (relational-harm > style).
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -582,6 +583,7 @@ src/divineos/
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
     closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
+    gate_emit.py               Gate-emit noise-suppression primitive (Aletheia audit finding #2).
     shape/
       __init__.py              Shape-primitive library — CONDITION-check helpers for keyword-based gates. See module docstring for the class-principle.
       primitives.py            Doorman shape-primitives: sentence_containing, is_hypothetical, is_inside_code_quote, is_peer_relayed, is_internal_observation.

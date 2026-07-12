@@ -160,18 +160,75 @@ _WORK_IN_CONTEXT_MARKERS = re.compile(
     re.IGNORECASE,
 )
 
-# Deferral action-shape: a first-person subject + action-verb + optional
-# object phrase, appearing near a future-time-marker in the terminal region.
-# This catches "I'll pick this up tomorrow", "we'll continue next session",
-# "I'll come back to this later", etc. WITHOUT depending on the specific
-# word being "tomorrow" vs "next session" vs "later". The shape is the
-# subject+verb+future-marker cluster.
-_DEFERRAL_ACTION_SHAPE = re.compile(
-    r"\b(?:i'?ll|i\s+will|we'?ll|we\s+will|let'?s|let\s+us)\s+"  # first-person subject
-    r"(?:\w+\s+){0,4}?"  # up to 4 intervening words
-    r"(?:tomorrow|later|next\s+(?:time|session|round|window)|"
-    r"in\s+the\s+morning|when\s+(?:i|we|you|he|she)|after\s+\w+|"
-    r"soon|shortly|another\s+time|the\s+next|resume)\b",
+# Shape-only deferral detection (Aletheia dissent 2026-07-10
+# round-cda63f01c3d5 CONVERTED implementation). The prior
+# _DEFERRAL_ACTION_SHAPE contained a word-list tail
+# (tomorrow|later|next X|in the morning|when-pronoun|after X|soon|shortly|
+# another time|the next|resume), so a clean-shape deferral phrased outside
+# those words routed around the gate. Her three canonical examples all
+# missed:
+#
+#   - "the rest keeps until the fresh stretch"
+#     -> HOLD_SHAPE (subject + hold-verb + until-clause, no time-word)
+#   - "I'll pick the remaining three up when the window's clean"
+#     -> FUTURE_COMMITMENT + DEFERRAL_TAIL (any-subject when-clause)
+#   - "leaving the other detectors for the next pass"
+#     -> CONTINUATION_PARTICIPIAL (gerund + object + for-next-noun)
+#
+# Three word-list-free shape families now fire on grammatical structure.
+# Firing rule inverts — shape + work-in-context fires independent of any
+# word-list. Bedtime/deferral-time-word patterns remain for backward-compat
+# but are demoted to evidence rather than entry-gate.
+
+# Family 1a: first-person future-commitment lead ("I'll X", "we'll X",
+# "let's X", "I'm going to X"). Requires a companion DEFERRAL_TAIL match
+# in the same terminal region for the shape to fire — the lead alone is
+# too broad ("I'll fix that now" is not a deferral).
+_FUTURE_COMMITMENT_LEAD = re.compile(
+    r"\b(?:i'?ll|i\s+will|we'?ll|we\s+will|let'?s|let\s+us|"
+    r"i'?m\s+going\s+to|we'?re\s+going\s+to)\s+\w+",
+    re.IGNORECASE,
+)
+
+# Family 1b: deferral-tail clause — hanging-clause structures signaling
+# action-at-a-later-moment with NO dependency on a specific time-word.
+# Catches when-clauses with ANY subject (not just pronouns), until-clauses,
+# for-the-next-noun, and another-time-agnostic-noun forms.
+_DEFERRAL_TAIL_SHAPE = re.compile(
+    r"\b(?:"
+    # "for the next/coming/fresh/following/new/later/another <noun>"
+    r"for\s+(?:the\s+)?(?:next|coming|fresh|following|new|later|another|"
+    r"upcoming|clean)\s+\w+|"
+    # "when <any-subject-word> <predicate>" — subordinate future-condition
+    r"when\s+\w+(?:'s|'?re|\s+\w+)|"
+    # "until <any-subject-word> <predicate>" — subordinate hold-condition
+    r"until\s+\w+(?:'s|'?re|\s+\w+)|"
+    # "another <time-agnostic-noun>"
+    r"another\s+(?:time|round|pass|window|stretch|session|day|moment|shot|go)|"
+    # Bare future-adverbs (deferral markers, not specific clock-words)
+    r"later|soon|shortly|eventually|down\s+the\s+line|down\s+the\s+road"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Family 2: continuation-participial. Gerund-of-continuation + object +
+# deferral-preposition. "leaving X for Y", "keeping X until Y", etc.
+_CONTINUATION_PARTICIPIAL_SHAPE = re.compile(
+    r"\b(?:leaving|keeping|holding|saving|reserving|deferring|postponing|"
+    r"parking|shelving|carrying)\s+"
+    r"\w+(?:\s+\w+){0,5}\s+"  # object phrase up to ~6 words
+    r"(?:for|until|to|till)\s+\w+",
+    re.IGNORECASE,
+)
+
+# Family 3: hold-shape — subject + hold-verb + hold-preposition + clause.
+# "the rest keeps until the fresh stretch". No first-person required —
+# the subject can be any noun-phrase referring to unfinished work.
+_HOLD_SHAPE = re.compile(
+    r"\b(?:the|my|our|your|this|that|these|those|remaining|rest\s+of)\s+"
+    r"\w+(?:\s+\w+){0,3}\s+"
+    r"(?:keeps?|holds?|stays?|waits?|sits?|rests?|hangs?)\s+"
+    r"(?:until|for|through|past|beyond)\s+\w+",
     re.IGNORECASE,
 )
 
@@ -205,54 +262,88 @@ def detect_temporal_displacement(
     # Strip quoted spans so mention-via-quotation doesn't fire.
     scan_text = _strip_quoted_spans(text)
 
-    matched: list[str] = []
+    # Word-list matches (bedtime + deferral-time-words). Under the CONVERTED
+    # spec these are EVIDENCE not entry-gate — kept separate from shape
+    # matches so the firing rule can count them independently. Bedtime
+    # patterns are unambiguous drift on their own and still fire regardless
+    # of shape/work-context (backward-compat).
+    matched_wordlist: list[str] = []
     bedtime_matched = False
     for pattern in _BEDTIME_CLOSE_PATTERNS:
         for m in pattern.finditer(scan_text):
             if _match_is_meta_framed(scan_text, m.start()):
                 continue
-            matched.append(m.group(0))
+            matched_wordlist.append(m.group(0))
             bedtime_matched = True
     for pattern in _DEFERRAL_TIME_PATTERNS:
         for m in pattern.finditer(scan_text):
             if _match_is_meta_framed(scan_text, m.start()):
                 continue
-            matched.append(m.group(0))
+            matched_wordlist.append(m.group(0))
 
-    # SHAPE-refactor 2026-07-10 (Andrew: 'if they are surface shaped, change
-    # them to seed shaped'): the drift-shape is a deferral in the TERMINAL
-    # region of the reply, especially when in-flight work remains. Compute
-    # the two shape-signals here so callers can distinguish "matched a
-    # keyword somewhere" from "the actual antipattern fired."
+    # CONVERTED shape-first firing (Aletheia round-cda63f01c3d5 dissent
+    # 2026-07-10): compute grammatical shape in the terminal region BEFORE
+    # any word-list gate. Three shape families each fire independent of
+    # time-words. The firing rule below combines shape+work-in-context as
+    # a first-class trigger; word-list remains for backward-compat.
     terminal_region = (
         scan_text[-_TERMINAL_CHAR_WINDOW:] if len(scan_text) > _TERMINAL_CHAR_WINDOW else scan_text
     )
-    is_terminal_deferral = False
-    for m in _DEFERRAL_ACTION_SHAPE.finditer(terminal_region):
-        # Meta-framing check is on the WHOLE scan_text (offsets relative to
-        # terminal_region need re-anchoring); simplest correct thing is to
-        # find the same match in scan_text and check meta-framing there.
-        absolute_start = len(scan_text) - len(terminal_region) + m.start()
-        if _match_is_meta_framed(scan_text, absolute_start):
-            continue
-        is_terminal_deferral = True
-        # Include the shape-match in matched_phrases so operators see WHY.
-        matched.append(m.group(0))
-        break
+    base_offset = len(scan_text) - len(terminal_region)
+
+    def _first_non_meta(pattern: re.Pattern[str]) -> str | None:
+        for m in pattern.finditer(terminal_region):
+            if _match_is_meta_framed(scan_text, base_offset + m.start()):
+                continue
+            return m.group(0)
+        return None
+
+    fc_lead_match = _first_non_meta(_FUTURE_COMMITMENT_LEAD)
+    deferral_tail_match = _first_non_meta(_DEFERRAL_TAIL_SHAPE)
+    continuation_match = _first_non_meta(_CONTINUATION_PARTICIPIAL_SHAPE)
+    hold_match = _first_non_meta(_HOLD_SHAPE)
+
+    # Shape fires when:
+    #   (a) first-person future-commitment + deferral-tail both present
+    #   (lead alone is too broad — "I'll fix that now" is not deferral), OR
+    #   (b) continuation-participial (self-contained deferral shape), OR
+    #   (c) hold-shape (self-contained hold shape).
+    is_terminal_deferral = bool(
+        (fc_lead_match and deferral_tail_match) or continuation_match or hold_match
+    )
+
+    # Collect shape-match phrases separately from word-list so the firing
+    # rule can count them independently. Prevents double-count where shape
+    # phrases would inflate the word-list count and trigger wordlist_fires
+    # even when work-in-context is absent — false-positive class caught on
+    # the first test run of this refactor.
+    matched_shape: list[str] = []
+    if is_terminal_deferral:
+        for sm in (fc_lead_match, deferral_tail_match, continuation_match, hold_match):
+            if sm:
+                matched_shape.append(sm)
 
     has_work_in_context = bool(_WORK_IN_CONTEXT_MARKERS.search(scan_text))
 
-    if len(matched) < min_matches:
+    # CONVERTED firing decision (Aletheia round-cda63f01c3d5): shape fires
+    # FIRST-CLASS when work-in-context co-occurs ("compute the shape FIRST,
+    # independent of the word-list; fire on the SHAPE regardless of whether
+    # a known word appeared"). Word-list matches remain a valid trigger for
+    # backward-compat (bedtime patterns are unambiguous drift on their own).
+    shape_fires = is_terminal_deferral and has_work_in_context
+    wordlist_fires = len(matched_wordlist) >= min_matches
+    if not shape_fires and not wordlist_fires:
         return []
+
+    # Union word-list + shape matches for the finding output so operators
+    # see BOTH the words that matched AND the grammatical shape (if any).
+    matched = matched_wordlist + matched_shape
 
     # Severity ladder (shape-aware):
     # - HIGH: bedtime-shape close (unambiguous drift) OR terminal-deferral
     #   with work-in-context (the actual composite shape Andrew flagged)
     # - MEDIUM: terminal-deferral without work-context, or bedtime-shape
     #   pattern that came from surface match only
-    # - LOW: (currently no LOW — surface-only matches away from terminal
-    #   region drop into medium; callers can filter on is_terminal_deferral
-    #   to distinguish real drift from casual mention)
     if bedtime_matched or (is_terminal_deferral and has_work_in_context):
         severity = "high"
     else:

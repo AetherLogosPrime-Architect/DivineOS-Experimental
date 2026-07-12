@@ -337,6 +337,8 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # imported by operating_loop_audit. The caller mediates; the detector
         # module itself never needs a direct import from the audit
         # orchestrator. See prereg-9e742442fdcc + prereg-489041c5ba4d.
+        # (Wiring commit 0b6a66f2 landed 2026-07-11; the earlier
+        # "temporary REMOVE-when-wiring-lands" note superseded by this entry.)
         "operator_wallpaper_detector.py": "aggregator half of pair-designed composite; imported transitively via operator_wallpaper_caller which IS wired into operating_loop_audit",
         # operator_wallpaper_caller.py itself IS imported directly by
         # operating_loop_audit's run_audit; the wiring is unambiguously present.
