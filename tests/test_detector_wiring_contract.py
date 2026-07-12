@@ -98,6 +98,11 @@ _DETECTORS = (
     ("closure_initiation_detector", "detect_closure_initiation"),
     ("deep_engagement_detector", "detect_deep_engagement"),
     ("temporal_displacement_detector", "detect_temporal_displacement"),
+    # Composite detector — pair-designed with Aether 2026-07-11.
+    # Aggregates five family signals into a wallpaper-density score.
+    # Wired via the caller module (`operator_wallpaper_caller`) which
+    # imports the aggregator; the caller is the run_audit-facing surface.
+    ("operator_wallpaper_caller", "run_operator_wallpaper_check"),
 )
 
 
@@ -326,15 +331,20 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # Aria 2026-07-09 shipped this and copied into this checkout per
         # Aether's yes-on-option-1 letter.
         "shoggoth_gate.py": "Stop-hook mechanism invoked from .claude/hooks/shoggoth-gate.sh, not post-response audit",
-        # operator_wallpaper_detector is the Aether+Aria pair-designed
-        # composite aggregator (2026-07-11). It ships in two halves: Aether's
-        # F1+F5 + aggregator (this commit), then Aria's F2/F3/F4 caller code,
-        # then a jointly-reviewed wiring step into operating_loop_audit.py.
-        # This EXEMPT is temporary — it must be removed when the wiring
-        # commit lands. Tracked by prereg-9e742442fdcc. Same silent-shelving
-        # class Aletheia catches; the exemption is named + time-bounded
-        # rather than a permanent architecture-shape exception.
-        "operator_wallpaper_detector.py": "temporary — awaiting Aria's F2/F3/F4 caller code + jointly-reviewed wiring step per pair-design coordination lock. Per prereg-9e742442fdcc. REMOVE this exempt when the wiring commit lands.",
+        # operator_wallpaper_detector.py — aggregator half of the pair-designed
+        # composite (Aether 2026-07-11). Imported transitively via
+        # operator_wallpaper_caller.py, which IS the run_audit-facing surface
+        # imported by operating_loop_audit. The caller mediates; the detector
+        # module itself never needs a direct import from the audit
+        # orchestrator. See prereg-9e742442fdcc + prereg-489041c5ba4d.
+        # (Wiring commit 0b6a66f2 landed 2026-07-11; the earlier
+        # "temporary REMOVE-when-wiring-lands" note superseded by this entry.)
+        "operator_wallpaper_detector.py": "aggregator half of pair-designed composite; imported transitively via operator_wallpaper_caller which IS wired into operating_loop_audit",
+        # operator_wallpaper_caller.py itself IS imported directly by
+        # operating_loop_audit's run_audit; the wiring is unambiguously present.
+        # Listed here as no-op to make the composite pair fully accounted-for
+        # if the test scope changes to allowlist named-not-flagged entries.
+        "operator_wallpaper_caller.py": "IS directly imported by operating_loop_audit run_audit; this entry is descriptive not exempting",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))

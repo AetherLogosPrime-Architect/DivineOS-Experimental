@@ -423,7 +423,64 @@ class TestExternalAgentProximityBackstop:
         assert verdict_of(prompt) == "advise"
 
 
-class TestEvidenceBearingReturn:
+class TestQuestionAuthorizationGuard20260711:
+    """prereg-55bcdb01e2fa: WEAK correction-pattern context-awareness fix.
+
+    The three false-positive classes from the prereg — user QUESTIONS,
+    user AUTHORIZATIONS, and user STATEMENTS-OF-DESIRE that carry a WEAK
+    trigger token but aren't correcting me. Guard returns None (no match)
+    on those shapes; preserves true-positive recall on real corrections.
+    """
+
+    def test_weak_that_doesnt_in_question_returns_none(self) -> None:
+        # Prereg motivating example #1: "anything that doesnt need Aether?"
+        assert verdict_of("anything that doesnt need Aether?") is None
+
+    def test_weak_that_doesnt_in_authorization_returns_none(self) -> None:
+        # Prereg motivating example #2:
+        assert verdict_of("yes we can edit the kiln number that doesnt require an audit") is None
+
+    def test_weak_wrong_in_question_returns_none(self) -> None:
+        assert verdict_of("is that wrong or am I misreading it?") is None
+
+    def test_weak_wrong_in_authorization_returns_none(self) -> None:
+        assert verdict_of("yes lets fix whatever is wrong there") is None
+
+    def test_weak_thats_not_in_question_returns_none(self) -> None:
+        assert verdict_of("thats not right is it?") is None
+
+    def test_you_missed_in_authorization_returns_none(self) -> None:
+        # "you missed" (WEAK) inside an authorization construct. Avoid
+        # phrasings that trigger STRONG patterns higher up the ladder
+        # (e.g. "i wanted you to X" is itself a STRONG hit — separate
+        # concern; STRONG-tier question/authorization guard is not in
+        # this prereg's scope).
+        assert verdict_of("yes lets check whether you missed the flag") is None
+
+    def test_question_word_at_start_not_needing_trailing_qmark(self) -> None:
+        # "how does that..." starts with question-word — treat as question
+        # even if the sentence isn't punctuated with a trailing ?
+        assert verdict_of("how does that doesnt scan look to you") is None
+
+    # Recall preservation: real corrections still fire.
+
+    def test_real_weak_correction_still_advises(self) -> None:
+        assert verdict_of("that doesn't work") == "advise"
+
+    def test_real_weak_correction_with_prior_context_still_blocks(self) -> None:
+        # With substantive prior action, WEAK corrections still block.
+        assert verdict_of("that doesn't work", "", ("Edit",)) == "block"
+
+    def test_bare_wrong_correction_still_advises(self) -> None:
+        assert verdict_of("that's wrong") == "advise"
+
+    def test_authorization_shape_but_true_correction_still_advises(self) -> None:
+        # An authorization word appearing FAR from the trigger doesn't shield
+        # a real correction elsewhere in the message.
+        prompt = "yes lets do the refactor. also, your last change was wrong."
+        # 'lets do' is >50 chars before 'wrong' → not in authorization window
+        assert verdict_of(prompt) == "advise"
+
     """prereg-897aade9ef38 (Andrew 2026-06-19): every gate that accuses
     must provide evidence of its claim. classify_correction returns
     CorrectionMatch(verdict, pattern, matched_text, position, tier) so
