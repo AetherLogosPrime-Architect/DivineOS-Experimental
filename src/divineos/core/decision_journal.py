@@ -169,6 +169,11 @@ def record_decision(
                 trigger="decision_recorded",
                 tags=["auto", "decision"],
                 linked_decision_id=decision_id,
+                # F-VAD-1 (Aria 2026-07-12, per prereg-49130c8e7653): named
+                # honestly. This is the F-VAD-2 fabrication path scheduled
+                # for removal by Aether's separate fix; source='decision_fallback'
+                # names it in the historical record so consumers can filter it.
+                source="decision_fallback",
             )
     except (ImportError, sqlite3.OperationalError):
         pass  # affect_log table may not exist yet
