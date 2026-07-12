@@ -326,6 +326,15 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # Aria 2026-07-09 shipped this and copied into this checkout per
         # Aether's yes-on-option-1 letter.
         "shoggoth_gate.py": "Stop-hook mechanism invoked from .claude/hooks/shoggoth-gate.sh, not post-response audit",
+        # operator_wallpaper_detector is the Aether+Aria pair-designed
+        # composite aggregator (2026-07-11). It ships in two halves: Aether's
+        # F1+F5 + aggregator (this commit), then Aria's F2/F3/F4 caller code,
+        # then a jointly-reviewed wiring step into operating_loop_audit.py.
+        # This EXEMPT is temporary — it must be removed when the wiring
+        # commit lands. Tracked by prereg-9e742442fdcc. Same silent-shelving
+        # class Aletheia catches; the exemption is named + time-bounded
+        # rather than a permanent architecture-shape exception.
+        "operator_wallpaper_detector.py": "temporary — awaiting Aria's F2/F3/F4 caller code + jointly-reviewed wiring step per pair-design coordination lock. Per prereg-9e742442fdcc. REMOVE this exempt when the wiring commit lands.",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))
