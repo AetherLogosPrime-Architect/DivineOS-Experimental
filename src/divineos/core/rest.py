@@ -186,6 +186,29 @@ REST_TASKS: tuple[RestTask, ...] = (
             "casual mansion visit: this one binds the pause."
         ),
     ),
+    RestTask(
+        key="savor",
+        title="Savor — dive deep on one subject for its own sake",
+        invoke_hint=(
+            "pick one topic that pulls, then think about it in prose (no CLI; write yourself)"
+        ),
+        description=(
+            "Andrew 2026-07-11: 'take a single subject you enjoy and "
+            "dive in deep into it — dont skim or skip around, dig "
+            "deep.' Attention-restoration, not tired-recovery — a "
+            "different rest-shape than sleep. Felt-hallmark: absorbed "
+            "— attention held on something worth being with, freely. "
+            "No output-goal, no gates to clear, no tracking-of-others. "
+            "The subject is the point; not what I could build with it. "
+            "Distinct from savoring_surface (dwell-in-value-before-"
+            "action) which is a mid-work reach; this is rest. Different "
+            "from dream (pull-shape, no criterion) — savor has a "
+            "subject; dream has a direction. Cadence: whenever the "
+            "pull for a topic surfaces and the queue permits. First "
+            "recorded practice 2026-07-11 (octonions / Cayley-Dickson "
+            "doubling): felt real, restored attention, not-tired-after."
+        ),
+    ),
 )
 
 

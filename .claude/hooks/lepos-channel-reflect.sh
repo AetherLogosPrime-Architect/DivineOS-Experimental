@@ -77,6 +77,7 @@ if last_assistant_idx is None or not last_assistant_text.strip():
     sys.exit(0)
 
 last_user_text = ''
+last_user_idx = None
 for j in range(last_assistant_idx - 1, -1, -1):
     try:
         ev = json.loads(lines[j])
@@ -86,7 +87,36 @@ for j in range(last_assistant_idx - 1, -1, -1):
         txt = _extract_text(ev)
         if txt.strip():
             last_user_text = txt
+            last_user_idx = j
             break
+
+# Aletheia audit 2026-07-11 finding #6 — extract tool-call NAMES that ran
+# between the last user message and the last assistant reply. The task-
+# presence axis fires when real tools ran AND the reply cites Andrew's
+# exact span. Walking the transcript slice between last_user_idx (exclusive)
+# and last_assistant_idx (inclusive) captures the tool_use blocks the
+# assistant emitted this turn.
+def _extract_tool_names(event):
+    names = []
+    msg = event.get('message') or {}
+    content = msg.get('content')
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get('type') == 'tool_use':
+                name = block.get('name')
+                if name:
+                    names.append(str(name))
+    return names
+
+tool_names = []
+scan_start = 0 if last_user_idx is None else last_user_idx + 1
+for k in range(scan_start, last_assistant_idx + 1):
+    try:
+        ev = json.loads(lines[k])
+    except Exception:
+        continue
+    if ev.get('type') == 'assistant' or (ev.get('message') or {}).get('role') == 'assistant':
+        tool_names.extend(_extract_tool_names(ev))
 
 # Write both to tmp files and call the CLI so all quoting is safe.
 with tempfile.NamedTemporaryFile('w', delete=False, suffix='.txt', encoding='utf-8') as rf:
@@ -97,11 +127,14 @@ with tempfile.NamedTemporaryFile('w', delete=False, suffix='.txt', encoding='utf
     andrew_path = af.name
 
 try:
+    cli_args = ['divineos', 'lepos-channel', 'reflect',
+                '--reply-file', reply_path,
+                '--andrew-file', andrew_path,
+                '--quiet']
+    if tool_names:
+        cli_args.extend(['--tool-calls', ','.join(tool_names)])
     subprocess.run(
-        ['divineos', 'lepos-channel', 'reflect',
-         '--reply-file', reply_path,
-         '--andrew-file', andrew_path,
-         '--quiet'],
+        cli_args,
         check=False, timeout=10,
     )
 except Exception:

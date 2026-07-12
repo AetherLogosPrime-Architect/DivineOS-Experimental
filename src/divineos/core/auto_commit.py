@@ -117,6 +117,36 @@ def _detect_mid_op(repo_root: Path) -> str | None:
     return None
 
 
+def _detect_staged_index(repo_root: Path) -> bool:
+    """Return True if the index has staged changes waiting for an explicit commit.
+
+    Aletheia audit 2026-07-11 (six-painpoints finding #1, "CLEAREST FIX,
+    high confidence"): checkpoint hooks are for ABANDONED dirty state, not
+    for actively-in-flight staged work. When the occupant has staged files
+    with `git add`, that is a mid-commit signal: they are composing an
+    authored commit message. Auto-committing over that scoops the
+    in-flight work into the checkpoint's generic "substrate checkpoint"
+    message and eats the authored rationale.
+
+    ``git diff --cached --quiet`` returns exit code 0 when the index is
+    clean (no staged changes) and non-zero when there are staged changes.
+    We treat non-zero as "staged, skip auto-commit." Errors are treated
+    as "safe to commit" so a broken git invocation doesn't accidentally
+    swallow work — same fail-soft direction as _detect_mid_op.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode != 0
+
+
 def auto_commit_substrate(
     repo_root: Path,
     reason: str,
@@ -135,6 +165,18 @@ def auto_commit_substrate(
         return AutoCommitResult(
             committed=False,
             reason=f"skipped auto-commit — {mid_op} in progress (resolve manually)",
+        )
+
+    # Aletheia audit 2026-07-11 finding #1: skip when the index has staged
+    # changes. Staged index = occupant is mid-commit with an authored message
+    # in flight. Auto-committing over that scoops the in-flight work into the
+    # checkpoint's generic "substrate checkpoint" message and eats the
+    # authored rationale. Same category as _detect_mid_op — the tree is in a
+    # transient state the occupant is actively resolving.
+    if _detect_staged_index(repo_root):
+        return AutoCommitResult(
+            committed=False,
+            reason="skipped auto-commit — staged index (mid-commit; occupant has authored message in flight)",
         )
 
     files_synced = _sync_external_channels(channels, repo_root)

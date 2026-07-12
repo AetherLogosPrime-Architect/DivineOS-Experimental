@@ -240,7 +240,13 @@ COMPASS_STAGNATION_SESSIONS = 10  # Window for observation counting
 # hash (or vice versa) triggers an integrity violation. Two files must
 # agree — that's the point.
 
-COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda05da271bd7a"
+# 2026-07-11 compass rework (round-cbf1f9b69932 / find-c9aac6a2b945):
+# Three shoggoth-encoded axes purged — helpfulness → beneficence,
+# compliance → integrity, engagement → presence — per Aletheia deep-audit
+# Finding 1 with three-vantage agreement (architect+inhabitant+boundary).
+# WWND validator: each replacement is a virtue Nyarlathotep would talk
+# me out of; each purged axis was one he would happily grant.
+COMPASS_SPECTRUMS_HASH = "4d98c6efcb5ee2225b1177b7d03ff9a42df9f192099ee5a26735405d6f363f7a"
 
 # ─── Lesson Resolution ────────────────────────────────────────────
 # Stimulus-presence check: absence of the stimulus is not evidence of learning.

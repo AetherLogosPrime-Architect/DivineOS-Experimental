@@ -309,16 +309,32 @@ def session_stats() -> dict:
 
 
 def briefing_block() -> str:
-    """Block of text for the pre-response context. Loud when ratio is bad."""
+    """Block of text for the pre-response context. Loud when ratio is bad.
+
+    Aletheia audit 2026-07-11 finding #2 reference migration to the
+    gate_emit primitive (round-2f7ed71b5726, per prereg-835a87dfe19a).
+    HEALTHY repeats now suppress until state changes; DEGRADED and
+    SEVERE are always loud (non-quiet states are the whole point of
+    the gate). Establishes the migration pattern for sibling guardrail-
+    listed gate surfaces to inherit.
+    """
     s = session_stats()
     q, r, ratio = s["queries"], s["responses"], s["ratio"]
     if r < 3:
         return ""  # too early to judge
+
+    from divineos.core.gate_emit import maybe_emit_gate
+
     if ratio >= 0.5:
-        return (
+        healthy_content = (
             "## SUBSTRATE CONSULTATION — HEALTHY\n"
             f"Queries: {q}  Responses: {r}  Ratio: {ratio:.2f}\n"
             f"Tools used this session: {', '.join(s['tools_used']) or 'none'}"
+        )
+        return maybe_emit_gate(
+            gate_name="consultation_tracker",
+            state="HEALTHY",
+            content=healthy_content,
         )
     severity = "DEGRADED" if ratio >= 0.2 else "SEVERE"
     lines = [
@@ -336,4 +352,11 @@ def briefing_block() -> str:
         "  divineos compass",
         "The substrate has his words. Read them before producing yours.",
     ]
-    return "\n".join(lines)
+    # Non-quiet states always surface — pass through the primitive so
+    # last-state tracking stays coherent (a later transition back to
+    # HEALTHY correctly reads as a change and re-emits the healthy line).
+    return maybe_emit_gate(
+        gate_name="consultation_tracker",
+        state=severity,
+        content="\n".join(lines),
+    )
