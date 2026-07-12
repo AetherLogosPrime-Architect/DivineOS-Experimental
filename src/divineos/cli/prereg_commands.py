@@ -192,7 +192,17 @@ def register(cli: click.Group) -> None:
     @prereg_group.command("show")
     @click.argument("prereg_id")
     def prereg_show_cmd(prereg_id: str) -> None:
-        """Show full detail for a single pre-registration."""
+        """Show full detail for a single pre-registration.
+
+        Exits non-zero when the prereg is not found so that verification
+        callers (closure_verification, lepos_walk substrate-cite check)
+        can trust the exit code. Aria 2026-07-12: fail-open bug found by
+        Aether's diagnosis of PR #333 CI failures — the "not found" path
+        printed the warning but exited 0, so callers treated fake IDs as
+        valid. Closes the class-of-bug the shape-primitives library
+        targets (evidence-locked release: the not-found state is a
+        checkable fact and must be exit-code-visible).
+        """
         import time as _time
 
         from divineos.core.pre_registrations import get_pre_registration
@@ -200,7 +210,7 @@ def register(cli: click.Group) -> None:
         p = get_pre_registration(prereg_id)
         if not p:
             click.secho(f"[!] Pre-registration not found: {prereg_id}", fg="red")
-            return
+            raise click.exceptions.Exit(1)
 
         color = _OUTCOME_COLORS.get(p.outcome.value, "white")
         click.secho(f"\n=== {p.prereg_id} ===", fg="cyan", bold=True)

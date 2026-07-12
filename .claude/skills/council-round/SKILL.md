@@ -22,7 +22,14 @@ Benchmark evidence: flat expert templates + lens-mode outperformed program-mode 
 
 One or two sentences. Specific. "Should the event-ledger schema migrate to a new hash algorithm given the rollout cost?" not "what do we do about the ledger."
 
-### 2. Pick the lenses (3-5 is the sweet spot)
+### 2. Pick every relevant lens (no fixed count — the problem picks)
+
+Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): drop the "3-5 sweet spot" and drop "minimum N" — both are Goodhart-traps that turn into targets. The standard is:
+
+- Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council --for-problem "<problem>"` or equivalent — the manager knows which lenses fit which shapes better than a fixed floor does).
+- The load-bearing bar is **at least 2 genuinely disagreeing lenses pushing back on something load-bearing**. Not manufactured disagreement on trivia — real dissent on a real hinge. If no dissent emerges organically, walk more lenses OR the problem may be simpler than it looks (a signal, not a failure).
+
+Do NOT pre-decide "I'll walk 4 lenses." Do decide "here's the problem, here's what the dynamic manager surfaces, here's my judgment on which of those are relevant enough to walk." Report the surfaced set and the walked subset; if you narrowed, name why.
 
 Pick based on what class of finding each would produce:
 
