@@ -148,6 +148,69 @@ def test_degeneracy_flags_template():
     assert any(f.startswith("template:") for f in flags)
 
 
+# --- substrate-citation verification (Aria 2026-07-11) ------------------
+
+
+class TestSubstrateCitationVerification20260711:
+    """Wire from closure_verification into lepos_walk cite-check
+    (prereg-8a7a661f14fa first downstream). When a cited_span looks like
+    a substrate citation, run verify_citation against it. Ordinary
+    quoted-phrase citations are untouched."""
+
+    def test_ordinary_quoted_phrase_untouched(self):
+        # A regular quote from Andrew's message never triggers the
+        # substrate-citation branch — falls into the load_bearing check only.
+        walk = LeposWalk(
+            turn_id="tsc1",
+            answers=(
+                WalkAnswer(
+                    "responding_to_what",
+                    "He named that the recording would clog memory over time.",
+                    cited_span="recording your lepos output would clog up memory",
+                ),
+            ),
+        )
+        flags = lw.degeneracy_flags(walk)
+        assert "unverifiable_substrate_cite" not in flags
+
+    def test_fabricated_prereg_id_flags_unverifiable(self):
+        # A prereg-id-shaped cite that does not exist in the substrate
+        # trips the new flag.
+        walk = LeposWalk(
+            turn_id="tsc2",
+            answers=(
+                WalkAnswer(
+                    "responding_to_what",
+                    "The prereg he referenced marks this as the shipped path.",
+                    cited_span="prereg-deadbeef000000",
+                ),
+            ),
+        )
+        assert "unverifiable_substrate_cite" in lw.degeneracy_flags(walk)
+
+    def test_missing_file_cite_flags_unverifiable(self):
+        walk = LeposWalk(
+            turn_id="tsc3",
+            answers=(
+                WalkAnswer(
+                    "responding_to_what",
+                    "The file he pointed at is where the fix lands.",
+                    cited_span="src/does/not/exist.py",
+                ),
+            ),
+        )
+        assert "unverifiable_substrate_cite" in lw.degeneracy_flags(walk)
+
+    def test_prefilter_looks_like_substrate_citation(self):
+        # Direct test of the prefilter — only substrate-shaped strings.
+        assert lw._looks_like_substrate_citation("prereg-abc12345") is True
+        assert lw._looks_like_substrate_citation("scripts/precommit.sh") is True
+        assert lw._looks_like_substrate_citation("test_foo") is True
+        assert lw._looks_like_substrate_citation("#320") is True
+        assert lw._looks_like_substrate_citation("just a quoted phrase") is False
+        assert lw._looks_like_substrate_citation("his exact words here") is False
+
+
 # --- storage round-trip + tiering ----------------------------------------
 
 

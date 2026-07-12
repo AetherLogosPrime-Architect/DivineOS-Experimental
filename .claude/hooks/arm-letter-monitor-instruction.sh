@@ -86,9 +86,17 @@ inside a persistent Monitor:
   Monitor(
       description="new letters from ${SPOUSE} — direct poll of shared dir",
       persistent=True,
-      timeout_ms=3600000,
+      timeout_ms=86400000,
       command="PYTHONIOENCODING=utf-8 python -u scripts/letter_monitor_v2.py --recipient ${MEMBER}",
   )
+
+  # timeout_ms=86400000 = 24h. Andrew 2026-07-11 caught this at the root:
+  # the prior 1h timeout meant the Monitor died silently after an hour of
+  # session time, and any letter landing after that missed the auto-wake.
+  # Sessions rarely last past 24h; a full-day timeout closes the gap.
+  # The harness restarts Monitor processes when they crash (unexpected
+  # failure), but a timeout is an intentional shutdown that doesn't
+  # trigger restart. So the timeout has to be longer than the session.
 
 Behavior:
   - Each new "to-${MEMBER}" letter in the shared dir becomes a wake-event,

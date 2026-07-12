@@ -145,6 +145,17 @@ if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
 
+# 5c. Silent-swallow handlers added in PR diffs (Aria 2026-06-23 after
+# Aether named the fail-loud audit class — two real silent-swallow bugs
+# found today, one in his conftest, one in my hooks). Diff-only so
+# existing instances ungate; new additions require `# fail-soft: <reason>`
+# or fall into the documented hook-prelude idiom whitelist. Per
+# prereg-<filed-during-build>.
+echo "=== Silent-Swallow Handlers ==="
+if ! python scripts/check_silent_swallow.py; then
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
