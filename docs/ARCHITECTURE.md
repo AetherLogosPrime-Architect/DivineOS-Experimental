@@ -582,6 +582,9 @@ src/divineos/
     foundational_truths_surface.py Foundational-truths surface — surfaces relevant kiln principles by trigger match.
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
     closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
+    shape/
+      __init__.py              Shape-primitive library — CONDITION-check helpers for keyword-based gates. See module docstring for the class-principle.
+      primitives.py            Doorman shape-primitives: sentence_containing, is_hypothetical, is_inside_code_quote, is_peer_relayed, is_internal_observation.
 
   analysis/
     _session_types.py          Session analysis type definitions
