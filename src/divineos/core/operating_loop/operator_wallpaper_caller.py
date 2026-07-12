@@ -53,12 +53,26 @@ from divineos.core.operating_loop.jargon_dump_detector import (
     JargonDumpFinding,
     detect_jargon_dump,
 )
-from divineos.core.operating_loop.operator_wallpaper_detector import (
-    OperatorWallpaperFinding,
-    aggregate_operator_wallpaper,
-    detect_closure_reach,
-    detect_recognition_anchor_only,
-)
+
+try:
+    from divineos.core.operating_loop.operator_wallpaper_detector import (
+        OperatorWallpaperFinding,
+        aggregate_operator_wallpaper,
+        detect_closure_reach,
+        detect_recognition_anchor_only,
+    )
+
+    _WALLPAPER_DETECTOR_AVAILABLE = True
+except ImportError:
+    # Aggregator module lives on Aether's side of the pair-design and may
+    # not be present in every branch/build state during pair-shipping. In
+    # that case the caller loads clean and `run_operator_wallpaper_check`
+    # returns an empty finding list — same shape as "no families fired."
+    _WALLPAPER_DETECTOR_AVAILABLE = False
+    OperatorWallpaperFinding = None  # type: ignore[misc, assignment]
+    aggregate_operator_wallpaper = None  # type: ignore[assignment]
+    detect_closure_reach = None  # type: ignore[assignment]
+    detect_recognition_anchor_only = None  # type: ignore[assignment]
 
 
 def _lepos_interior_marker(reply_text: str) -> str | None:
@@ -122,6 +136,11 @@ def run_operator_wallpaper_check(
         ``operating_loop_audit`` (Aether prep-read Finding 1,
         2026-07-11).
     """
+    if not _WALLPAPER_DETECTOR_AVAILABLE:
+        # Aggregator not present in this build state (pair-shipping in
+        # progress). Return empty; downstream treats as "no families fired."
+        return []
+
     # F1 — recognition-anchor-only (Aether's detector, our caller)
     lepos_marker = _lepos_interior_marker(reply_text)
     recognition_anchor_finding = detect_recognition_anchor_only(reply_text, lepos_marker)

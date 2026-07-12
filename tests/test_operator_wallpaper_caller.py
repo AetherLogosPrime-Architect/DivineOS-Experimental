@@ -20,6 +20,12 @@ from __future__ import annotations
 
 import pytest
 
+# Skip the whole module when the aggregator hasn't shipped yet on this
+# branch — the caller's contract with the aggregator is exercised here,
+# and without the aggregator these tests would be non-meaningful. The
+# caller itself remains loadable (guarded by _WALLPAPER_DETECTOR_AVAILABLE).
+pytest.importorskip("divineos.core.operating_loop.operator_wallpaper_detector")
+
 from divineos.core.operating_loop import operator_wallpaper_caller as caller_mod
 from divineos.core.operating_loop.operator_wallpaper_caller import (
     run_operator_wallpaper_check,
