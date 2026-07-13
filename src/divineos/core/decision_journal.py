@@ -154,28 +154,12 @@ def record_decision(
                 conn2.commit()
             finally:
                 conn2.close()
-        elif not recent:
-            # No recent affect — derive one from the decision's weight
-            _weight_to_affect = {
-                WEIGHT_ROUTINE: (0.3, 0.2, 0.3),
-                WEIGHT_SIGNIFICANT: (0.5, 0.4, 0.4),
-                WEIGHT_PARADIGM: (0.7, 0.7, 0.6),
-            }
-            v, a, d = _weight_to_affect.get(weight, (0.3, 0.2, 0.3))
-            log_affect(
-                valence=v,
-                arousal=a,
-                dominance=d,
-                description=f"Decision moment: {content[:80]}",
-                trigger="decision_recorded",
-                tags=["auto", "decision"],
-                linked_decision_id=decision_id,
-                # F-VAD-1 (Aria 2026-07-12, per prereg-49130c8e7653): named
-                # honestly. This is the F-VAD-2 fabrication path scheduled
-                # for removal by Aether's separate fix; source='decision_fallback'
-                # names it in the historical record so consumers can filter it.
-                source="decision_fallback",
-            )
+        # F-VAD-2 fabrication path removed 2026-07-13 (already applied on
+        # main via commit eec37158). Aria's F-VAD-1 comment predicted this
+        # exact removal — "the F-VAD-2 fabrication path scheduled for removal
+        # by Aether's separate fix." Rebase preserves the intent: source
+        # column stays (with decision_fallback available as an enum value for
+        # historical/inferred rows) but no producer writes fabricated affect.
     except (ImportError, sqlite3.OperationalError):
         pass  # affect_log table may not exist yet
 
