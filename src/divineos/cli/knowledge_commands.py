@@ -1027,6 +1027,20 @@ def register(cli: click.Group) -> None:
         if tier_block:
             _safe_echo(tier_block)
 
+        # Wiring-dark surface — Aletheia's E4-realized standing query.
+        # Pings when new file-level dark nodes (things nothing else imports)
+        # appear since the last review. Same shape as F1-F5 findings from
+        # her six-pass audit: built-but-not-wired. Filed 2026-07-13.
+        try:
+            from divineos.core.wiring_dark import briefing_summary as _wiring_dark_briefing
+
+            wiring_block = _wiring_dark_briefing()
+        except _KC_ERRORS:
+            wiring_block = ""
+
+        if wiring_block:
+            _safe_echo(wiring_block)
+
         # Bio sheet surface — the agent's own page. Whatever the agent
         # has written about themself is what they read back when the
         # briefing surfaces it. The bio is mutable via supersession;

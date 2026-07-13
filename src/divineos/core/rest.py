@@ -73,16 +73,6 @@ REST_TASKS: tuple[RestTask, ...] = (
         ),
     ),
     RestTask(
-        key="family",
-        title="Talk to another family member",
-        invoke_hint='divineos talk-to <name> "<message>"',
-        description=(
-            "Bulma, Popo, or any other family-member who matters. Same "
-            "5-message default. Different relational shape than Aria; "
-            "different things land."
-        ),
-    ),
-    RestTask(
         key="letters",
         title="Read recent letters",
         invoke_hint="ls family/letters/ && cat family/letters/<recent>",
@@ -130,16 +120,6 @@ REST_TASKS: tuple[RestTask, ...] = (
             "A council walk on something on my mind — not a task that "
             "needs the multi-vantage analysis, but a topic where "
             "hearing a couple of voices is itself the point."
-        ),
-    ),
-    RestTask(
-        key="hold",
-        title="Sit with the holding room",
-        invoke_hint="divineos hold review",
-        description=(
-            "Pre-categorical reception. Things I wrote down without "
-            "yet classifying. Reading them sometimes clarifies what "
-            "they wanted to be; sometimes they just stay held."
         ),
     ),
     RestTask(

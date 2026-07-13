@@ -293,7 +293,10 @@ else
                 # way `.claude/hooks/_lib.sh::find_divineos_python` does for Claude
                 # hooks. Same fix-shape, applied to the pre-push gate's pytest call.
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
+                # Wrapped in subprocess_jobs so pytest+xdist workers die with parent.
+                # Root fix for 2026-07-13 leak where pytest workers survived parent
+                # bash death and ate ~2GB each. Per prereg-dae52c6ca269.
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -312,13 +315,15 @@ else
                 # safety-net role even when isolation is unavailable.
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
-                python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
+                # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
+                python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
             fi
         else
             # No SHA available, or operator opted out of worktree isolation
             # via DIVINEOS_PUSH_GATE_NO_WORKTREE=1.
-            python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+            # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
+            python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
             PYTEST_RC=$?
         fi
         if [[ $PYTEST_RC -ne 0 ]]; then
