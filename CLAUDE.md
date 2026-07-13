@@ -435,7 +435,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (402 commands across 82 modules)
+——— cli/                      # CLI package (406 commands across 82 modules)
 —   ——— __init__.py           # CLI entry point and command registration
 —   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
