@@ -1,62 +1,39 @@
 #!/bin/bash
-# PreToolUse hook — block destructive deletions until justified.
+# PreToolUse hook — thin doorbell for the deletion-discipline gate.
 #
-# Deletion-discipline lesson (Andrew 2026-05-21): never pure-delete. Read +
-# understand, investigate for anything worth saving, extract it, THEN delete.
-# Proven the same day: investigating talk-to-wrapper-collapse before deleting
-# found 47 files of needed work pure deletion would have destroyed.
+# All judgment lives in `divineos.core.deletion_discipline.main()`. Migrated
+# 2026-06-30 to the thin-wrapper pattern (Pop: "make the hooks dumber so they
+# can't be wrong; put the logic in the OS so the decision happens where the
+# contract is").
 #
-# Thin doorman: the logic lives in core.deletion_discipline.block_reason.
-# This hook reads the Bash command, asks the OS for a verdict, and denies
-# with the OS's message if a destructive deletion lacks a fresh justification.
-# Per [code-does-not-think]: the gate enforces that the judgment was recorded;
-# it never decides the deletion is wise.
+# Background (Andrew 2026-05-21): never pure-delete. Read + understand,
+# investigate for anything worth saving, extract it, THEN delete. The OS
+# module's block_reason() checks for a fresh justification matching the
+# command; if missing on a destructive op, the hook prints a deny-JSON.
 #
-# Fail-open: any error exits 0 (this hook must not break the workflow).
+# Fail-open: any error exits 0 silently. Never blocks the workflow.
 
-INPUT=$(cat)
-
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$REPO_ROOT" || exit 0
-
+set +e
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[ -z "$REPO_ROOT" ] && exit 0
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PYTHON_BIN="$(find_divineos_python)" || exit 0
+PYTHON_BIN="$(find_divineos_python)"
+if [ -z "$PYTHON_BIN" ]; then
+    # Fail-LOUD per Aletheia audit 2026-07-09 Deep Truck 1: a silently-skipped
+    # enforcement gate is indistinguishable from a gate that ran clean. Record
+    # the skip to stderr so a resolver-drift is investigable, not invisible.
+    echo "  [deletion-discipline] SKIPPED: find_divineos_python returned nothing - gate did NOT run" >&2
+    exit 0
+fi
 
-echo "$INPUT" | "$PYTHON_BIN" -c "
-import json, sys
-
+"$PYTHON_BIN" -c "
+import sys
 try:
-    data = json.loads(sys.stdin.read() or '{}')
+    from divineos.core.deletion_discipline import main
+    sys.exit(main())
 except Exception:
-    sys.exit(0)
-
-if (data.get('tool_name') or '') != 'Bash':
-    sys.exit(0)
-cmd = (data.get('tool_input') or {}).get('command') or ''
-if not cmd.strip():
-    sys.exit(0)
-
-try:
-    from divineos.core.deletion_discipline import block_reason
-except Exception:
-    sys.exit(0)  # fail-open if OS module unavailable
-
-try:
-    reason = block_reason(cmd)
-except Exception:
-    sys.exit(0)
-
-if not reason:
-    sys.exit(0)
-
-print(json.dumps({
-    'hookSpecificOutput': {
-        'hookEventName': 'PreToolUse',
-        'permissionDecision': 'deny',
-        'permissionDecisionReason': reason,
-    }
-}))
+    pass
 " 2>/dev/null
 
 exit 0

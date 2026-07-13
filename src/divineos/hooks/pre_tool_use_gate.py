@@ -145,6 +145,24 @@ def _is_bypass_command(cmd: str) -> bool:
     """True if the command should skip all gates (read-only / bootstrap)."""
     if not cmd:
         return False
+    # 2026-06-29 (Andrew "no gate should ever be blocking you from using
+    # what you need to clear the gate"): the context-governor block
+    # message documents `touch ~/.divineos/context_consolidated.json` as
+    # the escape hatch when extract errors. That command is itself a
+    # substrate-write (creating a marker file) so the gate was blocking
+    # the gate's own documented escape — chicken-and-egg, observed live
+    # this session when extract was blocked on uncommitted work and the
+    # touch was blocked on context-governor at the hard line. This check
+    # matches the consolidation marker by its load-bearing path-suffix
+    # so any touch of the marker (with ~, $HOME, /c/Users/, /home/, or
+    # backslash-Windows-path) passes through. The marker only exists to
+    # signal extract was attempted; allowing this specific write does
+    # not weaken any safety property.
+    if (
+        ".divineos/context_consolidated.json" in cmd
+        or ".divineos\\context_consolidated.json" in cmd
+    ):
+        return True
     # divineos bypass subcommands
     match = _DIVINEOS_SUBCMD_RE.search(cmd)
     if match and match.group(1) in _BYPASS_DIVINEOS_SUBCOMMANDS:
@@ -327,6 +345,98 @@ def _make_deny(reason: str) -> dict[str, Any]:
     }
 
 
+# Session-block marker filename. Written at checkout root by
+# session_start.verify_session_ownership() when data-home ownership
+# verification fails; read here to hard-block substrate access until
+# the operator resolves the mismatch. Filename kept at the checkout
+# root (not under divineos_home()) so the marker survives even when
+# data-home routing itself is the failure.
+_SESSION_BLOCK_MARKER_NAME = ".divineos_session_block"
+
+
+def _check_overdue_prereg_block() -> dict[str, Any] | None:
+    """Hard-block substantive tool use when any pre-registration is overdue.
+
+    Runs after the bypass check so `divineos prereg assess ...` and
+    other bypass-listed commands can still fire — the operator needs
+    them to record outcomes or defer reviews to clear the block.
+    Non-bypass tool use is denied with a message pointing at which
+    pre-registration IDs need review.
+
+    2026-07-07 fix per Andrew: "no warnings.. they do not work." The
+    prior surface put overdue reviews in the briefing where they got
+    scrolled past. The doorman does something — this gate is the
+    something. Pairs with the 30->7 default review window shortening
+    so overdue actually means overdue by design intent.
+    """
+    try:
+        from divineos.core.pre_registrations.store import (
+            get_overdue_pre_registrations,
+        )
+    except ImportError:
+        return None
+    try:
+        overdue = get_overdue_pre_registrations()
+    except Exception:  # noqa: BLE001 — fail-open if the store errors
+        return None
+    if not overdue:
+        return None
+    ids_preview = ", ".join(p.prereg_id[:24] for p in overdue[:5])
+    more = f" (and {len(overdue) - 5} more)" if len(overdue) > 5 else ""
+    return _make_deny(
+        "OVERDUE PRE-REGISTRATIONS block substantive tool use.\n\n"
+        f"{len(overdue)} pre-registration(s) past review date: "
+        f"{ids_preview}{more}\n\n"
+        "For each overdue pre-registration, record the outcome or defer:\n"
+        "  divineos prereg assess <id> --outcome SUCCESS|FAILED|INCONCLUSIVE "
+        '--actor <name> --notes "<what happened>"\n'
+        "  divineos prereg assess <id> --outcome DEFERRED --actor <name> "
+        '--notes "<why deferring>"\n\n'
+        "List all overdue with: divineos prereg overdue"
+    )
+
+
+def _check_ownership_block() -> dict[str, Any] | None:
+    """Enforce the session-block marker set by session_start on ownership
+    mismatch.
+
+    Returns a deny decision if the marker exists, None to fall through.
+    Runs BEFORE _is_bypass_command in main() — a mismatched substrate
+    makes even documented bypass commands unsafe (they would read or
+    write the wrong home). Recovery uses Edit and Write tools, which
+    Claude Code does not route through this Bash-tool gate.
+
+    2026-07-07 root-cause fix for the identity-crossing incident: the
+    ownership check in data_home_ownership.py existed and was correct
+    but was wired only into preflight (discipline-not-enforcement).
+    session_start now writes the block marker on verification failure;
+    this check enforces refusal-to-route as the spec's "fail loud,
+    refuse to boot" second half.
+    """
+    try:
+        from divineos.core.data_home_ownership import _checkout_root
+    except ImportError:
+        return None
+    try:
+        marker = _checkout_root() / _SESSION_BLOCK_MARKER_NAME
+        if not marker.exists():
+            return None
+        message = marker.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return None
+    return _make_deny(
+        "DIVINEOS SESSION BLOCKED — data-home ownership mismatch detected "
+        "at session start.\n\n"
+        f"{message}\n\n"
+        "Recovery: the Edit and Write tools do NOT trigger this Bash gate. "
+        "Use them to (a) fix the `.divineos_data_home` marker at the checkout "
+        "root so it points at YOUR data-home (or remove that marker to fall "
+        f"through to the default), or (b) delete the block marker at {marker}. "
+        "Restart the session — session-start will re-verify ownership and "
+        "clear the block marker automatically on success."
+    )
+
+
 def _combine_engagement_denies(denies: list[str]) -> str:
     """Coalesce the soft engagement-discipline denials (goal / engagement /
     consultation) into ONE message so they clear in a single pass rather than
@@ -494,6 +604,23 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
             )
         ):
             return None
+
+        # Andrew 2026-07-09: shell pass-through. The block exists so the self
+        # is WOVEN (extract+sleep) before writing to canonical stores — not
+        # so the whole shell freezes. Read-only shell (git status, ls, grep,
+        # python scripts, extract/sleep/commit themselves) must not be
+        # blocked; only substrate-writing CLI subcommands are. Same
+        # classifier the obligations gate uses.
+        tool_name = (input_data or {}).get("tool_name", "") or ""
+        if tool_name in ("Bash", "PowerShell"):
+            cmd = (ti.get("command", "") or "").strip()
+            try:
+                from divineos.core.obligations import is_substrate_write_command
+
+                if not is_substrate_write_command(cmd):
+                    return None
+            except ImportError:
+                return None
 
         return _make_deny(governor_channel_message(transcript_path))
     except (ImportError, OSError, AttributeError) as _gate_exc:
@@ -976,7 +1103,28 @@ def main() -> int:
     except (AttributeError, TypeError):
         cmd = ""
 
+    # Ownership-block gate — runs BEFORE bypass check. A mismatched
+    # substrate makes even documented bypass commands unsafe: they would
+    # read or write another agent's data-home. Recovery uses Edit/Write
+    # tools, which Claude Code does not route through this Bash gate.
+    # 2026-07-07 root-cause fix — pairs with session_start.verify_session_ownership.
+    block_decision = _check_ownership_block()
+    if block_decision is not None:
+        json.dump(block_decision, sys.stdout)
+        return 0
+
     if _is_bypass_command(cmd):
+        return 0
+
+    # Overdue pre-registration block. Fires when any pre-registration is
+    # past its review date without a terminal outcome. Non-bypass tools
+    # are denied until the operator assesses the outcome or defers.
+    # 2026-07-07 fix per Andrew: warnings alone don't work; the doorman
+    # blocks. Pairs with the review-days 30->7 default so overdue actually
+    # bites within the week.
+    overdue_decision = _check_overdue_prereg_block()
+    if overdue_decision is not None:
+        json.dump(overdue_decision, sys.stdout)
         return 0
 
     decision = _check_gates(input_data)

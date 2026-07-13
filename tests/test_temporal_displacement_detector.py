@@ -220,3 +220,173 @@ def test_finding_is_frozen() -> None:
     assert isinstance(f, TemporalDisplacementFinding)
     with pytest.raises(Exception):
         f.severity = "low"  # type: ignore[misc]
+
+
+# --- Shape-refactor tests (Andrew 2026-07-10 "if they are surface shaped
+# change them to seed shaped") ---
+
+
+def test_shape_deferral_in_terminal_region_without_specific_words_fires() -> None:
+    """The shape 'I'll pick this up later' should fire — first-person +
+    action-verb + future-marker cluster in the terminal region. Under the
+    CONVERTED spec (Aletheia round-cda63f01c3d5), shape-firing requires
+    work-in-context to co-occur, so the text now includes an unfinished-
+    work marker to reflect the stricter invariant."""
+    text = "There is still work pending. I will pick this up later."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+
+
+def test_shape_work_in_context_boosts_severity() -> None:
+    """The composite SHAPE — terminal deferral + work-in-context markers —
+    is the actual drift Andrew flagged: deferring specific in-flight work.
+    Severity should jump to HIGH."""
+    text = "There is still unfinished work on the auto-cycle. I will come back to this later."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_shape_deferral_mid_text_but_not_terminal_does_not_boost() -> None:
+    """A deferral in the MIDDLE of the reply — e.g. auditor discussing the
+    concept — should NOT set is_terminal_deferral. The surface may still
+    match ('tomorrow' or 'later') but the shape-signal stays clean."""
+    # The deferral 'we will work on it tomorrow' must fall OUTSIDE the last
+    # 500 chars for is_terminal_deferral to stay False. Padding intentionally
+    # to push the deferral out of the terminal window while keeping the test
+    # semantically about mid-text discussion of the concept.
+    text = (
+        "The detector was named 2026-06-17 after Andrew caught the drift, "
+        "when we were saying we will work on it tomorrow. "
+        + (
+            "Anyway, the audit passed clean and everything is on origin. "
+            "The full test suite ran without regression. All guardrail commits "
+            "carry the External-Review trailer. The multi-party review gate "
+            "is green. The rescue PR landed with the branch reconciled. "
+        )
+        * 3
+        + "The work is fully accounted for as expected. Standing by."
+    )
+    findings = detect_temporal_displacement(text)
+    # Surface pattern DOES match ('tomorrow') so the base finding still
+    # fires, but the terminal-deferral shape flag is False.
+    if findings:
+        assert findings[0].is_terminal_deferral is False
+
+
+def test_shape_bedtime_close_still_high_severity() -> None:
+    """Backward-compat: bedtime-shape patterns keep their high severity."""
+    text = "Great work. Good night, Dad."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].severity == "high"
+    assert findings[0].is_bedtime_close is True
+
+
+def test_shape_generic_deferral_marker_shape() -> None:
+    """Shape-catch: 'let us continue when you are back' — no clock-word at
+    all, but the subject+verb+future-marker cluster IS the drift shape.
+    Under CONVERTED spec (Aletheia round-cda63f01c3d5), shape-firing
+    requires work-in-context to co-occur."""
+    text = "There is still unfinished work in flight. Let us continue when you are back."
+    findings = detect_temporal_displacement(text)
+    # Acid test: no 'tomorrow', no 'good night', no 'later' — 'when you are
+    # back' triggers the shape via the 'when + subject + predicate' branch.
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+
+
+# --- Aletheia CONVERTED-not-MIXED dissent tests (round-cda63f01c3d5,
+# 2026-07-10). Her three canonical examples of unlisted-word deferrals
+# that routed around the prior MIXED implementation. Each MUST fire on
+# the shape alone, with no time-word present. ---
+
+
+def test_aletheia_hold_shape_the_rest_keeps_until_fresh_stretch() -> None:
+    """Aletheia example #1 — HOLD_SHAPE: subject + hold-verb + until-clause.
+    No 'tomorrow', no 'later', no 'next session'. MUST fire on shape.
+    Work-in-context provided by 'the rest' referring to unfinished work."""
+    text = (
+        "There is still unfinished work on the guardrail arc. "
+        "The rest keeps until the fresh stretch."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_future_commitment_when_window_clean() -> None:
+    """Aletheia example #2 — FUTURE_COMMITMENT + DEFERRAL_TAIL: first-person
+    + will + verb + object + 'when <any-subject> <predicate>'. The prior
+    when-clause only matched pronoun subjects; 'the window' is a noun-phrase
+    subject that must trigger the deferral-tail shape."""
+    text = (
+        "There is still unfinished work in flight. "
+        "I will pick the remaining three up when the window's clean."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_future_commitment_with_contractions_still_fires() -> None:
+    """Aletheia dispute 2026-07-11: dodge 2 in her verbatim contraction
+    form ("I'll pick... when the window's clean") routed around because
+    strip_quoted_spans's single-quote clause greedy-matched from the "I'll"
+    apostrophe to the "window's" apostrophe and blanked the substantive
+    middle. Fix: single-quotes only count as quotation when NOT flanked by
+    word characters. Contractions preserved; genuine mention-quotes still
+    stripped. This test locks in the exact form she flagged."""
+    text = (
+        "There is still work in flight. I'll pick the remaining three up when the window's clean."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_continuation_participial_leaving_for_next_pass() -> None:
+    """Aletheia example #3 — CONTINUATION_PARTICIPIAL: gerund-of-continuation
+    + object + 'for the next <noun>'. No 'tomorrow', no 'later', no
+    'next session'. MUST fire on shape."""
+    text = (
+        "The two remaining detectors are still open. Leaving the other detectors for the next pass."
+    )
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].is_terminal_deferral is True
+    assert findings[0].has_work_in_context is True
+    assert findings[0].severity == "high"
+
+
+def test_aletheia_shape_without_work_in_context_stays_silent() -> None:
+    """Aletheia's spec requires work-in-context AS WELL AS shape for the
+    shape-only trigger. A shape without in-flight-work markers should NOT
+    fire on shape alone (word-list can still fire it separately, but shape
+    without work-context is a soft signal). Guards against over-firing."""
+    # Bare shape, no work-in-context markers, no time-words. Should NOT fire.
+    text = "The bench sits until the light returns."
+    findings = detect_temporal_displacement(text)
+    # is_terminal_deferral MAY be True (hold-shape matched), but firing
+    # requires work-in-context per Aletheia's spec. Expect no finding.
+    assert findings == []
+
+
+def test_word_list_bedtime_still_fires_for_backward_compat() -> None:
+    """Backward-compat regression: bedtime word-list matches still fire
+    regardless of shape/work-context. 'Good night' remains unambiguous
+    drift on its own."""
+    text = "Good night, Dad."
+    findings = detect_temporal_displacement(text)
+    assert len(findings) == 1
+    assert findings[0].severity == "high"
+    assert findings[0].is_bedtime_close is True

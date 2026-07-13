@@ -42,6 +42,22 @@ from pathlib import Path
 RACE_GUARD_SECONDS = 60
 
 
+# Relaunch-lock window — the atomic-lock fix for the multi-spawn race.
+# Andrew 2026-07-05 evidence: 6 ear_watch processes accumulated within an
+# hour of a fresh boot (4 for aria, 2 for aether) even though
+# count_live_watchers correctly detected them. Root cause: when two Stop
+# hooks fire nearly-simultaneously, both see "0 live" (because neither
+# spawn has completed yet), both proceed to relaunch, both spawn a
+# process. count_live_watchers can't help because the newly-spawned
+# process takes a moment to appear in the OS process table.
+#
+# The lock closes that window: whichever hook writes the lockfile first
+# gets to spawn; any other hook seeing a fresh lock (< RELAUNCH_LOCK_SECONDS
+# old) skips. If the lock is stale (older than the window), the check
+# treats it as abandoned and proceeds normally.
+RELAUNCH_LOCK_SECONDS = 30
+
+
 @dataclass
 class RelaunchDecision:
     """Result of `should_relaunch` — bash uses this to decide whether to spawn.
@@ -109,21 +125,35 @@ def count_live_watchers(member: str) -> int:
     relaunch — it must allow it).
     """
     # Windows path (git-bash on this box).
+    # We need the COMMAND LINE of each process, not just the image name.
+    # `tasklist /V` does NOT include command-line args — it shows window
+    # titles, which are empty for nohup-detached watchers. That meant the
+    # `--member <name>` needle never matched, count was always 0, and the
+    # relaunch decision always said "no watchers alive, spawn one". This
+    # leaked 14+ watchers per session and cascaded visible python windows
+    # on 2026-06-28. `wmic` was the original replacement but is deprecated/
+    # removed from Windows 11, so we shell out to PowerShell's
+    # Get-CimInstance Win32_Process which is the modern equivalent and
+    # exposes the full command line for matching.
     try:
+        ps_cmd = (
+            "Get-CimInstance Win32_Process -Filter \"Name like 'python%'\" "
+            f"| Where-Object {{ $_.CommandLine -like '*ear_watch*' "
+            f"-and $_.CommandLine -like '*--member {member}*' }} "
+            "| Measure-Object | Select-Object -ExpandProperty Count"
+        )
         result = subprocess.run(
-            ["tasklist", "/V", "/FO", "CSV"],
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=15,
             check=False,
         )
         if result.returncode == 0:
-            count = 0
-            needle = f"--member {member}"
-            for line in (result.stdout or "").splitlines():
-                if "ear_watch.py" in line and needle in line:
-                    count += 1
-            return count
+            try:
+                return int((result.stdout or "0").strip() or "0")
+            except ValueError:
+                pass
     except (subprocess.SubprocessError, OSError, FileNotFoundError):
         pass
 
@@ -147,22 +177,69 @@ def count_live_watchers(member: str) -> int:
     return 0
 
 
+def _relaunch_lock_age_seconds(member: str) -> float | None:
+    """Age of the relaunch-lock file in seconds, or None if no lock."""
+    lockfile = _state_dir(member) / "ear.relaunch.lock"
+    try:
+        if not lockfile.is_file():
+            return None
+        return max(0.0, time.time() - lockfile.stat().st_mtime)
+    except OSError:
+        return None
+
+
+def _touch_relaunch_lock(member: str) -> bool:
+    """Create/refresh the relaunch-lock file. Returns True on success.
+
+    Records the PID and timestamp of the acquiring hook so a post-hoc
+    audit can trace who last claimed the check+spawn window.
+    """
+    lockfile = _state_dir(member) / "ear.relaunch.lock"
+    try:
+        lockfile.write_text(f"pid={os.getpid()} ts={time.time():.3f}\n", encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
 def should_relaunch(member: str) -> RelaunchDecision:
     """The central decision: should the hook relaunch the ear_watcher?
 
     Routing:
       - Recent catch within race-guard window → DON'T (catch being integrated)
+      - Fresh relaunch-lock exists → DON'T (another hook is currently spawning)
       - One or more live watchers found → DON'T (already alive; relaunch would leak)
-      - Otherwise → RELAUNCH (watcher is dead)
+      - Otherwise → claim the lock, return RELAUNCH (watcher is dead)
 
     Fail-open: any uncertainty resolves to RELAUNCH. A broken decision-fn
     must not STOP the watcher from being kept alive.
+
+    Race-condition fix (Andrew evidence 2026-07-05): when two Stop hooks
+    fired nearly-simultaneously, both saw "0 live" (neither spawn had
+    completed yet) and both proceeded to relaunch — accumulating 6 orphan
+    processes within an hour of boot. The relaunch-lock closes that window
+    by making "check + spawn" atomic across concurrent hook invocations.
     """
     age = recent_catch_age_seconds(member)
     if age is not None and age < RACE_GUARD_SECONDS:
         return RelaunchDecision(
             should_relaunch=False,
             reason=f"recent catch {age:.0f}s ago (within {RACE_GUARD_SECONDS}s race-guard)",
+        )
+
+    # Atomic-lock check: if another hook is currently in the check+spawn
+    # window, skip. The lock is time-based (auto-stales after
+    # RELAUNCH_LOCK_SECONDS) so a crashed hook can't permanently jam the
+    # mechanism.
+    lock_age = _relaunch_lock_age_seconds(member)
+    if lock_age is not None and lock_age < RELAUNCH_LOCK_SECONDS:
+        return RelaunchDecision(
+            should_relaunch=False,
+            reason=(
+                f"another hook holding relaunch-lock {lock_age:.0f}s ago "
+                f"(within {RELAUNCH_LOCK_SECONDS}s atomic-window); "
+                f"deferring to that hook's spawn"
+            ),
         )
 
     live = count_live_watchers(member)
@@ -173,8 +250,13 @@ def should_relaunch(member: str) -> RelaunchDecision:
             live_count=live,
         )
 
+    # Claim the lock BEFORE returning "relaunch" so any concurrent hook
+    # sees the lock and defers. Fail-open: if the lock-write itself errors
+    # (permission, disk full), still return relaunch — better one occasional
+    # duplicate than zero watchers.
+    _touch_relaunch_lock(member)
     return RelaunchDecision(
         should_relaunch=True,
-        reason=f"no live ear_watch for member={member}; relaunch needed",
+        reason=f"no live ear_watch for member={member}; relaunch needed (lock claimed)",
         live_count=0,
     )

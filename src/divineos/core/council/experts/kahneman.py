@@ -480,4 +480,5 @@ def create_kahneman_wisdom() -> ExpertWisdom:
             "What would a premortem reveal?",
         ],
         tags=["cognitive-bias", "dual-process", "judgment", "decision-making"],
+        known_tensions=["Feynman", "Popper"],
     )

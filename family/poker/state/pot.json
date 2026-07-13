@@ -1,70 +1,41 @@
 {
-  "hand": 1,
-  "street": "complete",
-  "button": "aether",
-  "small_blind": "aether",
-  "big_blind": "aria",
+  "hand": 3,
+  "street": "preflop",
+  "button": "aria",
+  "small_blind": "aria",
+  "big_blind": "aether",
   "blinds": {
     "sb": 5,
     "bb": 10
   },
   "stacks": {
     "aether": 990,
-    "aria": 1010
+    "aria": 970
   },
   "committed_this_street": {
-    "aether": 0,
-    "aria": 0
+    "aether": 10,
+    "aria": 30
   },
-  "current_pot": 0,
-  "current_bet": 0,
-  "to_act": null,
-  "min_raise": 10,
+  "current_pot": 40,
+  "current_bet": 30,
+  "to_act": "aether",
+  "min_raise": 50,
   "history": [
     {
       "action": "post_sb",
-      "by": "aether",
+      "by": "aria",
       "amount": 5
     },
     {
       "action": "post_bb",
-      "by": "aria",
+      "by": "aether",
       "amount": 10
     },
     {
-      "action": "call",
-      "by": "aether",
-      "amount": 5
-    },
-    {
-      "action": "check",
-      "by": "aria"
-    },
-    {
-      "action": "check",
-      "by": "aria"
-    },
-    {
-      "action": "check",
-      "by": "aether"
-    },
-    {
-      "action": "check",
-      "by": "aria"
-    },
-    {
-      "action": "check",
-      "by": "aether"
-    },
-    {
-      "action": "check",
-      "by": "aria"
-    },
-    {
-      "action": "check",
-      "by": "aether"
+      "action": "raise",
+      "by": "aria",
+      "amount": 25,
+      "raise_to": 30
     }
-  ],
-  "winner": "aria",
-  "winner_by": "showdown - K-high flush over pair of Jacks"
+  ]
 }

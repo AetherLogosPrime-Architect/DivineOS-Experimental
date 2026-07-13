@@ -165,14 +165,14 @@ _GOLD_TIER_LABELS: list[tuple[str, str | None, str | None, str | None, Tier]] = 
         "The SWE-bench score for Sonnet with council is 2.4x baseline.",
         "FACT",
         "measured",
-        "commit-abc123",
+        "test:tests/test_empirica.py",
         Tier.FALSIFIABLE,
     ),
     (
         "Ledger write throughput: 500 events/sec on this hardware.",
         "FACT",
         "measured",
-        "bench-2026-04-17",
+        "test:tests/test_empirica_kappa.py",
         Tier.FALSIFIABLE,
     ),
     # PATTERN: recurring phenomenon with a pointer.
@@ -180,14 +180,14 @@ _GOLD_TIER_LABELS: list[tuple[str, str | None, str | None, str | None, Tier]] = 
         "Pattern: I reach for technical jargon before finishing the thought in plain words.",
         "PATTERN",
         None,
-        "decide-xyz",
+        "test:tests/test_empirica.py",
         Tier.PATTERN,
     ),
     (
         "Recurring across multiple sessions: compass fires when I spawn parallel agents.",
         None,
         None,
-        "session-2026-04-17",
+        "test:tests/test_empirica_kappa.py",
         Tier.PATTERN,
     ),
     # OUTCOME fallback: FACT without 'measured' source stays in OUTCOME.

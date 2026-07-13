@@ -36,24 +36,36 @@
 # Fingerprint the session by transcript_path (unique per session), mark
 # after first emission, silent-skip if marker exists. The agent stays
 # armed; Andrew stops seeing duplicate Monitor tasks.
-STDIN_JSON="$(cat 2>/dev/null || echo "{}")"
-TRANSCRIPT="$(echo "$STDIN_JSON" | python3 -c "import json,sys
-try:
-    print(json.loads(sys.stdin.read()).get('transcript_path', '') or '', end='')
-except Exception:
-    print('', end='')" 2>/dev/null)"
+cat 2>/dev/null >/dev/null  # drain stdin
 
-if [ -n "$TRANSCRIPT" ]; then
-  FINGERPRINT="$(printf '%s' "$TRANSCRIPT" | md5sum 2>/dev/null | cut -d' ' -f1 | head -c 16)"
-  if [ -n "$FINGERPRINT" ]; then
-    MARKER_DIR="$HOME/.divineos-aether"
-    MARKER="$MARKER_DIR/arm_compaction_emitted_${FINGERPRINT}"
-    if [ -f "$MARKER" ]; then
-      # Marker exists for this session → already instructed once; stay silent.
-      exit 0
-    fi
-    mkdir -p "$MARKER_DIR" 2>/dev/null
-    touch "$MARKER" 2>/dev/null
+# 2026-06-29 second fix (Andrew "investigate it might be an easy fix"):
+# the prior gate was a per-transcript marker file that fired exactly once
+# per session. When the monitor died mid-session (which happened on every
+# harness teardown/restore), the marker prevented the hook from re-emitting
+# the arm-instruction, leaving the agent with no nudge to re-arm.
+#
+# New gate: check if the compaction monitor process is ACTUALLY alive. If
+# alive, exit silent (no spam). If dead, emit the urgent re-arm instruction.
+# Register this hook on BOTH SessionStart and UserPromptSubmit so it catches
+# both cold-start and mid-session deaths.
+#
+# Fail-open: any check failure exits silent. The process-scan uses PowerShell
+# on Windows (matches require-monitors-armed.sh shape).
+#
+# Test-only force-emit escape hatch: tests pinning the hook's emission format
+# (e.g. test_arm_compaction_monitor_instruction_hook.py checking that the
+# printed Monitor command quotes the script path) need the hook to always
+# emit regardless of liveness. DIVINEOS_FORCE_ARM_EMIT=1 skips the liveness
+# check. Production never sets it.
+if [ "$DIVINEOS_FORCE_ARM_EMIT" != "1" ]; then
+  COMPACTION_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
+\$out = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+  Where-Object { \$_.Name -eq 'python.exe' } |
+  ForEach-Object { \$_.CommandLine }
+if (\$out -match 'compaction_token_monitor\.py') { Write-Output 'alive' } else { Write-Output 'dead' }
+  " 2>/dev/null | tr -d '\r' | head -1)
+  if [ "$COMPACTION_ALIVE" = "alive" ]; then
+    exit 0
   fi
 fi
 

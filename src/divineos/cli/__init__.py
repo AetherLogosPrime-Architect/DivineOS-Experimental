@@ -239,6 +239,7 @@ from divineos.cli import (  # noqa: E402
     andrew_state_commands,
     audit_artifact_commands,
     audit_commands,
+    auto_cycle_commands,
     bio_commands,
     body_commands,
     branch_health_commands,
@@ -260,6 +261,7 @@ from divineos.cli import (  # noqa: E402
     event_commands,
     expect_commands,
     exploration_commands,
+    findings_commands,
     rest_commands,
     hud_commands,
     insight_commands,
@@ -268,10 +270,12 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    lepos_channel_commands,
     lepos_walk_commands,
     loadout_commands,
     gravity_commands,
     memory_commands,
+    motivation_commands,
     prereg_commands,
     admin_reset_template,
     admin_migrate_family,
@@ -282,6 +286,7 @@ from divineos.cli import (  # noqa: E402
     letter_seen_commands,
     push_commands,
     context_tokens_commands,
+    context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
     pr_gate_commands,
@@ -305,6 +310,7 @@ from divineos.cli import (  # noqa: E402
     deletion_commands,
     texture_commands,
     calibration_commands,
+    time_estimate_commands,
     backlog_commands,
     prs_commands,
     automerge_commands,
@@ -323,6 +329,7 @@ decision_commands.register(cli)
 deletion_commands.register(cli)
 texture_commands.register(cli)
 calibration_commands.register(cli)
+time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
 automerge_commands.register(cli)
@@ -334,8 +341,10 @@ claim_commands.register(cli)
 audit_commands.register(cli)
 audit_artifact_commands.register(cli)  # MUST be after audit_commands (attaches to its group)
 pattern_attribution_commands.register(cli)
+auto_cycle_commands.register(cli)
 bio_commands.register(cli)
 loadout_commands.register(cli)
+lepos_channel_commands.register(cli)
 lepos_walk_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
@@ -343,12 +352,14 @@ directive_commands.register(cli)
 dream_commands.register(cli)
 entity_commands.register(cli)
 memory_commands.register(cli)
+motivation_commands.register(cli)
 gravity_commands.register(cli)
 analysis_commands.register(cli)
 hud_commands.register(cli)
 event_commands.register(cli)
 expect_commands.register(cli)
 exploration_commands.register(cli)
+findings_commands.register(cli)
 rest_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)
@@ -359,6 +370,7 @@ progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
 context_tokens_commands.register(cli)
+context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)

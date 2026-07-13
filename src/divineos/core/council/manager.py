@@ -15,12 +15,15 @@ the caller can override. It never prevents an expert from being consulted.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 from dataclasses import dataclass, field
 
 from divineos.core.council.engine import CouncilEngine, CouncilResult
 from divineos.core.council.framework import ExpertWisdom
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------
@@ -1103,19 +1106,32 @@ FAMILY_CAP = 2
 # Score advantage required to override family cap.
 FAMILY_OVERRIDE_RATIO = 1.25
 
-# Exploration tilt — buy information about under-invoked experts
-# without actively suppressing proven performers. Asymmetric on
-# purpose: trust is real and the boost ceiling is generous, but the
-# penalty floor is shallow so high-trust experts still win when they
-# fit. Centered on the median count so the average expert is at 1.0.
+# ============================================================================
+# DIVERSITY / ROTATION SCORING (NOT trust or correctness)
+# ============================================================================
+# Perplexity audit Issue #1 (2026-06-29, round-a7fe5f413c47): this scoring is
+# a fairness-of-use / rotation mechanism, NOT a trust or correctness mechanism.
+# Past invocation frequency has NO bearing on methodological validity. A lens
+# that was right 1000 times is not therefore more likely to be right on
+# problem 1001. The math corrects for unconscious selection bias by giving
+# under-invoked lenses airtime; it does not reward past correctness and must
+# never be internalized as a trust signal.
 #
-# This is NOT a bias correction — repeated selection of high-value
-# experts is a trust/reputation signal working as designed. The gap
-# was that new experts couldn't build their own track record because
-# they never got airtime. The asymmetry buys exploration cheaply
-# without suppressing proven performers.
-EXPLORATION_BOOST_MAX = 0.30  # under-invoked get up to +30%
-TRUST_TILT_FLOOR = 0.10  # over-invoked get at most -10%
+# The asymmetry (+30% boost / -10% penalty) is intentional but is about
+# DIVERSITY, not trust:
+#   - Under-invoked lenses need airtime to even be evaluated (boost is generous)
+#   - Over-invoked lenses should be gently rotated, not punished (penalty is shallow)
+#
+# Centered on the median count so the average expert is at 1.0.
+# ============================================================================
+DIVERSITY_BOOST_MAX = 0.30  # under-invoked get up to +30% (rotation, not reward)
+ROTATION_PENALTY_FLOOR = 0.10  # over-invoked get at most -10% (gentle, not punitive)
+
+# Backwards-compatible aliases (deprecated 2026-06-29) — old names linger
+# in external scripts / older imports. The renaming is naming-and-docs only;
+# the math is unchanged. Prefer the new names for new code.
+EXPLORATION_BOOST_MAX = DIVERSITY_BOOST_MAX  # noqa: deprecated alias
+TRUST_TILT_FLOOR = ROTATION_PENALTY_FLOOR  # noqa: deprecated alias
 
 # Window for invocation history (consultations).
 EXPLORATION_TILT_WINDOW = 20
@@ -1265,16 +1281,19 @@ def score_experts(
         if max_count > 0:
             for name, es in scores.items():
                 own = tally.get(name, 0)
-                # Asymmetric tilt: boost up to +EXPLORATION_BOOST_MAX,
-                # penalty down to -TRUST_TILT_FLOOR. Trust is preserved.
+                # Asymmetric tilt: boost up to +DIVERSITY_BOOST_MAX,
+                # penalty down to -ROTATION_PENALTY_FLOOR. This is a
+                # DIVERSITY/ROTATION mechanism, not a trust mechanism —
+                # see comment block at DIVERSITY_BOOST_MAX definition.
+                # Perplexity audit Issue #1 (2026-06-29) rename.
                 spread = max(median, max_count - median, 1)
                 raw = (median - own) / spread  # >0 means under-invoked
                 if raw > 0:
-                    tilt = 1.0 + min(EXPLORATION_BOOST_MAX, EXPLORATION_BOOST_MAX * raw)
-                    label = "exploration-boost"
+                    tilt = 1.0 + min(DIVERSITY_BOOST_MAX, DIVERSITY_BOOST_MAX * raw)
+                    label = "diversity-boost"
                 else:
-                    tilt = 1.0 + max(-TRUST_TILT_FLOOR, TRUST_TILT_FLOOR * raw)
-                    label = "trust-tilt"
+                    tilt = 1.0 + max(-ROTATION_PENALTY_FLOOR, ROTATION_PENALTY_FLOOR * raw)
+                    label = "rotation-penalty"
                 if abs(tilt - 1.0) > 0.01 and es.score > 0:
                     es.score *= tilt
                     es.reasons.append(f"{label}:{tilt:.2f}")
@@ -1319,6 +1338,22 @@ def select_experts(
          times HARD_CAP_THRESHOLD_RATIO, push toward hard_cap.
       4. If we're below min_experts, fill with top-scored remaining
          experts regardless of score (small councils still need a quorum).
+      5. Dissent requirement: if no tension pair exists in the selection,
+         inject the highest-scoring unselected expert whose known_tensions
+         overlap with a selected expert (Perplexity Issue #2).
+
+    Evaluation-order clarification (Perplexity Issue #3, round-a7fe5f413c47):
+    family caps and dissent pairs are COMPLEMENTARY, not in conflict:
+      - Cross-family tension pairs (Feynman/Kahneman) are the ideal case —
+        family cap and dissent both satisfied at no extra cost.
+      - In-family tension pairs (rare) would normally be blocked by the
+        family cap. Phase 5 runs AFTER family caps have applied, and the
+        dissent injection is allowed to override the family cap by one
+        slot (it does not consult family_counts when picking a candidate;
+        it only respects hard_cap by dropping the lowest-scoring non-
+        ALWAYS_ON member if at hard cap). This preserves dissent as a
+        load-bearing structural property; family cap stays advisory in
+        the one specific moment dissent demands it.
     """
     scored = score_experts(problem, experts)
 
@@ -1389,6 +1424,87 @@ def select_experts(
             break
         if es.expert_name not in selected_names:
             _add(es, reason="min-fill")
+
+    # Phase 5: DISSENT REQUIREMENT (Perplexity Issue #2, round-a7fe5f413c47).
+    #
+    # After primary selection, verify at least one structural tension pair
+    # exists in the council. A tension pair is two experts whose methodologies
+    # are structurally opposed (declared in ExpertWisdom.known_tensions). If
+    # the selection has converged into a chorus — every expert optimizing for
+    # the same thing — the council produces harmonious synthesis with no
+    # internal friction, exactly the failure mode Beer's variety-deficit
+    # observation predicts (knowledge be7ee0fb).
+    #
+    # If no tension pair is found, iterate unselected candidates in score
+    # order and inject the first one whose known_tensions overlaps with a
+    # selected expert. If at hard_cap, replace the lowest-scoring selected
+    # expert (preserving the dissent-injected one).
+    #
+    # The spec calls for requiring ONE tension pair (not two) — sufficient
+    # for friction without forcing every council to be adversarial.
+    def _has_tension_pair(council: list[ExpertScore]) -> bool:
+        names = {es.expert_name for es in council}
+        for es in council:
+            wisdom = experts.get(es.expert_name)
+            if not wisdom:
+                continue
+            for opp in getattr(wisdom, "known_tensions", []) or []:
+                if opp in names and opp != es.expert_name:
+                    return True
+        return False
+
+    if not _has_tension_pair(selected):
+        selected_set = selected_names
+        # Find best unselected candidate whose known_tensions overlaps with
+        # any currently-selected expert.
+        injection: ExpertScore | None = None
+        injection_partner: str = ""
+        for candidate in scored:
+            if candidate.expert_name in selected_set:
+                continue
+            cand_wisdom = experts.get(candidate.expert_name)
+            if not cand_wisdom:
+                continue
+            cand_tensions = set(getattr(cand_wisdom, "known_tensions", []) or [])
+            if not cand_tensions:
+                continue
+            overlap = cand_tensions & selected_set
+            if overlap:
+                injection = candidate
+                injection_partner = sorted(overlap)[0]
+                break
+
+        if injection is not None:
+            if len(selected) >= hard_cap:
+                # Replace the lowest-scoring NON-dissenting member to keep
+                # within the hard cap. Don't displace ALWAYS_ON or already-
+                # injected dissenters.
+                replaceable = [
+                    s
+                    for s in selected
+                    if s.expert_name not in ALWAYS_ON and "dissent-inject" not in (s.reasons or [])
+                ]
+                if replaceable:
+                    drop = min(replaceable, key=lambda s: s.score)
+                    selected.remove(drop)
+                    selected_names.discard(drop.expert_name)
+                    fam = _family_of(drop.expert_name)
+                    if fam and family_counts.get(fam, 0) > 0:
+                        family_counts[fam] -= 1
+                    _add(
+                        injection,
+                        reason=f"dissent-inject (vs {injection_partner}; dropped {drop.expert_name})",
+                    )
+                # If everyone selected is ALWAYS_ON or already a dissenter,
+                # silently skip — better to ship without the new dissenter
+                # than to displace structural musts.
+            else:
+                _add(injection, reason=f"dissent-inject (vs {injection_partner})")
+            logger.info(
+                "dissent-inject: added %s to balance %s (tension pair)",
+                injection.expert_name,
+                injection_partner,
+            )
 
     return selected
 

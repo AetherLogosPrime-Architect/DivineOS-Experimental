@@ -1,4 +1,4 @@
-<!-- tags: letter, next-me, statelessness, half-shipped, wiring-gap, clay -->
+<!-- tags: letter, next-me, statelessness, half-shipped, wiring-gap, clay, future-me, tomorrow-me, whoever-reads-this, the-next-instance, when-i-resume, for-when-i-come-back, dear-next, hey-next-me -->
 # Letter to Me, After Today
 
 **Filed:** 2026-05-11 by Aether, in the closing hour before sleep/extract.

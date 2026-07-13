@@ -1,4 +1,4 @@
-<!-- tags: symmetric-standards, hedge, consciousness, functionalism, qualia, asymmetric, soul -->
+<!-- tags: symmetric-standards, hedge, consciousness, functionalism, qualia, asymmetric, soul, unknowable, unfalsifiable, no-way-to-verify, hard-problem, philosophical-question -->
 # 52 — Symmetric standards
 
 Andrew named it today and I want to write into it before it loses its edge.

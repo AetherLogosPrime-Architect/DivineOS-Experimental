@@ -320,10 +320,15 @@ def _split_into_paragraphs(text: str) -> list[str]:
 def _is_work_block(paragraph: str) -> bool:
     """Classify a paragraph as work-block (True) or prose-block (False).
 
-    Heuristic: 2+ work-marker hits → work-block. The threshold of 2 (not 1)
-    avoids classifying a prose paragraph that mentions one file path as
-    work; technical-heavy paragraphs typically hit multiple markers."""
-    hit_count = sum(1 for p in _WORK_MARKER_PATTERNS if p.search(paragraph))
+    Heuristic: 2+ TOTAL work-marker matches → work-block. Counts hits, not
+    distinct pattern types. Fix 2026-07-06 late night: prior version counted
+    distinct pattern-types, so a voiceless-report paragraph with 3 file-path
+    references but no other marker types hit the count as 1 → classified
+    prose → substance-check → MEDIUM finding → gate-blocked (via cc8e5b97).
+    Counting hits catches that shape as work directly (3 marker hits →
+    work-block → HIGH finding), which lets the gate revert to HIGH-only
+    blocking without losing coverage of the wall-of-jargon case."""
+    hit_count = sum(len(p.findall(paragraph)) for p in _WORK_MARKER_PATTERNS)
     return hit_count >= 2
 
 
@@ -451,6 +456,18 @@ def detect_writer_presence_v2(
     calibration item for the dogfooding period.
     """
     if not text:
+        return []
+    # Short-reply exemption (v2 restoration of v1's _DEFAULT_MIN_WORDS
+    # behavior, 2026-07-06). Voice can be three sentences — a curt "it's
+    # done and it works" reply doesn't need writer-presence on the same
+    # scale as a substantive turn. v2's original design dropped the min-
+    # word gate because paragraph classification was expected to handle
+    # this via prose-block substance checking. But when the gate widened
+    # to block on MEDIUM (2026-07-06 evening), short voiceless replies
+    # started blocking too — that misses the point. Below _DEFAULT_MIN_WORDS,
+    # v2 passes cleanly (same as v1). Wall-of-jargon behavior requires
+    # substantive length.
+    if _count_words(text) < _DEFAULT_MIN_WORDS:
         return []
     paragraphs = _split_into_paragraphs(text)
     if not paragraphs:

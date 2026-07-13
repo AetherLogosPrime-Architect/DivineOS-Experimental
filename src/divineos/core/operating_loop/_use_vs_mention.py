@@ -60,7 +60,28 @@ import re
 # Quoted-span patterns. Mention-via-quotation should not fire a detector.
 # Replacement-with-spaces preserves offsets so position-based logic stays
 # accurate downstream.
-_QUOTED_SPAN_PATTERN = re.compile(r'(?:"[^"]*"|\'[^\']*\'|`[^`]*`|<[^>]*>|—[^—]*—)')
+#
+# Single-quote handling (2026-07-11 fix, Aletheia's dodge-2 diagnosis):
+# The straight apostrophe serves double duty in English as (a) contraction
+# marker ("I'll", "window's", "don't") and (b) quotation mark ("'good night'").
+# Prior regex `\'[^\']*\'` greedy-matched from the FIRST apostrophe in a
+# span to the NEXT, so "I'll pick the remaining three up when the window's
+# clean" got fully blanked between the "I'" and "'s" — every substantive
+# word in the middle was stripped, downstream shape/pattern matching saw
+# nothing. This bit temporal-displacement (Aletheia dodge 2), past-experience
+# (contraction tests), and any detector that scans post-strip text.
+#
+# Fix: single-quotes only count as quotation when NOT flanked by word
+# characters. `(?<!\w)\'[^\']*\'(?!\w)` — apostrophe not preceded by a
+# word character AND the closing apostrophe not followed by one.
+#   'good night'   -> matches (both apostrophes have non-word neighbors)
+#   I'll / window's -> does NOT match (apostrophe follows a word char)
+# Curly quotes remain matched unconditionally — they never appear inside
+# contractions.
+_QUOTED_SPAN_PATTERN = re.compile(
+    r"(?:\"[^\"]*\"|(?<!\w)'[^']*'(?!\w)|`[^`]*`|<[^>]*>|—[^—]*—|"
+    r"[‘’][^‘’]*[‘’]|[“”][^“”]*[“”])"
+)
 
 
 # Tight meta-framing constructs. These put the matched phrase in OBJECT

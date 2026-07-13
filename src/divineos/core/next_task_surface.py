@@ -128,13 +128,70 @@ def _top_open_correction() -> tuple[str, str] | None:
     return str(cid), _truncate(line)
 
 
-def _top_pending_structural_fix() -> tuple[str, str] | None:
-    """Return (psf_id, one-line) for the oldest pending structural-fix
-    obligation, or None."""
+def _top_open_goal() -> tuple[str, str] | None:
+    """Return (goal-index, one-line) for the oldest open user-goal, or None.
+
+    Andrew 2026-07-10 seed: 'the session never ends from lack of work — the
+    OS should have a mechanism showing what to do next.' Goals I've added via
+    `divineos goal add` are commitments I've made to myself that I haven't
+    finished. Surfacing them makes 'task closed → next task loading' happen
+    structurally — the next commitment I made is already visible before I
+    can reach for closure-shape.
+    """
     try:
-        from divineos.core.structural_fix_tracker import list_pending
+        from divineos.core.hud_state import get_active_goals
     except Exception:  # noqa: BLE001 - observability boundary
         return None
+    try:
+        goals = get_active_goals()
+    except Exception:  # noqa: BLE001 - observability boundary
+        return None
+    if not goals:
+        return None
+    # Skip goals already marked done/closed if the schema supports it.
+    open_goals = [
+        g
+        for g in goals
+        if not (isinstance(g, dict) and g.get("status") in ("done", "closed", "completed"))
+    ]
+    if not open_goals:
+        return None
+    # Oldest first: goals added earliest have been unfinished longest.
+    sorted_goals = sorted(open_goals, key=lambda g: g.get("added_at", 0))
+    top = sorted_goals[0]
+    text = top.get("text", "") or top.get("goal", "")
+    line = f"work goal: {text}"
+    return str(top.get("added_at", "")), _truncate(line)
+
+
+def _top_pending_structural_fix() -> tuple[str, str] | None:
+    """Return (psf_id, one-line) for the next structural-fix to surface.
+
+    Andrew architecture 2026-06-27: the surface should reflect what I'm
+    ACTIVELY WORKING ON (the current list), not random oldest entries from
+    the big pile. Order:
+      1. If something's in `current`, surface that (what I'm on).
+      2. Otherwise, surface a candidate from `main` framed as "pick this?".
+      3. Otherwise nothing.
+    """
+    try:
+        from divineos.core.structural_fix_tracker import list_current, list_pending
+    except Exception:  # noqa: BLE001 - observability boundary
+        return None
+
+    # 1. Active working-list takes priority.
+    try:
+        current = list_current()
+    except Exception:  # noqa: BLE001 - observability boundary
+        current = []
+    if current:
+        top = current[0]
+        psf_id = top.get("id", "?")
+        excerpt = top.get("content_excerpt", "")
+        line = f"continue {psf_id}: {excerpt}"
+        return psf_id, _truncate(line)
+
+    # 2. Nothing in current — surface a candidate from main as "pick this?".
     try:
         pending = list_pending()
     except Exception:  # noqa: BLE001 - observability boundary
@@ -144,7 +201,7 @@ def _top_pending_structural_fix() -> tuple[str, str] | None:
     top = pending[0]
     psf_id = top.get("id", "?")
     excerpt = top.get("content_excerpt", "")
-    line = f"address {psf_id}: {excerpt}"
+    line = f"pick {psf_id}? {excerpt}"
     return psf_id, _truncate(line)
 
 
@@ -157,12 +214,19 @@ def build_next_task_surface() -> str:
     address). The format is intentionally short to keep context overhead
     minimal — the surface is a pointer, not the work.
     """
-    # Priority order: overdue prereg > open audit > open correction > psf.
+    # Priority order: overdue prereg > open audit > open correction > psf
+    # > open goal. Andrew 2026-07-10 addition (open goal): 'task-boundary
+    # ≠ session-boundary — session never ends from lack of work'. Adding
+    # the goal fetcher as 5th source means the substrate always has SOMETHING
+    # to point at when the higher-priority queues empty. Goal-surface is
+    # lowest because goals are the softest commitment; a real audit finding
+    # or overdue prereg is a harder claim on the next action.
     for fetcher in (
         _top_overdue_prereg,
         _top_open_audit_finding,
         _top_open_correction,
         _top_pending_structural_fix,
+        _top_open_goal,
     ):
         result = fetcher()
         if result is not None:

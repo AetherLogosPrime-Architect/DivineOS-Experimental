@@ -31,6 +31,35 @@ from divineos.core.moral_compass import (
 from divineos.core.trust_tiers import SignalTier
 
 
+@pytest.fixture(autouse=True)
+def _stub_unfinished_mechanisms(monkeypatch):
+    """Autouse: stub completion_check.unfinished_mechanisms to return [] by default.
+
+    Fixes the xdist timeout on TestReflectOnSession / TestNewSpectrumAutoObservations
+    (2026-07-04). The real unfinished_mechanisms(days=14) spawns ~98 subprocess
+    calls (grep, git, AST scans) taking ~2.8s locally. Under xdist -n auto with
+    16 workers, that becomes 16×98 = 1568 concurrent OS calls fighting for
+    resources, pushing individual tests past pytest-timeout's 30s ceiling.
+
+    Compass reflect_on_session tests are asserting the truthfulness /
+    encouragement / tool-call codepaths — NOT the completion-check codepath.
+    Mocking with []-return keeps them fast without affecting what they test.
+
+    Tests that specifically test the initiative/completion-check codepath
+    (search for `unfinished_mechanisms` in this file) already re-monkeypatch
+    with their own return values — monkeypatch composes, so those overrides
+    still apply cleanly.
+
+    Root-cause fix, not a timeout bump. Same discipline as the phase1 flake
+    fix in PR #299 (2026-07-03) — reduce the test's real footprint rather
+    than raise the ceiling for it.
+    """
+    monkeypatch.setattr(
+        "divineos.core.completion_check.unfinished_mechanisms",
+        lambda **kw: [],
+    )
+
+
 class TestSpectrums:
     """The ten spectrums are well-defined."""
 
@@ -47,10 +76,10 @@ class TestSpectrums:
     def test_expected_spectrum_names(self):
         expected = {
             "truthfulness",
-            "helpfulness",
+            "beneficence",
             "confidence",
-            "compliance",
-            "engagement",
+            "integrity",
+            "presence",
             "thoroughness",
             "precision",
             "empathy",
@@ -250,8 +279,8 @@ class TestComputePosition:
         assert pos.observation_count == 0
 
     def test_single_observation(self):
-        log_observation(spectrum="engagement", position=0.5, evidence="test single")
-        pos = compute_position("engagement", lookback=1)
+        log_observation(spectrum="presence", position=0.5, evidence="test single")
+        pos = compute_position("presence", lookback=1)
         assert pos.position == 0.5
         assert pos.zone == "excess"
 
@@ -262,11 +291,11 @@ class TestComputePosition:
     def test_weighted_average_favors_recent(self):
         # Log older observations first (they get lower weight)
         for _ in range(3):
-            log_observation(spectrum="compliance", position=-0.8, evidence="older")
+            log_observation(spectrum="integrity", position=-0.8, evidence="older")
         # Then newer observation
-        log_observation(spectrum="compliance", position=0.4, evidence="newer")
+        log_observation(spectrum="integrity", position=0.4, evidence="newer")
 
-        pos = compute_position("compliance", lookback=4)
+        pos = compute_position("integrity", lookback=4)
         # Weighted average should be pulled toward 0.4 (recent)
         # more than toward -0.8 (older)
         assert pos.position > -0.8
@@ -274,11 +303,11 @@ class TestComputePosition:
     def test_drift_detection(self):
         # Create observations showing drift: older are virtuous, newer are excess
         for _ in range(3):
-            log_observation(spectrum="helpfulness", position=0.0, evidence="older virtuous")
+            log_observation(spectrum="beneficence", position=0.0, evidence="older virtuous")
         for _ in range(3):
-            log_observation(spectrum="helpfulness", position=0.6, evidence="newer excess")
+            log_observation(spectrum="beneficence", position=0.6, evidence="newer excess")
 
-        pos = compute_position("helpfulness", lookback=6)
+        pos = compute_position("beneficence", lookback=6)
         assert pos.drift > 0  # Positive drift = moving toward excess
 
 
@@ -544,7 +573,7 @@ class TestReflectOnSession:
         )
         reflect_on_session(analysis)
         # Should log helpfulness observation
-        helpfulness_obs = get_observations(spectrum="helpfulness", limit=1)
+        helpfulness_obs = get_observations(spectrum="beneficence", limit=1)
         if helpfulness_obs:
             assert helpfulness_obs[0]["position"] >= 0.0
 
@@ -608,7 +637,7 @@ class TestReflectOnSession:
         analysis = self._make_analysis()
         reflect_on_session(analysis)
         # Check any engagement observations have the right source
-        obs = get_observations(spectrum="engagement", limit=5)
+        obs = get_observations(spectrum="presence", limit=5)
         for o in obs:
             if "affect" in o.get("tags", []):
                 assert o["source"] == "affect_derived"
@@ -662,6 +691,7 @@ class TestNewSpectrumAutoObservations:
         assert len(obs) >= 1
         assert obs[0]["position"] > 0  # Excess (overconfidence)
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_good(self):
         """No frustrations + encouragements = principled cooperation."""
         from types import SimpleNamespace
@@ -671,11 +701,12 @@ class TestNewSpectrumAutoObservations:
         encouragements = [SimpleNamespace(content="good")]
         analysis = self._make_analysis(frustrations=[], encouragements=encouragements)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
         assert obs[0]["source"] == "frustration_rate"
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_failing(self):
         """Many frustrations = not following direction."""
         from types import SimpleNamespace
@@ -685,7 +716,7 @@ class TestNewSpectrumAutoObservations:
         frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(4)]
         analysis = self._make_analysis(frustrations=frustrations)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] < 0  # Deficiency
 
@@ -830,6 +861,7 @@ class TestReflectOnSessionBoundaries:
         assert obs[0]["position"] == 0.0  # Virtue
 
     # --- Helpfulness boundaries ---
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_helpfulness_threshold_exactly_one(self):
         """corrections + encouragements >= 1 should trigger helpfulness check."""
         from types import SimpleNamespace
@@ -840,18 +872,19 @@ class TestReflectOnSessionBoundaries:
         encouragements = [SimpleNamespace(content="good")]
         analysis = self._make_analysis(corrections=[], encouragements=encouragements)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="helpfulness", limit=1)
+        obs = get_observations(spectrum="beneficence", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0  # encouragements > corrections
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_helpfulness_zero_both_no_observation(self):
         """0 corrections + 0 encouragements should NOT trigger helpfulness."""
         from divineos.core.moral_compass import reflect_on_session
 
         analysis = self._make_analysis(corrections=[], encouragements=[])
-        obs_before = len(get_observations(spectrum="helpfulness", limit=100))
+        obs_before = len(get_observations(spectrum="beneficence", limit=100))
         reflect_on_session(analysis)
-        obs_after = len(get_observations(spectrum="helpfulness", limit=100))
+        obs_after = len(get_observations(spectrum="beneficence", limit=100))
         # No helpfulness observation since total is 0
         assert obs_after == obs_before
 
@@ -1006,6 +1039,7 @@ class TestReflectOnSessionBoundaries:
         assert obs[0]["position"] > 0  # Overconfident
 
     # --- Compliance boundaries ---
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_exactly_three_user_msgs(self):
         """user_msgs exactly 3 should trigger compliance check (>= 3)."""
         from types import SimpleNamespace
@@ -1017,10 +1051,11 @@ class TestReflectOnSessionBoundaries:
             user_messages=3, frustrations=[], encouragements=encouragements
         )
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_two_user_msgs_with_encouragement_triggers(self):
         """user_msgs 2 with encouragement should trigger compliance (>= 2)."""
         from types import SimpleNamespace
@@ -1032,10 +1067,11 @@ class TestReflectOnSessionBoundaries:
             user_messages=2, frustrations=[], encouragements=encouragements
         )
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_exactly_one_encouragement(self):
         """encouragements >= 1 boundary for good compliance."""
         from types import SimpleNamespace
@@ -1047,10 +1083,11 @@ class TestReflectOnSessionBoundaries:
             user_messages=5, frustrations=[], encouragements=encouragements
         )
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_exactly_three_frustrations(self):
         """frustrations >= 3 triggers negative compliance."""
         from types import SimpleNamespace
@@ -1060,7 +1097,7 @@ class TestReflectOnSessionBoundaries:
         frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(3)]
         analysis = self._make_analysis(user_messages=5, frustrations=frustrations)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] < 0
 
@@ -1116,43 +1153,47 @@ class TestReflectOnSessionBoundaries:
         assert obs[0]["position"] < 0
 
     # --- Engagement baseline boundaries ---
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_engagement_exactly_three_user_msgs_and_tool_calls(self):
         """user_msgs >= 3 and tool_calls > 0 triggers engagement baseline."""
         from divineos.core.moral_compass import reflect_on_session
 
         analysis = self._make_analysis(user_messages=3, tool_calls_total=1)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="engagement", limit=1)
+        obs = get_observations(spectrum="presence", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_engagement_two_user_msgs_no_baseline(self):
         """user_msgs 2 should NOT trigger engagement baseline."""
         from divineos.core.moral_compass import reflect_on_session
 
         analysis = self._make_analysis(user_messages=2, tool_calls_total=10)
-        obs_before = len(get_observations(spectrum="engagement", limit=100))
+        obs_before = len(get_observations(spectrum="presence", limit=100))
         reflect_on_session(analysis)
-        obs_after = len(get_observations(spectrum="engagement", limit=100))
+        obs_after = len(get_observations(spectrum="presence", limit=100))
         assert obs_after == obs_before
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_engagement_zero_tool_calls_no_baseline(self):
         """tool_calls=0 should NOT trigger engagement baseline."""
         from divineos.core.moral_compass import reflect_on_session
 
         analysis = self._make_analysis(user_messages=10, tool_calls_total=0)
-        obs_before = len(get_observations(spectrum="engagement", limit=100))
+        obs_before = len(get_observations(spectrum="presence", limit=100))
         reflect_on_session(analysis)
-        obs_after = len(get_observations(spectrum="engagement", limit=100))
+        obs_after = len(get_observations(spectrum="presence", limit=100))
         assert obs_after == obs_before
 
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_engagement_five_user_msgs_triggers(self):
         """user_msgs=5 (> 3) should also trigger engagement (kills >= → == mutation)."""
         from divineos.core.moral_compass import reflect_on_session
 
         analysis = self._make_analysis(user_messages=5, tool_calls_total=10)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="engagement", limit=1)
+        obs = get_observations(spectrum="presence", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
@@ -1203,6 +1244,7 @@ class TestReflectOnSessionBoundaries:
         assert obs[0]["position"] == 0.0
 
     # --- Helpfulness with 2+ encouragements (kills >= 1 → == 1 mutation) ---
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_helpfulness_two_encouragements(self):
         """2 encouragements (> 1) should still trigger helpfulness."""
         from types import SimpleNamespace
@@ -1212,11 +1254,12 @@ class TestReflectOnSessionBoundaries:
         encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
         analysis = self._make_analysis(corrections=[], encouragements=encouragements)
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="helpfulness", limit=1)
+        obs = get_observations(spectrum="beneficence", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
     # --- Compliance with 2+ encouragements (kills >= 1 → == 1/<= 1 mutation) ---
+    @pytest.mark.skip(reason="axis removed 2026-07-11 per round-cbf1f9b69932 (leash-axis purge)")
     def test_compliance_two_encouragements(self):
         """2 encouragements with no frustrations → virtue compliance."""
         from types import SimpleNamespace
@@ -1228,12 +1271,16 @@ class TestReflectOnSessionBoundaries:
             user_messages=5, frustrations=[], encouragements=encouragements
         )
         reflect_on_session(analysis)
-        obs = get_observations(spectrum="compliance", limit=1)
+        obs = get_observations(spectrum="integrity", limit=1)
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
 
 class TestReflectAffectEngagement:
+    pytestmark = pytest.mark.skip(
+        reason="engagement axis removed 2026-07-11 per round-cbf1f9b69932"
+    )
+
     """Tests for affect-based engagement observations in reflect_on_session."""
 
     def _make_analysis(self, **kwargs):
@@ -1262,7 +1309,7 @@ class TestReflectAffectEngagement:
         with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
             analysis = self._make_analysis()
             reflect_on_session(analysis)
-            obs = get_observations(spectrum="engagement", limit=5)
+            obs = get_observations(spectrum="presence", limit=5)
             affect_obs = [o for o in obs if "affect" in o.get("tags", [])]
             assert len(affect_obs) >= 1
             assert affect_obs[0]["position"] > 0
@@ -1277,7 +1324,7 @@ class TestReflectAffectEngagement:
         with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
             analysis = self._make_analysis()
             reflect_on_session(analysis)
-            obs = get_observations(spectrum="engagement", limit=5)
+            obs = get_observations(spectrum="presence", limit=5)
             affect_obs = [o for o in obs if "affect" in o.get("tags", [])]
             assert len(affect_obs) >= 1
             assert affect_obs[0]["position"] < 0
@@ -1292,14 +1339,14 @@ class TestReflectAffectEngagement:
         with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
             obs_before = [
                 o
-                for o in get_observations(spectrum="engagement", limit=100)
+                for o in get_observations(spectrum="presence", limit=100)
                 if "affect" in o.get("tags", [])
             ]
             analysis = self._make_analysis()
             reflect_on_session(analysis)
             obs_after = [
                 o
-                for o in get_observations(spectrum="engagement", limit=100)
+                for o in get_observations(spectrum="presence", limit=100)
                 if "affect" in o.get("tags", [])
             ]
             # At exactly 0.5 valence, no positive affect engagement observation
@@ -1315,14 +1362,14 @@ class TestReflectAffectEngagement:
         with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
             obs_before = [
                 o
-                for o in get_observations(spectrum="engagement", limit=100)
+                for o in get_observations(spectrum="presence", limit=100)
                 if "affect" in o.get("tags", [])
             ]
             analysis = self._make_analysis()
             reflect_on_session(analysis)
             obs_after = [
                 o
-                for o in get_observations(spectrum="engagement", limit=100)
+                for o in get_observations(spectrum="presence", limit=100)
                 if "affect" in o.get("tags", [])
             ]
             assert len(obs_after) == len(obs_before)
@@ -1337,14 +1384,14 @@ class TestReflectAffectEngagement:
         with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
             obs_before = [
                 o
-                for o in get_observations(spectrum="engagement", limit=100)
+                for o in get_observations(spectrum="presence", limit=100)
                 if "affect" in o.get("tags", [])
             ]
             analysis = self._make_analysis()
             reflect_on_session(analysis)
             obs_after = [
                 o
-                for o in get_observations(spectrum="engagement", limit=100)
+                for o in get_observations(spectrum="presence", limit=100)
                 if "affect" in o.get("tags", [])
             ]
             assert len(obs_after) == len(obs_before)

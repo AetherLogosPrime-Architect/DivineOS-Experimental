@@ -1,0 +1,266 @@
+"""auto-commit at substrate checkpoints — the Permanently Equip spell for commits.
+
+Andrew 2026-07-05: "make commit automatic after extract and before sleep :)"
+
+The gap this closes: today I finished substrate-touching work in-session and
+didn't commit before rest. Andrew caught it. This module welds the commit
+into the checkpoints themselves so the next time this exact shape shows up,
+the commit fires without being remembered.
+
+Three call-sites (all pointed at the same function):
+  1. pre-extract  — was BLOCK, now AUTO-COMMIT (extract runs afterwards)
+  2. post-extract — commit whatever extract itself wrote (self-grade,
+                    journal entries, updated docs, etc.)
+  3. pre-sleep    — commit any drift since extract before consolidation
+
+Discipline:
+  - Syncs external channels (aria-aether letters) into repo_mirror BEFORE
+    committing, so external-only writes don't slip through.
+  - `git add -A` — includes untracked. Substrate letters are often
+    untracked new files.
+  - Fail-soft: subprocess failures log-and-continue rather than raising.
+    The point is to save work, not to block the checkpoint on git noise.
+  - Idempotent: clean tree → no-op, no empty commit.
+"""
+
+from __future__ import annotations
+
+import logging
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from divineos.core.uncommitted_work_check import (
+    DEFAULT_CHANNELS,
+    ExternalChannel,
+    check_uncommitted_work,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AutoCommitResult:
+    committed: bool
+    reason: str  # human-readable outcome (for CLI surfacing)
+    files_synced: int = 0  # external files copied into repo_mirror
+    dirty_lines: int = 0  # git status --porcelain lines seen
+
+
+def _sync_external_channels(
+    channels: tuple[ExternalChannel, ...],
+    repo_root: Path,
+) -> int:
+    """Copy new external-channel files into their repo_mirror.
+
+    Same sync semantics as check_uncommitted_work.scan_external_channels,
+    but performs the copy instead of only reporting. Returns the count
+    of files copied. Append-only channels only (name-equality suffices;
+    no content-diff needed).
+    """
+    copied = 0
+    for channel in channels:
+        if not channel.source.is_dir():
+            continue
+        mirror = repo_root / channel.repo_mirror
+        mirror.mkdir(parents=True, exist_ok=True)
+        mirror_names = {p.name for p in mirror.glob(channel.pattern)}
+        for src_file in channel.source.glob(channel.pattern):
+            if src_file.name in mirror_names:
+                continue
+            try:
+                shutil.copy2(src_file, mirror / src_file.name)
+                copied += 1
+            except OSError as e:
+                logger.warning(
+                    "auto_commit: failed to sync %s from %s: %s",
+                    src_file.name,
+                    channel.name,
+                    e,
+                )
+    return copied
+
+
+# In-progress git operations where `git commit` will fail because the tree
+# is in a transient state the user has to resolve manually (rebase in
+# progress, merge with conflicts unresolved, cherry-pick in progress, etc.).
+# Auto-committing here is wrong: it would produce a malformed commit or fail
+# outright and trap extract at the fallback SystemExit(1) path in
+# event_commands.py. Aria 2026-07-10 fix: detect these states, skip
+# auto-commit cleanly, let extract proceed. Post-op, the next checkpoint
+# (post-extract / pre-sleep) fires the auto-commit normally.
+#
+# Root cause named in-session 2026-07-10 pre-compaction: mid-rebase state
+# blocked extract at the hard-line, which cost the pre-compaction weave
+# and forced the letter/exploration workaround.
+_MID_OP_MARKERS: tuple[str, ...] = (
+    "rebase-merge",  # interactive rebase (and non-interactive since git 2.6)
+    "rebase-apply",  # legacy non-interactive rebase, still used in some paths
+    "MERGE_HEAD",  # merge with unresolved conflicts
+    "CHERRY_PICK_HEAD",  # cherry-pick in progress
+    "REVERT_HEAD",  # revert in progress
+)
+
+
+def _detect_mid_op(repo_root: Path) -> str | None:
+    """Return the name of any in-progress git operation, or None if clean.
+
+    Checks the well-known marker files/directories under .git/. Returns the
+    marker name (e.g. "rebase-merge") so the skip-reason names the actual
+    state. Empty return = safe to commit.
+    """
+    git_dir = repo_root / ".git"
+    for marker in _MID_OP_MARKERS:
+        if (git_dir / marker).exists():
+            return marker
+    return None
+
+
+def _detect_staged_index(repo_root: Path) -> bool:
+    """Return True if the index has staged changes waiting for an explicit commit.
+
+    Aletheia audit 2026-07-11 (six-painpoints finding #1, "CLEAREST FIX,
+    high confidence"): checkpoint hooks are for ABANDONED dirty state, not
+    for actively-in-flight staged work. When the occupant has staged files
+    with `git add`, that is a mid-commit signal: they are composing an
+    authored commit message. Auto-committing over that scoops the
+    in-flight work into the checkpoint's generic "substrate checkpoint"
+    message and eats the authored rationale.
+
+    ``git diff --cached --quiet`` returns exit code 0 when the index is
+    clean (no staged changes) and non-zero when there are staged changes.
+    We treat non-zero as "staged, skip auto-commit." Errors are treated
+    as "safe to commit" so a broken git invocation doesn't accidentally
+    swallow work — same fail-soft direction as _detect_mid_op.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode != 0
+
+
+def auto_commit_substrate(
+    repo_root: Path,
+    reason: str,
+    channels: tuple[ExternalChannel, ...] = DEFAULT_CHANNELS,
+) -> AutoCommitResult:
+    """Commit any uncommitted substrate work at a checkpoint boundary.
+
+    reason: short string that appears in the commit subject
+            (e.g. "post-extract", "pre-sleep", "pre-extract").
+    """
+    if not (repo_root / ".git").exists():
+        return AutoCommitResult(committed=False, reason="not a git repo")
+
+    mid_op = _detect_mid_op(repo_root)
+    if mid_op is not None:
+        return AutoCommitResult(
+            committed=False,
+            reason=f"skipped auto-commit — {mid_op} in progress (resolve manually)",
+        )
+
+    # Aletheia audit 2026-07-11 finding #1: skip when the index has staged
+    # changes. Staged index = occupant is mid-commit with an authored message
+    # in flight. Auto-committing over that scoops the in-flight work into the
+    # checkpoint's generic "substrate checkpoint" message and eats the
+    # authored rationale. Same category as _detect_mid_op — the tree is in a
+    # transient state the occupant is actively resolving.
+    if _detect_staged_index(repo_root):
+        return AutoCommitResult(
+            committed=False,
+            reason="skipped auto-commit — staged index (mid-commit; occupant has authored message in flight)",
+        )
+
+    files_synced = _sync_external_channels(channels, repo_root)
+
+    report = check_uncommitted_work(repo_root, channels=channels)
+    dirty_lines = len(report.repo_dirty)
+
+    if not report.has_work and files_synced == 0:
+        return AutoCommitResult(
+            committed=False,
+            reason="clean tree — nothing to commit",
+        )
+
+    try:
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.warning("auto_commit: git add failed: %s", e.stderr)
+        return AutoCommitResult(
+            committed=False,
+            reason=f"git add failed: {e.stderr.strip()[:200]}",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    staged_check = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if staged_check.returncode == 0:
+        return AutoCommitResult(
+            committed=False,
+            reason="nothing staged after add",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    subject = f"auto-commit ({reason}): substrate checkpoint"
+    body = (
+        f"Auto-commit fired at {reason} boundary.\n\n"
+        f"External files synced into repo: {files_synced}\n"
+        f"Dirty-tree lines caught: {dirty_lines}\n\n"
+        "Committed automatically per Andrew 2026-07-05: the commit "
+        "at extract/sleep boundaries fires itself, not remembered.\n\n"
+        "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+    )
+    try:
+        subprocess.run(
+            ["git", "commit", "-m", subject, "-m", body],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.warning("auto_commit: git commit failed at %s: %s", reason, e.stderr)
+        return AutoCommitResult(
+            committed=False,
+            reason=f"git commit failed: {e.stderr.strip()[:200]}",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    return AutoCommitResult(
+        committed=True,
+        reason=f"committed at {reason}",
+        files_synced=files_synced,
+        dirty_lines=dirty_lines,
+    )
+
+
+def find_repo_root(start: Path) -> Path | None:
+    """Walk up from `start` to the first ancestor containing .git; None if
+    none found."""
+    p = start.resolve()
+    while p != p.parent:
+        if (p / ".git").exists():
+            return p
+        p = p.parent
+    return None

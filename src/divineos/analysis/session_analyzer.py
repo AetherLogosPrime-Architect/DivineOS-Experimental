@@ -23,9 +23,18 @@ STRONG_CORRECTION_PATTERNS: tuple[str, ...] = (
     # Demotion 2026-06-23 after 4+ false-positives in one investigation
     # session. INCOMPLETE: needs dogfooding across multiple sessions
     # before being called resolved (channeled vs resolved distinction).
-    r"\bthat'?s not\b",
+    # NOTE: \bthat'?s not\b and \byou missed\b were STRONG patterns but
+    # recurringly false-fired during the 2026-06-30 session on (a) quoted
+    # text from prior letters where Aletheia or Aether use the phrase
+    # naturally in prose, and (b) Andrew using the phrase discursively in
+    # teaching (e.g. "you missed a simple little detail" as a parable
+    # about embarrassment, not as a corrective evaluation). Both demoted
+    # to WEAK 2026-06-30 — same shape as the \bwrong\b demotion of
+    # 2026-06-23. The prior-turn-context check disambiguates: STRONG-tier
+    # left for patterns where corrective geometry is inline regardless of
+    # surrounding text. Evidence: this session's compass-marker dismissal
+    # log shows ~6 false-fires on these two patterns alone.
     r"\bdon'?t (?:do|use|add|make|change|remove|delete|mock|skip|edit|write|create|run)\b",
-    r"\byou missed\b",
     r"\bnot what i\b",
     r"\bwhy did you\b",
     r"\bwhy were they\b",
@@ -54,6 +63,20 @@ WEAK_CORRECTION_PATTERNS: tuple[str, ...] = (
     # disambiguates: corrective only blocks when my prior turn was
     # something correctable (completion-claim or substantive edit).
     r"\bwrong\b",
+    # Demoted from STRONG 2026-06-30. \bthat'?s not\b false-fired
+    # repeatedly on (a) quoted text from prior letters where Aletheia
+    # or Aether use the phrase naturally in prose ("That's not auditing
+    # anymore" inside an Aletheia letter), and (b) my own
+    # self-correction phrasings ("That's not what I meant" inside my
+    # response). Same disambiguation as \bwrong\b: WEAK-tier
+    # prior-turn-context check decides corrective vs descriptive use.
+    r"\bthat'?s not\b",
+    # Demoted from STRONG 2026-06-30. \byou missed\b false-fired on
+    # Andrew's discursive use in teaching ("you missed a simple little
+    # detail" as a parable about embarrassment-as-drive, not as a
+    # corrective evaluation of my action). Same WEAK-tier disambiguation
+    # as the others.
+    r"\byou missed\b",
 )
 
 # Backcompat union: existing callers that scan for "any correction-shaped

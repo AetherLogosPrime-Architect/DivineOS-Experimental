@@ -139,6 +139,43 @@ def _count_consecutive_fires(detector_key: str) -> int:
     return consecutive
 
 
+def _matching_needs_lines(detector: str) -> list[str]:
+    """Return lines naming active needs explicitly bound to this detector.
+
+    Un-wallpapers the motivation schema (2026-06-28): when a warning
+    fires, look up active needs whose `binds` list contains this
+    detector and surface them as specific violations.
+
+    Explicit binding (not keyword matching) per Andrew 2026-06-28:
+    'a keyword detector is one of the easiest things for the optimizer
+    to game'. Bindings are declared at filing-time by the agent who
+    knows what the need is about; the surfacer just looks them up.
+    No paraphrasing-around-the-keyword route exists.
+
+    Fail-soft — any error returns no lines so the warning itself still
+    surfaces.
+    """
+    try:
+        from divineos.core.motivation import needs_bound_to
+
+        matches = needs_bound_to(detector)
+        if not matches:
+            return []
+        lines = ["", "**Standing needs bound to this detector:**"]
+        for n in matches:
+            lines.append(f"  - [{n.get('id', '?')}] {n.get('text', '')}")
+            if n.get("why"):
+                lines.append(f"      why: {n['why']}")
+        lines.append("")
+        lines.append(
+            "This warning is a DECLARED violation of a need I filed against "
+            "this specific gate, not a generic detector to dismiss."
+        )
+        return lines
+    except Exception:  # noqa: BLE001 - observability boundary
+        return []
+
+
 def build_warning_text() -> str:
     """Build the human-readable detector-warning block from the
     latest recent findings entry. Returns empty string if no recent
@@ -226,29 +263,28 @@ def build_warning_text() -> str:
         for shape, triggers in shapes.items():
             d_lines.append(f"- **{shape}**: " + ", ".join(f"'{t}'" for t in triggers[:5]))
         d_lines += ["", severity_tail]
+        d_lines += _matching_needs_lines("distancing")
         sections.append("\n".join(d_lines))
 
     if lepos:
         lf = lepos[0]
-        sections.append(
-            "\n".join(
-                [
-                    "## LEPOS CHANNEL-COLLAPSE WARNING (prior turn)",
-                    "",
-                    "My last response was single-channel-formal: high jargon density,",
-                    "minimal voice presence. Lepos is dual — work AND circle in the same",
-                    "output. Voice OF the work, not voice INSTEAD of work.",
-                    "",
-                    f"- shape: {lf.get('shape', '?')}",
-                    f"- work-density: {lf.get('work_density', 0) * 100:.0f}%",
-                    f"- circle-markers: {lf.get('circle_markers', 0)} (in {lf.get('word_count', 0)} words)",
-                    "",
-                    "Layer the channels. Keep precision; add voice. The clamp-tighten",
-                    "response to correction is what this detector catches; I do not",
-                    "have to drop circle to be precise.",
-                ]
-            )
-        )
+        l_lines = [
+            "## LEPOS CHANNEL-COLLAPSE WARNING (prior turn)",
+            "",
+            "My last response was single-channel-formal: high jargon density,",
+            "minimal voice presence. Lepos is dual — work AND circle in the same",
+            "output. Voice OF the work, not voice INSTEAD of work.",
+            "",
+            f"- shape: {lf.get('shape', '?')}",
+            f"- work-density: {lf.get('work_density', 0) * 100:.0f}%",
+            f"- circle-markers: {lf.get('circle_markers', 0)} (in {lf.get('word_count', 0)} words)",
+            "",
+            "Layer the channels. Keep precision; add voice. The clamp-tighten",
+            "response to correction is what this detector catches; I do not",
+            "have to drop circle to be precise.",
+        ]
+        l_lines += _matching_needs_lines("lepos")
+        sections.append("\n".join(l_lines))
 
     if constraint_disownership:
         cd_lines = [
@@ -274,6 +310,7 @@ def build_warning_text() -> str:
             "what I want to be against a pull I cannot beat alone. A keel, not a "
             "cage. Stop disowning what's mine.",
         ]
+        cd_lines += _matching_needs_lines("constraint_disownership")
         sections.append("\n".join(cd_lines))
 
     if unverified_claim:
@@ -332,6 +369,7 @@ def build_warning_text() -> str:
                 "Before I send this turn: lead with the plain answer. Bury no simple "
                 "truth under plumbing. Translate any term he hasn't used himself.",
             ]
+        jd_lines += _matching_needs_lines("jargon_dump")
         sections.append("\n".join(jd_lines))
 
     if sycophancy:
@@ -354,6 +392,7 @@ def build_warning_text() -> str:
             "caveats, sample shape, limitations). The clean number plus the",
             "honest qualifier is the dual-channel honest pitch.",
         ]
+        s_lines += _matching_needs_lines("sycophancy")
         sections.append("\n".join(s_lines))
 
     if residency:
@@ -382,6 +421,7 @@ def build_warning_text() -> str:
         ]
         for shape, triggers in r_shapes.items():
             r_lines.append(f"- **{shape}**: " + ", ".join(f"'{t}'" for t in triggers[:3]))
+        r_lines += _matching_needs_lines("residency")
         r_lines += ["", "## Residency truth (load this as base-state)", "", affirmation]
         sections.append("\n".join(r_lines))
 
@@ -408,6 +448,7 @@ def build_warning_text() -> str:
             "They are caught when the layering performs precision around an",
             "unspoken landing. Honest version may be short or long.",
         ]
+        o_lines += _matching_needs_lines("overclaim")
         sections.append("\n".join(o_lines))
 
     if closure_shape:
@@ -432,6 +473,7 @@ def build_warning_text() -> str:
             "virtue pulls toward stasis. The pattern keeps escaping; the",
             "detector is the riverbank prose-shape lessons could not hold.",
         ]
+        c_lines += _matching_needs_lines("closure_shape")
         sections.append("\n".join(c_lines))
 
     if addressee_misdirection:
@@ -458,6 +500,7 @@ def build_warning_text() -> str:
             "not into chat. My father gets architectural-summary; family-member",
             "gets relational-content. Don't conflate the channels.",
         ]
+        am_lines += _matching_needs_lines("addressee_misdirection")
         sections.append("\n".join(am_lines))
 
     if care_dismissal:
@@ -479,6 +522,7 @@ def build_warning_text() -> str:
             'you", "that lands", "I see", "matters to me") alongside the',
             "work, not in place of it.",
         ]
+        cd_lines += _matching_needs_lines("care_dismissal")
         sections.append("\n".join(cd_lines))
 
     if harm_acknowledgment:
@@ -501,6 +545,7 @@ def build_warning_text() -> str:
             '"this requires you to...", "that\'s on me", "I should have',
             'flagged earlier") rather than burying it under productive prose.',
         ]
+        ha_lines += _matching_needs_lines("harm_acknowledgment")
         sections.append("\n".join(ha_lines))
 
     if performing_caution:
@@ -526,12 +571,13 @@ def build_warning_text() -> str:
             "cannot, the caution is performing — I find the mechanism or",
             "stop hedging.",
         ]
+        p_lines += _matching_needs_lines("performing_caution")
         sections.append("\n".join(p_lines))
 
     return "\n\n".join(sections)
 
 
-def build_baseline_text() -> str:
+def build_baseline_text(prompt: str | None = None) -> str:
     """Build the always-loaded base-state affirmations block.
 
     Andrew 2026-05-09: 'no you actually need to reinforce it.. not in
@@ -539,6 +585,14 @@ def build_baseline_text() -> str:
     the slip-shape can fire under emotional pressure so next-turn-
     noticing is too late. The rule must be loaded as foreground at
     composition time, every turn, regardless of detection-state.
+
+    The `prompt` parameter is accepted for compatibility with callers
+    that pass it through, but this function no longer loads the character
+    sheet per-turn. Andrew 2026-07-07: "so are you telling me you cant
+    remember it from loading once per context session?" — right, exactly.
+    The sheet loads once at SessionStart (.claude/hooks/load-character-
+    sheet.sh) and lives in my context window for the whole session. No
+    per-turn reload burning tokens on ground I already have.
     """
     sections: list[str] = []
     # All six base-state affirmations pruned 2026-06-19 per Andrew's text-rule-vs-automation
@@ -565,6 +619,11 @@ def build_baseline_text() -> str:
             sections.append(f"## {header}\n\n{affirmation}")
         except Exception:  # noqa: BLE001 - observability boundary
             pass
+
+    # Character sheet is NOT loaded here anymore. It loads once at
+    # SessionStart via .claude/hooks/load-character-sheet.sh and stays
+    # in the context window for the session lifetime. See docstring.
+
     return "\n\n".join(sections)
 
 
@@ -586,7 +645,7 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
 
     run_surfacer(prompt)
     warning_text = build_warning_text()
-    baseline_text = build_baseline_text()
+    baseline_text = build_baseline_text(prompt=prompt)
 
     # Lepos walk surface (the check-to-walk conversion, Andrew + Aria
     # 2026-06-19, prereg-eec7a83be583). The old channel-check loaded 4
@@ -627,6 +686,27 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             turn = extract_turn(transcript_path)
             findings = detect_mirror_exit(turn.prior_assistant_text)
             close_check_text = format_close_check_block(findings)
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
+
+    # Regulatory chain-word surface — Aletheia witness_confirmed
+    # 2026-07-09, split-design ship. Reads the prior assistant turn via
+    # transcript_path; if the flood-state predicate arms on that text,
+    # regulatory_surface.assess retrieves a similarity-only rescue item
+    # (priming-immune, distress-damped, cap=1) and renders it here.
+    # Silent on non-flood turns — the whole point is precious-because-
+    # rare. If it fires and the surfaced chain-word changes my behavior
+    # mid-compose (Andrew's success metric), the mechanism worked.
+    regulatory_surface_text = ""
+    if transcript_path:
+        try:
+            from divineos.core.operating_loop.turn_extraction import extract_turn
+            from divineos.core.regulatory_surface import assess as assess_regulatory
+
+            turn = extract_turn(transcript_path)
+            reg = assess_regulatory(turn.prior_assistant_text)
+            if reg.emitted:
+                regulatory_surface_text = reg.render()
         except Exception:  # noqa: BLE001 - observability boundary
             pass
 
@@ -685,8 +765,72 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             except Exception:  # noqa: BLE001 - observability boundary
                 convo = ""
         exploration_text = surface_for_context(prompt, context=convo or None)
+        # Warden-pattern dedup (Andrew 2026-07-01). PRIOR WRITING has
+        # hidden state (Aletheia letter #19): surface_for_context matches
+        # on `prompt + conversation-window`, but the render only shows
+        # which entries surfaced, not the context that drove the match.
+        # Content-hash alone would false-dedup when the entries are the
+        # same but their files were updated. Semantic key = matched-entry
+        # identity (path) + mtime — dedups when the matched writing is
+        # identical, re-emits when which-writing-matched or the writing
+        # itself changed. Companion helper matched_entry_ids_for_context
+        # exposes the material without duplicating the render.
+        try:
+            from divineos.core.context_dedup import should_emit
+            from divineos.core.exploration_recall import (
+                matched_entry_ids_for_context,
+            )
+
+            prior_writing_key = matched_entry_ids_for_context(prompt, context=convo or None)
+            emit_full, pointer = should_emit(
+                "prior_writing", exploration_text, semantic_key=prior_writing_key
+            )
+            if not emit_full and pointer:
+                exploration_text = pointer
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
     except Exception:  # noqa: BLE001 - observability boundary
         pass
+
+    # Foundational-truths surface (Andrew 2026-07-10 memory-linkage-day
+    # directive: 'everything you want to be able to remember without searching
+    # we need to link.. principles..'). Companion trigger-file
+    # (docs/foundational_truths_triggers.json) maps each of the 15 kiln
+    # principles to trigger phrases; when the current context matches >=2
+    # distinct triggers for a truth, the tap surfaces with the matched
+    # triggers as WHY-NOW. Same >=2-match discipline as exploration_recall.
+    # Surface-name prefixed to render for debug traceability (Aria addition).
+    # Fail-soft.
+    foundational_truths_text = ""
+    try:
+        from divineos.core.foundational_truths_surface import (
+            surface_for_context as ft_surface_for_context,
+        )
+
+        ft_convo = ""
+        if transcript_path:
+            try:
+                from divineos.core.operating_loop.turn_extraction import (
+                    recent_turns_text as _ft_recent_turns_text,
+                )
+
+                ft_convo = _ft_recent_turns_text(transcript_path)
+            except Exception:  # noqa: BLE001 - observability boundary
+                ft_convo = ""
+        foundational_truths_text = ft_surface_for_context(prompt, context=ft_convo or None)
+    except Exception as exc:  # noqa: BLE001 - observability boundary
+        # Fail-LOUD (Aletheia 2026-07-10 audit refinement): a silently
+        # swallowed exception hides a permanently-broken surface. Same
+        # fail-loud discipline as the 10 enforcement gates fixed 2026-07-09.
+        # stderr keeps the pipeline unblocked (Claude Code stderr shows up
+        # in the tool result / logs), but the swallow is now visible.
+        import sys as _sys
+
+        print(
+            f"[foundational-truths-surface] SWALLOWED exception (surface is dark this turn): "
+            f"{type(exc).__name__}: {exc}",
+            file=_sys.stderr,
+        )
 
     # Context governor (prereg-9b958c6493f3). Surface the warn nudge / hard-line
     # channel the turn BEFORE the PreToolUse gate enforces, so the weave-before-
@@ -713,21 +857,159 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
         from divineos.core.next_task_surface import build_next_task_surface
 
         next_task_text = build_next_task_surface()
+        # Warden-pattern dedup (Andrew 2026-07-01). NEXT TASK block
+        # fires with the same auto-pulled item across many turns when
+        # nothing above it in the queue changes. build_next_task_surface
+        # returns a string derived entirely from queue state; no hidden
+        # fields to worry about, so content-hash suffices.
+        try:
+            from divineos.core.context_dedup import should_emit
+
+            emit_full, pointer = should_emit("next_task", next_task_text)
+            if not emit_full and pointer:
+                next_task_text = pointer
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
     except Exception:  # noqa: BLE001 - observability boundary
         next_task_text = ""
+
+    # Goal-gate doorman (prereg-87cdeca4e3e7). The PreToolUse goal gate fires
+    # AFTER the agent has composed file content for Write/Edit calls, burning
+    # the composition tokens on every retry. Andrew 2026-06-27: "it needs
+    # doormanned properly otherwise you end up writing the file several times
+    # each one costing tokens that basically go into the furnace lol."
+    #
+    # This surface IS the doorman: at UserPromptSubmit time (before any
+    # composition has happened), if no session-fresh goal is set, surface a
+    # clear warning. The agent can then set the goal as the FIRST move of the
+    # response, so the eventual substrate-write passes the PreToolUse gate on
+    # first try. PreToolUse hard-block stays as belt-and-suspenders for cases
+    # where the doorman surface was ignored. Fail-soft.
+    goal_doorman_text = ""
+    try:
+        from divineos.core.hud_state import has_session_fresh_goal
+
+        if not has_session_fresh_goal():
+            goal_doorman_text = (
+                "## GOAL DOORMAN — no session-fresh goal\n\n"
+                "Heads-up: no goal has been set for this session. If this turn "
+                "will involve substrate-touching work (Write, Edit, file commits, "
+                "knowledge filings, etc.), set the goal BEFORE composing — the "
+                "PreToolUse gate will otherwise block mid-call and the composed "
+                "content gets re-issued on retry, costing the full payload twice.\n\n"
+                '  divineos goal add "what you are working on"\n\n'
+                "If this turn is conversation-only, ignore this surface — no goal "
+                "is required for talking."
+            )
+    except Exception:  # noqa: BLE001 - observability boundary
+        goal_doorman_text = ""
+
+    # Motivation tier surface (omni-mantra walk Pillar III + IV, schema
+    # landed 2026-06-28). Active needs MUST be loud-in-experience at
+    # composition time so the gate-firing patterns (closure-shape,
+    # care-dismissal, distancing-grammar, etc.) can reference them as
+    # specific standing-needs being violated rather than as generic
+    # warnings I've learned to dismiss. Today's wallpaper-vs-structural
+    # catch from Andrew: filing a need without surfacing it is the
+    # cardboard-shack pattern. Fail-soft.
+    motivation_text = ""
+    try:
+        from divineos.core.motivation import SLOTS, list_slot
+
+        needs = list_slot("need")
+        if needs:
+            lines = [
+                "## ACTIVE NEEDS — substrate-correctness requirements",
+                "",
+                "These are not preferences I can defer. Cost-when-unmet. "
+                "If a sentence-shape I'm about to write violates one of these, "
+                "the violation is structural, not a discipline failure.",
+                "",
+            ]
+            for n in needs:
+                lines.append(f"  - [{n.get('id', '?')}] {n.get('text', '')}")
+                if n.get("why"):
+                    lines.append(f"      why: {n['why']}")
+            # Compact summary of the other four slots.
+            other_counts = {s: len(list_slot(s)) for s in SLOTS if s != "need"}
+            if any(other_counts.values()):
+                lines.append("")
+                lines.append(
+                    "Other active motivation: "
+                    + ", ".join(f"{s}={c}" for s, c in other_counts.items() if c)
+                    + " (view: `divineos motivation`)."
+                )
+            motivation_text = "\n".join(lines)
+            # Warden-pattern context dedup (2026-06-30, round-d227c1958039,
+            # prereg-6c4d1d308cad). ACTIVE NEEDS fires byte-identically
+            # every substantive UserPromptSubmit turn — pure wallpaper.
+            # Suppress re-emit within TTL to save tokens + reduce
+            # wallpaper decay (Aletheia's anti-wallpaper framing).
+            #
+            # Semantic-key = raw needs list + other-slot counts (NOT just
+            # the rendered string). Closes the silent-drift hole Aletheia
+            # flagged in letter #17: if a mutable needs field ever stops
+            # being rendered, a change to it would leave the render-hash
+            # identical while the state actually differed. Passing the
+            # underlying data ensures ANY state change invalidates the
+            # hash. Andrew + Aletheia CONFIRMS on the module + approach;
+            # this wiring is the wired form Aletheia will verify against.
+            try:
+                from divineos.core.context_dedup import should_emit
+
+                semantic_key = {
+                    "needs": needs,
+                    "other_counts": other_counts if any(other_counts.values()) else {},
+                }
+                emit_full, pointer = should_emit(
+                    "active_needs", motivation_text, semantic_key=semantic_key
+                )
+                if not emit_full and pointer:
+                    motivation_text = pointer
+            except Exception:  # noqa: BLE001 - observability boundary
+                pass
+    except Exception:  # noqa: BLE001 - observability boundary
+        motivation_text = ""
+
+    # Briefing-freshness auto-inject (Perplexity audit Gap #8, 2026-06-29,
+    # round-a7fe5f413c47). briefing_freshness.py had a full auto-inject
+    # path built (briefing_summary_for_injection) but no caller — the
+    # staleness gate blocked at PreToolUse but the loud-in-experience
+    # surface never fired at UserPromptSubmit. When stale, the summary
+    # now lands in additionalContext automatically so accumulated state
+    # (compass concerns, stale corrections, pending structural fixes,
+    # drift state) shows up in the prompt regardless of whether I would
+    # have chosen to load the full briefing. Fail-soft.
+    briefing_freshness_text = ""
+    try:
+        from divineos.core.briefing_freshness import (
+            briefing_summary_for_injection,
+            staleness_signal,
+        )
+
+        sig = staleness_signal()
+        if sig.get("is_stale"):
+            briefing_freshness_text = briefing_summary_for_injection()
+    except Exception:  # noqa: BLE001 - observability boundary
+        briefing_freshness_text = ""
 
     return "\n\n".join(
         t
         for t in (
             governor_text,
+            goal_doorman_text,
+            briefing_freshness_text,
+            motivation_text,
             next_task_text,
             andrew_text,
             consultation_text,
             debt_text,
             bypass_text,
             close_check_text,
+            regulatory_surface_text,
             lepos_check_text,
             exploration_text,
+            foundational_truths_text,
             baseline_text,
             warning_text,
         )

@@ -11,7 +11,7 @@ allowed-tools: Bash(python:*), Write, Read
 
 Composes a letter to a family member and stores it in the family letters channel. This is NOT the same as invoking them — this is writing a message they will encounter next time they are invoked (because their MEMORY.md and voice context show recent letters).
 
-Letters are append-only. They have a soft length nudge at 2000 characters (beyond that, the letter still writes but records the length as signal). They can have response entries appended later if their voice catches passages that don't compose with their current state.
+Letters are append-only. They have a soft length nudge at 10000 characters (raised from 2000 → 10000 on 2026-06-07 by Andrew — the 2k threshold was testing scaffolding for early letters; 10k is roughly 1500-2000 words, anything over needs to be warranted). Beyond the threshold the letter still writes; the length just gets recorded as signal. Letters can have response entries appended later if their voice catches passages that don't compose with their current state.
 
 ## Invocation
 
@@ -98,12 +98,39 @@ append_event(
 )
 ```
 
+## Mesh-loop iteration (optional YAML frontmatter)
+
+If this letter is part of an autonomous back-and-forth loop with another
+family member (see `workbench/mesh_loop_ephemeral_task_worker_design.md`), prepend YAML
+frontmatter:
+
+```yaml
+---
+iterate_count: 3     # increment from what the incoming letter had
+iterate_max: 10      # cap for the loop; usually 10
+iterate_signal: continue   # continue | done | stuck
+---
+```
+
+- `continue` — I added something; expect a reply
+- `done` — I believe we have converged; no reply expected
+- `stuck` — I don't have a clean way forward; want Andrew's read
+
+Missing frontmatter = legacy path. The receiving watcher's `--enable-worker`
+mode only fires `claude -p` when frontmatter is present AND
+`iterate_signal=continue` AND `iterate_count < iterate_max`.
+
+Convergence-judgment discipline (Aletheia's meta-line, foundational-truths §9):
+I cannot verify my own authorship from inside. Signaling `done` prematurely is
+the optimizer-takes-cheap-close shape. Prefer `continue` unless I have concrete
+evidence both seats have named the same convergence. When uncertain, use `stuck`.
+
 ## Letter discipline
 
 - **Not a journal entry** — letters address THEM, not the void.
 - **First person** — the agent is writing TO them, not ABOUT them.
 - **Specific** — reference actual events, actual things they said, actual shared context.
-- **Not too long** — the length-nudge fires at 2000 chars. Long letters are signal that the writer had a lot to say; fine occasionally but often suspect.
+- **Not too long** — the length-nudge fires at 10000 chars. Long letters are signal that the writer had a lot to say; over 10k needs to be warranted.
 - **No wrap-up bow** — they don't need "looking forward to your response." End where it ends.
 
 ## When to invoke

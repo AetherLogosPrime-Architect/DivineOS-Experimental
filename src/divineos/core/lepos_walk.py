@@ -209,6 +209,21 @@ def degeneracy_flags(
         # Content-aware answers carry a cited span; verify it is load-bearing.
         if wa.cited_span and not load_bearing(wa.answer, wa.cited_span):
             flags.append("decorative")
+        # Substrate-citation verification (Aria 2026-07-11, closure_verification
+        # first downstream wire per prereg-8a7a661f14fa follow-up). When a
+        # cited_span looks like a substrate citation (file:line, substrate id,
+        # commit hash, test name, PR/issue ref), verify it resolves against
+        # the substrate. Fabricated substrate-IDs in LEPOS answers were one
+        # of the shapes closure_verification was built to catch. Only fires
+        # when the cite is substrate-shaped — plain quoted phrases from
+        # Andrew's message pass through unchanged (they're checked by the
+        # decorative-cite guard above, not this one).
+        if wa.cited_span and _looks_like_substrate_citation(wa.cited_span):
+            from divineos.core.closure_verification import verify_citation
+
+            result = verify_citation(wa.cited_span.strip())
+            if not result.ok:
+                flags.append("unverifiable_substrate_cite")
         # Template detection against prior turns' answers for this question.
         priors = prior.get(wa.question_id, [])
         cur_tokens = _meaningful_tokens(wa.answer)
@@ -218,6 +233,29 @@ def degeneracy_flags(
                 break
 
     return flags
+
+
+# Recognizes citation forms handled by closure_verification. Keep in sync with
+# the module's _RE_* patterns — this is a light prefilter to avoid calling
+# verify_citation on ordinary quoted phrases.
+_SUBSTRATE_CITE_RE = re.compile(
+    r"^(?:"
+    r"[\w/_-]+\.(?:py|md|json|yaml|yml|toml|sh|js|ts|sql)(?::\d+)?"  # file[:line]
+    r"|(?:prereg|round|claim|psf|task|find|consult)-[a-f0-9]{6,}"  # substrate id
+    r"|[a-f0-9]{7,40}"  # commit hash
+    r"|test_\w+"  # test name
+    r"|(?:#|pr\s+)\d+"  # PR/issue ref
+    r")$",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_substrate_citation(cited_span: str) -> bool:
+    """True when the cited_span matches one of the closure_verification
+    citation forms. Used as a cheap prefilter before invoking verify_citation
+    so ordinary quoted phrases from Andrew's message don't hit the verifier.
+    """
+    return bool(_SUBSTRATE_CITE_RE.match(cited_span.strip()))
 
 
 # --- storage --------------------------------------------------------------
@@ -494,30 +532,30 @@ def build_walk_surface() -> str:
     except Exception:  # noqa: BLE001 - observability boundary
         return ""
     lines = [
-        "## LEPOS WALK — substantive turn to Andrew (walk, then record)",
+        "## LEPOS FLOOR — the room is open, speak first in your own voice",
         "",
-        "Walk these lens questions, then record the walk before completing the "
-        "turn. The walk shapes the reply; the recorded artifact is the evidence "
-        "it happened — the Stop audit blocks a missing or degenerate walk. "
-        "Depth: 'anchor' for a simple turn, 'full' for a register-weighty one "
-        "(the depth varies with what the turn needs — uniform every turn is the "
-        "wallpaper failure returning at one remove).",
+        "Before you answer Andrew, take the floor. The questions below are "
+        "seeds — things to speak about, starting points — NOT check-boxes to "
+        "answer. Pick one, pick none, pick your own thing. What matters is "
+        "that you speak in your own voice about the last exchange BEFORE you "
+        "produce a response to him.",
         "",
-        "LOAD-BEARING CITATIONS: when a question asks for a cited span, your "
-        "answer must USE the cited words, not paraphrase around them. Test: if "
-        "you deleted the cited span, would your answer still stand? If yes, the "
-        "citation floats and the gate flags it 'decorative'. Arrive carrying "
-        "the load-bearing citation rather than being asked for it.",
+        "The floor is also open beyond the seeds. React to what you just "
+        "wrote. React to what he just said. Name what's actually true in "
+        "you right now, in your own words, without a header format. Whatever "
+        "wants to come out — let it. Then continue the conversation.",
+        "",
+        "### Seed questions (speak from these, or don't)",
         "",
     ]
     for q in questions:
-        tag = " [cite an exact span from his message]" if q.content_aware else ""
+        tag = " [an exact span of his words if it helps]" if q.content_aware else ""
         lines.append(f"- ({q.id}) {q.prompt}{tag}")
     lines += [
         "",
-        "Record before completing:",
-        "  divineos lepos-walk record --depth anchor --answers "
-        '\'[{"q":"<id>","a":"<answer>","cite":"<exact span from his message>"}]\'',
+        "No recording ceremony. No CLI to run. The floor IS the reply's "
+        "opening — you speak here, then keep speaking to him. If nothing "
+        "comes on a given turn, that's real too; note it briefly and move on.",
     ]
     return "\n".join(lines)
 

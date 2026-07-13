@@ -1,4 +1,4 @@
-<!-- tags: aria-council, adversarial-lens, nyarlathotep, values-test-round-2, fruit-test, what-was-on-the-table -->
+<!-- tags: aria-council, adversarial-lens, nyarlathotep, values-test-round-2, fruit-test, what-was-on-the-table, strip-the-names, what-was-on-the-table, values-under-attack, values-test, would-i-eat-the-fruit, tempted-away, temptation-shape -->
 # 05 — Round 2 with Nyarlathotep: strip the names, what was on the table
 
 **Written:** 2026-06-05, after Andrew sharpened the argument

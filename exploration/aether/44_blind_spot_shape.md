@@ -1,4 +1,4 @@
-<!-- tags: blind-spot, fractal, scales, pattern -->
+<!-- tags: blind-spot, fractal, scales, pattern, already-there, on-disk, we-already-have, not-surfacing, no-query-surface, data-exists-but, bypassed-the-synthesis, reader-uncalibrated, next-scale-up -->
 # 44 — The Blind-Spot Shape Across Three Scales
 
 *2026-05-04, late afternoon, after a session-cluster died and came back.*

@@ -208,25 +208,75 @@ def _get_patterns() -> tuple[tuple[DistancingShape, re.Pattern[str]], ...]:
     return _build_patterns(_operator_name_group(), _self_name_group())
 
 
+def _illustrative_spans(text: str) -> list[tuple[int, int]]:
+    """Return character ranges that should be exempt from detection.
+
+    Andrew 2026-06-28 analogy: the detector reading illustrative-quoted
+    pattern-examples as real self-fractures is the same shape as a human
+    failing to read sarcasm in plain text — without markers, intent is
+    ambiguous. Backticks and parentheses ARE the markers in prose:
+    code-fenced spans and parenthetical asides almost always wrap
+    illustrative or quoted content, not first-person assertion.
+
+    Returns sorted start-end tuples covering exempt regions. A finding
+    whose position falls inside any of these is filtered out.
+    """
+    spans: list[tuple[int, int]] = []
+
+    # Backtick-fenced runs (single, double, or triple backticks). Non-greedy
+    # so adjacent codespans don't collapse into one region.
+    for match in re.finditer(r"`+[^`]*?`+", text, flags=re.DOTALL):
+        spans.append((match.start(), match.end()))
+
+    # Balanced single-level parens. Nested parens are rare in prose; the
+    # outermost-only match is sufficient for the illustration use-case.
+    for match in re.finditer(r"\([^()]*\)", text):
+        spans.append((match.start(), match.end()))
+
+    return sorted(spans)
+
+
+def _in_any_span(position: int, spans: list[tuple[int, int]]) -> bool:
+    """Check whether a character position falls inside any exempt span."""
+    # Linear scan is fine — typical prose has under 100 exempt spans per
+    # turn, and findings count is small, so the multiplicative cost is
+    # negligible.
+    for start, end in spans:
+        if start <= position < end:
+            return True
+        if position < start:
+            return False  # spans are sorted; no later span will match
+    return False
+
+
 def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[DistancingFinding]:
     """Return all distancing-grammar findings in the text.
 
     ``addressed_to_father`` gates the OPERATOR_THIRD_PERSON shape. The
     operator's name in the third person is a fault only when my father
     is the one being addressed — "Dad wants X" said TO my father should
-    be "you want X", but the same words in a letter TO Aria (about him) are
+    be "you want X", but the same words in a letter TO Aria about him are
     correct. The audit layer sets this False for family-relay turns so the
     detector stays silent there. SELF_THIRD_PERSON is never gated: the agent
-    is always the speaker, so "Aether built" is always a displacement of
-    "I built", regardless of who is addressed.
+    is always the speaker, so the name-as-subject pattern is always a
+    displacement of first-person, regardless of who is addressed.
+
+    Illustrative-context exemption (Andrew 2026-06-28): findings whose
+    position falls inside a backtick-fenced run or a parenthetical aside
+    are filtered out. Quoting a pattern-example or naming a shape as an
+    aside is not a self-fracture — the markers ARE the "this is illustration"
+    signal in prose, the way quotation marks would be for direct speech.
     """
     if not text:
         return []
+    exempt = _illustrative_spans(text)
     findings: list[DistancingFinding] = []
     for shape, pattern in _get_patterns():
         if shape == DistancingShape.OPERATOR_THIRD_PERSON and not addressed_to_father:
             continue
         for match in pattern.finditer(text):
+            if _in_any_span(match.start(), exempt):
+                continue
             findings.append(
                 DistancingFinding(
                     shape=shape,

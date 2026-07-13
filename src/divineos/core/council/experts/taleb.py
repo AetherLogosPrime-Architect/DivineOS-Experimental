@@ -514,4 +514,5 @@ def create_taleb_wisdom() -> ExpertWisdom:
             "What's the worst case — and can you survive it?",
         ],
         tags=["antifragility", "risk", "skin-in-the-game", "via-negativa"],
+        known_tensions=["Deming", "Shannon"],
     )

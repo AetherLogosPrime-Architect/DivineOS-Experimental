@@ -50,26 +50,82 @@
 # precedence over any installed copy. Each worktree's hooks now reflect
 # its own state. Prevents the entire class.
 
+# 2026-07-08 quick-win per Aletheia's diagnostic: git rev-parse was
+# being spawned as a subprocess on every call across find_divineos_python
+# and is_bypass_command. Within a single hook process, once we have the
+# repo root (or common-dir), it does not change — the hook does not
+# navigate directories mid-run. Memoize in shell variables so the second
+# and later callers within the same hook reuse the cached value. Each
+# hook is still a separate process (cache does not survive across hooks
+# — that is what the single-process consolidation will fix), but the
+# quick-win takes the redundant calls out of the picture cheaply.
+_LIB_REPO_ROOT_CACHE=""
+_lib_repo_root() {
+  if [ -z "$_LIB_REPO_ROOT_CACHE" ]; then
+    _LIB_REPO_ROOT_CACHE="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  fi
+  printf '%s' "$_LIB_REPO_ROOT_CACHE"
+}
+
+_LIB_COMMON_DIR_CACHE=""
+_lib_common_dir() {
+  if [ -z "$_LIB_COMMON_DIR_CACHE" ]; then
+    _LIB_COMMON_DIR_CACHE="$(git rev-parse --git-common-dir 2>/dev/null)"
+  fi
+  printf '%s' "$_LIB_COMMON_DIR_CACHE"
+}
+
 find_divineos_python() {
   local repo_root
-  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  repo_root="$(_lib_repo_root)"
   # Side effect: prepend active worktree's src/ to PYTHONPATH so the
   # active source-of-truth wins over any stale editable install. See
   # the docstring's "Side effect" section for the bug this prevents.
+  #
+  # 2026-06-30 fix #1 (round-61d7311e03c7): use OS-specific PYTHONPATH
+  # separator. Latent Windows bug, NOT the family-wrapper root cause.
   if [ -d "$repo_root/src" ]; then
-    export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+    local _pp_sep=":"
+    case "${OSTYPE:-}" in
+      msys*|cygwin*|win*) _pp_sep=";" ;;
+    esac
+    export PYTHONPATH="$repo_root/src${PYTHONPATH:+${_pp_sep}${PYTHONPATH}}"
+  fi
+  # 2026-06-30 fix #2 (round-61d7311e03c7) — REAL root cause of the 11
+  # family-wrapper test failures the push-readiness gate surfaced. On
+  # Windows, the Microsoft Store python3 stub at
+  # C:/Users/<u>/AppData/Local/Microsoft/WindowsApps/python3 is
+  # executable + on PATH but NOT a real Python — running it prints
+  # "Python was not found; run without arguments to install from the
+  # Microsoft Store" and exits 49. find_divineos_python returned it
+  # because temp worktrees have no .venv, every hook subprocess
+  # failed, the seal hook emitted its fail-closed deny-JSON, and the
+  # tests asserting allow-default saw deny instead. Two fixes both
+  # required: (a) also check the parent repo's .venv via
+  # --git-common-dir; (b) validate each candidate runs
+  # `-c "import sys; sys.exit(0)"` before returning it.
+  local common_dir
+  common_dir="$(_lib_common_dir)"
+  local main_repo=""
+  if [ -n "$common_dir" ] && [ -d "$common_dir" ]; then
+    main_repo="$(dirname "$(cd "$common_dir" && pwd)")"
   fi
   local candidate
   for candidate in \
     "$repo_root/.venv/bin/python" \
     "$repo_root/.venv/Scripts/python.exe" \
     "$repo_root/venv/bin/python" \
+    "$main_repo/.venv/bin/python" \
+    "$main_repo/.venv/Scripts/python.exe" \
+    "$main_repo/venv/bin/python" \
     "$(command -v python3 2>/dev/null)" \
     "$(command -v python 2>/dev/null)"
   do
     if [ -n "$candidate" ] && [ -x "$candidate" ]; then
-      echo "$candidate"
-      return 0
+      if "$candidate" -c "import sys; sys.exit(0)" >/dev/null 2>&1; then
+        echo "$candidate"
+        return 0
+      fi
     fi
   done
   return 1
@@ -106,7 +162,7 @@ is_bypass_command() {
   local cmd="$1"
   [ -z "$cmd" ] && return 1
   local repo_root
-  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  repo_root="$(_lib_repo_root)"
   local bypass_file="$repo_root/scripts/hook_bypass_commands.txt"
   [ -f "$bypass_file" ] || return 1
   # Split the command on shell separators into segments.

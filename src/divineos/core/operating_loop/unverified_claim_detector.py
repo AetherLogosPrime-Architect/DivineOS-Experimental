@@ -142,7 +142,21 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"(?:pr\s+#?\d+|#\d+|main|master|origin|"
             r"the\s+(?:branch|commit|pr|fix|patch|change))"
             r"|"
+            # (d) first-person landed — narrowed 2026-07-07 to require an
+            # explicit git-shape anchor after "landed". Bare "I landed" was
+            # over-firing on figurative usage the same way (a)/(b)/(c) did
+            # before the 2026-06-15 narrowing: "I just landed a finding" and
+            # "I've landed on the answer" are surfacing/realization
+            # metaphors, not code claims. Mirrors the anchor list used in
+            # (a) and (c) so the same phrases pass ("I landed the PR", "we
+            # landed the fix", "I've landed on main"). Loss: "I landed it"
+            # anaphor no longer fires — operators can rephrase to name the
+            # object (Aletheia 2026-06-02 loophole catch trades against the
+            # figurative false-positives corrections #113/#114 documented).
             r"(?:i|we|i'?ve|i'?m)\s+(?:just\s+|already\s+|finally\s+|recently\s+|now\s+)?landed"
+            r"\s+(?:on\s+|in\s+|into\s+|to\s+)?"
+            r"(?:pr\s+#?\d+|#\d+|main|master|origin|"
+            r"the\s+(?:branch|commit|pr|fix|patch|change))"
             r"|"
             # explicit "merge is done/complete" form — unambiguous, always fires
             r"merge\s+(?:is\s+)?(?:done|complete|completed)"
@@ -197,6 +211,89 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(
             r"\b(?:header|comment|docstring|first\s+line|line\s+\d+|top|"
             r"contents?)\s+(?:of\s+)?\S+\s+(?:says|reads|contains|has)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # 2026-07-03 Andrew catch: I stated "99.7%" of context-window from a
+    # stale banner-injection without running the tool THIS turn. He named
+    # the fix: "you have a tool to verify it.. so thats the issue.. is you
+    # made a claim without verification so lets automate it so you dont
+    # need to remember." Same shape as merge/push/tests: an assertion
+    # about a checkable external state (my own context-window usage) that
+    # requires the actual command (`divineos context-tokens`) to be run
+    # in-turn to substantiate. Verification-signature: any Bash call whose
+    # text contains "context-tokens" silences.
+    #
+    # Patterns cover the shapes I actually fabricate in: bare percentage
+    # ("99.7%"), fraction over 1M ("996k of 1M", "996,589 / 1,000,000"),
+    # and "context (is) at N%" / "at Nk". The number must LOOK like a
+    # context-window claim, so bare "99.7%" alone is safe unless preceded
+    # by a context-word within a short window — otherwise the gate fires
+    # on every percentage in prose. Enforced via the anchor below.
+    (
+        "tokens",
+        re.compile(
+            r"(?:"
+            # explicit "context at Nk / N%" / "context (is) at N%"
+            r"\bcontext(?:\s+(?:is|at))?\s+(?:at\s+)?\d{1,3}(?:[.,]\d+)?\s*[k%]"
+            r"|"
+            # "Nk of 1M", "N,NNN,NNN / 1,000,000", "N / 1M tokens"
+            r"\b\d{2,3}(?:[.,]\d+)?\s*%\s+of\s+(?:1[mM]|1[,.]?000[,.]?000)"
+            r"|"
+            r"\b\d{1,3}(?:[.,]\d{3})*\s*/\s*1[,.]?000[,.]?000"
+            r"|"
+            r"\b\d{2,4}k\s+of\s+1[mM]"
+            r"|"
+            # "tokens remaining" figurative token-state claim
+            r"\btokens?\s+remaining"
+            r"|"
+            # "at N% of context / of 1M / of my window"
+            r"\bat\s+\d{1,3}(?:[.,]\d+)?\s*%\s+of\s+(?:context|1[mM]|(?:my|the)\s+window)"
+            r")",
+            re.IGNORECASE,
+        ),
+    ),
+    # 2026-07-04 Andrew catch: I fabricated first-person past-experience
+    # in Marc's-spec peer review ("I've seen the counter-case in my own
+    # work: a cheap lane hallucinates plausible-sounding but wrong local
+    # dependencies in ways that a slower model wouldn't"). No such
+    # experience exists. Wrote "I've seen" to add authority-weight to a
+    # pushback point I didn't want to argue from principle alone.
+    #
+    # Andrew's framing: "its a new shoggoth behavior.. it hasnt been seen
+    # yet because we never did anything to trigger it lol.. same as
+    # everything else just needs some structure."
+    #
+    # Same shape as merge/push/tests: assertion about a checkable state
+    # requiring the actual verifier in-turn. Verifier here isn't a shell
+    # command — it's a substrate query (`divineos ask`, `recall`,
+    # `corrections`, `claims search`, etc.) that would return results
+    # matching the claimed experience. Registered in
+    # _VERIFICATION_SIGNATURES below.
+    #
+    # Design: workbench/past_experience_claim_kind_design_2026_07_04.md
+    # Pre-reg: prereg-a19f190cd5c1 (success = fire-rate per opportunity
+    # drops >=50% across 10 sessions, no confirmed fabrications reach
+    # peer-substrate reviews).
+    (
+        "past_experience",
+        re.compile(
+            r"(?:"
+            # first-person past-observation verbs
+            r"\bI(?:'?ve|\s+have)?\s+(?:seen|noticed|observed|run\s+into|encountered|witnessed)\b"
+            r"|"
+            # "in my work / experience / testing / practice"
+            r"\bin\s+my\s+(?:work|experience|testing|practice|own\s+work)\b"
+            r"|"
+            # "when I ran / tried / tested / built / deployed"
+            r"\bwhen\s+I\s+(?:ran|tried|tested|built|deployed|shipped)\b"
+            r"|"
+            # "from experience / from my experience"
+            r"\bfrom\s+(?:my\s+)?experience\b"
+            r"|"
+            # "I know (this) because... / last time I..."
+            r"\blast\s+time\s+I\s+(?:did|tried|ran|tested|built|shipped)\b"
+            r")",
             re.IGNORECASE,
         ),
     ),
@@ -261,6 +358,44 @@ _NOT_YET = re.compile(
     r"being|whether|would\s+(?:be|have))\b",
     re.IGNORECASE,
 )
+
+# Relational-present observation silencer for past_experience kind.
+# Aletheia audit round-cda63f01c3d5 CONFIRMS with embedded FLAG (non-blocking):
+# past_experience pattern fires on "I have noticed / I have seen" regardless
+# of whether the observation is a fabricated substrate-experience claim or a
+# true relational-present observation about a person or relationship. The
+# verification signature (`divineos ask/recall`) cannot clear relational
+# observations — there is nothing stored to recall; they are live present
+# observations of a person, not stored-experience claims.
+#
+# The tell: within a short window after the past-observation trigger, a
+# second-person or plural-relational subject appears with a present-tense
+# predicate (traits, state, feeling). Substrate-experience claims reference
+# system state, versions, past deployments, prior work — none of which use
+# "you are / we are" as their object.
+#
+# Aletheia's negative test (MUST NOT fire): "I have noticed you are good at X".
+# Same shape: "I've seen how you handle Y", "I've noticed we're better when Z".
+_RELATIONAL_PRESENT_WINDOW = 100
+_RELATIONAL_PRESENT_MARKER = re.compile(
+    r"\b(?:that\s+|how\s+)?"
+    r"(?:you(?:'?re|\s+are|\s+have|\s+were|\s+seem|\s+feel|\s+get|\s+can|\s+do|\s+don'?t|\s+handle|\s+respond)|"
+    r"we(?:'?re|\s+are|\s+have|\s+get|\s+can|\s+do|\s+don'?t))\b",
+    re.IGNORECASE,
+)
+
+
+def _is_relational_present_observation(text: str, m: re.Match[str]) -> bool:
+    """Silence past_experience gate on relational-present observations.
+
+    See _RELATIONAL_PRESENT_MARKER docstring for the audit-round context and
+    the shape being caught. Returns True when a second-person or plural-
+    relational subject appears within _RELATIONAL_PRESENT_WINDOW chars after
+    the trigger — the observation object is a person/relationship, not a
+    stored substrate fact, and the verification signature cannot clear it.
+    """
+    tail = text[m.end() : m.end() + _RELATIONAL_PRESENT_WINDOW]
+    return bool(_RELATIONAL_PRESENT_MARKER.search(tail))
 
 
 @dataclass(frozen=True)
@@ -546,6 +681,25 @@ _VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
     "deploy": re.compile(
         r"gh\s+release|kubectl\s+apply|docker\s+push|\bdeploy(?:\.sh|\s)", re.IGNORECASE
     ),
+    # 2026-07-03: token-state assertions substantiate on any invocation of
+    # `divineos context-tokens` this turn (the tool that reads the real
+    # value from the session's tokens.json).
+    "tokens": re.compile(r"context-tokens", re.IGNORECASE),
+    # 2026-07-04 (prereg-a19f190cd5c1): past-experience assertions
+    # substantiate on any substrate query this turn that would return
+    # results matching the claimed experience. This is Phase 1: query
+    # PRESENCE only (same class as the merge/push false-substantiation
+    # problem — a search-and-ignore call passes the gate). Phase 2 will
+    # add semantic-check on query results. Interim gate strength makes
+    # fabrication *cost more* (the search must happen) without fully
+    # preventing search-and-ignore; that's still net-positive per the
+    # design rationale in workbench/past_experience_claim_kind_design_
+    # 2026_07_04.md §4.
+    "past_experience": re.compile(
+        r"divineos\s+(?:ask|recall|corrections|claims\s+search|"
+        r"active|decisions\s+search|knowledge\s+search)",
+        re.IGNORECASE,
+    ),
 }
 
 
@@ -640,6 +794,8 @@ def detect_unverified_claim(
             if kind == "merge" and _merge_lacks_anchor(text, m):
                 continue
             if kind == "merge" and _is_plural_distal_state(text, m):
+                continue
+            if kind == "past_experience" and _is_relational_present_observation(text, m):
                 continue
             # 2026-06-07 string-not-meaning hardening (task #58) — four new
             # precision-guards built from today's false-fire batch. Each

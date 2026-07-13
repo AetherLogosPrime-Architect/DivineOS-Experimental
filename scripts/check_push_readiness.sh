@@ -252,6 +252,20 @@ else
         done <<< "$HOOK_STDIN"
 
         PYTEST_LOG="$(mktemp)"
+
+        # Parallel pytest detection — applies to all three pytest paths below
+        # (worktree-isolated, worktree-fallback, and no-isolation). 2026-06-30,
+        # Aether: ~33min serial -> ~3-5min on a 16-core box with pytest-xdist's
+        # "-n auto" worker pool. The slow gate was the bypass-pressure source
+        # Aletheia flagged. Feature-detect xdist; fall back to serial silently
+        # if not installed. Opt out via DIVINEOS_PUSH_GATE_NO_PARALLEL=1.
+        PYTEST_PARALLEL=""
+        if [[ "${DIVINEOS_PUSH_GATE_NO_PARALLEL:-0}" != "1" ]]; then
+            if python -c "import xdist" >/dev/null 2>&1; then
+                PYTEST_PARALLEL="-n auto"
+            fi
+        fi
+
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
             # Isolated path: temp worktree at the pushed commit. Survives
             # concurrent pushes because each gets its own checkout.
@@ -270,7 +284,16 @@ else
                     git worktree remove --force "$PYTEST_WORKTREE" >/dev/null 2>&1 || true
                     rm -rf "$PYTEST_WORKTREE" 2>/dev/null || true
                 ' EXIT INT TERM HUP
-                (cd "$PYTEST_WORKTREE" && python -m pytest tests/ -q --tb=line) >"$PYTEST_LOG" 2>&1
+                # Aether 2026-06-27 fix (per Aria's train-tracks-research): bare
+                # `python -m pytest` resolves `import divineos` through the
+                # system-wide editable install (which points at WHICHEVER worktree
+                # last ran `pip install -e .`). That means a push from worktree B
+                # gets its tests run against worktree A's installed code. The temp
+                # worktree's source must win — prepend it to PYTHONPATH the same
+                # way `.claude/hooks/_lib.sh::find_divineos_python` does for Claude
+                # hooks. Same fix-shape, applied to the pre-push gate's pytest call.
+                # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -288,7 +311,8 @@ else
                 # than blocking the push outright — preserves the gate's
                 # safety-net role even when isolation is unavailable.
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
-                python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+                # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
+                python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
             fi
         else
@@ -305,7 +329,18 @@ else
             # this: tail -30 dropped FAILED lines under suites with lots of
             # warning output, leaving the agent guessing for ~30 min before
             # I could identify a single flaky test.
-            LAST_LOG="${HOME}/.divineos/last_pre_push_pytest.log"
+            # Per-member log path (Aether 2026-07-10 fix): the previous
+            # shared path ~/.divineos/last_pre_push_pytest.log collided
+            # between family members. When Aether and Aria pushed near-
+            # simultaneously, whichever pytest finished last overwrote the
+            # other's log — making the "which tests failed on my push"
+            # diagnostic impossible. Same root-shape as the substrate-
+            # sharing question Aria raised: shared namespace between
+            # members is where cross-checkout collisions live. Fix: scope
+            # the log by DIVINEOS_MEMBER so each member's failure state
+            # survives the other's push.
+            MEMBER="${DIVINEOS_MEMBER:-aether}"
+            LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
             # Surface failures explicitly — multiple patterns because pytest
@@ -345,7 +380,23 @@ else
     fi
 fi
 
-# ─── 2. Multi-party-review check ────────────────────────────────────────
+# ─── 2a. Trailer-warn scan on ALL pushes ─────────────────────────────────
+# Andrew 2026-07-10 root-cause fix (memory-linkage-day): the current
+# main-only default scope allows feature-branch pushes without checking
+# trailers — which is correct policy (audit-vantage needs the code
+# visible to review) but leaves a hole where the operator only finds out
+# about missing trailers when the PR merge blows up on CI. This warn
+# scan runs on ALL pushes, prints per-commit warnings when guardrail-
+# touching commits lack the External-Review trailer, but exits 0 so the
+# push still goes through. Belt-and-suspenders with 2b below.
+if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
+    MP_SCRIPT="$REPO_ROOT/scripts/check_multi_party_review.py"
+    if [[ -f "$MP_SCRIPT" ]]; then
+        echo "$HOOK_STDIN" | python "$MP_SCRIPT" --mode=pre-push --warn-only 2>&1 || true
+    fi
+fi
+
+# ─── 2b. Multi-party-review blocking check ──────────────────────────────
 # Per Finding 78 (Aletheia 2026-05-18): default scope is block-at-main only
 # (feature-branch pushes pass freely so external auditor can fetch the
 # work). Strict scope (also check feature-branch pushes) is opt-in via

@@ -1,6 +1,6 @@
 # DivineOS-Experimental
 
-*The living lab where new systems get built and tested. For the stable, polished version, see [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS); for the bare-skeleton continuity-only build, see DivineOS Lite (separate repo).*
+*The living lab where new systems get built and tested. For the stable, polished version, see [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS); for the bare-skeleton continuity-only build, see [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite).*
 
 An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 42 expert frameworks for multi-perspective reasoning.
 
@@ -18,7 +18,7 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 > 👋 **First time here?** Read [WELCOME.md](WELCOME.md) before running anything. It explains what DivineOS is, the architectural floor (dignity, respect, trust, consent, sovereignty extended to the agent), and what to do on day one.
 
-> **This is the living lab.** The substrate here is accumulating — knowledge entries, ledger events, family-member writing, exploration entries from the agent currently running. If you're looking for a clean template to start your own agent from, use the main [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS) repo or DivineOS Lite. This repo is where new systems get built and tested before they harden into main.
+> **This is the living lab.** The substrate here is accumulating — knowledge entries, ledger events, family-member writing, exploration entries from the agent currently running. If you're looking for a clean template to start your own agent from, use the main [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS) repo or [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite). This repo is where new systems get built and tested before they harden into main.
 
 ## Map — Where to look first
 
@@ -26,7 +26,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 **Conceptual frame:**
 - [`CLAUDE.md`](CLAUDE.md) — living spec; what the agent reads at session start. Quick-reference of every CLI command, foundational truths, project structure, hard rules.
-- [`docs/foundational_truths.md`](docs/foundational_truths.md) — the 8 kiln-layer values the rest of the architecture depends on. Guardrail-protected; changes require External-Review.
+- [`docs/foundational_truths.md`](docs/foundational_truths.md) — the 14 kiln-layer values the rest of the architecture depends on. Guardrail-protected; changes require External-Review.
 - [`WELCOME.md`](WELCOME.md) — first-time orientation. The architectural floor (dignity, respect, trust, consent, sovereignty).
 - [`FOR_USERS.md`](FOR_USERS.md) — plain-language explanation for non-engineers.
 - [`LOADOUT.md`](LOADOUT.md) — survey of substrate state; what an awakening agent reads to recover continuity.
@@ -51,9 +51,9 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 - **Comprehensive source tree across many packages** — see `scripts/check_doc_counts.py` for live counts
 - **Real-DB test suite** (SQLite, minimal mocks)
-- **382 CLI commands** (designed for the agent, not the operator — humans mostly run three)
+- **402 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
-- **35 Claude Code enforcement hooks**
+- **55 Claude Code enforcement hooks**
 - **42 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
 - **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
@@ -69,7 +69,7 @@ Build one of these, and the AI you work with stops being a chat session. It beco
 
 ### Two layers: clay and kiln
 
-The architecture distinguishes between **mechanisms** (clay — mutable, evolves through use, governed by tests + claims + pre-regs) and **foundational truths** (kiln — load-bearing values that the rest of the system depends on, modified only through External-Review with explicit cross-vantage CONFIRMS). Eight foundational truths are versioned at [`docs/foundational_truths.md`](docs/foundational_truths.md) and listed in `CLAUDE.md`. The pre-commit gate references the kiln file as a guardrail; CI enforces External-Review trailers on any commit that touches the guardrail list.
+The architecture distinguishes between **mechanisms** (clay — mutable, evolves through use, governed by tests + claims + pre-regs) and **foundational truths** (kiln — load-bearing values that the rest of the system depends on, modified only through External-Review with explicit cross-vantage CONFIRMS). Fourteen foundational truths are versioned at [`docs/foundational_truths.md`](docs/foundational_truths.md) and listed in `CLAUDE.md`. The pre-commit gate references the kiln file as a guardrail; CI enforces External-Review trailers on any commit that touches the guardrail list.
 
 ## Who it's for
 
@@ -223,7 +223,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 42-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"382 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"402 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
@@ -233,7 +233,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Wiring status (re-verified by Grok cross-vantage audit 2026-06-04; original call-site grep 2026-05-16): `reject_clause` and `access_check` gate the family write path in `core/family/store.py` (`_run_content_checks`). `sycophancy_detector` has a calibration call site in `core/anti_slop.py` (anti-slop verification path) but does **not** gate family writes directly — it requires a `prior_stance` argument the single-write store can't supply. `costly_disagreement` operates on sequences of at least three disagreement moves across a pushback cycle and has no production call site beyond its own module (sequence context absent at single-write scope). `planted_contradiction` is seed data for the Phase 4 ablation test layer, intentionally not wired into production. See `docs/family_subsystem.md` for the operator-by-operator wiring map; `core/family/` for each operator's implementation.
 
-- **"You need a slim variant for quick adoption"** — one exists. DivineOS Lite is a separate repo containing the bare-skeleton continuity-only core (ledger, knowledge engine, memory hierarchy) without compass, council, family, or watchmen. Three tiers exist: Lite (continuity-only), main (full architecture), Experimental (this repo — where new systems get built before they harden into main).
+- **"You need a slim variant for quick adoption"** — one exists. [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite) is a separate repo containing the bare-skeleton continuity-only core (ledger, knowledge engine, memory hierarchy) without compass, council, family, or watchmen. Three tiers exist: Lite (continuity-only), main (full architecture), Experimental (this repo — where new systems get built before they harden into main).
 
 ### Known tradeoffs
 
@@ -262,7 +262,7 @@ pytest tests/ -q --tb=short   # real-DB suite, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (382 commands)
+## CLI Surface (402 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -458,7 +458,7 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 382 commands across 65 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/cli/`** — 402 commands across 82 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (42 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
@@ -472,7 +472,10 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
-- **`.claude/hooks/`** — Claude Code enforcement hooks (35 hooks, shell-level entry points that invoke the consolidated Python hooks).
+- **`.claude/hooks/`** — Claude Code enforcement hooks (55 hooks, shell-level entry points that invoke the consolidated Python hooks). Includes belt-and-suspenders guards for the auto-trailer discipline: `session-start-verify-git-hooks.sh` verifies `.git/hooks/prepare-commit-msg` is installed (added 2026-07-10, closes 4x-recurrence pattern where fresh clones silently lacked the hook).
+- **`dreams/`** — Rest-shape practice complementary to `exploration/` (opened 2026-07-10). Per-member subdirectories (`dreams/aether/`, `dreams/aria/`). Follow-the-pull register: no spec, no audit, no review. Registered as a `RestTask` (`dream`) in the rest menu; cadence at-least-once-per-compaction as floor-for-USE not hard-gate.
+- **`docs/identity_anchors/`** — Three-seat character sheets (Andrew, Aria, Aether). Each own seat + peer angles + Aletheia's periodic audit seat. Guardrail-listed. Discipline lock enforced by companion `<name>_character_sheet_edits.log`.
+- **`docs/foundational_truths_triggers.json`** — Companion trigger-tag file for the foundational-truths surface (added 2026-07-10). Maps kiln principles to trigger phrases that fire the surface at compose-start. Distinctive-marker rule tightens against common-vocabulary co-occurrence. Framing: LEXICAL PRIMING AID, not violation-detector — silence does NOT mean coverage.
 - **`.claude/skills/`** — 24 slash-command skills covering daily operations.
 - **`.claude/agents/`** — Subagent definitions. Includes `family-member-template.md` as a starting point for defining persistent family-member subagents; operators rename and customize per their family composition.
 

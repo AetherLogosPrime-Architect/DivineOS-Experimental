@@ -176,6 +176,9 @@ def register(cli: click.Group) -> None:
         Runs six phases: knowledge consolidation, pruning, affect recalibration,
         maintenance, creative recombination, then prints a dream report.
         """
+        import sys as _sys
+        from pathlib import Path as _Path
+
         from divineos.core.sleep import (
             DreamReport,
             _phase_affect,
@@ -186,6 +189,34 @@ def register(cli: click.Group) -> None:
             _phase_recombination,
             run_sleep,
         )
+
+        # Pre-sleep auto-commit (Andrew 2026-07-05: "make commit automatic
+        # after extract and before sleep :)"). Full-cycle only — dry-run
+        # and single-phase invocations are diagnostic and skip the weld.
+        # Fail-soft: any exception in the commit path logs and continues;
+        # sleep must still run even if git is unavailable.
+        if not dry_run and phase is None and "pytest" not in _sys.modules:
+            try:
+                from divineos.core.auto_commit import (
+                    auto_commit_substrate,
+                    find_repo_root,
+                )
+
+                _sleep_repo_root = find_repo_root(_Path.cwd())
+                if _sleep_repo_root is not None:
+                    result = auto_commit_substrate(_sleep_repo_root, reason="pre-sleep")
+                    if result.committed:
+                        click.secho(
+                            f"[+] Auto-commit (pre-sleep): "
+                            f"{result.dirty_lines} dirty lines, "
+                            f"{result.files_synced} external files synced.",
+                            fg="green",
+                        )
+            except Exception as e:  # noqa: BLE001 — fail-soft
+                click.secho(
+                    f"[!] Pre-sleep auto-commit skipped ({e}); proceeding with sleep.",
+                    fg="yellow",
+                )
 
         if dry_run:
             click.secho("Sleep dry-run -- previewing what each phase would find:\n", fg="cyan")

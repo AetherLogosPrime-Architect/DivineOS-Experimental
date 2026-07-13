@@ -118,14 +118,14 @@ class TestFormattingWithCorrelation:
         """When compass is drifting on a tension's spectrum, show the marker."""
         for _ in range(3):
             log_observation(
-                spectrum="helpfulness",
+                spectrum="beneficence",
                 position=0.0,
                 evidence="older",
                 source="correction_rate",
             )
         for _ in range(3):
             log_observation(
-                spectrum="helpfulness",
+                spectrum="beneficence",
                 position=0.6,
                 evidence="newer: scope creep",
                 source="tool_ratio",
@@ -146,7 +146,7 @@ class TestFormattingWithCorrelation:
         assert "helpfulness vs boundaries" in output
         # If compass detects drift, the marker should appear
         if "compass:" in output:
-            assert "helpfulness" in output
+            assert "beneficence" in output
 
     def test_format_empty_report(self):
         report = TensionReport(patterns=[], total_decisions_with_tension=0, total_decisions=0)

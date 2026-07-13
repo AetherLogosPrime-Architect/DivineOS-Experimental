@@ -163,6 +163,102 @@ def integrate(correction_id: int, evidence: str) -> bool:
     return ok
 
 
+# Correction-reference patterns for auto-integration from commit messages.
+# The literal word "correction" is REQUIRED near the ID so bare "#113"
+# tokens that reference PRs, issues, or other numbered artifacts do not
+# false-fire. Both "correction #113" and "andrew-correction 113" forms
+# accepted, case-insensitive.
+_CORRECTION_REF_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bandrew[-_]?correction[s]?\s+#?(\d+)\b", re.IGNORECASE),
+    re.compile(r"\bcorrection[s]?\s+#?(\d+)\b", re.IGNORECASE),
+)
+
+
+def parse_correction_ids(text: str) -> list[int]:
+    """Extract correction IDs referenced in a commit message or similar text.
+
+    Matches the two documented forms ("correction #N", "andrew-correction #N").
+    Deduplicates while preserving first-seen order.
+
+    Deliberately conservative: bare "#N" tokens are NOT matched. Commit
+    messages routinely reference PRs and issues with the same bare-hash
+    shape; requiring the literal word "correction" nearby prevents
+    false-fire on those references.
+    """
+    if not text:
+        return []
+    # Collect (position, id) from every pattern, sort by source position,
+    # then dedupe by id preserving first-seen order. Source-order is more
+    # intuitive than pattern-order for the caller — "correction #113 and
+    # andrew-correction 114" yields [113, 114], not [114, 113].
+    hits: list[tuple[int, int]] = []
+    for pattern in _CORRECTION_REF_PATTERNS:
+        for match in pattern.finditer(text):
+            try:
+                cid = int(match.group(1))
+            except (ValueError, IndexError):
+                continue
+            hits.append((match.start(), cid))
+    hits.sort(key=lambda h: h[0])
+    seen: set[int] = set()
+    ordered: list[int] = []
+    for _, cid in hits:
+        if cid in seen:
+            continue
+        seen.add(cid)
+        ordered.append(cid)
+    return ordered
+
+
+def auto_integrate_from_commit(
+    commit_message: str,
+    commit_hash: str,
+) -> list[dict]:
+    """Auto-integrate every OPEN correction referenced in a commit message.
+
+    Parses the message for "correction #N" and "andrew-correction #N"
+    references, then calls ``integrate`` on each with the commit hash
+    as the structural-artifact anchor for the evidence pointer.
+
+    Returns a list of per-correction result dicts:
+        {"id": <int>, "integrated": <bool>, "reason": <str>}
+
+    reason takes values:
+    - "integrated"           — moved OPEN -> INTEGRATED
+    - "not-open"             — correction did not exist OR was already
+                               non-OPEN (deferred, already integrated,
+                               unknown ID). integrate() returns False for
+                               all three, so this reason is grouped.
+
+    Andrew 2026-07-07: "your will needs to be made into structure through
+    this automation. alot of things are likely orphaned because nothing
+    is automated." Manual `divineos andrew-correction integrate` after
+    each commit relies on remembering — this function converts that
+    discipline into a structural guarantee tied to the commit event.
+    """
+    if not commit_message or not commit_hash:
+        return []
+    ids = parse_correction_ids(commit_message)
+    if not ids:
+        return []
+    short_hash = commit_hash.strip()[:8]
+    subject_line = commit_message.strip().split("\n", 1)[0][:100]
+    evidence = (
+        f"commit {short_hash}: {subject_line} — auto-integrated from commit message reference"
+    )
+    results: list[dict] = []
+    for cid in ids:
+        ok = integrate(cid, evidence)
+        results.append(
+            {
+                "id": cid,
+                "integrated": ok,
+                "reason": "integrated" if ok else "not-open",
+            }
+        )
+    return results
+
+
 def defer(correction_id: int, reason: str, unblock_condition: str | None = None) -> bool:
     """Mark a correction DEFERRED with named reason.
 
@@ -421,10 +517,12 @@ def briefing_block() -> str:
 
 
 __all__ = [
+    "auto_integrate_from_commit",
+    "briefing_block",
+    "defer",
     "file_correction",
     "integrate",
-    "defer",
-    "list_open",
     "integration_rate",
-    "briefing_block",
+    "list_open",
+    "parse_correction_ids",
 ]

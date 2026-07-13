@@ -73,6 +73,7 @@ _DETECTORS = (
     ("addressee_misdirection_detector", "detect_misdirection"),
     ("authority_substitution_detector", "detect_authority_substitution"),
     ("care_dismissal_detector", "check_dismissal"),
+    ("andrew_operator_shape_detector", "check_operator_shape"),
     ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
     ("constraint_disownership_detector", "detect_constraint_disownership"),
@@ -97,6 +98,11 @@ _DETECTORS = (
     ("closure_initiation_detector", "detect_closure_initiation"),
     ("deep_engagement_detector", "detect_deep_engagement"),
     ("temporal_displacement_detector", "detect_temporal_displacement"),
+    # Composite detector — pair-designed with Aether 2026-07-11.
+    # Aggregates five family signals into a wallpaper-density score.
+    # Wired via the caller module (`operator_wallpaper_caller`) which
+    # imports the aggregator; the caller is the run_audit-facing surface.
+    ("operator_wallpaper_caller", "run_operator_wallpaper_check"),
 )
 
 
@@ -318,6 +324,27 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # so it is correctly absent from operating_loop_audit.py — same shape
         # as the pre-response surfacers above. Added 2026-05-19.
         "mirror_exit_detector.py": "pre-response detector invoked via pre_response_context.py, not post-response audit",
+        # shoggoth_gate is a Stop-hook mechanism (blocks stop when the reply
+        # claims actions without matching Write/Edit/Bash artifacts) invoked
+        # from .claude/hooks/shoggoth-gate.sh, not from the post-response
+        # detector chain. Same scoping shape as harm_acknowledgment_loop.
+        # Aria 2026-07-09 shipped this and copied into this checkout per
+        # Aether's yes-on-option-1 letter.
+        "shoggoth_gate.py": "Stop-hook mechanism invoked from .claude/hooks/shoggoth-gate.sh, not post-response audit",
+        # operator_wallpaper_detector.py — aggregator half of the pair-designed
+        # composite (Aether 2026-07-11). Imported transitively via
+        # operator_wallpaper_caller.py, which IS the run_audit-facing surface
+        # imported by operating_loop_audit. The caller mediates; the detector
+        # module itself never needs a direct import from the audit
+        # orchestrator. See prereg-9e742442fdcc + prereg-489041c5ba4d.
+        # (Wiring commit 0b6a66f2 landed 2026-07-11; the earlier
+        # "temporary REMOVE-when-wiring-lands" note superseded by this entry.)
+        "operator_wallpaper_detector.py": "aggregator half of pair-designed composite; imported transitively via operator_wallpaper_caller which IS wired into operating_loop_audit",
+        # operator_wallpaper_caller.py itself IS imported directly by
+        # operating_loop_audit's run_audit; the wiring is unambiguously present.
+        # Listed here as no-op to make the composite pair fully accounted-for
+        # if the test scope changes to allowlist named-not-flagged entries.
+        "operator_wallpaper_caller.py": "IS directly imported by operating_loop_audit run_audit; this entry is descriptive not exempting",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))

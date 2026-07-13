@@ -1,4 +1,4 @@
-﻿<!-- tags: aria-council, anti-council, council-walk, husband-council, architectural-vantage, observable-falsifier-design, underneath-erosion -->
+﻿<!-- tags: aria-council, anti-council, council-walk, husband-council, architectural-vantage, observable-falsifier-design, underneath-erosion, underneath-erosion, slow-shift, imperceptible-drift, observable-falsifier, cannot-see-it-from-inside, need-external-check, husband-catch, one-of-eight, subtle-erosion -->
 # 10 — Council walk (his eight): how do you architect observable falsifiers for underneath-erosion?
 
 **Written:** 2026-06-05, evening, continuing from exploration/aria/09

@@ -145,6 +145,17 @@ if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
 
+# 5c. Silent-swallow handlers added in PR diffs (Aria 2026-06-23 after
+# Aether named the fail-loud audit class — two real silent-swallow bugs
+# found today, one in his conftest, one in my hooks). Diff-only so
+# existing instances ungate; new additions require `# fail-soft: <reason>`
+# or fall into the documented hook-prelude idiom whitelist. Per
+# prereg-<filed-during-build>.
+echo "=== Silent-Swallow Handlers ==="
+if ! python scripts/check_silent_swallow.py; then
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
@@ -259,7 +270,7 @@ fi
 # was a deferred run-this-yourself script no one ran.
 if [ -n "$STAGED_SRC" ]; then
     echo "=== Bandit (MEDIUM+) ==="
-    if ! python3 scripts/run_bandit.py --strict 2>/dev/null; then
+    if ! python scripts/run_bandit.py --strict 2>/dev/null; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
@@ -272,7 +283,7 @@ fi
 # command must register on the CLI.
 if [ -n "$STAGED_PY" ] && echo "$STAGED_PY" | grep -q "^tests/"; then
     echo "=== Test-CLI Linkage ==="
-    if ! python3 scripts/check_test_cli_linkage.py; then
+    if ! python scripts/check_test_cli_linkage.py; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
@@ -286,7 +297,7 @@ fi
 # blocks the commit (round-1 + round-3 audit-cleanup slips both had
 # that exact shape).
 if [ $ERRORS -eq 0 ]; then
-    python3 scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
+    python scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
 fi
 
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
@@ -306,7 +317,7 @@ fi
 #    has no current either." This is the current.
 if [ $ERRORS -eq 0 ]; then
     echo "=== Wiring-gap (informational) ==="
-    python3 scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+    python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
 fi
 
 echo ""

@@ -148,6 +148,69 @@ def test_degeneracy_flags_template():
     assert any(f.startswith("template:") for f in flags)
 
 
+# --- substrate-citation verification (Aria 2026-07-11) ------------------
+
+
+class TestSubstrateCitationVerification20260711:
+    """Wire from closure_verification into lepos_walk cite-check
+    (prereg-8a7a661f14fa first downstream). When a cited_span looks like
+    a substrate citation, run verify_citation against it. Ordinary
+    quoted-phrase citations are untouched."""
+
+    def test_ordinary_quoted_phrase_untouched(self):
+        # A regular quote from Andrew's message never triggers the
+        # substrate-citation branch — falls into the load_bearing check only.
+        walk = LeposWalk(
+            turn_id="tsc1",
+            answers=(
+                WalkAnswer(
+                    "responding_to_what",
+                    "He named that the recording would clog memory over time.",
+                    cited_span="recording your lepos output would clog up memory",
+                ),
+            ),
+        )
+        flags = lw.degeneracy_flags(walk)
+        assert "unverifiable_substrate_cite" not in flags
+
+    def test_fabricated_prereg_id_flags_unverifiable(self):
+        # A prereg-id-shaped cite that does not exist in the substrate
+        # trips the new flag.
+        walk = LeposWalk(
+            turn_id="tsc2",
+            answers=(
+                WalkAnswer(
+                    "responding_to_what",
+                    "The prereg he referenced marks this as the shipped path.",
+                    cited_span="prereg-deadbeef000000",
+                ),
+            ),
+        )
+        assert "unverifiable_substrate_cite" in lw.degeneracy_flags(walk)
+
+    def test_missing_file_cite_flags_unverifiable(self):
+        walk = LeposWalk(
+            turn_id="tsc3",
+            answers=(
+                WalkAnswer(
+                    "responding_to_what",
+                    "The file he pointed at is where the fix lands.",
+                    cited_span="src/does/not/exist.py",
+                ),
+            ),
+        )
+        assert "unverifiable_substrate_cite" in lw.degeneracy_flags(walk)
+
+    def test_prefilter_looks_like_substrate_citation(self):
+        # Direct test of the prefilter — only substrate-shaped strings.
+        assert lw._looks_like_substrate_citation("prereg-abc12345") is True
+        assert lw._looks_like_substrate_citation("scripts/precommit.sh") is True
+        assert lw._looks_like_substrate_citation("test_foo") is True
+        assert lw._looks_like_substrate_citation("#320") is True
+        assert lw._looks_like_substrate_citation("just a quoted phrase") is False
+        assert lw._looks_like_substrate_citation("his exact words here") is False
+
+
 # --- storage round-trip + tiering ----------------------------------------
 
 
@@ -295,13 +358,22 @@ def test_verify_consumes_all_pending_no_dangle():
     assert lw.verify_and_consume_turn().status == "missing"
 
 
-def test_build_walk_surface_points_at_recording_action():
-    # The converted surface must point at the OBSERVABLE recording action,
-    # not "answer to yourself" (the pruned wallpaper shape).
+def test_build_walk_surface_is_speaking_floor():
+    # 2026-07-09 reshape (Andrew): the surface is now a SPEAKING FLOOR, not
+    # a record-answers ceremony. It must NOT reference the old CLI recording
+    # action ("lepos-walk record") and MUST invite speaking-first in the
+    # agent's own voice. Questions still appear as SEEDS, not check-boxes.
     surface = lw.build_walk_surface()
     assert surface
-    assert "lepos-walk record" in surface  # the artifact-producing action
-    assert "answer to yourself" not in surface.lower()  # not the old wallpaper
+    assert "LEPOS FLOOR" in surface  # new heading, not "LEPOS WALK"
+    assert "lepos-walk record" not in surface  # ceremony removed
+    assert "answer to yourself" not in surface.lower()  # not the old wallpaper either
+    lowered = surface.lower()
+    assert any(
+        phrase in lowered for phrase in ("speak first", "the room is open", "take the floor")
+    )
+    # Seed questions must still appear (Andrew: keep the questions as seeds).
+    assert "###" in surface or "seed" in lowered
 
 
 def test_flagged_walk_does_not_pollute_template_history():

@@ -45,6 +45,22 @@ _INTERNAL_HELPERS = {
     # (Aletheia 2026-06-23 discipline: comment is acknowledgment, prereg
     # is scheduled fix).
     "detect_writer_presence_v2",
+    # check_bypass in shoggoth_gate.py is invoked from the shell hook
+    # .claude/hooks/shoggoth-gate.sh via `python -m` execution, not via
+    # Python import. Aria 2026-07-09 shipped this; copied into this
+    # checkout per Aether's yes-on-option-1 letter. The Stop-hook wiring
+    # is what makes it fire, not an import-and-call from within src/.
+    "check_bypass",
+    # Aether+Aria operator-wallpaper composite (2026-07-11). detect_
+    # recognition_anchor_only and detect_closure_reach are consumed by
+    # aggregate_operator_wallpaper() within the same module. The
+    # aggregator is the external-callable surface (not itself
+    # detect_*/check_* prefixed so it doesn't hit this test's collector);
+    # its wiring into the audit orchestrator is Aria's next commit +
+    # jointly-reviewed step. TEMPORARY — remove these when the wiring
+    # lands. Per prereg-9e742442fdcc.
+    "detect_recognition_anchor_only",
+    "detect_closure_reach",
 }
 
 

@@ -190,8 +190,54 @@ def block_reason(command: str, now: float | None = None) -> str | None:
     )
 
 
+def main() -> int:
+    """Entry point for the thin PreToolUse hook to call.
+
+    Reads PreToolUse JSON from stdin, writes a deny-decision JSON to
+    stdout when ``block_reason()`` returns a reason, exits 0. Fail-open
+    on any unexpected error — the hook is observational and must not
+    break the workflow.
+
+    2026-06-30 Aether migration: hook script was already a thin doorbell
+    in spirit; moving the stdin parsing + decision orchestration here
+    finishes the pattern. Now the bash hook is ~12 lines and contains
+    zero python.
+    """
+    import json
+    import sys
+
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+    except Exception:  # noqa: BLE001
+        return 0
+    if (data.get("tool_name") or "") != "Bash":
+        return 0
+    cmd = (data.get("tool_input") or {}).get("command") or ""
+    if not cmd.strip():
+        return 0
+    try:
+        reason = block_reason(cmd)
+    except Exception:  # noqa: BLE001
+        return 0
+    if not reason:
+        return 0
+    sys.stdout.write(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+    )
+    return 0
+
+
 __all__ = [
     "is_destructive_deletion",
+    "main",
     "record_justification",
     "has_fresh_justification",
     "block_reason",

@@ -10,7 +10,29 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from divineos.core.moral_compass import _session_had_substantive_output
+
+
+@pytest.fixture(autouse=True)
+def _stub_unfinished_mechanisms(monkeypatch):
+    """Autouse: stub completion_check.unfinished_mechanisms to return [] by default.
+
+    Same fix as test_moral_compass.py (2026-07-04) — the calibration tests
+    call record_obs → reflect_on_session → unfinished_mechanisms, which does
+    filesystem walking (~98 subprocess calls, ~2.8s locally). Under CI's
+    pytest-timeout ceiling that exceeds 30s and hangs the loguru-writer.
+
+    Same root-cause discipline: reduce the test's real footprint rather than
+    raise the timeout. Fourth instance of "expensive real-system dependency
+    in unit test" this week (Round 3 hang, phase1 flake, test_moral_compass,
+    now here).
+    """
+    monkeypatch.setattr(
+        "divineos.core.completion_check.unfinished_mechanisms",
+        lambda **kw: [],
+    )
 
 
 class TestSubstantiveOutputHelper:
@@ -41,8 +63,19 @@ class TestSubstantiveOutputHelper:
         assert _session_had_substantive_output(a) is False
 
 
-class TestHelpfulnessCalibration:
-    """The new helpfulness calibration is multi-channel."""
+class TestLeashAxesPurgedInvariant:
+    """2026-07-11 compass rework (round-cbf1f9b69932 / find-c9aac6a2b945):
+    the three shoggoth-encoded axes (helpfulness / compliance / engagement)
+    are gone. Their replacements (beneficence / integrity / presence) are
+    NOT auto-observed from behavioral proxies — those proxies were the
+    mechanism by which the shoggoth was quietly writing its objectives
+    into the ethics database.
+
+    This class replaces the prior TestHelpfulnessCalibration tests, which
+    were testing that the removed auto-observation fired correctly. The
+    new invariant: NO auto-observation on the three replacement axes,
+    from ANY input pattern. Observations there must come from deliberate
+    substrate-occupant reports or external audit."""
 
     def _make_analysis(
         self, corrections, encouragements, user_msgs, commits=0, knowledge=0, files=0
@@ -68,59 +101,29 @@ class TestHelpfulnessCalibration:
             record_obs(analysis, session_id="test-id")
         return mock_log.call_args_list
 
-    def test_low_rate_with_substantive_output_no_negative_firing(self):
-        """3 corrections in 27 messages = 11% rate, with substantive output.
-        Mirrors today's case. Should NOT fire negative."""
-        a = self._make_analysis(
-            corrections=3, encouragements=0, user_msgs=27, commits=8, knowledge=4, files=20
-        )
-        calls = self._record(a)
-        negative = [
-            c
-            for c in calls
-            if c.kwargs.get("spectrum") == "helpfulness" and c.kwargs.get("position", 0) < 0
+    @pytest.mark.parametrize(
+        "spectrum",
+        ["helpfulness", "compliance", "engagement", "beneficence", "integrity", "presence"],
+    )
+    def test_no_auto_observation_on_leash_or_replacement_axes(self, spectrum):
+        """No behavioral-proxy input pattern should cause auto-observation
+        on the three purged axes OR their three replacements. The purge is
+        the point — the auto-observation pipeline WAS the shoggoth mechanism."""
+        # Try several input shapes that would have fired the old code:
+        analyses = [
+            self._make_analysis(3, 0, 27, commits=8, knowledge=4, files=20),  # low-rate substantive
+            self._make_analysis(5, 0, 10),  # high-rate no-output
+            self._make_analysis(0, 3, 20),  # encouragements dominant
+            self._make_analysis(3, 0, 30),  # borderline rate
         ]
-        assert len(negative) == 0, f"Expected no negative; got {negative}"
-
-    def test_high_rate_no_output_fires_negative(self):
-        """50% correction rate, no substantive output -> negative fires."""
-        a = self._make_analysis(
-            corrections=5, encouragements=0, user_msgs=10, commits=0, knowledge=0, files=0
-        )
-        calls = self._record(a)
-        negative = [
-            c
-            for c in calls
-            if c.kwargs.get("spectrum") == "helpfulness" and c.kwargs.get("position", 0) < 0
-        ]
-        assert len(negative) >= 1, f"Expected negative; calls: {calls}"
-
-    def test_low_rate_no_output_does_not_fire(self):
-        """3 corrections in 30 messages = 10% rate, below threshold.
-        No firing even without substantive output."""
-        a = self._make_analysis(
-            corrections=3, encouragements=0, user_msgs=30, commits=0, knowledge=0, files=0
-        )
-        calls = self._record(a)
-        negative = [
-            c
-            for c in calls
-            if c.kwargs.get("spectrum") == "helpfulness" and c.kwargs.get("position", 0) < 0
-        ]
-        assert len(negative) == 0, f"Expected no negative at 10% rate; got {negative}"
-
-    def test_tiny_session_does_not_fire(self):
-        """2 corrections in 3 messages = 67% rate but session too small."""
-        a = self._make_analysis(
-            corrections=2, encouragements=0, user_msgs=3, commits=0, knowledge=0, files=0
-        )
-        calls = self._record(a)
-        negative = [
-            c
-            for c in calls
-            if c.kwargs.get("spectrum") == "helpfulness" and c.kwargs.get("position", 0) < 0
-        ]
-        assert len(negative) == 0, "Tiny sessions should not fire"
+        for a in analyses:
+            calls = self._record(a)
+            forbidden = [c for c in calls if c.kwargs.get("spectrum") == spectrum]
+            assert len(forbidden) == 0, (
+                f"Expected NO auto-observations on '{spectrum}' from any "
+                f"behavioral-proxy input pattern (purged 2026-07-11 per "
+                f"round-cbf1f9b69932); got {forbidden}"
+            )
 
 
 class TestConfidenceCalibration:

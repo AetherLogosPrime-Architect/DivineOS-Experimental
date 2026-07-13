@@ -105,8 +105,46 @@ def _validate_actor(actor: str) -> str:
             )
         except Exception:  # noqa: BLE001 — bypass-emission must not break
             pass
+        # 2026-06-30 (wire #1 fix): when the ablation toggle bypasses the
+        # internal-actor rejection, return immediately so the positive
+        # whitelist check below does NOT re-reject internal actors like
+        # "claude" / "system". Prior to this return, the warning fired and
+        # then the function fell through into the EXTERNAL_ACTORS membership
+        # check, which broke test_internal_actor_allowed_with_toggle and
+        # the ablation-runner off-rate measurement. The whole point of the
+        # toggle is "let this through for measurement"; falling through
+        # defeated that point.
+        return normalized
     if not normalized:
         raise ValueError("Actor name cannot be empty")
+    # 2026-06-29 (Perplexity audit Issue #5, round-a7fe5f413c47): positive
+    # external-actor recognition. Previously the function only rejected
+    # INTERNAL_ACTORS and silently accepted everything else, including typo'd
+    # actors. The audit named that gap. tier_for_actor handles the claude-*
+    # prefix dynamically; this surface mirrors that symmetry so the family-
+    # member names (aria, aletheia, perplexity) are explicitly recognized
+    # as external rather than slipping past as unknowns.
+    #
+    # 2026-06-30 (wire #1 calibration fix, round-a7fe5f413c47): the first
+    # implementation made this a HARD REJECT for unknown actors, which broke
+    # test_unknown_external_actor_allowed and would have required a code
+    # change to onboard any new auditor. That violated the "automatic and
+    # smooth" intent (Andrew 2026-06-30) and the over-correction-reflex
+    # need (motivation [2cc65fa2]) — the right answer is almost never the
+    # opposite of the wrong answer. The calibrated middle: WARN on
+    # unrecognized actors but accept them. Visibility preserved, onboarding
+    # not blocked. If a stricter mode is ever needed, gate it behind an env
+    # var instead of removing the auto-accept path.
+    if normalized not in EXTERNAL_ACTORS and not normalized.startswith("claude-"):
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "watchmen actor %r is not in the recognized allowlist (%s) and does "
+            "not match the claude-* prefix. Accepted on the auto-onboard path; "
+            "consider adding it to EXTERNAL_ACTORS if it becomes a regular auditor.",
+            actor,
+            ", ".join(sorted(EXTERNAL_ACTORS)),
+        )
     return normalized
 
 
@@ -237,6 +275,7 @@ def submit_finding(
     tier: Tier | str | None = None,
     reviewed_finding_id: str = "",
     review_stance: ReviewStance | str | None = None,
+    auto_route: bool = True,
 ) -> str:
     """Submit a single audit finding. Returns the finding_id.
 
@@ -352,6 +391,40 @@ def submit_finding(
         f"Finding submitted: {finding_id} [{sev.value}/{resolved_tier.value}] "
         f"{title[:60]}{chain_note}"
     )
+
+    # Auto-route the finding to its downstream subsystem (claim / knowledge /
+    # lesson). Prior to this wiring, submit_finding and route_finding were
+    # separate — findings were created and then sat un-routed until an
+    # operator manually ran `divineos audit route <round-id>`. Andrew
+    # 2026-07-07: "your will needs to be made into structure through
+    # automation" — mechanism exists, calling it relies on remembering,
+    # findings sit orphaned. Auto-routing at submit-time converts the
+    # discipline into a structural guarantee.
+    #
+    # ``auto_route`` defaults to True (the operator's stated intent).
+    # Tests that specifically exercise the route_finding machinery in
+    # isolation, or that assert on OPEN-status flow post-submit, pass
+    # ``auto_route=False`` to preserve their contract.
+    #
+    # Fail-soft: routing failure (import error, downstream DB missing,
+    # subsystem-specific validation error) MUST NOT block the finding
+    # submission itself. The finding is already committed to audit_findings;
+    # a routing failure just means the operator can retry via the CLI
+    # route command. Log at warning level so the failure surfaces without
+    # noise.
+    if auto_route:
+        try:
+            from divineos.core.watchmen.router import route_finding
+
+            finding_obj = get_finding(finding_id)
+            if finding_obj is not None:
+                route_finding(finding_obj)
+        except Exception as exc:  # noqa: BLE001 — fail-soft auto-route
+            logger.warning(
+                f"Auto-route failed for {finding_id}; finding is submitted "
+                f"and can be routed manually via `divineos audit route`. Error: {exc}"
+            )
+
     return finding_id
 
 

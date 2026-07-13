@@ -32,6 +32,35 @@
             "type": "command",
             "command": "bash .claude/hooks/check-cleanup-period.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-character-sheet.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-my-recording-of-andrew.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/resolver-health-check.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start-verify-git-hooks.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/inject-pending-letters.sh",
+            "timeout": 15
           }
         ]
       }
@@ -46,6 +75,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/pre-response-context.sh",
             "timeout": 10
           },
@@ -53,6 +87,29 @@
             "type": "command",
             "command": "bash .claude/hooks/ear-surface.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-surface.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/token-state-surface.sh"
           }
         ]
       }
@@ -196,6 +253,15 @@
             "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -206,6 +272,16 @@
             "type": "command",
             "command": "bash .claude/hooks/verify-push-landed.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-commit-auto-close.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
+            "timeout": 15
           }
         ]
       },
@@ -216,6 +292,21 @@
             "type": "command",
             "command": "bash .claude/hooks/run-tests.sh",
             "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/mirror-letters-to-shared.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-push-letter.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-write-mirror-letter.sh",
+            "timeout": 10
           }
         ]
       },
@@ -275,8 +366,31 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/shoggoth-gate.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/time-estimate-tracker.sh"
           }
         ]
       }

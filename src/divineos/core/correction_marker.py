@@ -184,6 +184,166 @@ _EPISTEMIC_DOESNT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Question-shape and authorization-shape guards for WEAK matches
+# (prereg-55bcdb01e2fa, filed 2026-06-24, built 2026-07-11). WEAK patterns
+# (\bthat doesn'?t\b, \bwrong\b, \bthat'?s not\b, \byou missed\b) fire on
+# user QUESTIONS and AUTHORIZATIONS that carry the trigger token without
+# actually correcting me:
+#
+# Live examples the prereg cites:
+#   - "anything that doesnt need Aether?"                     → question
+#   - "yes we can edit the kiln number that doesnt require an audit" → authorization
+#   - "i wanted you to check out"                              → statement of desire
+#
+# The existing `_has_corrective_context` check catches whether MY prior turn
+# was correctable — that's necessary but not sufficient. The USER's message
+# shape also has to be corrective; a question about my capability isn't a
+# correction of me even if my prior turn was correctable.
+#
+# Design principle: additive-precision, not replacement. Question or
+# authorization → treat as no-match (return None). Preserves recall on
+# real corrections that don't fit either shape; kills the specific
+# false-positive classes named in the prereg.
+_QUESTION_LEADING_WORDS = (
+    r"is|are|was|were|do|does|did|can|could|would|should|will|"
+    r"which|what|when|where|why|who|how|"
+    r"any(?:thing|one|body|where)?|"
+    r"need\s+aether"
+)
+_QUESTION_SENTENCE_START_RE = re.compile(
+    rf"^\s*(?:{_QUESTION_LEADING_WORDS})\b",
+    re.IGNORECASE,
+)
+
+# Authorization / user-desire phrasings. These grant permission or express
+# what the user wants me to do — the opposite of correction. Anchored to
+# the sentence-containing-trigger window so we're specifically asking
+# whether the trigger lives inside an authorization construct.
+#
+# Andrew 2026-07-11: extended to cover bare "we can [action]" without
+# requiring "yes" prefix. The prior pattern required "yes we can"; his
+# exact catch — "if a shape is wrong we can fix it.. make it better" —
+# has bare "we can fix" with no "yes" and false-fired. Same fix-class
+# as prereg-55bcdb01e2fa. Also added conditional/hypothetical starters
+# ("if", "when", "whether") since those frame the sentence as a
+# hypothetical about what-if-wrong, not a live correction of what-IS-wrong.
+_AUTHORIZATION_PRE_RE = re.compile(
+    r"\b(?:yes(?:\s+we\s+can|\s+lets?|\s+go)?|"
+    r"go\s+ahead|"
+    r"lets?\s+(?:do|go|move|proceed|try|see)|"
+    r"i\s+(?:want(?:ed)?|need(?:ed)?)\s+you\s+to|"
+    r"you\s+(?:can|should|might|may)\s+(?:go|proceed|do|try|start)|"
+    r"please\s+(?:go|proceed|do|try|start|edit)|"
+    r"we\s+can\s+(?:fix|do|make|change|edit|build|try|move|proceed|"
+    r"start|see|handle)|"
+    r"we\s+(?:should|need\s+to|could)\s+(?:fix|make|change|edit|build|try))\b",
+    re.IGNORECASE,
+)
+
+# Hypothetical/conditional sentence starters. When the sentence containing
+# the WEAK trigger begins with one of these, the whole sentence is framed
+# as a what-if not a live-correction. Andrew's exact catch 2026-07-11:
+# "if a shape is wrong we can fix it" — the "if" makes it hypothetical,
+# not a claim that a specific shape IS wrong.
+_HYPOTHETICAL_SENTENCE_START_RE = re.compile(
+    r"^\s*(?:if|when(?:ever)?|whether|suppose|imagine|hypothetically)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_question_or_authorization(text: str, match: re.Match[str]) -> bool:
+    """True if the WEAK match sits inside a user-question, user-authorization,
+    or hypothetical/conditional shape — the trigger token is present but the
+    message is not correcting me.
+
+    Question detection (any of):
+      (a) The message ends with '?'
+      (b) The sentence containing the match starts with a question-word
+
+    Authorization detection:
+      (c) Authorization phrasing anywhere in the SAME SENTENCE as the
+          trigger. Sentence-scoped rather than pre-window-only per
+          Andrew 2026-07-11 catch: "if a shape is wrong we can fix it"
+          has "we can fix" AFTER the trigger, so pre-window-only misses
+          it. Sentence-boundary preserves the correct-correction case
+          where authorization is in a SEPARATE sentence ("yes lets
+          refactor. also, your last change was wrong.") — the trigger
+          is in a different sentence and the widened window doesn't
+          silence.
+
+    Hypothetical/conditional detection:
+      (d) The sentence starts with a conditional/hypothetical word
+          ("if", "when", "whether", "suppose", "imagine") — the whole
+          sentence is framed as a what-if not a live correction.
+          Andrew 2026-07-11 catch: "if a shape is wrong" is
+          hypothetical about wrongness, not a claim that something IS
+          wrong.
+
+    Kills the false-positive classes named in prereg-55bcdb01e2fa without
+    weakening true-positive recall on straightforward corrections.
+    """
+    # (a) trailing question mark on the whole prompt
+    if text.rstrip().endswith("?"):
+        return True
+    # Find the sentence containing the match — start (walk back) and end
+    # (walk forward). Bounds the authorization + hypothetical checks so
+    # separate sentences don't cross-silence.
+    sent_start = 0
+    for sm in re.finditer(r"[.!?]\s+|\n\n", text[: match.start()]):
+        sent_start = sm.end()
+    sent_end = len(text)
+    end_search = re.search(r"[.!?]\s+|\n\n", text[match.end() :])
+    if end_search is not None:
+        sent_end = match.end() + end_search.start()
+    sentence_before = text[sent_start : match.start()]
+    sentence_full = text[sent_start:sent_end]
+    # (b) question-word at the start of the sentence containing the match
+    if _QUESTION_SENTENCE_START_RE.search(sentence_before):
+        return True
+    # (c) authorization phrasing anywhere in the sentence (pre OR post
+    # the trigger). Sentence-bounded so separate-sentence authorizations
+    # don't silence real corrections.
+    if _AUTHORIZATION_PRE_RE.search(sentence_full):
+        return True
+    # (d) conditional/hypothetical sentence start.
+    return bool(_HYPOTHETICAL_SENTENCE_START_RE.search(sentence_before))
+
+
+# External-agent-proximity backstop for WEAK matches (2026-07-07).
+# Corrections #113, #114, and 5+ deferred instances all fired on the
+# WEAK 'wrong' / 'thats not' patterns hitting third-party analytical
+# text (Aletheia's audit-relays, Aria's peer reviews) that survived
+# strip_relayed. The historical fix path was pattern demotion
+# (STRONG -> WEAK on 2026-06-23 for 'wrong', 2026-06-30 for
+# 'that's not' / 'you missed'), but WEAK matches still surface as
+# advise and land in Andrew-correction records, cluttering the surface.
+# This backstop returns None (no match at all) when a WEAK pattern
+# fires within a small window of a known external-agent name. Design
+# justification: those agents naturally use correction-shaped words as
+# design vocabulary; Andrew doesn't sign as them. STRONG patterns are
+# unaffected — an unambiguous correction from Andrew fires regardless
+# of what else the message names. Rare cost: if Andrew corrects me
+# WITH a WEAK pattern while naming Aletheia in the same message, the
+# correction is missed; he rephrases or uses a STRONG marker.
+_EXTERNAL_AGENT_NAME_RE = re.compile(
+    r"\b(?:aletheia|aria|grok|gemini|perplexity|marc|anvil|muse)\b",
+    re.IGNORECASE,
+)
+
+_EXTERNAL_AGENT_PROXIMITY_WINDOW = 200
+
+
+def _external_agent_near(text: str, match_start: int, match_end: int) -> bool:
+    """True if a known external-agent name appears within
+    _EXTERNAL_AGENT_PROXIMITY_WINDOW characters of the match span.
+
+    Backstop for relay content that survived strip_relayed — see comment
+    on _EXTERNAL_AGENT_NAME_RE above for design justification.
+    """
+    lo = max(0, match_start - _EXTERNAL_AGENT_PROXIMITY_WINDOW)
+    hi = min(len(text), match_end + _EXTERNAL_AGENT_PROXIMITY_WINDOW)
+    return _EXTERNAL_AGENT_NAME_RE.search(text[lo:hi]) is not None
+
 
 def _has_corrective_context(prior_text: str, prior_tool_calls: tuple[str, ...]) -> bool:
     """True if my prior turn was something a WEAK pattern could be correcting.
@@ -281,6 +441,26 @@ def classify_correction(
     weak_hit = _first_pattern_match(scan_text, WEAK_CORRECTION_PATTERNS)
     if weak_hit is not None:
         pattern, m = weak_hit
+        # Question / authorization guard (prereg-55bcdb01e2fa, built
+        # 2026-07-11). WEAK patterns fire on user questions and
+        # authorizations that carry the trigger token without correcting me:
+        #   "anything that doesnt need Aether?"         → question
+        #   "yes we can edit... that doesnt require..." → authorization
+        # See `_is_question_or_authorization` for the shape catalog. Kills
+        # the false-positive class the prereg names without weakening
+        # true-positive recall.
+        if _is_question_or_authorization(scan_text, m):
+            return None
+        # External-agent proximity backstop (2026-07-07). Corrections
+        # #113/#114 and 5+ deferred instances all fired on WEAK patterns
+        # matching third-party analytical text (Aletheia's audit-relays,
+        # Aria's peer reviews) that survived strip_relayed. If the WEAK
+        # match sits within a small window of a known external-agent
+        # name, treat as no match — that content is almost certainly
+        # quoted, not Andrew correcting me. STRONG patterns above are
+        # unaffected. See _EXTERNAL_AGENT_NAME_RE for full rationale.
+        if _external_agent_near(scan_text, m.start(), m.end()):
+            return None
         # Epistemic "that doesn't mean/imply/change/matter" is encouragement-
         # shaped and cannot evaluate my output — cap at advise even with
         # corrective context (Aletheia HOLD #85). Guard does NOT apply when
@@ -525,3 +705,70 @@ def format_gate_message(marker: dict) -> str:
         '--reason "<why CLI is broken + plan to log the correction after>" '
         "(>= 30 chars; logged to ~/.divineos/cli_broken_escapes.jsonl)."
     )
+
+
+def hook_main() -> int:
+    """Entry point for the UserPromptSubmit hook to call.
+
+    Reads UserPromptSubmit JSON from stdin, extracts the prior assistant
+    turn from the transcript, classifies the user's new prompt for
+    correction patterns, sets the gate-marker on block-tier matches,
+    prints an advisory to stdout on advise-tier matches (lands as
+    additional context for my next prompt), exits 0.
+
+    2026-06-30 Aether migration: moved out of the bash hook so the
+    convention can't drift. Hook is now a thin doorbell.
+
+    Fail-open on every error path — observational machinery, never
+    breaks the workflow.
+    """
+    import json
+    import sys
+
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+    except Exception:  # noqa: BLE001
+        return 0
+
+    prompt = data.get("prompt", "") or ""
+    if not prompt:
+        return 0
+
+    transcript = data.get("transcript_path", "") or ""
+    prior_text = ""
+    prior_calls: tuple[str, ...] = ()
+    if transcript:
+        try:
+            from divineos.core.operating_loop.turn_extraction import extract_turn
+
+            tt = extract_turn(transcript)
+            prior_text = tt.last_assistant_text or ""
+            prior_calls = tuple(tt.tool_calls_in_turn or ())
+        except Exception:  # noqa: BLE001
+            pass
+
+    try:
+        match = classify_correction(prompt, prior_text, prior_calls)
+    except Exception:  # noqa: BLE001
+        return 0
+    if match is None:
+        return 0
+
+    if match.verdict == "block":
+        try:
+            set_marker(prompt, match)
+        except Exception:  # noqa: BLE001
+            pass
+    elif match.verdict == "advise":
+        # Non-blocking advisory — surface to context without blocking the
+        # tool. UserPromptSubmit stdout becomes additional context for the
+        # next prompt.
+        print(
+            f"ADVISORY (correction-detector): {match.tier} pattern "
+            f"{match.pattern!r} matched {match.matched_text!r} at position "
+            f"{match.position}, but the prior turn does not look corrected "
+            "(no completion-claim, no substantive edit) - NOT blocking. If it "
+            "was a real correction, log it via: divineos learn"
+        )
+
+    return 0

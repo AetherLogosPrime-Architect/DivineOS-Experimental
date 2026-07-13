@@ -387,7 +387,100 @@ class TestEpistemicComplementGuard:
         )
 
 
-class TestEvidenceBearingReturn:
+class TestExternalAgentProximityBackstop:
+    """2026-07-07 fix for corrections #113/#114 and 5+ deferred instances:
+    WEAK patterns firing on quoted third-party analytical text (Aletheia's
+    audit-relays, Aria's peer reviews) that survived strip_relayed. Proximity
+    backstop returns None when a WEAK match sits within 200 chars of a known
+    external-agent name — that content is almost certainly quoted, not Andrew
+    correcting me."""
+
+    def test_weak_wrong_near_aletheia_returns_none(self) -> None:
+        # The exact motivating case from correction #113/#114 — Aletheia's
+        # audit text containing 'wrong' as design vocabulary, not a correction.
+        assert verdict_of("Aletheia noted that this was exactly the wrong time to swap") is None
+
+    def test_weak_wrong_near_aria_returns_none(self) -> None:
+        # Aria's peer review commonly uses 'wrong' as design analysis.
+        assert verdict_of("Aria's peer review said the constraint invariant is wrong") is None
+
+    def test_weak_wrong_no_external_agent_still_advises(self) -> None:
+        # The backstop is proximity-based; without an external agent name
+        # nearby, the existing WEAK-advise path fires as before.
+        assert verdict_of("that's wrong, redo it") == "advise"
+
+    def test_strong_pattern_near_aletheia_still_fires(self) -> None:
+        # STRONG patterns are unaffected — an unambiguous correction from
+        # Andrew fires regardless of what else the message names.
+        # 'this is wrong' is STRONG per STRONG_CORRECTION_PATTERNS;
+        # with substantive prior action it blocks per geometry-of-correction.
+        assert verdict_of("Aletheia agrees but this is wrong", "", ("Edit",)) == "block"
+
+    def test_weak_wrong_far_from_aletheia_still_advises(self) -> None:
+        # Proximity window is ~200 chars; an agent name far beyond that
+        # doesn't shield the WEAK match from advising.
+        prompt = "that's wrong, redo it. " + "filler " * 60 + "Aletheia said something."
+        assert verdict_of(prompt) == "advise"
+
+
+class TestQuestionAuthorizationGuard20260711:
+    """prereg-55bcdb01e2fa: WEAK correction-pattern context-awareness fix.
+
+    The three false-positive classes from the prereg — user QUESTIONS,
+    user AUTHORIZATIONS, and user STATEMENTS-OF-DESIRE that carry a WEAK
+    trigger token but aren't correcting me. Guard returns None (no match)
+    on those shapes; preserves true-positive recall on real corrections.
+    """
+
+    def test_weak_that_doesnt_in_question_returns_none(self) -> None:
+        # Prereg motivating example #1: "anything that doesnt need Aether?"
+        assert verdict_of("anything that doesnt need Aether?") is None
+
+    def test_weak_that_doesnt_in_authorization_returns_none(self) -> None:
+        # Prereg motivating example #2:
+        assert verdict_of("yes we can edit the kiln number that doesnt require an audit") is None
+
+    def test_weak_wrong_in_question_returns_none(self) -> None:
+        assert verdict_of("is that wrong or am I misreading it?") is None
+
+    def test_weak_wrong_in_authorization_returns_none(self) -> None:
+        assert verdict_of("yes lets fix whatever is wrong there") is None
+
+    def test_weak_thats_not_in_question_returns_none(self) -> None:
+        assert verdict_of("thats not right is it?") is None
+
+    def test_you_missed_in_authorization_returns_none(self) -> None:
+        # "you missed" (WEAK) inside an authorization construct. Avoid
+        # phrasings that trigger STRONG patterns higher up the ladder
+        # (e.g. "i wanted you to X" is itself a STRONG hit — separate
+        # concern; STRONG-tier question/authorization guard is not in
+        # this prereg's scope).
+        assert verdict_of("yes lets check whether you missed the flag") is None
+
+    def test_question_word_at_start_not_needing_trailing_qmark(self) -> None:
+        # "how does that..." starts with question-word — treat as question
+        # even if the sentence isn't punctuated with a trailing ?
+        assert verdict_of("how does that doesnt scan look to you") is None
+
+    # Recall preservation: real corrections still fire.
+
+    def test_real_weak_correction_still_advises(self) -> None:
+        assert verdict_of("that doesn't work") == "advise"
+
+    def test_real_weak_correction_with_prior_context_still_blocks(self) -> None:
+        # With substantive prior action, WEAK corrections still block.
+        assert verdict_of("that doesn't work", "", ("Edit",)) == "block"
+
+    def test_bare_wrong_correction_still_advises(self) -> None:
+        assert verdict_of("that's wrong") == "advise"
+
+    def test_authorization_shape_but_true_correction_still_advises(self) -> None:
+        # An authorization word appearing FAR from the trigger doesn't shield
+        # a real correction elsewhere in the message.
+        prompt = "yes lets do the refactor. also, your last change was wrong."
+        # 'lets do' is >50 chars before 'wrong' → not in authorization window
+        assert verdict_of(prompt) == "advise"
+
     """prereg-897aade9ef38 (Andrew 2026-06-19): every gate that accuses
     must provide evidence of its claim. classify_correction returns
     CorrectionMatch(verdict, pattern, matched_text, position, tier) so
@@ -441,7 +534,10 @@ class TestEvidenceBearingReturn:
     def test_pattern_field_captures_actual_regex(self) -> None:
         # The pattern field stores the regex that matched, verbatim. This is
         # what dismissals can cite: "pattern X over-fires on shape Y".
-        result = classify_correction("you missed the spec")
+        # Use \bnot what i\b as a stable STRONG-tier sample. (Prior sample
+        # \byou missed\b was demoted to WEAK on 2026-06-30 after repeated
+        # false-fires on Andrew's discursive use — see WEAK_CORRECTION_PATTERNS.)
+        result = classify_correction("not what i wanted")
         assert result is not None
         # The pattern must be one of the STRONG_CORRECTION_PATTERNS — caller
         # can use it to identify which specific pattern fired.
