@@ -174,6 +174,7 @@ class TestContextInjection:
                 arousal=0.7,
                 dominance=0.3,
                 description=f"frustration test {i}",
+                source="self_filed",
             )
 
         from divineos.core.communication_calibration import calibrate
@@ -197,6 +198,7 @@ class TestContextInjection:
                 arousal=0.4,
                 dominance=0.5,
                 description=f"neutral test {i}",
+                source="self_filed",
             )
 
         from divineos.core.communication_calibration import calibrate
@@ -219,6 +221,7 @@ class TestContextInjection:
                 arousal=0.8,
                 dominance=0.3,
                 description=f"mild frustration {i}",
+                source="self_filed",
             )
 
         from divineos.core.communication_calibration import calibrate

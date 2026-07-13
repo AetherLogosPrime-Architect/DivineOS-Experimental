@@ -52,7 +52,7 @@ class TestDescribeAffect:
 
 class TestGetRecentAffect:
     def test_returns_recent_entry(self):
-        log_affect(0.8, 0.6, description="focused")
+        log_affect(0.8, 0.6, description="focused", source="self_filed")
         result = get_recent_affect(within_seconds=60.0)
         assert result is not None
         assert result["valence"] == 0.8
@@ -62,14 +62,14 @@ class TestGetRecentAffect:
         assert get_recent_affect(within_seconds=60.0) is None
 
     def test_returns_none_when_too_old(self):
-        log_affect(0.5, 0.5, description="old")
+        log_affect(0.5, 0.5, description="old", source="self_filed")
         # Can't easily make it old, but within_seconds=0 should find nothing
         assert get_recent_affect(within_seconds=0.0) is None
 
 
 class TestAutoLinkAffectToDecision:
     def test_record_decision_auto_links_recent_affect(self):
-        log_affect(0.7, 0.8, description="energized")
+        log_affect(0.7, 0.8, description="energized", source="self_filed")
         decision_id = record_decision("Use SQLite for storage", reasoning="Simple and reliable")
 
         # The affect entry should now have linked_decision_id set
@@ -85,8 +85,8 @@ class TestAutoLinkAffectToDecision:
 
 class TestGetAffectAtDecision:
     def test_finds_closest_affect(self):
-        log_affect(0.3, 0.3, description="calm")
-        log_affect(0.9, 0.9, description="excited")
+        log_affect(0.3, 0.3, description="calm", source="self_filed")
+        log_affect(0.9, 0.9, description="excited", source="self_filed")
         decision_id = record_decision("Big choice", reasoning="Important")
 
         affect = get_affect_at_decision(decision_id)

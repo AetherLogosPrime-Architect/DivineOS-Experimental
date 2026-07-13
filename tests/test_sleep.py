@@ -891,7 +891,9 @@ class TestDryRunMatchesActual:
 
             init_affect_log()
             # Seed a recent affect entry
-            log_affect(valence=0.5, arousal=0.3, dominance=0.1, description="recent")
+            log_affect(
+                valence=0.5, arousal=0.3, dominance=0.1, description="recent", source="self_filed"
+            )
 
             # Preview does not raise
             from divineos.cli.sleep_commands import _preview_sleep_phases
