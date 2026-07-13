@@ -15,7 +15,7 @@ import time
 import uuid
 from typing import Any, cast
 
-from divineos.core.affect import _affect_row_to_dict, get_recent_affect, log_affect
+from divineos.core.affect import _affect_row_to_dict, get_recent_affect
 from divineos.core.memory import _get_connection
 
 # Weight thresholds for emotional significance
@@ -137,13 +137,14 @@ def record_decision(
     finally:
         conn.close()
 
-    # Auto-log affect at this decision point, then link it.
-    # Decisions are genuine moments of variation — the emotional weight
-    # gives us a real signal, not a retrospective guess.
+    # Link an existing recent affect entry to this decision if one exists.
+    # Do NOT fabricate an affect entry when none exists — per external audit
+    # F-VAD-2 (round-3d1bc259e5a5, 2026-07-12): constant weight→VAD lookup
+    # was writing plausible-looking constants into an evidentiary store and
+    # propagating them through vad_capture's snapshot. Null is honest.
     try:
         recent = get_recent_affect(within_seconds=300.0)
         if recent and not recent.get("linked_decision_id"):
-            # Link existing recent affect to this decision
             conn2 = _get_connection()
             try:
                 conn2.execute(

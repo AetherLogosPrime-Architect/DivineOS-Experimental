@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (402 commands across 82 modules)
+  cli/                         CLI package (406 commands across 82 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -76,6 +76,7 @@ src/divineos/
     auto_cycle_commands.py     auto-cycle status/fire/defer-check — CLI for phase 1 mechanical pre-compaction pipeline (Andrew 2026-07-10)
     doctor_commands.py         diagnostic verification (clone separation)
     bio_commands.py            Bio sheet — show, edit, history, write
+    wiring_commands.py         wiring dark — standing dark-node query over graphify-out-code/.graphify_ast.json; Aletheia E4 realized (2026-07-13)
     loadout_commands.py        loadout — show, refresh (cold-start substrate map)
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
@@ -584,9 +585,12 @@ src/divineos/
     auto_cycle.py              Auto-cycle phase 1 — mechanical pipeline before compaction.
     closure_verification.py    Closure-shape citation verification — the substance-binding mechanism.
     gate_emit.py               Gate-emit noise-suppression primitive (Aletheia audit finding #2).
+    wiring_dark.py             Standing dark-node query — reads graphify-out-code/.graphify_ast.json, reports in-degree-0 modules; powers `divineos wiring dark` and briefing surface (Aletheia E4, 2026-07-13).
     shape/
       __init__.py              Shape-primitive library — CONDITION-check helpers for keyword-based gates. See module docstring for the class-principle.
       primitives.py            Doorman shape-primitives: sentence_containing, is_hypothetical, is_inside_code_quote, is_peer_relayed, is_internal_observation.
+    subprocess_jobs.py         Windows Job Object subprocess wrapper — kernel-guaranteed parent-death-kills-children.
+    wiring_dark.py             Wiring dark-node query — the standing check Aletheia asked for.
 
   analysis/
     _session_types.py          Session analysis type definitions
