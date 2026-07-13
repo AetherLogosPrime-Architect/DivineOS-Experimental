@@ -176,7 +176,11 @@ def verify_briefing_id(presented: str, current_tool_count: int) -> tuple[bool, s
     return True, "Briefing-ID verified — freshness re-stamped."
 
 
-def is_fresh(current_tool_count: int, expiry: int = DEFAULT_EXPIRY_TOOLS) -> bool:
+def is_fresh(
+    current_tool_count: int,
+    expiry: int = DEFAULT_EXPIRY_TOOLS,
+    load_bearing: bool = False,
+) -> bool:
     """True if a valid briefing-ID was issued/verified within the last
     ``expiry`` tool-uses. False (challenge due) otherwise.
 
@@ -193,7 +197,40 @@ def is_fresh(current_tool_count: int, expiry: int = DEFAULT_EXPIRY_TOOLS) -> boo
     Per audit round-8524b60d9cf0. Composes with the exception-propagation
     fix in ``current_tool_count``: two independent barriers to the same
     spurious-fresh-pass class.
+
+    Aletheia audit 2026-07-13 (letter:
+    aletheia-to-aether-2026-07-13-is-fresh-bypass-the-third-hole.md):
+    the fast-path (disk-derived ``current_tool_count`` + disk-stored
+    ``verified_at_tool``) cannot detect a context wipe. A compaction that
+    lands INSIDE the freshness window is invisible to this function —
+    both inputs are unchanged on disk, ``is_fresh`` returns True, and
+    the ID challenge (the ONLY instrument in the system that can see a
+    compaction, because it lives only in context) is silently bypassed.
+
+    Her fix (Option B — surgical Toll Booth): keep the disk-fast-path
+    for trivial calls where friction is genuinely useless, but callers
+    firing on load-bearing acts (filing a finding, reporting an absence,
+    issuing a CONFIRM, writing to origin, any claim about substrate
+    state) MUST pass ``load_bearing=True``. When set, ``is_fresh``
+    returns False unconditionally, forcing the ID recall challenge and
+    catching any compaction inside the freshness window.
+
+    Toll Booth mapping: the ID recall is the toll. The freshness
+    fast-path is a coupon that waives the toll. Only the counterfeit
+    ever needs the coupon — the fresh caller can recall the ID
+    instantly; the stale caller cannot recall it at all.
+    ``load_bearing=True`` revokes the coupon exactly where waiving the
+    toll costs the most.
+
+    Discipline for future callers: any site that fires on a
+    load-bearing act above MUST pass ``load_bearing=True``. Default
+    False preserves back-compat for read-only surfaces
+    (``staleness_signal`` called from UserPromptSubmit hook injection,
+    informational HUD checks). Callers to update in a follow-up commit
+    once the standing external auditor slot exists to review the list.
     """
+    if load_bearing:
+        return False
     truth = _read_truth()
     if not truth or not truth.get("id_hash"):
         return False
