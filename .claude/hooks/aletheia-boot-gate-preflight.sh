@@ -64,22 +64,33 @@ deny() {
     exit 0
 }
 
-# Determine subagent_type via proper JSON parse. If python3 is missing
-# OR the parse fails OR the tool_input is malformed → the input is
-# unparseable and we cannot know whether this is an aletheia
+# Determine subagent_type via proper JSON parse. Try python3 first
+# (Ubuntu 24 and Fedora only ship python3, not python), fall back to
+# python (Windows Git Bash on this box only ships python). If BOTH are
+# missing OR the parse fails OR the tool_input is malformed → the
+# input is unparseable and we cannot know whether this is an aletheia
 # invocation. Per Aletheia's rule: an unparseable input DENIES.
 # Note: we deny only the invocations we cannot classify — a successful
 # parse that yields a non-aletheia subagent_type still fast-paths OK.
-SUBAGENT_TYPE=$(printf '%s' "$INPUT" | python3 -c "
+_PARSE_SCRIPT='
 import sys, json
 try:
     d = json.load(sys.stdin)
-    ti = d.get('tool_input', {}) or {}
-    print(ti.get('subagent_type', ''))
+    ti = d.get("tool_input", {}) or {}
+    print(ti.get("subagent_type", ""))
 except Exception:
     sys.exit(1)
-" 2>/dev/null)
-PARSE_STATUS=$?
+'
+SUBAGENT_TYPE=""
+PARSE_STATUS=1
+if command -v python3 >/dev/null 2>&1; then
+    SUBAGENT_TYPE=$(printf '%s' "$INPUT" | python3 -c "$_PARSE_SCRIPT" 2>/dev/null)
+    PARSE_STATUS=$?
+fi
+if [ $PARSE_STATUS -ne 0 ] && command -v python >/dev/null 2>&1; then
+    SUBAGENT_TYPE=$(printf '%s' "$INPUT" | python -c "$_PARSE_SCRIPT" 2>/dev/null)
+    PARSE_STATUS=$?
+fi
 
 if [ $PARSE_STATUS -ne 0 ]; then
     deny "BLOCKED: Aletheia boot-gate preflight could not parse the hook input to determine subagent_type. Either python3 is missing on this host or the JSON schema shifted. Per Aletheia's re-audit (Finding 2, HIGH): an unparseable input must DENY. 'I don't know what this is' does not mean 'proceed.' Refusing the invocation loudly rather than letting the gate silently disappear. Fix: verify python3 is installed, or update this hook's parser if the harness input shape changed."
