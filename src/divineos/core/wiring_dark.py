@@ -55,6 +55,17 @@ _EXCLUDED_LABEL_SUFFIXES = (
     "__init__.py",
 )
 
+# The concrete errors briefing_summary tolerates. Per the broad-exceptions
+# discipline (2026-05-07 audit): a module-level tuple, not a bare
+# `except Exception`. If a new failure mode appears, add it here explicitly.
+_BRIEFING_ERRORS = (
+    FileNotFoundError,
+    OSError,
+    ValueError,
+    json.JSONDecodeError,
+    KeyError,
+)
+
 
 # Module-level view. A "module" node in graphify's AST output is a node whose
 # label ends in .py — i.e. the file itself, not a function inside it. Function-
@@ -204,7 +215,7 @@ def briefing_summary(
         return ""
     try:
         graph = load_graph(graph_path)
-    except Exception:
+    except _BRIEFING_ERRORS:
         return ""
     result = find_dark(graph)
     state = load_state(state_path)
