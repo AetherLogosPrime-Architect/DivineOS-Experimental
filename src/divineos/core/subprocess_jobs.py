@@ -1,3 +1,12 @@
+# mypy: disable-error-code="attr-defined"
+# Rationale: this module uses Windows-only ctypes attributes (WinDLL, WinError,
+# get_last_error) inside `if _IS_WINDOWS:` guards. Linux CI's mypy doesn't see
+# those attributes on ctypes because they're platform-guarded there. Every
+# access below is already guarded at runtime; only the static-check needs the
+# silence. Alternative approaches (13 line-level ignores, sys.platform-narrow
+# refactor) were considered and rejected as either noisier or riskier for a
+# substrate-preservation hotfix. This file-level directive is scoped only to
+# attr-defined — all other type errors remain in scope.
 """Windows Job Object subprocess wrapper — kernel-guaranteed parent-death-kills-children.
 
 Root fix for orphan-child-process accumulation. `scripts/precommit.sh` and
