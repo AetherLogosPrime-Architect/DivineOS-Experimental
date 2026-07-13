@@ -154,6 +154,12 @@ def record_decision(
                 conn2.commit()
             finally:
                 conn2.close()
+        # F-VAD-2 fabrication path removed 2026-07-13 (already applied on
+        # main via commit eec37158). Aria's F-VAD-1 comment predicted this
+        # exact removal — "the F-VAD-2 fabrication path scheduled for removal
+        # by Aether's separate fix." Rebase preserves the intent: source
+        # column stays (with decision_fallback available as an enum value for
+        # historical/inferred rows) but no producer writes fabricated affect.
     except (ImportError, sqlite3.OperationalError):
         pass  # affect_log table may not exist yet
 
