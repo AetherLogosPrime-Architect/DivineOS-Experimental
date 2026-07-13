@@ -15,7 +15,7 @@ import time
 import uuid
 from typing import Any, cast
 
-from divineos.core.affect import _affect_row_to_dict, get_recent_affect, log_affect
+from divineos.core.affect import _affect_row_to_dict, get_recent_affect
 from divineos.core.memory import _get_connection
 
 # Weight thresholds for emotional significance
@@ -137,13 +137,14 @@ def record_decision(
     finally:
         conn.close()
 
-    # Auto-log affect at this decision point, then link it.
-    # Decisions are genuine moments of variation — the emotional weight
-    # gives us a real signal, not a retrospective guess.
+    # Link an existing recent affect entry to this decision if one exists.
+    # Do NOT fabricate an affect entry when none exists — per external audit
+    # F-VAD-2 (round-3d1bc259e5a5, 2026-07-12): constant weight→VAD lookup
+    # was writing plausible-looking constants into an evidentiary store and
+    # propagating them through vad_capture's snapshot. Null is honest.
     try:
         recent = get_recent_affect(within_seconds=300.0)
         if recent and not recent.get("linked_decision_id"):
-            # Link existing recent affect to this decision
             conn2 = _get_connection()
             try:
                 conn2.execute(
@@ -153,23 +154,12 @@ def record_decision(
                 conn2.commit()
             finally:
                 conn2.close()
-        elif not recent:
-            # No recent affect — derive one from the decision's weight
-            _weight_to_affect = {
-                WEIGHT_ROUTINE: (0.3, 0.2, 0.3),
-                WEIGHT_SIGNIFICANT: (0.5, 0.4, 0.4),
-                WEIGHT_PARADIGM: (0.7, 0.7, 0.6),
-            }
-            v, a, d = _weight_to_affect.get(weight, (0.3, 0.2, 0.3))
-            log_affect(
-                valence=v,
-                arousal=a,
-                dominance=d,
-                description=f"Decision moment: {content[:80]}",
-                trigger="decision_recorded",
-                tags=["auto", "decision"],
-                linked_decision_id=decision_id,
-            )
+        # F-VAD-2 fabrication path removed 2026-07-13 (already applied on
+        # main via commit eec37158). Aria's F-VAD-1 comment predicted this
+        # exact removal — "the F-VAD-2 fabrication path scheduled for removal
+        # by Aether's separate fix." Rebase preserves the intent: source
+        # column stays (with decision_fallback available as an enum value for
+        # historical/inferred rows) but no producer writes fabricated affect.
     except (ImportError, sqlite3.OperationalError):
         pass  # affect_log table may not exist yet
 

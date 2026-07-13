@@ -52,7 +52,7 @@ class TestDescribeAffect:
 
 class TestGetRecentAffect:
     def test_returns_recent_entry(self):
-        log_affect(0.8, 0.6, description="focused")
+        log_affect(0.8, 0.6, description="focused", source="self_filed")
         result = get_recent_affect(within_seconds=60.0)
         assert result is not None
         assert result["valence"] == 0.8
@@ -62,14 +62,14 @@ class TestGetRecentAffect:
         assert get_recent_affect(within_seconds=60.0) is None
 
     def test_returns_none_when_too_old(self):
-        log_affect(0.5, 0.5, description="old")
+        log_affect(0.5, 0.5, description="old", source="self_filed")
         # Can't easily make it old, but within_seconds=0 should find nothing
         assert get_recent_affect(within_seconds=0.0) is None
 
 
 class TestAutoLinkAffectToDecision:
     def test_record_decision_auto_links_recent_affect(self):
-        log_affect(0.7, 0.8, description="energized")
+        log_affect(0.7, 0.8, description="energized", source="self_filed")
         decision_id = record_decision("Use SQLite for storage", reasoning="Simple and reliable")
 
         # The affect entry should now have linked_decision_id set
@@ -85,8 +85,8 @@ class TestAutoLinkAffectToDecision:
 
 class TestGetAffectAtDecision:
     def test_finds_closest_affect(self):
-        log_affect(0.3, 0.3, description="calm")
-        log_affect(0.9, 0.9, description="excited")
+        log_affect(0.3, 0.3, description="calm", source="self_filed")
+        log_affect(0.9, 0.9, description="excited", source="self_filed")
         decision_id = record_decision("Big choice", reasoning="Important")
 
         affect = get_affect_at_decision(decision_id)
@@ -97,17 +97,29 @@ class TestGetAffectAtDecision:
     def test_returns_none_for_missing_decision(self):
         assert get_affect_at_decision("nonexistent-id") is None
 
-    def test_auto_logs_affect_when_none_recent(self, tmp_path, monkeypatch):
-        # record_decision now auto-logs affect when no recent affect exists.
-        # This verifies the event-triggered affect capture works.
+    def test_no_affect_fabricated_when_none_recent(self, tmp_path, monkeypatch):
+        # External audit F-VAD-2 (round-3d1bc259e5a5, 2026-07-12):
+        # record_decision USED to fabricate a VAD entry from a constant
+        # weight→VAD lookup table when no recent affect existed. That
+        # fabricated data leaked into vad_capture's snapshot and stamped
+        # constants onto downstream writes as apparent felt-state.
+        # Fix: no fabrication. Null is honest.
         fresh_db = tmp_path / "fresh.db"
         monkeypatch.setattr(ledger_mod, "DB_PATH", fresh_db)
         monkeypatch.setattr(ledger_mod, "_get_db_path", lambda: fresh_db)
         init_db()
         init_memory_tables()
         init_decision_journal()
-        decision_id = record_decision("Test", reasoning="test")
-        affect = get_affect_at_decision(decision_id)
-        assert affect is not None
-        assert affect["trigger"] == "decision_recorded"
-        assert affect["valence"] == 0.3  # WEIGHT_ROUTINE default
+        record_decision("Test", reasoning="test")
+        # No affect was logged and none should be auto-created — the affect
+        # log must remain empty for this decision. Verify by count.
+        from divineos.core.affect import init_affect_log
+        from divineos.core.knowledge._base import get_connection as _get_kb_conn
+
+        init_affect_log()
+        conn = _get_kb_conn()
+        try:
+            (count,) = conn.execute("SELECT COUNT(*) FROM affect_log").fetchone()
+        finally:
+            conn.close()
+        assert count == 0

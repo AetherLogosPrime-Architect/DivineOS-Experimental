@@ -178,6 +178,12 @@ def auto_log_session_affect(
             trigger=derived["trigger"],
             tags=["auto", "session-derived"],
             session_id=getattr(analysis, "session_id", "")[:12],
+            # F-VAD-1 (Aria 2026-07-12, per prereg-49130c8e7653): this path
+            # measures session behavioral signals (corrections, encouragements,
+            # frustrations from Andrew), not interior state. F-VAD-3 label
+            # sweep separately renames the *human-facing* description to
+            # "session weather"; source enum names the *provenance*.
+            source="session_derived",
         )
         return entry_id
     except (ImportError, TypeError, ValueError, KeyError, OSError) as e:

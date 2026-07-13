@@ -698,6 +698,9 @@ def register(cli: click.Group) -> None:
             clarity=clarity,
             pull=pull,
             presence=presence,
+            # F-VAD-1 (Aria 2026-07-12, per prereg-49130c8e7653): `divineos feel`
+            # is a direct-declaration channel — I am filing my own VAD as claim.
+            source="self_filed",
         )
         # Log as thinking query so engagement tracking picks it up
         from divineos.cli._helpers import _log_os_query

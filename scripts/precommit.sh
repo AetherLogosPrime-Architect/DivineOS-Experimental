@@ -99,7 +99,11 @@ fi
 STAGED_SRC=$(echo "$STAGED_PY" | grep '^src/' || true)
 if [ -n "$STAGED_SRC" ]; then
     echo "=== Mypy (whole src/divineos) ==="
-    if ! mypy src/divineos --ignore-missing-imports; then
+    # Wrapped in subprocess_jobs so mypy dies with parent (Job Object kill-on-close
+    # on Windows; process-group killpg on POSIX). Root fix for 2026-07-13 leak
+    # where mypy children survived parent bash death and ate ~900MB each. Per
+    # prereg-dae52c6ca269.
+    if ! python -m divineos.core.subprocess_jobs -- mypy src/divineos --ignore-missing-imports; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
