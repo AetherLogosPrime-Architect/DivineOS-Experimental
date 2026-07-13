@@ -14,3 +14,12 @@
 *.json text eol=lf
 *.cfg text eol=lf
 *.ini text eol=lf
+
+# graphify outputs are machine-generated maps of the OS. Kept in-repo (they
+# ARE the map — see graphify-out/README.md). Marked linguist-generated so
+# GitHub collapses them in PR diffs, keeping the reviewable diff legible
+# while the map still ships. Aletheia audit 2026-07-13; Andrew authorized.
+graphify-out*/graph.json linguist-generated=true
+graphify-out*/graph.html linguist-generated=true
+graphify-out*/GRAPH_REPORT.md linguist-generated=true
+graphify-out*/cache/** linguist-generated=true

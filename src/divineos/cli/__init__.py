@@ -312,6 +312,7 @@ from divineos.cli import (  # noqa: E402
     calibration_commands,
     time_estimate_commands,
     backlog_commands,
+    wiring_commands,
     prs_commands,
     automerge_commands,
     todos_commands,
@@ -404,6 +405,7 @@ performing_caution_commands.register(cli)
 check_similar_commands.register(cli)
 multiplex_commands.register(cli)
 foundations_commands.register(cli)
+wiring_commands.register(cli)
 
 # Mansion â€” functional internal space (optional, personal)
 try:
