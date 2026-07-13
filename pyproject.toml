@@ -1,0 +1,205 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "divineos"
+version = "1.0.0"
+description = "An operating system for AI agents — memory, continuity, accountability, and learning across sessions."
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.0.0",
+    "loguru>=0.7.0",
+    "ftfy>=6.0",
+    "numpy>=1.20",
+    "filelock>=3.0",  # core/push_orchestrator — cross-platform file lock for push serialization (works on Windows where flock is unavailable). Added 2026-06-24 with the divineos push CLI per prereg-a9ecf79d250d. CI caught the missing dep on PR #266 — local had filelock via another transitive install, CI didn't.
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.2.0",
+    "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",
+    "pytest-benchmark>=4.0",
+    "hypothesis>=6.0",
+    "mypy>=2.1",  # bumped 2026-06-22 from >=1.0 as part of the Python-3.12-floor bump — newer numpy stubs use PEP 695 `type` statement syntax, and combining a newer mypy with python_version=3.12 lets mypy parse them naturally. Caught by PR #251 (mypy-step failure across all CI jobs after the runner-image upgrade pulled in a newer numpy).
+    "ruff==0.15.5",  # pinned exact: ruff's formatter output varies across versions; an unpinned range let CI resolve a different ruff than local, producing spurious `ruff format --check` reds (PR #24, 2026-05-21). Bump deliberately + reformat the tree in the same commit.
+    "vulture>=2.0",
+    "bandit==1.9.4",  # pinned exact: bandit's B608 line-attribution shifted across 1.x (the reported line moved from the conn.execute() call to the f-string-construction line), which silently orphaned every `# nosec B608` by one line and failed the strict gate on unchanged code (2026-05-24). nosec placement is version-coupled; bump deliberately + re-verify suppressions land in the same commit.
+    "mutmut>=3.0",
+    "deptry>=0.20",  # scan code-imports vs pyproject deps; catches the "dirty venv has it via transitive, CI doesn't" silent-failure root (added 2026-06-24 per prereg-e05fb19ed93f after PR #266 burned on missing filelock).
+]
+# Fable 5 audit 2026-06-09: three modules import these but pyproject
+# never declared them, so `pip install divineos` produced a runtime
+# ImportError on any code path that touched them. Folded into an
+# optional extras group so they install via `pip install divineos[ml]`
+# while a minimal install stays lean.
+ml = [
+    "scikit-learn>=1.0",        # core/sis_tiers.py — TF-IDF + cosine similarity
+    "sentence-transformers>=2.0",  # core/sis_tiers.py + core/knowledge/_text.py
+    "sqlite-vec>=0.1.6",        # core/semantic_store.py — fast top-k vector search (replaces deprecated sqlite-vss; dependency-free C extension, sub-100ms at 100k vectors). Added 2026-06-11 for the semantic-similarity-primitive build per nightclub-frame correction.
+    "pillow-heif>=0.10",        # core/visual.py — HEIC/HEIF screenshot support
+]
+
+[project.scripts]
+divineos = "divineos.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "PLR2004",  # Magic value comparisons are acceptable in validation
+    "TRY300",  # Try/except/else patterns are acceptable
+    "TRY003",  # Long exception messages are acceptable
+    "PLC0415",  # Import-outside-top-level is acceptable for circular imports
+    "C901",    # Complex functions are acceptable for validation logic
+    "PLR0912", # Too many branches is acceptable for validation
+    "PLR0913", # Too many arguments is acceptable for complex operations
+    "PLR0911", # Too many return statements is acceptable
+    "PLR0915", # Too many statements is acceptable
+    # ARG001/ARG002 removed 2026-05-13 (Cluster A, stone-cold audit HIGH-1).
+    # Global suppression hid 18 dead parameters. Restore lint visibility;
+    # legitimate callback-uniform-signature uses get per-line
+    # `# noqa: ARG001 — orchestrator-callback signature` annotations so the
+    # reason lives at the call site, not silently at the global scope.
+    "E501",    # Formatter targets 100; remaining long lines are strings/SQL that can't auto-wrap
+    "FBT001",  # Boolean-typed positional arguments are acceptable
+    "FBT002",  # Boolean default positional arguments are acceptable
+    "ANN401",  # Dynamically typed expressions are acceptable
+    "PERF401", # Performance issues are acceptable
+    "EM102",   # Exception f-strings are acceptable
+    "PLW0603", # Global statement is acceptable
+    "D401",    # Docstring imperative mood is acceptable
+    "PERF203", # Try-except performance is acceptable
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+timeout = 30
+addopts = "--strict-markers"
+# xdist worker cap (--maxprocesses=16) is applied conditionally in
+# tests/conftest.py::pytest_configure so it only fires when xdist is
+# loaded. Putting it in addopts broke minimal envs without xdist —
+# Aletheia FLAG 2 (2026-07-02).
+
+[tool.coverage.run]
+source = ["divineos"]
+branch = true
+omit = [
+    "src/divineos/hooks/hook_diagnostics.py",
+    "src/divineos/integration/mcp_event_capture_server.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 75
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "pass",
+    "raise NotImplementedError",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+# Vulture (dead-code finder) — task #117. The CLI uses Click decorators
+# (@cli.command, @group.command, @click.option) which register functions
+# but never call them directly. Static analysis sees them as unused; a
+# cleanup pass deleting them would destroy the entire CLI. Same shape for
+# pytest fixtures, dataclass fields read via getattr/_safe_get, and Click
+# parameter callbacks. The ignore lists below close that class of false
+# positive. Genuine load-bearing-but-static-unused symbols go in
+# scripts/vulture_whitelist.py (one entry per name, with a comment naming
+# WHY the symbol is live).
+[tool.vulture]
+# Include the whitelist file in paths so vulture sees its symbol
+# references as "uses" — that's how vulture whitelists work: the file
+# is just Python that names the symbols, and being parsed alongside the
+# source clears the false positives.
+paths = ["src/divineos", "scripts/vulture_whitelist.py"]
+min_confidence = 80
+ignore_decorators = [
+    "@*.command",
+    "@*.group",
+    "@*.option",
+    "@*.argument",
+    "@*.pass_context",
+    "@click.*",
+    "@pytest.fixture",
+    "@pytest.mark.*",
+]
+# Names Vulture should treat as live without further evidence. Keep this
+# list short and reason-tagged in scripts/vulture_whitelist.py.
+ignore_names = [
+    "register",      # CLI module entry point — called from cli/__init__.py via getattr
+    "setUp",         # unittest lifecycle
+    "tearDown",      # unittest lifecycle
+    "_*",            # private-by-convention; many are used via reflection
+]
+
+[tool.mutmut]
+paths_to_mutate = "src/divineos/core/"
+tests_dir = "tests/"
+runner = "python -m pytest tests/ -q --tb=no -x"
+
+[tool.deptry]
+# 2026-06-24 per prereg-e05fb19ed93f. Catches the "code uses X but
+# pyproject doesn't declare X" silent-failure root that bit PR #266
+# on missing filelock (local venv had it via transitive install;
+# CI's clean install didn't).
+known_first_party = ["divineos"]
+extend_exclude = [
+    "benchmark",  # scratchpad — local imports (swe_harness, etc.) are by design
+    "bootcamp",   # training-exercise dir with intentional local-imports
+    "exploration",
+    "family/letters",
+]
+# Map distribution-name → import-name where they differ.
+[tool.deptry.package_module_name_map]
+pillow-heif = ["PIL", "pillow_heif"]
+# Per-rule ignores for legitimate transitive use — each entry has a reason.
+[tool.deptry.per_rule_ignores]
+# DEP002 = declared but not imported. These are dev TOOLS invoked via
+# subprocess from scripts/precommit.sh, not Python imports — deptry
+# can't see them as "used" but they're load-bearing.
+DEP002 = [
+    "mypy",
+    "ruff",
+    "vulture",
+    "bandit",
+    "mutmut",
+    "deptry",
+    "pytest",           # CLI runner used via subprocess; not imported directly
+    "pytest-asyncio",   # auto-loaded plugin
+    "pytest-timeout",   # auto-loaded plugin
+    "pytest-cov",       # auto-loaded plugin
+    "pytest-xdist",     # auto-loaded plugin
+    "pytest-benchmark", # auto-loaded plugin
+    "hypothesis",       # auto-loaded plugin via pytest entrypoints
+]
+# DEP003 = transitive dep used directly. These are intentional:
+DEP003 = [
+    "torch",        # CUDA detection in core/_embedding_device.py — transitive of sentence-transformers; declaring directly would couple us to a specific torch version we don't want to constrain
+    "win32api",     # Windows-only optional; pywin32 is in environment markers, not a direct dep
+    "win32event",   # Windows-only optional; pywin32
+    "winerror",     # Windows-only optional; pywin32
+    "whisper",      # scripts/video_tool.py — optional speech-to-text tool; the script gates on import availability so undeclared is correct
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true

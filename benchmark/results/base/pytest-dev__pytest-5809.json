@@ -1,0 +1,12 @@
+{
+  "instance_id": "pytest-dev__pytest-5809",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/src/_pytest/pastebin.py\n+++ b/src/_pytest/pastebin.py\n@@ -65,7 +65,7 @@ def create_new_paste(contents):\n     \"\"\"\n     import urllib.parse\n     import urllib.request\n \n     params = {\n-        \"code\": contents,\n-        \"lexer\": \"python3\",\n+        \"code\": contents,\n+        \"lexer\": \"text\",\n         \"expiry\": \"1week\",\n     }",
+  "thinking": null,
+  "input_tokens": 495,
+  "output_tokens": 125,
+  "elapsed_seconds": 3.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.00336
+}

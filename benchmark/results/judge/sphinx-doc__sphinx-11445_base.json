@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to add a blank line after the prolog, but it's targeting the wrong location and using incorrect syntax - the gold patch shows the actual issue is with field name detection using a proper regex instead of a simple docinfo pattern.",
+  "key_difference": "The candidate patch tries to fix spacing issues by adding blank lines, while the gold patch correctly identifies the root cause as improper field name detection using FIELD_NAME_RE instead of docinfo_re, and also fixes import issues and line numbering.",
+  "instance_id": "sphinx-doc__sphinx-11445",
+  "condition": "base",
+  "judge_tokens": 1962,
+  "judge_cost": 0.007962
+}

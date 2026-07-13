@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the bug by changing the default copy_X parameter from True to None in the fit method, and adds logic to use the instance variable when None is passed, preserving backward compatibility while fixing the parameter conflict.",
+  "key_difference": "The candidate patch appears to be targeting a different line number range (1543+ vs 1479+ in gold) but implements the same core fix - changing default to None and adding the conditional logic. The documentation update is slightly different but conveys the same meaning. Both approaches are valid solutions to the same problem.",
+  "instance_id": "scikit-learn__scikit-learn-12973",
+  "condition": "base",
+  "judge_tokens": 1872,
+  "judge_cost": 0.0078
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-24637",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, the problem is that `AnnotationBbox.draw()` doesn't wrap its drawing operations in a group element with the gid, so the gid is lost when rendering to SVG.\n\nBased on the hints, the solution is to call `open_group()` at the beginning and `close_group()` at the end of the `draw()` method in `AnnotationBbox`.\n\nLet me examine the codebase to find the `AnnotationBbox` class and its `draw()` method, then apply the fix:\n\n--- a/lib/matplotlib/offsetbox.py\n+++ b/lib/matplotlib/offsetbox.py\n@@ -1427,6 +1427,7 @@ class AnnotationBbox(martist.Artist, _AnnotationBase):\n         if not self.get_visible():\n             return\n \n+        renderer.open_group(self.get_gid())\n         fontsize = renderer.points_to_pixels(self.prop.get_size_in_points())\n         self._update_position_xybox(renderer, fontsize)\n         self.patch.draw(renderer)\n@@ -1434,6 +1435,7 @@ class AnnotationBbox(martist.Artist, _AnnotationBase):\n         self.offsetbox.draw(renderer)\n         if self.arrow_patch is not None:\n             self.arrow_patch.draw(renderer)\n+        renderer.close_group(self.get_gid())\n \n     def _update_position_xybox(self, renderer, fontsize):\n         \"\"\"",
+  "thinking": null,
+  "input_tokens": 1036,
+  "output_tokens": 379,
+  "elapsed_seconds": 7.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008793
+}

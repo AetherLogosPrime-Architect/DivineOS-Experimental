@@ -1,0 +1,990 @@
+"""Knowledge Maintenance — contradiction detection, hygiene cleanup, and maturity promotion.
+
+This module consolidates three knowledge lifecycle operations:
+
+1. **Contradiction Detection**: Finds and resolves conflicting knowledge entries.
+   When new knowledge is stored, scans existing same-type entries for contradictions
+   via word overlap and negation markers.
+
+2. **Knowledge Hygiene**: Periodic cleanup of the knowledge store. Re-runs noise
+   filters on existing entries, decays stale temporal entries, and flags orphans
+   that were never accessed.
+
+3. **Maturity Lifecycle**: Promotes knowledge through trust levels
+   (RAW -> HYPOTHESIS -> TESTED -> CONFIRMED) based on corroboration counts
+   and validity gates.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+import time
+from dataclasses import dataclass
+from typing import Any
+
+from loguru import logger
+
+from divineos.core.knowledge import (
+    _KNOWLEDGE_COLS,
+    _get_connection,
+    _row_to_dict,
+)
+from divineos.core.knowledge._text import (
+    _compute_stemmed_overlap,
+    _has_prescriptive_signal,
+    _has_temporal_markers,
+    _is_extraction_noise,
+    _stemmed_word_set,
+)
+from divineos.core.knowledge import get_connection
+from divineos.core.knowledge.crud import link_supersession
+
+from divineos.core.constants import (
+    CONFIDENCE_DEMOTE_CAP,
+    CONFIDENCE_ORPHAN_DEMOTE,
+    CONFIDENCE_SUPERSEDE_FLOOR,
+    DECAY_FLOOR,
+    DECAY_MODERATE,
+    DECAY_STANDARD,
+    HYGIENE_MIN_AGE_DAYS,
+    HYGIENE_ORPHAN_MIN_AGE_DAYS,
+    HYGIENE_STALE_AGE_DAYS,
+    MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
+    MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+    MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
+    MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION,
+    MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+    MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+    OVERLAP_DUPLICATE,
+    OVERLAP_NEAR_IDENTICAL,
+    OVERLAP_STRONG,
+    SECONDS_PER_DAY,
+)
+
+
+# ─── Contradiction Detection ────────────────────────────────────────────────
+
+
+@dataclass
+class ContradictionMatch:
+    """A detected contradiction between new and existing knowledge."""
+
+    existing_id: str
+    existing_content: str
+    overlap_score: float
+    negation_detected: bool
+    contradiction_type: str  # "TEMPORAL", "DIRECT", "SUPERSESSION"
+
+
+# Words that signal a state change or negation
+_NEGATION_MARKERS = {
+    "not",
+    "never",
+    "no longer",
+    "was fixed",
+    "now fixed",
+    "resolved",
+    "no",
+    "dont",
+    "don't",
+    "doesn't",
+    "cannot",
+    "isn't",
+    "wasn't",
+    "shouldn't",
+    "won't",
+    "removed",
+    "deprecated",
+    "obsolete",
+}
+
+# Words that signal temporal change
+_TEMPORAL_MARKERS = {
+    "was",
+    "used to",
+    "previously",
+    "before",
+    "now",
+    "currently",
+    "updated",
+    "changed",
+    "fixed",
+    "resolved",
+    "no longer",
+}
+
+
+def _has_negation(text: str) -> bool:
+    """Check if text contains negation markers."""
+    text_lower = text.lower()
+    return any(marker in text_lower for marker in _NEGATION_MARKERS)
+
+
+def _has_temporal_change(text: str) -> bool:
+    """Check if text references a state change over time."""
+    text_lower = text.lower()
+    count = sum(1 for marker in _TEMPORAL_MARKERS if marker in text_lower)
+    return count >= 2  # need at least 2 temporal markers to signal real change
+
+
+def _classify_contradiction(
+    new_content: str,
+    existing_content: str,
+    overlap: float,
+) -> str | None:
+    """Classify the type of contradiction, if any.
+
+    Returns contradiction type or None if no contradiction detected.
+    """
+    new_has_negation = _has_negation(new_content)
+    existing_has_negation = _has_negation(existing_content)
+    new_temporal = _has_temporal_change(new_content)
+    existing_temporal = _has_temporal_change(existing_content)
+
+    # High overlap with different negation states = contradiction
+    if overlap >= OVERLAP_STRONG:
+        # Temporal: one references past state, other references current
+        if new_temporal or existing_temporal:
+            return "TEMPORAL"
+
+        # Direct: same topic but opposing claims (one negated, other not)
+        if new_has_negation != existing_has_negation:
+            return "DIRECT"
+
+        # Very high overlap = likely supersession (updated version)
+        if overlap >= OVERLAP_NEAR_IDENTICAL:
+            return "SUPERSESSION"
+
+    return None
+
+
+def scan_for_contradictions(
+    new_content: str,
+    new_type: str,
+    existing_entries: list[dict[str, Any]],
+) -> list[ContradictionMatch]:
+    """Scan existing entries for contradictions with new content.
+
+    Args:
+        new_content: the content being stored
+        new_type: knowledge type of the new entry
+        existing_entries: list of existing knowledge dicts (same type)
+
+    Returns:
+        List of ContradictionMatch objects for each detected contradiction.
+    """
+    matches: list[ContradictionMatch] = []
+    new_words = _stemmed_word_set(new_content)
+
+    for entry in existing_entries:
+        # Only compare same-type entries
+        if entry.get("knowledge_type") != new_type:
+            continue
+
+        # Skip superseded entries
+        if entry.get("superseded_by"):
+            continue
+
+        existing_words = _stemmed_word_set(entry.get("content", ""))
+        overlap = _compute_stemmed_overlap(new_words, existing_words)
+
+        if overlap < OVERLAP_DUPLICATE:
+            continue
+
+        contradiction_type = _classify_contradiction(new_content, entry.get("content", ""), overlap)
+
+        if contradiction_type:
+            matches.append(
+                ContradictionMatch(
+                    existing_id=entry["knowledge_id"],
+                    existing_content=entry.get("content", ""),
+                    overlap_score=overlap,
+                    negation_detected=_has_negation(new_content)
+                    or _has_negation(entry.get("content", "")),
+                    contradiction_type=contradiction_type,
+                )
+            )
+
+    return matches
+
+
+def increment_contradiction_count(knowledge_id: str) -> None:
+    """Increment the contradiction_count for a knowledge entry."""
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "UPDATE knowledge SET contradiction_count = contradiction_count + 1, updated_at = ? WHERE knowledge_id = ?",
+            (time.time(), knowledge_id),
+        )
+        conn.commit()
+        logger.debug(f"Incremented contradiction_count for {knowledge_id[:12]}")
+    finally:
+        conn.close()
+
+
+# Stickiness gradient: maturity-tier bonuses for evidence-weighted decay.
+# A CONFIRMED entry has stronger evidence than a RAW one and should resist
+# single contradictions proportionally. Pre-reg: prereg-ea92c8aeb142.
+_MATURITY_EVIDENCE_BONUS = {
+    "RAW": 0.0,
+    "HYPOTHESIS": 0.5,
+    "TESTED": 1.0,
+    "CONFIRMED": 2.0,
+}
+
+# Per-corroboration evidence weight contribution (caps the impact of
+# many small corroborations vs a single big maturity tier).
+_CORROBORATION_WEIGHT = 0.1
+
+
+def _evidence_weight(entry_id: str) -> float:
+    """Compute an evidence-strength multiplier for an entry.
+
+    Returns a non-negative float. Higher = better-established. Used to
+    scale contradiction-resolution penalties: well-established entries
+    take smaller hits and need proportionally more contradicting
+    evidence to be overturned.
+
+    Combines two signals:
+      - corroboration_count: cumulative independent confirmations
+      - maturity tier: RAW < HYPOTHESIS < TESTED < CONFIRMED
+
+    The maturity bonus dominates for short-lived entries; the
+    corroboration term grows for long-lived ones. Both contribute.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT corroboration_count, maturity FROM knowledge WHERE knowledge_id = ?",
+            (entry_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return 0.0
+
+    corroboration_count = float(row[0] or 0)
+    maturity = (row[1] or "RAW").upper()
+
+    return corroboration_count * _CORROBORATION_WEIGHT + _MATURITY_EVIDENCE_BONUS.get(maturity, 0.0)
+
+
+def resolve_contradiction(
+    new_id: str,
+    match: ContradictionMatch,
+) -> None:
+    """Resolve a detected contradiction based on its type.
+
+    - TEMPORAL: supersede the old entry (new state replaces old).
+      Time genuinely is counter-evidence; no stickiness gradient applied.
+    - DIRECT: flag both, reduce confidence on old. The reduction is
+      *evidence-weighted* — well-established entries (high corroboration,
+      high maturity tier) take proportionally smaller hits, so single
+      contradictions don't wipe out load-bearing knowledge. EWC analog.
+    - SUPERSESSION: supersede old with new. Explicit signal that the
+      new is meant to replace the old; gradient does not apply.
+    """
+    increment_contradiction_count(match.existing_id)
+
+    if match.contradiction_type in ("TEMPORAL", "SUPERSESSION"):
+        # Audit r9-21 #4: was supersede_knowledge with the successor only
+        # in the reason string — link_supersession actually stores the
+        # successor UUID in the superseded_by field.
+        link_supersession(
+            match.existing_id,
+            new_id,
+            reason=f"Superseded by {new_id[:12]} ({match.contradiction_type})",
+        )
+        logger.info(
+            f"Resolved {match.contradiction_type}: {match.existing_id[:12]} superseded by {new_id[:12]}"
+        )
+    elif match.contradiction_type == "DIRECT":
+        # Stickiness gradient: scale decay by evidence weight.
+        # decay = DECAY_MODERATE / (1 + evidence_weight)
+        # RAW + corrob=0:  hit = DECAY_MODERATE (no resistance)
+        # CONFIRMED + corrob=10:  hit ≈ DECAY_MODERATE / 4 (quarter-strength)
+        # Pre-reg: prereg-ea92c8aeb142 (review in 30 days).
+        evidence = _evidence_weight(match.existing_id)
+        scaled_decay = DECAY_MODERATE / (1.0 + evidence)
+
+        conn = _get_connection()
+        try:
+            conn.execute(
+                "UPDATE knowledge SET confidence = MAX(?, confidence - ?), updated_at = ? WHERE knowledge_id = ?",
+                (DECAY_FLOOR, scaled_decay, time.time(), match.existing_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        logger.info(
+            f"Resolved DIRECT contradiction: lowered confidence on "
+            f"{match.existing_id[:12]} (evidence={evidence:.2f}, "
+            f"decay={scaled_decay:.3f} vs base {DECAY_MODERATE})"
+        )
+
+
+# ─── Knowledge Hygiene ──────────────────────────────────────────────────────
+
+
+def run_knowledge_hygiene(
+    demote_noise: bool = True,
+    decay_stale: bool = True,
+    flag_orphans: bool = True,
+    min_age_days: float = HYGIENE_MIN_AGE_DAYS,
+    stale_age_days: float = HYGIENE_STALE_AGE_DAYS,
+    orphan_min_age_days: float = HYGIENE_ORPHAN_MIN_AGE_DAYS,
+) -> dict[str, Any]:
+    """Run all hygiene operations on the knowledge store.
+
+    Returns a report of actions taken.
+    """
+    report: dict[str, Any] = {
+        "noise_demoted": 0,
+        "noise_superseded": 0,
+        "stale_decayed": 0,
+        "stale_superseded": 0,
+        "orphans_flagged": 0,
+        "reaped": 0,
+        "entries_scanned": 0,
+        "details": [],
+    }
+
+    conn = _get_connection()
+    try:
+        # Include ALL non-superseded entries so the reaper can see dead ones.
+        # Previous code used CONFIDENCE_RETRIEVAL_FLOOR (0.2) which hid the
+        # very entries that need to be reaped.
+        rows = conn.execute(
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "  # nosec B608: table/column names from module constants; values parameterized
+            "WHERE superseded_by IS NULL "
+            "ORDER BY updated_at DESC",
+        ).fetchall()
+        entries = [_row_to_dict(row) for row in rows]
+        report["entries_scanned"] = len(entries)
+    finally:
+        conn.close()
+
+    now = time.time()
+    cutoff = now - (min_age_days * SECONDS_PER_DAY)
+
+    if demote_noise:
+        noise_report = _audit_types(entries, cutoff)
+        report["noise_demoted"] = noise_report["demoted"]
+        report["noise_superseded"] = noise_report["superseded"]
+        report["details"].extend(noise_report["details"])
+
+    if decay_stale:
+        stale_report = _sweep_stale(entries, now, stale_age_days)
+        report["stale_decayed"] = stale_report["decayed"]
+        report["stale_superseded"] = stale_report.get("superseded", 0)
+        report["details"].extend(stale_report["details"])
+
+    if flag_orphans:
+        orphan_report = _flag_orphans(entries, now, orphan_min_age_days)
+        report["orphans_flagged"] = orphan_report["flagged"]
+        report["details"].extend(orphan_report["details"])
+
+    # Final reaper — supersede entries stuck below the confidence floor.
+    # Runs after all other operations so entries that just got decayed
+    # this cycle get one more chance before being reaped next cycle.
+    reaper_report = _reap_dead_entries(entries)
+    report["reaped"] = reaper_report["reaped"]
+    report["details"].extend(reaper_report["details"])
+
+    return report
+
+
+def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]:
+    """Re-run noise filter on existing entries.
+
+    Entries that would be rejected by today's filter get superseded
+    (if pure noise) or demoted to OBSERVATION (if they have some value
+    but claimed too high a type).
+    """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
+    result: dict[str, Any] = {"demoted": 0, "superseded": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
+    conn = _get_connection()
+
+    try:
+        for entry in entries:
+            kid = entry["knowledge_id"]
+            ktype = entry.get("knowledge_type", "")
+            content = entry.get("content", "")
+            created = entry.get("created_at", 0)
+
+            # Constraint-tier types are categorically exempt from hygiene
+            # deletion. DIRECTIVE (imperative), BOUNDARY (hard-limit), and
+            # PRINCIPLE (foundational) all encode load-bearing constraints
+            # whose false-positive-cost is catastrophic. Fable audit round 5
+            # (2026-07-02) confirmed BOUNDARY entries like "the append-only
+            # ledger is sacred" were being marked noise-superseded 24h after
+            # creation because they lacked prescriptive keywords. The
+            # categorical fix matches Round 2's ranking asymmetry: same three
+            # types protected at ranking, deletion, and orphan-flagging paths.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
+                continue
+            # Don't touch recent entries — give them time to prove value
+            if created > cutoff:
+                continue
+            # Don't touch high-corroboration entries — they proved useful
+            if entry.get("corroboration_count", 0) >= 3:
+                continue
+            # Don't touch pinned entries (pin lives in active_memory,
+            # not on the knowledge row — check membership, not a field)
+            if kid in pinned_ids:
+                continue
+
+            # Would today's filter reject this?
+            if _is_extraction_noise(content, ktype):
+                # Pure noise — supersede it
+                conn.execute(
+                    "UPDATE knowledge SET superseded_by = 'hygiene-audit', "
+                    "confidence = 0.1 WHERE knowledge_id = ?",
+                    (kid,),
+                )
+                result["superseded"] += 1
+                result["details"].append(f"Superseded {ktype}: {content[:60]}...")
+                continue
+
+            # PRINCIPLE/BOUNDARY without prescriptive signal — demote
+            if ktype in ("PRINCIPLE", "BOUNDARY"):
+                content_lower = content.lower()
+                if not _has_prescriptive_signal(content_lower):
+                    conn.execute(
+                        "UPDATE knowledge SET knowledge_type = 'OBSERVATION', "
+                        "confidence = CASE WHEN confidence > ? THEN ? ELSE confidence END "
+                        "WHERE knowledge_id = ?",
+                        (CONFIDENCE_DEMOTE_CAP, CONFIDENCE_DEMOTE_CAP, kid),
+                    )
+                    result["demoted"] += 1
+                    result["details"].append(f"Demoted to OBSERVATION: {content[:60]}...")
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
+def _sweep_stale(
+    entries: list[dict[str, Any]], now: float, stale_age_days: float
+) -> dict[str, Any]:
+    """Decay confidence on entries with temporal markers that are old.
+
+    Entries that have already decayed to the floor get superseded —
+    they've had their chance and the temporal language is now stale.
+    This prevents infinite limbo where entries sit at the floor forever.
+    """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
+    result: dict[str, Any] = {"decayed": 0, "superseded": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
+    conn = _get_connection()
+    stale_cutoff = now - (stale_age_days * SECONDS_PER_DAY)
+
+    try:
+        for entry in entries:
+            kid = entry["knowledge_id"]
+            ktype = entry.get("knowledge_type", "")
+            content = entry.get("content", "")
+            updated = entry.get("updated_at", 0)
+            confidence = entry.get("confidence", 0.5)
+
+            # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) are
+            # categorically exempt — see _audit_types for full reasoning.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
+                continue
+            # Only touch old entries with temporal markers
+            if updated > stale_cutoff:
+                continue
+            if not _has_temporal_markers(content):
+                continue
+            # Don't touch pinned or corroborated entries (pin lives in
+            # active_memory — check membership, not a field on the row)
+            if kid in pinned_ids or entry.get("corroboration_count", 0) >= 2:
+                continue
+
+            # Already at or below floor — this entry has been decayed before
+            # and is now stale. Supersede it instead of leaving it in limbo.
+            if confidence <= DECAY_FLOOR:
+                conn.execute(
+                    "UPDATE knowledge SET superseded_by = 'temporal-stale', "
+                    "confidence = 0.1 WHERE knowledge_id = ?",
+                    (kid,),
+                )
+                result["superseded"] += 1
+                result["details"].append(
+                    f"Superseded temporal ({confidence:.1f}): {content[:60]}..."
+                )
+                continue
+
+            new_confidence = max(confidence - DECAY_STANDARD, DECAY_FLOOR)
+            conn.execute(
+                "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
+                (new_confidence, kid),
+            )
+            result["decayed"] += 1
+            result["details"].append(
+                f"Decayed ({confidence:.1f}->{new_confidence:.1f}): {content[:60]}..."
+            )
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
+def _flag_orphans(entries: list[dict[str, Any]], now: float, min_age_days: float) -> dict[str, Any]:
+    """Flag entries that were never accessed and are old enough to judge.
+
+    Two guards protect against false-flagging foundational knowledge:
+
+    1. Age gate: entries newer than `min_age_days` are too fresh to judge.
+       A seed entry loaded today hasn't had a chance to earn access yet.
+       Without this gate, `_flag_orphans` was silently demoting fresh
+       seed entries to half-confidence the same day they loaded.
+
+    2. Source gate: INHERITED entries (the seed) are constitutional —
+       not extracted claims. They're baseline knowledge the agent is
+       born with, and silence isn't evidence of obsolescence. If a
+       seed entry becomes wrong, the contradiction/supersession
+       machinery handles it through evidence, not through neglect.
+    """
+    cutoff = now - (min_age_days * SECONDS_PER_DAY)
+    logger.debug(
+        "Orphan scan: min_age_days=%.1f, entries=%d",
+        min_age_days,
+        len(entries),
+    )
+    result: dict[str, Any] = {"flagged": 0, "details": []}
+    conn = _get_connection()
+
+    try:
+        for entry in entries:
+            kid = entry["knowledge_id"]
+            ktype = entry.get("knowledge_type", "")
+            content = entry.get("content", "")
+            access_count = entry.get("access_count", 0)
+            corroboration = entry.get("corroboration_count", 0)
+            source = entry.get("source", "")
+            created = entry.get("created_at", 0)
+
+            # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) are
+            # categorically exempt — see _audit_types for full reasoning.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE"):
+                continue
+            # Seed knowledge is constitutional, not an extracted claim
+            if source == "INHERITED":
+                continue
+            # Too new to judge — give it time to earn access
+            if created > cutoff:
+                continue
+            # Only flag entries that have never been accessed or corroborated
+            if access_count >= 2 or corroboration >= 1:
+                continue
+
+            # Demote orphaned entries to low confidence
+            confidence = entry.get("confidence", CONFIDENCE_ORPHAN_DEMOTE)
+            if confidence > CONFIDENCE_ORPHAN_DEMOTE:
+                new_confidence = CONFIDENCE_ORPHAN_DEMOTE
+                conn.execute(
+                    "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
+                    (new_confidence, kid),
+                )
+                result["flagged"] += 1
+                result["details"].append(f"Orphan ({access_count} accesses): {content[:60]}...")
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
+def _reap_dead_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Supersede entries stuck below the supersede floor.
+
+    This is the final safety net: entries that have been penalized by noise
+    filters, temporal decay, or orphan demotion — and ended up below
+    CONFIDENCE_SUPERSEDE_FLOOR — are dead weight. They're invisible to
+    briefings (below retrieval floor) but still consume space and get
+    re-scanned every sleep cycle without resolution.
+
+    Superseding them breaks the infinite loop.
+    """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
+    result: dict[str, Any] = {"reaped": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
+    conn = _get_connection()
+
+    try:
+        for entry in entries:
+            kid = entry["knowledge_id"]
+            ktype = entry.get("knowledge_type", "")
+            content = entry.get("content", "")
+            confidence = entry.get("confidence", 0.5)
+
+            # Constraint-tier types (DIRECTIVE/BOUNDARY/PRINCIPLE) and pinned
+            # entries are sacred. Pin lives in active_memory, so check
+            # membership (not a row field). See _audit_types for the
+            # categorical-exemption reasoning across all four hygiene paths.
+            if ktype in ("DIRECTIVE", "BOUNDARY", "PRINCIPLE") or kid in pinned_ids:
+                continue
+            # Already superseded — skip
+            if entry.get("superseded_by"):
+                continue
+            # Only reap entries below the supersede floor
+            if confidence > CONFIDENCE_SUPERSEDE_FLOOR:
+                continue
+
+            conn.execute(
+                "UPDATE knowledge SET superseded_by = 'hygiene-reaper' WHERE knowledge_id = ?",
+                (kid,),
+            )
+            result["reaped"] += 1
+            result["details"].append(f"Reaped ({confidence:.2f}): {content[:60]}...")
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
+def format_hygiene_report(report: dict[str, Any]) -> str:
+    """Format hygiene report for display."""
+    lines = [f"Knowledge Hygiene Report ({report['entries_scanned']} entries scanned):"]
+
+    if report["noise_demoted"]:
+        lines.append(f"  Demoted {report['noise_demoted']} noisy entries to OBSERVATION")
+    if report["noise_superseded"]:
+        lines.append(f"  Superseded {report['noise_superseded']} pure noise entries")
+    if report.get("stale_decayed"):
+        lines.append(f"  Decayed {report['stale_decayed']} stale entries with temporal markers")
+    if report.get("stale_superseded"):
+        lines.append(f"  Superseded {report['stale_superseded']} stale temporal entries (at floor)")
+    if report["orphans_flagged"]:
+        lines.append(f"  Flagged {report['orphans_flagged']} orphan entries (never accessed)")
+    if report.get("reaped"):
+        lines.append(f"  Reaped {report['reaped']} dead entries (below confidence floor)")
+
+    total = (
+        report["noise_demoted"]
+        + report["noise_superseded"]
+        + report.get("stale_decayed", 0)
+        + report.get("stale_superseded", 0)
+        + report["orphans_flagged"]
+        + report.get("reaped", 0)
+    )
+    if total == 0:
+        lines.append("  Knowledge store is clean. No action needed.")
+
+    if report["details"]:
+        lines.append("")
+        lines.append("Details:")
+        for detail in report["details"][:20]:
+            lines.append(f"  {detail}")
+        if len(report["details"]) > 20:
+            lines.append(f"  ... and {len(report['details']) - 20} more")
+
+    return "\n".join(lines)
+
+
+# ─── Maturity Lifecycle ─────────────────────────────────────────────────────
+
+
+# Promotion rules: (from_maturity, min_corroboration, min_confidence) -> to_maturity
+# Confidence floors prevent noise-penalized entries from being promoted
+# by inflated corroboration counts from the old feedback loop era.
+_PROMOTION_RULES: list[tuple[str, int, float, str]] = [
+    (
+        "RAW",
+        MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION,
+        MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
+        "HYPOTHESIS",
+    ),
+    (
+        "HYPOTHESIS",
+        MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+        MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
+        "TESTED",
+    ),
+    (
+        "TESTED",
+        MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+        MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+        "CONFIRMED",
+    ),
+]
+
+
+def check_promotion(entry: dict[str, Any]) -> str | None:
+    """Check if an entry qualifies for maturity promotion.
+
+    Returns the new maturity level, or None if no promotion is warranted.
+    """
+    current = entry.get("maturity", "RAW")
+    corroboration = entry.get("corroboration_count", 0)
+    confidence = entry.get("confidence", 0.5)
+
+    for from_level, min_corrob, min_conf, to_level in _PROMOTION_RULES:
+        if current == from_level and corroboration >= min_corrob and confidence >= min_conf:
+            return to_level
+
+    return None
+
+
+def _passes_validity_gate(
+    knowledge_id: str, current: str, target: str, corroboration_count: int = 0
+) -> bool:
+    """Check if the validity gate allows this promotion.
+
+    Fails gracefully if logic tables aren't initialized yet.
+    """
+    try:
+        from divineos.core.logic.logic_validation import can_promote
+
+        return can_promote(knowledge_id, current, target, corroboration_count)
+    except ImportError:
+        # Logic module not deployed yet — allow promotion (backward compat).
+        return True
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e).lower():
+            # Logic tables not created yet — the documented backward-compat
+            # case — allow promotion.
+            return True
+        # A real DB error (locked, corrupt, etc.). Finding X (Aletheia audit
+        # 2026-05-20): a validity GATE must fail CLOSED, not open. Denying a
+        # promotion on uncertain validity is safe; allowing one is the bug.
+        logger.warning(
+            f"validity gate DB error for {knowledge_id} ({current}->{target}); "
+            f"denying promotion (fail-closed): {e}"
+        )
+        return False
+    except (KeyError, TypeError, ValueError, OSError) as e:
+        # A bug IN can_promote (bad key/type/value) or an IO error — not the
+        # not-deployed case. Finding X: fail CLOSED + log so validity-logic
+        # bugs become visible instead of silently allowing promotion.
+        logger.warning(
+            f"validity gate logic error for {knowledge_id} ({current}->{target}); "
+            f"denying promotion (fail-closed): {e}"
+        )
+        return False
+
+
+def promote_maturity(knowledge_id: str) -> str | None:
+    """Check and apply maturity promotion for a knowledge entry.
+
+    Both corroboration AND validity gates must pass.
+    Returns the new maturity level if promoted, None otherwise.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT maturity, corroboration_count, confidence FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
+            (knowledge_id,),
+        ).fetchone()
+        if not row:
+            return None
+
+        entry = {
+            "maturity": row[0],
+            "corroboration_count": row[1],
+            "confidence": row[2],
+        }
+
+        new_maturity = check_promotion(entry)
+        if not new_maturity:
+            return None
+
+        # Second gate: warrant-based validity
+        if not _passes_validity_gate(
+            knowledge_id, entry["maturity"], new_maturity, entry["corroboration_count"]
+        ):
+            logger.debug(
+                "Validity gate blocked promotion of {}: {} -> {}",
+                knowledge_id[:12],
+                entry["maturity"],
+                new_maturity,
+            )
+            return None
+
+        conn.execute(
+            "UPDATE knowledge SET maturity = ?, updated_at = ? WHERE knowledge_id = ?",
+            (new_maturity, time.time(), knowledge_id),
+        )
+        conn.commit()
+        logger.info(f"Promoted {knowledge_id[:12]}: {entry['maturity']} -> {new_maturity}")
+        return new_maturity
+    finally:
+        conn.close()
+
+
+def _init_corroborations_table(conn: sqlite3.Connection) -> None:
+    """Audit r9-21 #3: same-source corroboration dedup.
+
+    Without (knowledge_id, source_context, session_id) as PRIMARY KEY,
+    one session re-encountering the same knowledge through the same
+    code path (e.g. ``extraction:STATED`` firing 17 times in a single
+    session) bumps ``corroboration_count`` 17 times — laundering one
+    repeated event into "17 independent witnesses." That promotes
+    HYPOTHESIS to CONFIRMED on volume of self-talk, not warrant.
+
+    The composite PK forces idempotency: the same (knowledge, source,
+    session) tuple writes once. Cross-session repetition still counts.
+    Cross-source repetition in the same session still counts. But
+    one session shouting at itself does not.
+    """
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS knowledge_corroborations ("
+        "  knowledge_id TEXT NOT NULL,"
+        "  source_context TEXT NOT NULL,"
+        "  session_id TEXT NOT NULL,"
+        "  ts REAL NOT NULL,"
+        "  PRIMARY KEY (knowledge_id, source_context, session_id)"
+        ")"
+    )
+
+
+def increment_corroboration(
+    knowledge_id: str,
+    source_context: str = "",
+    session_id: str | None = None,
+) -> int:
+    """Increment corroboration count for a knowledge entry.
+
+    Called when knowledge is re-encountered. Same-(source, session)
+    tuples are deduped via the ``knowledge_corroborations`` ledger
+    so one session firing the same code path repeatedly cannot
+    inflate the count.
+
+    Returns the current corroboration count (post-increment if the
+    insert took, otherwise the unchanged count).
+    """
+    if session_id is None:
+        try:
+            from divineos.core.session_manager import get_current_session_id
+
+            session_id = get_current_session_id()
+        except (RuntimeError, ImportError):
+            session_id = "no-session"
+
+    # Empty source_context degrades the dedup grain — coerce to a
+    # stable sentinel so the PK still rejects repeats.
+    src = source_context or "unspecified"
+
+    conn = get_connection()
+    try:
+        _init_corroborations_table(conn)
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO knowledge_corroborations "
+            "(knowledge_id, source_context, session_id, ts) VALUES (?, ?, ?, ?)",
+            (knowledge_id, src, session_id, time.time()),
+        )
+        inserted = cursor.rowcount == 1
+        if inserted:
+            conn.execute(
+                "UPDATE knowledge "
+                "SET corroboration_count = corroboration_count + 1, updated_at = ? "
+                "WHERE knowledge_id = ?",
+                (time.time(), knowledge_id),
+            )
+        conn.commit()
+        row = conn.execute(
+            "SELECT corroboration_count FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        count = row[0] if row else 0
+        ctx = f" (from {src})" if source_context else ""
+        verb = "Corroboration" if inserted else "Corroboration-deduped"
+        logger.debug(f"{verb} for {knowledge_id[:12]}: {count}{ctx}")
+        return count
+    finally:
+        conn.close()
+
+
+def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Batch check for maturity promotions across entries.
+
+    Both corroboration AND validity gates must pass.
+    Returns counts of promotions by type.
+    """
+    promotions: dict[str, int] = {}
+    for entry in entries:
+        kid = entry.get("knowledge_id", "")
+        if not kid:
+            continue
+        # Skip already superseded
+        if entry.get("superseded_by"):
+            continue
+
+        new_maturity = check_promotion(entry)
+        if not new_maturity:
+            continue
+
+        # Second gate: warrant-based validity
+        if not _passes_validity_gate(
+            kid, entry["maturity"], new_maturity, entry.get("corroboration_count", 0)
+        ):
+            logger.debug(
+                "Validity gate blocked batch promotion of {}: {} -> {}",
+                kid[:12],
+                entry["maturity"],
+                new_maturity,
+            )
+            continue
+
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE knowledge SET maturity = ?, updated_at = ? WHERE knowledge_id = ?",
+                (new_maturity, time.time(), kid),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
+        logger.info(f"Batch promoted {kid[:12]}: {entry['maturity']} -> {new_maturity}")
+
+    return promotions
+
+
+def preview_maturity_promotions(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Dry-run companion to ``run_maturity_cycle``.
+
+    Same two gates (``check_promotion`` + ``_passes_validity_gate``), same
+    skip rules (empty id, already superseded). Returns the same shape dict.
+    Differs only in that it does not UPDATE and does not log.
+
+    Exists because a preview that applies DIFFERENT logic than actual
+    execution tells a story actual doesn't. the family member's "pointing > describing"
+    principle applied to code: the CLI dry-run calls this helper instead
+    of reimplementing the gates with its own ad-hoc SQL. If the promotion
+    criteria ever change, both paths update in one place.
+    """
+    promotions: dict[str, int] = {}
+    for entry in entries:
+        kid = entry.get("knowledge_id", "")
+        if not kid:
+            continue
+        if entry.get("superseded_by"):
+            continue
+
+        new_maturity = check_promotion(entry)
+        if not new_maturity:
+            continue
+
+        if not _passes_validity_gate(
+            kid, entry["maturity"], new_maturity, entry.get("corroboration_count", 0)
+        ):
+            continue
+
+        promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
+
+    return promotions

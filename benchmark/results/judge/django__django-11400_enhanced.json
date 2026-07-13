@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch has invalid diff syntax with malformed line references and appears to duplicate existing code blocks rather than properly modifying the field_choices methods.",
+  "key_difference": "Unlike the gold patch which creates a clean field_admin_ordering helper method and properly modifies both RelatedFieldListFilter.field_choices and RelatedOnlyFieldListFilter.field_choices, this candidate has syntax errors and doesn't target the correct locations in the code.",
+  "instance_id": "django__django-11400",
+  "condition": "enhanced",
+  "judge_tokens": 1978,
+  "judge_cost": 0.007842
+}

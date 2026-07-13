@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16136",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/views/generic/base.py\n+++ b/django/views/generic/base.py\n@@ -1,4 +1,5 @@\n import logging\n+from asgiref.sync import iscoroutinefunction\n from django.core.exceptions import ImproperlyConfigured\n from django.http import (\n     HttpResponse,\n@@ -131,7 +132,10 @@ class View:\n         else:\n             allowed_methods = [m.upper() for m in self.http_method_names if hasattr(self, m)]\n         logger.warning('Method Not Allowed (%s): %s', request.method, request.path, extra={'status_code': 405, 'request': request})\n-        return HttpResponseNotAllowed(allowed_methods)\n+        response = HttpResponseNotAllowed(allowed_methods)\n+        if self.view_is_async:\n+            return response\n+        return response\n \n     def options(self, request, *args, **kwargs):\n         \"\"\"Handle responding to requests for the OPTIONS HTTP verb.\"\"\"\n\n--- a/django/views/generic/base.py\n+++ b/django/views/generic/base.py\n@@ -131,7 +131,10 @@ class View:\n         else:\n             allowed_methods = [m.upper() for m in self.http_method_names if hasattr(self, m)]\n         logger.warning('Method Not Allowed (%s): %s', request.method, request.path, extra={'status_code': 405, 'request': request})\n-        return HttpResponseNotAllowed(allowed_methods)\n+        response = HttpResponseNotAllowed(allowed_methods)\n+        if self.view_is_async:\n+            return response\n+        return response\n \n     def options(self, request, *args, **kwargs):\n         \"\"\"Handle responding to requests for the OPTIONS HTTP verb.\"\"\"",
+  "thinking": null,
+  "input_tokens": 1393,
+  "output_tokens": 462,
+  "elapsed_seconds": 6.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.011109
+}

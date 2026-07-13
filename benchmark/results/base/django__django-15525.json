@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15525",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/serializers/base.py\n+++ b/django/core/serializers/base.py\n@@ -329,7 +329,9 @@ def build_instance(Model, data, using):\n     # Handle the case where the pk is specified by a natural key\n     pk = data.get(Model._meta.pk.attname)\n     if (\n         pk is None\n         and hasattr(default_manager, \"get_by_natural_key\")\n         and hasattr(Model, \"natural_key\")\n     ):\n-        natural_key = Model(**data).natural_key()\n+        obj = Model(**data)\n+        obj._state.db = using\n+        natural_key = obj.natural_key()\n         try:\n             data[Model._meta.pk.attname] = Model._meta.pk.to_python(\n                 default_manager.db_manager(using).get_by_natural_key(*natural_key).pk",
+  "thinking": null,
+  "input_tokens": 2027,
+  "output_tokens": 234,
+  "elapsed_seconds": 3.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.009590999999999999
+}

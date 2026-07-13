@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-25747",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sklearn/utils/_set_output.py\n+++ b/sklearn/utils/_set_output.py\n@@ -56,7 +56,8 @@ def _wrap_in_pandas_container(data_to_wrap, columns, index):\n     if hasattr(data_to_wrap, \"columns\"):\n         data_to_wrap.columns = columns\n     if index is not None:\n-        data_to_wrap.index = index\n+        if not hasattr(data_to_wrap, \"index\"):\n+            data_to_wrap.index = index\n     return data_to_wrap\n \n return pd.DataFrame(data_to_wrap, index=index, columns=columns)",
+  "thinking": null,
+  "input_tokens": 2992,
+  "output_tokens": 170,
+  "elapsed_seconds": 3.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.011526
+}

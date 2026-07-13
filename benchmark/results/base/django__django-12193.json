@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12193",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/forms/widgets.py\n+++ b/django/forms/widgets.py\n@@ -524,7 +524,7 @@ class CheckboxInput(Input):\n         if self.check_test(value):\n             context['widget']['attrs']['checked'] = True\n         else:\n-            context['widget']['attrs'].pop('checked', None)\n+            context['widget']['attrs'] = {k: v for k, v in context['widget']['attrs'].items() if k != 'checked'}\n         return context\n \n     def value_from_datadict(self, data, files, name):",
+  "thinking": null,
+  "input_tokens": 430,
+  "output_tokens": 147,
+  "elapsed_seconds": 3.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.003495
+}

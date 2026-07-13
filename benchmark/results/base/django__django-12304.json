@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12304",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/enums.py\n+++ b/django/db/models/enums.py\n@@ -11,6 +11,7 @@ class ChoicesMeta(enum.EnumMeta):\n         attrs['_value2label_map_'] = dict(zip(values, labels))\n         # Add a label property to instances of enum which returns the right label.\n         attrs['label'] = property(lambda self: self._value2label_map_[self.value])\n+        attrs['do_not_call_in_templates'] = True\n         return super().__new__(metacls, classname, bases, attrs)\n \n     def __contains__(cls, member):",
+  "thinking": null,
+  "input_tokens": 340,
+  "output_tokens": 170,
+  "elapsed_seconds": 4.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0035700000000000003
+}

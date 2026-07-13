@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13512",
+  "condition": "enhanced",
+  "model": "claude-opus-4-6",
+  "patch": "--- a/django/forms/fields.py\n+++ b/django/forms/fields.py\n@@ -1258,7 +1258,7 @@ class JSONField(CharField):\n     def prepare_value(self, value):\n         if isinstance(value, InvalidJSONInput):\n             return value\n-        return json.dumps(value, cls=self.encoder)\n+        return json.dumps(value, ensure_ascii=False, cls=self.encoder)\n \n     def has_changed(self, initial, data):\n         if super().has_changed(initial, data):",
+  "thinking": "The issue is that `json.dumps` uses ASCII encoding by default, so when displaying JSON fields containing unicode characters (like Chinese) in Django admin, they appear as escaped ASCII (e.g., `\\u4e2d\\u56fd` instead of `\u4e2d\u56fd`).\n\nThe fix is to add `ensure_ascii=False` to the `json.dumps` call in the `prepare_value` method of the JSON form field.\n\nLet me look at the referenced line: `django/forms/fields.py` line 1261.\n\nThe `prepare_value` method of `JSONField` in `django/forms/fields.py` likely calls `json.dumps()` without `ensure_ascii=False`.",
+  "input_tokens": 2223,
+  "output_tokens": 306,
+  "elapsed_seconds": 6.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.056295
+}

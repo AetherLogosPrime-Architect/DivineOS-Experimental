@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-22914",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/printing/pycode.py\n+++ b/sympy/printing/pycode.py\n@@ -88,6 +88,8 @@ class PythonCodePrinter(AbstractPythonCodePrinter):\n     _known_functions = {\n         'Abs': 'abs',\n         'ceiling': 'math.ceil',\n+        'Min': 'min',\n+        'Max': 'max',\n     }\n \n     def _print_NaN(self, expr):",
+  "thinking": null,
+  "input_tokens": 656,
+  "output_tokens": 129,
+  "elapsed_seconds": 2.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0039030000000000002
+}

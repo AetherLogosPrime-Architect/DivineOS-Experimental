@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12155",
+  "condition": "base",
+  "model": "claude-opus-4-6",
+  "patch": "```diff\n--- a/django/contrib/admindocs/utils.py\n+++ b/django/contrib/admindocs/utils.py\n@@ -21,7 +21,7 @@ def trim_docstring(docstring):\n     # as all docstrings should) and strip a leading blank line.\n     lines = docstring.expandtabs().splitlines()\n     # Determine minimum indentation (first line is special):\n-    indent = min(len(line) - len(line.lstrip()) for line in lines if line.lstrip())\n+    indent = min((len(line) - len(line.lstrip()) for line in lines[1:] if line.lstrip()), default=0)\n     trimmed = [lines[0].lstrip()] + [line[indent:] for line in lines[1:]]\n     # Strip off trailing and leading blank lines:\n     while trimmed and not trimmed[-1]:\n```",
+  "thinking": null,
+  "input_tokens": 665,
+  "output_tokens": 226,
+  "elapsed_seconds": 4.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.026924999999999998
+}

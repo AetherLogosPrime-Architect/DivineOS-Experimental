@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds checks for 'not raw and not pk_set' to prevent forcing INSERT when an explicit pk is provided or when saving raw data, which addresses the reported behavior change.",
+  "key_difference": "This patch modifies a different location (around line 793) and adds an additional 'not pk_set' condition compared to the gold patch which only adds 'not raw' at line 849. Both approaches are valid - the candidate prevents forcing INSERT when pk is explicitly set, while gold prevents skipping UPDATE in raw mode.",
+  "instance_id": "django__django-12209",
+  "condition": "enhanced",
+  "judge_tokens": 1207,
+  "judge_cost": 0.005781
+}

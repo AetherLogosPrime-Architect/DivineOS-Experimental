@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13363",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/functions/datetime.py\n+++ b/django/db/models/functions/datetime.py\n@@ -292,7 +292,7 @@ class TruncDate(TruncBase):\n     def as_sql(self, compiler, connection):\n         # Cast to date rather than truncate to date.\n         lhs, lhs_params = compiler.compile(self.lhs)\n-        tzname = timezone.get_current_timezone_name() if settings.USE_TZ else None\n+        tzname = self.get_tzname()\n         sql = connection.ops.datetime_cast_date_sql(lhs, tzname)\n         return sql, lhs_params\n \n@@ -304,7 +304,7 @@ class TruncTime(TruncBase):\n     def as_sql(self, compiler, connection):\n         # Cast to time rather than truncate to time.\n         lhs, lhs_params = compiler.compile(self.lhs)\n-        tzname = timezone.get_current_timezone_name() if settings.USE_TZ else None\n+        tzname = self.get_tzname()\n         sql = connection.ops.datetime_cast_time_sql(lhs, tzname)\n         return sql, lhs_params\n ",
+  "thinking": null,
+  "input_tokens": 1091,
+  "output_tokens": 317,
+  "elapsed_seconds": 5.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008028
+}

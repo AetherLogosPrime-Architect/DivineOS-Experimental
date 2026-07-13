@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the ReadOnlyPasswordHashField as the target, but creates a syntax error by defining __init__ twice and doesn't handle the existing __init__ method properly.",
+  "key_difference": "Unlike the gold patch which modifies the existing __init__ method and removes related methods, this patch attempts to add a new __init__ method above the existing one, creating invalid Python syntax and not addressing the complete solution.",
+  "instance_id": "django__django-13741",
+  "condition": "enhanced",
+  "judge_tokens": 1311,
+  "judge_cost": 0.0057929999999999995
+}

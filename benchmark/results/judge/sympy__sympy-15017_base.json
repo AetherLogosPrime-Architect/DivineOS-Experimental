@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the __len__ method in NDimArray as the source of the issue and attempts to return 1 for rank-0 arrays, but this approach breaks the standard Python convention where len() should return the length of the first dimension.",
+  "key_difference": "The candidate patch modifies __len__ to return 1 for rank-0 arrays, while the gold patch fixes the underlying _loop_size calculation by providing a default value of 1 to functools.reduce. The gold patch is better because it maintains the correct semantic meaning of len() while fixing the root cause in the size calculation used by iterators.",
+  "instance_id": "sympy__sympy-15017",
+  "condition": "base",
+  "judge_tokens": 1337,
+  "judge_cost": 0.006423
+}

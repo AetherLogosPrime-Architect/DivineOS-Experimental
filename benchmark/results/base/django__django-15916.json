@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15916",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -552,6 +552,9 @@ def modelform_factory(model, form=ModelForm, fields=None, exclude=None,\n         # Remove the 'fields' and 'exclude' specified in Meta if they are\n         # the same as the kwargs, to avoid having duplicate the validation.\n         attrs['Meta'] = meta\n+        # Use the formfield_callback from the Meta class if not explicitly provided\n+        if formfield_callback is None and hasattr(meta, 'formfield_callback'):\n+            formfield_callback = meta.formfield_callback\n \n     # Make sure we have a formfield_callback\n     if formfield_callback is None:",
+  "thinking": null,
+  "input_tokens": 838,
+  "output_tokens": 184,
+  "elapsed_seconds": 4.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005274
+}

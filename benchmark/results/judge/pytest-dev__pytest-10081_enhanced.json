@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that class-level skips need special handling in the unittest integration, but it prevents tearDown setup entirely for skipped classes rather than conditionally postponing it based on --pdb flag like the gold patch does.",
+  "key_difference": "This patch completely disables tearDown for skipped classes, while the gold patch only conditionally postpones tearDown when --pdb is used and the test/class is skipped. The candidate approach is too broad and doesn't address the specific --pdb interaction that causes the bug.",
+  "instance_id": "pytest-dev__pytest-10081",
+  "condition": "enhanced",
+  "judge_tokens": 1871,
+  "judge_cost": 0.007761
+}

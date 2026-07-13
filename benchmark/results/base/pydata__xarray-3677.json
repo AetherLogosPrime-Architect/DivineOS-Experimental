@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-3677",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/xarray/core/merge.py\n+++ b/xarray/core/merge.py\n@@ -390,6 +390,8 @@ def coerce_pandas_values(objects):\n     from .dataarray import DataArray\n \n     for obj in objects:\n+        if isinstance(obj, DataArray):\n+            continue\n         for k, v in obj.items():\n             if isinstance(v.data, pd.core.arrays.IntegerArray):\n                 # coerce IntegerArray to np.array",
+  "thinking": null,
+  "input_tokens": 687,
+  "output_tokens": 128,
+  "elapsed_seconds": 3.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.003981
+}

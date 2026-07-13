@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13279",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "```diff\n--- a/django/contrib/sessions/backends/base.py\n+++ b/django/contrib/sessions/backends/base.py\n@@ -89,7 +89,10 @@ class SessionBase:\n         \"\"\"\n         pickled = pickle.dumps(session_dict, pickle.HIGHEST_PROTOCOL)\n         hash = self._hash(pickled)\n-        return base64.b64encode(hash + b':' + pickled).decode('ascii')\n+        if settings.DEFAULT_HASHING_ALGORITHM == 'sha1':\n+            # Use legacy format for backwards compatibility during transition\n+            return base64.b64encode(hash + pickled).decode('ascii')\n+        return base64.b64encode(hash + b':' + pickled).decode('ascii')\n \n     def decode(self, session_data):\n         try:\n@@ -98,7 +101,15 @@ class SessionBase:\n             # RemovedInDjango40Warning: when the deprecation ends, handle here\n             # exceptions similar to what _legacy_decode() does now.\n             return self._legacy_decode(session_data)\n-        hash, pickled = encoded_data.split(b':', 1)\n+        \n+        if settings.DEFAULT_HASHING_ALGORITHM == 'sha1':\n+            # Handle legacy format during transition\n+            hash_len = self._get_session_key_hash()._digest_size\n+            hash, pickled = encoded_data[:hash_len], encoded_data[hash_len:]\n+        else:\n+            if b':' not in encoded_data:\n+                return self._legacy_decode(session_data)\n+            hash, pickled = encoded_data.split(b':', 1)\n         expected_hash = self._hash(pickled)\n         if not constant_time_compare(hash, expected_hash):\n             raise InvalidSessionKey(\"Session data corrupted\")\n```",
+  "thinking": null,
+  "input_tokens": 322,
+  "output_tokens": 467,
+  "elapsed_seconds": 8.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007971
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch is incomplete and syntactically invalid - it cuts off mid-line and doesn't implement a complete solution to check class-level skip decorators.",
+  "key_difference": "The candidate attempts to create a new helper method to check skip decorators but is incomplete and malformed, whereas the gold patch directly fixes the existing skip detection logic by checking both the test method and parent class for skip decorators.",
+  "instance_id": "pytest-dev__pytest-10081",
+  "condition": "base",
+  "judge_tokens": 2159,
+  "judge_cost": 0.008289
+}

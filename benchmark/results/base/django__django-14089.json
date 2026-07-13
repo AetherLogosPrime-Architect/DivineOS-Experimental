@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14089",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/utils/datastructures.py\n+++ b/django/utils/datastructures.py\n@@ -73,6 +73,9 @@ class OrderedSet:\n     def __iter__(self):\n         return iter(self.dict)\n \n+    def __reversed__(self):\n+        return reversed(self.dict)\n+\n     def __contains__(self, item):\n         return item in self.dict\n ",
+  "thinking": null,
+  "input_tokens": 268,
+  "output_tokens": 109,
+  "elapsed_seconds": 2.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.002439
+}

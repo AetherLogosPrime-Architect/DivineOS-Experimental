@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch attempts to handle OneToOneField specifically but has several issues: it doesn't properly handle the unique constraint that still needs to be created, it references a non-existent exclude_unique parameter in column_sql, and it doesn't use the existing _remake_table infrastructure. The approach is also incomplete as it only adds the column without the unique constraint but doesn't provide a way to add that constraint later.",
+  "key_difference": "The gold patch correctly identifies that any field with primary_key or unique constraints (including OneToOneField which has unique=True) should use _remake_table, while the candidate tries to manually handle OneToOneField with incomplete SQL generation that references non-existent parameters.",
+  "instance_id": "django__django-15278",
+  "label": "v2_new",
+  "judge_cost": 0.00687
+}

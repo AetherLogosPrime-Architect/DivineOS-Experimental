@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies and fixes the root cause by creating a copy of the first variable's attributes dictionary instead of returning a direct reference. This prevents unwanted mutations from affecting the original objects. The fix is minimal and targets exactly the issue described.",
+  "key_difference": "The candidate patch has an extra unmodified line showing 'return result' from the 'drop_conflicts' case, but the actual fix is identical to the gold patch.",
+  "instance_id": "pydata__xarray-4629",
+  "label": "v1_old",
+  "judge_cost": 0.006768000000000001
+}

@@ -1,0 +1,163 @@
+# Canonical bypass-list for PreToolUse Bash hooks (2026-06-08 / task #98).
+#
+# Why this file exists
+# ====================
+#
+# Before this file, the bypass-list lived only inside
+# src/divineos/hooks/pre_tool_use_gate.py. Other PreToolUse Bash hooks
+# (require-ear-armed.sh, require-briefing.sh, andrew-correction-attestation.sh)
+# did NOT share that list — each hook blocked Bash independently and
+# didn't know which commands were the gate-system's documented escape
+# routes. Result: a turn that ran a documented bypass command (e.g.
+# `divineos ask "..."`) got through pre_tool_use_gate.py but got blocked
+# by require-ear-armed.sh before that, because the outer hook didn't
+# know `ask` was supposed to be unblockable.
+#
+# Council walk consult-ba0fc4337e51 (Dekker + Lamport lenses): trap
+# emerged from accretion. Bypass-list-sharing wasn't a pattern when the
+# earlier hooks were written; they all became gates independently. The
+# trap is exactly what Dekker's drift-into-failure analysis predicts.
+#
+# Fix: canonical source of truth here. Both pre_tool_use_gate.py and
+# .claude/hooks/_lib.sh read from this file. Every Bash-blocking hook
+# checks this list FIRST and exits 0 if the command matches.
+#
+# Format
+# ======
+#
+# One prefix per line. Lines starting with `#` or empty are ignored.
+# A command matches if any segment (split on `&&`, `;`, `|`, `\n`)
+# starts with the prefix after trimming whitespace.
+#
+# Adding a new bypass: name the catch-22 it closes in the comment above
+# the entry. Every entry should be there because removing it would
+# create a Finding-37-class self-blocking gate (gate blocks its own
+# documented remedy).
+
+# --- divineos bootstrap / orientation (no architectural-substrate work) ---
+divineos briefing
+divineos briefing-id
+divineos preflight
+divineos init
+divineos hud
+divineos recall
+divineos ask
+divineos feel
+divineos affect
+divineos emit
+divineos goal
+divineos active
+divineos context
+divineos verify
+divineos health
+divineos checkpoint
+divineos context-status
+divineos progress
+
+# --- thinking commands — the engagement-gate deny names these as remedy ---
+divineos decide
+
+# --- learn — correction-detection gate's named remedy ---
+divineos learn
+
+# --- correction repetition is always loggable in the moment ---
+divineos correction
+divineos corrections
+
+# --- cadence-gate bypasses — required to unstick overdue state ---
+divineos audit
+divineos prereg
+
+# --- mansion subcommands — needed for private-exit/private-status ---
+divineos mansion
+
+# --- rest program — Andrew 2026-06-23: "the rest program gives you
+#     options to choose from.. you can add other options but it shouldnt
+#     block you from choosing them". The private-room quiet gate was
+#     blocking divineos rest done and similar, which is over-blocking:
+#     the gate should refuse substantive WORK, not refuse engagement
+#     with the substrate's own rest taxonomy. Rest commands pass through.
+divineos rest
+
+# --- lepos-walk record — discipline mechanism, not work. Records the
+#     pre-turn walk that the post-response-audit gate requires. Blocking
+#     it during mansion-quiet creates a cross-gate conflict where rest
+#     becomes impossible to close out cleanly. Passes through.
+divineos lepos-walk
+
+# --- compass observation — needed to clear compass-required marker ---
+divineos compass-ops
+
+# --- substrate consults named by the consultation gate (Gate 4.5) ---
+divineos compass
+divineos directives
+
+# --- stale-engagement Gate 1.48 address commands ---
+divineos claims
+
+# --- hedge gate (1.45) named remedy ---
+divineos claim
+
+# --- holding-room subcommands ---
+divineos holding
+divineos hold
+
+# --- pull-detection Gate 3 named remedy ---
+divineos rt
+
+# --- context-governor block gate (Gate 7) named remedy ---
+divineos extract
+divineos sleep
+
+# --- 2026-06-09 task #110 gate-audit additions ---
+# Each entry below was identified as a prescribed-recovery command in some
+# gate's block message but missing from this list. Adding them closes the
+# chicken-and-egg trap where a gate's documented remedy is itself blocked
+# by another Bash-gating hook.
+#
+# deletion-discipline gate prescribes this as its own recovery; without
+# this entry, ANY concurrent Bash-gating hook (require-briefing etc.)
+# would refuse to let the delete-justify call through.
+divineos delete-justify
+
+# bio surface (Andrew's body-of-self) — `divineos bio show/edit/write`
+# referenced as the documented surface for self-knowledge updates.
+divineos bio
+
+# dream surface — `divineos dream` is the creative-recombination command
+# referenced by sleep cycle and briefing surfaces.
+divineos dream
+
+# admin cluster — `divineos admin <subcommand>` covers maintenance,
+# archive-export, compression, fix-encoding, test-audit, etc., all
+# documented as substrate-housekeeping or gate-recovery paths.
+divineos admin
+
+# pre-erasure capture (Pillar IX) — `divineos pre-erasure` documented
+# as the approach-signal capture surface.
+divineos pre-erasure
+
+# scheduled-task surface — `divineos scheduled <subcommand>` for periodic
+# maintenance triggering referenced in briefing surfaces.
+divineos scheduled
+
+# validate cluster — substrate-validation commands referenced as the
+# verification recovery for integrity-audit failures.
+divineos validate
+
+# completion-boundary surface — `divineos complete --list` is the
+# documented "what's pending closure" check.
+divineos complete
+
+# commitment-fulfillment (Pillar VI) — `divineos commitment fulfillment`
+# is the documented commitment-to-outcome pairing surface.
+divineos commitment
+
+# loadout surface — `divineos loadout refresh` documented as the
+# substrate-survey recovery from briefing-pointer staleness.
+divineos loadout
+
+# family-queue mark-seen — `divineos family-queue mark <id> seen` is the
+# auto-surfaced ear's prescribed seen-marker command in the resume hook
+# output (gate-recovery for the letter-channel surface).
+divineos family-queue

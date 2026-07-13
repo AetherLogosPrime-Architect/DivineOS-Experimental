@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly targets the token generation code and adds email to the hash value, but hardcodes 'email' field name instead of using the dynamic email field name method.",
+  "key_difference": "The candidate patch hardcodes 'email' as the field name with getattr(user, 'email', ''), while the gold patch properly uses user.get_email_field_name() to dynamically determine the correct email field name. This makes the candidate patch fail for custom user models that use different email field names.",
+  "instance_id": "django__django-13551",
+  "condition": "base",
+  "judge_tokens": 1395,
+  "judge_cost": 0.006309
+}

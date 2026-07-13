@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies QuerySet.none() to handle combined queries by using an empty pk filter, but this approach is incorrect as it still returns a combined query structure that can cause the underlying issue to resurface.",
+  "key_difference": "The candidate patch takes a different approach by modifying QuerySet.none() at the ORM level with a pk filter workaround, while the gold patch properly fixes the root cause in the SQL query layer by ensuring combined queries are properly cloned and emptied. The candidate's approach is a surface-level fix that doesn't address the fundamental issue with how combined queries handle the empty state.",
+  "instance_id": "django__django-13158",
+  "condition": "base",
+  "judge_tokens": 1350,
+  "judge_cost": 0.00639
+}

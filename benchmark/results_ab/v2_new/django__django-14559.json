@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14559",
+  "condition": "enhanced",
+  "label": "v2_new",
+  "patch": "--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -539,6 +539,7 @@ class QuerySet(AltersData):\n             raise ValueError(\"bulk_update() can only be used with concrete fields.\")\n         if any(f.primary_key for f in fields):\n             raise ValueError(\"bulk_update() cannot be used with primary key fields.\")\n+        rows_updated = 0\n         if not objs:\n             return 0\n         for obj in objs:\n@@ -585,7 +586,8 @@ class QuerySet(AltersData):\n                         case_statement = Cast(case_statement, output_field=field)\n                     updates[field.attname] = case_statement\n                 updates[when_field.attname] = case_statement\n-                self.using(using).filter(pk__in=pks).update(**updates)\n+                rows_updated += self.using(using).filter(pk__in=pks).update(**updates)\n+        return rows_updated\n \n     bulk_update.alters_data = True\n ",
+  "thinking": "The issue is that `bulk_update()` should return the number of rows matched (sum of all `update()` calls) instead of returning `None`.\n\nLet me look at the relevant code in `django/db/models/query.py` around the `bulk_update` method.\n\nThe fix is simple: accumulate the return values from `update()` calls and return the sum.",
+  "input_tokens": 2863,
+  "output_tokens": 365,
+  "elapsed_seconds": 7.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.07032
+}

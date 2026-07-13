@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11880",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/forms/fields.py\n+++ b/django/forms/fields.py\n@@ -197,6 +197,7 @@ class Field:\n     def __deepcopy__(self, memo):\n         result = copy.copy(self)\n         memo[id(self)] = result\n+        result.error_messages = copy.deepcopy(self.error_messages, memo)\n         return result\n \n     def __getstate__(self):",
+  "thinking": null,
+  "input_tokens": 525,
+  "output_tokens": 113,
+  "elapsed_seconds": 2.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.00327
+}

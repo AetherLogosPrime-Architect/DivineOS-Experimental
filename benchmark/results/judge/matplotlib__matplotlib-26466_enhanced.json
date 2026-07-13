@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch has invalid syntax with duplicate assignments and doesn't match the actual file structure, making it completely invalid.",
+  "key_difference": "Unlike the gold patch which correctly identifies the _AnnotationBase.__init__ method and makes a proper copy using tuple unpacking, this patch has malformed diff syntax, duplicate lines, and uses np.array() which isn't imported in the context.",
+  "instance_id": "matplotlib__matplotlib-26466",
+  "condition": "enhanced",
+  "judge_tokens": 1786,
+  "judge_cost": 0.00711
+}

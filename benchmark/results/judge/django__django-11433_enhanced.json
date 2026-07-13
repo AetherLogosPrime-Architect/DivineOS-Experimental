@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch changes a condition to check cleaned_data instead of form.data, but this targets the wrong part of the code and doesn't address the actual issue with default values being preserved when they should be overwritable.",
+  "key_difference": "The candidate patch modifies a different condition than the gold patch. The gold patch adds an additional check to allow cleaned_data to override defaults when the cleaned_data value is not empty, while the candidate simply changes which data source is checked for field presence, which doesn't solve the core problem of default values preventing cleaned_data overrides.",
+  "instance_id": "django__django-11433",
+  "condition": "enhanced",
+  "judge_tokens": 1185,
+  "judge_cost": 0.0057870000000000005
+}

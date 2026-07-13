@@ -1,0 +1,994 @@
+"""The Immutable Event Ledger.
+
+Append-only SQLite database. Single source of truth.
+Rules: 1) Never update or delete. 2) Store raw data, not summaries.
+
+Every row has:
+  - content_hash: SHA256 of the payload (per-event self-integrity)
+  - prior_hash: the chain_hash of the immediately preceding event (or
+    GENESIS for the first event in the chain)
+  - chain_hash: SHA256(prior_hash | event_id | timestamp | event_type |
+    actor | payload_json | content_hash) — sequential chain. Any
+    mutation of any event in the chain breaks every subsequent
+    chain_hash, surfacing tampering when verify_chain runs.
+
+Hash-chain pattern adapted from family/family_member_ledger.py
+(Grok 2026-05-02 audit named main-ledger lack-of-chain as a real gap;
+claim 223d0e44 tracked the work).
+"""
+
+import hashlib
+import json
+import os
+import sys
+import threading
+import time
+import uuid
+from pathlib import Path
+from typing import Any
+
+# In-process serialization for log_event's read-prior-hash + insert
+# sequence. The combined-with-BEGIN-IMMEDIATE strategy: this lock
+# handles intra-process concurrency (the dominant deployment shape);
+# BEGIN IMMEDIATE inside log_event handles inter-process cases.
+# Aletheia round-ba785844a791 Finding 15 + family-audit
+# round-49b2a6659d7f.
+_LOG_EVENT_LOCK = threading.Lock()
+
+# Imports below the module-level _LOG_EVENT_LOCK = threading.Lock()
+# declaration are intentional — the lock must be defined before any
+# function in this module can reference it. Suppress E402 on each.
+from loguru import logger  # noqa: E402
+
+from divineos.core._ledger_base import (  # noqa: E402
+    DB_PATH as DB_PATH,
+)
+from divineos.core._ledger_base import (  # noqa: E402
+    _get_db_path as _get_db_path,
+)
+from divineos.core._ledger_base import (  # noqa: E402
+    compute_hash as compute_hash,
+)
+from divineos.core._ledger_base import (  # noqa: E402
+    get_connection as get_connection,
+)
+from divineos.core._ledger_base import (  # noqa: E402
+    get_connection_fk as get_connection_fk,
+)
+from divineos.event.event_validation import EventValidator  # noqa: E402
+
+# Chain genesis — used as prior_hash for the first event.
+_CHAIN_GENESIS = "0" * 64
+
+__all__ = [
+    "logger",
+    "Ledger",
+    "get_ledger",
+    "get_connection",
+    "log_event",
+    "get_events",
+    "search_events",
+    "get_recent_context",
+    "count_events",
+    "verify_event_hash",
+    "get_verified_events",
+    "verify_all_events",
+    "clean_corrupted_events",
+    "export_to_markdown",
+]
+
+# Configure logging
+logger.remove()
+logger.add(
+    sys.stdout,
+    colorize=True,
+    format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>",
+    level="WARNING",
+)
+
+
+def _resolve_log_dir() -> Path:
+    """Resolve the log directory with defensive fallback.
+
+    Audit r9-21 finding #5 (round 18): the previous
+    ``Path(__file__).parent.parent.parent / "logs"`` only resolved
+    correctly under ``pip install -e .``. On a non-editable
+    ``pip install .``, the resolved path lands inside the
+    site-packages tree and the ``mkdir`` call at import time
+    runs against a potentially unwritable path → ImportError chain
+    → the CLI is unbootable.
+
+    Resolution order:
+      1. ``_ledger_base.data_dir() / "logs"`` — same project tree
+         the ledger uses; honors DIVINEOS_DB override for tests.
+      2. ``~/.divineos/logs`` — user-writable fallback.
+      3. ``<tempdir>/divineos-logs`` — last-ditch so import always
+         succeeds; corrupted-permissions environment shouldn't
+         brick the CLI.
+
+    Each step uses try/except so a failure cascades to the next.
+    """
+    import tempfile
+
+    try:
+        from divineos.core._ledger_base import data_dir
+
+        candidate = data_dir() / "logs"
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except (OSError, ImportError):
+        pass
+
+    try:
+        from divineos.core.paths import divineos_home
+
+        candidate = divineos_home() / "logs"
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except (OSError, ImportError):
+        pass
+
+    candidate = Path(tempfile.gettempdir()) / "divineos-logs"
+    try:
+        candidate.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return candidate
+
+
+_LOG_DIR = _resolve_log_dir()
+
+# Clean up old rotated logs on startup (loguru retention doesn't always fire on Windows)
+_MAX_LOG_FILES = 3
+try:
+    _old_logs = sorted(_LOG_DIR.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
+    if len(_old_logs) > _MAX_LOG_FILES:
+        for _stale in _old_logs[: len(_old_logs) - _MAX_LOG_FILES]:
+            _stale.unlink()
+except OSError:
+    pass
+
+# File-log level is configurable via DIVINEOS_LOG_LEVEL env var. Default INFO
+# captures operational events (EMPIRICA decisions, mode changes, significant
+# state transitions) without per-call trace noise — smaller log files, slower
+# rotation. Set to DEBUG when deep traces are needed for troubleshooting.
+# Valid levels: TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL.
+_VALID_LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_configured_level = os.environ.get("DIVINEOS_LOG_LEVEL", "INFO").upper()
+_FILE_LOG_LEVEL = _configured_level if _configured_level in _VALID_LOG_LEVELS else "INFO"
+
+logger.add(
+    _LOG_DIR / "divineos.log",
+    rotation="100 MB",  # 2026-06-23: bumped from 10 MB — rotation fails on Windows when multiple DivineOS processes hold the log open (letter_monitor, compaction_monitor, ear_watch). The enqueue=True fix earlier today made the failure SILENT (background-thread retry); sleep hangs waiting for the queue to drain. Real fix tracked in prereg for per-process log files; this defers the trigger.
+    retention=_MAX_LOG_FILES,
+    level=_FILE_LOG_LEVEL,
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+    # enqueue=True (Andrew 2026-06-23): multiple python.exe processes
+    # (CLI commands, hooks, subprocess calls) all import this module and
+    # try to open + rotate the log file. On Windows, rotation fails with
+    # PermissionError because another process holds the file open — the
+    # error spammed stderr on every divineos command this session. enqueue
+    # serializes writes through a single dedicated process, eliminating
+    # the multi-process file-lock race that caused the rotation to fail.
+    enqueue=True,
+)
+
+# Keep backward compat for internal usage in this file
+_get_connection = get_connection
+
+
+def init_db() -> None:
+    """Creates the system_events table if it doesn't exist.
+
+    Schema includes prior_hash and chain_hash columns for sequential
+    hash-chaining (see module docstring for the chain formula). Existing
+    databases are migrated additively: ALTER TABLE adds the columns if
+    they're missing; backfill_chain_hashes() populates them for
+    pre-chain events.
+    """
+    conn = _get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS system_events (
+                event_id     TEXT PRIMARY KEY,
+                timestamp    REAL NOT NULL,
+                event_type   TEXT NOT NULL,
+                actor        TEXT NOT NULL,
+                payload      TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                prior_hash   TEXT,
+                chain_hash   TEXT
+            )
+        """)
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(system_events)")}
+        if "prior_hash" not in existing_cols:
+            conn.execute("ALTER TABLE system_events ADD COLUMN prior_hash TEXT")
+        if "chain_hash" not in existing_cols:
+            conn.execute("ALTER TABLE system_events ADD COLUMN chain_hash TEXT")
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_events_timestamp
+            ON system_events(timestamp)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_events_type
+            ON system_events(event_type)
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_events_chain_hash ON system_events(chain_hash)"
+        )
+        # External head anchor table (Fable audit 2026-07-02 finding #1,
+        # Aria adversary walk + design). Persists (chain_hash, event_count,
+        # latest_event_id, timestamp) as a separate row so tail truncation
+        # is detectable — the anchor knows "the chain was N events long
+        # and ended at chain_hash X" even after the tail is deleted.
+        #
+        # Single-row design: row_id=1 is always the current head. Updates
+        # rewrite the row atomically inside the same transaction as the
+        # event insert (see log_event). UNIQUE not needed because the
+        # single-row invariant is stronger than uniqueness — the WHERE
+        # row_id=1 clause on UPDATE and INSERT OR REPLACE handles it.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ledger_head_anchor (
+                row_id           INTEGER PRIMARY KEY CHECK (row_id = 1),
+                chain_hash       TEXT NOT NULL,
+                event_count      INTEGER NOT NULL,
+                latest_event_id  TEXT NOT NULL,
+                updated_at       REAL NOT NULL
+            )
+        """)
+        conn.commit()
+        # Auto-trigger backfill if any rows lack chain_hash (Grok audit
+        # 2026-05-02: closes the migration-ordering seam where new events
+        # written between ALTER and a manual backfill call would chain
+        # from GENESIS instead of from the last legacy event).
+        needs_backfill = conn.execute(
+            "SELECT 1 FROM system_events WHERE chain_hash IS NULL LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+    if needs_backfill:
+        backfill_chain_hashes()
+
+
+def _compute_chain_hash(
+    prior_hash: str,
+    event_id: str,
+    timestamp: float,
+    event_type: str,
+    actor: str,
+    payload_json: str,
+    content_hash: str,
+) -> str:
+    """SHA256 of the canonical pipe-separated content for chain integrity.
+
+    Format: prior_hash|event_id|timestamp|event_type|actor|payload_json|content_hash
+
+    Mutating any field of any event breaks every subsequent chain_hash.
+    """
+    data = f"{prior_hash}|{event_id}|{timestamp}|{event_type}|{actor}|{payload_json}|{content_hash}"
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _latest_chain_hash(conn) -> str:
+    """Return the chain_hash of the most-recent event, or GENESIS if empty
+    or if no events have chain_hash set yet (pre-migration state)."""
+    row = conn.execute(
+        "SELECT chain_hash FROM system_events "
+        "WHERE chain_hash IS NOT NULL "
+        "ORDER BY timestamp DESC, rowid DESC LIMIT 1"
+    ).fetchone()
+    if not row or not row[0]:
+        return _CHAIN_GENESIS
+    return str(row[0])
+
+
+def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bool = True) -> str:
+    """Appends an event to the ledger. Returns the event_id.
+
+    Args:
+        event_type: e.g. 'USER_INPUT', 'SYSTEM_PROMPT', 'TOOL_CALL', 'ERROR'
+        actor: e.g. 'user', 'assistant', 'system'
+        payload: raw data dict for the event
+        validate: if True, validate payload before storing (default: True)
+
+    Fidelity: Computes and stores content_hash for integrity verification.
+
+    Validation: Validates payload before storing to prevent corrupted data.
+
+    """
+    # Validate payload before storing (only for known event types).
+    # EXPLANATION added 2026-05-03 (claim 8cd2af8b validation-bypass review):
+    # the schema existed in event_capture.py but wasn't wired through here
+    # or through EventValidator.validate_payload, so the CLI's `divineos
+    # emit ... --type EXPLANATION` path silently bypassed validation. Now
+    # EXPLANATION events get the same schema enforcement as other known
+    # types: explanation_text + timestamp + session_id, ≤1MB on the prose.
+    if validate and event_type in [
+        "USER_INPUT",
+        "TOOL_CALL",
+        "TOOL_RESULT",
+        "SESSION_END",
+        "CONSOLIDATION_CHECKPOINT",
+        "EXPLANATION",
+    ]:
+        is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
+        if not is_valid:
+            logger.error(f"Event validation failed for {event_type}: {validation_msg}")
+            raise ValueError(f"Invalid event payload: {validation_msg}")
+
+    # Actor authenticity Phase 1 (2026-05-11, exploration/45_actor_authenticity_design.md):
+    # WARN if the actor is not registered. Phase 1 does NOT block emission —
+    # the warn is informational so legitimate operations continue while
+    # surfacing typos and unrecognized actors for review. Phase 2 will add
+    # signature verification + capability enforcement.
+    #
+    # Several actor names are exempt from the warning because they are
+    # produced by ephemeral or pre-registry-bootstrap paths:
+    # - "" / "unknown" — empty/default actor strings from upstream code that
+    #   doesn't yet care about authenticity
+    # - "system" / "substrate" — substrate-internal emissions
+    # - "user" / "assistant" — Claude Code transcript-replay events
+    # The exemption list shrinks in Phase 2 as more paths get migrated.
+    _ACTOR_AUTHENTICITY_EXEMPT = frozenset(
+        {"", "unknown", "system", "substrate", "user", "assistant", "test", "anonymous"}
+    )
+    if validate and actor and actor.strip() not in _ACTOR_AUTHENTICITY_EXEMPT:
+        try:
+            from divineos.core.actor_registry import is_registered
+
+            if not is_registered(actor):
+                logger.warning(
+                    f"Phase-1 actor-authenticity: event type {event_type} "
+                    f"emitted with unregistered actor {actor!r}. Register via "
+                    f"`divineos actor-registry add {actor} --kind <kind>` "
+                    f"or treat as substrate-internal. Phase 1 warns only; "
+                    f"Phase 2 will block."
+                )
+        except ImportError:
+            # actor_registry module not available — pre-bootstrap state.
+            # Don't crash the emission path; just skip the warning.
+            pass
+
+    event_id = str(uuid.uuid4())
+
+    # Secret redaction (2026-06-30, response to 2026-06-26 key-leak class).
+    # An Anthropic API key reached the ledger via a tool-call payload and
+    # then rode into git when the DB was unignored for an external audit.
+    # Aletheia 2026-06-30: redact-at-write-time is the structural fix;
+    # history-scrub is hygiene. This is the structural layer — secrets
+    # never enter the ledger in the first place. See secret_redactor.py
+    # for pattern coverage; fail-loud (WARNING log when redaction fires).
+    try:
+        from divineos.core.secret_redactor import redact_and_warn
+
+        payload = redact_and_warn(payload, context=event_type)
+    except ImportError:
+        # Pre-bootstrap path — redactor not available. Original payload
+        # passes through unchanged; the next emission will pick up the
+        # module once it's importable.
+        pass
+
+    # NOTE on timestamp ordering (Aletheia round-49b2a6659d7f family-
+    # audit): timestamp is generated INSIDE the lock-acquired section
+    # below, not here. If two threads call log_event concurrently and
+    # both compute time.time() before acquiring the lock, the timestamps
+    # could be in a different order than the eventual insert-order. Then
+    # verify_chain (ORDER BY timestamp ASC, rowid ASC) walks events in
+    # timestamp order but their chain_hashes are linked in insert order
+    # — reporting a chain mismatch even though the chain is logically
+    # intact. Generating timestamp inside the lock ensures timestamp-
+    # order matches insert-order matches chain-order.
+    payload_json_initial = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    # Compute hash of the content for fidelity verification
+    # Always hash the entire payload to ensure complete data integrity
+    content_hash = compute_hash(payload_json_initial)
+
+    # Store hash in payload for round-trip verification
+    payload["content_hash"] = content_hash
+    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    # Belt-and-suspenders guard (Grok audit 2026-05-02): if any row lacks
+    # chain_hash, run backfill before chaining a new event. Protects against
+    # init_db being bypassed on a populated legacy DB.
+    _guard_conn = _get_connection()
+    try:
+        _needs = _guard_conn.execute(
+            "SELECT 1 FROM system_events WHERE chain_hash IS NULL LIMIT 1"
+        ).fetchone()
+    finally:
+        _guard_conn.close()
+    if _needs:
+        backfill_chain_hashes()
+
+    conn = _get_connection()
+    try:
+        # Concurrency fix (Aletheia round-ba785844a791 Finding 15 +
+        # family-audit round-49b2a6659d7f). Without serialization, two
+        # concurrent writers can both read prior_hash, both compute
+        # chain_hash against the same prior, both INSERT — forking the
+        # chain. WAL mode alone does not prevent this.
+        #
+        # Strategy: in-process thread lock + per-connection autocommit
+        # mode + BEGIN IMMEDIATE.
+        #
+        # The thread lock serializes log_event calls within a single
+        # process — the dominant deployment shape for DivineOS today.
+        # autocommit + BEGIN IMMEDIATE adds cross-process safety for
+        # the rarer multi-process case (Python sqlite3 default mode
+        # auto-wraps DML in DEFERRED transactions which would mask an
+        # explicit BEGIN IMMEDIATE).
+        _LOG_EVENT_LOCK.acquire()
+        # Generate timestamp INSIDE the lock so insert-order matches
+        # timestamp-order. See the NOTE above the lock comment.
+        timestamp = time.time()
+        conn.isolation_level = None  # autocommit so BEGIN IMMEDIATE works
+        conn.execute("BEGIN IMMEDIATE")
+        prior_hash = _latest_chain_hash(conn)
+        chain_hash = _compute_chain_hash(
+            prior_hash=prior_hash,
+            event_id=event_id,
+            timestamp=timestamp,
+            event_type=event_type,
+            actor=actor,
+            payload_json=payload_json,
+            content_hash=content_hash,
+        )
+        conn.execute(
+            "INSERT INTO system_events "
+            "(event_id, timestamp, event_type, actor, payload, content_hash, prior_hash, chain_hash) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                event_id,
+                timestamp,
+                event_type,
+                actor,
+                payload_json,
+                content_hash,
+                prior_hash,
+                chain_hash,
+            ),
+        )
+        # External head anchor update — atomic with the event insert,
+        # same BEGIN...COMMIT transaction (Fable audit 2026-07-02
+        # finding #1, Aria adversary walk step 2).
+        #
+        # The count sub-query runs inside the same transaction so it
+        # reflects the row we just inserted. Anchor now carries
+        # (chain_hash, event_count, latest_event_id, timestamp) so tail
+        # truncation is detectable: after truncation the anchor still
+        # says N events ended at chain_hash X, but the shorter
+        # ledger's tail differs → verify_chain flags mismatch.
+        #
+        # Aria step 3 (fail-loud, fail-together): if this update fails
+        # inside the BEGIN IMMEDIATE transaction, the whole transaction
+        # rolls back and log_event raises — the event write cannot
+        # succeed silently while the anchor stays stale.
+        conn.execute(
+            "INSERT OR REPLACE INTO ledger_head_anchor "
+            "(row_id, chain_hash, event_count, latest_event_id, updated_at) "
+            "VALUES (1, ?, (SELECT COUNT(*) FROM system_events), ?, ?)",
+            (chain_hash, event_id, timestamp),
+        )
+        conn.commit()
+    finally:
+        try:
+            conn.close()
+        finally:
+            try:
+                _LOG_EVENT_LOCK.release()
+            except RuntimeError:
+                # Lock wasn't held (e.g. exception before acquire) — fine.
+                pass
+
+    # Increment the write counter that drives the consolidation trigger.
+    # Consolidation events themselves are excluded — see increment_write_count
+    # for the guard. Wrapped in try/except because this is a low-priority
+    # side effect; the event write itself must not be blocked by a counter
+    # persistence error.
+    try:
+        from divineos.core.session_checkpoint import increment_write_count
+
+        increment_write_count(event_type)
+    except Exception:  # noqa: BLE001 — counter is best-effort
+        pass
+
+    return event_id
+
+
+def get_events(
+    limit: int = 100,
+    offset: int = 0,
+    event_type: str | list[str] | frozenset[str] | set[str] | None = None,
+    actor: str | None = None,
+    order: str = "asc",
+) -> list[dict[str, Any]]:
+    """Retrieves events ordered by timestamp.
+
+    Args:
+        limit: max rows to return
+        offset: rows to skip
+        event_type: optional filter. Accepts a single string or a
+            collection of strings (list/set/frozenset). A collection
+            becomes an SQL IN clause — useful for compat unions like
+            CONSOLIDATION_EVENT_TYPES that match both historical
+            SESSION_END rows and new CONSOLIDATION_CHECKPOINT rows.
+        actor: optional filter
+        order: "asc" (oldest first, default for back-compat) or "desc"
+            (newest first). Fable 5 audit 2026-06-09 found four call
+            sites (correction_pairing, surfaced_warnings × 2,
+            stale_engagement) that wanted recent events but were
+            silently getting the oldest because this defaulted to ASC.
+            With LIMIT and the production ledger holding 28k+ events,
+            recency detectors were permanently frozen on the ledger's
+            earliest history. Callers wanting recent rows pass
+            order="desc".
+
+    """
+    conn = _get_connection()
+    try:
+        query = "SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events"
+        conditions: list[str] = []
+        params: list[Any] = []
+
+        if event_type:
+            if isinstance(event_type, str):
+                conditions.append("event_type = ?")
+                params.append(event_type)
+            else:
+                # Collection — expand into IN clause
+                types_list = list(event_type)
+                if types_list:
+                    placeholders = ",".join("?" for _ in types_list)
+                    conditions.append(f"event_type IN ({placeholders})")  # nosec B608
+                    params.extend(types_list)
+        if actor:
+            conditions.append("actor = ?")
+            params.append(actor)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        direction = "DESC" if str(order).lower() == "desc" else "ASC"
+        query += f" ORDER BY timestamp {direction} LIMIT ? OFFSET ?"  # nosec B608
+        params.extend([limit, offset])
+
+        cursor = conn.execute(query, params)
+        rows = cursor.fetchall()
+
+        events = []
+        for row in rows:
+            try:
+                payload = json.loads(row[4])
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Skipping event {row[0]}: corrupted JSON payload")
+                continue
+            events.append(
+                {
+                    "event_id": row[0],
+                    "timestamp": row[1],
+                    "event_type": row[2],
+                    "actor": row[3],
+                    "payload": payload,
+                    "content_hash": row[5],
+                }
+            )
+        return events
+    finally:
+        conn.close()
+
+
+def search_events(keyword: str, limit: int = 50, order: str = "asc") -> list[dict[str, Any]]:
+    """Search events where the payload contains a keyword (case-insensitive).
+
+    The ``order`` parameter controls result ordering by timestamp:
+    - ``"asc"`` (default, preserved for backward compat): oldest first
+    - ``"desc"``: newest first
+
+    Callers that need "current state" (active superpositions, current
+    operating mode, most recent transition, etc.) MUST pass ``order="desc"``.
+    Otherwise on a mature ledger with >``limit`` matching events, the
+    returned window is the oldest events — silently returning ledger
+    prehistory as if it were the present.
+
+    Fable audit 2026-07-02 findings #2/#3 named two live callers that hit
+    this exact bug: ``active_superpositions()`` (blinded on mature ledger)
+    and ``current_mode()``/``mode_history()`` (returned oldest transitions).
+    Both fixed by passing ``order="desc"`` at the call site.
+    """
+    order_clause = "DESC" if order.lower() == "desc" else "ASC"
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            f"SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events WHERE payload LIKE ? ORDER BY timestamp {order_clause} LIMIT ?",  # noqa: S608  # nosec B608 — order_clause is validated above (DESC or ASC only)
+            (f"%{keyword}%", limit),
+        )
+        rows = cursor.fetchall()
+
+        events = []
+        for row in rows:
+            try:
+                payload = json.loads(row[4])
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Skipping event {row[0]}: corrupted JSON payload")
+                continue
+            events.append(
+                {
+                    "event_id": row[0],
+                    "timestamp": row[1],
+                    "event_type": row[2],
+                    "actor": row[3],
+                    "payload": payload,
+                    "content_hash": row[5],
+                }
+            )
+        return events
+    finally:
+        conn.close()
+
+
+def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[str, Any]]:
+    """Get the last N events for context injection.
+
+    When meaningful_only is True, filters out high-volume internal events
+    (pattern tracking, health checks) to surface what actually happened:
+    user decisions, agent actions, errors, and session milestones.
+    """
+    # These event types are internal bookkeeping — not useful as working memory.
+    # Without this filter, context is dominated by OS gate cycling
+    # (preflight/briefing/ask resets) instead of actual work events.
+    _NOISE_TYPES = {
+        "AGENT_PATTERN",
+        "AGENT_PATTERN_UPDATE",
+        "TOOL_CALL",
+        "TOOL_RESULT",
+        "OS_QUERY",  # internal engagement resets (ask, recall, decide)
+        "CLARITY_SUMMARY",  # post-session analysis noise
+        "CLARITY_DEVIATION",  # post-session analysis noise
+        "CLARITY_LESSON",  # post-session analysis noise
+    }
+
+    conn = _get_connection()
+    try:
+        if meaningful_only:
+            placeholders = ",".join("?" for _ in _NOISE_TYPES)
+            cursor = conn.execute(
+                f"SELECT event_id, timestamp, event_type, actor, payload, content_hash "  # nosec B608: table/column names from module constants; values parameterized
+                f"FROM system_events "
+                f"WHERE event_type NOT IN ({placeholders}) "
+                f"ORDER BY timestamp DESC LIMIT ?",
+                (*_NOISE_TYPES, n),
+            )
+        else:
+            cursor = conn.execute(
+                "SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events ORDER BY timestamp DESC LIMIT ?",
+                (n,),
+            )
+        rows = cursor.fetchall()
+
+        events = [
+            {
+                "event_id": row[0],
+                "timestamp": row[1],
+                "event_type": row[2],
+                "actor": row[3],
+                "payload": json.loads(row[4]),
+                "content_hash": row[5],
+            }
+            for row in rows
+        ]
+        events.reverse()  # chronological order
+        return events
+    finally:
+        conn.close()
+
+
+def count_events() -> dict[str, Any]:
+    """Returns event counts by type and actor."""
+    conn = _get_connection()
+    try:
+        by_type: dict[str, int] = {}
+        for row in conn.execute(
+            "SELECT event_type, COUNT(*) FROM system_events GROUP BY event_type",
+        ):
+            by_type[row[0]] = row[1]
+
+        by_actor: dict[str, int] = {}
+        for row in conn.execute("SELECT actor, COUNT(*) FROM system_events GROUP BY actor"):
+            by_actor[row[0]] = row[1]
+
+        total = conn.execute("SELECT COUNT(*) FROM system_events").fetchone()[0]
+
+        return {"total": total, "by_type": by_type, "by_actor": by_actor}
+    finally:
+        conn.close()
+
+
+class Ledger:
+    """Ledger class for code that needs an object-based API.
+
+    Provides supersession-specific operations (store_fact, query_facts, etc.)
+    and delegates basic operations to the module-level functions.
+    """
+
+    def log_event(
+        self, event_type: str, actor: str, payload: dict[str, Any], validate: bool = True
+    ) -> str:
+        return log_event(event_type, actor, payload, validate)
+
+    def get_events(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        event_type: str | None = None,
+        actor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_events(limit, offset, event_type, actor)
+
+    def store_fact(self, fact: dict[str, Any]) -> str:
+        """Store a fact as a FACT_STORED event. Returns fact ID."""
+        fact_id: str = fact.get("id", str(uuid.uuid4()))
+        log_event("FACT_STORED", "supersession", fact, validate=False)
+        return fact_id
+
+    def store_event(self, event: dict[str, Any]) -> str:
+        """Store a SUPERSESSION event. Returns event ID."""
+        event_id: str = event.get("event_id", str(uuid.uuid4()))
+        log_event("SUPERSESSION", "supersession", event, validate=False)
+        return event_id
+
+    def query_facts(
+        self, fact_type: str | None = None, fact_key: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Query FACT_STORED events, optionally filtering by type/key."""
+        events = get_events(event_type="FACT_STORED", limit=10000)
+        facts = []
+        for event in events:
+            payload = event.get("payload", {})
+            if fact_type and payload.get("fact_type") != fact_type:
+                continue
+            if fact_key and payload.get("fact_key") != fact_key:
+                continue
+            facts.append(payload)
+        return facts
+
+    def query_supersession_events(
+        self,
+        superseded_fact_id: str | None = None,
+        superseding_fact_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Query SUPERSESSION events, optionally filtering by fact IDs."""
+        events = get_events(event_type="SUPERSESSION", limit=10000)
+        result = []
+        for event in events:
+            payload = event.get("payload", {})
+            if superseded_fact_id and payload.get("superseded_fact_id") != superseded_fact_id:
+                continue
+            if superseding_fact_id and payload.get("superseding_fact_id") != superseding_fact_id:
+                continue
+            result.append(payload)
+        return result
+
+
+_ledger_instance: Ledger | None = None
+
+
+def get_ledger() -> Ledger:
+    """Get the global Ledger instance."""
+    global _ledger_instance
+    if _ledger_instance is None:
+        _ledger_instance = Ledger()
+    return _ledger_instance
+
+
+# Backward-compat re-exports: verification/cleanup/export now live in ledger_verify.py
+from divineos.core.ledger_verify import (  # noqa: E402
+    clean_corrupted_events as clean_corrupted_events,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    export_to_markdown as export_to_markdown,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    get_verified_events as get_verified_events,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    verify_all_events as verify_all_events,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    verify_event_hash as verify_event_hash,
+)
+
+
+# ---------------------------------------------------------------------------
+# Hash-chain backfill + verification
+# ---------------------------------------------------------------------------
+
+
+def backfill_chain_hashes() -> dict[str, Any]:
+    """Populate prior_hash + chain_hash for any system_events that lack
+    them. Walks events in (timestamp, rowid) order to ensure deterministic
+    chain construction. Returns a dict with counts.
+
+    Idempotent: events that already have chain_hash set keep their values.
+    Safe to run multiple times.
+    """
+    conn = _get_connection()
+    try:
+        # BEGIN IMMEDIATE serializes against concurrent log_event calls.
+        # Without this, a concurrent log_event could insert a row mid-
+        # backfill, and the UPDATEs below would write chain_hashes
+        # derived from a stale prior_hash that no longer reflects the
+        # actual chain tail. Same TOCTOU class as log_event itself
+        # (Aletheia round-ba785844a791 Finding 15 + this round's
+        # family-audit round-49b2a6659d7f). isolation_level=None
+        # ensures BEGIN IMMEDIATE isn't masked by Python's default
+        # auto-DEFERRED-transaction wrapping.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
+        rows = list(
+            conn.execute(
+                "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash, "
+                "chain_hash FROM system_events ORDER BY timestamp ASC, rowid ASC"
+            )
+        )
+        prior_hash = _CHAIN_GENESIS
+        backfilled = 0
+        for row in rows:
+            rowid, event_id, ts, etype, actor, payload_json, content_hash, existing_chain = row
+            if existing_chain:
+                prior_hash = existing_chain
+                continue
+            chain_hash = _compute_chain_hash(
+                prior_hash=prior_hash,
+                event_id=event_id,
+                timestamp=ts,
+                event_type=etype,
+                actor=actor,
+                payload_json=payload_json,
+                content_hash=content_hash,
+            )
+            conn.execute(
+                "UPDATE system_events SET prior_hash = ?, chain_hash = ? WHERE rowid = ?",
+                (prior_hash, chain_hash, rowid),
+            )
+            prior_hash = chain_hash
+            backfilled += 1
+        conn.commit()
+        return {"total_events": len(rows), "backfilled": backfilled}
+    finally:
+        conn.close()
+
+
+def verify_chain() -> dict[str, Any]:
+    """Walk the chain and verify each chain_hash. Returns dict with
+    ok (bool), total (int), broken_at (event_id or None),
+    broken_reason (str or None).
+
+    Cross-checks the ledger tip against the external head anchor
+    (Fable audit 2026-07-02 finding #1). Middle-deletion was already
+    caught by the walk; tail truncation is now caught by comparing the
+    walked head to the persisted anchor. Either:
+      - anchor says N events ended at chain_hash X but ledger walk
+        found M<N events ending at Y ≠ X → tail truncation detected.
+      - anchor absent (pre-anchor legacy database) → chain-only check
+        is honest about that with a diagnostic on ok=True.
+    """
+    conn = _get_connection()
+    try:
+        rows = list(
+            conn.execute(
+                "SELECT event_id, timestamp, event_type, actor, payload, content_hash, "
+                "prior_hash, chain_hash FROM system_events "
+                "ORDER BY timestamp ASC, rowid ASC"
+            )
+        )
+        if not rows:
+            # Empty ledger — anchor should also be empty. If anchor exists
+            # for an empty ledger, that IS tail-truncation evidence.
+            anchor_row = conn.execute(
+                "SELECT chain_hash, event_count, latest_event_id "
+                "FROM ledger_head_anchor WHERE row_id = 1"
+            ).fetchone()
+            if anchor_row and anchor_row[1] > 0:
+                return {
+                    "ok": False,
+                    "total": 0,
+                    "broken_at": None,
+                    "broken_reason": (
+                        f"anchor says {anchor_row[1]} events but ledger is empty — "
+                        f"tail truncation (Fable finding #1)"
+                    ),
+                }
+            return {"ok": True, "total": 0, "broken_at": None, "broken_reason": None}
+
+        expected_prior = _CHAIN_GENESIS
+        last_chain_hash = None
+        chain_event_count = 0
+        last_event_id = None
+        for row in rows:
+            event_id, ts, etype, actor, payload_json, content_hash, stored_prior, stored_chain = row
+            if not stored_chain:
+                continue
+            if stored_prior != expected_prior:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": event_id,
+                    "broken_reason": (
+                        f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., "
+                        f"expected={expected_prior[:12]}..."
+                    ),
+                }
+            recomputed = _compute_chain_hash(
+                prior_hash=stored_prior,
+                event_id=event_id,
+                timestamp=ts,
+                event_type=etype,
+                actor=actor,
+                payload_json=payload_json,
+                content_hash=content_hash,
+            )
+            if recomputed != stored_chain:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": event_id,
+                    "broken_reason": (
+                        f"chain_hash mismatch: stored={stored_chain[:12]}..., "
+                        f"recomputed={recomputed[:12]}..."
+                    ),
+                }
+            expected_prior = stored_chain
+            last_chain_hash = stored_chain
+            last_event_id = event_id
+            chain_event_count += 1
+
+        # Anchor consistency check — closes the tail truncation gap
+        # (Fable finding #1). If the anchor exists AND disagrees with
+        # the walked tail, the ledger has been truncated (or the
+        # anchor has been tampered independently; either way, integrity
+        # is compromised).
+        anchor_row = conn.execute(
+            "SELECT chain_hash, event_count, latest_event_id "
+            "FROM ledger_head_anchor WHERE row_id = 1"
+        ).fetchone()
+        if anchor_row is not None:
+            anchor_chain, anchor_count, anchor_event_id = anchor_row
+            if anchor_chain != last_chain_hash:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": last_event_id,
+                    "broken_reason": (
+                        f"head anchor chain_hash mismatch: "
+                        f"anchor={anchor_chain[:12]}..., "
+                        f"ledger_tip={(last_chain_hash or '')[:12]}... — "
+                        f"tail truncation or anchor tampering (Fable finding #1)"
+                    ),
+                }
+            if anchor_count != chain_event_count:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": last_event_id,
+                    "broken_reason": (
+                        f"head anchor event_count mismatch: "
+                        f"anchor={anchor_count}, ledger={chain_event_count} — "
+                        f"tail truncation (Fable finding #1)"
+                    ),
+                }
+            if anchor_event_id != last_event_id:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": last_event_id,
+                    "broken_reason": (
+                        f"head anchor latest_event_id mismatch: "
+                        f"anchor={anchor_event_id}, ledger_tip={last_event_id} — "
+                        f"tail truncation or reorder (Fable finding #1)"
+                    ),
+                }
+
+        return {"ok": True, "total": len(rows), "broken_at": None, "broken_reason": None}
+    finally:
+        conn.close()

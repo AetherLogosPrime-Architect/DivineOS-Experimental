@@ -1,0 +1,73 @@
+name: Tests & Lint
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+    # ready_for_review needed so the workflow fires when a draft PR is
+    # promoted out of draft state. Default activity types
+    # (opened/synchronize/reopened) skip the draft→ready transition.
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Draft PRs skip CI so pre-audit visibility doesn't accumulate red marks
+    # on the Actions page. The test suite still runs on push to main/develop
+    # and on the ready_for_review transition (when the audit clears and the
+    # PR is promoted out of draft). See integrity-audit.yml for the matching
+    # discipline on the audit gate.
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    strategy:
+      matrix:
+        # Bumped 2026-06-22 from ["3.10","3.11","3.12"] to ["3.12"]: the
+        # project's requires-python floor moved to >=3.12 (newer numpy
+        # stubs need PEP 695 syntax mypy can only parse under py3.12+),
+        # and no consumer was actually running on 3.10/3.11. Halves CI
+        # burn (2 jobs vs 4).
+        python-version: ["3.12"]
+        extras: [""]
+        include:
+          - python-version: "3.12"
+            extras: "sklearn"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Install optional deps (sklearn)
+      if: matrix.extras == 'sklearn'
+      run: pip install scikit-learn
+    
+    - name: Lint with ruff
+      run: |
+        ruff check src/ tests/
+        ruff format --check src/ tests/
+    
+    - name: Type check with mypy
+      run: |
+        mypy src/divineos --ignore-missing-imports
+    
+    - name: Run tests with pytest
+      run: |
+        pytest tests/ -v --tb=short -m "not slow"
+
+    # Aether 2026-05-19: slow tests previously deselected with no place
+    # they were ever run = invisibility-of-failure. Andrew: "nothing
+    # should be pushed without being monitored for failures." This step
+    # runs the @pytest.mark.slow tests in their own block so the signal
+    # is visible. Longer timeout per-test because they're slow by
+    # construction. continue-on-error: false — they must pass too.
+    - name: Run slow tests with pytest
+      run: |
+        pytest tests/ -v --tb=short -m "slow" --timeout=120

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies that KeyTransform needs a custom In lookup handler, but the implementation is flawed - it tries to convert In lookups to exact lookups for single elements, which doesn't address the core SQL generation issue, and has a duplicate registration line.",
+  "key_difference": "The candidate patch attempts to solve the problem by converting single-element In lookups to exact lookups, while the gold patch properly handles the SQL generation by transforming the RHS parameters with appropriate JSON extraction functions for each database backend. The candidate's approach is fundamentally incorrect as it doesn't address the underlying SQL generation issue.",
+  "instance_id": "django__django-13346",
+  "condition": "base",
+  "judge_tokens": 1949,
+  "judge_cost": 0.008151
+}

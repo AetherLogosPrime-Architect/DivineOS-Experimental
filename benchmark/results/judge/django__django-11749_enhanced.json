@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that arguments in required mutually exclusive groups need to be included in parse_args even if individually not required, and modifies the condition to check for membership in such groups.",
+  "key_difference": "The candidate uses an inline generator expression with `any()` to check group membership, while the gold patch pre-computes the set of mutually exclusive required options. Both approaches are functionally equivalent and correct, but the gold patch may be slightly more efficient by avoiding repeated group iteration.",
+  "instance_id": "django__django-11749",
+  "condition": "enhanced",
+  "judge_tokens": 1442,
+  "judge_cost": 0.006354
+}

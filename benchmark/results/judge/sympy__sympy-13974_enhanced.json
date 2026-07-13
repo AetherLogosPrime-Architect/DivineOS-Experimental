@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that powers of TensorProduct need special handling and implements a clean solution by adding a tensor_product_simp_Pow function that distributes exponents to tensor product arguments.",
+  "key_difference": "This approach is simpler and more direct than the gold patch - it focuses only on the Pow case in tensor_product_simp rather than handling multiple edge cases in tensor_product_simp_Mul. Both solutions are valid, but this one is more straightforward.",
+  "instance_id": "sympy__sympy-13974",
+  "condition": "enhanced",
+  "judge_tokens": 2017,
+  "judge_cost": 0.008103
+}

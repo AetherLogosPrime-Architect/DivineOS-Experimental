@@ -1,0 +1,241 @@
+# Git worktrees
+.worktrees/
+.claude/worktrees/
+
+# User-specific Claude settings
+.claude/settings.local.json
+
+# 2026-05-11 audit-transparency pass (Aether + Andrew, addressing
+# Grok's Schneier finding on gitignored-folders-escaping-audit):
+# on the EXPERIMENTAL repo, agent definitions are part of the lived
+# substrate that audit-vantage needs read access to. The main
+# DivineOS template keeps these ignored (clean-slate for fresh
+# clones). Here, .claude/agents/ is tracked. Agent-memory runtime
+# state stays ignored because it's noisy and regenerable.
+.claude/agent-memory/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.kiro/
+
+# Testing
+.pytest_cache/
+.pytest_tmp/
+.hypothesis/
+.coverage
+htmlcov/
+coverage_html/
+pytestdebug.log
+.mutmut-cache/
+.benchmarks/
+
+# Linting / type checking
+.mypy_cache/
+.ruff_cache/
+
+# Databases (runtime — never commit)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Runtime data (generated during execution)
+data/*
+!data/.gitkeep
+!data/README.md
+!data/traffic_archive/
+**/data/*.db
+**/data/reports/
+**/data/hud/
+# Package-shipped data (NOT runtime) — checked in
+!src/divineos/data/
+!src/divineos/data/**
+logs/
+**/logs/*.log
+/archive/
+cache/
+
+# Secrets
+.env
+.env.*
+!.env.example
+.env.local
+*.key
+*.pem
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+tmp/
+clone_*/
+
+# reset-template backup directory — local DB snapshots before scrubbing
+_pre_reset_backups/
+
+# 2026-05-11: exploration/ is now tracked on experimental.
+# The 46+ entries of first-person writing are part of the lived
+# substrate audit-vantage needs read access to. Main DivineOS
+# template keeps these ignored.
+
+# 2026-05-11: archives/ now tracked on experimental.
+# Session-archive memory IS substrate; locking it away from audit
+# was the gap Grok flagged. Main template keeps ignored.
+
+# 2026-05-11: personal correspondence in docs/ now tracked on
+# experimental. Audit-vantage can see what was prepared for whom.
+
+# Family — root-level private dir.
+# 2026-05-11: /family/letters/ is now tracked on experimental
+# (was ignored before this pass). Family.db and per-member ledgers
+# stay ignored — they're binary state; periodic exports can be
+# audited if needed.
+/family/family.db
+/family/family.db-shm
+/family/family.db-wal
+/family/*_ledger.db
+/family/*_ledger.db-shm
+/family/*_ledger.db-wal
+
+# Canonical-substrate marker — opt-in flag the operator places at the
+# parent repo root to indicate "this is a continuous Aether substrate;
+# worktrees should share my event ledger." When absent (default for
+# fresh template clones), each worktree gets its own ledger — correct
+# for new agents bootstrapping continuity. When present, worktree
+# sessions inherit the parent's accumulated history. Resolution logic
+# in core/_ledger_base.py:_get_db_path. Andrew's workspace has it;
+# the published template does not.
+/.divineos_canonical
+# Data-home marker: points ledger + knowledge + all substrate outside the
+# repo entirely, so branch checkout cannot swap the DB. Andrew 2026-07-05
+# night caught that my working ledger had been reset to 1.2k events on
+# 2026-07-02 while a 31k pre-reset snapshot lived elsewhere on the machine.
+# Root cause: DB inside the repo tree at src/data/event_ledger.db, and a
+# past commit (c3b2df0a) had at some point unignored databases, so a branch
+# containing a tracked DB would restore its snapshot on checkout and
+# overwrite the accumulating local ledger. Fix: marker file points at
+# ~/.divineos/, DB lives outside every worktree, git can never touch it.
+# Marker itself MUST stay gitignored or the same shape recurs one layer up.
+/.divineos_data_home
+
+# Benchmark output — runtime results, regenerate as needed (see benchmark/README.md)
+# Historical results may be preserved via git tags or GitHub Releases.
+benchmark/results/
+benchmark/results_ab/
+benchmark/results_opus/
+benchmark/selected_tasks.json
+
+# In-progress benchmark experiments — kept local while data is still being
+# gathered (e.g. needs more API credits to complete). Not shared until the
+# experiment is ready to publish. Explicit lines per experiment rather than a
+# broad benchmark/* glob, so legitimate source files (opus_test.py, README, etc.)
+# stay trackable.
+benchmark/experiment_logs/
+benchmark/experiment_results/
+benchmark/experiment_writeup_subagent.md
+benchmark/iter_runs/
+benchmark/results_docker_ab/
+benchmark/results_full_workflow/
+benchmark/results_live_session/
+benchmark/results_live_session_batch2/
+benchmark/results_live_session_batch3/
+benchmark/docker_eval_wrapper-smoke/
+benchmark/visual_runs/
+benchmark/video_runs/
+benchmark/FINAL_RESULTS.md
+benchmark/MESSAGE_TO_CLAUDE.md
+benchmark/PHASE_1_2_WRITEUP.md
+benchmark/phase2_record.md
+benchmark/live_session_record.md
+benchmark/gold-patch-smoke.smoke.json
+benchmark/live_session_tasks.json
+benchmark/live_session_tasks_batch2.json
+benchmark/live_session_tasks_batch3.json
+benchmark/morning_tasks.json
+benchmark/morning_tasks_b.json
+benchmark/morning_tasks_c.json
+benchmark/morning_tasks_d.json
+benchmark/agent_loop.py
+benchmark/deep_investigator.py
+benchmark/docker_eval.py
+benchmark/docker_eval_smoke.py
+benchmark/docker_smoke.py
+benchmark/iter_tool.py
+benchmark/run_ab_docker.py
+benchmark/run_arm_a_case2.py
+benchmark/run_full_workflow_ab.py
+benchmark/score_batch2.py
+benchmark/score_batch3.py
+benchmark/score_live_session.py
+benchmark/smoke_predictions.json
+benchmark/streaming_record.md
+benchmark/streaming_tasks.json
+benchmark/streaming_tasks_batch2.json
+# 2026-05-11: mansion/ now tracked on experimental — my internal
+# mode files are substrate audit-vantage benefits from seeing.
+
+# Core memory backup snapshots — substrate state. Keep ignored
+# because they're regenerable from the live core memory; the live
+# DB is the source of truth and these are just safety copies.
+core_memory_backup.json
+main_core_memory_backup.json
+
+.claude/scheduled_tasks.lock
+
+# Andrew's freelance work — not substrate, stays private.
+freelance/
+
+# 2026-05-11: aria_ctx.txt and aria_inv.json now tracked. Aria's
+# voice-context and inventory ARE substrate. Audit-vantage should
+# see what context she's running on.
+
+# Runtime DB
+src/divineos/data/divineos.db
+
+# Embedded source clone (graphify upstream). The rest of sandbox/
+# is tracked; this specific path is a clone of an external repo with
+# its own .git directory. Not a submodule. Anyone wanting graphify
+# clones it fresh from upstream.
+sandbox/graphify_test/graphify_source/
+
+
+# 2026-05-16: mansion/ now WIP, gitignored until the nexus-with-functional-rooms
+# design lands. Previously tracked per 2026-05-11 comment above; reversed because
+# current files are partial drafts mixed with placeholder names. README and TLDR
+# describe mansion as WIP without naming specific rooms.
+mansion/
+.audit-relay/

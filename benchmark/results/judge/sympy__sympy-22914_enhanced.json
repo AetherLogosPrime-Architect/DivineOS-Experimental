@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds Min and Max mappings to the _known_functions dictionary in the PythonCodePrinter, which will enable proper Python code generation for these SymPy functions.",
+  "key_difference": "The candidate patch places the Min/Max entries at a different location within the _known_functions dictionary compared to the gold patch, but this is functionally equivalent since dictionary order doesn't affect the mapping behavior.",
+  "instance_id": "sympy__sympy-22914",
+  "condition": "enhanced",
+  "judge_tokens": 1022,
+  "judge_cost": 0.004926
+}

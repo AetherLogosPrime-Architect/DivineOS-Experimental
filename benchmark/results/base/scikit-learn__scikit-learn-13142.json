@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13142",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is that in `GaussianMixture.fit_predict()`, when `n_init > 1`, the method returns predictions from the last iteration rather than from the best model (which has the highest likelihood). The `predict()` method uses the best model parameters, causing the disagreement.\n\nThe fix is to move the `_e_step()` call to after the best parameters are restored, so that `fit_predict()` returns predictions based on the best model rather than the last iteration.\n\n--- a/sklearn/mixture/base.py\n+++ b/sklearn/mixture/base.py\n@@ -260,7 +260,6 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):\n                 if lower_bound > max_lower_bound:\n                     max_lower_bound = lower_bound\n                     best_params = self._get_parameters()\n-                    best_n_iter = n_iter\n \n             if not self.converged_:\n                 warnings.warn('Initialization %d did not converge. '\n@@ -271,6 +270,7 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):\n         # Always do a final e-step to guarantee that the labels returned by\n         # fit_predict(X) are always consistent with fit(X).predict(X)\n         # for any value of max_iter and tol (and any random_state).\n+        _, log_resp = self._e_step(X)\n \n         if do_prediction:\n             return log_resp.argmax(axis=1)",
+  "thinking": null,
+  "input_tokens": 1530,
+  "output_tokens": 398,
+  "elapsed_seconds": 8.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.01056
+}

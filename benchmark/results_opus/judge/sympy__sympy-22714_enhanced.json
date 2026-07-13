@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate correctly identifies the problematic line where imaginary coordinates are checked, but uses `a.is_real is False` instead of the proper fix. This approach would incorrectly flag non-real expressions (like symbols) as imaginary coordinates, whereas the gold patch correctly checks if the imaginary part is non-zero.",
+  "key_difference": "The candidate uses `a.is_real is False` while the gold patch uses `im(a).is_zero is False`. The gold approach specifically checks if the imaginary part is non-zero, while the candidate's approach would incorrectly reject any non-real expression including symbolic variables.",
+  "instance_id": "sympy__sympy-22714",
+  "condition": "enhanced",
+  "judge_cost": 0.006453
+}

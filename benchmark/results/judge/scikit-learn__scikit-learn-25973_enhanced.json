@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the issue and adds check_cv to convert generator-based splits to a reusable format, which would fix the IndexError when using splits from cross-validators.",
+  "key_difference": "The candidate patch includes unnecessary whitespace changes and trailing spaces, and the diff appears to be truncated/incomplete. The gold patch also passes the cv parameter through the method calls while this patch doesn't show those changes, but the core fix of using check_cv is correct.",
+  "instance_id": "scikit-learn__scikit-learn-25973",
+  "condition": "enhanced",
+  "judge_tokens": 2400,
+  "judge_cost": 0.009191999999999999
+}

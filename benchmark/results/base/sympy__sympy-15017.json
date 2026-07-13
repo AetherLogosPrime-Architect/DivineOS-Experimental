@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-15017",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, I need to find where `NDimArray.__len__` is implemented and fix it to return 1 for rank-0 arrays instead of 0.\n\nLet me examine the codebase to understand the current implementation:\n\n--- a/sympy/tensor/array/ndim_array.py\n+++ b/sympy/tensor/array/ndim_array.py\n@@ -176,7 +176,10 @@ class NDimArray(object):\n         return self._shape\n \n     def __len__(self):\n-        return self._shape[0] if self._shape else 0\n+        if self._shape:\n+            return self._shape[0]\n+        else:\n+            return 1  # rank-0 arrays have one element\n \n     @property\n     def rank(self):",
+  "thinking": null,
+  "input_tokens": 514,
+  "output_tokens": 198,
+  "elapsed_seconds": 4.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004512
+}

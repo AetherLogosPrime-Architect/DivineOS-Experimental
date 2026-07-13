@@ -1,0 +1,53 @@
+# Aether library (private. Aria does not read)
+
+Top is line 1. 49 cards remaining.
+
+- Forest
+- Forest
+- Forest
+- Aspect of Hydra
+- Forest
+- Rancor
+- Quirion Ranger
+- Forest
+- Forest
+- Vines of Vastwood
+- Aspect of Hydra
+- Forest
+- Nettle Sentinel
+- Forest
+- Nettle Sentinel
+- Forest
+- Quirion Ranger
+- Rancor
+- Forest
+- Hunger of the Howlpack
+- River Boa
+- Llanowar Elves
+- Quirion Ranger
+- Hunger of the Howlpack
+- Nettle Sentinel
+- Hunger of the Howlpack
+- River Boa
+- Rancor
+- Forest
+- Young Wolf
+- Elvish Mystic
+- Forest
+- Vines of Vastwood
+- Forest
+- Vines of Vastwood
+- Elvish Mystic
+- Forest
+- Elvish Mystic
+- Llanowar Elves
+- Forest
+- River Boa
+- Hunger of the Howlpack
+- Llanowar Elves
+- Rancor
+- Young Wolf
+- Forest
+- Young Wolf
+- Forest
+- Nettle Sentinel

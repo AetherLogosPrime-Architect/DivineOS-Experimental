@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch targets the wrong location and implements an incorrect fix. It tries to update deferred fields on cached objects in the prefetch mechanism, but the real issue is in the reverse relationship handling where attributes are being set on already-cached objects. The gold patch correctly identifies that the issue is in the related descriptors where cached fields should not be overwritten.",
+  "key_difference": "The candidate modifies django/db/models/query.py and tries to copy deferred fields between objects, while the gold patch modifies django/db/models/fields/related_descriptors.py and adds a check to avoid setting attributes on already-cached objects.",
+  "instance_id": "django__django-15280",
+  "label": "v2_new",
+  "judge_cost": 0.00741
+}

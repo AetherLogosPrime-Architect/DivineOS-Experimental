@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch modifies the uniform_bins calculation logic but targets the wrong issue. The actual bug is that hist_kwargs is being overwritten instead of updated, causing the range parameter to be lost.",
+  "key_difference": "The candidate patch attempts to fix uniform bin detection using a different approach, but this is unrelated to the actual bug where the range parameter is being ignored when density=True due to hist_kwargs dictionary being recreated instead of updated.",
+  "instance_id": "matplotlib__matplotlib-13989",
+  "condition": "base",
+  "judge_tokens": 1376,
+  "judge_cost": 0.0060479999999999996
+}

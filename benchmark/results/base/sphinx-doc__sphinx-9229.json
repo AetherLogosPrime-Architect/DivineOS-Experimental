@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-9229",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, the problem is that type alias documentation is inconsistent - some aliases show their docstrings while others show the default \"alias of ...\" text. This is related to how Sphinx handles type aliases in the autodoc extension.\n\nThe issue appears to be in the `sphinx/ext/autodoc/__init__.py` file where type aliases are processed. The problem is that the code doesn't properly handle all cases where a type alias has a docstring that should override the default \"alias of\" message.\n\nLet me examine the code and create a fix:\n\n--- a/sphinx/ext/autodoc/__init__.py\n+++ b/sphinx/ext/autodoc/__init__.py\n@@ -2017,6 +2017,11 @@ class DataDocumenter(ModuleLevelDocumenter):\n             if self.object is UNINITIALIZED_VALUE:\n                 return True\n \n+            # Check if this is a type alias with a custom docstring\n+            if (inspect.isclass(self.object) is False and\n+                hasattr(self.parent, '__annotations__') and\n+                self.objpath[-1] in self.parent.__annotations__ and\n+                self.get_doc()):\n+                return False\n+\n         return False\n \n     def add_directive_header(self, sig: str) -> None:",
+  "thinking": null,
+  "input_tokens": 1307,
+  "output_tokens": 312,
+  "elapsed_seconds": 6.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008601000000000001
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the match_findall function and its calls, but the actual bug is in the trim_punctuation function where HTML escaped strings are handled incorrectly when calculating positions for trimming trailing punctuation.",
+  "key_difference": "The candidate patch tries to fix the issue by modifying the regex pattern in match_findall to avoid matching punctuation after HTML entities, while the gold patch correctly fixes the position calculation bug in trim_punctuation. The candidate's approach doesn't address the core issue of incorrect string slicing when HTML entities are involved.",
+  "instance_id": "django__django-14539",
+  "condition": "enhanced",
+  "judge_tokens": 1481,
+  "judge_cost": 0.006626999999999999
+}

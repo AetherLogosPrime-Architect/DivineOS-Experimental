@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10973",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/backends/postgresql/client.py\n+++ b/django/db/backends/postgresql/client.py\n@@ -1,4 +1,5 @@\n import os\n+import subprocess\n from django.db.backends.base.client import BaseDatabaseClient\n \n \n@@ -29,4 +30,10 @@ class DatabaseClient(BaseDatabaseClient):\n         if args:\n             args = [\"psql\"] + args\n         else:\n-            args = [\"psql\", dbname]\n+            args = [\"psql\", dbname] \n+        \n+        env = os.environ.copy()\n+        if settings_dict.get('PASSWORD'):\n+            env['PGPASSWORD'] = settings_dict['PASSWORD']\n+            \n+        subprocess.run(args, env=env, check=True)",
+  "thinking": null,
+  "input_tokens": 270,
+  "output_tokens": 208,
+  "elapsed_seconds": 3.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0039299999999999995
+}

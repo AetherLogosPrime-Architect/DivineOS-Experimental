@@ -1,0 +1,12 @@
+{
+  "instance_id": "psf__requests-5414",
+  "condition": "base",
+  "model": "claude-opus-4-6",
+  "patch": "\n\nLooking at the problem, when a URL like `http://.example.com` is processed, the IDNA encoding of the hostname fails with a `UnicodeError` instead of being caught and re-raised as an `InvalidURL` exception.\n\nLet me trace through the code in `requests/models.py` to find where the hostname is encoded with IDNA and where the `UnicodeError` needs to be caught.\n\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -401,6 +401,8 @@ class PreparedRequest(RequestEncodingMixin, RequestsMixin):\n                 try:\n                     host = idna.encode(host, uts46=True).decode('utf-8')\n                 except idna.core.InvalidCodepoint as e:\n+                    raise InvalidURL(e)\n+                except UnicodeError as e:\n                     raise InvalidURL(e)\n             except UnicodeDecodeError:\n                 raise InvalidURL('URL has an invalid label.')",
+  "thinking": null,
+  "input_tokens": 686,
+  "output_tokens": 244,
+  "elapsed_seconds": 5.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.02859
+}

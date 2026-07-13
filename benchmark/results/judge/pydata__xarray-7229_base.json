@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the problematic lambda function in the where() function but attempts a simplistic revert that doesn't properly handle coordinate attributes separately from variable attributes.",
+  "key_difference": "The candidate patch tries to fix the issue by reverting to `attrs[1]` while the gold patch implements a more comprehensive solution that explicitly handles coordinate and variable attributes separately after the apply_ufunc call, ensuring coordinate attributes are preserved correctly.",
+  "instance_id": "pydata__xarray-7229",
+  "condition": "base",
+  "judge_tokens": 2534,
+  "judge_cost": 0.009474
+}

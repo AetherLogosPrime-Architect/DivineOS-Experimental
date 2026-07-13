@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13551",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/contrib/auth/tokens.py\n+++ b/django/contrib/auth/tokens.py\n@@ -78,7 +78,8 @@ class PasswordResetTokenGenerator:\n         # Truncate microseconds so that tokens are consistent even if the\n         # database doesn't support microseconds.\n         login_timestamp = '' if user.last_login is None else user.last_login.replace(microsecond=0, tzinfo=None)\n-        return str(user.pk) + user.password + str(login_timestamp) + str(timestamp)\n+        email = getattr(user, 'email', '') or ''\n+        return str(user.pk) + user.password + str(login_timestamp) + str(timestamp) + email\n \n     def _num_seconds(self, dt):\n         return int((dt - datetime(2001, 1, 1)).total_seconds())",
+  "thinking": null,
+  "input_tokens": 334,
+  "output_tokens": 220,
+  "elapsed_seconds": 5.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004302
+}

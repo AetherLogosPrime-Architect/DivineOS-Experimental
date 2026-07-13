@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch fixes the NameError by correcting the variable name from 'cotm' to 'cothm', which matches the variable defined on the previous line.",
+  "key_difference": "The candidate patch shows different context lines and variable assignments compared to gold, but both patches make the identical core fix of changing 'cotm' to 'cothm' on the same line, which resolves the NameError.",
+  "instance_id": "sympy__sympy-13480",
+  "condition": "base",
+  "judge_tokens": 1061,
+  "judge_cost": 0.005067
+}

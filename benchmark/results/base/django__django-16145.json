@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16145",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/management/commands/runserver.py\n+++ b/django/core/management/commands/runserver.py\n@@ -106,6 +106,9 @@ class Command(BaseCommand):\n         if not self.addr:\n             self.addr = '127.0.0.1'\n \n+        # Display 0.0.0.0 instead of 0 for clarity in the startup message\n+        display_addr = '0.0.0.0' if self.addr == '0' else self.addr\n+\n         now = datetime.now().strftime('%B %d, %Y - %X')\n         version = self.get_version()\n         print((\n@@ -113,7 +116,7 @@ class Command(BaseCommand):\n             \"Django version %(version)s, using settings %(settings)r\\n\"\n             \"Starting development server at %(protocol)s://%(addr)s:%(port)s/\\n\"\n             \"Quit the server with %(quit_command)s.\"\n-        ) % {\n+        ) % { \n             \"started_at\": now,\n             \"version\": version,\n             \"settings\": settings.SETTINGS_MODULE,\n@@ -122,7 +125,7 @@ class Command(BaseCommand):\n                 self.protocol = 'https'\n                 return 'https'\n             return 'http',\n-            \"addr\": '[%s]' % self.addr if self._raw_ipv6 else self.addr,\n+            \"addr\": '[%s]' % display_addr if self._raw_ipv6 else display_addr,\n             \"port\": self.port,\n             \"quit_command\": quit_command,\n         })",
+  "thinking": null,
+  "input_tokens": 1394,
+  "output_tokens": 420,
+  "elapsed_seconds": 8.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.010482
+}

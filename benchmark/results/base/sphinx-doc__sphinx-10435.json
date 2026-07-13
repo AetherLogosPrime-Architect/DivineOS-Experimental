@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-10435",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sphinx/writers/latex.py\n+++ b/sphinx/writers/latex.py\n@@ -1343,7 +1343,7 @@ class LaTeXTranslator(SphinxTranslator):\n         if 'code' not in node.get('classes', []):\n             return self.visit_literal(node)\n \n-        self.body.append(r'\\sphinxcode{\\sphinxupquote{')\n+        self.body.append(r'\\sphinxcode{\\sphinxupquote{%' + CR)\n         self.context.append('}')\n \n     def depart_literal(self, node: Element) -> None:\n@@ -1352,7 +1352,7 @@ class LaTeXTranslator(SphinxTranslator):\n         if 'code' not in node.get('classes', []):\n             return self.depart_literal_original(node)\n \n-        self.body.append('}}')\n+        self.body.append('%' + CR + '}}')\n \n     def visit_productionlist(self, node: Element) -> None:\n         self.body.append(BLANKLINE)",
+  "thinking": null,
+  "input_tokens": 1102,
+  "output_tokens": 289,
+  "elapsed_seconds": 5.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007641
+}

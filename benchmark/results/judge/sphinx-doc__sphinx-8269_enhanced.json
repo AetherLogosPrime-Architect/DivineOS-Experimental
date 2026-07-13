@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch attempts to check HTTP status codes before anchor checking, but it's in the wrong location and references an undefined 'response' variable that doesn't exist at that point in the code.",
+  "key_difference": "The candidate patch is placed in the wrong code section where the response variable is not available, while the gold patch correctly places the status check immediately after the HTTP request is made using response.raise_for_status().",
+  "instance_id": "sphinx-doc__sphinx-8269",
+  "condition": "enhanced",
+  "judge_tokens": 1293,
+  "judge_cost": 0.005738999999999999
+}

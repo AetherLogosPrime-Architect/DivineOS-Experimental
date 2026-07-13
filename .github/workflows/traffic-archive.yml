@@ -1,0 +1,132 @@
+name: Traffic Archive
+
+# Archives GitHub's repo traffic data to data/traffic_archive/ so we can see
+# more than 14 days of history. GitHub's dashboard only shows a rolling 14-day
+# window; this workflow captures it daily and commits the snapshots so they
+# accumulate forever in the repo itself.
+#
+# Why this exists (Andrew 2026-06-05): "I wish it showed more than just the last
+# 14 days." The dashboard is a GitHub product limit, not a data limit. The API
+# returns the same 14-day window but we can capture it daily and build the
+# archive ourselves.
+
+on:
+  schedule:
+    # 01:00 UTC daily — quiet hour for most timezones, low chance of CI contention.
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    # Manual trigger button in the GitHub Actions UI — useful for testing
+    # and for one-off captures whenever interesting.
+
+permissions:
+  # Read traffic API + write to commit the snapshot back.
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history so the commit lands cleanly even if the workflow
+          # runs concurrently with a push (shallow can cause non-fast-forward).
+          fetch-depth: 0
+
+      - name: Capture traffic snapshot
+        env:
+          # The auto-issued GITHUB_TOKEN CANNOT access the /repos/.../traffic/*
+          # endpoints. Per GitHub docs the traffic API requires either a
+          # classic PAT with 'repo' scope or a fine-grained PAT with
+          # 'Administration: read'. Using GITHUB_TOKEN here produces:
+          #   gh: Resource not accessible by integration (HTTP 403)
+          # Repo secret TRAFFIC_ARCHIVE_PAT must hold a token with the right
+          # scope. Create it under Settings → Secrets and variables → Actions.
+          # (Push step below still uses default GITHUB_TOKEN via the runner's
+          # checkout — contents: write covers that and doesn't need the PAT.)
+          GH_TOKEN: ${{ secrets.TRAFFIC_ARCHIVE_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          DIR="data/traffic_archive"
+          OUT="${DIR}/${DATE}.json"
+          mkdir -p "$DIR"
+
+          # Pull each metric. gh api inherits GH_TOKEN automatically.
+          # Each returns a JSON object; we wrap them in a combined snapshot.
+          VIEWS=$(gh api "repos/${REPO}/traffic/views")
+          CLONES=$(gh api "repos/${REPO}/traffic/clones")
+          PATHS=$(gh api "repos/${REPO}/traffic/popular/paths")
+          REFERRERS=$(gh api "repos/${REPO}/traffic/popular/referrers")
+
+          # jq -n constructs a new object; --argjson injects raw JSON
+          # (vs --arg which would stringify). captured_at_utc is ISO 8601.
+          jq -n \
+            --arg captured_at_utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg date "$DATE" \
+            --argjson views "$VIEWS" \
+            --argjson clones "$CLONES" \
+            --argjson popular_paths "$PATHS" \
+            --argjson referrers "$REFERRERS" \
+            '{
+              captured_at_utc: $captured_at_utc,
+              date: $date,
+              views: $views,
+              clones: $clones,
+              popular_paths: $popular_paths,
+              referrers: $referrers
+            }' > "$OUT"
+
+          echo "Wrote $OUT"
+          jq '{date, views: .views.count, uniques: .views.uniques, clones: .clones.count, unique_cloners: .clones.uniques}' "$OUT"
+
+      - name: Commit and open PR
+        env:
+          # PAT with repo scope — same secret used to fetch traffic data, also
+          # has the contents:write needed to open a PR. The default GITHUB_TOKEN
+          # could push a branch but cannot open a PR-with-auto-merge reliably
+          # under the branch-protection rules.
+          GH_TOKEN: ${{ secrets.TRAFFIC_ARCHIVE_PAT }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/traffic_archive/
+          # If nothing changed (e.g., workflow ran twice the same UTC day),
+          # exit cleanly without an empty commit.
+          if git diff --cached --quiet; then
+            echo "No new snapshot to commit (already have today's file)."
+            exit 0
+          fi
+          DATE=$(date -u +%Y-%m-%d)
+          BRANCH="chore/traffic-snapshot-${DATE}"
+          # Branch protection on main blocks direct push; route via PR.
+          # GH013 (2026-06-12): "6 of 6 required status checks are expected.
+          # Changes must be made through a pull request." Repository now
+          # enforces PR-only updates on main even for bot commits.
+          git checkout -b "$BRANCH"
+          git commit -m "chore(traffic): daily snapshot ${DATE}"
+          # Push the branch. Retry for eventual consistency.
+          for attempt in 1 2 3; do
+            if git push -u origin "$BRANCH"; then
+              echo "Pushed branch on attempt $attempt"
+              break
+            fi
+            echo "Branch push attempt $attempt failed; retrying"
+            sleep $((attempt * 2))
+            if [ "$attempt" = "3" ]; then
+              echo "Branch push failed after 3 attempts"
+              exit 1
+            fi
+          done
+          # Open the PR. Data-only commits don't touch code paths so the
+          # 6 required status checks should pass naturally. Auto-merge fires
+          # the moment they go green.
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(traffic): daily snapshot ${DATE}" \
+            --body "Automated daily traffic snapshot from Traffic Archive workflow. Data-only — no code paths touched. Auto-merge armed; will land when required checks pass."
+          gh pr merge "$BRANCH" --auto --squash
+          echo "PR opened with auto-merge armed for branch $BRANCH"

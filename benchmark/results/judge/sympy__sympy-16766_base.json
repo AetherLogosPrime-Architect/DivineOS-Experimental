@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly adds the _print_Indexed method to PythonCodePrinter class to handle Indexed expressions by formatting them as base[index1, index2, ...]. The implementation is functionally identical to the gold patch.",
+  "key_difference": "The candidate patch uses unpacking syntax `base, *index = expr.args` while the gold patch uses explicit slicing `base = expr.args[0]; index = expr.args[1:]`. Both approaches are functionally equivalent. However, the diff format is malformed with double diff headers.",
+  "instance_id": "sympy__sympy-16766",
+  "condition": "base",
+  "judge_tokens": 1247,
+  "judge_cost": 0.005961
+}

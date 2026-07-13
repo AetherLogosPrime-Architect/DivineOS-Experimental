@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-19495",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, the problem is in the `ConditionSet.subs` method. When substituting variables in a ConditionSet, the method is incorrectly substituting the bound variable (dummy variable) of the ConditionSet, which should remain unchanged during substitution.\n\nLet me examine the ConditionSet implementation and fix the issue:\n\n```diff\n--- a/sympy/sets/conditionset.py\n+++ b/sympy/sets/conditionset.py\n@@ -108,7 +108,15 @@ class ConditionSet(Set):\n         return self.func(self.sym, self.condition, self.base_set)\n \n     def subs(self, *args, **kwargs):\n-        return self.func(self.sym, self.condition.subs(*args, **kwargs),\n-                         self.base_set.subs(*args, **kwargs))\n+        if len(args) == 1:\n+            sequence = args[0]\n+        elif len(args) == 2:\n+            sequence = [(args[0], args[1])]\n+        else:\n+            sequence = args\n+        \n+        # Don't substitute the bound variable (dummy variable)\n+        filtered_sequence = [(old, new) for old, new in sequence if old != self.sym]\n+        return self.func(self.sym, self.condition.subs(filtered_sequence, **kwargs),\n+                         self.base_set.subs(filtered_sequence, **kwargs))\n \n     @property\n```",
+  "thinking": null,
+  "input_tokens": 961,
+  "output_tokens": 369,
+  "elapsed_seconds": 6.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008418
+}

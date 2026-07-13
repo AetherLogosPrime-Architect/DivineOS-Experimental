@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies the need to track and return the number of updated rows in bulk_update(). It properly initializes a counter, accumulates the return values from update() calls, and returns the total. However, it appears to modify a different version of the code with structural differences from the gold patch.",
+  "key_difference": "The candidate patch modifies a different code structure - it shows the rows_updated variable being initialized earlier and the update call happening within a different loop structure with using() method calls, while the gold patch works with a simpler batch-based approach using transactions.",
+  "instance_id": "django__django-14559",
+  "label": "v2_new",
+  "judge_cost": 0.00591
+}

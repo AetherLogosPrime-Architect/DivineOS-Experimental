@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly moves the final e-step calculation after the best parameters are restored, ensuring predict() and fit_predict() use the same model parameters when n_init > 1.",
+  "key_difference": "The candidate uses a conditional check (if do_prediction) to execute the e-step, while the gold patch always executes it. Both approaches are valid since the e-step result is only used when do_prediction is True, but the candidate's approach is slightly more efficient by avoiding unnecessary computation.",
+  "instance_id": "scikit-learn__scikit-learn-13142",
+  "condition": "enhanced",
+  "judge_tokens": 2334,
+  "judge_cost": 0.009066
+}

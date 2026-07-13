@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the bug by passing the permute parameter to the recursive diophantine call, ensuring that when syms order differs from variable order, the permute flag is preserved.",
+  "key_difference": "The candidate patch is identical to the gold patch - both add the missing permute=permute parameter to the recursive diophantine call on line 185.",
+  "instance_id": "sympy__sympy-18189",
+  "condition": "enhanced",
+  "judge_tokens": 1294,
+  "judge_cost": 0.005586
+}

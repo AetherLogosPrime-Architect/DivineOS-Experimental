@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies AnnotationBbox but the bug is in the base _AnnotationBase class that all annotation classes inherit from, so it only fixes one specific annotation type rather than the root cause.",
+  "key_difference": "The candidate targets AnnotationBbox specifically while the gold patch fixes the root issue in _AnnotationBase.__init__ which affects all annotation types. The candidate also uses np.array() instead of tuple unpacking, but this doesn't address the core problem for regular annotations.",
+  "instance_id": "matplotlib__matplotlib-26466",
+  "condition": "base",
+  "judge_tokens": 1817,
+  "judge_cost": 0.007527
+}

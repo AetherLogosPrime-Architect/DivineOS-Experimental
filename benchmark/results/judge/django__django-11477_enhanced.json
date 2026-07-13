@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch filters None values in the reverse URL resolution process, but the bug is actually in the match() method where optional named groups are initially captured as None values. This targets the wrong location in the code flow.",
+  "key_difference": "The gold patch fixes the issue at the source (match method) by filtering None values when capturing groups from regex matches, while the candidate patch attempts to filter them later during URL reversal. The candidate approach is too late in the process and doesn't address the root cause where None values are first introduced into kwargs.",
+  "instance_id": "django__django-11477",
+  "condition": "enhanced",
+  "judge_tokens": 964,
+  "judge_cost": 0.005039999999999999
+}

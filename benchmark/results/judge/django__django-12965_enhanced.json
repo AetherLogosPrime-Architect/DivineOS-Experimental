@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that for delete-all operations with no WHERE clause, a direct DELETE statement should be used instead of the subquery approach, which fixes the performance regression.",
+  "key_difference": "The candidate patch takes a different approach by modifying the DeleteQuery class to detect no-WHERE conditions and return a simple DELETE statement, while the gold patch fixes the single_alias detection logic. Both are valid solutions - the candidate is more direct and potentially cleaner.",
+  "instance_id": "django__django-12965",
+  "condition": "enhanced",
+  "judge_tokens": 1715,
+  "judge_cost": 0.007077
+}

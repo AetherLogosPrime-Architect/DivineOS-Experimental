@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to fix the index assignment issue by checking if the data has an index attribute, but it uses the wrong condition and has a malformed diff that doesn't match the original code structure.",
+  "key_difference": "The candidate uses `hasattr(data_to_wrap, 'index')` check instead of the gold's approach of skipping index assignment entirely for DataFrames. The gold patch is more correct because it recognizes that DataFrames already have their own index that shouldn't be overwritten, while the candidate's condition would still fail since all DataFrames have an index attribute.",
+  "instance_id": "scikit-learn__scikit-learn-25747",
+  "condition": "base",
+  "judge_tokens": 1928,
+  "judge_cost": 0.008088
+}

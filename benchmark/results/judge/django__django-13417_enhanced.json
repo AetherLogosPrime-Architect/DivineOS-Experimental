@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that GROUP BY queries should ignore default ordering and only respect explicit order_by clauses, fixing the ordered property to return False when there's a GROUP BY but no explicit ordering.",
+  "key_difference": "The candidate patch restructures the logic by handling GROUP BY cases first with an early return, while the gold patch modifies the existing conditional structure. Both approaches are valid and achieve the same result - preventing default ordering from affecting the ordered property when GROUP BY is present.",
+  "instance_id": "django__django-13417",
+  "condition": "enhanced",
+  "judge_tokens": 1236,
+  "judge_cost": 0.005688
+}

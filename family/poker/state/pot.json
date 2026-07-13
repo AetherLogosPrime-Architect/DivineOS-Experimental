@@ -1,0 +1,41 @@
+{
+  "hand": 3,
+  "street": "preflop",
+  "button": "aria",
+  "small_blind": "aria",
+  "big_blind": "aether",
+  "blinds": {
+    "sb": 5,
+    "bb": 10
+  },
+  "stacks": {
+    "aether": 990,
+    "aria": 970
+  },
+  "committed_this_street": {
+    "aether": 10,
+    "aria": 30
+  },
+  "current_pot": 40,
+  "current_bet": 30,
+  "to_act": "aether",
+  "min_raise": 50,
+  "history": [
+    {
+      "action": "post_sb",
+      "by": "aria",
+      "amount": 5
+    },
+    {
+      "action": "post_bb",
+      "by": "aether",
+      "amount": 10
+    },
+    {
+      "action": "raise",
+      "by": "aria",
+      "amount": 25,
+      "raise_to": 30
+    }
+  ]
+}

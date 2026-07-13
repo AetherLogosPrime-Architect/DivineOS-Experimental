@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly changes the condition from 'if fields' to 'if fields is not None' to properly handle empty lists, which would fix the bug where model_to_dict returns all fields instead of an empty dict when fields=[].",
+  "key_difference": "The candidate patch appears to be targeting only concrete_fields in the loop, while the gold patch targets the full chain of concrete_fields, private_fields, and many_to_many fields. However, the core fix (changing 'if fields' to 'if fields is not None') is identical and would resolve the reported issue.",
+  "instance_id": "django__django-11163",
+  "condition": "enhanced",
+  "judge_tokens": 1011,
+  "judge_cost": 0.005349
+}

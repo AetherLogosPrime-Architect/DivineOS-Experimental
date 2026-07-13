@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-4629",
+  "condition": "enhanced",
+  "label": "v2_new",
+  "patch": "--- a/xarray/core/merge.py\n+++ b/xarray/core/merge.py\n@@ -501,7 +501,7 @@ def merge_attrs(variable_attrs, combine_attrs):\n         if not result:\n             raise MergeError(\"combine_attrs='no_conflicts', but some values are not the same.\")\n         return result\n     elif combine_attrs == \"override\":\n-        return variable_attrs[0]\n+        return dict(variable_attrs[0])\n     else:\n         raise ValueError(\"Unrecognised value for combine_attrs=%s\" % combine_attrs)",
+  "thinking": "The bug is clear: in `merge.py`, the `combine_attrs='override'` case returns the attrs dict directly by reference instead of making a copy. The fix is to return `dict(variable_attrs[0])` instead of `return variable_attrs[0]`.",
+  "input_tokens": 2870,
+  "output_tokens": 216,
+  "elapsed_seconds": 6.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.05925
+}

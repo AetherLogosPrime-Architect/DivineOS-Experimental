@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly imports check_cv and uses it to validate the cv parameter before passing it to cross_validate, which fixes the issue where generator objects from cv.split() were being passed directly and causing IndexError.",
+  "key_difference": "The candidate uses a different import path (from ..model_selection._split import check_cv) and a different classifier detection method (using tags.binary_only or tags.multiclass_only instead of is_classifier), but both approaches are valid and achieve the same goal of properly validating the cv parameter.",
+  "instance_id": "scikit-learn__scikit-learn-25973",
+  "condition": "base",
+  "judge_tokens": 2178,
+  "judge_cost": 0.008694
+}

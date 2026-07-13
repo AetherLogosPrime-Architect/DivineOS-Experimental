@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds email to the hash value in PasswordResetTokenGenerator._make_hash_value(), which will invalidate tokens when a user's email changes, fixing the security vulnerability.",
+  "key_difference": "The candidate uses a simpler approach with hardcoded 'email' field name, while the gold patch uses get_email_field_name() for better flexibility with custom user models. Both approaches work correctly but the gold patch is more robust for edge cases with custom email field names.",
+  "instance_id": "django__django-13551",
+  "condition": "enhanced",
+  "judge_tokens": 1373,
+  "judge_cost": 0.006170999999999999
+}

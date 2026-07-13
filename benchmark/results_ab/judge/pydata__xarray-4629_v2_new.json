@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies and fixes the root cause by changing `return variable_attrs[0]` to `return dict(variable_attrs[0])` in the override case, which creates a copy instead of returning a reference. This matches the gold patch exactly and addresses the mutation issue described in the problem.",
+  "key_difference": "The candidate patch is identical to the gold patch - both make the same single-line change to create a copy of the attributes dictionary instead of returning a reference.",
+  "instance_id": "pydata__xarray-4629",
+  "label": "v2_new",
+  "judge_cost": 0.006966
+}

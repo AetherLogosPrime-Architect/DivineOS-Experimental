@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly addresses the bug by changing the default value of copy_X parameter in fit() from True to None, and adding logic to use the instance's copy_X value when None is passed.",
+  "key_difference": "The candidate patch has the same core fix as the gold patch but doesn't update the docstring or the call to _preprocess_data. However, the essential fix (defaulting to None and using self.copy_X when None) is correct and would resolve the reported issue.",
+  "instance_id": "scikit-learn__scikit-learn-12973",
+  "condition": "enhanced",
+  "judge_tokens": 1785,
+  "judge_cost": 0.007407
+}

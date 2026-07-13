@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the root cause and fixes it by first trying Python's default string representation before falling back to formatted output when the string exceeds 20 characters.",
+  "key_difference": "The candidate patch preserves more of the original logic structure and adds additional safety checks for special float values like 'inf' and 'nan', while the gold patch completely rewrites the function with a more streamlined approach that handles exponent normalization differently.",
+  "instance_id": "astropy__astropy-14508",
+  "condition": "base",
+  "judge_tokens": 2270,
+  "judge_cost": 0.008718
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies nominal scales need categorical treatment by adding a _categorical property, but the implementation is incomplete (truncated diff) and uses a complex approach with invisible artists instead of the simpler direct axis limit setting used in the gold patch.",
+  "key_difference": "The candidate uses a _categorical property and invisible artists with sticky edges approach, while the gold patch directly checks isinstance(scale, Nominal) and sets axis limits explicitly. The candidate's approach is more complex and the diff is incomplete/invalid.",
+  "instance_id": "mwaskom__seaborn-3069",
+  "condition": "base",
+  "judge_tokens": 2102,
+  "judge_cost": 0.008346
+}

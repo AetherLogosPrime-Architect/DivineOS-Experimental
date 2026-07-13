@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "This patch modifies a different method than the one mentioned in the problem statement (formfield_for_manytomany) and only partially addresses widget overriding for some conditions while missing others like autocomplete_fields and raw_id_fields.",
+  "key_difference": "The candidate patch appears to be modifying a different method (likely formfield_for_foreignkey based on the context) rather than formfield_for_manytomany as required. It also only adds widget checks to some conditions while the gold patch wraps all widget assignment logic in a single 'widget' not in kwargs check.",
+  "instance_id": "django__django-12713",
+  "condition": "base",
+  "judge_tokens": 1646,
+  "judge_cost": 0.007266
+}

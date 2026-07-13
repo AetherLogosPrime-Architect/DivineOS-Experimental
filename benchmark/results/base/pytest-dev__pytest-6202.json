@@ -1,0 +1,12 @@
+{
+  "instance_id": "pytest-dev__pytest-6202",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem description and code analysis, the issue is in the `getmodpath()` method in `src/_pytest/python.py` where `s.replace(\".[\", \"[\")` is unnecessarily replacing \".[\" with \"[\" in test names, which was originally meant for generator-based tests that were removed in pytest 4.0.\n\nThe fix is to simply return `s` without any replacement.\n\n```diff\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -289,7 +289,7 @@ class Function(PyobjMixin, nodes.Item):\n                 s += \"[%s]\" % x\n             else:\n                 s += x\n-        return s.replace(\".[\", \"[\")\n+        return s\n \n     def _getobj(self):\n         \"\"\"Gets the underlying Python object. May be overridden by subclasses.\"\"\"\n```",
+  "thinking": null,
+  "input_tokens": 1345,
+  "output_tokens": 217,
+  "elapsed_seconds": 4.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0072900000000000005
+}

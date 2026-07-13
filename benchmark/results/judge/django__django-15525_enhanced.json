@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that when building a natural key, the model instance needs to have its database state set to the target database so that foreign key lookups work properly on non-default databases.",
+  "key_difference": "This patch is identical to the gold patch - it sets the database state on the model instance before calling natural_key() to ensure foreign key relationships are resolved against the correct database.",
+  "instance_id": "django__django-15525",
+  "condition": "enhanced",
+  "judge_tokens": 2014,
+  "judge_cost": 0.0078060000000000004
+}

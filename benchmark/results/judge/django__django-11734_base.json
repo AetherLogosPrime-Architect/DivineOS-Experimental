@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch is incomplete and contains malformed diff syntax with unrelated code modifications that don't address the core OuterRef resolution issue in exclude/~Q operations.",
+  "key_difference": "The candidate patch attempts to modify compiler.py and where.py with incomplete and syntactically invalid changes, while the gold patch correctly fixes the issue by modifying the RelatedLookupMixin and split_exclude method to properly handle OuterRef expressions in negated contexts.",
+  "instance_id": "django__django-11734",
+  "condition": "base",
+  "judge_tokens": 2069,
+  "judge_cost": 0.008235
+}

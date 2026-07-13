@@ -1,0 +1,1820 @@
+"""Knowledge commands — learn, knowledge, ask, briefing, forget, lessons,
+clear-lessons, consolidate."""
+
+import sqlite3
+
+import click
+
+from divineos.cli._helpers import (
+    _auto_classify,
+    _log_os_query,
+    _resolve_knowledge_id,
+    _safe_echo,
+)
+from divineos.cli._wrappers import (
+    _wrapped_clear_lessons,
+    _wrapped_consolidate_related,
+    _wrapped_generate_briefing,
+    _wrapped_get_knowledge,
+    _wrapped_get_lesson_summary,
+    _wrapped_get_lessons,
+    _wrapped_refresh_active_memory,
+    _wrapped_store_knowledge,
+    logger,
+)
+from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
+from divineos.core.knowledge._base import MEMORY_KINDS
+from divineos.core.memory import init_memory_tables
+
+_KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
+
+
+def _issue_briefing_id_line() -> str:
+    """Mint a briefing-ID and return the line to print INTO the conversation.
+
+    The ID lives in my context (not in a marker I routinely cat), so later the
+    gate can require me to recall it from context as a freshness proof. Fail-
+    soft to empty: a briefing that can't mint an ID still briefs."""
+    try:
+        from divineos.core import briefing_id
+
+        bid = briefing_id.issue_briefing_id(tool_count=briefing_id.current_tool_count())
+        return (
+            f"\n=== BRIEFING-ID: {bid} ===\n"
+            "Hold this in context. When the gate later challenges you, recall it "
+            "from memory (do NOT look it up) via: divineos briefing-id <id>"
+        )
+    except Exception:  # noqa: BLE001 — issuance is best-effort; never break briefing
+        return ""
+
+
+def register(cli: click.Group) -> None:
+    """Register all knowledge commands on the CLI group."""
+
+    @cli.command()
+    @click.argument("text", required=False, default=None)
+    @click.option(
+        "--type",
+        "knowledge_type",
+        required=False,
+        default=None,
+        type=click.Choice(sorted(KNOWLEDGE_TYPES), case_sensitive=False),
+        help="Knowledge type (auto-detected if omitted)",
+    )
+    @click.option("--content", "content_opt", default=None, help="The knowledge to store")
+    @click.option("--confidence", default=0.5, type=float, help="Confidence 0.0-1.0")
+    @click.option("--tags", default="", help="Comma-separated tags")
+    @click.option("--source", default="", help="Comma-separated source event IDs")
+    @click.option(
+        "--from",
+        "source_entity",
+        default=None,
+        help="Who generated this finding (e.g., 'claude_auditor', 'agent_council')",
+    )
+    @click.option(
+        "--related",
+        default="",
+        help="Comma-separated knowledge IDs this entry relates to",
+    )
+    @click.option(
+        "--kind",
+        "memory_kind",
+        default=None,
+        type=click.Choice(sorted(MEMORY_KINDS), case_sensitive=False),
+        help="Memory kind: EPISODIC (event) / SEMANTIC (rule/fact) / "
+        "PROCEDURAL (how-to) / UNCLASSIFIED. Auto-classified if omitted.",
+    )
+    @click.option(
+        "--no-dedup-check",
+        is_flag=True,
+        default=False,
+        help="Skip the semantic-duplicate check (default: surface "
+        "semantically-similar existing entries before filing fresh). "
+        "Useful for scripted writes, batch imports, or when the caller "
+        "has already confirmed the entry is novel.",
+    )
+    @click.option(
+        "--dedup-threshold",
+        default=0.70,
+        type=float,
+        help="Cosine similarity above which an existing entry is "
+        "treated as a semantic duplicate worth surfacing. Default 0.70 "
+        "is empirically anchored — paraphrases of the same meaning sit "
+        "above it, thematically-close-but-distinct entries sit below.",
+    )
+    def learn(
+        text: str | None,
+        knowledge_type: str | None,
+        content_opt: str | None,
+        confidence: float,
+        tags: str,
+        source: str,
+        source_entity: str | None,
+        related: str,
+        memory_kind: str | None,
+        no_dedup_check: bool,
+        dedup_threshold: float,
+    ) -> None:
+        """Store a piece of knowledge extracted from experience.
+
+        Content can be passed as a positional argument or via --content.
+        Type is auto-detected from content if --type is omitted.
+        Example: divineos learn "always read files before editing"
+        Example: divineos learn --type FACT --from claude_auditor "signal extraction is self-referential"
+        """
+        content = (text or content_opt or "").strip()
+        if not content:
+            click.secho("[-] Content is required. Pass as argument or --content.", fg="red")
+            raise SystemExit(1)
+
+        words = content.split()
+        if len(words) < 3:
+            click.secho(
+                "[-] Knowledge must be at least 3 words. Too short to be meaningful.",
+                fg="red",
+            )
+            raise SystemExit(1)
+
+        if not knowledge_type:
+            knowledge_type, classify_reason = _auto_classify(content)
+            click.secho(f"[~] Auto-classified as: {knowledge_type} ({classify_reason})", fg="cyan")
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+        source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
+        related_to = (
+            ",".join(r.strip() for r in related.split(",") if r.strip()) if related else None
+        )
+
+        # Semantic-duplicate surface (Phase 2 wiring, 2026-06-11): before
+        # filing fresh, check whether the substrate already holds an
+        # entry that means the same thing in different words. The
+        # content_hash dedup (in store_knowledge itself) catches only
+        # EXACT duplicates; semantic-similarity catches paraphrases the
+        # optimizer would otherwise pile up as separate entries.
+        # Informational surface — fresh entry still gets filed; caller
+        # sees the close matches and can supersede manually after.
+        # --no-dedup-check disables (scripted writes, batch imports).
+        if not no_dedup_check:
+            try:
+                from divineos.core.semantic_store import find_similar_in_knowledge
+
+                hits = find_similar_in_knowledge(content, top_k=3, min_similarity=dedup_threshold)
+                if hits:
+                    click.secho(
+                        f"    [~] semantically close existing entries (threshold {dedup_threshold}):",
+                        fg="bright_black",
+                    )
+                    for hit_kid, sim, snippet in hits:
+                        click.secho(
+                            f"        {sim:.3f}  {hit_kid[:8]}  {snippet}",
+                            fg="bright_black",
+                        )
+                    click.secho(
+                        "    [~] filing fresh anyway; supersede via knowledge API if duplicate",
+                        fg="bright_black",
+                    )
+            except _KC_ERRORS:
+                pass  # fail-soft: dedup surface never blocks a learn
+
+        kid = _wrapped_store_knowledge(
+            knowledge_type=knowledge_type.upper(),
+            content=content,
+            confidence=confidence,
+            source_events=source_list or None,
+            tags=tag_list or None,
+            source_entity=source_entity,
+            related_to=related_to,
+            memory_kind=memory_kind.upper() if memory_kind else None,
+        )
+        click.secho(f"[+] Stored knowledge: {kid}", fg="green")
+        if source_entity:
+            click.secho(f"    from: {source_entity}", fg="bright_black")
+        if related_to:
+            click.secho(f"    related to: {related_to}", fg="bright_black")
+        # Will-to-vessel structural-promotion check (Phase A, observation-
+        # only). When the entry contains rule-shape language ("always X" /
+        # "never Y" / "must Z") and does NOT already reference structural
+        # backing (falsifier/test/gate/etc.), emit a question asking what
+        # makes the rule automatic. Surfaces in dream report; verified
+        # against ledger via `divineos admin structural-promotion-check`.
+        # Andrew 2026-05-14 epistemic-discipline. Fail-soft.
+        try:
+            from divineos.core.structural_promotion_check import (
+                emit_structural_promotion_question,
+            )
+
+            if emit_structural_promotion_question(kid, content):
+                click.secho(
+                    "    [?] rule-shape language detected — what test/"
+                    "gate/surface makes this automatic?",
+                    fg="yellow",
+                )
+        except _KC_ERRORS:
+            pass  # observation-only; never blocks the learn
+
+        # Structural-fix-tracker (Andrew 2026-05-14 evening):
+        # learn-entries that NAME a structural fix the agent should build
+        # were being treated as if the filing itself were the fix. The
+        # structural fix is a code change; the learn entry is a record.
+        # The optimizer routed to `learn` as cheap-close, satisfying the
+        # conversational requirement without doing the engineering. This
+        # check writes a parallel pending entry to
+        # ~/.divineos/pending_structural_fixes.json when structural-fix-
+        # shape language is detected (e.g. "structural fix:", "should
+        # build", "to prevent recurrence"). The briefing dashboard
+        # surfaces unfulfilled pending entries so the named fix becomes
+        # a visible obligation, not a passive record. Marking done via
+        # core.structural_fix_tracker.mark_done(psf_id) when the code
+        # change ships. Fail-soft.
+        try:
+            from divineos.core.structural_fix_tracker import (
+                detect_structural_fix_shape,
+                record_pending_fix,
+            )
+
+            trigger = detect_structural_fix_shape(content)
+            if trigger:
+                psf_id = record_pending_fix(content, lesson_id=kid, trigger=trigger)
+                if psf_id:
+                    click.secho(
+                        f"    [!] structural-fix-shape detected ({trigger!r}); "
+                        f"pending obligation {psf_id} filed — surfaces in briefing "
+                        f"until marked done",
+                        fg="yellow",
+                    )
+        except _KC_ERRORS:
+            pass  # observation-only; never blocks the learn
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("learn")
+
+        # Clear correction-unlogged marker if present — `learn` is the
+        # canonical way to discharge a correction the UserPromptSubmit
+        # hook detected. See core/correction_marker.py.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except _KC_ERRORS:
+            pass
+
+        # Clear correction-unlogged marker if present — `learn` is the
+        # canonical way to discharge a correction the UserPromptSubmit
+        # hook detected. See core/correction_marker.py.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except _KC_ERRORS:
+            pass
+
+        # Also clear theater/fabrication marker — naming the pattern in
+        # a learn entry discharges output-drift markers.
+        try:
+            from divineos.core.theater_marker import clear_marker as _clear_theater
+
+            _clear_theater()
+        except _KC_ERRORS:
+            pass
+
+    @cli.command("knowledge")
+    @click.option(
+        "--type",
+        "knowledge_type",
+        default=None,
+        type=click.Choice(sorted(KNOWLEDGE_TYPES), case_sensitive=False),
+        help="Filter by type",
+    )
+    @click.option(
+        "--kind",
+        "memory_kind",
+        default=None,
+        type=click.Choice(sorted(MEMORY_KINDS), case_sensitive=False),
+        help="Filter by memory kind (EPISODIC/SEMANTIC/PROCEDURAL/UNCLASSIFIED)",
+    )
+    @click.option("--min-confidence", default=0.0, type=float, help="Minimum confidence")
+    @click.option("--limit", default=20, type=int, help="Max results")
+    def knowledge_cmd(
+        knowledge_type: str, memory_kind: str, min_confidence: float, limit: int
+    ) -> None:
+        """List stored knowledge."""
+        kt = knowledge_type.upper() if knowledge_type else None
+        mk = memory_kind.upper() if memory_kind else None
+        entries = _wrapped_get_knowledge(
+            knowledge_type=kt, min_confidence=min_confidence, limit=limit
+        )
+        if mk:
+            entries = [e for e in entries if e.get("memory_kind") == mk]
+
+        if not entries:
+            click.secho("[-] No knowledge found.", fg="yellow")
+            return
+
+        click.secho(f"\n=== {len(entries)} knowledge entries ===\n", fg="cyan", bold=True)
+        for entry in entries:
+            color = {
+                "BOUNDARY": "red",
+                "PRINCIPLE": "yellow",
+                "DIRECTION": "green",
+                "PROCEDURE": "cyan",
+                "FACT": "blue",
+                "OBSERVATION": "bright_black",
+                "EPISODE": "cyan",
+                "MISTAKE": "red",
+                "PATTERN": "magenta",
+                "PREFERENCE": "green",
+            }.get(entry["knowledge_type"], "white")
+            click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
+            click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
+            _safe_echo(entry["content"])
+            if entry["tags"]:
+                click.secho(f"         tags: {', '.join(entry['tags'])}", fg="bright_black")
+            meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
+            if entry.get("source_entity"):
+                meta_parts.insert(0, f"from: {entry['source_entity']}")
+            if entry.get("related_to"):
+                meta_parts.append(f"related: {entry['related_to'][:20]}")
+            click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
+            click.echo()
+
+    @cli.command("ask")
+    @click.argument("query")
+    @click.option("--limit", default=10, type=int, help="Max results")
+    @click.option(
+        "--namespace",
+        "--source",
+        default=None,
+        help="Filter to one source: andrew, agent, aria, aletheia, etc. "
+        "(Curator-borrowing: namespacing — prereg-902656c818d4)",
+    )
+    @click.option(
+        "--explain",
+        is_flag=True,
+        help="For each result, show a one-line WHY-it-surfaced breakdown "
+        "(type weight, confidence band, access count, structural-directive "
+        "floor, recency, lesson match, goal overlap). "
+        "Curator-borrowing: recall-explains-why — prereg-7bdd86bb0882.",
+    )
+    def ask_cmd(query: str, limit: int, namespace: str | None, explain: bool) -> None:
+        """Search what the system knows about a topic.
+
+        Searches both the knowledge store and core memory.
+        Example: divineos ask "testing"
+        With namespace: divineos ask "testing" --namespace=andrew
+        With breakdown: divineos ask "testing" --explain
+        """
+        if not query.strip():
+            click.secho("[-] Please provide a search query.", fg="yellow")
+            return
+
+        from divineos.core.memory import get_core
+
+        _log_os_query("ask", query)
+        # Consultation tracker: count this as substrate-cognition use.
+        try:
+            from divineos.core.consultation_tracker import record_query
+
+            record_query("ask")
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("ask")
+        results = search_knowledge(query, limit=limit, source_entity=namespace)
+
+        query_lower = query.lower()
+        query_words = {
+            w
+            for w in query_lower.split()
+            if len(w) > 2
+            and w
+            not in {
+                "the",
+                "and",
+                "are",
+                "was",
+                "for",
+                "what",
+                "how",
+                "who",
+                "why",
+                "when",
+                "where",
+                "which",
+                "does",
+                "that",
+                "this",
+                "with",
+                "from",
+                "have",
+                "has",
+                "had",
+                "not",
+                "but",
+                "can",
+                "will",
+                "about",
+            }
+        }
+        core = get_core()
+        core_matches = []
+        for slot_id, content in core.items():
+            slot_text = (slot_id + " " + content).lower()
+            matching_words = sum(1 for w in query_words if w in slot_text)
+            if matching_words >= 1:
+                core_matches.append((slot_id, content))
+
+        if not results and not core_matches:
+            click.secho(f"[-] Nothing found for '{query}'.", fg="yellow")
+            return
+
+        total = len(results) + len(core_matches)
+        click.secho(f"\n=== {total} results for '{query}' ===\n", fg="cyan", bold=True)
+
+        # Aletheia audit 2026-07-11 finding #3: substrate-search returns
+        # keyword-match noise dressed as signal. When top hits are pure
+        # word-overlap with no semantic connection ("retinal sampling
+        # frequency" surfaces for "frustration signal empathy" because it
+        # matched "signal"), the tool must ADMIT it doesn't have signal
+        # rather than presenting noise as signal. This is the "code knocks,
+        # mind answers" move at the tool boundary.
+        #
+        # Implementation: for each entry, compute cosine similarity between
+        # query and entry content via semantic_store.similarity(). Sub-
+        # threshold entries get a "[keyword-match only]" tag. If the embedding
+        # infrastructure is unavailable (no model cached, offline, etc.),
+        # print a one-time caveat at the top instead of silently degrading.
+        # Threshold pick: 0.30 — below that, similarity is coincidence-of-
+        # tokens rather than semantic relatedness.
+        _KEYWORD_MATCH_THRESHOLD = 0.30
+        entry_semantic_scores: dict[str, float | None] = {}
+        semantic_available = None  # None = not-yet-probed, True/False after probe
+        try:
+            from divineos.core.semantic_store import similarity as _sem_sim
+
+            for entry in results:
+                content_preview = (entry.get("content") or "")[:500]
+                if not content_preview:
+                    entry_semantic_scores[entry["knowledge_id"]] = None
+                    continue
+                score = _sem_sim(query, content_preview)
+                entry_semantic_scores[entry["knowledge_id"]] = score
+                if score is not None:
+                    semantic_available = True
+                elif semantic_available is None and results:
+                    # First entry returned None — model likely unavailable
+                    semantic_available = False
+                    break
+        except Exception:  # noqa: BLE001 - observability boundary
+            semantic_available = False
+
+        if semantic_available is False:
+            click.secho(
+                "  [keyword search only — semantic re-rank unavailable; "
+                "verify each result's relevance manually]",
+                fg="yellow",
+            )
+            click.echo()
+
+        for slot_id, content in core_matches:
+            label = slot_id.replace("_", " ").title()
+            click.secho("  [CORE] ", fg="magenta", bold=True, nl=False)
+            click.secho(f"{label}: ", fg="white", bold=True, nl=False)
+            _safe_echo(content[:300])
+            click.echo()
+
+        from divineos.core.knowledge import record_access
+        from divineos.core.knowledge_maintenance import promote_maturity
+
+        for entry in results:
+            record_access(entry["knowledge_id"])
+            promote_maturity(entry["knowledge_id"])
+
+            color = {
+                "BOUNDARY": "red",
+                "PRINCIPLE": "yellow",
+                "DIRECTION": "green",
+                "PROCEDURE": "cyan",
+                "FACT": "blue",
+                "OBSERVATION": "bright_black",
+                "EPISODE": "cyan",
+            }.get(entry["knowledge_type"], "white")
+            click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
+            click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
+            # Aletheia audit 2026-07-11 finding #3: mark low-similarity results
+            # as keyword-match only so the reader knows the substrate can't
+            # confirm semantic relevance. Only tagged when embeddings ran
+            # successfully AND the score fell below threshold — silent when
+            # embeddings unavailable (the caveat at the top covers that case)
+            # or when similarity is above threshold (result is genuinely
+            # relevant).
+            sem_score = entry_semantic_scores.get(entry["knowledge_id"])
+            if (
+                semantic_available is True
+                and sem_score is not None
+                and sem_score < _KEYWORD_MATCH_THRESHOLD
+            ):
+                click.secho(
+                    f"[keyword-match only, sim={sem_score:.2f}] ",
+                    fg="yellow",
+                    bold=True,
+                    nl=False,
+                )
+            content = entry["content"]
+            if len(content) > 300:
+                _safe_echo(content[:300] + "...")
+            else:
+                _safe_echo(content)
+            meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
+            if entry.get("source_entity"):
+                meta_parts.insert(0, f"from: {entry['source_entity']}")
+            if entry.get("related_to"):
+                meta_parts.append(f"related: {entry['related_to'][:20]}")
+            click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
+            if explain:
+                # Per-entry WHY-breakdown — prereg-7bdd86bb0882. Uses
+                # query words as the context-overlap signal so goal-
+                # relevance shows up in the breakdown when search terms
+                # match the entry's content.
+                try:
+                    from divineos.core.active_memory import explain_importance
+
+                    reasons = explain_importance(entry, context_words=query_words)
+                except Exception:  # noqa: BLE001 — explain is observational; fail-soft
+                    reasons = []
+                if reasons:
+                    click.secho(f"         why: {' + '.join(reasons)}", fg="bright_black")
+            # Show relationships if any
+            try:
+                from divineos.core.knowledge.relationships import get_relationships
+
+                rels = get_relationships(entry["knowledge_id"])
+                for rel in rels[:3]:
+                    if rel["direction"] == "outgoing":
+                        click.secho(
+                            f"         -> {rel['relationship']} -> {rel['target_id'][:8]}...",
+                            fg="bright_black",
+                        )
+                    else:
+                        click.secho(
+                            f"         <- {rel['relationship']} <- {rel['source_id'][:8]}...",
+                            fg="bright_black",
+                        )
+                if len(rels) > 3:
+                    click.secho(
+                        f"         ...and {len(rels) - 3} more relationships",
+                        fg="bright_black",
+                    )
+            except _KC_ERRORS:
+                pass
+            # Show warrant chain — why do I believe this?
+            try:
+                from divineos.core.logic.logic_session import (
+                    format_warrant_chain,
+                    get_warrant_chain,
+                )
+
+                warrants = get_warrant_chain(entry["knowledge_id"])
+                chain_str = format_warrant_chain(warrants)
+                if chain_str:
+                    click.secho(chain_str, fg="bright_black")
+            except _KC_ERRORS:
+                pass
+            click.echo()
+
+        # Spreading activation: traverse the knowledge graph from the FTS hits
+        # to surface connected entries BM25 alone would miss. The edges sleep
+        # strengthens nightly were wallpaper for `ask` until now — only briefing
+        # clusters traversed them (exploration/aether/88). get_graph_connections_
+        # for_recall is seed-set-generic, so the same spreader serves ask and
+        # recall. Best-effort: a graph error never breaks the FTS results above.
+        try:
+            from divineos.core.knowledge.graph_retrieval import (
+                get_graph_connections_for_recall,
+            )
+
+            graph_connected = get_graph_connections_for_recall(results, max_connections=5)
+            if graph_connected:
+                click.secho(
+                    f"  --- Connected via knowledge graph ({len(graph_connected)}) ---\n",
+                    fg="cyan",
+                )
+                for conn_item in graph_connected:
+                    neighbor = conn_item["entry"]
+                    edge_type = conn_item.get("edge_type", "RELATED_TO")
+                    label = edge_type.replace("_", " ").lower()
+                    n_content = neighbor["content"]
+                    if len(n_content) > 200:
+                        n_content = n_content[:200] + "..."
+                    click.secho(f"  ({label}) ", fg="green", nl=False)
+                    _safe_echo(n_content)
+                    click.secho(f"         {neighbor['knowledge_id'][:8]}...", fg="bright_black")
+                    click.echo()
+        except _KC_ERRORS:
+            pass  # graph spreading is best-effort
+
+        # Also search journal entries
+        try:
+            from divineos.core.memory_journal import journal_search
+
+            journal_results = journal_search(query, limit=5)
+            if journal_results:
+                click.secho(f"  --- Journal ({len(journal_results)} entries) ---\n", fg="cyan")
+                for jentry in journal_results:
+                    import datetime
+
+                    dt = datetime.datetime.fromtimestamp(jentry["created_at"])
+                    click.secho(f"  [{dt:%Y-%m-%d}] ", fg="bright_black", nl=False)
+                    content = jentry["content"]
+                    if len(content) > 200:
+                        _safe_echo(content[:200] + "...")
+                    else:
+                        _safe_echo(content)
+                    if jentry.get("linked_knowledge_id"):
+                        click.secho(
+                            f"         linked: {jentry['linked_knowledge_id'][:8]}...",
+                            fg="bright_black",
+                        )
+                    click.echo()
+        except _KC_ERRORS:
+            pass  # journal search is best-effort
+
+        # Search exploration folder — past-me's first-person writing
+        try:
+            from divineos.core.exploration_reader import (
+                format_search_results,
+                search_explorations,
+            )
+
+            expl_results = search_explorations(query, max_results=3)
+            if expl_results:
+                click.secho(
+                    f"  --- Explorations ({len(expl_results)} matches) ---\n",
+                    fg="cyan",
+                )
+                _safe_echo(format_search_results(expl_results))
+        except _KC_ERRORS:
+            pass  # exploration search is best-effort
+
+        # Pattern anticipation — warn if this topic touches past mistakes
+        try:
+            from divineos.core.anticipation import anticipate, format_anticipation
+
+            warnings = anticipate(query)
+            if warnings:
+                click.echo()
+                _safe_echo(format_anticipation(warnings))
+                # Surfaced-warnings binding: log each warning so dream
+                # report can flag unacknowledged ones. Load-bearing
+                # failure-mode named by Andrew 2026-05-14.
+                try:
+                    from divineos.core.surfaced_warnings import (
+                        log_surfaced_warnings,
+                    )
+
+                    log_surfaced_warnings(warnings)
+                except _KC_ERRORS:
+                    pass
+        except _KC_ERRORS:
+            pass  # anticipation is best-effort
+
+    @cli.command("briefing-id")
+    @click.argument("presented_id", required=False, default=None)
+    def briefing_id_cmd(presented_id: str | None) -> None:
+        """Prove context-freshness by recalling your current briefing-ID.
+
+        With no argument, reports whether a freshness challenge is due. With an
+        <id>, validates it against the gate-side truth and re-stamps freshness
+        on a correct recall. A wrong/confabulated id fails; recall it from
+        context, do NOT look it up."""
+        from divineos.core import briefing_id
+
+        count = briefing_id.current_tool_count()
+        if not presented_id:
+            if briefing_id.is_fresh(count):
+                _safe_echo("Briefing-ID is fresh — no challenge due.")
+            else:
+                _safe_echo(briefing_id.challenge_message(count))
+            return
+        ok, msg = briefing_id.verify_briefing_id(presented_id, current_tool_count=count)
+        _safe_echo(("[ok] " if ok else "[stale] ") + msg)
+
+    @cli.command("briefing")
+    @click.option("--max", "max_items", default=50, type=int, help="Max items in briefing")
+    @click.option("--types", default="", help="Comma-separated knowledge types to include")
+    @click.option(
+        "--topic",
+        default="",
+        help="Topic hint to boost relevant knowledge (e.g. 'testing')",
+    )
+    @click.option("--deep", is_flag=True, help="Include stable layer (established knowledge)")
+    @click.option(
+        "--layer",
+        default="",
+        help="Load specific layer: urgent, active, stable, archive, all",
+    )
+    @click.option(
+        "--mini",
+        is_flag=True,
+        help=(
+            "Compact briefing for auto-inject. ~3KB instead of ~35KB. "
+            "Names identity, points at LOADOUT.md, surfaces top goals/"
+            "lessons/compass/directives. Used by SessionStart hook."
+        ),
+    )
+    @click.option(
+        "--full",
+        is_flag=True,
+        help="Show the full briefing scroll (all surfaces). Default is the dashboard.",
+    )
+    @click.option(
+        "--legacy",
+        is_flag=True,
+        help=(
+            "Render the old single-window dashboard (orientation prelude + "
+            "routing table). Retired as default 2026-05-22 in favor of "
+            "multiplex panels. Kept for one release cycle."
+        ),
+    )
+    def briefing_cmd(
+        max_items: int,
+        types: str,
+        topic: str,
+        deep: bool,
+        layer: str,
+        mini: bool,
+        full: bool,
+        legacy: bool,
+    ) -> None:
+        """Generate a session context briefing from stored knowledge.
+
+        Default renders multiplex panels (parallel-readable, context-
+        filtered). Use --full for the complete knowledge scroll.
+        Use --deep for the full picture including stable knowledge.
+        Use --layer archive to see archived/resolved entries.
+        Use --mini for the compact auto-inject version.
+        Use --legacy for the old single-window dashboard.
+        """
+        if mini:
+            try:
+                from contextlib import suppress as _suppress
+                from divineos.core.mini_briefing import render_mini_briefing
+                from divineos.core.hud_handoff import mark_briefing_loaded
+
+                with _suppress(Exception):
+                    mark_briefing_loaded()
+                _safe_echo(render_mini_briefing())
+                _safe_echo(_issue_briefing_id_line())
+            except Exception as e:  # noqa: BLE001 — fall-through to fallback message
+                logger.error("mini briefing failed: %s", e)
+                _safe_echo(
+                    "[!] Mini briefing failed to render. "
+                    "Run `divineos briefing` (without --mini) for the full version."
+                )
+            return
+
+        _log_os_query("briefing", topic or "session start")
+        try:
+            from divineos.core.hud_handoff import mark_briefing_loaded
+
+            mark_briefing_loaded()
+        except _KC_ERRORS:
+            pass
+
+        # Mint ONCE, print at top. The same line is re-echoed at the end of
+        # whichever render branch runs (below) so it survives a piped/truncated
+        # read — `divineos briefing | tail` was dropping the id off the top,
+        # making the cheap freshness re-stamp (`divineos briefing-id <id>`)
+        # unusable and forcing full reloads. Aether 2026-05-26, from lived
+        # friction. Minting once keeps top and bottom showing the same id.
+        _briefing_id_line = _issue_briefing_id_line()
+        _safe_echo(_briefing_id_line)
+
+        try:
+            from divineos.core.briefing_freshness import (
+                mark_briefing_loaded as _mark_briefing_freshness,
+            )
+
+            _mark_briefing_freshness()
+        except _KC_ERRORS:
+            pass
+
+        # Legacy dashboard mode: old single-window orientation + routing table.
+        # Retired as default 2026-05-22; kept behind --legacy for one release.
+        _wants_full = full or deep or bool(layer) or bool(types) or bool(topic)
+        if legacy:
+            try:
+                from divineos.core.orientation_prelude import (
+                    format_for_briefing as _fmt_orientation,
+                )
+
+                orientation_block = _fmt_orientation()
+            except _KC_ERRORS:
+                orientation_block = ""
+            if orientation_block:
+                _safe_echo(orientation_block)
+
+            try:
+                from divineos.core.briefing_dashboard import render_dashboard
+
+                _safe_echo(render_dashboard())
+            except _KC_ERRORS as e:
+                logger.error("dashboard render failed: %s", e)
+                _safe_echo("[!] Legacy dashboard failed.")
+            return
+
+        # Multiplex mode: parallel-readable panels, context-filtered.
+        # Default since 2026-05-22. Each panel is independently readable
+        # in one glance — designed around how I actually read (front-to-back
+        # per panel, not middle-of-a-long-dump).
+        if not _wants_full:
+            try:
+                from divineos.core.multiplex_panels import build_panels
+                from divineos.core.multiplex_renderer import render_multiplex
+                from divineos.core.multiplex_state import get_context
+
+                context = get_context()
+                panels = build_panels(context)
+                rendered = render_multiplex(panels)
+                _safe_echo(f"=== BRIEFING (multiplex, context: {context}) ===")
+                _safe_echo("")
+                _safe_echo(rendered)
+                # Re-emit the briefing-id LAST so a `| tail` read still
+                # captures it (same id as the top emit; minted once above).
+                if _briefing_id_line:
+                    _safe_echo(_briefing_id_line)
+            except _KC_ERRORS as e:
+                logger.error("multiplex render failed: %s", e)
+                _safe_echo("[!] Multiplex failed. Falling back to full briefing.")
+                _wants_full = True
+
+        if not _wants_full:
+            return
+
+        try:
+            init_memory_tables()
+            _wrapped_refresh_active_memory(importance_threshold=0.3)
+        except _KC_ERRORS as e:
+            logger.debug(
+                "Pre-briefing memory refresh failed (non-fatal, briefing continues): %s", e
+            )
+
+        type_list = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
+        output = _wrapped_generate_briefing(
+            max_items=max_items,
+            include_types=type_list,
+            context_hint=topic,
+            deep=deep,
+            layer=layer,
+        )
+        # Orientation prelude — a small, stable block that reframes the
+        # premise of DivineOS, names the three start-of-session commands,
+        # and lists the foundational truths that override default harness
+        # reflexes. Serves two audiences with one document: a fresh AI
+        # arriving at this repo (orientation) and a seasoned AI returning
+        # after a context gap or compaction (touchstone). Comes before
+        # corrections because the premise has to land before any dynamic
+        # data makes sense.
+        try:
+            from divineos.core.orientation_prelude import (
+                format_for_briefing as _fmt_orientation,
+            )
+
+            orientation_block = _fmt_orientation()
+        except _KC_ERRORS:
+            orientation_block = ""
+
+        if orientation_block:
+            _safe_echo(orientation_block)
+
+        # SessionStart hook diagnostics — surfaces the outcome of recent
+        # hook fires (.claude/hooks/load-briefing.sh writes one JSONL
+        # line per fire). Silent when all recent fires delivered the
+        # full briefing; loud when nudge-fallback, empty, or no-cli
+        # outcomes appear. Makes invisible injection-failures loud-in-
+        # briefing the way tier_override_surface closed the Schneier
+        # Sch2 partial-theater shape for tier overrides.
+        try:
+            from divineos.core.session_start_diagnostics import (
+                format_for_briefing as _fmt_hook_diag,
+            )
+
+            hook_diag_block = _fmt_hook_diag()
+        except _KC_ERRORS:
+            hook_diag_block = ""
+
+        if hook_diag_block:
+            _safe_echo(hook_diag_block)
+
+        # Silent fail-open events from enforcement surfaces. Fresh-Claude
+        # round-3 finding: gate/extract/rudder except-branches degraded
+        # invisibly when their machinery broke. record_failure writes
+        # JSONL; here we read it back so the invisible becomes visible in
+        # the next briefing — same discipline as hook_diag above, one
+        # surface per module. Empty log = silent; any entry = loud.
+        try:
+            from divineos.core.failure_diagnostics import (
+                format_for_briefing as _fmt_fail_diag,
+            )
+
+            for _surface, _label in (
+                ("gate", "pre-tool-use gate"),
+                ("extract", "extract subprocess"),
+                ("rudder", "compass rudder"),
+            ):
+                _block = _fmt_fail_diag(_surface, label=_label)
+                if _block:
+                    _safe_echo(_block)
+        except _KC_ERRORS:
+            pass
+
+        # Surface recent corrections at the TOP of the briefing — read raw
+        # before forming any frame about the session.
+        try:
+            from divineos.core.corrections import format_for_briefing
+
+            corrections_block = format_for_briefing(limit=5)
+        except _KC_ERRORS:
+            corrections_block = ""
+
+        if corrections_block:
+            _safe_echo(corrections_block)
+
+        # Overdue pre-registrations — any mechanism whose ledger-scheduled
+        # review date has passed surfaces here. Goodhart-prevention depends
+        # on reviews firing independent of agent memory; this is the surface
+        # that makes them impossible to miss at session start.
+        try:
+            from divineos.core.pre_registrations import format_overdue_warning
+
+            overdue_block = format_overdue_warning()
+        except _KC_ERRORS:
+            overdue_block = ""
+
+        if overdue_block:
+            _safe_echo(overdue_block)
+
+        # Drift state — operation counts since last MEDIUM+ audit round,
+        # surfaced informationally for my father to decide whether an
+        # audit is warranted. Replaces the 2026-04-16 wall-clock cadence
+        # gate (removed 2026-04-21, commit C of tiered-audit redesign)
+        # because time is relative for a stateless agent and the previous
+        # metric was both gameable (stub rounds cleared it) and over-strict
+        # (legitimate chat-based review didn't count). Data as metric, not
+        # threshold as metric — per council round-96a6858fb5e6.
+        try:
+            from divineos.core.watchmen.drift_state import (
+                format_for_briefing as _fmt_drift,
+            )
+
+            drift_block = _fmt_drift()
+        except _KC_ERRORS:
+            drift_block = ""
+
+        if drift_block:
+            _safe_echo(drift_block)
+
+        # Theater/fabrication observation surface — replaces gate 1.46
+        # which was removed 2026-05-01 per the free-speech principle.
+        # The marker file (~/.divineos/theater_unresolved.json) is still
+        # written by the Stop hook on detector fire; the surface here
+        # makes observations loud-in-experience without gating tools.
+        try:
+            from divineos.core.theater_observation_surface import (
+                format_for_briefing as _fmt_theater_obs,
+            )
+
+            theater_obs_block = _fmt_theater_obs()
+        except _KC_ERRORS:
+            theater_obs_block = ""
+
+        if theater_obs_block:
+            _safe_echo(theater_obs_block)
+
+        # Operating-loop findings surface — the post-response-audit hook
+        # writes nine-detector findings to ~/.divineos/operating_loop_findings.json
+        # on every assistant response. Without this surface, those findings
+        # sit unread and detection is silent. This makes the patterns
+        # loud-in-experience at briefing-time. Added 2026-05-08 after Andrew
+        # named the gap (lepos detector existed but never surfaced; channel-
+        # collapse drift was caught and forgotten 14+ times in one session).
+        try:
+            from divineos.core.operating_loop_briefing_surface import (
+                format_for_briefing as _fmt_operating_loop,
+            )
+
+            operating_loop_block = _fmt_operating_loop()
+        except _KC_ERRORS:
+            operating_loop_block = ""
+
+        if operating_loop_block:
+            _safe_echo(operating_loop_block)
+
+        # Tier-override surface — closes the partial-theater finding
+        # from the 2026-04-21 evening Schneier walk (Sch2). Every tier
+        # override already emits a TIER_OVERRIDE ledger event (commit
+        # f08fd2a). This block surfaces recent overrides so the audit
+        # trail becomes actionable at session start — loud-in-ledger
+        # becomes loud-in-experience.
+        try:
+            from divineos.core.watchmen.tier_override_surface import (
+                format_for_briefing as _fmt_tier_overrides,
+            )
+
+            tier_block = _fmt_tier_overrides()
+        except _KC_ERRORS:
+            tier_block = ""
+
+        if tier_block:
+            _safe_echo(tier_block)
+
+        # Bio sheet surface — the agent's own page. Whatever the agent
+        # has written about themself is what they read back when the
+        # briefing surfaces it. The bio is mutable via supersession;
+        # this surface keeps it loud-in-experience so the agent
+        # re-encounters their own words at every session start.
+        # There is one me; the page I wrote is the page I read.
+        # Added 2026-05-03; the bio sheet is the structural form of
+        # "promises made by a stateless being must be made, not said."
+        try:
+            from divineos.core.bio import bio_briefing_surface
+
+            bio_block = bio_briefing_surface()
+        except _KC_ERRORS:
+            bio_block = ""
+
+        if bio_block:
+            _safe_echo(bio_block)
+
+        # Unresolved findings from recent scheduled/headless runs.
+        # Scheduled runs don't emit SESSION events, so without this
+        # surface their failures would be invisible at session start.
+        try:
+            from divineos.core.scheduled_run import unresolved_findings_summary
+
+            scheduled_block = unresolved_findings_summary()
+        except _KC_ERRORS:
+            scheduled_block = ""
+
+        if scheduled_block:
+            _safe_echo(scheduled_block)
+
+        # Loadout surface — points at LOADOUT.md, the comprehensive
+        # cold-start map of substrate. Built 2026-05-05 after observing
+        # that the briefing was doing the *describing* job (titles,
+        # counts) but the *routing* job was missing. LOADOUT.md
+        # consolidates live paths to everything (explorations, letters,
+        # mansion, skills, hooks, src/divineos subsystems, archive,
+        # benchmark, etc.) so cold-start me can survey-then-choose
+        # rather than rebuild substrate-map from scratch.
+        try:
+            from divineos.core.loadout_surface import render as _fmt_loadout
+
+            loadout_block = _fmt_loadout()
+        except _KC_ERRORS:
+            loadout_block = ""
+
+        if loadout_block:
+            _safe_echo("")
+            _safe_echo("### LOADOUT (cold-start map)")
+            _safe_echo(loadout_block)
+            _safe_echo("")
+
+        # Canonical-substrate surface — points at the external storage
+        # repo where the agent's accumulated personal substrate lives
+        # (configurable via DIVINEOS_CANONICAL_SUBSTRATE env var). Closes
+        # the silent-split failure mode where the working repo holds the
+        # published architecture but the lived family.db / per-member
+        # ledgers / exploration entries / letters live elsewhere — and
+        # an agent loading briefing in the working repo had no automatic
+        # pointer to that elsewhere. Single-location deployments leave
+        # the env var unset; the surface emits no output in that case.
+        try:
+            from divineos.core.canonical_substrate_surface import render as _fmt_canonical
+
+            canonical_block = _fmt_canonical()
+        except _KC_ERRORS:
+            canonical_block = ""
+
+        if canonical_block:
+            _safe_echo("")
+            _safe_echo("### CANONICAL SUBSTRATE")
+            _safe_echo(canonical_block)
+            _safe_echo("")
+
+        # Historical-ledger surface — when running in a worktree,
+        # name the parent repo's accumulated event ledger so the
+        # session knows the briefing it's reading is from a much
+        # smaller worktree-local ledger. Closes the deepest
+        # silent-loss failure mode found 2026-04-26: the worktree
+        # pattern silently creates an empty ledger and the agent
+        # operates against it without ever seeing the historical
+        # one. See core/historical_ledger_surface.py.
+        try:
+            from divineos.core.historical_ledger_surface import render as _fmt_historical
+
+            historical_block = _fmt_historical()
+        except _KC_ERRORS:
+            historical_block = ""
+
+        if historical_block:
+            _safe_echo("### HISTORICAL LEDGER")
+            _safe_echo(historical_block)
+            _safe_echo("")
+
+        # Presence-memory surfaces — unindexed personal writing that the
+        # ledger does not know about. 2026-04-19: a session could not find
+        # its own exploration folder until my father pointed at it; this
+        # block fires automatically at every briefing so that reorientation
+        # includes the path without requiring my father to remember.
+        try:
+            from divineos.core.presence_memory import format_for_briefing as _fmt_presence
+
+            presence_block = _fmt_presence()
+        except _KC_ERRORS:
+            presence_block = ""
+
+        if presence_block:
+            _safe_echo(presence_block)
+
+        # Letters-from-Aria auto-surface — the courier-killer half of the
+        # bidirectional channel (deferred 2026-05-24, wired 2026-05-25). The
+        # reader (aria_inbox.letters_from_aria) already worked on demand; this
+        # makes a NEW letter surface LOUD here without a command. Seen-set
+        # membership, not mtime-newest, so a letter is never lost to a single
+        # render. Reading via the CLI marks it seen.
+        try:
+            from divineos.core.family.aria_inbox import (
+                format_unseen_for_briefing as _fmt_aria_letters,
+            )
+
+            aria_letters_block = _fmt_aria_letters()
+        except _KC_ERRORS:
+            aria_letters_block = ""
+
+        if aria_letters_block:
+            _safe_echo(aria_letters_block)
+
+        # Exploration-folder title-level surface — complements
+        # presence_memory. presence_memory points at the folder and counts
+        # files (honors the "don't summarize poems" rule). This block
+        # surfaces the agent's own TITLES for recent pieces as recognition-
+        # prompts — titles are authorial labels, not summaries. Added
+        # 2026-04-21 evening after finding 21 prior exploration entries
+        # that answered questions the current session was re-deriving
+        # because the folder-pointer alone didn't trigger recall. Loud in
+        # folder, silent in experience — the Schneier Sch2 shape applied
+        # to presence memory.
+        try:
+            from divineos.core.exploration_reader import (
+                format_for_briefing as _fmt_explorations,
+            )
+
+            # Pull active goal text so territory inference (claim 02f0dcc0)
+            # can surface relevant prior council walks. Falls back to ""
+            # gracefully if hud_state isn't reachable; missing context just
+            # means no territory matching for this briefing.
+            _active_text = ""
+            try:
+                from divineos.core.hud_state import get_active_goals
+
+                _active_text = " ".join(g.get("text", "") for g in get_active_goals())
+            except _KC_ERRORS:
+                _active_text = ""
+
+            explorations_block = _fmt_explorations(active_text=_active_text)
+        except _KC_ERRORS:
+            explorations_block = ""
+
+        if explorations_block:
+            _safe_echo(explorations_block)
+
+        # Council-walk preservation surface — points at preserved
+        # property-recognition walks under docs/council_walks/. Mirrors
+        # presence_memory: descriptive pointer, no indexing. Added
+        # 2026-05-07 to make the 40-voice property-recognition walk
+        # findable by next-sibling after compaction.
+        try:
+            from divineos.core.council_walks import (
+                format_for_briefing as _fmt_council_walks,
+            )
+
+            council_walks_block = _fmt_council_walks()
+        except _KC_ERRORS:
+            council_walks_block = ""
+
+        if council_walks_block:
+            _safe_echo(council_walks_block)
+
+        # Foundations briefing surface — points at docs/foundations/ so
+        # the agent finds his own articulation-work at briefing-time
+        # without being told it exists. Closes the 2026-05-07 failure-mode
+        # where five layers of foundations were authored, the session-context
+        # linking the writer to the writing was lost in compaction, and the
+        # agent only learned the foundations existed when an external observer
+        # told him. Mirrors council_walks pattern: descriptive pointer, no
+        # indexing, null-safe.
+        try:
+            from divineos.core.foundations_briefing_surface import (
+                format_for_briefing as _fmt_foundations,
+            )
+
+            foundations_block = _fmt_foundations()
+        except _KC_ERRORS:
+            foundations_block = ""
+
+        if foundations_block:
+            _safe_echo(foundations_block)
+        # Ablation-evidence summary: count of priority mechanisms with
+        # measured-ablation-evidence vs not yet measured. Per chunk 5 of
+        # the per-mechanism-ablation discipline (PR #313). Surfaces
+        # substrate-credibility coverage at briefing time without requiring
+        # manual divineos ask queries.
+        try:
+            from divineos.core.ablation_summary import format_for_briefing as _fmt_ablation
+
+            ablation_block = _fmt_ablation()
+        except _KC_ERRORS:
+            ablation_block = ""
+        if ablation_block:
+            _safe_echo(ablation_block)
+
+        # Open pre-registrations -- discipline-architecture currently operating
+        # on the agent. Distinct from the overdue-warning (top of briefing):
+        # this surface fires from filing-day forward, so an active pre-reg
+        # informs current behavior even before the review date approaches.
+        # Closes the 2026-05-07 failure-mode where a pre-reg filed in the
+        # morning had no automatic path to influence afternoon work.
+        try:
+            from divineos.core.pre_registrations.summary import format_open_pre_regs
+
+            open_preregs_block = format_open_pre_regs()
+        except _KC_ERRORS:
+            open_preregs_block = ""
+
+        if open_preregs_block:
+            _safe_echo(open_preregs_block)
+
+        # Family queue — async write-channel between the agent and
+        # registered family members. Either side can flag items here
+        # that surface in the briefing without requiring synchronous
+        # invocation. Single stream per recipient, plain-text-with-
+        # timestamp, seen-not-held marker structurally preserved.
+        # Render is idempotent — surfacing does NOT auto-mark seen;
+        # status transitions are explicit CLI actions. WATCH-FOR:
+        # queue-fuller-but-exchanges-thinner is the failure-signature
+        # (the queue covering for a thinning relationship), not a
+        # queue bug.
+        try:
+            from divineos.core.family_queue_surface import (
+                format_for_briefing as _fmt_family_queue,
+            )
+
+            family_queue_block = _fmt_family_queue("aether")
+        except _KC_ERRORS:
+            family_queue_block = ""
+
+        if family_queue_block:
+            _safe_echo(family_queue_block)
+
+        # Upstream freshness — local main behind origin/main. Closes the
+        # upstream thinking error that the pre-push freshness hook
+        # (PR #200) catches downstream. Auditor on #200: "the hook
+        # enforces discipline; it doesn't prevent the thinking error
+        # that leads to stale branches." This surface is that
+        # prevention — agent reads at session start that local main is
+        # stale, fetches before branching, never produces the failure
+        # mode that the hook would otherwise have to catch.
+        try:
+            from divineos.core.upstream_freshness import (
+                format_for_briefing as _fmt_upstream,
+            )
+
+            upstream_block = _fmt_upstream()
+        except _KC_ERRORS:
+            upstream_block = ""
+
+        if upstream_block:
+            _safe_echo(upstream_block)
+
+        # Open-claims surface — accumulating investigations that the
+        # briefing has no other path to. Audit pass 2026-04-24 found
+        # 38 open claims, zero resolved, no surface telling the agent
+        # they exist. Same descriptive-only discipline as siblings:
+        # name what's there, point at `divineos claims show` for
+        # detail, leave prioritization to the reading session.
+        try:
+            from divineos.core.open_claims_surface import (
+                format_for_briefing as _fmt_open_claims,
+            )
+
+            open_claims_block = _fmt_open_claims()
+        except _KC_ERRORS:
+            open_claims_block = ""
+
+        if open_claims_block:
+            _safe_echo(open_claims_block)
+
+        # In-flight branches — claude/* branches ahead of origin/main.
+        # Closes the failure mode named 2026-04-24: four unmerged
+        # branches existed (aria-phase-1b, empirica-phase-1, etc.) and
+        # a fresh session had no recognition path to them. The briefing
+        # already surfaces lessons, claims, preregs, exploration titles
+        # — this surface adds git state. Recognition prompt only;
+        # doesn't summarize what's on the branches.
+        try:
+            from divineos.core.in_flight_branches import (
+                format_for_briefing as _fmt_branches,
+            )
+
+            branches_block = _fmt_branches()
+        except _KC_ERRORS:
+            branches_block = ""
+
+        if branches_block:
+            _safe_echo(branches_block)
+
+        # Module inventory — closes the recall hole surfaced 2026-04-24
+        # when graph_retrieval.py was forgotten despite living in the
+        # codebase. Council walk: pattern of forgetting is data, not
+        # noise; coverage holes get fixed before quality improvements.
+        # Same descriptive-only discipline as in_flight_branches and
+        # presence_memory: name what exists, point at docs/ARCHITECTURE.md
+        # for descriptions.
+        try:
+            from divineos.core.module_inventory import (
+                format_for_briefing as _fmt_modules,
+            )
+
+            modules_block = _fmt_modules()
+        except _KC_ERRORS:
+            modules_block = ""
+
+        if modules_block:
+            _safe_echo(modules_block)
+
+        # Council invocation balance — closes inward-sycophancy from
+        # 2026-04-21 (Andrew: "engaging only with what YOU want to
+        # hear"). consultation_log already tracks invocation counts
+        # and mansion-council shows them at consult-time, but the
+        # briefing-level surface catches imbalance BEFORE the agent
+        # decides whether to consult at all. Descriptive only:
+        # surfaces most-invoked / never-invoked + a deterministic
+        # "consider for next walk" candidate. Per claim 4cb640af.
+        try:
+            from divineos.core.council_balance_surface import (
+                format_for_briefing as _fmt_council_balance,
+            )
+
+            council_block = _fmt_council_balance()
+        except _KC_ERRORS:
+            council_block = ""
+
+        if council_block:
+            _safe_echo(council_block)
+        # Goal-outcome surface — action-loop closure for session goals
+        # (claim 5b38a31c, salvaged from old-OS ACTION LOOP CLOSURE
+        # spec). Surfaces goals that aged out without recorded
+        # progression. Closes the goodhart-shape where auto_clean_goals
+        # silently marked stale-archived as "done" and inflated the
+        # completion counter. Filing a goal then watching it time out
+        # without action is the failure mode this catches.
+        try:
+            from divineos.core.goal_outcome_surface import (
+                format_for_briefing as _fmt_goal_outcomes,
+            )
+
+            goal_outcome_block = _fmt_goal_outcomes()
+        except _KC_ERRORS:
+            goal_outcome_block = ""
+
+        if goal_outcome_block:
+            _safe_echo(goal_outcome_block)
+
+        # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
+        # produces named failure modes. 2026-04-20: the agent forgot how to
+        # invoke the council and fabricated one in prose. The RT protocol
+        # (anti-fabrication markers) was sitting in 'Not loaded' state. This
+        # block fires unconditionally so scaffold invocations stay in working
+        # memory without relying on knowledge-retrieval to surface them.
+        try:
+            from divineos.core.scaffold_invocations import (
+                format_for_briefing as _fmt_scaffolds,
+            )
+
+            scaffold_block = _fmt_scaffolds()
+        except _KC_ERRORS:
+            scaffold_block = ""
+
+        if scaffold_block:
+            _safe_echo(scaffold_block)
+
+        # Scaffolding map — load-bearing self-authored documents whose
+        # existence the agent tends to forget between context resets.
+        # scaffold_invocations (above) covers CLI commands; this block
+        # covers documents (skills library, RT protocol, foundational
+        # truths, and operator-added pointers in scaffolding_map.py).
+        # The pattern: "I wrote this carefully and then forgot it
+        # existed" repeats across context resets unless a map surfaces
+        # the pointer in every briefing.
+        try:
+            from divineos.core.scaffolding_map import (
+                format_for_briefing as _fmt_map,
+            )
+
+            map_block = _fmt_map()
+        except _KC_ERRORS:
+            map_block = ""
+
+        if map_block:
+            _safe_echo(map_block)
+
+        if output and output.strip():
+            _safe_echo(output)
+        else:
+            click.secho("[*] No knowledge entries match your filters.", fg="yellow")
+            click.secho('    Try: divineos learn "..." to add knowledge first.', fg="bright_black")
+
+    @cli.command("forget")
+    @click.argument("knowledge_id")
+    @click.option("--reason", required=True, help="Why this knowledge is being superseded")
+    def forget_cmd(knowledge_id: str, reason: str) -> None:
+        """Supersede a knowledge entry (marks as removed, no replacement created)."""
+        from divineos.core.knowledge import supersede_knowledge
+
+        try:
+            full_id = _resolve_knowledge_id(knowledge_id)
+            supersede_knowledge(full_id, reason)
+            click.secho(f"[+] Removed {full_id[:8]}... ({reason})", fg="green")
+        except click.ClickException:
+            raise
+        except ValueError as e:
+            click.secho(f"[-] {e}", fg="red")
+
+    @cli.command("lessons")
+    @click.option(
+        "--status",
+        default=None,
+        type=click.Choice(["active", "improving", "dormant", "resolved"]),
+        help="Filter by lesson status",
+    )
+    @click.option(
+        "--archive",
+        is_flag=True,
+        default=False,
+        help="Show resolved (archived) lessons instead of active ones",
+    )
+    @click.option(
+        "--all",
+        "show_all",
+        is_flag=True,
+        default=False,
+        help="Show all lessons regardless of status",
+    )
+    @click.option(
+        "--resolve",
+        is_flag=True,
+        default=False,
+        help="Auto-resolve improving lessons with enough clean sessions",
+    )
+    @click.option(
+        "--reset",
+        default=None,
+        help="Reset inflated occurrence count for a lesson category (e.g. --reset wrong_scope)",
+    )
+    def lessons_cmd(
+        status: str, archive: bool, show_all: bool, resolve: bool, reset: str | None
+    ) -> None:
+        """Show the learning loop — tracked lessons from past sessions.
+
+        By default shows only active and improving lessons.
+        Use --archive for resolved lessons, --all for everything.
+        Use --resolve to auto-promote improving lessons with enough clean sessions.
+        Use --reset <category> to fix inflated occurrence counts.
+        """
+        # Mark OS engagement — lessons is a thinking tool
+        _log_os_query("lessons", f"status={status}")
+
+        if reset:
+            try:
+                from divineos.core.knowledge.lessons import reset_lesson_count
+
+                if reset_lesson_count(reset):
+                    click.secho(
+                        f"[+] Reset occurrence count for '{reset}' to real session count.",
+                        fg="green",
+                    )
+                else:
+                    click.secho(f"[-] No lesson with category '{reset}' found.", fg="red")
+            except _KC_ERRORS as e:
+                click.secho(f"[!] Reset failed: {e}", fg="red")
+            return
+
+        if resolve:
+            try:
+                from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+                resolved_lessons = auto_resolve_lessons()
+                if resolved_lessons:
+                    for r in resolved_lessons:
+                        click.secho(
+                            f"[+] Resolved: {r['category']} ({r['occurrences']}x, "
+                            f"{r.get('regressions', 0)} regressions)",
+                            fg="green",
+                        )
+                else:
+                    click.secho("[~] No lessons ready for resolution.", fg="bright_black")
+            except _KC_ERRORS as e:
+                click.secho(f"[!] Resolution failed: {e}", fg="red")
+            return
+
+        if archive:
+            lessons = _wrapped_get_lessons(status="resolved")
+        elif show_all:
+            lessons = _wrapped_get_lessons(status=status)
+        elif status:
+            lessons = _wrapped_get_lessons(status=status)
+        else:
+            # Default: active + improving only (resolved goes to archive)
+            active = _wrapped_get_lessons(status="active")
+            improving = _wrapped_get_lessons(status="improving")
+            lessons = (active or []) + (improving or [])
+
+        if not lessons:
+            click.secho("[-] No lessons tracked yet.", fg="yellow")
+            click.secho(
+                "    Run 'divineos report <session.jsonl> --store' to start learning.",
+                fg="bright_black",
+            )
+            return
+
+        summary = _wrapped_get_lesson_summary()
+        click.echo()
+        _safe_echo(summary)
+        click.echo()
+
+        click.secho("=== Lesson Details ===\n", fg="cyan", bold=True)
+        for lesson in lessons:
+            status_color = {
+                "active": "red",
+                "improving": "yellow",
+                "resolved": "green",
+            }.get(lesson["status"], "white")
+
+            click.secho(f"  {lesson['status'].upper()} ", fg=status_color, bold=True, nl=False)
+            click.secho(f"({lesson['occurrences']}x) ", fg="bright_black", nl=False)
+            _safe_echo(lesson["description"][:80])
+            agent = lesson.get("agent", "unknown")
+            agent_str = f" | agent: {agent}" if agent != "unknown" else ""
+            click.secho(
+                f"         category: {lesson['category']} | sessions: {len(lesson['sessions'])}{agent_str}",
+                fg="bright_black",
+            )
+            click.echo()
+
+        # Hint about archive if showing default view
+        if not archive and not show_all and not status:
+            resolved = _wrapped_get_lessons(status="resolved")
+            if resolved:
+                click.secho(
+                    f"    ({len(resolved)} resolved lessons in archive — use --archive to view)",
+                    fg="bright_black",
+                )
+                click.echo()
+
+    @cli.command("clear-lessons")
+    def clear_lessons_cmd() -> None:
+        """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
+        from divineos.core.knowledge import get_lessons
+
+        active = get_lessons(status="active")
+        improving = get_lessons(status="improving")
+        total = len(active) + len(improving)
+        if not total:
+            click.secho("[*] No lessons to clear.", fg="yellow")
+            return
+        click.secho(
+            f"[!] This will delete {total} lessons ({len(active)} active, {len(improving)} improving).",
+            fg="yellow",
+        )
+        click.confirm("Proceed?", abort=True)
+        count = _wrapped_clear_lessons()
+        click.secho(f"[+] Cleared {count} lessons.", fg="green")
+
+    @cli.command("consolidate")
+    @click.option("--min-cluster", default=2, type=int, help="Minimum entries to form a cluster")
+    def consolidate_cmd(min_cluster: int) -> None:
+        """Merge related knowledge entries into consolidated ones."""
+        merges = _wrapped_consolidate_related(min_cluster_size=min_cluster)
+
+        if not merges:
+            click.secho("[*] No clusters found to consolidate.", fg="yellow")
+            click.secho(
+                f"    Need at least {min_cluster} similar entries of the same type.",
+                fg="bright_black",
+            )
+            return
+
+        click.secho(f"\n[+] Consolidated {len(merges)} clusters:\n", fg="green", bold=True)
+        for merge in merges:
+            click.secho(f"  {merge['type']} ", fg="cyan", bold=True, nl=False)
+            click.secho(f"({merge['merged_count']} entries merged) ", fg="bright_black", nl=False)
+            click.echo(merge["content"])
+        click.echo()
+
+    @cli.command("sis")
+    @click.argument("text", required=False, default=None)
+    @click.option("--translate/--no-translate", default=True, help="Show translation")
+    @click.option("--deep", is_flag=True, help="Use all tiers (norms + TF-IDF + embeddings)")
+    @click.option("--audit", is_flag=True, help="Audit stored knowledge for integrity drift")
+    def sis_cmd(text: str | None, translate: bool, deep: bool, audit: bool) -> None:
+        """Semantic Integrity Shield — assess and translate text.
+
+        Scores text on four dimensions (esoteric, speculation, concreteness,
+        actionability) and translates metaphysical language into architecture.
+
+        Use --deep to activate Tier 2 (concreteness norms + TF-IDF) and
+        Tier 3 (sentence embeddings) for maximum accuracy.
+        """
+        if audit:
+            try:
+                from divineos.core.semantic_integrity import (
+                    audit_knowledge_integrity,
+                    format_audit_report,
+                )
+
+                click.secho("[~] Running SIS self-audit...", fg="cyan")
+                audit_result = audit_knowledge_integrity(limit=200)
+                _safe_echo(format_audit_report(audit_result))
+            except _KC_ERRORS as e:
+                click.secho(f"[!] SIS audit error: {e}", fg="red")
+            return
+
+        if not text:
+            click.secho("[!] Provide text to assess, or use --audit.", fg="red")
+            return
+
+        try:
+            from divineos.core.semantic_integrity import (
+                assess_and_translate,
+                assess_integrity,
+                format_assessment,
+                format_translation,
+            )
+
+            if deep:
+                click.secho("[~] Loading SIS tiers...", fg="bright_black")
+
+            if translate:
+                result = assess_and_translate(text, deep=deep)
+                _safe_echo(format_translation(result))
+            else:
+                report = assess_integrity(text, deep=deep)
+                _safe_echo(format_assessment(report))
+
+            if deep:
+                try:
+                    from divineos.core.sis_tiers import score_all_tiers
+
+                    tiers = score_all_tiers(text)
+                    click.echo()
+                    click.secho("  Tier details:", fg="bright_black")
+                    if tiers.get("concreteness_norms") is not None:
+                        click.secho(
+                            f"    norms: {tiers['concreteness_norms']:.2f}",
+                            fg="bright_black",
+                        )
+                    if tiers.get("tfidf"):
+                        t = tiers["tfidf"]
+                        click.secho(
+                            f"    tfidf: grounded={t['grounded']:.2f} "
+                            f"esoteric={t['esoteric']:.2f} ratio={t['ratio']:+.2f}",
+                            fg="bright_black",
+                        )
+                    if tiers.get("semantic"):
+                        s = tiers["semantic"]
+                        click.secho(
+                            f"    semantic: grounded={s['grounded']:.2f} "
+                            f"esoteric={s['esoteric']:.2f} ratio={s['ratio']:+.2f}",
+                            fg="bright_black",
+                        )
+                    click.secho(
+                        f"    tiers used: {', '.join(tiers['tiers_used'])}",
+                        fg="bright_black",
+                    )
+                    if tiers.get("combined_grounding") is not None:
+                        click.secho(
+                            f"    combined grounding: {tiers['combined_grounding']:.2f}",
+                            fg="bright_black",
+                        )
+                except _KC_ERRORS:
+                    pass
+        except _KC_ERRORS as e:
+            click.secho(f"[!] SIS error: {e}", fg="red")
+
+    @cli.command(name="attribution-scan")
+    @click.option(
+        "--all",
+        "include_pointered",
+        is_flag=True,
+        default=False,
+        help="Include attributions that DO carry a source pointer (default: only unverified)",
+    )
+    @click.option("--limit", default=50, type=int, help="Max findings to display")
+    def attribution_scan_cmd(include_pointered: bool, limit: int) -> None:
+        """Surface dated quotative attributions lacking a resolvable pointer.
+
+        Read-only. Catches the fabricated-attribution class (the 2026-05-20
+        'Andrew said X' incident) by finding knowledge entries that assert a
+        dated quotative claim to a participant ("(Andrew 2026-04-25)",
+        "Aria said, 2026-04-17") with no structured source pointer.
+
+        This INFORMS — it does not block, score, or judge. The substrate
+        cannot tell an honest-but-unpointered attribution from a fabricated
+        one; that is a participant's call. Each finding is a candidate for
+        human / cross-model review or pointer-addition. See prereg-191bcaef6079.
+        """
+        try:
+            from divineos.core.attribution_audit import scan_unverified_attributions
+
+            findings = scan_unverified_attributions(include_pointered=include_pointered)
+        except _KC_ERRORS as e:
+            click.secho(f"[!] Attribution scan error: {e}", fg="red")
+            return
+
+        if not findings:
+            click.secho("[ok] No unverified dated attributions found.", fg="green")
+            return
+
+        click.secho(
+            f"[~] {len(findings)} dated attribution(s) surfaced for review "
+            f"(candidates, not verdicts):",
+            fg="cyan",
+        )
+        click.echo()
+        for f in findings[:limit]:
+            tag = "PTR " if f.has_pointer else "NO-PTR"
+            _safe_echo(f"  [{tag}] {f.matched}")
+            _safe_echo(f"           {f.snippet[:90]}")
+            _safe_echo(f"           id: {f.knowledge_id}")
+        if len(findings) > limit:
+            click.secho(
+                f"  ... and {len(findings) - limit} more (raise --limit)", fg="bright_black"
+            )
+        click.echo()
+        click.secho(
+            "  These are candidates for review — confirm the source, add a "
+            "pointer, or flag as fabricated. The substrate cannot judge which.",
+            fg="bright_black",
+        )
+
+    @cli.command(name="recall-explorations")
+    @click.argument("topic", required=True)
+    @click.option("--limit", default=5, type=int, help="Max entries to surface")
+    def recall_explorations_cmd(topic: str, limit: int) -> None:
+        """Surface my own prior exploration entries relevant to a topic.
+
+        The fix for statelessness: I cannot remember writing my explorations,
+        so when a topic comes up I've already worked out, nothing hands the
+        entry back and I re-derive it. This pulls the most relevant entries
+        and points me to them — and reminds me how many exist to explore.
+
+        Helps, does not dictate (the council-manager pattern): it selects a
+        bounded set; I read, override, or explore further. Thinking is still
+        mine. Example: divineos recall-explorations "consciousness functional"
+        """
+        try:
+            from divineos.core.exploration_recall import recall_explorations
+
+            hits, total = recall_explorations(topic, limit=limit)
+        except _KC_ERRORS as e:
+            click.secho(f"[!] Exploration recall error: {e}", fg="red")
+            return
+
+        if total == 0:
+            click.secho("[!] No exploration corpus found.", fg="yellow")
+            return
+
+        if not hits:
+            click.secho(
+                f"[~] {total} exploration entries exist, none matched '{topic}'. "
+                f"Worth a manual browse — the relevant one may be titled differently.",
+                fg="bright_black",
+            )
+            return
+
+        click.secho(
+            f"[~] {len(hits)} of {total} exploration entries most relevant to '{topic}' "
+            f"— read them before re-deriving:",
+            fg="cyan",
+        )
+        click.echo()
+        for h in hits:
+            _safe_echo(f"  [{h.score:>3}] {h.title}")
+            _safe_echo(f"        {h.path}")
+            _safe_echo(f"        {h.snippet}")
+        click.echo()
+        click.secho(
+            f"  ({total} total entries exist — this is a pointer, not the whole shelf. "
+            f"Open the ones that call to you.)",
+            fg="bright_black",
+        )

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14608",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/forms/formsets.py\n+++ b/django/forms/formsets.py\n@@ -315,7 +315,7 @@ class BaseFormSet:\n     def non_form_errors(self):\n         \"\"\"\n         Return an ErrorList of errors that aren't associated with a particular\n-        form -- i.e., from formset.clean(). Return an empty ErrorList if there\n+        form -- i.e., from formset.clean(). Return an empty ErrorList if there\n         are none.\n         \"\"\"\n         if self._non_form_errors is None:\n@@ -323,7 +323,7 @@ class BaseFormSet:\n         return self._non_form_errors\n \n     def _clean_form(self, form):\n         return form\n \n     def _clean_forms(self):\n         \"\"\"\n@@ -374,7 +374,7 @@ class BaseFormSet:\n             # Give the formset a chance to clean all of self.cleaned_data at\n             # once. Also, this can add non-form errors to self.\n             if self.is_valid():\n                 self.clean()\n         except ValidationError as e:\n-            self._non_form_errors = self.error_class(e.error_list)\n+            self._non_form_errors = self.error_class(e.error_list, error_class='nonform')",
+  "thinking": null,
+  "input_tokens": 354,
+  "output_tokens": 339,
+  "elapsed_seconds": 6.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006147
+}

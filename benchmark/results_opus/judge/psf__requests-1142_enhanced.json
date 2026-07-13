@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch targets the wrong code section and doesn't address the core issue. It modifies a condition check for setting Content-Length but doesn't prevent GET requests from automatically getting Content-Length headers. The patch appears to be incomplete or from a different context.",
+  "key_difference": "The candidate patch modifies an unrelated condition check (`if l:` to `if l is not None:`) rather than addressing the automatic Content-Length header addition for GET requests that the gold patch fixes by conditionally setting Content-Length only for non-GET/HEAD methods.",
+  "instance_id": "psf__requests-1142",
+  "condition": "enhanced",
+  "judge_cost": 0.004701
+}

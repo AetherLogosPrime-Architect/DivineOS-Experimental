@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-15345",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/printing/mathematica.py\n+++ b/sympy/printing/mathematica.py\n@@ -36,6 +36,8 @@ class MathematicaCodePrinter(CodePrinter):\n         \"acos\": \"ArcCos\",\n         \"acot\": \"ArcCot\",\n         \"atan\": \"ArcTan\",\n+        \"Max\": \"Max\",\n+        \"Min\": \"Min\",\n         # Mathematica requires * between a number and symbol\n         # or else it will throw a syntax error\n     }\n@@ -88,6 +90,10 @@ class MathematicaCodePrinter(CodePrinter):\n             return self._print(expr.args[0])\n         return CodePrinter._print_Function(self, expr)\n \n+    def _print_Max(self, expr):\n+        return \"Max[%s]\" % self.stringify(expr.args, \", \")\n+\n+    def _print_Min(self, expr):\n+        return \"Min[%s]\" % self.stringify(expr.args, \", \")\n \n def mathematica_code(expr, **settings):\n     r\"\"\"Converts an expr to a string of the Mathematica code",
+  "thinking": null,
+  "input_tokens": 509,
+  "output_tokens": 307,
+  "elapsed_seconds": 6.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006131999999999999
+}

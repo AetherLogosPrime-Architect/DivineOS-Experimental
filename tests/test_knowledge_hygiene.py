@@ -1,0 +1,551 @@
+"""Tests for knowledge hygiene — audit, stale sweep, orphan detection."""
+
+import time
+
+from divineos.core.knowledge import _KNOWLEDGE_COLS, _get_connection, _row_to_dict
+from divineos.core.knowledge_maintenance import (
+    _audit_types,
+    _flag_orphans,
+    _reap_dead_entries,
+    _sweep_stale,
+    format_hygiene_report,
+    run_knowledge_hygiene,
+)
+
+
+def _setup(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    monkeypatch.setenv("DIVINEOS_DB", str(db_path))
+    from divineos.core.knowledge import init_knowledge_table
+
+    init_knowledge_table()
+
+
+def _insert_entry(
+    content,
+    knowledge_type="PRINCIPLE",
+    confidence=0.8,
+    created_days_ago=5,
+    access_count=0,
+    corroboration_count=0,
+    source="STATED",
+):
+    """Insert a test knowledge entry and return its ID."""
+    import hashlib
+    import uuid
+
+    kid = str(uuid.uuid4())
+    now = time.time()
+    created = now - (created_days_ago * 86400)
+    content_hash = hashlib.sha256(content.encode()).hexdigest()[:32]
+    conn = _get_connection()
+    conn.execute(
+        "INSERT INTO knowledge (knowledge_id, knowledge_type, content, confidence, "
+        "created_at, updated_at, access_count, corroboration_count, source, "
+        "maturity, content_hash) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RAW', ?)",
+        (
+            kid,
+            knowledge_type,
+            content,
+            confidence,
+            created,
+            created,
+            access_count,
+            corroboration_count,
+            source,
+            content_hash,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return kid
+
+
+def _get_entry(kid):
+    conn = _get_connection()
+    row = conn.execute(
+        f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE knowledge_id = ?", (kid,)
+    ).fetchone()
+    conn.close()
+    return _row_to_dict(row) if row else None
+
+
+class TestAuditTypes:
+    """Re-running the noise filter on existing PRINCIPLE/BOUNDARY entries."""
+
+    def test_pure_noise_typed_as_principle_is_exempt_from_hygiene(self, tmp_path, monkeypatch):
+        """Fable round 5 (2026-07-02): PRINCIPLE is categorically exempt.
+
+        Correct layer for rejecting 'yes lets do it' mis-typed as
+        PRINCIPLE is the STORE-TIME gate (Fable Round 5 finding #2,
+        separate scope), not delete-time hygiene. This test pins the
+        corrected architecture: once stored as PRINCIPLE, an entry
+        cannot be silently deleted by hygiene, regardless of
+        prescriptive-signal presence.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry("yes lets do it", "PRINCIPLE", created_days_ago=3)
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] is None
+
+    def test_prescriptive_principle_kept(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "I should always run tests before committing code to avoid regressions",
+            "PRINCIPLE",
+            created_days_ago=3,
+        )
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+        assert result["demoted"] == 0
+
+    def test_recent_entries_skipped(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry("yes go ahead", "PRINCIPLE", created_days_ago=0)
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400  # 1 day ago — entry is newer
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+
+    def test_high_corroboration_skipped(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "yes lets do it", "PRINCIPLE", created_days_ago=3, corroboration_count=5
+        )
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+
+    def test_no_prescriptive_signal_principle_is_exempt_from_hygiene(self, tmp_path, monkeypatch):
+        """Fable round 5 (2026-07-02): PRINCIPLE without prescriptive
+        keywords must still survive hygiene. The declarative-truth
+        wording 'the project has a lot of files' is not a legitimate
+        PRINCIPLE, but the rejection layer is store-time, not
+        delete-time. Once stored, categorical exemption fires.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "The project has a lot of files and directories and modules and packages "
+            "and it uses Python and SQLite for data storage and click for CLI",
+            "PRINCIPLE",
+            created_days_ago=3,
+        )
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] is None
+
+    def test_noisy_observation_gets_superseded(self, tmp_path, monkeypatch):
+        """Noise detection now covers all types, not just PRINCIPLE/BOUNDARY."""
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry("yes lets do it", "OBSERVATION", created_days_ago=3)
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] >= 1
+
+    def test_clean_observation_kept(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "The knowledge store uses SQLite for persistence with content hashing",
+            "OBSERVATION",
+            created_days_ago=3,
+        )
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+
+
+class TestSweepStale:
+    """Entries with temporal markers that are old get confidence decay."""
+
+    def test_temporal_old_entry_decays(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "The API is currently broken and returning 500 errors",
+            "OBSERVATION",
+            confidence=0.8,
+            created_days_ago=20,
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["decayed"] >= 1
+        entry = _get_entry(kid)
+        assert entry["confidence"] < 0.8
+
+    def test_recent_temporal_not_decayed(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "The API is currently broken", "OBSERVATION", confidence=0.8, created_days_ago=3
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["decayed"] == 0
+
+    def test_directive_immune(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Currently focus on knowledge quality",
+            "DIRECTIVE",
+            confidence=0.9,
+            created_days_ago=20,
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["decayed"] == 0
+
+    def test_no_temporal_markers_not_decayed(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Python uses indentation for blocks",
+            "OBSERVATION",
+            confidence=0.8,
+            created_days_ago=20,
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["decayed"] == 0
+
+    def test_at_floor_gets_superseded(self, tmp_path, monkeypatch):
+        """Temporal entries at the decay floor get superseded, not left in limbo."""
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "This is currently failing", "OBSERVATION", confidence=0.3, created_days_ago=20
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["superseded"] >= 1
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] == "temporal-stale"
+
+    def test_corroborated_temporal_not_superseded(self, tmp_path, monkeypatch):
+        """Temporal entries with corroboration are preserved even at floor."""
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "This is currently failing",
+            "OBSERVATION",
+            confidence=0.3,
+            created_days_ago=20,
+            corroboration_count=3,
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["superseded"] == 0
+        assert result["decayed"] == 0
+
+
+class TestFlagOrphans:
+    """Entries never accessed and never corroborated get demoted."""
+
+    def test_zero_access_high_confidence_demoted(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Something nobody looked at",
+            "OBSERVATION",
+            confidence=0.8,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] >= 1
+        entry = _get_entry(kid)
+        assert entry["confidence"] == 0.5
+
+    def test_accessed_entry_not_flagged(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Something that was accessed",
+            "OBSERVATION",
+            confidence=0.8,
+            access_count=3,
+            corroboration_count=0,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+
+    def test_corroborated_entry_not_flagged(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Corroborated entry",
+            "OBSERVATION",
+            confidence=0.8,
+            access_count=0,
+            corroboration_count=1,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+
+    def test_directive_immune(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A directive nobody accessed",
+            "DIRECTIVE",
+            confidence=0.9,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+
+    def test_low_confidence_not_flagged(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Already low confidence",
+            "OBSERVATION",
+            confidence=0.4,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0  # Already below threshold
+
+    def test_fresh_entry_not_flagged(self, tmp_path, monkeypatch):
+        """Regression: a fresh entry with zero access MUST NOT be flagged.
+
+        Before the fix, the `min_sessions` parameter was received but
+        never checked inside the body, so seed entries loaded today got
+        demoted to 0.5 the same day. Here we assert the age gate actually
+        protects fresh entries.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A fact learned today that nobody has re-accessed yet",
+            "OBSERVATION",
+            confidence=0.8,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=1,  # well under the 7-day age gate
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+        entry = _get_entry(kid)
+        assert entry["confidence"] == 0.8  # untouched
+
+    def test_inherited_entry_never_flagged(self, tmp_path, monkeypatch):
+        """Regression: INHERITED (seed) entries are constitutional.
+
+        Silence isn't evidence of obsolescence — a foundational boundary
+        like "always read files before editing" doesn't get touched by
+        code, but it's still a true constraint. Before the fix, 13 of 19
+        INHERITED seed entries in the worktree DB had been demoted to
+        0.5 the day they loaded. Never again.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Foundational seed principle that is axiomatic, not evidentiary",
+            "PRINCIPLE",
+            confidence=1.0,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=30,  # old enough that age gate wouldn't save it
+            source="INHERITED",
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+        entry = _get_entry(kid)
+        assert entry["confidence"] == 1.0  # constitutional — never demoted
+
+
+class TestReapDeadEntries:
+    """Entries below CONFIDENCE_SUPERSEDE_FLOOR get superseded by the reaper."""
+
+    def test_below_floor_gets_reaped(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Some garbage that got penalized to 0.1", "FACT", confidence=0.1, created_days_ago=10
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] >= 1
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] == "hygiene-reaper"
+
+    def test_above_floor_not_reaped(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Decent entry at moderate confidence", "FACT", confidence=0.5, created_days_ago=10
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 0
+
+    def test_directive_immune_to_reaper(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A directive at low confidence", "DIRECTIVE", confidence=0.1, created_days_ago=10
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 0
+
+
+class TestPinProtection:
+    """Pinning a knowledge entry (via active_memory) shields it from hygiene.
+
+    Before the fix, the three hygiene functions (`_audit_types`,
+    `_sweep_stale`, `_reap_dead_entries`) checked `entry.get("pinned")`
+    on knowledge rows — but the knowledge table has no `pinned` column.
+    The pin flag lives on active_memory. So the guards always evaluated
+    false, and pinning protected nothing.
+
+    Fix: hygiene queries active_memory for pinned knowledge IDs and skips
+    those entries during reap / sweep / audit.
+    """
+
+    def _pin(self, kid):
+        """Promote-and-pin a knowledge entry in active memory."""
+        from divineos.core.active_memory import promote_to_active
+        from divineos.core.memory import init_memory_tables
+
+        init_memory_tables()
+        promote_to_active(kid, importance=1.0, reason="test pin", pinned=True)
+
+    def test_pinned_entry_survives_audit(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # An entry that would normally be superseded as pure noise
+        kid = _insert_entry("yes lets do it", "PRINCIPLE", created_days_ago=3)
+        self._pin(kid)
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+        assert result["demoted"] == 0
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] is None
+
+    def test_pinned_entry_survives_stale_sweep(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # An old entry with temporal markers that would normally decay
+        kid = _insert_entry(
+            "today I learned the audit catches stale content",
+            "OBSERVATION",
+            confidence=0.6,
+            created_days_ago=60,
+        )
+        # Also update updated_at to be old
+        conn = _get_connection()
+        conn.execute(
+            "UPDATE knowledge SET updated_at = ? WHERE knowledge_id = ?",
+            (time.time() - (60 * 86400), kid),
+        )
+        conn.commit()
+        conn.close()
+        self._pin(kid)
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=30.0)
+        assert result["decayed"] == 0
+        assert result["superseded"] == 0
+
+    def test_pinned_entry_survives_reap(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # An entry below the supersede floor that would normally be reaped
+        kid = _insert_entry("A struggling entry", "PRINCIPLE", confidence=0.05, created_days_ago=10)
+        self._pin(kid)
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 0
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] is None
+
+    def test_unpinned_observation_still_gets_reaped(self, tmp_path, monkeypatch):
+        """Control: the reaper still works for non-pinned, non-constraint-tier
+        entries. Uses OBSERVATION rather than PRINCIPLE — Fable round 5
+        (2026-07-02) added categorical exemption for constraint-tier types
+        (DIRECTIVE/BOUNDARY/PRINCIPLE), so this control needs a non-exempt
+        type to verify the reaper hasn't been globally disabled.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A struggling unpinned entry",
+            "OBSERVATION",
+            confidence=0.05,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 1
+
+
+class TestRunKnowledgeHygiene:
+    """Integration test for the full hygiene run."""
+
+    def test_full_run_returns_report(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        report = run_knowledge_hygiene()
+        assert "entries_scanned" in report
+        assert "noise_demoted" in report
+        assert "stale_decayed" in report
+        assert "stale_superseded" in report
+        assert "orphans_flagged" in report
+        assert "reaped" in report
+        assert isinstance(report["details"], list)
+
+    def test_clean_store_no_actions(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # Insert a well-formed entry
+        _insert_entry(
+            "I should always validate input before processing to prevent errors",
+            "PRINCIPLE",
+            confidence=0.8,
+            created_days_ago=3,
+            access_count=5,
+            corroboration_count=2,
+        )
+        report = run_knowledge_hygiene()
+        total = (
+            report["noise_demoted"]
+            + report["noise_superseded"]
+            + report["stale_decayed"]
+            + report["orphans_flagged"]
+        )
+        assert total == 0
+
+
+class TestFormatReport:
+    def test_clean_report(self):
+        report = {
+            "entries_scanned": 10,
+            "noise_demoted": 0,
+            "noise_superseded": 0,
+            "stale_decayed": 0,
+            "orphans_flagged": 0,
+            "details": [],
+        }
+        text = format_hygiene_report(report)
+        assert "clean" in text.lower()
+
+    def test_report_with_actions(self):
+        report = {
+            "entries_scanned": 50,
+            "noise_demoted": 3,
+            "noise_superseded": 2,
+            "stale_decayed": 1,
+            "orphans_flagged": 4,
+            "details": ["Demoted to OBSERVATION: test..."],
+        }
+        text = format_hygiene_report(report)
+        assert "3" in text
+        assert "OBSERVATION" in text

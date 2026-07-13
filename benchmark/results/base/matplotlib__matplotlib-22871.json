@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-22871",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/matplotlib/dates.py\n+++ b/lib/matplotlib/dates.py\n@@ -1595,7 +1595,10 @@ class ConciseDateFormatter(ticker.Formatter):\n         # list of all the dates:\n         if len(tickdates) > 1:\n             # sensible values for day, month, year\n-            if tickdates[-1].year != tickdates[0].year:\n+            # Show year in offset if:\n+            # 1. Spans multiple years, OR  \n+            # 2. Less than 12 months shown AND no January tick present\n+            if (tickdates[-1].year != tickdates[0].year or \n+                ((tickdates[-1] - tickdates[0]).days < 365 and \n+                 not any(td.month == 1 for td in tickdates))):\n                 years = sorted(set(td.year for td in tickdates))\n                 if len(years) > 1:\n                     offset_str = str(years[0])",
+  "thinking": null,
+  "input_tokens": 658,
+  "output_tokens": 263,
+  "elapsed_seconds": 5.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005919
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies that IndexVariable deep copying is causing dtype loss, but the proposed fix is incomplete, syntactically invalid, and doesn't address the root cause in PandasIndexAdapter.",
+  "key_difference": "The candidate patch attempts to fix the issue in IndexVariable's copy method, while the gold patch correctly fixes the root cause in PandasIndexAdapter's __array__ method by properly handling dtype conversion when dtype is explicitly provided.",
+  "instance_id": "pydata__xarray-3095",
+  "condition": "base",
+  "judge_tokens": 2497,
+  "judge_cost": 0.009387
+}

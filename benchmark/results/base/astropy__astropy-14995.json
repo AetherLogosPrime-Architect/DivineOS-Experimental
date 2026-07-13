@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14995",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/astropy/nddata/mixins/ndarithmetic.py\n+++ b/astropy/nddata/mixins/ndarithmetic.py\n@@ -495,7 +495,7 @@ class NDArithmeticMixin:\n \n         if self.mask is None and operand.mask is None:\n             return None\n-        elif operand is None:\n+        elif operand.mask is None:\n             return deepcopy(self.mask)\n         elif self.mask is None:\n             return deepcopy(operand.mask)",
+  "thinking": null,
+  "input_tokens": 2610,
+  "output_tokens": 139,
+  "elapsed_seconds": 3.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.009915
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly adds the get_inlines() hook and modifies get_inline_instances() to use it, but has syntax errors including a duplicate method definition and malformed diff structure.",
+  "key_difference": "The candidate patch has the same core logic as the gold patch but contains critical syntax errors: it duplicates the get_queryset method definition and has malformed diff syntax that would prevent it from applying correctly.",
+  "instance_id": "django__django-11095",
+  "condition": "base",
+  "judge_tokens": 1248,
+  "judge_cost": 0.00558
+}

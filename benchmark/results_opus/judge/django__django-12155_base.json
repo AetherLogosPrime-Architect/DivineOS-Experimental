@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies and fixes the core issue by skipping the first line when calculating indentation and adding a default value to handle empty generators. This directly addresses the problem where the first line's zero indentation was causing incorrect indentation calculations.",
+  "key_difference": "The candidate patch fixes the specific line mentioned in the problem by adding `[1:]` to skip the first line and `default=0` for safety, while the gold patch completely replaces the custom trim_docstring function with Python's built-in `cleandoc` function and removes the function entirely.",
+  "instance_id": "django__django-12155",
+  "condition": "base",
+  "judge_cost": 0.006969
+}

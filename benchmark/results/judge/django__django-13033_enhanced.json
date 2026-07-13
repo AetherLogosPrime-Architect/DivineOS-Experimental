@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that the issue is in the condition that determines when to apply default ordering for related models, changing from comparing against the full field name to comparing against the last piece of the field path.",
+  "key_difference": "The candidate patch is essentially identical to the gold patch but missing the code formatting changes (line breaks and indentation). The core logic fix is the same: changing `name` to `pieces[-1]` in the comparison, which prevents the default ordering from being applied when ordering by foreign key _id fields.",
+  "instance_id": "django__django-13033",
+  "condition": "enhanced",
+  "judge_tokens": 2137,
+  "judge_cost": 0.008523
+}

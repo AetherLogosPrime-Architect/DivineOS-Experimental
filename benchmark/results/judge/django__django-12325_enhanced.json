@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the problem area in base.py but attempts to fix it by sorting fields and preventing overwrites rather than filtering to only parent_link fields. This doesn't actually resolve the core issue.",
+  "key_difference": "The gold patch filters OneToOneFields to only include those with parent_link=True and removes the validation error, while the candidate tries to sort fields by parent_link status and prevent overwrites. The candidate's approach doesn't fix the fundamental problem that non-parent-link OneToOneFields are being treated as parent links.",
+  "instance_id": "django__django-12325",
+  "condition": "enhanced",
+  "judge_tokens": 1637,
+  "judge_cost": 0.007095
+}

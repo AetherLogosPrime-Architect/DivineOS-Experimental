@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11239",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/backends/postgresql/client.py\n+++ b/django/db/backends/postgresql/client.py\n@@ -45,6 +45,12 @@ class DatabaseClient(BaseDatabaseClient):\n         sslrootcert = options.get('sslrootcert')\n         if sslrootcert:\n             args.extend(['--set', 'sslrootcert=%s' % sslrootcert])\n+        sslcert = options.get('sslcert')\n+        if sslcert:\n+            args.extend(['--set', 'sslcert=%s' % sslcert])\n+        sslkey = options.get('sslkey')\n+        if sslkey:\n+            args.extend(['--set', 'sslkey=%s' % sslkey])\n \n         args += [dbname]\n ",
+  "thinking": null,
+  "input_tokens": 534,
+  "output_tokens": 224,
+  "elapsed_seconds": 3.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004962
+}

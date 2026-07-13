@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the location where migration files are written, but only prevents writing when there are no changes, not when there are changes that need migrations.",
+  "key_difference": "The candidate patch only returns early when no changes are detected, while the gold patch prevents migration file writing when changes ARE detected (which is when --check should exit with status 1). The candidate doesn't exit with the proper error code when migrations are needed.",
+  "instance_id": "django__django-16116",
+  "condition": "base",
+  "judge_tokens": 1212,
+  "judge_cost": 0.005496
+}

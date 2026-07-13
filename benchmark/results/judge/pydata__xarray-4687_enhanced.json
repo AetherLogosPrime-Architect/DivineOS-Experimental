@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that the `xr.where` function needs to preserve attributes by adding `keep_attrs` parameter to the `apply_ufunc` call, using the global OPTIONS setting as the default.",
+  "key_difference": "The candidate patch uses `OPTIONS['keep_attrs']` directly instead of adding a `keep_attrs` parameter with default handling logic. This is a simpler approach that respects the global configuration but doesn't allow per-call customization like the gold patch does with its `keep_attrs` parameter.",
+  "instance_id": "pydata__xarray-4687",
+  "condition": "enhanced",
+  "judge_tokens": 2293,
+  "judge_cost": 0.009039
+}

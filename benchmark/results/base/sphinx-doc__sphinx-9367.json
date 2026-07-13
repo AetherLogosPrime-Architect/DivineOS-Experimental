@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-9367",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, I need to:\n\n1. First understand what the issue is: 1-element tuples like `(1,)` are being rendered as `(1)` without the trailing comma\n2. Find the relevant code that handles tuple rendering\n3. Add the test case mentioned\n4. Fix the rendering logic\n\nLet me examine the test file to understand the current behavior and then find the rendering logic.\n\n```diff\n--- a/tests/test_pycode_ast.py\n+++ b/tests/test_pycode_ast.py\n@@ -54,6 +54,7 @@ def test_unparse():\n     (\"(1, 2, 3)\", \"(1, 2, 3)\"),                 # Tuple\n     (\"()\", \"()\"),                               # Empty tuple\n     (\"{}\", \"{}\"),                               # Empty dict\n+    (\"(1,)\", \"(1,)\"),                           # Tuple (single element)\n     (\"{1, 2, 3}\", \"{1, 2, 3}\"),                 # Set\n     (\"{1: 2}\", \"{1: 2}\"),                       # Dict\n     (\"[x for x in []]\", \"[x for x in []]\"),     # List comprehension\n--- a/sphinx/pycode/ast.py\n+++ b/sphinx/pycode/ast.py\n@@ -209,7 +209,10 @@ class _UnparseVisitor(ast.NodeVisitor):\n \n     def visit_Tuple(self, node: ast.Tuple) -> None:\n         self.write(\"(\")\n-        self._write_items(node.elts, unpack=True)\n+        if len(node.elts) == 1:\n+            self.visit(node.elts[0])\n+            self.write(\",\")\n+        else:\n+            self._write_items(node.elts, unpack=True)\n         self.write(\")\")\n \n     def visit_UnaryOp(self, node: ast.UnaryOp) -> None:",
+  "thinking": null,
+  "input_tokens": 356,
+  "output_tokens": 488,
+  "elapsed_seconds": 8.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008388
+}

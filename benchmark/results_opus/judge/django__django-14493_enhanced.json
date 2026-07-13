@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies the UnboundLocalError issue and fixes it by initializing the 'substitutions' variable before the loop. The fix is placed at the right location to ensure the variable is defined even when max_post_process_passes is 0.",
+  "key_difference": "The candidate patch initializes 'substitutions = False' at line 246 (after adjustable_paths assignment), while the gold patch initializes it at line 263 (after the paths dictionary comprehension). Both locations are valid and functionally equivalent for fixing the bug.",
+  "instance_id": "django__django-14493",
+  "condition": "enhanced",
+  "judge_cost": 0.005739
+}

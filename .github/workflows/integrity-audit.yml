@@ -1,0 +1,105 @@
+name: Integrity Audit
+
+# Server-side enforcement of integrity invariants that the local pre-commit
+# hook tries to enforce but can be bypassed with --no-verify. This workflow
+# runs in GitHub Actions where the agent has no write access, so it's the
+# off-host anchor for the self-audit stack.
+#
+# PHASE 1 scope (this file):
+#   - Verify: any commit in a PR that modifies a guardrail file must carry
+#     an "External-Review: <id>" trailer in its commit message. This is a
+#     purely textual check — the trailer's PRESENCE is verified, not the
+#     referenced audit round's validity.
+#
+# What Phase 1 does NOT yet enforce (Phase 2 architectural work):
+#   - That the referenced audit round actually exists in the Watchmen store
+#   - That the round has CONFIRMS findings from user + external AI actors
+#   - That the round's diff-hash matches the current diff
+#   - That the referenced pre-reg exists and is open
+#
+#   Phase 2 requires committed audit-round and pre-reg state (or an external
+#   DB that CI can query). That's a bigger architectural shift — deferred.
+#   Phase 1 still closes the --no-verify bypass on the trailer requirement,
+#   which is the biggest single integrity gap.
+
+on:
+  pull_request:
+    branches: [main]
+    # ready_for_review needed so the workflow fires when a draft PR is
+    # promoted out of draft state. Default activity types
+    # (opened/synchronize/reopened) skip the draft→ready transition.
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+jobs:
+  guardrail-trailer-check:
+    name: multi-party-review
+    runs-on: ubuntu-latest
+    # Draft PRs skip CI so pre-audit visibility doesn't accumulate red marks
+    # on the Actions page. The check still runs on push to main and on the
+    # ready_for_review transition (when audit is complete and the PR is
+    # promoted out of draft). Aletheia 2026-06-08 confirmed this is the
+    # mechanism — delay the run, don't defang the check.
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    steps:
+      - name: Check out PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify guardrail-modifying commits carry External-Review trailer
+        shell: bash
+        run: |
+          set -e
+
+          # Determine the commit range to check.
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          # Handle edge case: BASE_SHA may be all-zeros for initial push.
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] || [ -z "$BASE_SHA" ]; then
+            echo "No base commit available (initial push?). Skipping range check."
+            exit 0
+          fi
+
+          # Delegate to the standalone script. Single source of truth,
+          # covered by tests/test_ci_check_guardrail_trailer.py, including
+          # tree-hash binding (Phase 2) and the meta-self-disclosure block.
+          bash scripts/ci_check_guardrail_trailer.sh "$BASE_SHA" "$HEAD_SHA"
+
+  mixed-pattern-merge-check:
+    name: mixed-pattern-merge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Mixed-pattern-merge gate (claim ec844fcf)
+        run: |
+          set -e
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="HEAD~1"
+            HEAD_SHA="HEAD"
+          fi
+
+          # Refuse PRs that contain BOTH file additions AND deletions in
+          # the same src/divineos/core/<subsystem>/ directory. Catches the
+          # PR-#230 shape where strip work bundles with template additions.
+          # See scripts/check_mixed_pattern_merge.py for design rationale.
+          python scripts/check_mixed_pattern_merge.py "$BASE_SHA" "$HEAD_SHA"

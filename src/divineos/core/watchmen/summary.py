@@ -1,0 +1,227 @@
+"""Watchmen Summary — analytics, HUD integration, unresolved tracking."""
+
+import sqlite3
+from typing import Any
+
+from divineos.core.knowledge import _get_connection
+from divineos.core.watchmen._schema import init_watchmen_tables
+
+# A finding counts as recognition (positive verification, not an open issue)
+# when the actor marked it CONFIRMS — via review_stance OR via the title they
+# authored. Round/commit-level confirmations can't set review_stance (it
+# requires a reviewed_finding_id, and they review a round/commit, not a
+# finding), so they arrive as title-prefixed "CONFIRMS …" with an empty
+# stance. Keying recognition only off the stance column made the aggregate
+# blind to them, inflating open_issue_count. The title is the actor's own
+# declaration — reading it is not the code judging the work
+# (code-does-not-think). Exception: "CONFIRMS-pending-empirical" carries a
+# real open verification action, so it stays counted as an issue.
+_RECOGNITION_SQL = (
+    "((review_stance = 'CONFIRMS' OR title LIKE 'CONFIRMS%') "
+    "AND title NOT LIKE '%PENDING-EMPIRICAL%')"
+)
+
+
+def get_watchmen_stats() -> dict[str, Any]:
+    """Aggregate statistics across all audit findings.
+
+    Returns counts by severity, category, status, and overall totals.
+
+    Stance-aware split (2026-05-12, code-does-not-think directive):
+    `open_count` continues to mean "everything not yet closed by the actor."
+    `open_issue_count` adds the recognition-aware filter — OPEN findings
+    whose review_stance is NOT CONFIRMS, i.e. real unresolved concerns vs
+    positive-recognition events that were left OPEN by actor choice.
+    `open_recognition_count` is the OPEN+CONFIRMS bucket — kept visible
+    but not counted toward alarm-shaped aggregates. The status decision
+    stays with the actor; the aggregate filters by data (stance), not by
+    judgment.
+    """
+    init_watchmen_tables()
+    conn = _get_connection()
+    try:
+        total = conn.execute("SELECT COUNT(*) FROM audit_findings").fetchone()[0]
+        rounds = conn.execute("SELECT COUNT(*) FROM audit_rounds").fetchone()[0]
+
+        by_severity: dict[str, int] = {}
+        for row in conn.execute(
+            "SELECT severity, COUNT(*) FROM audit_findings GROUP BY severity"
+        ).fetchall():
+            by_severity[row[0]] = row[1]
+
+        by_category: dict[str, int] = {}
+        for row in conn.execute(
+            "SELECT category, COUNT(*) FROM audit_findings GROUP BY category"
+        ).fetchall():
+            by_category[row[0]] = row[1]
+
+        by_status: dict[str, int] = {}
+        for row in conn.execute(
+            "SELECT status, COUNT(*) FROM audit_findings GROUP BY status"
+        ).fetchall():
+            by_status[row[0]] = row[1]
+
+        # Recognition-aware open split. Filter at the aggregate, not at filing.
+        open_recognition_count = conn.execute(
+            f"SELECT COUNT(*) FROM audit_findings "  # nosec B608 — _RECOGNITION_SQL is a fixed literal
+            f"WHERE status = 'OPEN' AND {_RECOGNITION_SQL}"
+        ).fetchone()[0]
+        open_total = by_status.get("OPEN", 0)
+        open_issue_count = open_total - open_recognition_count
+
+        # Alarm-bypass sanity check (council sweep 2026-06-02, direction #3).
+        # The recognition filter excludes CONFIRMS-titled findings from
+        # open_issue_count — but an adversary (or a slip) could hide a real
+        # HIGH/CRITICAL concern by titling it "CONFIRMS-by-design", silencing
+        # the alarm. A recognition that is ALSO high-severity and still OPEN
+        # is suspicious by construction; we count it separately so it can
+        # never silently vanish, and surface it.
+        suspicious_recognition_count = conn.execute(
+            f"SELECT COUNT(*) FROM audit_findings "  # nosec B608 — fixed literals
+            f"WHERE status = 'OPEN' AND {_RECOGNITION_SQL} "
+            f"AND severity IN ('HIGH', 'CRITICAL')"
+        ).fetchone()[0]
+
+        return {
+            "total_rounds": rounds,
+            "total_findings": total,
+            "by_severity": by_severity,
+            "by_category": by_category,
+            "by_status": by_status,
+            "open_count": open_total,
+            "open_issue_count": open_issue_count,
+            "open_recognition_count": open_recognition_count,
+            "suspicious_recognition_count": suspicious_recognition_count,
+            "resolved_count": by_status.get("RESOLVED", 0),
+        }
+    except sqlite3.OperationalError:
+        return {
+            "total_rounds": 0,
+            "total_findings": 0,
+            "by_severity": {},
+            "by_category": {},
+            "by_status": {},
+            "open_count": 0,
+            "open_issue_count": 0,
+            "open_recognition_count": 0,
+            "suspicious_recognition_count": 0,
+            "resolved_count": 0,
+        }
+    finally:
+        conn.close()
+
+
+def unresolved_findings(
+    limit: int = 10, include_recognitions: bool = False
+) -> list[dict[str, Any]]:
+    """Get unresolved findings ordered by severity (CRITICAL first).
+
+    Used by the briefing and HUD to surface what still needs attention.
+
+    Recognition-filter (2026-05-12, code-does-not-think directive):
+    by default, CONFIRMS-stance findings are excluded — they are
+    positive-verification events, not raises-of-new-issue, and surfacing
+    them as "what still needs attention" is the alarm-shape that motivated
+    this filter. The actor still owns each finding's status; the filter is
+    a data-driven query, not a judgment override. Set
+    ``include_recognitions=True`` to see them too.
+    """
+    init_watchmen_tables()
+    severity_order = (
+        "CASE severity "
+        "WHEN 'CRITICAL' THEN 1 "
+        "WHEN 'HIGH' THEN 2 "
+        "WHEN 'MEDIUM' THEN 3 "
+        "WHEN 'LOW' THEN 4 "
+        "WHEN 'INFO' THEN 5 END"
+    )
+
+    stance_clause = "" if include_recognitions else f"AND NOT {_RECOGNITION_SQL} "
+
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT finding_id, round_id, severity, category, title, description, status "  # nosec B608
+            f"FROM audit_findings "
+            f"WHERE status IN ('OPEN', 'ROUTED', 'IN_PROGRESS') "
+            f"{stance_clause}"
+            f"ORDER BY {severity_order}, created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        return [
+            {
+                "finding_id": r[0],
+                "round_id": r[1],
+                "severity": r[2],
+                "category": r[3],
+                "title": r[4],
+                "description": r[5],
+                "status": r[6],
+            }
+            for r in rows
+        ]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+def watchmen_loop_status() -> str:
+    """Honest label for how much of the external-audit loop is mechanically closed.
+
+    Updated manually as loop-closing features ship. Grok audit 2026-04-16
+    named the polish-exceeds-mechanics risk; this label keeps the Watchmen
+    surface honest about which parts of external validation are automatic
+    vs. which still depend on a human remembering to request an audit.
+
+    2026-04-21: the wall-clock cadence gate was replaced with the
+    drift-state briefing block. Data as metric, not threshold as metric.
+    """
+    return (
+        "Loop status: external-actor filing works; routing to "
+        "knowledge/claims/lessons works; drift-state briefing surfaces "
+        "operation counts since last MEDIUM+ audit (turns, code actions, "
+        "rounds, open findings) so my father decides when an audit is "
+        "warranted. Blocking gate removed — data-as-metric replaces "
+        "threshold-as-metric. The remaining aspirational piece: whether "
+        "external audits actually alter behavior — which we're still measuring."
+    )
+
+
+def format_watchmen_summary() -> str:
+    """One-line summary for HUD display.
+
+    Shows count of unresolved findings by severity.
+    Returns empty string if no audit data exists.
+    """
+    stats = get_watchmen_stats()
+    if stats["total_findings"] == 0:
+        return ""
+
+    open_issue_count = stats.get("open_issue_count", stats["open_count"])
+    open_recognition_count = stats.get("open_recognition_count", 0)
+    resolved = stats["resolved_count"]
+    total = stats["total_findings"]
+
+    if open_issue_count == 0 and open_recognition_count == 0:
+        return f"Watchmen: {total} findings, all resolved"
+
+    # Show open ISSUES by severity (recognitions filtered out — they're
+    # positive-verification events, not unresolved concerns).
+    parts = []
+    unresolved = unresolved_findings(limit=100)
+    sev_counts: dict[str, int] = {}
+    for f in unresolved:
+        sev_counts[f["severity"]] = sev_counts.get(f["severity"], 0) + 1
+
+    for s in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        count = sev_counts.get(s, 0)
+        if count > 0:
+            parts.append(f"{count} {s.lower()}")
+
+    detail = ", ".join(parts) if parts else f"{open_issue_count} open"
+    summary = f"Watchmen: {detail} ({resolved}/{total} resolved)"
+    if open_recognition_count:
+        summary += f" [+{open_recognition_count} open recognition(s) — not alarm]"
+    return summary

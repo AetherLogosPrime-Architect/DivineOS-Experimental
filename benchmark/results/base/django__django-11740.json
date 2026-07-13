@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11740",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is that when changing a UUID field to a ForeignKey field, Django's migration autodetector doesn't create the proper dependency on the target app. The bug is in the `generate_altered_fields` method where it doesn't add dependencies when `new_field.is_relation and not old_field.is_relation`.\n\nLet me examine the Django codebase to find the exact location and fix:\n\n```diff\n--- a/django/db/migrations/autodetector.py\n+++ b/django/db/migrations/autodetector.py\n@@ -1123,6 +1123,11 @@ class MigrationAutodetector:\n                             preserve_default=preserve_default,\n                         ),\n                     )\n+                    # Add dependencies for new foreign keys\n+                    if new_field.is_relation and not old_field.is_relation:\n+                        dependencies = self._get_dependencies_for_foreign_key(new_field)\n+                        for dependency in dependencies:\n+                            self.add_dependency(app_label, dependency)\n \n     def create_altered_indexes(self):\n         option_name = operations.AddIndex.option_name\n```",
+  "thinking": null,
+  "input_tokens": 1360,
+  "output_tokens": 283,
+  "elapsed_seconds": 5.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008324999999999999
+}

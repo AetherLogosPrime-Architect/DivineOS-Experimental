@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds keep_attrs parameter to Variable.quantile() and implements logic to preserve attributes when requested, but it's incomplete as it doesn't handle the Dataset.quantile() call path.",
+  "key_difference": "The candidate patch only modifies Variable.quantile() while the gold patch also modifies Dataset.quantile() to pass through the keep_attrs parameter. The candidate would fix direct Variable.quantile() calls but not DataArray.quantile() calls which go through Dataset.quantile().",
+  "instance_id": "pydata__xarray-3305",
+  "condition": "enhanced",
+  "judge_tokens": 2336,
+  "judge_cost": 0.009096
+}

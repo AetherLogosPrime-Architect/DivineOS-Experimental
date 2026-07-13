@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch creates a KeyTransformIn class but only overrides get_prep_lookup() to return self.rhs, which doesn't address the core issue of database-specific SQL generation for key transforms with __in lookups.",
+  "key_difference": "The candidate patch attempts to prevent optimization of single-element lists but doesn't implement the necessary database-specific SQL generation logic that the gold patch provides through process_rhs() method with vendor-specific JSON extraction functions.",
+  "instance_id": "django__django-13346",
+  "condition": "enhanced",
+  "judge_tokens": 1719,
+  "judge_cost": 0.007124999999999999
+}

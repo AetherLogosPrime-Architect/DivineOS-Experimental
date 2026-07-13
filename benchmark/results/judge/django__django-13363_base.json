@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the bug by replacing hardcoded timezone.get_current_timezone_name() calls with self.get_tzname() in both TruncDate and TruncTime classes, allowing proper use of the tzinfo parameter.",
+  "key_difference": "The candidate patch is nearly identical to the gold patch, with only minor line number differences due to context - both make the exact same functional changes to fix the timezone handling issue.",
+  "instance_id": "django__django-13363",
+  "condition": "base",
+  "judge_tokens": 1705,
+  "judge_cost": 0.007023
+}

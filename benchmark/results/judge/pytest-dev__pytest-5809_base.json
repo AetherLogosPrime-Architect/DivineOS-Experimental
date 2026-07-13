@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly changes the lexer from 'python3' to 'text' in the pastebin functionality, which fixes the HTTP 400 errors when uploading pytest output that isn't valid Python code.",
+  "key_difference": "The candidate patch is simpler than the gold patch - it only changes the lexer value while the gold patch removes the entire conditional logic for Python version checking. Both approaches are valid since the conditional was only needed when using python2/python3 lexers, but with 'text' lexer the version check is unnecessary.",
+  "instance_id": "pytest-dev__pytest-5809",
+  "condition": "base",
+  "judge_tokens": 1264,
+  "judge_cost": 0.006
+}

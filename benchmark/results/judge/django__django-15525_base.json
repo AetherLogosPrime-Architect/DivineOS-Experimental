@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the issue by setting the database state on the model instance before calling natural_key(), ensuring foreign key lookups use the correct database.",
+  "key_difference": "The candidate uses 'using' parameter name instead of 'db', which matches the actual function signature in the codebase - this is actually more correct than the gold patch.",
+  "instance_id": "django__django-15525",
+  "condition": "base",
+  "judge_tokens": 2048,
+  "judge_cost": 0.007824
+}

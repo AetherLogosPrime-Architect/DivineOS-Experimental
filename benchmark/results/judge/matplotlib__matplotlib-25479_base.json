@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that set_cmap() should store the registered name rather than the colormap's internal name in rcParams. This prevents lookup failures when the registered name differs from the internal name.",
+  "key_difference": "The candidate fixes the issue in pyplot.py's set_cmap function by preserving the registered name, while the gold patch fixes it in cm.py by updating the colormap's internal name to match the registered name. Both are valid approaches that solve the same problem at different points in the code.",
+  "instance_id": "matplotlib__matplotlib-25479",
+  "condition": "base",
+  "judge_tokens": 2178,
+  "judge_cost": 0.008634
+}

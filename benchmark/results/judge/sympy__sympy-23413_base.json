@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch appears to be incomplete and contains incorrect file paths and implementation details that don't match the actual SymPy codebase structure.",
+  "key_difference": "The candidate patch targets wrong files (sympy/matrices/normalforms.py vs sympy/polys/matrices/normalforms.py) and contains incomplete, fragmented code that doesn't address the core issue of the loop bounds in the HNF algorithm.",
+  "instance_id": "sympy__sympy-23413",
+  "condition": "base",
+  "judge_tokens": 1811,
+  "judge_cost": 0.007317000000000001
+}

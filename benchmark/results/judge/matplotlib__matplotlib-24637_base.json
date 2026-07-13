@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that AnnotationBbox.draw() needs to wrap its drawing operations with renderer.open_group() and renderer.close_group() calls to preserve the gid when rendering to SVG.",
+  "key_difference": "The candidate patch passes only the gid to open_group() and close_group(), while the gold patch passes both the class name and gid to open_group() and only the class name to close_group(). Both approaches are valid - the gold approach provides more structured grouping with class identification, but the candidate approach will still correctly preserve the gid attribute in the SVG output.",
+  "instance_id": "matplotlib__matplotlib-24637",
+  "condition": "base",
+  "judge_tokens": 1892,
+  "judge_cost": 0.008052
+}

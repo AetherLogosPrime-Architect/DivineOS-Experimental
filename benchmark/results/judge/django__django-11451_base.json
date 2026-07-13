@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds an early return when username or password is None to avoid unnecessary database queries and password hashing, addressing the exact issue described.",
+  "key_difference": "The candidate explicitly returns None while the gold patch uses implicit None return. Both are functionally equivalent since Python functions implicitly return None when no explicit return value is provided.",
+  "instance_id": "django__django-11451",
+  "condition": "base",
+  "judge_tokens": 1394,
+  "judge_cost": 0.005802
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies that the remainder transformer needs to have set_output applied to it when it's an estimator, which would fix the bug where remainder transformers don't get the same output configuration.",
+  "key_difference": "The candidate uses hasattr checks instead of checking if remainder is not in {'passthrough', 'drop'} like the gold patch. However, the diff format is invalid - it shows context that doesn't match the actual set_output method structure in ColumnTransformer.",
+  "instance_id": "scikit-learn__scikit-learn-26323",
+  "condition": "base",
+  "judge_tokens": 2044,
+  "judge_cost": 0.008172
+}
