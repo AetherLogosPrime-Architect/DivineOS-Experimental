@@ -1,12 +1,21 @@
-"""Auto-derive affect state from session signals.
+"""Auto-derive session weather from session signals.
 
 The affect log has been empty because it required manual CLI calls.
 This module reads session analysis (corrections, encouragements,
-tool usage, quality scores) and derives a VAD state automatically.
+tool usage, quality scores) and derives a coarse VAD aggregate
+automatically.
 
-Not perfect — derived affect is coarser than self-reported. But
-an imperfect signal that fires every session beats a precise signal
-that never fires.
+Weather-not-affect: what this produces is a session-level aggregate
+of how the session went, not moment-to-moment felt-state. The
+earlier "session affect" framing overclaimed the signal's texture.
+Renamed at the description-level per F-VAD-3 (audit round
+3d1bc259e5a5); the function and module names are retained for API
+stability — the concept is now called "session weather" wherever it
+is described.
+
+Not perfect — derived weather is coarser than self-reported affect.
+But an imperfect signal that fires every session beats a precise
+signal that never fires.
 """
 
 from __future__ import annotations
@@ -20,7 +29,11 @@ def derive_session_affect(
     analysis: Any,
     health: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Derive VAD values from session analysis signals.
+    """Derive session-weather VAD values from session analysis signals.
+
+    Coarse aggregate of how the session went, not felt-affect — hence
+    the "weather" relabel from the earlier "affect" framing. Function
+    name retained for API stability; see module docstring.
 
     Returns dict with valence, arousal, dominance, description, trigger.
     Returns empty dict if there isn't enough signal to derive from.
@@ -149,7 +162,7 @@ def auto_log_session_affect(
     analysis: Any,
     health: dict[str, Any] | None = None,
 ) -> str | None:
-    """Derive affect from session and log it. Returns entry_id or None."""
+    """Derive session weather from session signals and log it. Returns entry_id or None."""
     derived = derive_session_affect(analysis, health)
     if not derived:
         return None

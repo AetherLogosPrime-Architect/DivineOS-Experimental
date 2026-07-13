@@ -247,7 +247,7 @@ src/divineos/
     dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
     external_validation.py     Origin ratio, cross-entity corroboration tracking
     knowledge_impact.py        Measure whether briefing knowledge prevents corrections
-    session_affect.py          Auto-derive VAD affect state from session signals
+    session_affect.py          Auto-derive session weather (coarse VAD aggregate) from session signals
     session_reflection.py      Structured self-assessment with quality metrics
     growth.py                  Growth awareness and milestone tracking
     tone_texture.py            Emotional arc and tone classification
