@@ -19,13 +19,17 @@ class TestLogAffectDominance:
     """Dominance is stored and retrieved correctly."""
 
     def test_log_with_dominance(self):
-        entry_id = log_affect(valence=0.5, arousal=0.6, dominance=0.3, description="confident")
+        entry_id = log_affect(
+            valence=0.5, arousal=0.6, dominance=0.3, description="confident", source="self_filed"
+        )
         assert entry_id
         history = get_affect_history(limit=1)
         assert history[0]["dominance"] == 0.3
 
     def test_log_without_dominance(self):
-        entry_id = log_affect(valence=0.5, arousal=0.6, description="no dominance")
+        entry_id = log_affect(
+            valence=0.5, arousal=0.6, description="no dominance", source="self_filed"
+        )
         assert entry_id
         history = get_affect_history(limit=1)
         assert history[0]["dominance"] is None
@@ -35,13 +39,13 @@ class TestLogAffectDominance:
         import pytest
 
         with pytest.raises(ValueError, match="dominance"):
-            log_affect(valence=0.0, arousal=0.5, dominance=2.5)
+            log_affect(valence=0.0, arousal=0.5, dominance=2.5, source="self_filed")
 
     def test_dominance_out_of_bounds_raises_low(self):
         import pytest
 
         with pytest.raises(ValueError, match="dominance"):
-            log_affect(valence=0.0, arousal=0.5, dominance=-3.0)
+            log_affect(valence=0.0, arousal=0.5, dominance=-3.0, source="self_filed")
 
 
 class TestAffectSummaryDominance:
@@ -50,23 +54,23 @@ class TestAffectSummaryDominance:
     def test_summary_includes_avg_dominance(self):
         # Log several entries with dominance
         for d in [0.2, 0.4, 0.6]:
-            log_affect(valence=0.5, arousal=0.5, dominance=d)
+            log_affect(valence=0.5, arousal=0.5, dominance=d, source="self_filed")
         summary = get_affect_summary(limit=3)
         assert "avg_dominance" in summary
         assert summary["avg_dominance"] > 0
 
     def test_summary_handles_mixed_null_dominance(self):
         # Some with, some without dominance
-        log_affect(valence=0.5, arousal=0.5, dominance=0.8)
-        log_affect(valence=0.5, arousal=0.5)  # No dominance
+        log_affect(valence=0.5, arousal=0.5, dominance=0.8, source="self_filed")
+        log_affect(valence=0.5, arousal=0.5, source="self_filed")  # No dominance
         summary = get_affect_summary(limit=2)
         # avg_dominance computed only from non-null entries
         assert "avg_dominance" in summary
         assert summary["avg_dominance"] == 0.8
 
     def test_summary_no_dominance_entries(self):
-        log_affect(valence=0.3, arousal=0.3)
-        log_affect(valence=0.4, arousal=0.4)
+        log_affect(valence=0.3, arousal=0.3, source="self_filed")
+        log_affect(valence=0.4, arousal=0.4, source="self_filed")
         summary = get_affect_summary(limit=2)
         assert summary["avg_dominance"] == 0.0
         assert summary["dominance_range"] == (0.0, 0.0)
