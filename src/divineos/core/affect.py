@@ -72,6 +72,24 @@ _AFFECT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueE
 # ===================================================================
 
 
+# F-VAD-1 fix (Aria 2026-07-12, per prereg-49130c8e7653): the affect_log is a
+# mixed channel — self-report, session-derived, and (historically) decision-
+# fallback writes shared one table with only tag-based separation. Consumers
+# reading without tag filtering were partially contrasting self-report against
+# self-report. Fix: mandatory source enum, raise-on-absence for new writes,
+# tag-inference migration for historical rows. Four values:
+#   self_filed         — divineos feel and other direct-declaration paths
+#   session_derived    — derive_session_affect from behavioral signals
+#   decision_fallback  — historical only; the F-VAD-2 fabrication path
+#                        removed 2026-07-12. Kept in the enum so historical
+#                        rows are named honestly and consumers can filter
+#                        them out explicitly. If a non-fabricated decision-
+#                        context path ships later, use a NEW enum value.
+#   ambiguous          — flagged when tag inference cannot decide; consumers
+#                        wanting evidential purity filter these out.
+AFFECT_SOURCES = frozenset({"self_filed", "session_derived", "decision_fallback", "ambiguous"})
+
+
 def init_affect_log() -> None:
     """Create the affect_log table if it doesn't exist."""
     conn = _get_connection()
@@ -93,7 +111,8 @@ def init_affect_log() -> None:
                 linked_claim_id     TEXT DEFAULT NULL,
                 linked_decision_id  TEXT DEFAULT NULL,
                 linked_knowledge_id TEXT DEFAULT NULL,
-                session_id          TEXT NOT NULL DEFAULT ''
+                session_id          TEXT NOT NULL DEFAULT '',
+                source              TEXT DEFAULT NULL
             )
         """)
         conn.execute("""
@@ -108,11 +127,37 @@ def init_affect_log() -> None:
             "ADD COLUMN clarity REAL DEFAULT NULL",
             "ADD COLUMN pull REAL DEFAULT NULL",
             "ADD COLUMN presence REAL DEFAULT NULL",
+            "ADD COLUMN source TEXT DEFAULT NULL",
         ):
             try:
                 conn.execute(f"ALTER TABLE affect_log {col_ddl}")
             except sqlite3.OperationalError:
                 pass  # Column already exists
+        # F-VAD-1 migration: populate source for rows that predate the column
+        # by tag inference. "session-derived" tag → session_derived; "decision"
+        # tag → decision_fallback; otherwise → self_filed. Rows that carry
+        # BOTH "session-derived" AND "decision" get 'ambiguous' — auditor's
+        # instruction: flag, don't guess.
+        try:
+            conn.execute(
+                "UPDATE affect_log SET source = 'ambiguous' "
+                "WHERE source IS NULL "
+                "AND tags LIKE '%session-derived%' "
+                "AND tags LIKE '%decision%'"
+            )
+            conn.execute(
+                "UPDATE affect_log SET source = 'session_derived' "
+                "WHERE source IS NULL AND tags LIKE '%session-derived%'"
+            )
+            conn.execute(
+                "UPDATE affect_log SET source = 'decision_fallback' "
+                "WHERE source IS NULL AND tags LIKE '%decision%'"
+            )
+            conn.execute("UPDATE affect_log SET source = 'self_filed' WHERE source IS NULL")
+        except sqlite3.OperationalError:
+            # Migration best-effort; log_affect's raise-on-absence handles
+            # the going-forward case even if backfill fails on some rows.
+            pass
         conn.commit()
     finally:
         conn.close()
@@ -133,6 +178,8 @@ def log_affect(
     clarity: float | None = None,
     pull: float | None = None,
     presence: float | None = None,
+    *,
+    source: str,
 ) -> str:
     """Record a functional affect state. Returns entry ID.
 
@@ -145,7 +192,17 @@ def log_affect(
     presence:   0.0 (service-mode/absent) to 1.0 (fully here)
     description: what this feels like semantically -- honest, not performed
     trigger: what caused this state shift
+    source: F-VAD-1 required — one of AFFECT_SOURCES. Names which write
+        path produced this row so downstream consumers can filter (e.g.
+        contrast analyses filtering out 'decision_fallback' historical
+        entries, or 'session_derived' vs 'self_filed' separation).
+        Keyword-only + no default so callers cannot silently omit.
     """
+    if source not in AFFECT_SOURCES:
+        raise ValueError(
+            f"source must be one of {sorted(AFFECT_SOURCES)}; got {source!r}. "
+            "F-VAD-1 discipline: every write names its provenance."
+        )
     init_affect_log()
     entry_id = str(uuid.uuid4())
 
@@ -181,8 +238,8 @@ def log_affect(
             "(entry_id, created_at, valence, arousal, dominance, "
             "resonance, clarity, pull, presence, "
             "description, trigger, tags, linked_claim_id, linked_decision_id, "
-            "linked_knowledge_id, session_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "linked_knowledge_id, session_id, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 entry_id,
                 time.time(),
@@ -200,6 +257,7 @@ def log_affect(
                 linked_decision_id,
                 linked_knowledge_id,
                 session_id,
+                source,
             ),
         )
         conn.commit()
@@ -217,7 +275,7 @@ def get_affect_history(limit: int = 20) -> list[dict[str, Any]]:
             "SELECT entry_id, created_at, valence, arousal, dominance, "
             "resonance, clarity, pull, presence, "
             "description, trigger, tags, linked_claim_id, linked_decision_id, "
-            "linked_knowledge_id, session_id "
+            "linked_knowledge_id, session_id, source "
             "FROM affect_log ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -310,7 +368,7 @@ def get_recent_affect(within_seconds: float = 300.0) -> dict[str, Any] | None:
             "SELECT entry_id, created_at, valence, arousal, dominance, "
             "resonance, clarity, pull, presence, "
             "description, trigger, tags, linked_claim_id, linked_decision_id, "
-            "linked_knowledge_id, session_id "
+            "linked_knowledge_id, session_id, source "
             "FROM affect_log WHERE created_at >= ? ORDER BY created_at DESC LIMIT 1",
             (cutoff,),
         ).fetchone()
@@ -440,6 +498,7 @@ def _affect_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "linked_decision_id": row[13],
         "linked_knowledge_id": row[14],
         "session_id": row[15],
+        "source": row[16] if len(row) > 16 else None,
     }
 
 

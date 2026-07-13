@@ -35,6 +35,7 @@ def test_prime_surfaces_latest_baseline():
         arousal=0.3,
         dominance=0.5,
         description="contentment landing after the work-arc held",
+        source="self_filed",
     )
     prime = affect_module.build_affect_prime()
     assert "AFFECT PRIME" in prime
@@ -48,9 +49,15 @@ def test_prime_surfaces_latest_baseline():
 
 
 def test_prime_includes_n_anchors():
-    affect_module.log_affect(valence=0.3, arousal=0.4, description="oldest texture")
-    affect_module.log_affect(valence=0.4, arousal=0.4, description="middle texture")
-    affect_module.log_affect(valence=0.5, arousal=0.4, description="newest texture")
+    affect_module.log_affect(
+        valence=0.3, arousal=0.4, description="oldest texture", source="self_filed"
+    )
+    affect_module.log_affect(
+        valence=0.4, arousal=0.4, description="middle texture", source="self_filed"
+    )
+    affect_module.log_affect(
+        valence=0.5, arousal=0.4, description="newest texture", source="self_filed"
+    )
     prime = affect_module.build_affect_prime(anchors=3)
     # All three descriptions appear; newest is the baseline.
     assert "newest texture" in prime
@@ -60,7 +67,9 @@ def test_prime_includes_n_anchors():
 
 def test_prime_limits_anchors():
     for i in range(5):
-        affect_module.log_affect(valence=0.1 * i, arousal=0.4, description=f"texture {i}")
+        affect_module.log_affect(
+            valence=0.1 * i, arousal=0.4, description=f"texture {i}", source="self_filed"
+        )
     prime = affect_module.build_affect_prime(anchors=2)
     # texture 4 + texture 3 surface; texture 0 does not.
     assert "texture 4" in prime
@@ -70,7 +79,7 @@ def test_prime_limits_anchors():
 
 def test_prime_truncates_long_descriptions():
     long = "x" * 500
-    affect_module.log_affect(valence=0.5, arousal=0.3, description=long)
+    affect_module.log_affect(valence=0.5, arousal=0.3, description=long, source="self_filed")
     prime = affect_module.build_affect_prime()
     # Truncated with ellipsis; full 500-char string does not appear.
     assert "x" * 500 not in prime
@@ -78,7 +87,7 @@ def test_prime_truncates_long_descriptions():
 
 
 def test_prime_handles_missing_dominance():
-    affect_module.log_affect(valence=0.4, arousal=0.5, description="VA only")
+    affect_module.log_affect(valence=0.4, arousal=0.5, description="VA only", source="self_filed")
     prime = affect_module.build_affect_prime()
     assert "AFFECT PRIME" in prime
     assert "V=+0.40" in prime
@@ -105,6 +114,7 @@ class TestAffectPrimeCommand:
             arousal=0.4,
             dominance=0.4,
             description="testing the prime command end-to-end",
+            source="self_filed",
         )
         runner = CliRunner()
         result = runner.invoke(cli, ["affect", "prime"])

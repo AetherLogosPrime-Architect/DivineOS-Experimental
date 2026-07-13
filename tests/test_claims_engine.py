@@ -253,7 +253,7 @@ class TestCountClaims:
 
 class TestLogAffect:
     def test_returns_uuid(self):
-        eid = log_affect(0.5, 0.5)
+        eid = log_affect(0.5, 0.5, source="self_filed")
         assert len(eid) == 36
 
     def test_full_fields(self):
@@ -264,6 +264,7 @@ class TestLogAffect:
             trigger="Building something meaningful",
             tags=["flow", "creation"],
             session_id="s1",
+            source="self_filed",
         )
         history = get_affect_history(limit=1)
         assert len(history) == 1
@@ -279,12 +280,12 @@ class TestLogAffect:
         import pytest
 
         with pytest.raises(ValueError, match="valence"):
-            log_affect(valence=5.0, arousal=0.5)
+            log_affect(valence=5.0, arousal=0.5, source="self_filed")
         with pytest.raises(ValueError, match="arousal"):
-            log_affect(valence=0.0, arousal=-3.0)
+            log_affect(valence=0.0, arousal=-3.0, source="self_filed")
 
     def test_negative_valence(self):
-        log_affect(valence=-0.7, arousal=0.8, description="Dissonance")
+        log_affect(valence=-0.7, arousal=0.8, description="Dissonance", source="self_filed")
         entry = get_affect_history(limit=1)[0]
         assert entry["valence"] == -0.7
 
@@ -294,14 +295,14 @@ class TestAffectHistory:
         assert get_affect_history() == []
 
     def test_newest_first(self):
-        log_affect(0.3, 0.3, description="First")
-        log_affect(0.6, 0.6, description="Second")
+        log_affect(0.3, 0.3, description="First", source="self_filed")
+        log_affect(0.6, 0.6, description="Second", source="self_filed")
         history = get_affect_history()
         assert history[0]["description"] == "Second"
 
     def test_limit(self):
         for i in range(10):
-            log_affect(float(i) / 10, 0.5)
+            log_affect(float(i) / 10, 0.5, source="self_filed")
         assert len(get_affect_history(limit=3)) == 3
 
 
@@ -312,8 +313,8 @@ class TestAffectSummary:
         assert summary["trend"] == "no data"
 
     def test_averages(self):
-        log_affect(0.4, 0.6)
-        log_affect(0.8, 0.2)
+        log_affect(0.4, 0.6, source="self_filed")
+        log_affect(0.8, 0.2, source="self_filed")
         summary = get_affect_summary()
         assert summary["count"] == 2
         assert summary["avg_valence"] == 0.6
@@ -322,16 +323,16 @@ class TestAffectSummary:
     def test_trend_improving(self):
         # Older entries (logged first) have low valence
         for _ in range(4):
-            log_affect(-0.5, 0.5)
+            log_affect(-0.5, 0.5, source="self_filed")
         # Recent entries have high valence
         for _ in range(4):
-            log_affect(0.8, 0.5)
+            log_affect(0.8, 0.5, source="self_filed")
         summary = get_affect_summary()
         assert summary["trend"] == "improving"
 
     def test_trend_stable(self):
         for _ in range(8):
-            log_affect(0.5, 0.5)
+            log_affect(0.5, 0.5, source="self_filed")
         summary = get_affect_summary()
         assert summary["trend"] == "stable"
 
@@ -341,8 +342,8 @@ class TestCountAffect:
         assert count_affect_entries() == 0
 
     def test_counts(self):
-        log_affect(0.5, 0.5)
-        log_affect(0.3, 0.7)
+        log_affect(0.5, 0.5, source="self_filed")
+        log_affect(0.3, 0.7, source="self_filed")
         assert count_affect_entries() == 2
 
 
