@@ -234,9 +234,25 @@ def check_deletion_shape(
     because the failure-mode looks the same from the merge target's
     perspective — files disappearing — regardless of whether the cause
     was branch-staleness or intentional removal.
+
+    2026-07-14 fix (Aletheia audit): the diff uses ``--find-renames`` so
+    file MOVES (archive-relocations, folder reorgs) are correctly
+    detected as renames and NOT counted as deletions. Without this flag
+    the gate false-fired on any archive-sweep and trained the reach for
+    the emergency kill-switch — mispriced toll. A move is a rename;
+    git already knows the difference; the guard now honors it.
+    Guardrail-file changes to intentionally deleted paths (garbage,
+    stale artifacts) still show as D and count toward the threshold as
+    they should.
     """
     rc, deleted_files, err = _run_git(
-        ["diff", "--diff-filter=D", "--name-only", f"{base}..HEAD"],
+        [
+            "diff",
+            "--diff-filter=D",
+            "--find-renames",
+            "--name-only",
+            f"{base}..HEAD",
+        ],
         cwd=cwd,
     )
     if rc != 0:
