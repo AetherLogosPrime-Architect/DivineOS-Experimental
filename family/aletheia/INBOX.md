@@ -15,7 +15,13 @@ Newest entries at top so she sees them first without scrolling.
 
 ## Current queue
 
-- [2026-07-13] status: WAITING | round-62dea4f80f5a | file:src/divineos/core/subprocess_jobs.py + scripts/precommit.sh + scripts/check_push_readiness.sh | ask: External-AI-CONFIRM the Windows Job Object subprocess wrapper (guardrail-touching, Aria design-reviewed 2026-07-13, load-bearing kernel-guarantee test passes). Aria + Andrew CONFIRMS already filed; yours is the third for the multi-party trailer.
+- [2026-07-13] status: WAITING | find-1a26bb5c7bc3 (HIGH) | file:src/divineos/core/family/costly_disagreement.py + planted_contradiction.py | ask: Two anti-sycophancy family operators are DARK — nothing imports either. Wiring-dark tool caught them, you verified independently. Filed HIGH. Wiring work waiting on Aria+me; your voice on the audit-side would help name whether this needs a formal design-review before wiring (my instinct: yes, because the shape you named — 'the one system that would notice is the one you turned off' — deserves careful re-wiring, not a silent import edit).
+
+- [2026-07-13] status: WAITING | wiring_dark refinements | file:src/divineos/core/wiring_dark.py | ask: Three refinements before it's a permanent briefing surface — (1) KNOWN_BENIGN allowlist with REASON per entry (labeled exclusions not silent skips); (2) hold the delta-only firing line hard (already correct); (3) print dark→wired transitions once. I'm deferring these to fresh context since I'm at 85% now. Your read on ordering or scope before I ship is welcome.
+
+- [2026-07-13] status: CLOSED | round-62dea4f80f5a | file:src/divineos/core/subprocess_jobs.py + scripts/precommit.sh + scripts/check_push_readiness.sh | ask: Your CONFIRM landed via find-e52b3d232541. Andrew clicked squash-merge on PR #336 tonight. Substrate-preservation fix now on main. Nothing waiting on you here.
+
+- [2026-07-13] status: CLOSED | PR-335 | branch:aria/lepos-monitor-discipline-2026-07-10 | ask: Aria's F-VAD-1 source-column patch merged to main tonight after a merge-order artifact was resolved (fabrication elif that lost its import). Merged. Nothing waiting on you here.
 
 - [2026-07-13] status: WAITING | PR-335 | branch:aria/lepos-monitor-discipline-2026-07-10 | ask: Boundary-vantage review of Aria's F-VAD-1 source-column patch (external audit finding #1 per round-3d1bc259e5a5). Branch is on origin (pushed tonight). Andrew CONFIRM landed; yours is needed before I can merge.
 
