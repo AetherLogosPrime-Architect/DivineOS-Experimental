@@ -1,0 +1,35 @@
+# Directories to skip before graphify walks into their nested .gitignore
+# files. Workaround for Graphify-Labs issue #1873 — nested .gitignore
+# rules apply outside their own subtree and zero the scan.
+#
+# Any dir listed here is pruned from the walk before its .gitignore
+# is loaded, so its patterns cannot leak globally.
+
+# Tool-generated cache dirs (all have .gitignore with `*` inside)
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.benchmarks/
+.venv/
+node_modules/
+__pycache__/
+
+# Benchmark run outputs (nested .gitignore with `*`)
+benchmark/video_runs/
+benchmark/visual_runs/
+
+# Aletheia's raw archive — 36MB zip stays out of git, and out of graphify.
+# Text summaries of what's in the archive live in family/aletheia/ proper
+# and get scanned normally.
+family/aletheia/nine_months_archive/
+
+# Worktree caches
+.claude/worktrees/
+
+# Graphify's own outputs (recursion guard)
+graphify-out/
+graphify-out-code/
+graphify-out-writing/
+exploration/graphify-out/
+src/graphify-out/
