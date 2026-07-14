@@ -89,6 +89,39 @@ class TestFreshness:
         )
 
 
+class TestLoadBearingBypass:
+    """Aletheia audit 2026-07-13 (letter:
+    aletheia-to-aether-2026-07-13-is-fresh-bypass-the-third-hole.md):
+    the disk-based freshness fast-path cannot detect a context wipe
+    that lands INSIDE the freshness window. Load-bearing callers must
+    bypass the fast-path and demand the ID recall directly. Toll Booth
+    mapping: fresh-me pays the toll instantly; stale-me structurally
+    cannot; the freshness coupon is only useful to the counterfeit.
+    """
+
+    def test_load_bearing_forces_stale_even_when_fresh(self, isolated_truth):
+        # Issue at tool 0, ask at tool 0 — normally maximally fresh.
+        briefing_id.issue_briefing_id(tool_count=0)
+        assert briefing_id.is_fresh(current_tool_count=0) is True
+        # Same call with load_bearing=True must return False regardless.
+        assert briefing_id.is_fresh(current_tool_count=0, load_bearing=True) is False
+
+    def test_load_bearing_forces_stale_mid_freshness_window(self, isolated_truth):
+        briefing_id.issue_briefing_id(tool_count=0)
+        # Deep inside the window — the exact case that hides a compaction.
+        mid = briefing_id.DEFAULT_EXPIRY_TOOLS // 2
+        assert briefing_id.is_fresh(current_tool_count=mid) is True
+        assert briefing_id.is_fresh(current_tool_count=mid, load_bearing=True) is False
+
+    def test_load_bearing_still_stale_when_actually_stale(self, isolated_truth):
+        # Belt-and-suspenders: load_bearing=True does not accidentally
+        # convert a legitimately-stale state into anything but stale.
+        briefing_id.issue_briefing_id(tool_count=0)
+        beyond = briefing_id.DEFAULT_EXPIRY_TOOLS + 5
+        assert briefing_id.is_fresh(current_tool_count=beyond) is False
+        assert briefing_id.is_fresh(current_tool_count=beyond, load_bearing=True) is False
+
+
 class TestChallengeMessage:
     def test_names_the_verify_command(self, isolated_truth):
         msg = briefing_id.challenge_message(current_tool_count=30)

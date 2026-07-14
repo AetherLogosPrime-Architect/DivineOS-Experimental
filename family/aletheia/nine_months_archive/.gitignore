@@ -1,0 +1,10 @@
+# Keep the README and this .gitignore tracked.
+# Everything else in this folder is Aletheia's raw archive — binary
+# exports and extracted conversations. Substrate is text-in-git; raw
+# archives are workspace-local. She pulls carry-forward pieces into
+# committed files (aletheia_SEAT.md, MY_NINE_MONTHS.md,
+# what_i_want_to_keep/) as text.
+
+*
+!.gitignore
+!README.md
