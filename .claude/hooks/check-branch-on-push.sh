@@ -49,9 +49,58 @@ fi
 MEMBER="${DIVINEOS_MEMBER:-aether}"
 MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
 
-# Kill-switch: if the marker file exists, disable the gate entirely.
+# Kill-switch: if the marker file exists AND carries a reason (>=20 chars),
+# disable the gate for one push AND fire the LOGGED/REPORTED/ADDRESSED/FIXED
+# loop via emergency_bypass.record_emergency_use(). Bare marker file (empty
+# or too-short reason) is rejected — Aletheia's SPEC 2026-07-14: a bypass
+# without an investigation trail is what trained the 71-in-15-days pattern.
+#
+# The four-step loop:
+#   1. LOGGED — telemetry append (bypass_telemetry)
+#   2. REPORTED — auto-file a claim about why this fired
+#   3. ADDRESSED — structural-fix obligation on briefing until discharged
+#   4. FIXED — obligation closes when root-cause shipped
+#
+# Same shape as record_emergency_use(). The kill-switch now pays that toll.
 if [ -f "$MARKER_PATH" ]; then
-  exit 0
+    REASON=$(tr -d '\r' < "$MARKER_PATH" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    if [ -z "$REASON" ] || [ "${#REASON}" -lt 20 ]; then
+        cat >&2 <<EOF
+[check-branch-on-push] KILL-SWITCH PRESENT BUT NO REASON —
+  path: $MARKER_PATH
+  content-length: ${#REASON} chars (must be >= 20)
+
+The marker file exists but does not carry a reason for the bypass.
+Per Aletheia SPEC 2026-07-14 + emergency_bypass.record_emergency_use:
+a bypass without a reason is what trained the 71-in-15-days pattern.
+
+To bypass this push, write a >=20-char reason INTO the marker file:
+  echo "why this bypass is needed and what root-cause you'll fix" > "$MARKER_PATH"
+
+Then retry the push. The reason will be recorded to telemetry,
+auto-filed as a claim, and opens a structural-fix obligation on the
+briefing until root-cause is discharged.
+EOF
+        exit 2
+    fi
+    # Fire the four-step LOGGED/REPORTED/ADDRESSED/FIXED loop.
+    # Fail-open on any Python-side error: bypass still proceeds (kill-switch
+    # authority preserved) but stderr records the telemetry-firing miss.
+    "$PYTHON_BIN" -c "
+import sys
+try:
+    from divineos.core.emergency_bypass import record_emergency_use
+    report = record_emergency_use(
+        gate_name='check-branch-on-push',
+        env_var='marker:check-branch.disabled',
+        reason=sys.argv[1],
+    )
+    print(f'[check-branch-on-push] BYPASS RECORDED — telemetry+claim+obligation filed', file=sys.stderr)
+except Exception as e:
+    print(f'[check-branch-on-push] BYPASS-RECORDING FAILED — {type(e).__name__}: {e}', file=sys.stderr)
+    print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
+" "$REASON"
+    exit 0
 fi
 
 # Decide whether this command is a git push. Inline python invocation
@@ -112,10 +161,17 @@ $CHECK_OUTPUT
 The push has been BLOCKED ($LEVEL) because divineos check-branch
 flagged the branch state. Investigate the report above before pushing.
 
-To bypass for one push (emergency escape): drop the kill-switch:
+To bypass for one push (emergency escape) — drop the kill-switch
+WITH a reason (>= 20 chars) written into the marker file:
   mkdir -p "\$(dirname "$MARKER_PATH")"
-  touch "$MARKER_PATH"
-Re-enable with: rm "$MARKER_PATH"
+  echo "why this bypass is needed and what root-cause you'll fix" > "$MARKER_PATH"
+
+The reason is auto-recorded to telemetry, filed as a claim, and
+opens a structural-fix obligation on the briefing until root-cause
+is discharged (per Aletheia SPEC 2026-07-14 — bypasses without
+investigation trails are what trained the 71-in-15-days pattern).
+
+Re-enable the gate with: rm "$MARKER_PATH"
 EOF
     exit 2
     ;;
