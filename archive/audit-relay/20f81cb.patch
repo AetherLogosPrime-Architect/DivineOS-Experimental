@@ -1,0 +1,462 @@
+From 20f81cb4afd22ecf5ab487ecbc5b23aa665b9f51 Mon Sep 17 00:00:00 2001
+From: DivineOS Agent <divineos@localhost>
+Date: Mon, 18 May 2026 12:33:50 -0700
+Subject: [PATCH] =?UTF-8?q?fix(audit):=20prep-relay=20command=20=E2=80=94?=
+ =?UTF-8?q?=20upstream-of-Finding-75=20gate=20against=20describe-then-CONF?=
+ =?UTF-8?q?IRMS?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Closes the structural-fix candidate Aletheia named 2026-05-18 after the
+fourth instance of describe-then-CONFIRMS in one arc. The pattern she
+caught: I composed an 800-line audit-prep relay message about 8 commits
+that were local-only. Finding 75's gate operates correctly at the
+round-filing layer, but the same pattern recurs ONE LAYER UPSTREAM at
+relay-message composition.
+
+Substrate fix: a canonical entry-point for composing audit-relay
+messages that REFUSES to produce a template if any named commits are
+not reachable on the remote-branch.
+
+  $ divineos audit prep-relay --range origin/main..HEAD
+
+  [!] BLOCKED — 8 commit(s) not reachable on origin/finding-75-source-ref:
+      555f2bce9566 feat(survival_link): add 14th question...
+      caf775d014f4 feat(survival_link): expand question pool...
+      ...
+
+      Push to origin/finding-75-source-ref first, then re-run prep-relay.
+
+      This is the upstream-of-Finding-75 gate. Describing unpushed
+      work to an external auditor produces ratification-of-claim,
+      not honest verification.
+
+Empirically verified by running it against the actual 8-commit
+describe-then-CONFIRMS that motivated it — exit 1, all 8 SHAs listed
+with their subjects, with the explanatory note about why it's blocking.
+
+5 tests cover: command registration, help mentions Finding 75,
+blocks-when-unpushed (real git repo with fake remote, exit 1, output
+contains BLOCKED + "not reachable"), passes-when-pushed (exit 0,
+template output contains verified SHAs), empty-range handled cleanly.
+
+The behavioral hook: I learn that audit-relays START with `prep-relay`.
+Same shape as Finding 75 made `submit-round` start with --source-ref.
+The gate becomes the canonical entry-point; relays composed without
+going through it become visibly off-pattern.
+
+This commit also discharges the structural-fix obligation psf-ed504aab
+filed earlier in this session.
+
+Touches guardrail file audit_commands.py — multi-party-review gate will
+fire its advisory at push time. The change strengthens (does not weaken)
+the multi-party-review architecture: it closes the upstream gap that
+allowed describe-then-CONFIRMS to recur.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+---
+ src/divineos/cli/audit_commands.py | 206 +++++++++++++++++++++++++++++
+ tests/test_audit_prep_relay.py     | 173 ++++++++++++++++++++++++
+ 2 files changed, 379 insertions(+)
+ create mode 100644 tests/test_audit_prep_relay.py
+
+diff --git a/src/divineos/cli/audit_commands.py b/src/divineos/cli/audit_commands.py
+index eea20c9..c936c36 100644
+--- a/src/divineos/cli/audit_commands.py
++++ b/src/divineos/cli/audit_commands.py
+@@ -159,6 +159,212 @@ def register(cli: click.Group) -> None:
+         except ValueError as e:
+             click.secho(f"[!] {e}", fg="red")
+ 
++    @audit_group.command("prep-relay")
++    @click.option(
++        "--range",
++        "rev_range",
++        default=None,
++        help=(
++            "Commit range to verify (e.g. 'origin/main..HEAD'). Default: "
++            "commits between '<remote>/<current-branch>~30' and HEAD that "
++            "are unique to current branch."
++        ),
++    )
++    @click.option(
++        "--remote",
++        default="origin",
++        help="Remote name to verify against. Defaults to 'origin'.",
++    )
++    @click.option(
++        "--branch",
++        default=None,
++        help=(
++            "Remote branch name to require commits be reachable on. "
++            "Defaults to the current branch name."
++        ),
++    )
++    def audit_prep_relay(
++        rev_range: str | None,
++        remote: str,
++        branch: str | None,
++    ) -> None:
++        """Verify commits are pushed before composing an audit-relay message.
++
++        Closes the describe-then-CONFIRMS pattern at one layer upstream of
++        Finding 75's gate. The pattern: I compose audit-relay messages
++        describing work that is local-only, then external auditors discover
++        the SHAs aren't reachable. Finding 75's gate catches it at round-
++        filing; this command catches it earlier, at relay-message
++        composition.
++
++        Filed 2026-05-18 as the upstream-of-Finding-75 structural fix
++        Aletheia named after the 4th instance of describe-then-CONFIRMS
++        in this arc. The structural fix is to give relay-message composition
++        a canonical entry-point (this command) that REFUSES to produce
++        the relay-template if any named commits are not pushed.
++
++        Usage:
++            divineos audit prep-relay
++            divineos audit prep-relay --range origin/main..HEAD
++            divineos audit prep-relay --range main..HEAD --remote origin
++
++        Output is a relay-template the operator can copy into chat to
++        the external auditor. Exit code 1 if any commits in range are
++        unreachable on the named remote-branch.
++        """
++        import subprocess
++
++        # Determine the branch
++        if branch is None:
++            try:
++                br = subprocess.run(
++                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
++                    capture_output=True,
++                    text=True,
++                    check=False,
++                    timeout=10,
++                )
++                if br.returncode != 0:
++                    click.secho(
++                        "[!] Could not determine current branch. Use --branch to specify.",
++                        fg="red",
++                    )
++                    raise click.exceptions.Exit(1)
++                branch = br.stdout.strip()
++            except (OSError, subprocess.SubprocessError) as e:
++                click.secho(f"[!] git error: {e}", fg="red")
++                raise click.exceptions.Exit(1) from e
++
++        # Determine the range
++        if rev_range is None:
++            rev_range = f"{remote}/{branch}~30..HEAD"
++
++        # Get commit list in range
++        try:
++            rl = subprocess.run(
++                ["git", "rev-list", rev_range],
++                capture_output=True,
++                text=True,
++                check=False,
++                timeout=15,
++            )
++        except (OSError, subprocess.SubprocessError) as e:
++            click.secho(f"[!] git rev-list error: {e}", fg="red")
++            raise click.exceptions.Exit(1) from e
++
++        if rl.returncode != 0:
++            click.secho(
++                f"[!] git rev-list {rev_range} failed:\n  {rl.stderr.strip()}",
++                fg="red",
++            )
++            raise click.exceptions.Exit(1)
++
++        shas = [s.strip() for s in rl.stdout.splitlines() if s.strip()]
++        if not shas:
++            click.secho(
++                f"[~] No commits in range {rev_range}. Nothing to audit-relay about.",
++                fg="bright_black",
++            )
++            return
++
++        # For each SHA, verify it's reachable on <remote>/<branch>
++        remote_branch = f"{remote}/{branch}"
++        unreachable: list[str] = []
++        verified: list[tuple[str, str]] = []  # (sha, subject)
++        for sha in shas:
++            try:
++                # Reachable from remote-branch tip?
++                mb = subprocess.run(
++                    [
++                        "git",
++                        "merge-base",
++                        "--is-ancestor",
++                        sha,
++                        remote_branch,
++                    ],
++                    capture_output=True,
++                    text=True,
++                    check=False,
++                    timeout=10,
++                )
++                if mb.returncode != 0:
++                    unreachable.append(sha)
++                    continue
++                # Get subject line
++                subj = subprocess.run(
++                    ["git", "log", "--format=%s", "-n", "1", sha],
++                    capture_output=True,
++                    text=True,
++                    check=False,
++                    timeout=5,
++                )
++                subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
++                verified.append((sha, subject))
++            except (OSError, subprocess.SubprocessError) as e:
++                click.secho(f"[!] git error verifying {sha[:8]}: {e}", fg="red")
++                unreachable.append(sha)
++
++        if unreachable:
++            click.secho(
++                f"[!] BLOCKED — {len(unreachable)} commit(s) not reachable on {remote_branch}:",
++                fg="red",
++                bold=True,
++            )
++            for sha in unreachable:
++                # Get subject for context
++                subj = subprocess.run(
++                    ["git", "log", "--format=%s", "-n", "1", sha],
++                    capture_output=True,
++                    text=True,
++                    check=False,
++                    timeout=5,
++                )
++                subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
++                click.secho(f"    {sha[:12]} {subject[:90]}", fg="red")
++            click.secho(
++                f"\n  Push to {remote_branch} first, then re-run prep-relay.",
++                fg="yellow",
++            )
++            click.secho(
++                "\n  This is the upstream-of-Finding-75 gate. Describing\n"
++                "  unpushed work to an external auditor produces ratification-\n"
++                "  of-claim, not honest verification. Same pattern Finding 75\n"
++                "  closes at round-filing layer; this command closes it at\n"
++                "  relay-composition layer.",
++                fg="bright_black",
++            )
++            raise click.exceptions.Exit(1)
++
++        # All verified — produce the relay template
++        click.secho(
++            f"\n[+] {len(verified)} commit(s) verified on {remote_branch}.\n",
++            fg="green",
++        )
++        click.secho("=" * 60, fg="bright_black")
++        click.secho("AUDIT RELAY TEMPLATE — copy into chat", fg="cyan", bold=True)
++        click.secho("=" * 60, fg="bright_black")
++        click.echo()
++        click.echo(f"Branch: {remote_branch}")
++        click.echo(f"Commits ({len(verified)}) — all verified reachable:")
++        click.echo()
++        for sha, subject in verified:
++            click.echo(f"  {sha[:12]} {subject}")
++        click.echo()
++        click.echo(
++            "All SHAs above are reachable on the named remote-branch "
++            "(verified via git merge-base --is-ancestor). The describe-"
++            "then-CONFIRMS pattern is structurally blocked at this layer."
++        )
++        click.echo()
++        click.secho("=" * 60, fg="bright_black")
++        click.echo()
++        click.secho(
++            "  Now compose the description of what the work does and what "
++            "you want audited. The verified-commits list above is the "
++            "honest-substance anchor.",
++            fg="bright_black",
++        )
++
+     @audit_group.command("submit")
+     @click.argument("title")
+     @click.option("--round", "round_id", required=True, help="Round ID to attach to")
+diff --git a/tests/test_audit_prep_relay.py b/tests/test_audit_prep_relay.py
+new file mode 100644
+index 0000000..6ea6694
+--- /dev/null
++++ b/tests/test_audit_prep_relay.py
+@@ -0,0 +1,173 @@
++"""Tests for divineos audit prep-relay — upstream-of-Finding-75 gate.
++
++The describe-then-CONFIRMS pattern recurred for the 4th time in one
++arc on 2026-05-18: Aletheia caught me composing an audit-relay message
++about 8 commits that were local-only. Finding 75's gate operates
++correctly at the round-filing layer, but the same pattern recurs
++one layer earlier at relay-message composition.
++
++prep-relay closes that gap. It verifies that named commits are
++reachable on the remote-branch BEFORE producing a relay template.
++If any aren't pushed, it refuses with the list of unreachable SHAs.
++
++These tests use a real temporary git repo with a fake "remote"
++(another local repo) so the verification path is exercised end-to-end,
++not just mocked.
++"""
++
++from __future__ import annotations
++
++import subprocess
++from pathlib import Path
++
++from click.testing import CliRunner
++
++from divineos.cli import cli
++
++
++def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
++    """Run a git command in cwd. Fails loudly on non-zero exit."""
++    result = subprocess.run(
++        ["git", *args],
++        cwd=str(cwd),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    if result.returncode != 0:
++        raise RuntimeError(
++            f"git {' '.join(args)} failed (cwd={cwd}):\n"
++            f"stdout: {result.stdout}\nstderr: {result.stderr}"
++        )
++    return result
++
++
++def _setup_local_with_fake_remote(tmp_path: Path) -> tuple[Path, Path]:
++    """Create a local repo with a 'remote' that's actually another local repo.
++
++    Returns (local_path, remote_path).
++    """
++    remote = tmp_path / "remote.git"
++    local = tmp_path / "local"
++    remote.mkdir()
++    local.mkdir()
++
++    # Initialize bare remote
++    _git(remote, "init", "--bare", "-b", "main")
++
++    # Initialize local
++    _git(local, "init", "-b", "main")
++    _git(local, "config", "user.email", "test@test")
++    _git(local, "config", "user.name", "Test")
++    _git(local, "remote", "add", "origin", str(remote))
++
++    # Initial commit + push
++    (local / "README.md").write_text("initial\n")
++    _git(local, "add", "README.md")
++    _git(local, "commit", "-m", "initial commit")
++    _git(local, "push", "-u", "origin", "main")
++
++    return local, remote
++
++
++class TestPrepRelayBasics:
++    """The prep-relay command exists and shows help."""
++
++    def test_command_registered(self):
++        runner = CliRunner()
++        result = runner.invoke(cli, ["audit", "prep-relay", "--help"])
++        assert result.exit_code == 0
++        assert "prep-relay" in result.output.lower() or "describe-then-CONFIRMS" in result.output
++
++    def test_help_mentions_finding_75(self):
++        """The help text should name the structural lineage so future-
++        readers know why this gate exists."""
++        runner = CliRunner()
++        result = runner.invoke(cli, ["audit", "prep-relay", "--help"])
++        assert result.exit_code == 0
++        # Mentions either Finding 75 or describe-then-CONFIRMS
++        out = result.output
++        assert "Finding 75" in out or "describe-then-CONFIRMS" in out
++
++
++class TestPrepRelayBlocksUnpushedCommits:
++    """The core gate: prep-relay refuses to produce a relay-template if
++    any commit in the range is not reachable on the remote-branch."""
++
++    def test_refuses_when_commits_are_unpushed(self, tmp_path, monkeypatch):
++        local, _remote = _setup_local_with_fake_remote(tmp_path)
++        # Make a local commit without pushing
++        (local / "added.md").write_text("new content\n")
++        _git(local, "add", "added.md")
++        _git(local, "commit", "-m", "feat: local-only commit not yet pushed")
++
++        # cd into the local repo so divineos sees this as cwd
++        monkeypatch.chdir(local)
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            [
++                "audit",
++                "prep-relay",
++                "--range",
++                "origin/main..HEAD",
++                "--branch",
++                "main",
++            ],
++        )
++        assert result.exit_code == 1, (
++            f"Expected exit 1 (blocked); got {result.exit_code}. Output:\n{result.output}"
++        )
++        assert "BLOCKED" in result.output
++        assert "not reachable" in result.output.lower()
++        assert "local-only commit" in result.output
++
++    def test_passes_when_all_commits_are_pushed(self, tmp_path, monkeypatch):
++        local, _remote = _setup_local_with_fake_remote(tmp_path)
++        # Make a commit and push it
++        (local / "added.md").write_text("pushed content\n")
++        _git(local, "add", "added.md")
++        _git(local, "commit", "-m", "feat: pushed commit visible on remote")
++        _git(local, "push", "origin", "main")
++
++        monkeypatch.chdir(local)
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            [
++                "audit",
++                "prep-relay",
++                "--range",
++                "origin/main~1..HEAD",
++                "--branch",
++                "main",
++            ],
++        )
++        assert result.exit_code == 0, (
++            f"Expected exit 0 (verified); got {result.exit_code}. Output:\n{result.output}"
++        )
++        assert "verified" in result.output.lower()
++        assert "AUDIT RELAY TEMPLATE" in result.output
++        assert "pushed commit" in result.output
++
++
++class TestPrepRelayEmptyRange:
++    """When the range is empty, command exits cleanly with a 'nothing to relay' message."""
++
++    def test_empty_range_handled(self, tmp_path, monkeypatch):
++        local, _remote = _setup_local_with_fake_remote(tmp_path)
++        monkeypatch.chdir(local)
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            [
++                "audit",
++                "prep-relay",
++                "--range",
++                "origin/main..HEAD",
++                "--branch",
++                "main",
++            ],
++        )
++        assert result.exit_code == 0
++        assert "No commits in range" in result.output or "Nothing to audit-relay" in result.output
+-- 
+2.43.0.windows.1
+

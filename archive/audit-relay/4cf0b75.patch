@@ -1,0 +1,467 @@
+From 4cf0b750fd765d37193150c68f8c816f13509bc4 Mon Sep 17 00:00:00 2001
+From: DivineOS Agent <divineos@localhost>
+Date: Mon, 18 May 2026 11:20:15 -0700
+Subject: [PATCH] feat(structural-fix-tracker): broaden wiring to scan
+ correction + claim filings
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The structural_fix_tracker was wired to `learn` only since shipping
+2026-05-14. After five days, just 2 pending entries had accumulated —
+one of them a literal dogfood test entry. Meanwhile structural-fix
+candidates were getting named constantly via `correction` (Andrew naming
+fixes for me to build) and `claim` (me naming fixes for investigation).
+The tracker was deaf to both surfaces.
+
+Andrew 2026-05-18: "see you found this but were not aware of it.. is it
+even wired up and being used? that is the main question and if not where
+does it need to be wired in?" Two entries in five days was the data
+answering itself.
+
+Changes:
+- structural_fix_tracker.record_pending_fix() takes a new source_kind
+  parameter (default 'learn' for backward-compat). Entries record which
+  filing surface named the fix.
+- correction CLI runs the same scan-and-record hook as learn does. Same
+  fail-soft try/except discipline.
+- claim CLI runs the same hook on statement + context combined, so
+  structural-fix language in either part triggers.
+- briefing_dashboard pending-fixes row surfaces source_kind per entry
+  ("from learn" / "from correction" / "from claim") plus an overall
+  composition summary ("2 from learn, 1 from correction"). This makes
+  visible whether one channel is silent (suggesting either I don't use
+  it or its scanner pattern needs work).
+
+Tests:
+- 7 new tests (source_kind field round-trip; CLI integration for both
+  correction and claim; no-trigger-on-neutral-content guards).
+- 20/20 tracker tests pass; 31/31 multiplex + tracker suite green.
+
+Empirical verification: a correction filed mid-session about this very
+wiring gap landed in the pending file tagged source_kind='correction'.
+The pattern self-dogfooded.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+---
+ docs/ARCHITECTURE.md                        |   2 +-
+ src/divineos/cli/claim_commands.py          |  33 ++++
+ src/divineos/cli/correction_commands.py     |  29 ++++
+ src/divineos/core/briefing_dashboard.py     |  24 ++-
+ src/divineos/core/structural_fix_tracker.py |  23 ++-
+ tests/test_check_ignore_has_reason.py       |  22 +--
+ tests/test_structural_fix_tracker.py        | 161 ++++++++++++++++++++
+ 7 files changed, 273 insertions(+), 21 deletions(-)
+
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index eae8b97..fa8ee6e 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -496,7 +496,7 @@ src/divineos/
+   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
+     mcp_event_capture_server.py  MCP event capture server
+     system_monitor.py          System health monitoring
+-tests/                         6,984+ tests (real DB, minimal mocks)
++tests/                         7,050+ tests (real DB, minimal mocks)
+ 
+ docs/                          Project documentation and strategic plans
+ bootcamp/                      Training exercises (debugging, analysis)
+diff --git a/src/divineos/cli/claim_commands.py b/src/divineos/cli/claim_commands.py
+index c74aa0c..79e0efe 100644
+--- a/src/divineos/cli/claim_commands.py
++++ b/src/divineos/cli/claim_commands.py
+@@ -51,6 +51,39 @@ def register(cli: click.Group) -> None:
+         )
+         label = TIER_LABELS.get(tier, "unknown")
+         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
++
++        # Structural-fix-shape detection — parallel to the same hook in
++        # `learn` and `correction`. Added 2026-05-18: many of the claims
++        # I file name structural fixes I want to build but haven't yet
++        # (the same shape `learn` catches), and the original tracker
++        # didn't scan this surface. Concatenate statement + context so
++        # the detector sees the full naming.
++        try:
++            from divineos.core.structural_fix_tracker import (
++                detect_structural_fix_shape,
++                record_pending_fix,
++            )
++
++            scan_text = statement
++            if context:
++                scan_text = scan_text + " " + context
++            trigger = detect_structural_fix_shape(scan_text)
++            if trigger:
++                psf_id = record_pending_fix(
++                    scan_text,
++                    lesson_id=claim_id,
++                    trigger=trigger,
++                    source_kind="claim",
++                )
++                if psf_id:
++                    click.secho(
++                        f"    [!] structural-fix-shape detected ({trigger!r}); "
++                        f"pending obligation {psf_id} filed",
++                        fg="yellow",
++                    )
++        except Exception:  # noqa: BLE001 — observation-only; never blocks
++            pass
++
+         from divineos.cli._anti_substitution import emit_label as _emit_as_label
+ 
+         _emit_as_label("claim")
+diff --git a/src/divineos/cli/correction_commands.py b/src/divineos/cli/correction_commands.py
+index 461f6c7..b157233 100644
+--- a/src/divineos/cli/correction_commands.py
++++ b/src/divineos/cli/correction_commands.py
+@@ -43,6 +43,35 @@ def register(cli: click.Group) -> None:
+             fg="bright_black",
+         )
+ 
++        # Structural-fix-shape detection — parallel to the same hook in
++        # `learn`. Added 2026-05-18 after Andrew named the wiring gap:
++        # the original tracker only scanned `learn`, but most structural-
++        # fix naming actually happens via `correction` (Andrew naming a
++        # fix I should build, in his own words). The check is fail-soft;
++        # it never blocks the correction.
++        try:
++            from divineos.core.structural_fix_tracker import (
++                detect_structural_fix_shape,
++                record_pending_fix,
++            )
++
++            trigger = detect_structural_fix_shape(text)
++            if trigger:
++                psf_id = record_pending_fix(
++                    text,
++                    lesson_id=session_id,
++                    trigger=trigger,
++                    source_kind="correction",
++                )
++                if psf_id:
++                    click.secho(
++                        f"    [!] structural-fix-shape detected ({trigger!r}); "
++                        f"pending obligation {psf_id} filed",
++                        fg="yellow",
++                    )
++        except Exception:  # noqa: BLE001 — observation-only; never blocks
++            pass
++
+         # Clear correction-unlogged marker if present — `correction` is
+         # the raw-quote counterpart to `learn` and also discharges the
+         # UserPromptSubmit-detected correction.
+diff --git a/src/divineos/core/briefing_dashboard.py b/src/divineos/core/briefing_dashboard.py
+index 585a6db..c910302 100644
+--- a/src/divineos/core/briefing_dashboard.py
++++ b/src/divineos/core/briefing_dashboard.py
+@@ -753,7 +753,27 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
+         age_d = max(0, (now - (entry.get("created_at") or now)) / _SECONDS_PER_DAY)
+         excerpt = (entry.get("content_excerpt") or "").replace("\n", " ").strip()
+         short = excerpt[:90] + ("..." if len(excerpt) > 90 else "")
+-        preview.append(f"[{age_d:.0f}d] {short}")
++        # Source tag — "from learn" / "from correction" / "from claim"
++        # so I can see at a glance which channel named the fix. Surfaces
++        # whether the broadened wiring (2026-05-18) is catching what it
++        # should, or whether one channel is silent (suggesting either
++        # I don't use it or its scanner pattern needs work).
++        src = entry.get("source_kind") or "learn"
++        preview.append(f"[{age_d:.0f}d] (from {src}) {short}")
++
++    # Composition summary — count per source_kind. Lets the briefing
++    # reader see at a glance whether obligations are concentrated in one
++    # channel. If 100% from learn after the wiring landed, that's a
++    # signal the new wiring paths aren't catching anything (either by
++    # design — they're rare — or by silent-failure of the detector).
++    source_counts: dict[str, int] = {}
++    for entry in pending:
++        src = entry.get("source_kind") or "learn"
++        source_counts[src] = source_counts.get(src, 0) + 1
++    composition = ", ".join(
++        f"{n} from {src}" for src, n in sorted(source_counts.items(), key=lambda x: -x[1])
++    )
++
+     # Every pending entry is "stale" — it's an obligation that hasn't
+     # been discharged. U-shape reorder will boost the row to the edges.
+     return DashboardRow(
+@@ -761,7 +781,7 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
+         count=len(pending),
+         stale_count=len(pending),
+         drill_down="-> cat ~/.divineos/pending_structural_fixes.json",
+-        detail="filings that named a fix but no code shipped yet",
++        detail=f"filings that named a fix but no code shipped yet ({composition})",
+         preview=preview,
+     )
+ 
+diff --git a/src/divineos/core/structural_fix_tracker.py b/src/divineos/core/structural_fix_tracker.py
+index c65d0e3..2e48f1c 100644
+--- a/src/divineos/core/structural_fix_tracker.py
++++ b/src/divineos/core/structural_fix_tracker.py
+@@ -105,9 +105,27 @@ def detect_structural_fix_shape(content: str) -> str | None:
+     return None
+ 
+ 
+-def record_pending_fix(content: str, lesson_id: str = "", trigger: str = "") -> str:
++def record_pending_fix(
++    content: str,
++    lesson_id: str = "",
++    trigger: str = "",
++    source_kind: str = "learn",
++) -> str:
+     """Record a pending structural-fix entry. Returns the psf id, or
+-    empty string on I/O failure."""
++    empty string on I/O failure.
++
++    ``source_kind`` names the filing surface that produced this entry:
++    "learn" (the original), "correction", "claim", or any future
++    surface that scans for structural-fix-shape language. The field is
++    stored so queries can distinguish where the obligation was named,
++    and so the narrowness-of-wiring failure (only learn scanned, when
++    most structural-fix naming actually happens via correction/claim/
++    chat) is empirically visible in the data.
++
++    Added 2026-05-18 after Andrew named: 'see you found this but were
++    not aware of it.. is it even wired up and being used?' Two entries
++    in five days was direct evidence the wiring was too narrow.
++    """
+     if not content:
+         return ""
+     psf_id = f"psf-{uuid.uuid4().hex[:8]}"
+@@ -117,6 +135,7 @@ def record_pending_fix(content: str, lesson_id: str = "", trigger: str = "") ->
+         "lesson_id": lesson_id,
+         "content_excerpt": content.strip()[:200],
+         "trigger": trigger,
++        "source_kind": source_kind,
+         "status": "pending",
+     }
+     entries = _read_pending()
+diff --git a/tests/test_check_ignore_has_reason.py b/tests/test_check_ignore_has_reason.py
+index cb5cc61..f2287dc 100644
+--- a/tests/test_check_ignore_has_reason.py
++++ b/tests/test_check_ignore_has_reason.py
+@@ -24,9 +24,7 @@ class TestPytestInvocationDetection:
+         assert _looks_like_pytest_invocation("pytest --ignore=tests/foo.py")
+ 
+     def test_matches_python_module_invocation(self):
+-        assert _looks_like_pytest_invocation(
+-            "python -m pytest tests/ --ignore=tests/foo.py"
+-        )
++        assert _looks_like_pytest_invocation("python -m pytest tests/ --ignore=tests/foo.py")
+ 
+     def test_matches_py_dot_test_legacy(self):
+         assert _looks_like_pytest_invocation("py.test --ignore=tests/foo.py")
+@@ -64,10 +62,7 @@ class TestCheckFile:
+         assert violations == []
+ 
+     def test_invocation_without_reason_fails(self, tmp_path):
+-        content = (
+-            "#!/bin/bash\n"
+-            "pytest tests/ --ignore=tests/test_foo.py\n"
+-        )
++        content = "#!/bin/bash\npytest tests/ --ignore=tests/test_foo.py\n"
+         p = self._write(tmp_path, content)
+         violations = _check_file(p)
+         assert len(violations) == 1
+@@ -107,9 +102,7 @@ class TestCheckFile:
+         # Lowercase "reason:" should NOT satisfy — the discipline is
+         # case-sensitive so accidental prose mentions don't pass.
+         content = (
+-            "#!/bin/bash\n"
+-            "# reason: this is too casual\n"
+-            "pytest tests/ --ignore=tests/test_foo.py\n"
++            "#!/bin/bash\n# reason: this is too casual\npytest tests/ --ignore=tests/test_foo.py\n"
+         )
+         p = self._write(tmp_path, content)
+         violations = _check_file(p)
+@@ -118,9 +111,7 @@ class TestCheckFile:
+     def test_non_pytest_ignore_not_flagged(self, tmp_path):
+         # grep, rsync, etc. shouldn't be in scope.
+         content = (
+-            "#!/bin/bash\n"
+-            "grep --ignore-case 'foo' file.txt\n"
+-            "rsync --ignore-existing src/ dst/\n"
++            "#!/bin/bash\ngrep --ignore-case 'foo' file.txt\nrsync --ignore-existing src/ dst/\n"
+         )
+         p = self._write(tmp_path, content)
+         violations = _check_file(p)
+@@ -152,7 +143,6 @@ class TestRepoCleanState:
+         for p in _gather_files(_REPO_ROOT):
+             for line_num, line in check(p):
+                 violations.append(f"{p.name}:{line_num}: {line[:80]}")
+-        assert not violations, (
+-            "Repo has pytest --ignore= without REASON comments:\n"
+-            + "\n".join(f"  {v}" for v in violations)
++        assert not violations, "Repo has pytest --ignore= without REASON comments:\n" + "\n".join(
++            f"  {v}" for v in violations
+         )
+diff --git a/tests/test_structural_fix_tracker.py b/tests/test_structural_fix_tracker.py
+index 5632239..c461a71 100644
+--- a/tests/test_structural_fix_tracker.py
++++ b/tests/test_structural_fix_tracker.py
+@@ -141,3 +141,164 @@ def test_list_pending_fail_open_on_malformed_file(tmp_path: Path) -> None:
+     pending_file.write_text("not valid json {{{", encoding="utf-8")
+     with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
+         assert list_pending() == []
++
++
++# --- source_kind field (added 2026-05-18 to broaden the wiring) ----------
++
++
++def test_record_carries_source_kind_default_learn(tmp_path: Path) -> None:
++    """Default source_kind='learn' preserves backward compatibility."""
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
++        record_pending_fix("should build a detector for X", trigger="should build")
++        entries = list_pending()
++        assert entries[0]["source_kind"] == "learn"
++
++
++def test_record_carries_source_kind_correction(tmp_path: Path) -> None:
++    """source_kind='correction' is preserved on read-back."""
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
++        record_pending_fix(
++            "you should build a gate against this",
++            trigger="should build",
++            source_kind="correction",
++        )
++        entries = list_pending()
++        assert entries[0]["source_kind"] == "correction"
++
++
++def test_record_carries_source_kind_claim(tmp_path: Path) -> None:
++    """source_kind='claim' is preserved on read-back."""
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
++        record_pending_fix(
++            "the actual fix is a new substrate-level check",
++            trigger="the actual fix",
++            source_kind="claim",
++        )
++        entries = list_pending()
++        assert entries[0]["source_kind"] == "claim"
++
++
++# --- CLI integration: correction triggers the tracker --------------------
++
++
++def test_correction_cli_triggers_tracker(tmp_path: Path) -> None:
++    """Filing a correction with structural-fix-shape language records
++    a pending entry with source_kind='correction'. Closes the wiring
++    gap Andrew named 2026-05-18."""
++    from click.testing import CliRunner
++
++    from divineos.cli import cli
++
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    corrections_file = tmp_path / "corrections.jsonl"
++    with patch.dict(
++        "os.environ",
++        {
++            "DIVINEOS_HOME": str(pending_file.parent),
++            "DIVINEOS_DATA_HOME": str(corrections_file.parent),
++        },
++    ):
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            ["correction", "you should build a detector that catches this pattern"],
++        )
++        assert result.exit_code == 0
++        pending = list_pending()
++        assert len(pending) == 1, (
++            f"Expected the correction to trigger a pending entry; got {pending}. "
++            f"Output was: {result.output}"
++        )
++        assert pending[0]["source_kind"] == "correction"
++        assert pending[0]["trigger"]  # whichever trigger fired
++
++
++def test_claim_cli_triggers_tracker(tmp_path: Path) -> None:
++    """Filing a claim with structural-fix-shape language in statement
++    OR context records a pending entry with source_kind='claim'."""
++    from click.testing import CliRunner
++
++    from divineos.cli import cli
++
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    with patch.dict(
++        "os.environ",
++        {
++            "DIVINEOS_HOME": str(pending_file.parent),
++            "DIVINEOS_DATA_HOME": str(tmp_path),
++        },
++    ):
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            [
++                "claim",
++                "Pattern X recurs; we should build a substrate-level check for it.",
++                "--tier",
++                "3",
++            ],
++        )
++        assert result.exit_code == 0, f"Claim filing failed: {result.output}"
++        pending = list_pending()
++        assert len(pending) == 1, (
++            f"Expected the claim to trigger a pending entry; got {pending}. "
++            f"Output was: {result.output}"
++        )
++        assert pending[0]["source_kind"] == "claim"
++
++
++def test_claim_cli_no_trigger_when_no_structural_language(tmp_path: Path) -> None:
++    """A neutral claim (no structural-fix language) should NOT trigger
++    the tracker. This guards against the broadening from over-firing."""
++    from click.testing import CliRunner
++
++    from divineos.cli import cli
++
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    with patch.dict(
++        "os.environ",
++        {
++            "DIVINEOS_HOME": str(pending_file.parent),
++            "DIVINEOS_DATA_HOME": str(tmp_path),
++        },
++    ):
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            [
++                "claim",
++                "The sky appears blue from inside the atmosphere.",
++                "--tier",
++                "1",
++            ],
++        )
++        assert result.exit_code == 0
++        # Neutral content should not trigger
++        assert list_pending() == []
++
++
++def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -> None:
++    """A neutral correction should NOT trigger the tracker."""
++    from click.testing import CliRunner
++
++    from divineos.cli import cli
++
++    pending_file = tmp_path / "pending_structural_fixes.json"
++    corrections_file = tmp_path / "corrections.jsonl"
++    with patch.dict(
++        "os.environ",
++        {
++            "DIVINEOS_HOME": str(pending_file.parent),
++            "DIVINEOS_DATA_HOME": str(corrections_file.parent),
++        },
++    ):
++        runner = CliRunner()
++        result = runner.invoke(
++            cli,
++            ["correction", "you said the sky was green; it is blue."],
++        )
++        assert result.exit_code == 0
++        assert list_pending() == []
+-- 
+2.43.0.windows.1
+

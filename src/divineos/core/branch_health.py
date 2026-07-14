@@ -235,21 +235,28 @@ def check_deletion_shape(
     perspective — files disappearing — regardless of whether the cause
     was branch-staleness or intentional removal.
 
-    2026-07-14 fix (Aletheia audit): the diff uses ``--find-renames`` so
-    file MOVES (archive-relocations, folder reorgs) are correctly
-    detected as renames and NOT counted as deletions. Without this flag
-    the gate false-fired on any archive-sweep and trained the reach for
-    the emergency kill-switch — mispriced toll. A move is a rename;
-    git already knows the difference; the guard now honors it.
-    Guardrail-file changes to intentionally deleted paths (garbage,
-    stale artifacts) still show as D and count toward the threshold as
-    they should.
+    2026-07-14 fix (Aletheia audit — 2nd pass): the check no longer uses
+    ``--find-renames``. Git's rename detection is a HEURISTIC (content
+    similarity guessed at diff time, tuned by a threshold that can never
+    make a guess deterministic). Instead, this function does a
+    content-hash presence check: for each path git reports as deleted,
+    read the blob hash from the old tree; if that blob still appears
+    anywhere in the new tree, the file MOVED (not destroyed), and the
+    path is excluded from the deletion count. If the blob appears
+    nowhere in the new tree, the content is genuinely gone.
+
+    That's arithmetic, not heuristic. A file's blob is either present
+    in the new tree or it isn't; that's what content-addressed storage
+    IS. No threshold. No tuning. No false-positives on archive-moves.
+
+    Guardrail-file DELETIONS (intentional garbage removal, stale
+    artifacts) still count toward the threshold as they should —
+    their blobs don't exist anywhere in the new tree.
     """
-    rc, deleted_files, err = _run_git(
+    rc, raw_deleted, err = _run_git(
         [
             "diff",
             "--diff-filter=D",
-            "--find-renames",
             "--name-only",
             f"{base}..HEAD",
         ],
@@ -263,7 +270,36 @@ def check_deletion_shape(
             actionable=False,
         )
 
-    deleted_list = [line for line in deleted_files.splitlines() if line.strip()]
+    raw_deleted_list = [line for line in raw_deleted.splitlines() if line.strip()]
+
+    # Content-hash presence check: for each candidate-deletion, the file
+    # is genuinely deleted iff its old-tree blob does not appear anywhere
+    # in the new tree. Blobs that still appear were MOVED, not destroyed.
+    rc_new, new_tree, _err_new = _run_git(
+        ["ls-tree", "-r", "HEAD"],
+        cwd=cwd,
+    )
+    new_tree_blobs: set[str] = set()
+    if rc_new == 0:
+        # Each line is: "<mode> <type> <blob-hash>\t<path>"
+        for line in new_tree.splitlines():
+            parts = line.split(None, 3)
+            if len(parts) >= 3 and parts[1] == "blob":
+                new_tree_blobs.add(parts[2])
+
+    deleted_list: list[str] = []
+    moved_list: list[str] = []
+    for path in raw_deleted_list:
+        rc_blob, old_blob, _ = _run_git(
+            ["rev-parse", f"{base}:{path}"],
+            cwd=cwd,
+        )
+        old_blob = old_blob.strip()
+        if rc_blob == 0 and old_blob and old_blob in new_tree_blobs:
+            moved_list.append(path)
+        else:
+            deleted_list.append(path)
+
     count = len(deleted_list)
 
     if count == 0:

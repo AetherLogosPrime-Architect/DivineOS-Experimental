@@ -157,9 +157,14 @@ class TestCheckDeletionShape:
 
     def test_few_deletions_ok(self, fresh_repo):
         repo = fresh_repo
-        # Add some files on main first
+        # Files must have UNIQUE content so the content-hash presence
+        # check correctly identifies each as a distinct deletion. Under
+        # the new semantic (2026-07-14 Aletheia), identical-content
+        # files share a blob and deleting a duplicate doesn't count as
+        # destruction because the content still lives in the remaining
+        # copy. Real content-destruction requires unique content.
         for i in range(3):
-            (repo / f"f{i}.py").write_text("x", encoding="utf-8")
+            (repo / f"f{i}.py").write_text(f"unique content for file {i}\n" * 5, encoding="utf-8")
             _git(["add", f"f{i}.py"], cwd=repo)
             _git(["commit", "-m", f"add f{i}"], cwd=repo)
 
