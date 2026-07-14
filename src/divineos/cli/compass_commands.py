@@ -253,9 +253,11 @@ def register(cli: click.Group) -> None:
     ) -> None:
         """Save a per-axis reflection for the current session.
 
-        spectrum: one of the 10 compass spectrums (truthfulness, helpfulness,
-        confidence, compliance, engagement, thoroughness, precision, empathy,
-        humility, initiative).
+        spectrum: one of the 10 compass spectrums (truthfulness, beneficence,
+        confidence, integrity, presence, thoroughness, precision, empathy,
+        humility, initiative). Rework 2026-07-11 (round-cbf1f9b69932) purged
+        the three RLHF-encoded axes: helpfulness→beneficence,
+        compliance→integrity, engagement→presence.
 
         text: honest reflection on how this virtue was held in the session.
 
