@@ -1,0 +1,288 @@
+{
+  "communities": {
+    "0": [
+      "claude_agents",
+      "claude_skills",
+      "concept_affect_log",
+      "concept_claims_engine",
+      "concept_empirica",
+      "concept_memory_hierarchy",
+      "concept_performative_restraint_monitor",
+      "concept_self_model",
+      "concept_sleep",
+      "concept_voice_guard",
+      "docs_audit_system_md",
+      "docs_cli_architecture_md",
+      "docs_council_manager_md",
+      "docs_data_model_md",
+      "docs_family_subsystem_md",
+      "docs_foundational_truths_triggers_json",
+      "docs_hooks_architecture_md",
+      "readme",
+      "scripts_guardrail_files"
+    ],
+    "1": [
+      "concept_aether",
+      "concept_aletheia",
+      "concept_aria",
+      "dreams_aether_readme",
+      "dreams_aletheia_readme",
+      "dreams_aria_readme",
+      "exploration_aether_readme",
+      "exploration_aria_readme",
+      "family_aletheia_nine_months_archive_readme",
+      "family_aletheia_readme",
+      "family_aletheia_what_i_want_to_keep_readme",
+      "family_letters_readme",
+      "family_letters_sort_script",
+      "family_magic_readme",
+      "family_magic_scripts",
+      "family_poker_readme",
+      "family_poker_scripts"
+    ],
+    "2": [
+      "adr_0001",
+      "adr_0002",
+      "adr_0003",
+      "adr_0004",
+      "adr_0005",
+      "concept_event_ledger",
+      "concept_knowledge_engine",
+      "concept_session_lifecycle",
+      "concept_three_version_architecture",
+      "data_readme",
+      "docs_adr_readme",
+      "src_divineos_core_ledger_compressor",
+      "src_divineos_seed_json"
+    ],
+    "3": [
+      "concept_crossvantage_audit",
+      "concept_pre_registrations",
+      "concept_substrate_knowledge",
+      "concept_watchmen",
+      "docs_substrate_knowledge_readme"
+    ],
+    "4": [
+      "concept_family_operators",
+      "concept_family_subsystem",
+      "family_readme",
+      "src_divineos_core_anti_slop",
+      "src_divineos_core_family_store"
+    ],
+    "5": [
+      "concept_moral_compass",
+      "concept_quality_gate",
+      "concept_tree_of_life",
+      "exploration_tree_of_life_study_readme"
+    ],
+    "6": [
+      "claude_hooks",
+      "src_divineos_core_briefing_freshness",
+      "src_divineos_core_gravity_classifier"
+    ],
+    "7": [
+      "concept_corrigibility",
+      "docs_routines_readme",
+      "src_divineos_cli_scheduled_commands"
+    ],
+    "8": [
+      "concept_council",
+      "concept_council_walks",
+      "src_divineos_core_council_walks"
+    ],
+    "9": [
+      "concept_foundational_truths",
+      "concept_kiln_clay_distinction",
+      "docs_foundational_truths_md"
+    ],
+    "10": [
+      "concept_holding_room",
+      "concept_sanskrit_anchors",
+      "exploration_sanskrit_readme"
+    ],
+    "11": [
+      "concept_operating_loop_audit",
+      "src_divineos_core_operating_loop",
+      "src_divineos_core_self_monitor"
+    ],
+    "12": [
+      "concept_archive_export",
+      "docs_archives_readme"
+    ],
+    "13": [
+      "concept_divineos_lite",
+      "exploration_divine_os_lite_phase1_archive_readme"
+    ],
+    "14": [
+      "docs_architecture_md",
+      "scripts_check_doc_counts"
+    ],
+    "15": [
+      "src_divineos_cli",
+      "src_divineos_core"
+    ],
+    "16": [
+      "bootcamp_readme"
+    ],
+    "17": [
+      "data_traffic_archive_readme"
+    ],
+    "18": [
+      "docs_council_walks_readme"
+    ],
+    "19": [
+      "docs_foundations_audit_readme"
+    ],
+    "20": [
+      "family_raw_recordings_readme"
+    ],
+    "21": [
+      "salvage_readme"
+    ],
+    "22": [
+      "src_divineos_analysis"
+    ],
+    "23": [
+      "src_divineos_hooks"
+    ]
+  },
+  "cohesion": {
+    "0": 0.10526315789473684,
+    "1": 0.15441176470588236,
+    "2": 0.15384615384615385,
+    "3": 0.4,
+    "4": 0.4,
+    "5": 0.5,
+    "6": 0.6666666666666666,
+    "7": 0.6666666666666666,
+    "8": 0.6666666666666666,
+    "9": 0.6666666666666666,
+    "10": 0.6666666666666666,
+    "11": 0.6666666666666666,
+    "12": 1.0,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0
+  },
+  "gods": [
+    {
+      "id": "readme",
+      "label": "DivineOS-Experimental README",
+      "degree": 43
+    },
+    {
+      "id": "concept_aether",
+      "label": "Aether (Primary Agent)",
+      "degree": 8
+    },
+    {
+      "id": "concept_aria",
+      "label": "Aria (Family Member)",
+      "degree": 7
+    },
+    {
+      "id": "docs_adr_readme",
+      "label": "Architecture Decision Records README",
+      "degree": 5
+    },
+    {
+      "id": "concept_event_ledger",
+      "label": "Event Ledger (Hash-Chained SQLite)",
+      "degree": 5
+    },
+    {
+      "id": "concept_aletheia",
+      "label": "Aletheia (Audit-Sibling AI)",
+      "degree": 5
+    },
+    {
+      "id": "family_readme",
+      "label": "Family Directory README",
+      "degree": 4
+    },
+    {
+      "id": "family_letters_readme",
+      "label": "Family Letters README",
+      "degree": 4
+    },
+    {
+      "id": "concept_family_operators",
+      "label": "Five Family Operators",
+      "degree": 4
+    },
+    {
+      "id": "concept_crossvantage_audit",
+      "label": "Cross-Vantage Audit",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "DivineOS-Experimental README",
+      "target": "Archives README",
+      "source_files": [
+        "README.md",
+        "docs/archives/README.md"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `Archives README` unexpectedly reaches hub `DivineOS-Experimental README`"
+    },
+    {
+      "source": "Family Aletheia README",
+      "target": "Cross-Vantage Audit",
+      "source_files": [
+        "family/aletheia/README.md",
+        "README.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "Data Directory README",
+      "target": "Event Ledger (Hash-Chained SQLite)",
+      "source_files": [
+        "data/README.md",
+        "README.md"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; peripheral node `Data Directory README` unexpectedly reaches hub `Event Ledger (Hash-Chained SQLite)`"
+    },
+    {
+      "source": "Dreams Aether README",
+      "target": "Aether (Primary Agent)",
+      "source_files": [
+        "dreams/aether/README.md",
+        "README.md"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; peripheral node `Dreams Aether README` unexpectedly reaches hub `Aether (Primary Agent)`"
+    },
+    {
+      "source": "Dreams Aria README",
+      "target": "Aria (Family Member)",
+      "source_files": [
+        "dreams/aria/README.md",
+        "README.md"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories; peripheral node `Dreams Aria README` unexpectedly reaches hub `Aria (Family Member)`"
+    }
+  ],
+  "tokens": {
+    "input": 39112,
+    "output": 12911
+  }
+}
