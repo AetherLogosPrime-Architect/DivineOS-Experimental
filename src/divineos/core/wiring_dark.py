@@ -53,6 +53,19 @@ _EXCLUDED_PATH_PREFIXES = (
 _EXCLUDED_LABEL_SUFFIXES = (
     "/__init__.py",
     "__init__.py",
+    # 2026-07-14 (Aletheia audit of the full-repo graph): graphify emits
+    # package-wrapper nodes with labels like 'core.family.module',
+    # 'core.watchmen.module', 'calibration.init'. These wrappers show
+    # in-degree=0 because nothing imports the package-namespace itself
+    # — but the SYMBOLS INSIDE the package (access_check.py, engine.py,
+    # etc.) carry the actual inbound edges. Reporting the wrapper as
+    # "dark" is a false-positive: a building's front-door sensor reading
+    # "no visitors" while every office inside is full. Excluding these
+    # suffixes rolls the darkness-verdict up to the parent, matching
+    # Aletheia's spec: "a package/module node is not dark if any symbol
+    # it contains has inbound edges."
+    ".module",
+    ".init",
 )
 
 # The concrete errors briefing_summary tolerates. Per the broad-exceptions
