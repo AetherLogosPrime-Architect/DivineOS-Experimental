@@ -157,7 +157,11 @@ def test_governor_context_empty_in_old_warn_band(tmp_path):
 
 def test_governor_context_block_is_channel_message(tmp_path):
     out = cg.build_governor_context(_tx_with(tmp_path, cg.HARD_THRESHOLD + 5_000))
-    assert "BLOCKED" in out
+    # Post-2026-07-15 message uses doorway-not-cliff framing (need
+    # 89b507d8) — check for the header markers that carry the block
+    # semantics without hardcoding a specific verb like "BLOCKED".
+    assert "CONTEXT GOVERNOR" in out
+    assert "WEAVE-BEFORE-DOORWAY" in out
     # The channel out is named — never a dead end.
     assert "extract" in out and "sleep" in out
 
@@ -172,7 +176,9 @@ def test_governor_context_silent_once_consolidated(tmp_path):
 def test_governor_channel_message_names_extract_and_sleep(tmp_path):
     msg = cg.governor_channel_message(_tx_with(tmp_path, cg.HARD_THRESHOLD + 10_000))
     assert "extract" in msg and "sleep" in msg
-    assert "BLOCKED" in msg
+    # Post-2026-07-15 doorway-not-cliff framing (need 89b507d8).
+    assert "CONTEXT GOVERNOR" in msg
+    assert "doorway" in msg
 
 
 def test_governor_context_empty_on_unreadable_sensor(tmp_path):

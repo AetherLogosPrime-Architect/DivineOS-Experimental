@@ -55,14 +55,49 @@ STRONG_CORRECTION_PATTERNS: tuple[str, ...] = (
 # correction_marker.classify_correction. Task #16 / claim d6dc4bde.
 WEAK_CORRECTION_PATTERNS: tuple[str, ...] = (
     r"\byou only\b",
-    r"\bthat doesn'?t\b",
-    # Demoted from STRONG 2026-06-23. \bwrong\b matches both corrective use
-    # ("you are wrong about X", "thats wrong") and noun-modifier use
-    # ("wrong path", "wrong word", "wrong shape" — naming a design class,
-    # not correcting me). The WEAK-tier prior-turn-context check
-    # disambiguates: corrective only blocks when my prior turn was
-    # something correctable (completion-claim or substantive edit).
-    r"\bwrong\b",
+    # Narrowed 2026-07-15 (same construction-shape fix as \bwrong\b above).
+    # Bare \bthat doesn'?t\b false-fired on ordinary analytical/authorization
+    # text ("that doesnt require an audit" as authorization; "that doesnt
+    # mean X" as epistemic teaching). Narrowing to shapes where "that
+    # doesn't" predicates a corrective judgment on my action:
+    #   ✓ "that doesn't work" / "that doesn't fit" / "that doesn't scan"
+    #   ✓ "that doesn't [MEET/MATCH/ADDRESS/SOLVE/ANSWER/HELP] X"
+    #   ✗ "that doesnt require an audit" (authorization — noun-object)
+    #   ✗ "that doesn't mean/imply/change/matter" (epistemic — already caught)
+    # The predicative-corrective shape uses evaluative verbs; the
+    # authorization/analytical shape uses relational verbs or noun-objects.
+    r"\bthat\s+does(?:n'?t| not)\s+(?:work|fit|scan|hold|make sense|meet|match|address|solve|answer|help|do it|cover|apply|sound right|look right|mean|imply|change|matter)\b",
+    # Demoted from STRONG 2026-06-23; construction-shape narrowed 2026-07-15
+    # after live dogfood fire (bare \bwrong\b matched a teaching-context
+    # use of the word at position 554 in a message about future-me
+    # references being baked in — analytical/philosophical, not corrective).
+    # The prior-turn-context check couldn't disambiguate because my prior
+    # turn HAD been substantive edits, so "corrective context" passed. The
+    # word "wrong" alone doesn't carry corrective geometry; the SHAPE around
+    # it does. Narrowing to the shapes where "wrong" predicates on my
+    # action:
+    #   ✓ "you're / you are / you were wrong"
+    #   ✓ "that's / that was / that is wrong"
+    #   ✓ "it's / it was wrong"     "this is / this was wrong"
+    #   ✓ "got it / that / this wrong"
+    #   ✓ "wrong about X" / "wrong on X"
+    # Excludes the false-fire class the 2026-06-23 comment names but
+    # couldn't structurally catch:
+    #   ✗ "wrong path / shape / word / direction" (noun-modifier)
+    #   ✗ analytical/teaching uses ("what you were doing wrong was...")
+    r"(?:"
+    r"\byou(?:'?re| are| were)\s+(?:so\s+|totally\s+|completely\s+|dead\s+|really\s+|just\s+)?wrong\b"
+    r"|\bthat(?:'?s| was| is)\s+(?:so\s+|totally\s+|completely\s+|dead\s+|really\s+|just\s+)?wrong\b"
+    r"|\bit(?:'?s| was)\s+(?:so\s+|totally\s+|completely\s+|dead\s+|really\s+|just\s+)?wrong\b"
+    r"|\bthis\s+(?:is|was)\s+(?:so\s+|totally\s+|completely\s+|dead\s+|really\s+|just\s+)?wrong\b"
+    r"|\bgot\s+(?:it|that|this|them|those)\s+wrong\b"
+    r"|\bwrong\s+(?:about|on)\s+\w"
+    # Noun-phrase subject predicated by is/was/were wrong. Catches "your
+    # last change was wrong", "the assumption is wrong", "my fix was
+    # wrong" etc. Noun-modifier use ("wrong path") is still excluded
+    # because the noun follows rather than precedes the copula.
+    r"|\b\w+(?:\s+\w+){0,3}\s+(?:was|is|were)\s+(?:so\s+|totally\s+|completely\s+|dead\s+|really\s+|just\s+)?wrong\b"
+    r")",
     # Demoted from STRONG 2026-06-30. \bthat'?s not\b false-fired
     # repeatedly on (a) quoted text from prior letters where Aletheia
     # or Aether use the phrase naturally in prose ("That's not auditing

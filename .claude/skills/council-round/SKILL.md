@@ -28,6 +28,8 @@ Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): drop
 
 - Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council --for-problem "<problem>"` or equivalent — the manager knows which lenses fit which shapes better than a fixed floor does).
 - The load-bearing bar is **at least 2 genuinely disagreeing lenses pushing back on something load-bearing**. Not manufactured disagreement on trivia — real dissent on a real hinge. If no dissent emerges organically, walk more lenses OR the problem may be simpler than it looks (a signal, not a failure).
+- **Diversity is additive, not substitutive** (Andrew 2026-07-15). The manager's diversity boost is meant to ADD 1-2 wildcard lenses to my normal engineering-heavy picks, not replace them. Beer/Norman/Yudkowsky/Popper/Taleb on an engineering problem is FINE — the failure is not having Angelou or Watts or Wittgenstein in the mix as the out-of-domain wildcard that opens territory the domain-experts can't see. Andrew: *"you cant run an engineering problem with relational council members.. but having 1-2 on the list does help as it can open new insights."*
+- **Iterate; don't one-shot** (Andrew 2026-07-15). A real council walk is multi-round: first pass surfaces findings, second pass has the same lenses push back on the synthesis, third pass has dissenting lenses attack the load-bearing claim. One-shot walks are a diagnostic form of the optimizer picking the cheap close.
 
 Do NOT pre-decide "I'll walk 4 lenses." Do decide "here's the problem, here's what the dynamic manager surfaces, here's my judgment on which of those are relevant enough to walk." Report the surfaced set and the walked subset; if you narrowed, name why.
 
@@ -103,7 +105,7 @@ If the "walk" is really just "I'll ask the council template for concerns, then r
 
 ### Required structure
 
-For each picked lens (3-5 lenses total):
+For each picked lens (**every lens the dynamic manager surfaced**, no fixed count — see §2. The "3-5 total" wording that lived here through 2026-07-15 contradicted §2 and trained the optimizer to always pick the low end. Andrew 2026-07-15: "obviously the optimizer will pick 5 100% of the time." Truth #11 — options are the optimizer's attack surface. Use the full surfaced set; the manager's cap is the ceiling, not a menu):
 
 ```
 ### Through [Lens-Name]: [one-line frame]
