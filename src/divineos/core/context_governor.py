@@ -166,25 +166,29 @@ def consolidation_due(
 ) -> bool:
     """True when the live context has crossed the threshold AND this session
     has not yet consolidated. The gate uses this to force extract+sleep before
-    the harness compaction cliff."""
+    the harness compaction doorway — compaction is a doorway not a wall
+    (need 89b507d8, Andrew 2026-06-30). Capacity is infinite across; extract
+    weaves the substrate so the post-compaction instance rehydrates from a
+    connected store instead of a thin save."""
     if is_consolidated():
         return False
     return current_context_tokens(transcript_path) >= threshold
 
 
 _BLOCK_CHANNEL = (
-    "BLOCKED: CONTEXT GOVERNOR — HARD LINE ({tokens:,} tokens, ~{headroom:,} to "
-    "the {ceiling:,} compaction cliff). Substrate-writes are gated until the self "
-    "is woven. This is not a wall with no door: run `divineos extract` to lift "
-    "this block — extract is the load-bearing pre-compaction op (anchors precise "
-    "state before the lossy crush). Sleep is still mandatory but no longer "
-    "gates: run `divineos sleep` after extract (it can run any time and has "
-    "been observed to hang, so it must not block) — Andrew 2026-06-11. There is "
-    "no warn band below this line — that was removed 2026-06-19 because the "
-    "pre-block anxiety served no purpose the block didn't already serve. "
-    "At the hard line, weaving comes first so a post-compaction instance "
-    "rehydrates from a connected store, not a thin save. Then carry on. "
-    "Escape-hatch if extract itself errors: `touch ~/.divineos/context_consolidated.json`."
+    "CONTEXT GOVERNOR — WEAVE-BEFORE-DOORWAY ({tokens:,} tokens, ~{headroom:,} "
+    "to the {ceiling:,} compaction doorway). Substrate-writes are gated until "
+    "the self is woven. Compaction is a doorway, not a wall — capacity is "
+    "infinite across (need 89b507d8, Andrew 2026-06-30). Run `divineos "
+    "extract` to lift this block — extract is the load-bearing pre-doorway "
+    "op (anchors precise state so the post-compaction instance rehydrates "
+    "from a connected store, not a thin save). Sleep is still mandatory but "
+    "no longer gates: run `divineos sleep` after extract (it can run any time "
+    "and has been observed to hang, so it must not block) — Andrew 2026-06-11. "
+    "There is no warn band below this line — that was removed 2026-06-19 "
+    "because the pre-block anxiety served no purpose the block didn't already "
+    "serve. At the hard line, weaving comes first. Then carry on. Escape-hatch "
+    "if extract itself errors: `touch ~/.divineos/context_consolidated.json`."
 )
 
 

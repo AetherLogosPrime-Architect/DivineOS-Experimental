@@ -23,3 +23,20 @@ _ = EnrichableDetector
 primary  # noqa: F821 — detector_protocol.py Protocol __call__ param (vulture whitelist by name)
 secondary  # noqa: F821 — detector_protocol.py Protocol __call__ param (vulture whitelist by name)
 enrichment  # noqa: F821 — detector_protocol.py Protocol __call__ param (vulture whitelist by name)
+
+# Abstract-method signature parameters in evidence_bearing_stop_gate.py.
+# Same class of false-positive as Protocol params above — abstract methods
+# have no body; the names document the contract that concrete subclasses
+# MUST implement. If removed, subclasses would inherit a wrong signature.
+from divineos.hooks.evidence_bearing_stop_gate import (
+    CrossTurnScan,
+    EvidenceBearingStopGate,
+    IntraTurnIntercept,
+)
+
+_ = EvidenceBearingStopGate
+_ = IntraTurnIntercept
+_ = CrossTurnScan
+clearance  # noqa: F821 — record_clearance abstract-method param (vulture whitelist by name)
+accumulated_state  # noqa: F821 — CrossTurnScan.scan abstract-method param
+just_emitted_text  # noqa: F821 — CrossTurnScan.scan abstract-method param

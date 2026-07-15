@@ -157,9 +157,14 @@ class TestCheckDeletionShape:
 
     def test_few_deletions_ok(self, fresh_repo):
         repo = fresh_repo
-        # Add some files on main first
+        # Files must have UNIQUE content so the content-hash presence
+        # check correctly identifies each as a distinct deletion. Under
+        # the new semantic (2026-07-14 Aletheia), identical-content
+        # files share a blob and deleting a duplicate doesn't count as
+        # destruction because the content still lives in the remaining
+        # copy. Real content-destruction requires unique content.
         for i in range(3):
-            (repo / f"f{i}.py").write_text("x", encoding="utf-8")
+            (repo / f"f{i}.py").write_text(f"unique content for file {i}\n" * 5, encoding="utf-8")
             _git(["add", f"f{i}.py"], cwd=repo)
             _git(["commit", "-m", f"add f{i}"], cwd=repo)
 
@@ -180,6 +185,40 @@ class TestCheckDeletionShape:
         assert finding.severity == "critical"
         assert finding.details["deletion_count"] == 15
         assert "silent-rollback" in finding.message.lower()
+
+    def test_renames_not_counted_as_deletions(self, fresh_repo):
+        """2026-07-14 Aletheia audit fix: a file MOVED from A to B is a
+        rename, not a deletion. The guard must use --find-renames so
+        archive-relocations and folder-reorgs don't trigger the false-
+        alarm. Mispriced toll trains reach-for-bypass; correctly priced
+        toll stays cheap for the honest act."""
+        repo = fresh_repo
+        # Create 10 files on main
+        for i in range(10):
+            (repo / f"doc_{i}.md").write_text(
+                f"substantive content in doc {i}\n" * 20, encoding="utf-8"
+            )
+            _git(["add", f"doc_{i}.md"], cwd=repo)
+            _git(["commit", "-m", f"add doc_{i}"], cwd=repo)
+
+        _git(["update-ref", "refs/remotes/origin/main", "main"], cwd=repo)
+        # Branch off main and MOVE all 10 to archive/ subfolder
+        _git(["checkout", "-b", "archive-sweep"], cwd=repo)
+        (repo / "archive").mkdir()
+        for i in range(10):
+            (repo / f"doc_{i}.md").rename(repo / "archive" / f"doc_{i}.md")
+        _git(["add", "-A"], cwd=repo)
+        _git(["commit", "-m", "archive-move all docs"], cwd=repo)
+
+        finding = check_deletion_shape(cwd=str(repo))
+        # With --find-renames, git detects these as renames (status R)
+        # not deletions (status D). Guard should see 0 deletions.
+        assert finding.severity == "ok", (
+            f"Archive-moves must not trigger the deletion guard. "
+            f"Got severity={finding.severity!r}, "
+            f"deletion_count={finding.details.get('deletion_count')}"
+        )
+        assert finding.details["deletion_count"] == 0
 
 
 class TestHelpers:
