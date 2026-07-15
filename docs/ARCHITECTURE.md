@@ -640,6 +640,7 @@ src/divineos/
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     evidence_bearing_stop_gate.py  Evidence-bearing Stop-gate primitive (2026-07-15) — abstract base with IntraTurnIntercept + CrossTurnScan variants, five-slot enforcement (LOCK/CONDITION/KEY/RECORD/FALSIFIER), prototyped by the LEPOS-channel Stop hook the same day
     distancing_intercept.py    First concrete IntraTurnIntercept (2026-07-15) — wraps core.operating_loop.distancing_detector, intercepts distancing-grammar before emit rather than warning post-hoc
+    gate_event_ledger.py       Ledger helper for gate fire/clear events (2026-07-15, Aletheia audit finding #2) — record_gate_fire, record_gate_clearance, compute_falsification_ratio; lets falsification_signal derive its threshold from accumulated data instead of hardcoded 0.85
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).

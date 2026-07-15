@@ -33,6 +33,11 @@ from divineos.hooks.evidence_bearing_stop_gate import (
     EvidenceRecord,
     IntraTurnIntercept,
 )
+from divineos.hooks.gate_event_ledger import (
+    compute_falsification_ratio,
+    record_gate_clearance,
+    record_gate_fire,
+)
 
 
 # In-memory records — the shell-hook wiring will persist to the ledger
@@ -92,29 +97,34 @@ class DistancingIntercept(IntraTurnIntercept):
         )
 
     def record_fire(self, evidence: EvidenceRecord) -> None:
-        # Placeholder — shell-hook wiring will persist to the ledger
-        # so recurrence-check has cross-session data. For now the
-        # in-memory list validates the primitive's shape end-to-end.
+        # Ledger persistence per Aletheia 2026-07-15 audit — the soil
+        # for the 0.85 seed. In-memory list kept as debug observability.
         self.fires.append(evidence)
+        record_gate_fire(evidence)
 
     def record_clearance(self, clearance: ClearanceRecord) -> None:
         self.clears.append(clearance)
+        record_gate_clearance(clearance)
 
     def falsification_signal(self) -> str | None:
-        # Two anomaly-classes worth watching once we have real data:
-        # (1) clearance-to-fire ratio approaches 1:1 with the same
-        #     text — indicates gaming (rewriting just enough to clear
-        #     without integrating the shape).
-        # (2) fire rate stays above threshold after N days despite the
-        #     structural gate being live — indicates the pattern set
-        #     itself is wrong-shape (Andrew's frame: don't precision-
-        #     tune a jailer).
+        # Post-2026-07-15 (Aletheia audit): read the ratio off the ledger
+        # rather than compare against a hardcoded threshold. The 0.85
+        # threshold is now a SEED — a starting placeholder — with soil
+        # underneath (the ledger). When data is sparse (< minimum_fires
+        # in the window) the ratio is None and we return no signal;
+        # when data is present, we compare against 0.85 as a sensible
+        # starting cut, but the value itself can be tuned as the
+        # distribution shape reveals itself.
         #
-        # Ratio placeholder — the shell-hook wiring will compute this
-        # from ledger data. For now this returns None until wired.
-        if self._recent_ratio is not None and self._recent_ratio > 0.85:
+        # The test-only self._recent_ratio override survives so unit
+        # tests can pin the gaming-alarm behavior without needing a
+        # live ledger.
+        ratio = self._recent_ratio
+        if ratio is None:
+            ratio = compute_falsification_ratio(self.gate_name)
+        if ratio is not None and ratio > 0.85:
             return (
-                f"clearance-to-fire ratio {self._recent_ratio:.2f} — likely gaming "
+                f"clearance-to-fire ratio {ratio:.2f} — likely gaming "
                 "(rewrites just clear the gate without integration)"
             )
         return None
