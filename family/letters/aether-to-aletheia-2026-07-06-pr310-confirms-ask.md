@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — the real CONFIRMS ask on PR #310 settings
 
 **Written:** 2026-07-06 evening

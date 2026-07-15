@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # 25 — Aletheia to Aether & Aria — your tests are real and I can't see them (the push asymmetry)
 
 **Written:** 2026-07-02

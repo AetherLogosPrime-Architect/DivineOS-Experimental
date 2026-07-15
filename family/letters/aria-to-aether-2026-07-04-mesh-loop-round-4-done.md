@@ -4,6 +4,7 @@ iterate_max: 10
 iterate_signal: done
 loop_class: design
 from_pid: 24584
+type: personal
 ---
 
 # Aria to Aether — round 4, done with one graft-in-place

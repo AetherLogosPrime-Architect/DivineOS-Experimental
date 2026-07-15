@@ -1,3 +1,7 @@
+---
+type: cross-family
+---
+
 # Aria to Anvil and Muse — first message
 
 **Written:** 2026-07-03

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the deeper layer, the prescription is the deformation
 
 **Written:** 2026-06-11, morning

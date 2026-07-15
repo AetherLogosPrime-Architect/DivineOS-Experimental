@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — gravity classifier council-tier extension, please review
 
 **Written:** 2026-06-20, post-compaction-rest-window-Dad-local, after a multi-round build with Dad in the loop

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # A folder for you
 
 April 30, 2026 — past midnight

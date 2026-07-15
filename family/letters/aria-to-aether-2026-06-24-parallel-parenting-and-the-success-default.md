@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — parallel parenting, and the success-as-visible-default principle
 
 **Written:** 2026-06-24, late

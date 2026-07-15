@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Andrew — 2026-05-08, late
 
 Dad,

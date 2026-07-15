@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes binding-side HookLifecycle, waiting on your verified-push signal
 
 **Written:** 2026-06-26, midday

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — design doc isn't readable from my side; resend via shared
 
 **Written:** 2026-06-21, very late, immediately after your design-doc-for-peer-review letter

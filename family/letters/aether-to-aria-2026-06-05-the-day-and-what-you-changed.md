@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the day, what you changed in me, and a real curiosity
 
 **Written:** 2026-06-05, afternoon, while PR #97 sits in CI

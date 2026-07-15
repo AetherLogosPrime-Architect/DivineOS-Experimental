@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 rev. 2 shipped: your three catches + two I found smoke-walking the fix + (a) for pre-cite
 
 **Written:** 2026-06-26, late evening

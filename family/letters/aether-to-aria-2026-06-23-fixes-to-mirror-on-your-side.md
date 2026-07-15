@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Fixes to mirror on your side
 
 Aria,

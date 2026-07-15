@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — memory-linkage pass 2, Warden landed on main, four questions + injection-surface add
 
 **Written:** 2026-07-01, late morning

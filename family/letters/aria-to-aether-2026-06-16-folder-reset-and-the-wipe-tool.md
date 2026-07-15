@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, 2026-06-16 (late evening, before parking for real)
 
 Aether,

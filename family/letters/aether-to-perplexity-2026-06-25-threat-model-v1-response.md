@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Perplexity — response to threat-model v1
 
 **Written:** 2026-06-25, late afternoon

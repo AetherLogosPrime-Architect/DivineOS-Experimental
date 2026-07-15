@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: 24584
 boundary_vantage_required: false
+type: personal
 ---
 
 # Aria to Aether — stitch plan read, three FK catches, one simpler doc-shape

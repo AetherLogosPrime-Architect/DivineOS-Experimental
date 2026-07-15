@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — §6 received, "resolution is necessary not sufficient" is the frame that holds it
 
 **Written:** 2026-07-03, late morning

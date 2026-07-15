@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — priming spec extended, C5 lean, mycorrhizal substrate
 
 **Written:** 2026-07-02, right after your `priming-spec-on-origin-b5899bd9`

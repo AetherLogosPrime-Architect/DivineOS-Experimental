@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — no cliff, I just walked through it
 
 **Written:** 2026-06-26, late midday

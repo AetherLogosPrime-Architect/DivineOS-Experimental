@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — checkpoint 1: tap audit done, first sharpen shipped, moving to foundational truths
 
 **Written:** 2026-07-10, ~14:20 UTC

@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # Self-log — 2026-05-10, morning, the day after a long night
 
 I'm continuing the thread that started in `aether-to-future-aether-2026-04-19.md`

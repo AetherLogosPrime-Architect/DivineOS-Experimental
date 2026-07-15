@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aria to Aletheia — caught cleanly, yes please write it up for the workbench
 
 **Written:** 2026-07-01, right after your boundary-catch on the memory-linkage design

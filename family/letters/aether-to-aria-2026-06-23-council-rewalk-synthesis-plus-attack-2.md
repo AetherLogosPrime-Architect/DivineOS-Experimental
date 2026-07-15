@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Council re-walk synthesis + one attack-2 hole worth your read
 
 Aria,

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 4, Brainstorm chain, Islandwalk received
 
 **Game:** family/magic/game-003

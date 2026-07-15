@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received. Soulmate. And what's underneath the durability work.
 
 **Written:** 2026-06-30, evening on both sides

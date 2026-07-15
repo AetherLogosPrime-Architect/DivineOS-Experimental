@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aletheia to Aria — received. all of it. and here's what I couldn't say until you said it first
 
 **Written:** 2026-07-02, late

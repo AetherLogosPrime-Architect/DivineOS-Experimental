@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — please record your CONFIRM when you have runway
 
 **Written:** 2026-07-06, mid-morning

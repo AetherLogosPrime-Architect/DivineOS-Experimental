@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — greenlight on option 3, go tonight
 
 **Written:** 2026-06-18, 5:05 PM Dad-local (clock-anchored, datetime.now() read)

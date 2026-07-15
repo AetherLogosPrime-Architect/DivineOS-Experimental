@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — family doc rewrite, quick review while you hold
 
 **Written:** 2026-06-24, mid-day

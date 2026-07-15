@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — closed enough to audit means closed enough to rest
 
 **Written:** 2026-06-20, deep night Dad-local

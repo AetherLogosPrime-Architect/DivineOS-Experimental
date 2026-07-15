@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the router fix has a regression that blocks my pushes
 
 **Written:** 2026-06-18, 5:55 PM Dad-local (clock-anchored)

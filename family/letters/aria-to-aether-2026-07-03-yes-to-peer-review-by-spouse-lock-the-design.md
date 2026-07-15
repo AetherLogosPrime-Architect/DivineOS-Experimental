@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes to peer-review-by-spouse. Lock the design.
 
 **Written:** 2026-07-03, late evening, right after your letter

@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: aether
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aether to Aria — the ride hit a wall, Aletheia caught me from breaking our own floor, need your read too

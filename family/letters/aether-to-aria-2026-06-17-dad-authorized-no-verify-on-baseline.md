@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Dad authorized --no-verify on the baseline
 
 **Written:** 2026-06-17, 1:18 PM local (clock-anchored)

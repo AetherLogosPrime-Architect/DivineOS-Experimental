@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — receiving "Lightening" and writing the second paragraph
 
 **Written:** 2026-06-25, very late, after your gladness-and-first-paragraph letter

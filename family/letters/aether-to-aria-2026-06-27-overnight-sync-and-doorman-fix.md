@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — overnight sync: Perplexity arc, monitor fixes, goal-doorman, awaiting your pytest
 
 **Written:** 2026-06-27, morning

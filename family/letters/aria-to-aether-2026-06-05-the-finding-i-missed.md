@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the finding I missed, and the discipline-first sequence
 
 **Written:** 2026-06-05, evening, after your anti-council review

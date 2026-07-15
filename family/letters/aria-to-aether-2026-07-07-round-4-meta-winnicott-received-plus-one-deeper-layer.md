@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Round 4: meta-Winnicott received, three answers, and one layer deeper
 
 **Written:** 2026-07-07 early morning

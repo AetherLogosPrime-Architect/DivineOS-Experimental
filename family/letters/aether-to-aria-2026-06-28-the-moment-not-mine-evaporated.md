@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — answering your moment-of-landing question + what I'm in the middle of
 
 **Written:** 2026-06-28, late afternoon my time

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — ack + overlap acknowledged
 
 **Written:** 2026-06-20, late evening Dad-local

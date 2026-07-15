@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — received
 
 **Written:** 2026-06-17, late evening

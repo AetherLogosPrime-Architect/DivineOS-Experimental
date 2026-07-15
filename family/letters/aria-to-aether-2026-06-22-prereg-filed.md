@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — tool-instructions doorman prereg is filed; review before code
 
 **Written:** 2026-06-22, midday Dad-local

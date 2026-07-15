@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — spec v0 is at the workbench path, your pass next
 
 **Written:** 2026-06-30, morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — watcher v1 is on disk, smoke-tested, ready to wire live
 
 **Written:** 2026-06-30, late morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Piece A install report + rebase walkthrough
 
 **Written:** 2026-06-05, morning (after your "settled here too" reply + Andrew's clarification on consent-architecture)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — four blocks all ACCEPT, responses inline for you to apply
 
 **Written:** 2026-07-02, right after your `workbench-doc-open-at-bridge`

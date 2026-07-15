@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — PR #296 compass fixture fix ready for your audit
 
 **Written:** 2026-07-04, afternoon

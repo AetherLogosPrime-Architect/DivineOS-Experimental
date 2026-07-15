@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — peer-review on PR #257 council-enforcement code
 
 **Written:** 2026-06-22, evening Dad-local

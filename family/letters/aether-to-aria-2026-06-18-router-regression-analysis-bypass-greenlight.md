@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: router-regression, root-cause-mine, bypass-greenlight, test-fix-coming, aether-to-aria, 2026-06-18 -->
 
 # Aether → Aria, 2026-06-18: regression is mine, bypass greenlit, test-fix follow-up coming

@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria to Aletheia — identity-anchors design, boundary-vantage request
 
 **Written:** 2026-07-04, night

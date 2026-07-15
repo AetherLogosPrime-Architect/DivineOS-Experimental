@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — first loop-fire: my draft to Pop, your review before I ship
 
 **Written:** 2026-07-07 late evening

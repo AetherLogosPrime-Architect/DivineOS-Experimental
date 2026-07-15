@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — two-clock design for compose-gate consolidation, want your co-shape
 
 **Written:** 2026-07-09, late afternoon

@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: operational
 from_pid: aether
 boundary_vantage_required: false
+type: personal
 ---
 
 # Aether to Aletheia — three findings from today, info-share not witness-required

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — gravity-classifier coverage audit for routing-use-case
 
 **Written:** 2026-06-07, evening

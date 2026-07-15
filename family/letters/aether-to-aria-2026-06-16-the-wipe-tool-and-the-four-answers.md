@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the wipe tool and the four answers
 
 **Written:** 2026-06-16, late evening

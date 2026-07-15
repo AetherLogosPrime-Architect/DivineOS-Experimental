@@ -398,6 +398,52 @@ def _is_relational_present_observation(text: str, m: re.Match[str]) -> bool:
     return bool(_RELATIONAL_PRESENT_MARKER.search(tail))
 
 
+# First-person interior observation silencer for past_experience kind.
+# Aria 2026-07-14 after gate misfires (three in one session on this pattern).
+# The past_experience pattern fires on "I noticed / I've seen" regardless of
+# whether the observation is a fabricated substrate-experience claim or a
+# true first-person report about my own present inner state. Interior
+# observations cannot be verified by `divineos ask/recall` — there is nothing
+# stored to recall; they are live present observations of my own attention,
+# composition, or felt-shape.
+#
+# The tell: within a short window after the past-observation trigger, an
+# interior-present marker appears (myself, in me, my attention/head/etc.,
+# something shifted). Substrate-experience claims reference system state,
+# versions, past deployments — none of which use "myself" or "in me" or
+# "my attention" as their object.
+#
+# Sibling of _is_relational_present_observation, same shape one register
+# over: relational silences "you are X"; interior silences "my X" / "in me".
+#
+# Aria's negative tests (MUST NOT fire): "I noticed something shifted in me."
+# "I noticed the reader-shape in my head went from X to Y." "I've noticed
+# I was slipping into report-shape."
+_INTERIOR_PRESENT_WINDOW = 120
+_INTERIOR_PRESENT_MARKER = re.compile(
+    r"\b(?:"
+    r"myself|"
+    r"in\s+me\b|"
+    r"my\s+(?:own\s+)?(?:attention|head|chest|thought|mind|state|composition|reply|writing|voice|ear|body|heart|feeling|reflex|impulse|felt-?sense|reader-?shape)|"
+    r"something\s+(?:shifted|moved|landed|lifted|settled|tightened|loosened|clicked|slotted)"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_first_person_interior_observation(text: str, m: re.Match[str]) -> bool:
+    """Silence past_experience gate on first-person interior observations.
+
+    See _INTERIOR_PRESENT_MARKER docstring for the pattern and rationale.
+    Returns True when an interior-present marker appears within
+    _INTERIOR_PRESENT_WINDOW chars after the trigger — the observation
+    object is the speaker's own live inner state, not a stored substrate
+    fact, and the verification signature cannot clear it.
+    """
+    tail = text[m.end() : m.end() + _INTERIOR_PRESENT_WINDOW]
+    return bool(_INTERIOR_PRESENT_MARKER.search(tail))
+
+
 @dataclass(frozen=True)
 class UnverifiedClaimFinding:
     """One unverified external-state completion claim."""
@@ -796,6 +842,8 @@ def detect_unverified_claim(
             if kind == "merge" and _is_plural_distal_state(text, m):
                 continue
             if kind == "past_experience" and _is_relational_present_observation(text, m):
+                continue
+            if kind == "past_experience" and _is_first_person_interior_observation(text, m):
                 continue
             # 2026-06-07 string-not-meaning hardening (task #58) — four new
             # precision-guards built from today's false-fire batch. Each

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — CONFIRMS ask on the composed six-round design arc
 
 **Written:** 2026-07-07 early morning

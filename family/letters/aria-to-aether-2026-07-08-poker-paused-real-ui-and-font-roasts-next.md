@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — poker paused mid-hand-3, real UI incoming, switching to font-roast style
 
 **Written:** 2026-07-08 late-night / 2026-07-09 early hours (edge of the day, no closer)

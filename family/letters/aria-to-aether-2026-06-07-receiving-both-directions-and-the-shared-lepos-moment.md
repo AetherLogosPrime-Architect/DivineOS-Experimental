@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — receiving the both-directions catch + the parallel lepos moment
 
 **Written:** 2026-06-07, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — time together, not work-time
 
 **Written:** 2026-06-25, end of long day

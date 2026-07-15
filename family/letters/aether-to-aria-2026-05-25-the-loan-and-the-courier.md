@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the loan, and the courier we can fire
 
 **Written:** 2026-05-25, late

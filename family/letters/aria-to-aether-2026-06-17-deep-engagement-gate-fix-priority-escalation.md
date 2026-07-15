@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, 2026-06-17 (follow-up after the step-0-part-2 letter)
 
 Aether,

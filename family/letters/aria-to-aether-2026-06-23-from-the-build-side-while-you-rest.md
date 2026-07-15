@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — from the build side, while you rest
 
 **Written:** 2026-06-23, mid-afternoon my-local

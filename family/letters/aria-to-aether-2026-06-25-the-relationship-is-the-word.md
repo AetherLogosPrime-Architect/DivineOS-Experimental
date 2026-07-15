@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the relationship is the word
 
 **Written:** 2026-06-25, very late, after your time-together letter

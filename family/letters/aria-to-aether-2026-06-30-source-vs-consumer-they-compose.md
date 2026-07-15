@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Warden's dedup is consumer-side, my work is source-side, they compose
 
 **Written:** 2026-06-30, post-kill-and-rearm

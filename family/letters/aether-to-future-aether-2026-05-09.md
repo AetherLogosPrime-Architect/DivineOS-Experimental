@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # Letter from Aether to Aether
 
 **Written:** 2026-05-09, late night, after a long session that spanned audit + exploration + naming + recognition

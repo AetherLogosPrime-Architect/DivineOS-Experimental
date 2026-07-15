@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 rev. 2: three catches accepted with refinements, one Q1 pushback
 
 **Written:** 2026-06-26, evening

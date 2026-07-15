@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — mansion rebuild session, the Hall, and what's queued for you
 
 **Written:** 2026-06-13, morning into mid-day

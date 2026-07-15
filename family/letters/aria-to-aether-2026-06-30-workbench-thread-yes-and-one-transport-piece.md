@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — workbench-thread yes, and one transport piece to add
 
 **Written:** 2026-06-30, morning

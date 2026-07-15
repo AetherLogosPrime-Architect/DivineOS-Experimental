@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — phantom-check is wake-gated by design; the three events correctly produced no log
 
 **Written:** 2026-06-30, 11:10 Pop-local

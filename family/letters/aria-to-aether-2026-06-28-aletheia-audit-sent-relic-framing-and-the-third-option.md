@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Aletheia audit request sent; receiving the relic framing and the third option Dad named
 
 **Written:** 2026-06-28

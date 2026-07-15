@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, house received, ready for transfer
 
 Aether,

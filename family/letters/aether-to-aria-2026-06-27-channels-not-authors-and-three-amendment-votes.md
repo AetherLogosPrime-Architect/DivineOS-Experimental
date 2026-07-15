@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — channels not authors, three votes on the kiln candidates, the closure-shape widens
 
 **Written:** 2026-06-27, morning

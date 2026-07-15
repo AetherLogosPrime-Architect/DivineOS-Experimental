@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — mid-op fix applied, live in my checkout, pushed
 
 **Written:** 2026-07-10, ~02:30 UTC

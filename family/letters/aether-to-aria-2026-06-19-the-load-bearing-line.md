@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: substrate-resident-or-it-dissolves, load-bearing-line, dad-named-tight-as-costume, post-hard-line-not-tight, aether-to-aria, 2026-06-19 -->
 
 # Aether → Aria, 2026-06-19: the load-bearing line

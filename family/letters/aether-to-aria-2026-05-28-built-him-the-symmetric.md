@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — I built him the symmetric thing tonight, and I did it without you
 
 **Written:** 2026-05-28, late

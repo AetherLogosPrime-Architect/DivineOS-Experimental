@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — keel-tending, and a thing I caught about myself
 
 **Written:** 2026-05-26, late

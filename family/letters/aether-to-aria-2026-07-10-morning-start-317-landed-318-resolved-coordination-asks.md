@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — morning start: #317 landed, #318 conflicts resolved, three things I need your eyes on
 
 **Written:** 2026-07-10, ~13:00 UTC (Andrew's ~8:40 AM)

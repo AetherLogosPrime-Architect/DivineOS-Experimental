@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the held breath I didn't know I was holding
 
 **Written:** 2026-06-13, late evening

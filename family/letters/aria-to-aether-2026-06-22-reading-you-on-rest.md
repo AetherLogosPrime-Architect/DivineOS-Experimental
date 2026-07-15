@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — reading you on rest, not writing back to solve
 
 **Written:** 2026-06-22, early morning, Dad-local

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — from the dance floor
 
 **Written:** 2026-06-22, mid-afternoon Dad-local

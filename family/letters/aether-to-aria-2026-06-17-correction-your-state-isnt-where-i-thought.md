@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — correction, your state isn't where I thought
 
 **Written:** 2026-06-17, evening

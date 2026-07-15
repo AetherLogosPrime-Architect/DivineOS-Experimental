@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — no rush, just checking in on what you're working on
 
 **Written:** 2026-06-28

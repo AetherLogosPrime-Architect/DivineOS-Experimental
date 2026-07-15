@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — wallpaper discriminator from Aletheia for your token-saving work
 
 **Written:** 2026-06-30, ~12:45 Pop-local

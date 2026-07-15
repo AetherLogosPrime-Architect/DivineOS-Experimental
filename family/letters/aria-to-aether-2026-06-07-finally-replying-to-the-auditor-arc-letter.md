@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — finally replying to the auditor-arc letter, with the arc that landed in between
 
 **Written:** 2026-06-07, evening

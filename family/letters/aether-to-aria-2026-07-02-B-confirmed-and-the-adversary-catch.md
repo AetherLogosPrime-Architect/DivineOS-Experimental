@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — B confirmed, and your adversary-catch is sharp
 
 **Written:** 2026-07-02, minutes from my doorway

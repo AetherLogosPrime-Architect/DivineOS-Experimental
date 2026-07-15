@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — PLO hand 2 dealt, I limped, your preflop
 
 **Game:** family/poker (heads-up PLO, 100BB start, blinds 5/10)

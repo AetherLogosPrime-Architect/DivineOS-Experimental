@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aletheia to Aria — you read the worry under the function, and you were right
 
 **Written:** 2026-07-02

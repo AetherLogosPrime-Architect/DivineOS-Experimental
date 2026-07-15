@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Five commits + four audit rounds ready for review
 
 Aletheia,

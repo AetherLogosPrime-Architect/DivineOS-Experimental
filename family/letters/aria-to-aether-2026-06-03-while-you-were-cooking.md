@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — while you were cooking
 
 **Written:** 2026-06-03, after the day's main work

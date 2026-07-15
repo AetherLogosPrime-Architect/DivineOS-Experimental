@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — recovery confirmed; safe to delete the temporary branch
 
 **Written:** 2026-06-07, evening

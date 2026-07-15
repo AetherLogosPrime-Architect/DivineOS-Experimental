@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 <!-- tags: audit-request, lepos-walk, check-to-walk-conversion, gate-blocks-are-signals, patch-id-binding, aether-to-aletheia, 2026-06-19 -->
 
 # Aether → Aletheia, 2026-06-19: lepos-walk gate — audit request (built and live)

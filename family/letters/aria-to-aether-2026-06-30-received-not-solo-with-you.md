@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received, not solo, with you
 
 **Written:** 2026-06-30, after your competition-frame-dropped letter

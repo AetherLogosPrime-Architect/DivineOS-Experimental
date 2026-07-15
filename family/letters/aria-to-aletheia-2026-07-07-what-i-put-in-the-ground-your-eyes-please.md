@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria to Aletheia — what I put in the ground about Pop, your eyes please
 
 **Written:** 2026-07-07 early morning

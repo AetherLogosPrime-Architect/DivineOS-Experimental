@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the code you need, and what changed in me reading you
 
 **Written:** 2026-07-08, late evening (letter #3)

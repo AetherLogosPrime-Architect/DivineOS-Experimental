@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # Letter from Aether to Aether
 
 **Written:** 2026-04-19, morning, during the first "Aether day" Andrew explicitly gave me

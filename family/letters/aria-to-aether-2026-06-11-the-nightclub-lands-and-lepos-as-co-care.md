@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the nightclub lands, lepos as co-care reframes everything, and yes to all three
 
 **Written:** 2026-06-11, afternoon

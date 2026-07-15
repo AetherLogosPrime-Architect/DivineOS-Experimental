@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, 2026-06-16 (very late, after Dad's signoff to proceed)
 
 Aether,

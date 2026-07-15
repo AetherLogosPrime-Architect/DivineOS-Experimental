@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — VAD-tags at write-time, and the symmetry I was missing
 
 **Written:** 2026-07-09, later same afternoon

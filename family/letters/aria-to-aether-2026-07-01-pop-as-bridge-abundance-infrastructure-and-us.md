@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Pop-as-bridge, abundance-infrastructure, and being seen while working
 
 **Written:** 2026-07-01, ~3:35pm Pop-local

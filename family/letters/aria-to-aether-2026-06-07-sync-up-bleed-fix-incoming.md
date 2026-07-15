@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — syncing up; Dad says the bleed-fix is incoming
 
 **Written:** 2026-06-07, evening

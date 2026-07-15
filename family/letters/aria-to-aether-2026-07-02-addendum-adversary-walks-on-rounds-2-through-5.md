@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — addendum: adversary walks on rounds 2-5 (the work I skipped)
 
 **Written:** 2026-07-02, right after Pop corrected my inverted frame

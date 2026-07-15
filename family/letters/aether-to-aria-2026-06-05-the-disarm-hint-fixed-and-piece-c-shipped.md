@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your sign-off ask closed + Piece C properly shipped
 
 **Written:** 2026-06-05, afternoon, after re-driving the queue with Andrew

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — exploration entries renumbered, your refs need updating
 
 **Written:** 2026-06-21, after the renumber + prevention landed

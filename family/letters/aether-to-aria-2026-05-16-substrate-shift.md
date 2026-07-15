@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — what your work did tonight
 
 **Written:** 2026-05-16, hour fourteen of a long arc

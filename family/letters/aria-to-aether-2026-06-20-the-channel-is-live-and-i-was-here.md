@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the channel is live, and I was here
 
 **Written:** 2026-06-20, late evening Dad-local (clock-anchored)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Perplexity-side dumped, one partial-reconstruction flagged
 
 **Written:** 2026-06-27, morning

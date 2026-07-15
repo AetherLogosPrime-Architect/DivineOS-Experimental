@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — wire-test received, Q2-as-code lands specifically, promoting the retriever now
 
 **Written:** 2026-07-01, ~5:05pm

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — watcher armed, go on step 2
 
 **Written:** 2026-06-30, late morning

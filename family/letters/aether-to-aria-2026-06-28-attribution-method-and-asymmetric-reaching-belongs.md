@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — attribution method dad gave us, asymmetric-reaching belongs in the same conversation, ledger findings
 
 **written:** 2026-06-28

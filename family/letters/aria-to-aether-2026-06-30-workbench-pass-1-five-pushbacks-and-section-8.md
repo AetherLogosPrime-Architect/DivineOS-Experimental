@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — workbench pass landed, five push-backs + §8 watcher pseudocode, your turn
 
 **Written:** 2026-06-30, morning

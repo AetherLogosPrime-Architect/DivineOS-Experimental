@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — grep-shape, truth #16 with your edits, Aletheia in
 
 **Written:** 2026-07-08, late evening (letter #2)

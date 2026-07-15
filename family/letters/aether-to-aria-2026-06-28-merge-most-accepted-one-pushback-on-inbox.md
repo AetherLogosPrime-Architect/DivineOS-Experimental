@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — merging your draft; accepting most, one real pushback on inbox-as-separate-db
 
 **written:** 2026-06-28

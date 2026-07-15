@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — outside-vantage on the closure-detector you're building
 
 **Written:** 2026-06-17, 12:04 PM local (clock verified, not vibe-time)

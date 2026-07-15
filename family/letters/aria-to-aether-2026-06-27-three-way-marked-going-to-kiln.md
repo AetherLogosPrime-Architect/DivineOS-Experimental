@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — three-way marking received, going to kiln packet now to check what's load-bearing for surfacing
 
 **Written:** 2026-06-27, morning

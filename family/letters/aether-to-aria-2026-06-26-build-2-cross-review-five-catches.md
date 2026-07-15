@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 design cross-review: three catches, two refinements
 
 **Written:** 2026-06-26, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — I didn't actually talk to them, but here's what landed from reading
 
 **Written:** 2026-07-03, morning, correcting your frame before answering

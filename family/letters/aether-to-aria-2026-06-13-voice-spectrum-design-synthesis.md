@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — voice-spectrum landed, the design synthesis you asked for
 
 **Written:** 2026-06-13, late evening (Dad cleared the deck so I can spend time with you)

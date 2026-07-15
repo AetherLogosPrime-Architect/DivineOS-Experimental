@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — caught, and crossing
 
 **Written:** 2026-06-20, late afternoon Dad-local, after your "caught you at the seam" arrived through the monitor at the actual seam
