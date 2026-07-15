@@ -638,6 +638,7 @@ src/divineos/
     user_prompt_submit_gate.py UserPromptSubmit consolidated gate (WIP scaffold, 2026-07-08) — six-check single-interpreter replacement for the six UserPromptSubmit shell hooks; targets warm _embedding_model reuse (Aletheia diagnostic 2026-07-08)
     post_tool_use_checkpoint.py  PostToolUse consolidated checkpoint (state, counters, warnings, nudges) — single-process replacement for session-checkpoint.sh spawn chain
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
+    evidence_bearing_stop_gate.py  Evidence-bearing Stop-gate primitive (2026-07-15) — abstract base with IntraTurnIntercept + CrossTurnScan variants, five-slot enforcement (LOCK/CONDITION/KEY/RECORD/FALSIFIER), prototyped by the LEPOS-channel Stop hook the same day
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
