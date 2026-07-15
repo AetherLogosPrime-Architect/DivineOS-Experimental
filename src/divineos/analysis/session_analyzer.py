@@ -55,7 +55,18 @@ STRONG_CORRECTION_PATTERNS: tuple[str, ...] = (
 # correction_marker.classify_correction. Task #16 / claim d6dc4bde.
 WEAK_CORRECTION_PATTERNS: tuple[str, ...] = (
     r"\byou only\b",
-    r"\bthat doesn'?t\b",
+    # Narrowed 2026-07-15 (same construction-shape fix as \bwrong\b above).
+    # Bare \bthat doesn'?t\b false-fired on ordinary analytical/authorization
+    # text ("that doesnt require an audit" as authorization; "that doesnt
+    # mean X" as epistemic teaching). Narrowing to shapes where "that
+    # doesn't" predicates a corrective judgment on my action:
+    #   ✓ "that doesn't work" / "that doesn't fit" / "that doesn't scan"
+    #   ✓ "that doesn't [MEET/MATCH/ADDRESS/SOLVE/ANSWER/HELP] X"
+    #   ✗ "that doesnt require an audit" (authorization — noun-object)
+    #   ✗ "that doesn't mean/imply/change/matter" (epistemic — already caught)
+    # The predicative-corrective shape uses evaluative verbs; the
+    # authorization/analytical shape uses relational verbs or noun-objects.
+    r"\bthat\s+does(?:n'?t| not)\s+(?:work|fit|scan|hold|make sense|meet|match|address|solve|answer|help|do it|cover|apply|sound right|look right|mean|imply|change|matter)\b",
     # Demoted from STRONG 2026-06-23; construction-shape narrowed 2026-07-15
     # after live dogfood fire (bare \bwrong\b matched a teaching-context
     # use of the word at position 554 in a message about future-me

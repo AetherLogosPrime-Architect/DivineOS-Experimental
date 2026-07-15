@@ -513,6 +513,26 @@ class TestQuestionAuthorizationGuard20260711:
             is None
         )
 
+    # Same construction-shape narrowing applied to \bthat doesn'?t\b
+    # (2026-07-15 recurrence). First fire held for "wrong" but the
+    # sibling pattern kept crying wolf on authorization/analytical text.
+    # Same rule: predicative-corrective shape uses evaluative verbs
+    # (work/fit/scan/meet); authorization uses relational verbs or
+    # noun-objects.
+
+    def test_that_doesnt_authorization_shape_does_not_fire(self) -> None:
+        # "yes we can edit the kiln number that doesnt require an audit"
+        # — noun-object ("require an audit") makes this authorization,
+        # not corrective judgment on my action.
+        assert verdict_of("yes we can edit the kiln number that doesnt require an audit") is None
+        assert verdict_of("that doesnt need a full sweep, just this file", "", ("Edit",)) is None
+
+    def test_that_doesnt_predicative_corrective_still_fires(self) -> None:
+        # Recall preservation. Evaluative verbs preserve corrective shape.
+        assert verdict_of("that doesn't work") == "advise"
+        assert verdict_of("that doesnt fit the pattern", "", ("Edit",)) == "block"
+        assert verdict_of("that doesn't scan at all") == "advise"
+
     def test_wrong_predicate_still_fires(self) -> None:
         # Recall preservation. The narrowing must NOT kill real corrective use.
         assert verdict_of("you're wrong") == "advise"
