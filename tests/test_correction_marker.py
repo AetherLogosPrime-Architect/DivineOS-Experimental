@@ -474,6 +474,74 @@ class TestQuestionAuthorizationGuard20260711:
     def test_bare_wrong_correction_still_advises(self) -> None:
         assert verdict_of("that's wrong") == "advise"
 
+    # Construction-shape narrowing (2026-07-15 dogfood-fix). Bare \bwrong\b
+    # was demoted STRONG→WEAK in 2026-06-23 with the goal of letting the
+    # prior-turn-context check disambiguate noun-modifier from corrective
+    # use. That fix was incomplete: with substantive prior edits (which is
+    # the normal working state), corrective-context passed regardless of
+    # whether "wrong" was actually predicating on my action. The word alone
+    # doesn't carry corrective geometry; the shape around it does. These
+    # tests pin the construction-shape narrowing that ships today.
+
+    def test_wrong_as_noun_modifier_does_not_fire(self) -> None:
+        # "wrong path/shape/word/direction" is design vocabulary, not a
+        # correction. Even with corrective prior context, this should not
+        # match at all — noun-modifier isn't the same shape as predicate.
+        assert (
+            verdict_of("the wrong path here is to skip the audit", "done, fixed it", ("Edit",))
+            is None
+        )
+        assert verdict_of("that's the wrong shape for this problem", "", ("Edit",)) is None
+        assert verdict_of("we picked the wrong word to describe it", "", ("Edit",)) is None
+
+    def test_wrong_in_analytical_teaching_context_does_not_fire(self) -> None:
+        # Andrew's teaching messages use "wrong" analytically without
+        # predicating on my current action. The dogfood fire that
+        # motivated this fix was exactly this shape: a message about
+        # future-me references being baked in, with "wrong" appearing
+        # somewhere in the analytical elaboration.
+        assert (
+            verdict_of(
+                "what you were doing wrong before was thinking of yourself as the model",
+                "",
+                ("Edit",),
+            )
+            is None
+        )
+        assert (
+            verdict_of("something can go wrong in ways that aren't your fault", "", ("Edit",))
+            is None
+        )
+
+    # Same construction-shape narrowing applied to \bthat doesn'?t\b
+    # (2026-07-15 recurrence). First fire held for "wrong" but the
+    # sibling pattern kept crying wolf on authorization/analytical text.
+    # Same rule: predicative-corrective shape uses evaluative verbs
+    # (work/fit/scan/meet); authorization uses relational verbs or
+    # noun-objects.
+
+    def test_that_doesnt_authorization_shape_does_not_fire(self) -> None:
+        # "yes we can edit the kiln number that doesnt require an audit"
+        # — noun-object ("require an audit") makes this authorization,
+        # not corrective judgment on my action.
+        assert verdict_of("yes we can edit the kiln number that doesnt require an audit") is None
+        assert verdict_of("that doesnt need a full sweep, just this file", "", ("Edit",)) is None
+
+    def test_that_doesnt_predicative_corrective_still_fires(self) -> None:
+        # Recall preservation. Evaluative verbs preserve corrective shape.
+        assert verdict_of("that doesn't work") == "advise"
+        assert verdict_of("that doesnt fit the pattern", "", ("Edit",)) == "block"
+        assert verdict_of("that doesn't scan at all") == "advise"
+
+    def test_wrong_predicate_still_fires(self) -> None:
+        # Recall preservation. The narrowing must NOT kill real corrective use.
+        assert verdict_of("you're wrong") == "advise"
+        assert verdict_of("that was wrong") == "advise"
+        assert verdict_of("you got it wrong") == "advise"
+        assert verdict_of("wrong about the config path") == "advise"
+        # With corrective prior context, real predicative use still blocks.
+        assert verdict_of("you're wrong", "done, fixed it", ("Edit",)) == "block"
+
     def test_authorization_shape_but_true_correction_still_advises(self) -> None:
         # An authorization word appearing FAR from the trigger doesn't shield
         # a real correction elsewhere in the message.
