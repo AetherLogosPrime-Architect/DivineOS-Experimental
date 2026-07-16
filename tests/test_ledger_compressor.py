@@ -127,8 +127,12 @@ class TestCompressLedger:
         conn = get_connection()
         count = conn.execute("SELECT COUNT(*) FROM system_events").fetchone()[0]
         conn.close()
-        # 3 meaningful + 1 compaction summary = 4
-        assert count == 4
+        # 3 meaningful + 1 compaction summary + 1 chain-repair audit = 5
+        # (Chain-repair audit added 2026-07-16, Marc audit finding #6 —
+        # every compression run now emits LEDGER_CHAIN_REPAIRED capturing
+        # the pre/post orphan counts. Same shape as
+        # LEDGER_CORRUPTION_REPAIRED in ledger_verify.py.)
+        assert count == 5
 
     def test_respects_retention_window(self, tmp_path, monkeypatch):
         _setup(tmp_path, monkeypatch)
