@@ -218,6 +218,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/corrigibility-tool-gate.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
         "hooks": [
           {
@@ -377,6 +387,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-theater.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-distancing-intercept.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-response-scope-intercept.sh",
             "timeout": 15
           },
           {

@@ -240,6 +240,7 @@ src/divineos/
     seed_manager.py            Seed versioning, validation, merge/apply
     anticipation.py            Pattern anticipation engine
     corrigibility.py           Operating modes + off-switch (normal/restricted/diagnostic/emergency_stop)
+    state_markers.py           Substrate-persisted upstream→downstream signal contract (emit_marker/find_active_marker/consume_marker + fingerprint-mismatch fail-loud audit); peer-designed with Aria 2026-07-16, supports ForcedWorkGate dark instances (see docs/primitives/forced_work_gate_design.md)
     anti_slop.py               Runtime verification that enforcers actually enforce
     constitutional_principles.py  Six principles (consent, transparency, proportionality, due process, appeal, limits of power) with structural verifiers
     scheduled_run.py           Headless-run scaffolding — safe entry-point shape for Claude Code Routines + local cron (see docs/routines/)
@@ -640,6 +641,8 @@ src/divineos/
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     evidence_bearing_stop_gate.py  Evidence-bearing Stop-gate primitive (2026-07-15) — abstract base with IntraTurnIntercept + CrossTurnScan variants, five-slot enforcement (LOCK/CONDITION/KEY/RECORD/FALSIFIER), prototyped by the LEPOS-channel Stop hook the same day
     distancing_intercept.py    First concrete IntraTurnIntercept (2026-07-15) — wraps core.operating_loop.distancing_detector, intercepts distancing-grammar before emit rather than warning post-hoc
+    distancing_intercept_hook.py  Stop-hook wiring for DistancingIntercept (2026-07-16, Aletheia cold-audit finding #1) — reads transcript path, extracts last assistant text, runs scan_text, emits Stop-hook block-decision JSON on fire. Fail-open.
+    response_scope_intercept_hook.py  Stop-hook wiring for ResponseScopeIntercept (2026-07-16, closes Aletheia Round 1 Finding 1's last dark instance) — reads claim_scope_active StateMarker via find_active_marker, runs ResponseScopeIntercept scan on last assistant reply, consumes marker regardless of verdict. Pairs with the upstream emit in operating_loop_audit.py after detect_unverified_claim fires. Fail-open.
     gate_event_ledger.py       Ledger helper for gate fire/clear events (2026-07-15, Aletheia audit finding #2) — record_gate_fire, record_gate_clearance, compute_falsification_ratio; lets falsification_signal derive its threshold from accumulated data instead of hardcoded 0.85
     bypass_rate_scan.py        Second concrete instance (2026-07-15) — CrossTurnScan wrapping core.bypass_telemetry.bypass_rate; fires when bypass count exceeds threshold in window, clearing requires investigation-shape action (audit/claim/workbench doc). Validates the cross-turn variant the same way distancing_intercept validated intra-turn.
     bypass_rate_hook.py        PreToolUse wiring for bypass_rate_scan (2026-07-15) — fire/clear cycle over ledger events; open fire blocks with original evidence; clearance = any of GATE_CLEARANCE for this gate, AUDIT_ROUND_CREATED, or CLAIM_FILED after the fire's timestamp. Settings.json registration pending Aletheia audit.

@@ -947,6 +947,40 @@ def run_audit(
             command_texts=list(command_texts) if command_texts else None,
             letter_contents=letter_contents,
         )
+
+        # 2026-07-16: emit claim_scope_active StateMarker for the
+        # response_scope_intercept downstream hook to read next turn.
+        # This is the upstream half of Aletheia Round 1 Finding 1's
+        # last dark instance. Design: docs/primitives/forced_work_gate_design.md.
+        #
+        # Fire condition: any unverified_claim findings this turn →
+        # emit marker with the format-block text as the directive.
+        # Downstream reads on next Stop event via find_active_marker,
+        # scans reply for short-correction shape, consumes marker.
+        # No time expiry — consume-on-use only (one directive per fire).
+        try:
+            uc_findings = findings_log.get("unverified_claim") or []
+            if uc_findings:
+                from divineos.core.operating_loop.unverified_claim_detector import (
+                    format_unverified_claim_block,
+                )
+                from divineos.core.state_markers import emit_marker
+                import os
+
+                _session_fp = (
+                    os.environ.get("CLAUDE_SESSION_ID")
+                    or os.environ.get("DIVINEOS_SESSION_ID")
+                    or "response_scope:no-session-id"
+                )
+                _directive = format_unverified_claim_block(uc_findings)[:500]
+                emit_marker(
+                    kind="claim_scope_active",
+                    fingerprint=_session_fp,
+                    payload={"directive_text": _directive},
+                    expires_in_seconds=None,
+                )
+        except _ERRORS:
+            pass
     except _ERRORS:
         pass
 
