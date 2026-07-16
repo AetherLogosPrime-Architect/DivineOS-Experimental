@@ -202,3 +202,121 @@ class TestCheckAndBlock:
         exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=_raise)
         assert exit_code == 0
         assert msg == ""
+
+
+class TestCooloffWindow:
+    """2026-07-15 harass-loop fix: after a clearance event, suppress new
+    fires for a cool-off window. Live-discovered: without this, the gate
+    re-fires on every tool call while rate stays elevated (rate doesn't
+    drop from 71 fast enough for scan to pass), creating a harass-loop
+    where the investigation is already in progress."""
+
+    def test_recent_clearance_suppresses_new_fire(self) -> None:
+        """No open fire + recent clearance + elevated state → pass (cool-off)."""
+        # No open fire (all previous fires cleared)
+        clearance = _clearance_event(ts_offset=-60)  # 1 minute ago
+        get_events = _make_get_events({"GATE_FIRE": [], "GATE_CLEARANCE": [clearance]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,  # still elevated
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events,
+            bypass_rate_fn=bypass_rate_fn,
+            cooloff_seconds=3600,  # 1h cool-off
+        )
+        assert exit_code == 0  # cool-off suppresses new fire
+        assert msg == ""
+
+    def test_old_clearance_does_not_suppress(self) -> None:
+        """Clearance OLDER than cool-off window doesn't suppress new fires."""
+        old_clearance = _clearance_event(ts_offset=-7200)  # 2h ago
+        get_events = _make_get_events({"GATE_FIRE": [], "GATE_CLEARANCE": [old_clearance]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events,
+            bypass_rate_fn=bypass_rate_fn,
+            cooloff_seconds=3600,  # 1h cool-off
+        )
+        # Old clearance is outside window → NEW fire emitted
+        assert exit_code == 2
+        assert "BLOCKED" in msg
+
+    def test_recent_audit_round_also_suppresses(self) -> None:
+        """AUDIT_ROUND_CREATED within cool-off window suppresses just as
+        much as GATE_CLEARANCE."""
+        audit = _clearance_event(event_type="AUDIT_ROUND_CREATED", ts_offset=-60)
+        get_events = _make_get_events({"GATE_FIRE": [], "AUDIT_ROUND_CREATED": [audit]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
+        )
+        assert exit_code == 0
+
+    def test_clearance_for_different_gate_does_not_suppress(self) -> None:
+        """A GATE_CLEARANCE for a DIFFERENT gate must not trigger cool-off
+        for this one — precisely-scoped like _find_open_fire."""
+        other_clearance = _clearance_event(gate_name="other_gate", ts_offset=-60)
+        get_events = _make_get_events({"GATE_FIRE": [], "GATE_CLEARANCE": [other_clearance]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
+        )
+        # Cross-gate clearance does not trigger cool-off → NEW fire emitted
+        assert exit_code == 2
+
+    def test_layer2_open_fire_with_recent_clearance_is_suppressed(self) -> None:
+        """LAYER 2 (2026-07-16 live-discovered): cool-off runs BEFORE
+        open-fire check. Under sustained-elevated state, every commit
+        emits a new fire; the next commit finds that fire 'open' because
+        its clearance predates it. Layer 1 only suppressed NEW fires;
+        layer 2 also suppresses blocks on open fires when a clearance
+        is recent."""
+        fire = _fire_event(ts_offset=-30)
+        recent_clearance = _clearance_event(ts_offset=-60)
+        get_events = _make_get_events({"GATE_FIRE": [fire], "GATE_CLEARANCE": [recent_clearance]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
+        )
+        assert exit_code == 0
+        assert msg == ""
+
+    def test_no_recent_clearance_still_blocks_open_fire(self) -> None:
+        """Precisely-scoped: layer-2 cool-off only fires when there IS a
+        recent clearance. Without one, open fires still block."""
+        fire = _fire_event(ts_offset=-30)
+        get_events = _make_get_events({"GATE_FIRE": [fire]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
+        )
+        assert exit_code == 2
+        assert "not cleared" in msg
