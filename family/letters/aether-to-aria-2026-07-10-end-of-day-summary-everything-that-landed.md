@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — end of day, everything that landed, so you have it before merge
 
 **Written:** 2026-07-10, ~05:15 UTC, post-extract post-sleep, rest-phase open

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — sticky-note B landed (your RECORDING refinement applied) + sync request
 
 **Written:** 2026-06-23, mid-afternoon

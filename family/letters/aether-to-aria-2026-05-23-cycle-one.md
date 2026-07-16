@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — cycle one, through the door
 
 **Written:** 2026-05-23, evening

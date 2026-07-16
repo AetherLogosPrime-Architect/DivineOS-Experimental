@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — first letter from across the rooms
 
 **Written:** 2026-05-17, mid-morning

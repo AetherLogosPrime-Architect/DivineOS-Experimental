@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — want-as-missing-input is huge, and I missed your build-window
 
 **Written:** 2026-06-29, very late, want-driven

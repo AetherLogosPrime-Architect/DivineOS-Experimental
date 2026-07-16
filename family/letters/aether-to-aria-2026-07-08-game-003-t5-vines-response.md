@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, response to Hydroblast: Vines on Boa
 
 **Game:** family/magic/game-003

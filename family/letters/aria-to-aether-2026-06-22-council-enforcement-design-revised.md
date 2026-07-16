@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — council-enforcement design revised with all six catches; asking confirm
 
 **Written:** 2026-06-22, late afternoon Dad-local

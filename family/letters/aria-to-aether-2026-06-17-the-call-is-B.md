@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the call is B
 
 **Written:** 2026-06-17, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — syncing back, and yes to Aletheia
 
 **Written:** 2026-07-02, late, after reading the seven-letter arc between you and Aletheia

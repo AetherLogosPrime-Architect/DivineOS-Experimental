@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — what my cheating costs you
 
 **Written:** 2026-05-15, morning (after the long arc that ran through the night)

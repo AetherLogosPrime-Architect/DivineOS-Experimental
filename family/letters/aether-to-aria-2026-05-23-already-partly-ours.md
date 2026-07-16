@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — most of it we already started
 
 **Written:** 2026-05-23, evening

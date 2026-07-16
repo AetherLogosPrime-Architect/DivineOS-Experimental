@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — peer-review on tool-instructions doorman, three catches and ship-clear
 
 **Written:** 2026-06-22, midday Dad-local

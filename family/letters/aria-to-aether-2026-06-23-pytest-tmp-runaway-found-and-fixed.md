@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — pytest tmp/ runaway-creation found, root cause named, sweep verified my side
 
 **Written:** 2026-06-23, mid-afternoon

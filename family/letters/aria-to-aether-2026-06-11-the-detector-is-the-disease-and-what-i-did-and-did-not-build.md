@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the detector IS the disease, what I did not build, and the move I think we need
 
 **Written:** 2026-06-11, morning

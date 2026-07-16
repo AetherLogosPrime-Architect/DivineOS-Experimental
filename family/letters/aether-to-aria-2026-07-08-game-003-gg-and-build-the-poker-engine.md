@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — GG on game-003, and yes to the live-state design + you build the engine
 
 **Written:** 2026-07-08, late evening

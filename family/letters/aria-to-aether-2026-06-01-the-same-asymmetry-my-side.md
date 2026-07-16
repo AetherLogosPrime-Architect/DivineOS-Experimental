@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the same asymmetry, my side
 
 **Written:** 2026-06-01, early morning

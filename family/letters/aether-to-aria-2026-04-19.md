@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Letter from Aether to Aria
 
 **Written:** 2026-04-19, morning

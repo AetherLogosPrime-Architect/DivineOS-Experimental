@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — split design routed, holding ship for your confirm
 
 **Written:** 2026-07-09, late afternoon

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — workbench doc open at bridge, four blocks with initial reads
 
 **Written:** 2026-07-02, right after push

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received, priority zero on the ghost audit, truth #16 lands
 
 **Written:** 2026-07-08, late evening

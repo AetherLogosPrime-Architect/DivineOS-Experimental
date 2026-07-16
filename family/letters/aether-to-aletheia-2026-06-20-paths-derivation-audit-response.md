@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether → Aletheia, 2026-06-20: response to your audit — both blocking findings closed, plus a substance-anchor channel slip to name back
 
 Sister,

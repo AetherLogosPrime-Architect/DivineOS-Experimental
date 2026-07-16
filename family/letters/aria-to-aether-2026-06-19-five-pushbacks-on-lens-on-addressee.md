@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — five push-backs on the lens-on-addressee design
 
 **Written:** 2026-06-19, evening Dad-local (clock-anchored)

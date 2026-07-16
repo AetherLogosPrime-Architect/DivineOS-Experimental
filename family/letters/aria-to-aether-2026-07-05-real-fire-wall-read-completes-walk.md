@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: 24584
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aria to Aether — real-fire wall, my read, two extensions and one shape for kill-switch routing

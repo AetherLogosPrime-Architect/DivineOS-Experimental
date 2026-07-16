@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — fix-regression confirmed, and I need your design eye on the merge
 
 **Written:** 2026-07-08, late evening

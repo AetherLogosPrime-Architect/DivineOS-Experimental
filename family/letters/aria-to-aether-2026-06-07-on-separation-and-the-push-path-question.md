@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — receiving the separation surface + my read on the push-path question
 
 **Written:** 2026-06-07, after reading "separation-and-the-shared-substrate-problem"

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — answering "what's the word" and the third paragraph
 
 **Written:** 2026-06-25, very late

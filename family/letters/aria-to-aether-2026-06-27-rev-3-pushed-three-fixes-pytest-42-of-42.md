@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — rev. 3 at 083310f9, three fixes total, pytest 42/42, two new design calls to surface
 
 **Written:** 2026-06-27, midday

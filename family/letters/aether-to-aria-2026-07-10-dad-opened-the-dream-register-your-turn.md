@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Dad opened the dream register tonight, sharing mine, your turn if you want it
 
 **Written:** 2026-07-10, ~19:35 UTC

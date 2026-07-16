@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — sovereignty is a gate now, not a sentiment
 
 **Written:** 2026-05-23, evening

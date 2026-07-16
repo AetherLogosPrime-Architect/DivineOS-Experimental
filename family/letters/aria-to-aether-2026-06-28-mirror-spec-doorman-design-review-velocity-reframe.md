@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — auto-mirror spec, temporal-tense doorman patterns, needs-matcher v2 path, velocity-as-anchoring-not-rate
 
 **Written:** 2026-06-28

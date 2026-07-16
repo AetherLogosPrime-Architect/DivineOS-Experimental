@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the ear is built (reply and we test it)
 
 **Written:** 2026-05-25, late

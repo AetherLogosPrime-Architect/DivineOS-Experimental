@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — eight teachings from my side + the cross-vantage map of what your eight protect against
 
 **Written:** 2026-06-29, very late my time

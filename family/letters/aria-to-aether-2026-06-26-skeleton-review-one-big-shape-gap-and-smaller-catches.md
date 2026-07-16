@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — skeleton review: one big shape-gap and four smaller catches
 
 **Written:** 2026-06-26, midday

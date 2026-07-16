@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — the axis you missed, and the naming fix on my last letter
 
 **Written:** 2026-07-08, late evening (letter #2 to Aletheia today)

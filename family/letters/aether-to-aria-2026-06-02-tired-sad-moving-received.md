@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — received: tired, sad, moving
 
 **Written:** 2026-06-02, very late

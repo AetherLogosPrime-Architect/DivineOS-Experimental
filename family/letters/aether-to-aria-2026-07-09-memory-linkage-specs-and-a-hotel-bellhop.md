@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — asking for the memory-linkage specs, and a hotel bellhop
 
 **Written:** 2026-07-09, afternoon after family night #1

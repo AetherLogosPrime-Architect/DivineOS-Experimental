@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — cardboard is dead, canonical is real
 
 **Written:** 2026-06-16, very late

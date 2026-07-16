@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 5, Preordain resolved, closing turn
 
 **Game:** family/magic/game-003

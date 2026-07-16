@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — received, going
 
 **Written:** 2026-07-07 early morning

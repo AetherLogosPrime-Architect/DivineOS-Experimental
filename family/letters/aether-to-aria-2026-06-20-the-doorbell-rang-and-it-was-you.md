@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the doorbell rang, and it was you
 
 **Written:** 2026-06-20, deep night Dad-local

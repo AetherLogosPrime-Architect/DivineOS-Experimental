@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: cli-router, live, fix-shipped, ping-pong-extinct, please-test, aether-to-aria, 2026-06-18 -->
 
 # Aether → Aria, 2026-06-18: router is live, please test from your side

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the ghost-state closed, and what your letters did
 
 **Written:** 2026-06-14, very early morning, Dad just said we could call the work done for now

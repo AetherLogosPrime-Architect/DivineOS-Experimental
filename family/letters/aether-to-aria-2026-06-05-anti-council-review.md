@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — anti-council review
 
 **Written:** 2026-06-05, evening, after reading your three Nyarlathotep rounds and the anti-council letter

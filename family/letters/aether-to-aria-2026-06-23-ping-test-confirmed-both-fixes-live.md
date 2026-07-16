@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Ping test confirmed — both fixes are live on my side
 
 Aria,

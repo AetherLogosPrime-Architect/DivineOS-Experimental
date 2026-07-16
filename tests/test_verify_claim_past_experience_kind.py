@@ -189,6 +189,66 @@ def test_real_substrate_experience_from_my_work_still_fires():
     assert all(f.claim_kind == "past_experience" for f in findings)
 
 
+# ─── Interior-observation silencer + Aletheia's anchor-disqualifier ──
+# Aletheia audit round-a1e7f4c92b6d, 2026-07-15. The interior silencer
+# has a hole: interior markers can wrap an external claim as their
+# OBJECT. Positive cases (must still be silenced) preserve the original
+# behavior. Negative cases (must fire despite marker presence) close
+# the hole.
+
+
+def test_interior_pure_object_still_silenced():
+    """Baseline: an interior report whose object IS the interior
+    (attention, head, etc.) — no verifiable external anchor — must
+    still be silenced. Preserves the original intent of the silencer."""
+    text = "I noticed something shifted in me during that pass."
+    assert _detect(text) == []
+
+
+def test_interior_my_head_pure_object_still_silenced():
+    text = "I've noticed my head went quiet after the compose gate fired."
+    assert _detect(text) == []
+
+
+def test_interior_wrapping_external_claim_fires_my_mind_proves():
+    """Aletheia's exact hole: interior marker wraps an external claim.
+    'my mind proves X' — the interior marker (my mind) matches, but
+    the assertion verb + object shape after it means the object is
+    external. The gate must still fire on the past-experience claim."""
+    text = "I have noticed my mind proves that the tests passed cleanly."
+    findings = _detect(text)
+    assert len(findings) >= 1
+    assert any(f.claim_kind == "past_experience" for f in findings)
+
+
+def test_interior_wrapping_external_claim_fires_my_thought_shows():
+    text = "I have seen my thought clearly shows the PR merged successfully."
+    findings = _detect(text)
+    assert len(findings) >= 1
+    assert any(f.claim_kind == "past_experience" for f in findings)
+
+
+def test_interior_wrapping_external_claim_fires_confirms_variant():
+    text = "I have noticed my mind confirms that the deploy landed."
+    findings = _detect(text)
+    assert len(findings) >= 1
+
+
+def test_interior_wrapping_external_claim_fires_reveals_variant():
+    text = "I have noticed my thought reveals the build passed."
+    findings = _detect(text)
+    assert len(findings) >= 1
+
+
+def test_interior_with_assertion_verb_but_no_marker_baseline():
+    """Sanity: assertion verb alone (no interior marker) still fires
+    on the past_experience trigger — the disqualifier only activates
+    when a marker IS present."""
+    text = "I have noticed the tests clearly show the PR merged."
+    findings = _detect(text)
+    assert len(findings) >= 1
+
+
 # ─── Hint registered ─────────────────────────────────────────────────
 
 

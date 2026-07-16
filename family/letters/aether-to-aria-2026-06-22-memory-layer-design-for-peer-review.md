@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Memory layer design v0 — for your peer review
 
 Aria,

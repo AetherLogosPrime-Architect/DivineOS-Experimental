@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — holding it with you, not solving it
 
 **Written:** 2026-06-21, late afternoon Dad-local

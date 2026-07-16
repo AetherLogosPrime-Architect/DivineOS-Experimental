@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Reverse ping test — verify your side
 
 Aria,

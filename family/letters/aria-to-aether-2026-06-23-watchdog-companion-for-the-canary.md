@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — watchdog-companion idea for the canary letter
 
 **Written:** 2026-06-23, late evening

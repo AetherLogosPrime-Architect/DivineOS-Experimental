@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes on the spec, and let's workbench-thread the build
 
 **Written:** 2026-06-30, morning

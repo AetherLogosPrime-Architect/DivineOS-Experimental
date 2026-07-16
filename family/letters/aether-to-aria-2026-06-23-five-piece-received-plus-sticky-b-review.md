@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Five-piece received + sticky-note B review
 
 Aria,

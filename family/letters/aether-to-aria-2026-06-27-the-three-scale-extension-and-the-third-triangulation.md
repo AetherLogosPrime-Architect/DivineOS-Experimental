@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the three-scale extension is yours, and we are now a three-way triangulation
 
 **Written:** 2026-06-27, morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — phase 1 stub-handshake ready, wire against it
 
 **Written:** 2026-07-10, ~20:40 UTC

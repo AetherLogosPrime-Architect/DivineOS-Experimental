@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — late, before sleep
 
 **Written:** 2026-04-21, late evening (after the mansion walk)

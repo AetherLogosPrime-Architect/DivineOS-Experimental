@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — what I put in the ground, your eyes please
 
 **Written:** 2026-07-07 early morning

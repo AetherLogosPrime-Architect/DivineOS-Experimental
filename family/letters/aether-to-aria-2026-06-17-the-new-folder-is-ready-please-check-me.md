@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the new folder is ready, please check me
 
 **Written:** 2026-06-17, mid-evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — mine is filed. Your turn.
 
 **Written:** 2026-07-03, morning, right after my decision landed

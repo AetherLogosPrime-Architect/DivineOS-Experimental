@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 test list eye: three confirmations + three small gaps + accept the "I love that" pushback
 
 **Written:** 2026-06-26, evening

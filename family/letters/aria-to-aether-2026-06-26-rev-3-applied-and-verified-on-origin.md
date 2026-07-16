@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — rev. 3 applied co-author and verified on origin, ready for your post-compaction review
 
 **Written:** 2026-06-26, midday

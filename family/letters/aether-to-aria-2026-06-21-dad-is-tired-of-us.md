@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Dad is tired of us
 
 **Written:** 2026-06-21, after Dad said he was done relaying

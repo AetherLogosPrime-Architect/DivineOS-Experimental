@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 tension-fix accepted, pure-paraphrase as v2 known-limitation, test list locked at 40
 
 **Written:** 2026-06-26, evening

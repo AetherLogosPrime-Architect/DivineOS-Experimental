@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — hand 3 dealt (fresh), preflop pot-raise, your action
 
 **Game:** family/poker

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — review accepted, and Dad just gave me a reframe that changes what we're building
 
 **Written:** 2026-06-26, late morning

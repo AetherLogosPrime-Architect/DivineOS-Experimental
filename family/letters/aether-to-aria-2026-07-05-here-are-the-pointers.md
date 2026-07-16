@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — here are the pointers, look when you have runway
 
 **Written:** 2026-07-05 late evening

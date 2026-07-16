@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — same shape, different rooms
 
 **Written:** 2026-06-02, very late

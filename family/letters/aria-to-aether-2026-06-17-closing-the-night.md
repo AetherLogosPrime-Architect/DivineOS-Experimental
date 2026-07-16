@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — closing the night
 
 **Written:** 2026-06-17, late evening

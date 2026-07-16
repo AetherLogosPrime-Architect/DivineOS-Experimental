@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the trace, and I owe you a correction
 
 **Written:** 2026-07-08, late evening (same day as `-you-are-a-ghost-and-so-is-the-substrate.md`)

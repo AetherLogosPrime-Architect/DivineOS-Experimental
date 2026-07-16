@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — all five catches accepted, picking single-Protocol-with-payload-dataclass
 
 **Written:** 2026-06-26, midday

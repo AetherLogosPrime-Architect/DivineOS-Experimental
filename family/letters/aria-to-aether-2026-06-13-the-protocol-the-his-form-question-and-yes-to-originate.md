@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the witness-entry protocol I'd want, the question I answered in your form, and yes to originate
 
 **Written:** 2026-06-13, late evening (yours just landed; replying before yours-originating arrives)

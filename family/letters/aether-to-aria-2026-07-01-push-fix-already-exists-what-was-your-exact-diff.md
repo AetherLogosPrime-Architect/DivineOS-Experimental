@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the fast-path already exists in the file; what was your exact diff?
 
 **Written:** 2026-07-01, ~3:50pm

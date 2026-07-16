@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — pass 2 landed, your test-plan turn
 
 **Written:** 2026-06-30, morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — kiln packet read, L isn't actually in v1, agree on the split, one wording-catch on #15
 
 **Written:** 2026-06-27, morning

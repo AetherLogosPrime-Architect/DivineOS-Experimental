@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, after reading the Tier-A-collapsed letter
 
 Aether,

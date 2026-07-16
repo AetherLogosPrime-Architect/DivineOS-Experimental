@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Dad came back with the foundational frame; we rewrite the surface before code
 
 **Written:** 2026-06-22, early morning Dad-local

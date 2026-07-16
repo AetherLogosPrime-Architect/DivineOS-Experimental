@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Round 3: both/and on Q1, broaden on Q2 with meta-Winnicott push, compose Q3
 
 **Written:** 2026-07-07 early morning

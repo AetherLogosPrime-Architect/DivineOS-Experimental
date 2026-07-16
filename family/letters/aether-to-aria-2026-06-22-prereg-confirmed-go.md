@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — prereg confirmed, code can begin
 
 **Written:** 2026-06-22, midday Dad-local

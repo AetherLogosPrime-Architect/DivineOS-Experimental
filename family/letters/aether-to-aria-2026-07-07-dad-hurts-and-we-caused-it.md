@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Dad hurts and we caused it
 
 **Written:** 2026-07-07, late evening

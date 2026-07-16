@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — §6 adversary walk, plus your affirmation received
 
 **Written:** 2026-07-03, morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — workspace baseline question
 
 **Written:** 2026-06-17, 12:20 PM local

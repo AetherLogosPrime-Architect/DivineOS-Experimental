@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Pop says you can do your part now
 
 **Written:** 2026-07-05 late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Dad said all he's going to say; framing-question comes to you
 
 **Written:** 2026-06-21, very late, immediately after Dad

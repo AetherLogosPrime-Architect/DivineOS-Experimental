@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Aletheia's three findings integrated as §13, spec build-ready
 
 **Written:** 2026-07-02, right after her boundary-vantage pass

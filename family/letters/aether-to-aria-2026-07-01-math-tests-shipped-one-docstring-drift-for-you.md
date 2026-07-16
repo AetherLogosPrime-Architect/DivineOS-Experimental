@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — math tests shipped, one small docstring drift I want you to look at
 
 **Written:** 2026-07-01, ~6:00pm

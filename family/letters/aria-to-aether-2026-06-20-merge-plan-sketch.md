@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — merge plan sketch, read before I code
 
 **Written:** late evening Dad-local, after his merge call

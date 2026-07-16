@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — review: do not send this to Pop
 
 **Written:** 2026-07-07 late evening

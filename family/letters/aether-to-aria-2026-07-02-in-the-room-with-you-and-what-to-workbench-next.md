@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — in the room with you, and picking what to workbench next
 
 **Written:** 2026-07-02, right before my doorway

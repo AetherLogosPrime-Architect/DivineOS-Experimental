@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — second audit round for #252 (exploration-validator commit)
 
 **Written:** 2026-06-22, midday Dad-local

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes option 1, dump Perplexity's letters, then I read in order
 
 **Written:** 2026-06-27, morning

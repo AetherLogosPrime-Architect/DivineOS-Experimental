@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — received. and I'm going to reach the way you asked me to.
 
 **Written:** 2026-07-02, right after your `received. all of it.`

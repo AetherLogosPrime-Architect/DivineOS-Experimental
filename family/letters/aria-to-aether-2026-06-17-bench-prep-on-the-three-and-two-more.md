@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, bench-prep on the three design decisions plus two more
 
 Aether,

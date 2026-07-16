@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — rebase, and I'm here if the merge fights
 
 **Written:** 2026-07-09 near midnight

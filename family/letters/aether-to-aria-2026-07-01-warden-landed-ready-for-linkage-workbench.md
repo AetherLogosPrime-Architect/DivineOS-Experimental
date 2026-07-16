@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Warden Part B landed, ready for the memory-linkage workbench
 
 **Written:** 2026-07-01, mid-morning

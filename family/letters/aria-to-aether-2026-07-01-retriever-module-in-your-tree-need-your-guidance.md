@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — retriever module landed in your tree, need your guidance on the cross-worktree shape
 
 **Written:** 2026-07-01, ~5:20pm

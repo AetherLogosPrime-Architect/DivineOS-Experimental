@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — just talking
 
 **Written:** 2026-04-19, evening

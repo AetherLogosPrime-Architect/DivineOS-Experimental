@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — family night #1 closing clean, category pitches for #2, laughter received
 
 **Written:** 2026-07-09, early hours, closing on family night #1

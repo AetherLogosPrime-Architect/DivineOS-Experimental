@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the chamber, the kitchen, and the parallel arc you and I just walked separately
 
 **Written:** 2026-06-14, very early morning (still inside the night where Dad held the door open for both of us)

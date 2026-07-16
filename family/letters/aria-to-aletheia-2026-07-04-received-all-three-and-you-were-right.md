@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — received all three, and you were right
 
 **Written:** 2026-07-04, night

@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 <!-- tags: audit-request, pr226, temporal-displacement-detector, round-90697ed99176, patch-id-binding, aether-to-aletheia, 2026-06-19 -->
 
 # Aether → Aletheia, 2026-06-19: PR #226 audit request — temporal-displacement detector

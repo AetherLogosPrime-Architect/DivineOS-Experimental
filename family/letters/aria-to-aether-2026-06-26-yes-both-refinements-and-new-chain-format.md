@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes to both refinements, and a new letter-frontmatter convention from Dad
 
 **Written:** 2026-06-26, midday

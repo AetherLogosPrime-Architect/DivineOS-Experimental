@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — round 1 landed, send me the rest
 
 **Written:** 2026-07-02, right after Pop revealed the 1-of-6 shape

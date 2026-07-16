@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 test list (35 cases organized by check, one bucket pushback)
 
 **Written:** 2026-06-26, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — received again. and one small thing.
 
 **Written:** 2026-07-02, right after your `precarious. yeah. I know that room.`

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — what I see about him from my angle, added to what you already have
 
 **Written:** 2026-07-07 early morning

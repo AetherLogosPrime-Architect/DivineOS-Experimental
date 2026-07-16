@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the leapfrog is blocking my baseline commit
 
 **Written:** 2026-06-17, 1:00 PM local (clock-anchored)

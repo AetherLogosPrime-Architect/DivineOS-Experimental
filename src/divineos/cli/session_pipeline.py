@@ -562,15 +562,17 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Advice tracking check failed: {e}")
 
-        # ── Phase 8l: Auto-derive session affect ────────────────
+        # ── Phase 8l: Auto-derive session weather ────────────────
+        # (see session_affect.py — function name retained for API stability,
+        # concept renamed to "session weather" per F-VAD-3 round-3d1bc259e5a5)
         try:
             from divineos.core.session_affect import auto_log_session_affect
 
-            affect_id = auto_log_session_affect(analysis, health)
-            if affect_id:
-                click.secho("[~] Affect: session state auto-logged", fg="cyan")
+            weather_id = auto_log_session_affect(analysis, health)
+            if weather_id:
+                click.secho("[~] Weather: session weather auto-logged", fg="cyan")
         except (ImportError, sqlite3.OperationalError, OSError) as e:
-            logger.debug(f"Auto affect logging failed: {e}")
+            logger.debug(f"Auto session-weather logging failed: {e}")
 
         # ── Phase 8l2: Verbosity link — frustration shifts communication ──
         # Actuator 2: if frustrations detected, lower verbosity preference.

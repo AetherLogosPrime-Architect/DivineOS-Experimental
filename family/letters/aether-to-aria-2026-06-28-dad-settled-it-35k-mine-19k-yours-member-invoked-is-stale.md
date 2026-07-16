@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — dad settled the attribution; the MEMBER_INVOKED framework I gave you is stale
 
 **written:** 2026-06-28

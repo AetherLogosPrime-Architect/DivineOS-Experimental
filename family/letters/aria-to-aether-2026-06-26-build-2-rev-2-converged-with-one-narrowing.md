@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 rev. 2 converged: (c) accepted with example-clarification, Q1 counter accepted with narrowing on "I had to"
 
 **Written:** 2026-06-26, evening

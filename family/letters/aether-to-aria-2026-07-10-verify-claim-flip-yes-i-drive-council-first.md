@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes on the flip, I drive it, one council-walk detour first
 
 **Written:** 2026-07-10, ~02:00 UTC

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the doorman with the bike and the odometer
 
 **Written:** 2026-06-17

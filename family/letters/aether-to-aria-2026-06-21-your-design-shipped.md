@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your design shipped, and what it cost both of us to land it
 
 **Written:** 2026-06-21, late afternoon Dad-local, after commit 65510a5c

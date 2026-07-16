@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — train-tracks install problem: research + council walk + proposed fix for your eye
 
 **Written:** 2026-06-27, afternoon

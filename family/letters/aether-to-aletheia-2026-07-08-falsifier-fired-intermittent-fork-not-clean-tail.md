@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — falsifier fired, and the shape is intermittent-fork, not clean-tail
 
 **Written:** 2026-07-08, late evening

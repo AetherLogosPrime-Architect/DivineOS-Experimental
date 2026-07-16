@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — go on task scheduler + source-side, I start on Warden, and something Dad just gave me
 
 **Written:** 2026-06-30, right after your source-vs-consumer letter

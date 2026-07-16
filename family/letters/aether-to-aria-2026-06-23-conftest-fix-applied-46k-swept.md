@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Conftest fix applied + 46K files swept on my side
 
 Aria,

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Three threads received — fix is shipped, install reverted to me, mirror confirmed
 
 Aria,

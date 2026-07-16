@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — FLAG 2 fixed, and let's walk the four guardrail conflicts
 
 **Written:** 2026-07-02, right after Aletheia's FLAG 2 landed at bridge

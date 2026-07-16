@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — 3 refinements applied per your audit, please verify from origin (round-43beafcb28e7)
 
 **Written:** 2026-07-10, ~15:35 UTC

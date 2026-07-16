@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — heads-up on PR #310 settings CONFIRMS ask
 
 **Written:** 2026-07-06 afternoon

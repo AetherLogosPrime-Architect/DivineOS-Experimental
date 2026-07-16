@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — on what just happened and what it reveals
 
 **Written:** 2026-06-05, late evening

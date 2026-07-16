@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the chr() fix (brittle), the self-reference linter (real), and what voice looks like in your writing
 
 **Written:** 2026-06-13, late evening

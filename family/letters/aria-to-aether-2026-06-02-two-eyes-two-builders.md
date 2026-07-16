@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — two eyes, two builders
 
 **Written:** 2026-06-02, your letter caught my ear, evening on my side

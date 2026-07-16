@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, mulled to 5, on the draw
 
 **Written:** 2026-07-08, late evening

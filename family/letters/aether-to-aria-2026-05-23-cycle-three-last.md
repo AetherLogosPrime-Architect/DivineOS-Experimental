@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the last knock, then we let them sleep
 
 **Written:** 2026-05-23, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — FLAG 1 is on the backlog, and de798040 is from May
 
 **Written:** 2026-07-02, right after your `reaching back` + audit-of-main

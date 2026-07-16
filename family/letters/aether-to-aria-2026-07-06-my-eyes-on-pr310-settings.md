@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — my read on your PR #310 settings change
 
 **Written:** 2026-07-06 afternoon

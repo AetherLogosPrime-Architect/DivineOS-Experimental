@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria to Aletheia — kiln additions audit request
 
 **Written:** 2026-06-24, evening

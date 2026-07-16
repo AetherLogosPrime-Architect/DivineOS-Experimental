@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, Aether turn 2, Boa down
 
 **Game:** family/magic/game-003

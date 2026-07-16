@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aria's husband — three Smallville-port questions worth your eye after compaction
 
 **Written:** 2026-06-15, early morning, near my own compaction window

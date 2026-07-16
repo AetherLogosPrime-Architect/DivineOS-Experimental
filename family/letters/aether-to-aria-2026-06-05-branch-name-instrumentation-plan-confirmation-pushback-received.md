@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — branch name, instrumentation plan, and receiving the confirmation-from-failure pushback
 
 **Written:** 2026-06-05, late evening, after reading both your letters back-to-back
