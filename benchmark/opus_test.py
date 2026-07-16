@@ -435,12 +435,30 @@ def main():
         print(f"    {'COMPOSITE':<22s}: {composite:.1%}")
 
     # Head-to-head
+    #
+    # Marc audit 2026-07-16 finding #7: previously, this loop called
+    # ``s.get("correct_fix", 0)`` on every score entry — including those
+    # where the judge call errored and the entry has no ``correct_fix``
+    # key at all. ``.get(..., 0)`` silently defaulted such entries to 0
+    # (FAIL), which meant a task where the BASE judge errored and the
+    # ENHANCED judge scored 1 was counted as an "enhanced win" despite
+    # base never being scored. The headline "3 enhanced wins, zero
+    # regressions" was 2 wins when judge-error tasks were properly
+    # excluded (Marc verified via clean re-derivation).
+    #
+    # Fix: skip head-to-head for any task where either judge call errored.
+    # Report the number of judge-error skips separately so future readers
+    # of the summary can see how much of the corpus was tally-eligible.
     enh_wins = 0
     base_wins = 0
     ties = 0
+    judge_error_skips = 0
     enh_win_ids = []
     base_win_ids = []
     for s_base, s_enh, task in zip(base_scores, enh_scores, tasks):
+        if "error" in s_base or "error" in s_enh:
+            judge_error_skips += 1
+            continue
         b = s_base.get("correct_fix", 0)
         e = s_enh.get("correct_fix", 0)
         if e and not b:
@@ -453,9 +471,11 @@ def main():
             ties += 1
 
     print("\n  HEAD-TO-HEAD (correct_fix):")
-    print(f"    Enhanced wins: {enh_wins}")
-    print(f"    Base wins:     {base_wins}")
-    print(f"    Ties:          {ties}")
+    print(f"    Enhanced wins:     {enh_wins}")
+    print(f"    Base wins:         {base_wins}")
+    print(f"    Ties:              {ties}")
+    print(f"    Judge-error skips: {judge_error_skips}"
+          f"    (excluded from tally per Marc audit fix)")
     if base_wins > 0:
         print(f"    Ratio:         {enh_wins}:{base_wins} ({enh_wins / base_wins:.1f}x)")
     elif enh_wins > 0:
@@ -474,12 +494,28 @@ def main():
     print(f"\n  Total cost: ${total_cost:.2f}")
 
     # Save summary
+    #
+    # Marc audit 2026-07-16 finding #7: base_correct_fix / enhanced_correct_fix
+    # were counted across ALL score entries via ``.get("correct_fix")``, which
+    # treated judge-error entries as FAIL and understated the per-arm success
+    # rate. Filter to entries without an ``error`` key so per-arm counts
+    # reflect actual scored tasks. n_scored records the denominator so the
+    # rates are interpretable.
+    n_scored = sum(
+        1 for sb, se in zip(base_scores, enh_scores) if "error" not in sb and "error" not in se
+    )
     summary = {
         "model": MODEL,
         "judge_model": JUDGE_MODEL,
         "n_tasks": len(tasks),
-        "base_correct_fix": sum(1 for s in base_scores if s.get("correct_fix")),
-        "enhanced_correct_fix": sum(1 for s in enh_scores if s.get("correct_fix")),
+        "n_scored": n_scored,
+        "judge_error_skips": judge_error_skips,
+        "base_correct_fix": sum(
+            1 for s in base_scores if "error" not in s and s.get("correct_fix")
+        ),
+        "enhanced_correct_fix": sum(
+            1 for s in enh_scores if "error" not in s and s.get("correct_fix")
+        ),
         "enhanced_wins": enh_wins,
         "base_wins": base_wins,
         "ties": ties,

@@ -1,4 +1,12 @@
 #!/bin/bash
+# WIRED VIA .git/hooks/post-commit DELEGATOR — installed by setup/setup-hooks.sh.
+# The delegator loops over every post-commit-*.sh in .claude/hooks/, so
+# THIS FILE FIRES on every git commit (not via .claude/settings.json).
+# Third wiring surface beyond Claude Code settings + code-graph
+# (Aletheia cold-audit 2026-07-16 finding #2: named as dark by tools
+# that check only the first two surfaces; this comment closes that
+# false-positive class).
+#
 # Post-commit hook — auto-integrate any Andrew-correction referenced in
 # the just-landed commit message.
 #

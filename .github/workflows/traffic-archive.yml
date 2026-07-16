@@ -1,14 +1,24 @@
 name: Traffic Archive
 
-# Archives GitHub's repo traffic data to data/traffic_archive/ so we can see
-# more than 14 days of history. GitHub's dashboard only shows a rolling 14-day
-# window; this workflow captures it daily and commits the snapshots so they
-# accumulate forever in the repo itself.
+# Archives GitHub's repo traffic data to a dedicated ``archive/traffic``
+# branch — kept OFF main entirely — so we can see more than 14 days of
+# history without churning main's tree. GitHub's dashboard only shows a
+# rolling 14-day window; this workflow captures it daily.
 #
-# Why this exists (Andrew 2026-06-05): "I wish it showed more than just the last
-# 14 days." The dashboard is a GitHub product limit, not a data limit. The API
-# returns the same 14-day window but we can capture it daily and build the
-# archive ourselves.
+# Why this exists (Andrew 2026-06-05): "I wish it showed more than just the
+# last 14 days." The dashboard is a GitHub product limit, not a data limit.
+#
+# Why it lives on archive/traffic and NOT on main (Andrew 2026-07-16 fix,
+# Marc external audit follow-up): the previous version routed the daily
+# snapshot through a chore/ PR onto main. That worked but created a
+# recurring failure class for the multi-party-review gate: any PR merged
+# after 01:00 UTC that day would land on a main tree that had drifted
+# by exactly one auto-committed traffic file, breaking the trailer's
+# tree-hash binding on the merged commit. Truth #11 remediation (a) —
+# take the option away rather than case-by-case it. Main's tree is now
+# "code + human-authored artifacts only"; automation touches only the
+# dedicated data branch. Consumers of traffic history read from
+# ``archive/traffic``.
 
 on:
   schedule:
@@ -19,49 +29,36 @@ on:
     # and for one-off captures whenever interesting.
 
 permissions:
-  # Read traffic API + write to commit the snapshot back.
   contents: write
 
 jobs:
   archive:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout main (for tools)
         uses: actions/checkout@v4
         with:
-          # Need full history so the commit lands cleanly even if the workflow
-          # runs concurrently with a push (shallow can cause non-fast-forward).
           fetch-depth: 0
 
       - name: Capture traffic snapshot
+        id: capture
         env:
           # The auto-issued GITHUB_TOKEN CANNOT access the /repos/.../traffic/*
-          # endpoints. Per GitHub docs the traffic API requires either a
-          # classic PAT with 'repo' scope or a fine-grained PAT with
-          # 'Administration: read'. Using GITHUB_TOKEN here produces:
-          #   gh: Resource not accessible by integration (HTTP 403)
-          # Repo secret TRAFFIC_ARCHIVE_PAT must hold a token with the right
-          # scope. Create it under Settings → Secrets and variables → Actions.
-          # (Push step below still uses default GITHUB_TOKEN via the runner's
-          # checkout — contents: write covers that and doesn't need the PAT.)
+          # endpoints — GitHub docs require a classic PAT with 'repo' scope
+          # or a fine-grained PAT with 'Administration: read'.
           GH_TOKEN: ${{ secrets.TRAFFIC_ARCHIVE_PAT }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           DATE=$(date -u +%Y-%m-%d)
-          DIR="data/traffic_archive"
-          OUT="${DIR}/${DATE}.json"
-          mkdir -p "$DIR"
+          mkdir -p /tmp/snapshot
+          OUT="/tmp/snapshot/${DATE}.json"
 
-          # Pull each metric. gh api inherits GH_TOKEN automatically.
-          # Each returns a JSON object; we wrap them in a combined snapshot.
           VIEWS=$(gh api "repos/${REPO}/traffic/views")
           CLONES=$(gh api "repos/${REPO}/traffic/clones")
           PATHS=$(gh api "repos/${REPO}/traffic/popular/paths")
           REFERRERS=$(gh api "repos/${REPO}/traffic/popular/referrers")
 
-          # jq -n constructs a new object; --argjson injects raw JSON
-          # (vs --arg which would stringify). captured_at_utc is ISO 8601.
           jq -n \
             --arg captured_at_utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg date "$DATE" \
@@ -80,53 +77,88 @@ jobs:
 
           echo "Wrote $OUT"
           jq '{date, views: .views.count, uniques: .views.uniques, clones: .clones.count, unique_cloners: .clones.uniques}' "$OUT"
+          echo "snapshot_path=$OUT" >> "$GITHUB_OUTPUT"
+          echo "snapshot_date=$DATE" >> "$GITHUB_OUTPUT"
 
-      - name: Commit and open PR
+      - name: Push snapshot to archive/traffic branch
         env:
-          # PAT with repo scope — same secret used to fetch traffic data, also
-          # has the contents:write needed to open a PR. The default GITHUB_TOKEN
-          # could push a branch but cannot open a PR-with-auto-merge reliably
-          # under the branch-protection rules.
-          GH_TOKEN: ${{ secrets.TRAFFIC_ARCHIVE_PAT }}
+          # Default GITHUB_TOKEN suffices for push to a non-protected branch.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          DATE="${{ steps.capture.outputs.snapshot_date }}"
+          OUT="${{ steps.capture.outputs.snapshot_path }}"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/traffic_archive/
-          # If nothing changed (e.g., workflow ran twice the same UTC day),
-          # exit cleanly without an empty commit.
+
+          # Fetch archive/traffic if it exists on origin; else we'll create it.
+          git fetch origin +refs/heads/archive/traffic:refs/remotes/origin/archive/traffic || true
+
+          if git show-ref --verify --quiet refs/remotes/origin/archive/traffic; then
+            # Existing archive branch — check out, add snapshot, push.
+            git checkout -B archive/traffic refs/remotes/origin/archive/traffic
+          else
+            # First-time bootstrap — create an orphan branch (no shared
+            # history with main). Intentional: the archive branch is pure
+            # data; main history is irrelevant to it. Reduces branch size
+            # and makes clarity of purpose visible from the log.
+            git checkout --orphan archive/traffic
+            git rm -rf . 2>/dev/null || true
+            cat > README.md <<'EOF'
+          # archive/traffic — daily GitHub traffic snapshots
+
+          This branch exists to accumulate the daily traffic-stats snapshots
+          GitHub only exposes for a rolling 14-day window. It is intentionally
+          kept OFF `main`.
+
+          ## Why off main
+
+          Before 2026-07-16 the snapshots landed on `main` via daily auto-PRs.
+          Any human PR merged after the daily cron ran that same day would
+          land on a `main` tree that had drifted by exactly one auto-file,
+          breaking the multi-party-review gate's tree-hash binding on the
+          merged commit. Marc's external audit surfaced the class; Andrew's
+          fix was to take the option away entirely — `main` is code +
+          human-authored artifacts only; automated snapshots live here.
+
+          ## Contents
+
+          Each file is `data/traffic_archive/YYYY-MM-DD.json`, a snapshot of
+          that day's `views`, `clones`, `popular_paths`, and `referrers`
+          from the GitHub Traffic API.
+
+          ## Consumers
+
+          Anything that reads traffic history should check out this branch
+          (or use `git show archive/traffic:data/traffic_archive/<date>.json`
+          for a single file).
+          EOF
+            git add README.md
+            git commit -m "chore(archive): bootstrap archive/traffic branch"
+          fi
+
+          # Copy the snapshot in and commit. If the file already exists
+          # (e.g. workflow re-run same day), skip cleanly.
+          mkdir -p data/traffic_archive
+          cp "$OUT" "data/traffic_archive/${DATE}.json"
+          git add "data/traffic_archive/${DATE}.json"
           if git diff --cached --quiet; then
-            echo "No new snapshot to commit (already have today's file)."
+            echo "No new snapshot to commit (already have today's file on archive/traffic)."
             exit 0
           fi
-          DATE=$(date -u +%Y-%m-%d)
-          BRANCH="chore/traffic-snapshot-${DATE}"
-          # Branch protection on main blocks direct push; route via PR.
-          # GH013 (2026-06-12): "6 of 6 required status checks are expected.
-          # Changes must be made through a pull request." Repository now
-          # enforces PR-only updates on main even for bot commits.
-          git checkout -b "$BRANCH"
           git commit -m "chore(traffic): daily snapshot ${DATE}"
-          # Push the branch. Retry for eventual consistency.
+
+          # Push. archive/traffic is NOT branch-protected — direct push is fine.
           for attempt in 1 2 3; do
-            if git push -u origin "$BRANCH"; then
-              echo "Pushed branch on attempt $attempt"
+            if git push -u origin archive/traffic; then
+              echo "Pushed archive/traffic on attempt $attempt"
               break
             fi
-            echo "Branch push attempt $attempt failed; retrying"
+            echo "archive/traffic push attempt $attempt failed; retrying"
             sleep $((attempt * 2))
             if [ "$attempt" = "3" ]; then
-              echo "Branch push failed after 3 attempts"
+              echo "archive/traffic push failed after 3 attempts"
               exit 1
             fi
           done
-          # Open the PR. Data-only commits don't touch code paths so the
-          # 6 required status checks should pass naturally. Auto-merge fires
-          # the moment they go green.
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore(traffic): daily snapshot ${DATE}" \
-            --body "Automated daily traffic snapshot from Traffic Archive workflow. Data-only — no code paths touched. Auto-merge armed; will land when required checks pass."
-          gh pr merge "$BRANCH" --auto --squash
-          echo "PR opened with auto-merge armed for branch $BRANCH"
