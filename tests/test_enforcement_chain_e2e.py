@@ -140,18 +140,18 @@ class TestCorrectionChain:
             assert decision is not None
             assert "correction" in str(decision).lower()
 
-            # Step 2: clear correction; compass-required still set with
-            # advised_count=1 from step 1. Simulate a fresh turn by
-            # patching dedup to return False (new turn = no per-turn
-            # suppression). Gate fires again, still advisory (count
-            # 1 -> 2 means next time will escalate).
+            # Step 2 (updated 2026-07-15 for symmetric-cascade-clear):
+            # clearing the correction marker MUST also clear the compass
+            # cascade whose kind is 'correction'. Andrew's fix ("stop
+            # dismissing the compass and fix it") closes the workflow
+            # where `divineos correction` cleared the correction but
+            # left the compass cascade nagging — which routed the
+            # operator to `compass-ops dismiss` as a habit. New
+            # behavior: the cascade follows the correction's lifecycle.
             correction_marker.clear_marker()
-            with patch.object(
-                compass_required_marker, "should_dedup_within_turn", return_value=False
-            ):
-                decision = pre_tool_use_gate._check_gates()
-                assert decision is not None
-                assert "compass" in str(decision).lower()
+            # Compass cascade is now cleared as part of the correction-
+            # clear (see correction_marker.clear_marker docstring).
+            assert compass_required_marker.read_marker() is None
 
     def test_compass_marker_escalates_after_threshold(
         self, tmp_path, allow_cascade, gate_passthrough

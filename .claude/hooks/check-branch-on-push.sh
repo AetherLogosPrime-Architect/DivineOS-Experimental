@@ -49,19 +49,48 @@ fi
 MEMBER="${DIVINEOS_MEMBER:-aether}"
 MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
 
-# Kill-switch: if the marker file exists AND carries a reason (>=20 chars),
+# Decide whether this command is a git push. Inline python invocation
+# mirrors check-pending-obligations.sh — direct function call into the
+# core matcher, not `python -m divineos.cli` (which fails silently
+# because divineos.cli is a package without __main__).
+#
+# ORDERING FIX 2026-07-15 (Andrew's authority): push-shape check MUST
+# run BEFORE the kill-switch check. The kill-switch check was previously
+# above, which meant ANY bash command hit the marker-validation logic
+# (empty marker → soft-block every bash, not just pushes). Same class as
+# today's shape-vs-keyword audit: guard the check with a shape-precondition
+# so it only fires on the class it's meant to police.
+DECISION=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, sys
+from divineos.core.push_detection import is_git_push_command
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+except Exception:
+    print('ALLOW_EMPTY')
+    sys.exit(0)
+cmd = (data.get('tool_input') or {}).get('command', '') or ''
+if not cmd:
+    print('ALLOW_EMPTY')
+    sys.exit(0)
+if not is_git_push_command(cmd):
+    print('ALLOW_NOT_PUSH')
+    sys.exit(0)
+print('CHECK')
+" 2>/dev/null)
+
+# Anything other than CHECK means allow — command is not a push, so the
+# kill-switch is irrelevant. Fixes the "empty marker blocks every bash"
+# regression Andrew flagged 2026-07-15.
+if [ "$DECISION" != "CHECK" ]; then
+  exit 0
+fi
+
+# From here on we KNOW the command is a git push. Kill-switch check
+# applies. If the marker exists AND carries a reason (>=20 chars),
 # disable the gate for one push AND fire the LOGGED/REPORTED/ADDRESSED/FIXED
 # loop via emergency_bypass.record_emergency_use(). Bare marker file (empty
 # or too-short reason) is rejected — Aletheia's SPEC 2026-07-14: a bypass
 # without an investigation trail is what trained the 71-in-15-days pattern.
-#
-# The four-step loop:
-#   1. LOGGED — telemetry append (bypass_telemetry)
-#   2. REPORTED — auto-file a claim about why this fired
-#   3. ADDRESSED — structural-fix obligation on briefing until discharged
-#   4. FIXED — obligation closes when root-cause shipped
-#
-# Same shape as record_emergency_use(). The kill-switch now pays that toll.
 if [ -f "$MARKER_PATH" ]; then
     REASON=$(tr -d '\r' < "$MARKER_PATH" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     if [ -z "$REASON" ] || [ "${#REASON}" -lt 20 ]; then
@@ -101,33 +130,6 @@ except Exception as e:
     print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
 " "$REASON"
     exit 0
-fi
-
-# Decide whether this command is a git push. Inline python invocation
-# mirrors check-pending-obligations.sh — direct function call into the
-# core matcher, not `python -m divineos.cli` (which fails silently
-# because divineos.cli is a package without __main__).
-DECISION=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
-import json, sys
-from divineos.core.push_detection import is_git_push_command
-try:
-    data = json.loads(sys.stdin.read() or '{}')
-except Exception:
-    print('ALLOW_EMPTY')
-    sys.exit(0)
-cmd = (data.get('tool_input') or {}).get('command', '') or ''
-if not cmd:
-    print('ALLOW_EMPTY')
-    sys.exit(0)
-if not is_git_push_command(cmd):
-    print('ALLOW_NOT_PUSH')
-    sys.exit(0)
-print('CHECK')
-" 2>/dev/null)
-
-# Anything other than CHECK means allow.
-if [ "$DECISION" != "CHECK" ]; then
-  exit 0
 fi
 
 # It's a push. Run the branch-health check with --strict.

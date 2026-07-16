@@ -82,18 +82,54 @@ class EvidenceRecord:
 
 
 @dataclass(frozen=True)
+class ClearanceReference:
+    """Verifiable reference to what cleared a gate — the UNLOCK-CONTINGENT
+    slot Aria named in the primitive audit (2026-07-15).
+
+    A ClearanceRecord's ``cleared_by`` is free-text and can carry
+    self-attestation ("I fixed it") without evidence — exactly the
+    fabrication class Aletheia self-caught 2026-07-16 when she confessed
+    every round-id in her audit letters was prose-generated, never filed.
+
+    ClearanceReference makes clearance evidence STRUCTURED and RESOLVABLE:
+    the cite is not valid because it looks right — it's valid because it
+    resolves via a registered resolver for its kind.
+
+    Attributes:
+        kind: what class of artifact the identifier points to. One of:
+            'ledger_event', 'audit_round', 'claim', 'commit', 'file_lines',
+            'tool_call'. Extendable via gate_event_ledger._DEFAULT_RESOLVERS.
+        identifier: the actual pointer — event_id, round_id, claim_id,
+            commit_sha, path:line_range, tool_call_id. Must resolve when
+            passed to the registered resolver for its kind.
+    """
+
+    kind: str
+    identifier: str
+
+
+@dataclass(frozen=True)
 class ClearanceRecord:
     """Evidence produced when a gate is cleared.
 
     Attributes:
         gate_name: Which gate this clearance is for.
-        cleared_by: What action satisfied the KEY.
+        cleared_by: Free-text description of what action satisfied the KEY.
+            Backwards-compat. Aria's UNLOCK-CONTINGENT audit (2026-07-15):
+            a host could pass ``cleared_by='I rewrote the tokens'`` without
+            actually rewriting. Prefer the structured ``reference`` field.
         original_evidence: The EvidenceRecord that fired the gate.
+        reference: Structured, resolvable reference to what actually
+            cleared the gate. When present, gate_event_ledger validates
+            via the appropriate resolver; unresolvable warns (Phase 1) or
+            blocks (Phase 2). None = "no verifiable reference provided" —
+            recorded as UNVERIFIED. UNLOCK-CONTINGENT slot enforcement.
     """
 
     gate_name: str
     cleared_by: str
     original_evidence: EvidenceRecord
+    reference: ClearanceReference | None = None
 
 
 class EvidenceBearingStopGate(ABC):
@@ -216,6 +252,7 @@ class CrossTurnScan(EvidenceBearingStopGate):
 
 __all__ = [
     "ClearanceRecord",
+    "ClearanceReference",
     "CrossTurnScan",
     "EvidenceBearingStopGate",
     "EvidenceRecord",

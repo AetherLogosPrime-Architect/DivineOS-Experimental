@@ -39,6 +39,7 @@ from typing import Any
 from divineos.core.ledger import get_events, log_event
 from divineos.hooks.evidence_bearing_stop_gate import (
     ClearanceRecord,
+    ClearanceReference,
     EvidenceRecord,
 )
 
@@ -71,11 +72,169 @@ def record_gate_fire(evidence: EvidenceRecord) -> str:
         return ""
 
 
+# ---------------------------------------------------------------------------
+# UNLOCK-CONTINGENT slot — ClearanceReference resolvers (task #4, Aria + Aletheia)
+# ---------------------------------------------------------------------------
+#
+# Aria's UNLOCK-CONTINGENT audit (2026-07-15): the primitive's cleared_by
+# field is free-text and can carry self-attestation without evidence.
+# Aletheia's self-caught round-cite fabrication (2026-07-16) proved the
+# vulnerability by inhabiting it: she generated round-ids in prose that
+# "looked right" but resolved to nothing, and those phantom cites
+# propagated into a real commit trailer.
+#
+# The class-closer per Aletheia: "a cite is not valid because it LOOKS
+# right; it's valid because it RESOLVES." Applied here: a ClearanceReference
+# is not valid because its kind/identifier are well-formed strings — it's
+# valid because the registered resolver for its kind returns True.
+#
+# Phase 1 (this commit): resolvers exist; unresolvable references are
+# warned about but not blocked. Establishes the surface + collects data
+# on which kinds actually get used.
+# Phase 2 (future): env-flag or default-flip to blocking-mode.
+
+
+def _resolve_ledger_event(event_id: str) -> bool:
+    """Resolver for kind='ledger_event' — the identifier is a ledger
+    event_id; resolves iff an event with that id exists in the ledger."""
+    if not event_id:
+        return False
+    try:
+        # Fetch a modest window; event_id lookups don't index in get_events,
+        # so we scan-and-match. Acceptable at the low volumes expected.
+        events = get_events(limit=500, order="desc")
+        return any(e.get("event_id") == event_id for e in events)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _resolve_audit_round(round_id: str) -> bool:
+    """Resolver for kind='audit_round' — the identifier is a round-id;
+    resolves iff `divineos audit show <round_id>` finds it. This is the
+    exact class-closer Aletheia named for the round-cite fabrication."""
+    if not round_id:
+        return False
+    try:
+        # Rounds are stored as AUDIT_ROUND_CREATED events with round_id
+        # in the payload. Also check the audit store directly if available.
+        events = get_events(event_type="AUDIT_ROUND_CREATED", limit=500, order="desc")
+        for e in events:
+            payload = e.get("payload") or {}
+            if payload.get("round_id") == round_id:
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _resolve_claim(claim_id: str) -> bool:
+    """Resolver for kind='claim' — the identifier is a claim-id; resolves
+    iff a CLAIM_FILED event carries a matching id."""
+    if not claim_id:
+        return False
+    try:
+        events = get_events(event_type="CLAIM_FILED", limit=500, order="desc")
+        for e in events:
+            payload = e.get("payload") or {}
+            if payload.get("claim_id") == claim_id or payload.get("id") == claim_id:
+                return True
+        return False
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _resolve_commit(commit_sha: str) -> bool:
+    """Resolver for kind='commit' — the identifier is a git commit SHA;
+    resolves iff the SHA exists in the git repo (cheap: git cat-file -e)."""
+    if not commit_sha or not all(c in "0123456789abcdef" for c in commit_sha.lower()):
+        return False
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "cat-file", "-e", commit_sha],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _resolve_file_lines(spec: str) -> bool:
+    """Resolver for kind='file_lines' — spec is 'path:start-end' or
+    'path:line'; resolves iff the file exists and the line range is in
+    bounds. Doesn't check content; only existence + range."""
+    if not spec or ":" not in spec:
+        return False
+    try:
+        path_str, lines_str = spec.rsplit(":", 1)
+        from pathlib import Path
+
+        p = Path(path_str)
+        if not p.exists() or not p.is_file():
+            return False
+        line_count = sum(1 for _ in p.open(encoding="utf-8", errors="replace"))
+        if "-" in lines_str:
+            start, end = lines_str.split("-", 1)
+            return 1 <= int(start) <= int(end) <= line_count
+        return 1 <= int(lines_str) <= line_count
+    except Exception:  # noqa: BLE001
+        return False
+
+
+#: Registry of resolvers by kind. Extend by adding entries here or by
+#: passing a custom registry to ``resolve_clearance_reference``.
+_DEFAULT_RESOLVERS: dict[str, Any] = {
+    "ledger_event": _resolve_ledger_event,
+    "audit_round": _resolve_audit_round,
+    "claim": _resolve_claim,
+    "commit": _resolve_commit,
+    "file_lines": _resolve_file_lines,
+}
+
+
+def resolve_clearance_reference(
+    reference: ClearanceReference,
+    registry: dict[str, Any] | None = None,
+) -> bool:
+    """Return True iff the reference resolves via the registered resolver
+    for its kind. Unknown kinds return False (fail-closed for unregistered
+    types — protects against typo-kinds that would otherwise pass silently)."""
+    if registry is None:
+        registry = _DEFAULT_RESOLVERS
+    resolver = registry.get(reference.kind)
+    if resolver is None:
+        return False
+    try:
+        return bool(resolver(reference.identifier))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def record_gate_clearance(clearance: ClearanceRecord) -> str:
     """Write a GATE_CLEARANCE event to the ledger. Returns event id.
 
-    Same fail-open contract as record_gate_fire.
+    UNLOCK-CONTINGENT enforcement (Phase 1, task #4): if the clearance
+    carries a structured ``reference``, call the resolver. Unresolvable
+    references are RECORDED but flagged as unverified in the payload
+    (Phase 1 warns; Phase 2 will block). Backwards-compat: references
+    of None are recorded as before (free-text cleared_by only, marked
+    UNVERIFIED-BY-DEFAULT so future audit surfaces can distinguish
+    structured-verified from legacy-freetext).
+
+    Same fail-open contract as record_gate_fire for the ledger write itself.
     """
+    reference_payload: dict[str, Any] | None = None
+    verified = False
+    if clearance.reference is not None:
+        verified = resolve_clearance_reference(clearance.reference)
+        reference_payload = {
+            "kind": clearance.reference.kind,
+            "identifier": clearance.reference.identifier,
+            "resolved": verified,
+        }
     try:
         return log_event(
             event_type=GATE_CLEARANCE_EVENT,
@@ -83,6 +242,8 @@ def record_gate_clearance(clearance: ClearanceRecord) -> str:
             payload={
                 "gate_name": clearance.gate_name,
                 "cleared_by": clearance.cleared_by,
+                "reference": reference_payload,
+                "verified": verified,
                 "original_evidence": {
                     "gate_name": clearance.original_evidence.gate_name,
                     "matched_shape": clearance.original_evidence.matched_shape,

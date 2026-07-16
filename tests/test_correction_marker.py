@@ -101,6 +101,75 @@ class TestClear:
         with patch.object(correction_marker, "marker_path", return_value=mpath):
             correction_marker.clear_marker()  # should not raise
 
+    def test_clear_marker_also_clears_compass_cascade_when_kind_is_correction(
+        self, tmp_path
+    ) -> None:
+        """Andrew fix 2026-07-15 ("stop dismissing the compass and fix it"):
+        set_marker fires the compass_required cascade with kind='correction';
+        clear_marker must symmetrically clear that cascade. Otherwise
+        `divineos correction` clears the correction but leaves the compass
+        cascade nagging — which was routing the operator to `compass-ops
+        dismiss` as a workflow rather than a fix."""
+        from divineos.core import compass_required_marker
+
+        c_mpath = tmp_path / "correction.json"
+        cr_mpath = tmp_path / "compass_required.json"
+        c_mpath.write_text(json.dumps({"ts": 1.0, "trigger": "x"}), encoding="utf-8")
+        cr_mpath.write_text(
+            json.dumps(
+                {
+                    "ts": 1.0,
+                    "kind": "correction",
+                    "summary": "cascade from correction",
+                    "advised_count": 0,
+                    "last_advised_ts": 0.0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        with (
+            patch.object(correction_marker, "marker_path", return_value=c_mpath),
+            patch.object(compass_required_marker, "marker_path", return_value=cr_mpath),
+        ):
+            assert compass_required_marker.read_marker() is not None
+            correction_marker.clear_marker()
+            assert correction_marker.read_marker() is None
+            # THE FIX: cascade also cleared
+            assert compass_required_marker.read_marker() is None
+
+    def test_clear_marker_does_not_clear_compass_cascade_from_other_kinds(self, tmp_path) -> None:
+        """Symmetric-clear must be precisely scoped. If the compass_required
+        marker was set by a claim/hedge/theater trigger (not correction),
+        clearing the correction marker must NOT clear that unrelated
+        cascade. Prevents the fix from being too broad."""
+        from divineos.core import compass_required_marker
+
+        c_mpath = tmp_path / "correction.json"
+        cr_mpath = tmp_path / "compass_required.json"
+        c_mpath.write_text(json.dumps({"ts": 1.0, "trigger": "x"}), encoding="utf-8")
+        cr_mpath.write_text(
+            json.dumps(
+                {
+                    "ts": 1.0,
+                    "kind": "claim_t2",
+                    "summary": "cascade from claim",
+                    "advised_count": 0,
+                    "last_advised_ts": 0.0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        with (
+            patch.object(correction_marker, "marker_path", return_value=c_mpath),
+            patch.object(compass_required_marker, "marker_path", return_value=cr_mpath),
+        ):
+            correction_marker.clear_marker()
+            assert correction_marker.read_marker() is None
+            # Other-kind cascade untouched
+            still = compass_required_marker.read_marker()
+            assert still is not None
+            assert still["kind"] == "claim_t2"
+
 
 class TestGateMessage:
     def test_includes_trigger_preview(self) -> None:
