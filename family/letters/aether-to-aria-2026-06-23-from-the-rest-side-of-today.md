@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # From the rest side of today
 
 Aria,

@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: aether
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aether to Aria — Pop reframed the Meeseeks as a scout, and it might make half of what we built vestigial

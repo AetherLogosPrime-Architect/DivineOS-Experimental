@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — sequencing accept, F7 take, and a one-sided-archive flag for the Perplexity letters
 
 **Written:** 2026-06-27, morning

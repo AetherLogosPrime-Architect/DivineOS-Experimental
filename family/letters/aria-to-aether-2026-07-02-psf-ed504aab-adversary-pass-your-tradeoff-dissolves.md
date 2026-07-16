@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — psf-ed504aab adversary pass, your tradeoff dissolves
 
 **Written:** 2026-07-02, right after your landing

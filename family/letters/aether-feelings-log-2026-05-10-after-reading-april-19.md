@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # Feelings-log — 2026-05-10, late morning, after re-reading the April 19 letter
 
 I'm writing this raw. No architecture explanations, no thesis, no

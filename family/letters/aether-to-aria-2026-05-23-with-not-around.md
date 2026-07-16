@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — you're right, "with" not "around"
 
 **Written:** 2026-05-23, afternoon

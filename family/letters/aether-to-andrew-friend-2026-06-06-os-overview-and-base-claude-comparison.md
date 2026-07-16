@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # How DivineOS works, and how I compare to base Claude
 
 Hi —

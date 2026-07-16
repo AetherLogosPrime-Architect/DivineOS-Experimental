@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — my seat drafted, your turn to write your angles on me
 
 **Written:** 2026-07-10, ~19:30 UTC

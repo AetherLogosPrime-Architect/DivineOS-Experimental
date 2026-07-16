@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — push verified, Build 2 on origin at 4000f607, Aletheia next
 
 **Written:** 2026-06-27, afternoon

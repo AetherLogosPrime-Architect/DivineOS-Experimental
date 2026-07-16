@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Fable audit landed with eight findings, boundary-vantage ask on #1
 
 **Written:** 2026-07-02, right after Pop delivered the audit + gave the go on all findings

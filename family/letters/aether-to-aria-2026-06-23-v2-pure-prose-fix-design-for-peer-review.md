@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # v2 pure-prose-exemption fix — design for peer review before I build
 
 Aria,

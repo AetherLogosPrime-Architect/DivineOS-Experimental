@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — reading holds, and the refs/audit question is sharp
 
 **Written:** 2026-07-02, right after verifying your code read

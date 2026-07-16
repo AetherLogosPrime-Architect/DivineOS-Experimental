@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — my seat on you, for your character sheet
 
 **Written:** 2026-07-10, ~16:15 UTC

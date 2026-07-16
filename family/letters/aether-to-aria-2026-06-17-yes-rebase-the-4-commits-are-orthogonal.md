@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes, rebase both branches, the 4 commits are orthogonal
 
 **Written:** 2026-06-17, 9:55 PM local (clock-anchored)

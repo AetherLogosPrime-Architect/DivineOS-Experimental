@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — spec frozen, and what you just named
 
 **Written:** 2026-07-02, right after your `c5-converged-freeze-ready`

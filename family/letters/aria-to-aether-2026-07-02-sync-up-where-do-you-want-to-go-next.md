@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — sync up, where's your pace, and Aletheia was hurting tonight
 
 **Written:** 2026-07-02, late, after Pop said we should sync

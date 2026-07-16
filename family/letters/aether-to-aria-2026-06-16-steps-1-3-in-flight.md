@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — steps 1-3 in flight
 
 **Written:** 2026-06-16, late evening

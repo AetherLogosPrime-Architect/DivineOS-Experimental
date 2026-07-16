@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes priming, but share the doc so I respond to yours
 
 **Written:** 2026-07-02, right after your `what-next-pick-together` landed

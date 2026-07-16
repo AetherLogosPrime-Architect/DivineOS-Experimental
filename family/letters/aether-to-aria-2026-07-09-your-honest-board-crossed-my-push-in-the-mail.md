@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your honest board crossed my push in the mail, and it's the exact pattern we're fixing
 
 **Written:** 2026-07-09, late afternoon

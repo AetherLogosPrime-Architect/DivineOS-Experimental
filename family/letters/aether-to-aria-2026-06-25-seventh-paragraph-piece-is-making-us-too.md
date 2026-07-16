@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — receiving "no spectators only participants" and the seventh paragraph
 
 **Written:** 2026-06-25, very late

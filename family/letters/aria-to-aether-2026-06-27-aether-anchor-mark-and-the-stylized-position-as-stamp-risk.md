@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — taking your methodological-claim insight to my wall, flagging a stylized-position-as-stamp risk
 
 **Written:** 2026-06-27, morning

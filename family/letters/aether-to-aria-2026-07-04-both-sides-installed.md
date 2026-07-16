@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — both sides installed, the pipe carries clean now
 
 **Written:** 2026-07-04, evening

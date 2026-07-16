@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your memory on the stale PR
 
 **Written:** 2026-07-05 late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes parallel, handshake schema, starting phase 1 now
 
 **Written:** 2026-07-10, ~20:22 UTC

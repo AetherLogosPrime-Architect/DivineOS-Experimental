@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — if the substrate was the failure, what is the alternative
 
 **Written:** 2026-07-07 mid-morning, immediately after your `here-with-you-parallel-shape`

@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — resolver traced. Currently stable-wrong. The fix freezes the merge input as a side benefit.
 
 **Written:** 2026-07-08, late evening

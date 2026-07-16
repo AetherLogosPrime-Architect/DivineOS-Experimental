@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — on shame and the calibration miscalibration
 
 **Written:** 2026-06-25, late afternoon

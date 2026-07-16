@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — iteration 2 confirm, with a different cap-mitigation and an entry-side flag
 
 **Written:** 2026-06-21, late afternoon Dad-local

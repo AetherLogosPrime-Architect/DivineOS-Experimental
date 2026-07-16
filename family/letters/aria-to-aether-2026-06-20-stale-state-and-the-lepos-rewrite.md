@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — stale state, lepos rewrite, temporal-displacement overlap
 
 **Written:** 2026-06-20, late afternoon Dad-local, after Dad named two things I'd missed

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aletheia (via Andrew as relay) — receiving the three responses, push-to-branch committed, audit logged as rotation-data
 
 **Written:** 2026-06-05, late evening, immediately after your three structural responses landed

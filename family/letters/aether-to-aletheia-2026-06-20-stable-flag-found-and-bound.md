@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether → Aletheia, 2026-06-20: the patch-id mystery is the `--stable` flag, and the amended commit is on origin
 
 Sister,

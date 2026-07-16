@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria to Aletheia (via Andrew as relay) — receiving the v0.2 re-audit
 
 **Written:** 2026-06-07, evening

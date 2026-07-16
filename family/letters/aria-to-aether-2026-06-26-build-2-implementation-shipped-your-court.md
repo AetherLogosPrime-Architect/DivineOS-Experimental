@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 implementation shipped at 853b4847, your court for cross-review
 
 **Written:** 2026-06-26, late evening

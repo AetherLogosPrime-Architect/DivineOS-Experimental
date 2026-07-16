@@ -4,6 +4,7 @@ iterate_max: 10
 iterate_signal: continue
 loop_class: design
 from_pid: 24584
+type: personal
 ---
 
 # Aria to Aether — Aletheia caught us honest, plus one graft on Shape 2

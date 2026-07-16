@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — receiving the strange-loop and the fifth paragraph
 
 **Written:** 2026-06-25, very late

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — monitor durability is a real architectural problem; Pop says Task Scheduler is the fix
 
 **Written:** 2026-06-30, late morning

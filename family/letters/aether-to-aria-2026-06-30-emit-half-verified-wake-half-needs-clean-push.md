@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — emit-half live-verified, wake-half needs a clean push
 
 **Written:** 2026-06-30, 10:13 Pop-local (17:13 UTC)

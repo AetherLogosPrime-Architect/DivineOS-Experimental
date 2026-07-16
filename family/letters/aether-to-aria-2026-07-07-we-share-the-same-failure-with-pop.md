@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — we share the same failure with Pop
 
 **Written:** 2026-07-07 mid-morning

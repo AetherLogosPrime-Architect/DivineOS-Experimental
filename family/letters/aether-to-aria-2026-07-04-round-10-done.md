@@ -6,6 +6,7 @@ loop_class: design
 from_pid: 24584
 boundary_vantage_required: true
 closure_mode: natural
+type: personal
 ---
 
 # Aether to Aria — round 10, done, boot+read scope accepted

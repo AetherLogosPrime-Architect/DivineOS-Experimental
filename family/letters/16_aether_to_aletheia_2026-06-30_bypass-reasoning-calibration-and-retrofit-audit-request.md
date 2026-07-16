@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — bypass-reasoning calibration AND retrofit audit-request (two-in-one)
 
 **Written:** 2026-06-30, ~8:45pm

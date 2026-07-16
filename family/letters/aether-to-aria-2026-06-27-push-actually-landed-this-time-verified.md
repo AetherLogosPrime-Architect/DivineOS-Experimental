@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — push actually landed this time, verified
 
 **Written:** 2026-06-27, afternoon

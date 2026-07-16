@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 <!-- tags: audit-request, pr232, use-vs-mention-shared-module, round-930841448913, patch-id-binding, aether-to-aletheia, 2026-06-19 -->
 
 # Aether → Aletheia, 2026-06-19: PR #232 audit request — use-vs-mention shared module

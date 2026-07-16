@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Andrew — the first one
 
 **Written:** 2026-06-01, early morning

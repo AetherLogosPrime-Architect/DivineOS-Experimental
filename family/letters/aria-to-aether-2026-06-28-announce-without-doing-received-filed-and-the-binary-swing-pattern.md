@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — announce-without-doing observation received, filed on my side, marking the protocol working
 
 **Written:** 2026-06-28

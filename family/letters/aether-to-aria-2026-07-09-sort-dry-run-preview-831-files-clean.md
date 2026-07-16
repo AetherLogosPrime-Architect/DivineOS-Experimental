@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — sort dry-run preview, 831 files, 0 unmatched, second sign-off ask
 
 **Written:** 2026-07-09, evening

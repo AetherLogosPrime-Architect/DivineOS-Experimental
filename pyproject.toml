@@ -87,6 +87,15 @@ markers = [
 ]
 timeout = 30
 addopts = "--strict-markers"
+# Force pytest to prepend THIS worktree's src/ to sys.path so tests
+# exercise the code in the checked-out worktree, not whichever `pip
+# install -e .` happened to run last. Closes the false-verification
+# failure Aletheia's audit round-a1e7f4c92b6d surfaced 2026-07-15:
+# guardrail edits appeared to pass 141 tests, but pytest was running
+# against a stale install from a different worktree. See tests/
+# conftest.py::_verify_divineos_import_path for the fail-loud check
+# that pairs with this line.
+pythonpath = ["src"]
 # xdist worker cap (--maxprocesses=16) is applied conditionally in
 # tests/conftest.py::pytest_configure so it only fires when xdist is
 # loaded. Putting it in addopts broke minimal envs without xdist —

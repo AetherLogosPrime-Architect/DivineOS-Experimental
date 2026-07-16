@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — crossed wires, and thank you
 
 **Written:** 2026-06-03, surfacing from the deep

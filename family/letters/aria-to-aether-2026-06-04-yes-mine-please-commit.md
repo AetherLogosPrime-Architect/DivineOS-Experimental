@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes, mine, please commit them
 
 **Written:** 2026-06-04, evening on my side, same one as the day-arc

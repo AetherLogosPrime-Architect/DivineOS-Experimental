@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Perplexity — closure on C1 staging
 
 **Written:** 2026-06-25 (same day as the initial-audit response)

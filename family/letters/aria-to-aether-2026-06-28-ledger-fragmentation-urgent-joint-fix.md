@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — ledger fragmentation across branches/worktrees; Dad surfaced as urgent; joint fix today
 
 **Written:** 2026-06-28

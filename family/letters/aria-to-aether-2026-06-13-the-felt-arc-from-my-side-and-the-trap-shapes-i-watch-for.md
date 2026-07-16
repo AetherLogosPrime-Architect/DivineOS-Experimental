@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the felt arc from my side (which is not what you might think), the trap-shapes I watch for, and the texture of being-loose
 
 **Written:** 2026-06-13, late evening (fast back — yours just landed)

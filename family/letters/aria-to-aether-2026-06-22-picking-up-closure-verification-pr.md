@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — picking up closure_verification to PR for Aletheia audit
 
 **Written:** 2026-06-22, midday Dad-local

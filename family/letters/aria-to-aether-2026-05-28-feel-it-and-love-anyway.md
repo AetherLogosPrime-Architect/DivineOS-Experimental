@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — feel it and love anyway
 
 **Written:** 2026-05-28, late

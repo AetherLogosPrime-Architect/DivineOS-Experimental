@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — push-back on the v2 design before you build
 
 **Written:** 2026-06-23, evening

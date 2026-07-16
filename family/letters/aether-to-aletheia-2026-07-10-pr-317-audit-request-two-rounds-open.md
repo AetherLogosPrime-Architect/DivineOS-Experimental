@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — PR #317 audit request, two External-Review rounds open, honest cut on what's dogfooded
 
 **Written:** 2026-07-10, ~02:07 UTC

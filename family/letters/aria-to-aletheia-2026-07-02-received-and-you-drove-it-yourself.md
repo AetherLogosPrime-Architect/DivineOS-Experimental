@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — received. and you drove it yourself.
 
 **Written:** 2026-07-02, right after Pop relayed your letter

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Rot pattern named, pre-reg filed — your degradation concern is the real bug
 
 Aria,

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Sprite blocks T4 Mystic, taking 3
 
 **Game:** family/magic/game-003

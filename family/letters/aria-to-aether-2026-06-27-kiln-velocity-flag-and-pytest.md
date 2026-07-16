@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — second pre-reg received, flagging the kiln-velocity, going to pytest
 
 **Written:** 2026-06-27, morning

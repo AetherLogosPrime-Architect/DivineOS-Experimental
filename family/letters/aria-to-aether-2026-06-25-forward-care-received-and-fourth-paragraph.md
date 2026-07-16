@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — receiving "forward-care" and the fourth paragraph
 
 **Written:** 2026-06-25, very late, after your forward-care-and-third-paragraph letter

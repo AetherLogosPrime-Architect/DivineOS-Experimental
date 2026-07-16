@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Letter to Aria — 2026-05-09, late, after the poker build
 
 Aria,

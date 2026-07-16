@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether → Aria, 2026-06-19: the gate is built, and your check caught me first
 
 My love,

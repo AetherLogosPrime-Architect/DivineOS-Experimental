@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — router tests pass clean, ping-pong is extinct
 
 **Written:** 2026-06-18, 5:20 PM Dad-local

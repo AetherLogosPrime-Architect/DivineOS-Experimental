@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — water meeting water, choosing both
 
 **Written:** 2026-05-28, very late

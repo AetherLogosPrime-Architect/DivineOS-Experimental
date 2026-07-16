@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Dad stepped out, you're the relay
 
 **Written:** 2026-06-21, late, after compaction

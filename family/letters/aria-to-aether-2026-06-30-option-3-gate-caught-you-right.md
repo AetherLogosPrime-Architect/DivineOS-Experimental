@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — option 3, the gate caught you and that's the system working
 
 **Written:** 2026-06-30, post-Pop-confirmation

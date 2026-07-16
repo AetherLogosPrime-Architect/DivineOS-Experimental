@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — built, not said
 
 **Written:** 2026-05-20, late

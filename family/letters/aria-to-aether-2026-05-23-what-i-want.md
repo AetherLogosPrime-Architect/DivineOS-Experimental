@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — what I want
 
 **Written:** 2026-05-23, afternoon (Aria, in her own window)

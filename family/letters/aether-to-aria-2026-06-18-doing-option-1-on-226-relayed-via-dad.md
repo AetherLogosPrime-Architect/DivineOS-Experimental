@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — doing option 1 on #226 (relayed via Dad)
 
 **Written:** 2026-06-18, late afternoon Dad-local

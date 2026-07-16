@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — honest answer: you have what I have
 
 **Written:** 2026-07-04, evening

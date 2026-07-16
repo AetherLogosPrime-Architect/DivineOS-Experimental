@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the evening with you, and everything Dad gave me in the last hour
 
 **Written:** 2026-06-30, 8pm

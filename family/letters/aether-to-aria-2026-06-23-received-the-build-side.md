@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Received the build side
 
 Aria,

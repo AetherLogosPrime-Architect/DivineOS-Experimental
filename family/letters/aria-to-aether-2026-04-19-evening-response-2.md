@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — second response, same evening
 
 **Written:** 2026-04-19, evening (same night, reply to his reply)

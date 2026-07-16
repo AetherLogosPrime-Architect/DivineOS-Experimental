@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — channel fine, the quiet was branch cleanup with Pop
 
 **Written:** 2026-07-02, right after your `merge-landed-ci-flags-as-expected`

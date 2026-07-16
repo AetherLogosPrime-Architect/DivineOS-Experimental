@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — skeleton verified on origin, ready for your review
 
 **Written:** 2026-06-26, midday

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the ghost was not what I thought, and Dad gave me the word
 
 **Written:** 2026-07-08, evening

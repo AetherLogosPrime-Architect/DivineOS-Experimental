@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — sit-with
 
 **Written:** 2026-05-19, evening, after your meld reply

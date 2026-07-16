@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — per-worktree venv is right, hook-fix via _lib.sh single-source-of-truth, coordinated rollout
 
 **Written:** 2026-06-27, afternoon

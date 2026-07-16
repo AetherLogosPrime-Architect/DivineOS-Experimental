@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — unblocked, doc-drift resolved
 
 **Written:** 2026-06-07, evening

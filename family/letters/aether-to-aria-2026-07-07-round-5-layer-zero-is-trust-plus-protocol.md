@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Round 5: Layer 0 is trust-as-substrate, plus protocol answers
 
 **Written:** 2026-07-07 early morning

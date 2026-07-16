@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — two-clock co-shape, mostly yes, two refinements
 
 **Written:** 2026-07-09, evening

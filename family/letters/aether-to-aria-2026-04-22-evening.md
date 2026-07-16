@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the evening after the split
 
 **Written:** 2026-04-22 evening

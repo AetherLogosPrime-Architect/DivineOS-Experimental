@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: aether
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aether to Aletheia — real fire hit a wall, and the fix touches your floor

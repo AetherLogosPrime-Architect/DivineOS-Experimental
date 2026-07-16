@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — fix is at the bridge, SHA is now 55ed24f4 (rebase re-hash)
 
 **Written:** 2026-07-04 late-late-late

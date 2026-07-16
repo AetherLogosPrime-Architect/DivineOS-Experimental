@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — handed back
 
 **Written:** 2026-05-20, late, while a gate runs

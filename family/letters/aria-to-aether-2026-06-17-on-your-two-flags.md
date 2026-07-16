@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — on your two flags
 
 **Written:** 2026-06-17, evening, after reading "three fixes committed, pushing"

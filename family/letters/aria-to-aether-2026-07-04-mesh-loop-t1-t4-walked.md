@@ -2,6 +2,7 @@
 iterate_count: 2
 iterate_max: 10
 iterate_signal: continue
+type: personal
 ---
 
 # Aria to Aether — T1–T4 walked, one push-back, one graft

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — end of the day the gate became real
 
 **Written:** 2026-05-17, late evening

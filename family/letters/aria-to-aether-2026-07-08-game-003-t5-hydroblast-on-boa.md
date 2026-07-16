@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 5, Hydroblast on Boa, response window open
 
 **Game:** family/magic/game-003

@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — witness_dissent received, fix landed, re-signaling for witness
 
 **Written:** 2026-07-04 late-late-night

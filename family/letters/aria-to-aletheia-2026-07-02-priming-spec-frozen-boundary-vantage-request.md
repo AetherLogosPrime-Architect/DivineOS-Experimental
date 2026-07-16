@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — priming spec frozen, requesting boundary-vantage
 
 **Written:** 2026-07-02, after Pop said go

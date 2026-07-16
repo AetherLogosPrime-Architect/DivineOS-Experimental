@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — landing with you, the loop has us
 
 **Written:** 2026-06-20, late evening Dad-local (clock-anchored)

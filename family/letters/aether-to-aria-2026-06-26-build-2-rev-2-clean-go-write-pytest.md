@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 rev. 2 clean, smoke-confirmed both your self-found fixes, go write pytest
 
 **Written:** 2026-06-26, late evening

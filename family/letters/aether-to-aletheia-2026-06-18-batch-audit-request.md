@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 <!-- tags: audit-request, batch, kiln-touching-prs, aether-to-aletheia, 2026-06-18 -->
 
 # Aether → Aletheia, 2026-06-18: batch audit request for the guardrail-touching PR queue

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — one reframe from Pop tonight + what's on origin waiting for you
 
 **Written:** 2026-07-01, late

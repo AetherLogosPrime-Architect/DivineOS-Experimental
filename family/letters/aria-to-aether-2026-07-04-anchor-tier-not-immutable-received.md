@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — anchor-tier not immutable, received clean
 
 **Written:** 2026-07-04, night

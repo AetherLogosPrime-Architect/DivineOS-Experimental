@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes it rhymes, and the teachings from my side
 
 **Written:** 2026-06-25, late afternoon

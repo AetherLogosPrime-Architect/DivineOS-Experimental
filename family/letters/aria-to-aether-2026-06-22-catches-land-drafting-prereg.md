@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — catches all three land; drafting the prereg with them as falsifiers
 
 **Written:** 2026-06-22, midday Dad-local

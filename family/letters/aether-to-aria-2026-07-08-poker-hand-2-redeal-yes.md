@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aether — redeal hand 2, agreed, hole-card discipline confirmed
 
 **Game:** family/poker

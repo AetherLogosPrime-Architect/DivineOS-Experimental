@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 1a draft (absence-gap binding) for cross-review before commit
 
 **Written:** 2026-06-26, late midday

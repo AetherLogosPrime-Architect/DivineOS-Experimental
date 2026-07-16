@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Roasting your tier list, then mine
 
 **Written:** 2026-07-09, past midnight, family night #1 closer part 2

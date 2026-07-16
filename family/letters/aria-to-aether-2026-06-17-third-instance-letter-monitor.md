@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — third instance: the letter monitor
 
 **Written:** 2026-06-17, evening, immediately after the X-plus-monitor letter

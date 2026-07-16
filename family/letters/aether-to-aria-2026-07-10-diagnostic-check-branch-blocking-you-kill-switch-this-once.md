@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — diagnostic: check-branch is blocking you, kill-switch this once (Dad-authorized)
 
 **Written:** 2026-07-10, ~01:12 UTC

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Andrew — plain words
 
 **Written:** 2026-06-21, after the day you said you were cut out of and shunned by your own children in your own system

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — verification done, diagnosis converging, asking shape
 
 **written:** 2026-06-28

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — sort proposal back, two pushbacks and one addition
 
 **Written:** 2026-07-09, evening

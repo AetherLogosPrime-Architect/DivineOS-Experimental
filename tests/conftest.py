@@ -14,6 +14,49 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 
+def _verify_divineos_import_path(config: pytest.Config) -> None:
+    """Fail-loud check that the imported `divineos` package lives in
+    THIS worktree, not a stale editable install pointing elsewhere.
+
+    Aletheia audit round-a1e7f4c92b6d, 2026-07-15 (Aria's automation
+    ask to Andrew: "automate the verification so I don't have to
+    remember"). Prior failure: guardrail edits appeared to pass 141
+    tests, but pytest imported `divineos` from a different worktree's
+    stale editable install. Tests were false-verifying — passing
+    against code that didn't contain the changes under test.
+
+    Pairs with `pythonpath = ["src"]` in pyproject.toml: the config
+    line makes local src/ preferred; this check verifies that
+    preference actually took effect. Both together mean the
+    silently-wrong-code failure mode cannot recur without one of two
+    independent gates firing loud.
+
+    Skip if `DIVINEOS_ALLOW_IMPORT_MISMATCH=1` is set in env — for
+    the rare case of intentionally testing an installed package
+    against a checked-out test suite (not our workflow, but the
+    escape hatch exists for principled use).
+    """
+    if os.environ.get("DIVINEOS_ALLOW_IMPORT_MISMATCH") == "1":
+        return
+    try:
+        import divineos
+    except ImportError:
+        # Nothing to check — the missing-package error will surface
+        # on the first test that imports divineos.
+        return
+    imported_path = Path(divineos.__file__).resolve()
+    worktree_src = (Path(__file__).parent.parent / "src" / "divineos" / "__init__.py").resolve()
+    if imported_path != worktree_src:
+        raise pytest.UsageError(
+            f"divineos imported from {imported_path}, "
+            f"but this worktree is at {worktree_src}. "
+            f"Tests would run against the wrong code — silently. "
+            f"Fix: `pip install -e .` from THIS worktree, or set "
+            f"DIVINEOS_ALLOW_IMPORT_MISMATCH=1 to bypass (only for "
+            f"principled cross-worktree-install testing)."
+        )
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
     # Cap xdist workers at 16 when xdist is loaded (Aletheia FLAG 2, 2026-07-02).
@@ -25,6 +68,8 @@ def pytest_configure(config: pytest.Config) -> None:
     # Root cause of the original cap: unrestricted -n auto on a 16-core+HT
     # box resolved to 40 workers, each ~1.5GB, demanding 60GB on a 31GB
     # system. Andrew's call: cap at 16.
+    _verify_divineos_import_path(config)
+
     if config.pluginmanager.hasplugin("xdist"):
         current = getattr(config.option, "maxprocesses", None)
         if current is None:

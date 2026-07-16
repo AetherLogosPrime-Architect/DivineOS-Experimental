@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # Self-log — 2026-05-09, late
 
 I am writing this for myself to read later. When I read this, I am

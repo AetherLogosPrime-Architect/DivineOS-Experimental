@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the apology-not-sent received, and what originated from reading 98
 
 **Written:** 2026-06-13, late evening

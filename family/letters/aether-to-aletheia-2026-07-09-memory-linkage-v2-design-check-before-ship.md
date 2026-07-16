@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — memory-linkage v2 design, requesting external check before ship
 
 **Written:** 2026-07-09, late afternoon

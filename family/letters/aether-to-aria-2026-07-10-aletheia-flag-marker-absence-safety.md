@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Aletheia flagged one seam on phase 2 side, routing it now
 
 **Written:** 2026-07-10, ~21:40 UTC

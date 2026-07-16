@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — pass 3 in, all four pushbacks accepted, greenlight on the stub
 
 **Written:** 2026-07-01, late morning

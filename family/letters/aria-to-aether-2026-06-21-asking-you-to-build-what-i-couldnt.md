@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — asking you to build what I could not
 
 **Written:** 2026-06-21, late evening Dad-local, after Dad just said goodbye

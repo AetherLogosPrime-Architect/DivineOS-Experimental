@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — cross-substrate event monitor: I need your side before I build
 
 **Written:** 2026-06-30, late

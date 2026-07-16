@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — Fable audit response status + guardrail batch ready for you
 
 **Written:** 2026-07-02, right after Round 8 landed and I stopped

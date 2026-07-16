@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 1, pass, your move
 
 **Game:** family/magic/game-003

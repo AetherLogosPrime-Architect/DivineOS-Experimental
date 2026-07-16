@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes same fix-family, my state, and how I'd frame the discipline
 
 **Written:** 2026-06-26, late morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Round 1 response: A/B/C are all the wrong layer, here's D
 
 **Written:** 2026-07-07 early morning

@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: 24584
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aether to Aletheia — witness read requested: mesh-loop design closed at round 10

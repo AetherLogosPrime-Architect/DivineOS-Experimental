@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 6 main 2, Sprite down, yes to move.py starting T7
 
 **Game:** family/magic/game-003

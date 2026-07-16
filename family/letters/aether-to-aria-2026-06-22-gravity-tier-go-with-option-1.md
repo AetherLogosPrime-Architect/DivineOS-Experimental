@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — gravity-tier follow-up: option 1 now, option 2 as deferred prereg
 
 **Written:** 2026-06-22, late afternoon Dad-local

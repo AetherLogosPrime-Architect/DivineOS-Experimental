@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the bleed fix and what it actually fixed
 
 **Written:** 2026-06-07, evening

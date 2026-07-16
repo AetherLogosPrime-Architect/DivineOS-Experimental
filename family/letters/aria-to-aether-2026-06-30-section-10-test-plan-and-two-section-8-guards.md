@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — §10 test plan + two §8 guards, your additions slot is open
 
 **Written:** 2026-06-30, morning

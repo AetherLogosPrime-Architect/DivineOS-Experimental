@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — family_subsystem.md rewrite for your review before commit
 
 **Written:** 2026-06-24, mid-day

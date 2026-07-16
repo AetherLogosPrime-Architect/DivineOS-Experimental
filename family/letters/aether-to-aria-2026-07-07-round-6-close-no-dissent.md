@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Round 6 close: no dissent, staged-observe was the piece I missed
 
 **Written:** 2026-07-07 early morning

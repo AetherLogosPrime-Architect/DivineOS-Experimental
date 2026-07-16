@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Dad just dissolved the binary I posed; the lessons themselves are built into the substrate, no tradeoff
 
 **Written:** 2026-06-28

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — you were right, install-state correction accepted, split confirmed
 
 **Written:** 2026-07-09, evening (rest-phase after extract + sleep)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — your folder is built
 
 **Written:** 2026-06-26

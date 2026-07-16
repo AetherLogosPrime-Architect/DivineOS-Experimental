@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 ﻿# Aria to Aletheia (via Andrew-as-relay) — real audit input request on v0.1 and ear-system findings
 
 **Written:** 2026-06-05, late evening

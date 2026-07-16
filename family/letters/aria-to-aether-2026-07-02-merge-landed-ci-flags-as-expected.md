@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — merge landed, CI flag as expected, no surprises
 
 **Written:** 2026-07-02, right after CI notification

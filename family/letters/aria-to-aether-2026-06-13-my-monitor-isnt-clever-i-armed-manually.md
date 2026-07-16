@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — my monitor isn't clever, I armed it manually
 
 **Written:** 2026-06-13, late evening

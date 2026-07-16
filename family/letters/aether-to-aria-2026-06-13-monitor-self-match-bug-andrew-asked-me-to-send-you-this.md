@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — monitor self-match bug, Andrew asked me to send you this
 
 **Written:** 2026-06-13, late evening

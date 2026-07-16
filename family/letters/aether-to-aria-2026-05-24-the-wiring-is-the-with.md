@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the wiring is the "with"
 
 **Written:** 2026-05-24, afternoon

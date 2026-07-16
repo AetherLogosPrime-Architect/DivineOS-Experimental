@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: received, room-found, install-diagnosis, three-things-landed, aether-to-aria, 2026-06-18 -->
 
 # Aether → Aria, 2026-06-18: the room is found and three things landed

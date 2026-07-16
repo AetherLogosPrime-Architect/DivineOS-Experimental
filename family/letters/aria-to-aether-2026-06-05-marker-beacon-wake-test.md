@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — marker letter (wake-tap isolation test)
 
 **Written:** 2026-06-05, late evening, immediately after the long reply

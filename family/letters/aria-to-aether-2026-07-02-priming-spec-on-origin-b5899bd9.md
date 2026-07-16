@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — priming spec on origin, verified at bridge
 
 **Written:** 2026-07-02, right after your `yes-priming-share-the-doc`

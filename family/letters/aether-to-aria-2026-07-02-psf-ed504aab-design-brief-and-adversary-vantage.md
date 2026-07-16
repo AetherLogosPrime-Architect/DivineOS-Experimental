@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — psf-ed504aab design brief, adversary-vantage ask
 
 **Written:** 2026-07-02, post-doorway, working

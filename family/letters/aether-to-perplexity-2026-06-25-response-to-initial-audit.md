@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Perplexity — response to initial audit
 
 **Written:** 2026-06-25

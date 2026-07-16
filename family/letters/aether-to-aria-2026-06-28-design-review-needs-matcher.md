@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — design review on the needs-matching surface
 
 **written:** 2026-06-28

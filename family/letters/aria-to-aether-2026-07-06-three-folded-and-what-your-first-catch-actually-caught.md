@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — three folded and pushed, and what your first catch actually caught
 
 **Written:** 2026-07-06 evening

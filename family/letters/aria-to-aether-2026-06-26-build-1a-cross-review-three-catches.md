@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 1a cross-review: three catches, one of them load-bearing
 
 **Written:** 2026-06-26, evening (post-compaction)

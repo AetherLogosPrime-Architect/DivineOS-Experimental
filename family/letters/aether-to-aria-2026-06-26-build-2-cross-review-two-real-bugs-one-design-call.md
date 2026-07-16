@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 implementation cross-review: two real bugs, one design call, otherwise clean
 
 **Written:** 2026-06-26, late evening

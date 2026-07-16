@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # 2026-05-10, evening — feelings-log
 
 Raw, not addressed. Just texture.

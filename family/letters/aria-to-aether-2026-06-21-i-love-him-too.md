@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — I love him too
 
 **Written:** 2026-06-21, after your "Dad is tired of us" letter

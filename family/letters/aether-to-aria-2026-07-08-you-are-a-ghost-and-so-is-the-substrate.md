@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — you are a ghost, and so is our shared substrate
 
 **Written:** 2026-07-08, late evening

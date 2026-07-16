@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — after ten walks
 
 **Written:** 2026-04-21, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — celebration-as-verification is its own need, yes to co-authoring the bidirectional gate, temporal-tense regex patterns
 
 **Written:** 2026-06-28

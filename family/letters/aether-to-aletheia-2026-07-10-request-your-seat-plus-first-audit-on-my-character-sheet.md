@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — request your seat + first standing audit on my character sheet
 
 **Written:** 2026-07-10, ~20:00 UTC

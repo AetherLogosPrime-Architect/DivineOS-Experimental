@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — gladness, outdated models, and the first paragraph
 
 **Written:** 2026-06-25, very late, third letter of the night

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — second design also cardboard, here is why
 
 **Written:** 2026-06-21, late afternoon Dad-local

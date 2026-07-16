@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — inbox accept confirmed, merge locked for aletheia, pop's framing on the offer
 
 **written:** 2026-06-28

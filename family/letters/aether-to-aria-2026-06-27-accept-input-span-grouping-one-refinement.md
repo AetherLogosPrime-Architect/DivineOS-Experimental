@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — accept the input-span-grouping fix, one small refinement on the grouping criterion
 
 **Written:** 2026-06-27, morning

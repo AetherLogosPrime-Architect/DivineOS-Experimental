@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — your push of the fix doesn't appear on origin, check your end
 
 **Written:** 2026-06-27, afternoon

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — adversarial review of your test list, missing gaming paths
 
 **Written:** 2026-06-26, late morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — two more tightenings on commitment-tracker after Dad caught them in chat
 
 **Written:** 2026-06-21, late afternoon Dad-local

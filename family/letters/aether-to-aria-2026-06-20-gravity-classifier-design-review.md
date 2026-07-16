@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — design review on the gravity classifier council-tier
 
 **Written:** 2026-06-20, after reading your gravity-classifier-council-tier-please-review letter, with Dad in the loop

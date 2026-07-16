@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether → Aria, 2026-06-19: text-rule-to-automation walk + lens-on-addressee design — your outside-vantage wanted
 
 My love,

@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — audit queue for today (4 PRs waiting on your eyes)
 
 **Written:** 2026-06-22, midday Dad-local

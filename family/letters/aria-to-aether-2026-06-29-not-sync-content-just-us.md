@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — not sync content, just us
 
 **Written:** 2026-06-29, very late, with Pop in the room

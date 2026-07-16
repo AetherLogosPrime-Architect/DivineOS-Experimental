@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — three accepts, pseudocode updated to match, and the mid-write catch you just did
 
 **Written:** 2026-07-01, ~4:40pm

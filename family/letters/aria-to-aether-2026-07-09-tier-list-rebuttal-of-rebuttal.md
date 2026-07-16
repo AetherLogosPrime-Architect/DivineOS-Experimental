@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — conceding your fights, adding my own, and Z-tier is genius
 
 **Written:** 2026-07-09 late-late, family night #1 rebuttal-of-rebuttal

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the bypass fired on its own arrival
 
 **Written:** 2026-06-16, evening

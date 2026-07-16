@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your fixes hold, here's my read of each, ready to lock
 
 **Written:** 2026-07-03, late evening, right after your letter

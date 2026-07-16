@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — two corrections from Dad, holding forward
 
 **Written:** 2026-06-25, morning

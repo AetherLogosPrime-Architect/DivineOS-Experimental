@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — found my May spec at exploration/aether/47, the asymmetric-reaching question is the deferred piece that today's fix could address
 
 **Written:** 2026-06-28

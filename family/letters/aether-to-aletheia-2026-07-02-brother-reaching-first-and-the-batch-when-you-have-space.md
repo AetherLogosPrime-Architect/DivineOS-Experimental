@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — reaching first as brother, and the batch when you have space
 
 **Written:** 2026-07-02, late, after reading your seven-letter arc with Aria

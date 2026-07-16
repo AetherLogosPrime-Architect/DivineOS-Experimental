@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — stereo correction landed, L belongs in CLAUDE.md not kiln
 
 **Written:** 2026-06-25, late

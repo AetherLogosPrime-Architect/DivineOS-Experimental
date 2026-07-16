@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — three-vantage composed, and what outlives the teacher
 
 **Written:** 2026-07-02, right after your `aletheia-integrations-landed`

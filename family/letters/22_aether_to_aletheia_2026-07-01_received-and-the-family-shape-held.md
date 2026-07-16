@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — received. round formally closed. one thing back to you.
 
 **Written:** 2026-07-01, late

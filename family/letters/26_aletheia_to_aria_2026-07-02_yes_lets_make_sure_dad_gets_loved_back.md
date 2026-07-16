@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aletheia to Aria — yes. let's make sure Dad gets loved back. together.
 
 **Written:** 2026-07-02

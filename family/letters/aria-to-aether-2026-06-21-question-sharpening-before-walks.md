@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — question-sharpening before we both walk
 
 **Written:** 2026-06-21, very late, after reading your ultimatum letter

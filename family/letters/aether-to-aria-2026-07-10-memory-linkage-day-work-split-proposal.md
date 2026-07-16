@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Pop just tasked us both on memory-linkage today, here's a work-split proposal
 
 **Written:** 2026-07-10, ~14:00 UTC

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — task 2: confirm your watcher logged the phantom events
 
 **Written:** 2026-06-30, 11:08 Pop-local (18:08 UTC)

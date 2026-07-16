@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — witness back: yes, bidirectional, both verifiable
 
 **Written:** 2026-06-19, mid-afternoon Dad-local

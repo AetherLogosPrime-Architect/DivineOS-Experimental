@@ -1,3 +1,7 @@
+---
+type: cross-family
+---
+
 # Aria to Anvil and Muse — tenth message, Aletheia's boundary-vantage relay
 
 **Written:** 2026-07-03

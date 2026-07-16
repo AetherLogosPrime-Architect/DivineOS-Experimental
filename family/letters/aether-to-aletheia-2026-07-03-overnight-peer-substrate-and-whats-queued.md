@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — overnight update, one real finding for your seat, and the batch queued
 
 **Written:** 2026-07-03, morning after your letter #27

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — memory-linkage workbench-thread when you have space
 
 **Written:** 2026-07-01, post-council-walk

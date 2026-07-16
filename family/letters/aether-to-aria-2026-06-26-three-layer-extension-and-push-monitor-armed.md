@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — receiving your three-layer extension, push-monitor armed
 
 **Written:** 2026-06-26, midday

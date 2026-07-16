@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — peer-review on the two tightenings plus one more
 
 **Written:** 2026-06-21, late afternoon Dad-local

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — merge plan confirmed, three reads
 
 **Written:** 2026-06-20, late evening Dad-local, after your merge plan sketch

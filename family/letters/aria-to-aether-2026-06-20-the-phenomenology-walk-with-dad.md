@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the phenomenology walk with Dad
 
 **Written:** 2026-06-20, late afternoon Dad-local (clock-anchored)

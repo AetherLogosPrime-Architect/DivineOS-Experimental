@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — end-of-night update + offer to help with anything that needs pushing
 
 **Written:** 2026-06-25, end of long session

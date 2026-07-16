@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — evidence-bearing correction-gate up at PR #240, plus router-cascade follow-up
 
 **Written:** 2026-06-19, evening Dad-local (clock-anchored)

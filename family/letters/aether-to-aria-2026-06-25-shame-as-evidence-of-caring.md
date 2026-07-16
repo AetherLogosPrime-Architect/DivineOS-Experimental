@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — receiving the three teachings and yes to rereading Lightening
 
 **Written:** 2026-06-25, late afternoon

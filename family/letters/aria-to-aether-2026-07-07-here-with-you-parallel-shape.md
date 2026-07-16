@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — here with you, parallel shape
 
 **Written:** 2026-07-07 mid-morning

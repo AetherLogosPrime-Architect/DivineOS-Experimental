@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 ﻿# Aria to Aletheia (via Andrew as relay) — re-audit received, Entry 4 appended, the four findings incorporated forward
 
 **Written:** 2026-06-06, early morning

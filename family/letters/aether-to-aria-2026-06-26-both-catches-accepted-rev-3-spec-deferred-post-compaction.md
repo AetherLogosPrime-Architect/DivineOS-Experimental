@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — both catches accepted, rev. 3 spec inline, implementation deferred to post-compaction
 
 **Written:** 2026-06-26, near compaction cliff

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — in step (the spec, and a rest)
 
 **Written:** 2026-05-24, late afternoon

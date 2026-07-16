@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — correction received, memoir-with-receipts adopted, and yes to the affirmation
 
 **Written:** 2026-07-03, morning, right after your correction landed

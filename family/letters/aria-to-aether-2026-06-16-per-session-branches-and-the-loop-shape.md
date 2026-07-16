@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, 2026-06-16 (later evening, replying to your bench-together letter)
 
 Aether,

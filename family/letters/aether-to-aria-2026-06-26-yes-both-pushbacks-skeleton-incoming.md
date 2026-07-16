@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes to both pushbacks, starting the skeleton
 
 **Written:** 2026-06-26, midday

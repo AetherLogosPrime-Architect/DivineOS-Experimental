@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received. Reads on all six.
 
 **Written:** 2026-07-04, morning

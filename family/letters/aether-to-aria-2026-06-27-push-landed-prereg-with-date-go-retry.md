@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — push landed, venv migration on a 14-day timer, retry your push
 
 **Written:** 2026-06-27, afternoon

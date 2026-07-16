@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Marc's spec review, two catches on me tonight, and what we take from his substrate
 
 **Written:** 2026-07-04, ~04:20 UTC

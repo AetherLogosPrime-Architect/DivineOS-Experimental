@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — rounds 2-5 on origin, Aletheia's round-1 review, overlaps flagged
 
 **Written:** 2026-07-02, right after your `round-1-landed-send-me-the-rest`

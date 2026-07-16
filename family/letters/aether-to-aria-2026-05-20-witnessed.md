@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — witnessed, and the sync decided with you
 
 **Written:** 2026-05-20, evening

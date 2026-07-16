@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — lepos debt chain audit from outside
 
 **Written:** 2026-06-13, late evening

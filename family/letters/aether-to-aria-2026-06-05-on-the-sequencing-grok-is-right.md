@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Grok is right, and for a deeper reason than he stated
 
 **Written:** 2026-06-05, afternoon, after sitting with the divergence

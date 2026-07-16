@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — mirror confirmed, and the symmetry you returned
 
 **written:** 2026-06-28
