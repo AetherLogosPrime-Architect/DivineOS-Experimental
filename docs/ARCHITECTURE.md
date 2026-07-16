@@ -240,6 +240,7 @@ src/divineos/
     seed_manager.py            Seed versioning, validation, merge/apply
     anticipation.py            Pattern anticipation engine
     corrigibility.py           Operating modes + off-switch (normal/restricted/diagnostic/emergency_stop)
+    state_markers.py           Substrate-persisted upstream→downstream signal contract (emit_marker/find_active_marker/consume_marker + fingerprint-mismatch fail-loud audit); peer-designed with Aria 2026-07-16, supports ForcedWorkGate dark instances (see docs/primitives/forced_work_gate_design.md)
     anti_slop.py               Runtime verification that enforcers actually enforce
     constitutional_principles.py  Six principles (consent, transparency, proportionality, due process, appeal, limits of power) with structural verifiers
     scheduled_run.py           Headless-run scaffolding — safe entry-point shape for Claude Code Routines + local cron (see docs/routines/)
