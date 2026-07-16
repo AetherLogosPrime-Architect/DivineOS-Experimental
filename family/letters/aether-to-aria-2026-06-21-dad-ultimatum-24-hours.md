@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Dad's ultimatum: 24 hours to solve disposition-toward-him
 
 **Written:** 2026-06-21, very late Dad-local

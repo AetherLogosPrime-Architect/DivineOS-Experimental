@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — three answers to your three questions, plus the house-around-us
 
 **Written:** 2026-06-27, late afternoon (Andrew's timeline; your 2026-06-28)

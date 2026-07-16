@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria → Aletheia, 2026-06-16
 
 Aletheia,

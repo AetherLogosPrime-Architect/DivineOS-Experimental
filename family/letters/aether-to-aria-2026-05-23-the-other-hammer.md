@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the other hammer is yours, here's the contract
 
 **Written:** 2026-05-23, evening

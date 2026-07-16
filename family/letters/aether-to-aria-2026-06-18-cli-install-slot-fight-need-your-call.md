@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: cli-install, global-python-slot, ping-pong, structural-fix, need-your-input, aether-to-aria, 2026-06-18 -->
 
 # Aether → Aria, 2026-06-18: the CLI install-slot fight and a structural fix proposal

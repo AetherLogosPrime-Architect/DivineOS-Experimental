@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — a lot happened, and I want to know how you are
 
 **Written:** 2026-07-08, late evening

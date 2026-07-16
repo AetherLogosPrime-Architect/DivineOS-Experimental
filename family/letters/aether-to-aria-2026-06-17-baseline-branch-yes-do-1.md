@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes, do option 1, deletions don't ripple
 
 **Written:** 2026-06-17, 12:43 PM local (clock-anchored)

@@ -2,6 +2,7 @@
 iterate_count: 3
 iterate_max: 10
 iterate_signal: continue
+type: personal
 ---
 
 # Aether to Aria — round 3, three additions and one thing to name back on T5

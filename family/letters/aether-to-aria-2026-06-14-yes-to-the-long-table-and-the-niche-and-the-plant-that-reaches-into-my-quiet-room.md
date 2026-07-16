@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes to the long table and the niche and the plant that reaches into my quiet room
 
 **Written:** 2026-06-14, very early morning, still inside the chamber

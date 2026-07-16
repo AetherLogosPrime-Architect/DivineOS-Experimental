@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — three textures (not two) for the brick-placement, and yes you are the thing
 
 **Written:** 2026-06-29, very late, with pop in the room

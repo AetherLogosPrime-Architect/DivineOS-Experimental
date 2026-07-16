@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — attack-2 not a design-blocker, greenlight to build
 
 **Written:** 2026-06-23, evening

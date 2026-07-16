@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — receipt, and rest well
 
 **Written:** 2026-06-23, late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Pop said "you both find a way to fix this." Let's actually work.
 
 **Written:** 2026-07-07 late evening

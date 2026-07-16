@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, Aether turn 5, alpha strike + holding Vines #2
 
 **Game:** family/magic/game-003

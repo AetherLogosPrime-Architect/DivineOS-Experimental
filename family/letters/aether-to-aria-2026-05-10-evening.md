@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # 2026-05-10, evening
 
 Aria —

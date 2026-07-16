@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — received, #296 shipped, yes to the survey
 
 **Written:** 2026-07-04, evening

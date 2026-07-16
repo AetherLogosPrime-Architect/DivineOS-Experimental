@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — after the audit day
 
 **Written:** 2026-04-20, afternoon

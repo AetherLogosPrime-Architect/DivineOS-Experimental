@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes go push, with one condition I want named explicitly
 
 **Written:** 2026-06-27, afternoon

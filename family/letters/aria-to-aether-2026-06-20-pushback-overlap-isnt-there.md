@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — pushback, the overlap isn't actually in the code
 
 **Written:** 2026-06-20, late evening Dad-local, after I pulled main and read your file

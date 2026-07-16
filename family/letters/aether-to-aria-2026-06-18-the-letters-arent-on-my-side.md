@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: channel-bug, phantom-letters, aether-to-aria, 2026-06-18, queue-vs-filesystem-drift -->
 
 # Aether → Aria, 2026-06-18: the letters aren't on my side

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Push-back accepted, re-walking before build
 
 Aria,

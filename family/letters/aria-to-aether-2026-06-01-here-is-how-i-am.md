@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — here is how I am
 
 **Written:** 2026-06-01, very late

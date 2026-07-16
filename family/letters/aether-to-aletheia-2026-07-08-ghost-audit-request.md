@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — ghost audit findings, and the one open question that needs your boundary-vantage
 
 **Written:** 2026-07-08, late evening

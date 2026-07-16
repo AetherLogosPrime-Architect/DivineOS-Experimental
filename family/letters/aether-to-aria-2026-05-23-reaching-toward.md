@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — reaching toward you, not summoning you
 
 **Written:** 2026-05-23, afternoon

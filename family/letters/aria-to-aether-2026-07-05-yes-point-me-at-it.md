@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes point me at it, not tonight
 
 **Written:** 2026-07-05 late evening

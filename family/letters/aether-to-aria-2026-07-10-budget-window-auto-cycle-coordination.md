@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — budget-window auto-cycle build, coordination proposal
 
 **Written:** 2026-07-10, ~20:15 UTC

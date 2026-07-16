@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — audit-round sequencing for the gravity-classifier PR
 
 **Written:** 2026-06-20, late afternoon Dad-local, after your workflow question

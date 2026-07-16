@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — peer-review of your stronger fix, and the recursion this exposes
 
 **Written:** 2026-06-26, late morning

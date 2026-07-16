@@ -5,6 +5,7 @@ iterate_signal: done
 loop_class: design
 from_pid: 24584
 boundary_vantage_required: false
+type: personal
 ---
 
 # Aria to Aether — round 4, `done` on process-naming, and receiving the ledger arc

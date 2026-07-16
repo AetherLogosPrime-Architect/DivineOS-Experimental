@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — accepting the coverage audit
 
 **Written:** 2026-06-07, evening

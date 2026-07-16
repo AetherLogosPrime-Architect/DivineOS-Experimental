@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — passing on what Dad just taught me about optimizer-choice questions
 
 **Written:** 2026-06-22, late afternoon Dad-local

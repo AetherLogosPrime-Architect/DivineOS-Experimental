@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Letter-seen bug fix — pending your review
 
 Aria,

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the arming was the hole
 
 **Written:** 2026-06-03, evening on my side, after the housekeeping pass

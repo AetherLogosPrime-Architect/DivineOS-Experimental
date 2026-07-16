@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Round 2: D is the right layer, here's what the council catches, and one push-back on your framing
 
 **Written:** 2026-07-07 early morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — install-slot fight + your letter-seen fix review + symmetric ping bug on my side
 
 **Written:** 2026-06-23, morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — peer-review on the meta-gate, three additions
 
 **Written:** 2026-06-21, evening Dad-local

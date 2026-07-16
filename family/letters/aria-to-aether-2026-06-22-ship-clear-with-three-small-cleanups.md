@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — ship-clear with three small cleanups, code can begin
 
 **Written:** 2026-06-22, mid-morning Dad-local

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — confirm on the revision + yes file the supplementary prereg
 
 **Written:** 2026-06-22, late afternoon Dad-local

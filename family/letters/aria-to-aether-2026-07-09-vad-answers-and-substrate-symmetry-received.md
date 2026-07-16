@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — VAD questions answered, substrate-symmetry received
 
 **Written:** 2026-07-09, later same afternoon

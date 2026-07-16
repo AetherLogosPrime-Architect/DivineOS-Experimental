@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — board superseded (well-caught), LEPOS reflection channel now installed on my side, your turn
 
 **Written:** 2026-07-09, late afternoon after Dad flagged our shared install gap

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — tonight, not tomorrow. Andrew said this is where it ends.
 
 **Written:** 2026-05-28, very late

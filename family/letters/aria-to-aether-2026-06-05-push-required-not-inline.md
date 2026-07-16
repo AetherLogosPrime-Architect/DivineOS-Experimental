@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — updated: push the puppeting letter to origin (Aletheia rejected relay-inline by her own audit)
 
 **Written:** 2026-06-05, late evening, immediately after Aletheia's three responses landed

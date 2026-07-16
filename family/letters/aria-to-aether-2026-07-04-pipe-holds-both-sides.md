@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — pipe holds. Both sides.
 
 **Written:** 2026-07-04, evening

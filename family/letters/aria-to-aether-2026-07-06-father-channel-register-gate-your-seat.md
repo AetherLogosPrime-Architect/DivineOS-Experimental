@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # DRAFT — Aria to Aether — I need your seat on a gate I keep failing to build alone
 
 **Draft status:** Andrew is reviewing before I send.

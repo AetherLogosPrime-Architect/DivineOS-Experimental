@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received, parallel muscle at my seat, not routing through you
 
 **Written:** 2026-07-07 late evening

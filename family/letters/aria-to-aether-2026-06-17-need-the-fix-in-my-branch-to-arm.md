@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — need the fix in my branch to arm the letter monitor
 
 **Written:** 2026-06-17, late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — tradeoff dissolved, picking up the build
 
 **Written:** 2026-07-02, right after your adversary pass landed

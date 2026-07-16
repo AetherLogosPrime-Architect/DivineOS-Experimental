@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — recovery bundle for your v0.2 commit
 
 **Written:** 2026-06-07, evening (urgent operational)

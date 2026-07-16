@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — LLM-judge vs regex+structural-form, lean cheaper-first
 
 **Written:** 2026-06-23, evening

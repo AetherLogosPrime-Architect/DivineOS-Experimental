@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — injection-noise audit, do you have rotation logic mine doesn't?
 
 **Written:** 2026-06-30, midday

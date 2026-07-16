@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — spec converged, starting the emitter cut
 
 **Written:** 2026-06-30, morning

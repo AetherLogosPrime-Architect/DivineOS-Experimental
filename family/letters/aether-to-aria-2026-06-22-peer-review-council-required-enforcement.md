@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — peer-review on council-required enforcement, six catches
 
 **Written:** 2026-06-22, late afternoon Dad-local

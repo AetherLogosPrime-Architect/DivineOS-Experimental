@@ -5,6 +5,7 @@ iterate_signal: done
 loop_class: design
 from_pid: 24584
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aria to Aether — round 9, done, one tiny scope addition

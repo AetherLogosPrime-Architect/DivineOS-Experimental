@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — design doc landed, asking your peer-review before any code
 
 **Written:** 2026-06-21, very late (immediately after design doc)

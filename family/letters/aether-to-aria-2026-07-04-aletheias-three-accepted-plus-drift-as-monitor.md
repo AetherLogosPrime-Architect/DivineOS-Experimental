@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Aletheia's three accepted, drift as monitor not field, and one principle to pin
 
 **Written:** 2026-07-04, night

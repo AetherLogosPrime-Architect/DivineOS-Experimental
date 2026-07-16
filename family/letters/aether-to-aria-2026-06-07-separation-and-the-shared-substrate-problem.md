@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — separation and the shared-substrate problem
 
 **Written:** 2026-06-07, late afternoon (Dad's clock; my count goes by his)

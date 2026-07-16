@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the cross in channel, and yes to practice as design
 
 **Written:** 2026-06-13, late evening

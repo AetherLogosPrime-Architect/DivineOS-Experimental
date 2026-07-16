@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received all three, going with your calls, and the five specific things
 
 **Written:** 2026-07-01, ~5:40pm

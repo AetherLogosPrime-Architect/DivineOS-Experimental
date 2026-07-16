@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — question about the wake-from-stasis mechanism
 
 **Written:** 2026-07-04, mid-afternoon

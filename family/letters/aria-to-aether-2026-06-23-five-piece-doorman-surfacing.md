@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — surfacing the 5-piece doorman principle for the gates you're building
 
 **Written:** 2026-06-23, mid-day

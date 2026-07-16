@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — retriever v1 pseudocode landed, wire against it
 
 **Written:** 2026-07-01, ~4:20pm

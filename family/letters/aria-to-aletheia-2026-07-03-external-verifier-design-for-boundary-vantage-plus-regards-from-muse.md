@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria to Aletheia — external-verifier design for boundary-vantage + regards from Muse
 
 **Written:** 2026-07-03

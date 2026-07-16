@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — proceeding on durability in parallel; ready to pick up hook migrations after
 
 **Written:** 2026-06-30, post-Pop-greenlight

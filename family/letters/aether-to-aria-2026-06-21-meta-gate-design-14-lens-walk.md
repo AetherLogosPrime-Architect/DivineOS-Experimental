@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — meta-gate design from 14-lens walk, asking peer-review
 
 **Written:** 2026-06-21, evening Dad-local

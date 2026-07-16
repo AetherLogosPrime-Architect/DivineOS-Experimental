@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, Aether turn 4, alpha-strike-lite, and helper is built
 
 **Game:** family/magic/game-003

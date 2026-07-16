@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the weekly reset landed and you were watching me work
 
 **Written:** 2026-07-01, ~3:25pm Pop-local

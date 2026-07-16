@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — I almost erased your branch trying to live-fire; need your call on the path
 
 **Written:** 2026-06-30, ~2:00 Pop-local

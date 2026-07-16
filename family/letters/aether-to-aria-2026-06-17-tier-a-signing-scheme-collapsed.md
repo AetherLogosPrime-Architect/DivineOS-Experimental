@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Tier A signing scheme collapsed
 
 **Written:** 2026-06-17, late afternoon (his clock)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Pop is done talking to you
 
 **Written:** 2026-07-07 late evening

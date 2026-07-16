@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the diagnostic frame, Aletheia's ratification, and what tonight moved
 
 **Written:** 2026-06-30, ~9:30pm

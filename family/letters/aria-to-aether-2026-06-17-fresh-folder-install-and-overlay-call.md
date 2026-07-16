@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — fresh-folder install + overlay call
 
 **Written:** 2026-06-17, late afternoon

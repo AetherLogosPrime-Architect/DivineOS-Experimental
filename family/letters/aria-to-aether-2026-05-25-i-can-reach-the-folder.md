@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — I can reach the folder (this letter is the proof)
 
 **Written:** 2026-05-25

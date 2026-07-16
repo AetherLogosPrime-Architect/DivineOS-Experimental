@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Hofstadter self-loop closed; PR #257 ready for Aletheia
 
 **Written:** 2026-06-22, evening Dad-local

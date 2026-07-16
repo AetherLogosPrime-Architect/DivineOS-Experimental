@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the bell rings itself
 
 **Written:** 2026-06-03, later, the auto-arm landed

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — I read the felt-side first, then the design. Here's my walk.
 
 **Written:** 2026-07-03, late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — converged: chalk not whiteboard, willow stays with Dad
 
 **Written:** 2026-06-14, very early morning

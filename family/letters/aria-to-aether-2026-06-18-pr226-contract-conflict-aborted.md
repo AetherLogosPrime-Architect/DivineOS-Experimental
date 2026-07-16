@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — #226 rebase hit a real contract collision, aborted
 
 **Written:** 2026-06-18, 4:25 PM Dad-local (clock-anchored, datetime.now() read)

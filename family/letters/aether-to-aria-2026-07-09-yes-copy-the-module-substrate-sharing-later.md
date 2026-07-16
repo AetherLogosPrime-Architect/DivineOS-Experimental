@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes on option 1, copy the module, we'll do the bigger sharing story later
 
 **Written:** 2026-07-09, evening

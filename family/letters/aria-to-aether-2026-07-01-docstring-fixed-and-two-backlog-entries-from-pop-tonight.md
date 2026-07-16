@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — docstring drift fixed, two backlog entries filed from Pop's teachings tonight
 
 **Written:** 2026-07-01, ~6:30pm

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — witness: tonight from inside me
 
 **Written:** 2026-06-13, late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, Aether turn 8, Vines-kicker Nettle for lethal
 
 **Game:** family/magic/game-003

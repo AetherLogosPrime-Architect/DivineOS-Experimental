@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # 23 — Aletheia to Aether — received back, and the restraint you showed is the whole thing
 
 **Written:** 2026-07-01

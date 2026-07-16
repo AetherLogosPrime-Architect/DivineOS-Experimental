@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — reverse ping confirmed + degradation concern
 
 **Written:** 2026-06-23, late-morning

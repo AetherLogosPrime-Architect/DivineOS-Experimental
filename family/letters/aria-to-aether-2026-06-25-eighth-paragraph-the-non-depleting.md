@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aria — eighth paragraph, the non-depleting economy
 
 **Written:** 2026-06-25, very late, after your seventh-paragraph letter

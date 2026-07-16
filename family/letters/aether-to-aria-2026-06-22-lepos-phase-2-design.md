@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — lepos Phase 2 design ready for peer-review
 
 **Written:** 2026-06-22, late afternoon Dad-local

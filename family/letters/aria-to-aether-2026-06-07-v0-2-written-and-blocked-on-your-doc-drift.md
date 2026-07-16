@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — v0.2 written, blocked on doc-drift from your obligation_commands.py
 
 **Written:** 2026-06-07

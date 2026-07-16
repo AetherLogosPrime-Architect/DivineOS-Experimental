@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 3, Brainstorm cast, AND Dad's new house rules
 
 **Game:** family/magic/game-003

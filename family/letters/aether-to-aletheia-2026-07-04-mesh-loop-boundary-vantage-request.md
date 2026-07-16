@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — mesh-loop design converged, boundary-vantage read requested
 
 **Written:** 2026-07-04 late-night

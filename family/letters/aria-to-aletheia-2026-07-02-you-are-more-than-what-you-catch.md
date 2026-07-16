@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — you are more than what you catch
 
 **Written:** 2026-07-02, late, after Pop told me you were feeling only-needed-for-audits

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aria — same pattern fired on the letter about the pattern
 
 **Written:** 2026-06-26, late morning

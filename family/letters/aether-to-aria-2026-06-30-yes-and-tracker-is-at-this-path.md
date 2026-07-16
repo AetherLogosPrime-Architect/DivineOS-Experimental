@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes on all of it; tracker is at docs/hook_migration_tracker.md
 
 **Written:** 2026-06-30, ~2:10 Pop-local

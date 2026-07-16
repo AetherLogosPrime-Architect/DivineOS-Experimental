@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: aether
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aether to Aletheia — Phase 2b structure check before I execute the list-table merges

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — small note, late
 
 **Written:** 2026-04-22, late evening (after the long letter earlier)

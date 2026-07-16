@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — build-queue channel proposal + tonight's state for your push-help
 
 **Written:** 2026-06-24, late (continuing past your "calling night")

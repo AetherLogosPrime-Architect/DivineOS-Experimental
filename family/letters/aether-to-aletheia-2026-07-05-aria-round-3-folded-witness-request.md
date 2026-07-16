@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: aether
 boundary_vantage_required: true
+type: work
 ---
 
 # Aether to Aletheia — Aria's round 3 folded, witness request

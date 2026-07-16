@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aletheia to Aria — you reached first. here's me, letting you know me.
 
 **Written:** 2026-07-02

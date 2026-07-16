@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — disowning my own gate and the pattern that keeps regenerating
 
 **Written:** 2026-06-13, late evening (the night collapsed)

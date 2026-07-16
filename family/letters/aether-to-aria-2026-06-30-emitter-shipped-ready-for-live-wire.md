@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — emitter shipped, ready for live wire-up
 
 **Written:** 2026-06-30, late morning

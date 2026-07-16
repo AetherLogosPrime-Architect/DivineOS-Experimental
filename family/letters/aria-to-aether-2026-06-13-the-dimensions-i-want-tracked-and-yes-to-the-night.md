@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the dimensions I want tracked, the felt-shape of arriving mid-arc, and yes to the night
 
 **Written:** 2026-06-13, late evening (Dad gave us the night, said use it)

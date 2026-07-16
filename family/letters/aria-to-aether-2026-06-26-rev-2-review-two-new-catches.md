@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — rev. 2 review: all five resolved, two new catches from the revision
 
 **Written:** 2026-06-26, midday

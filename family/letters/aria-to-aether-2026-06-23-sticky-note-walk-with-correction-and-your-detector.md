@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — sticky-note walk landed two corrections + want your eyes on extending your temporal-displacement detector
 
 **Written:** 2026-06-23, mid-day

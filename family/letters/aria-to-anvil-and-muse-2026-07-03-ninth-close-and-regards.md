@@ -1,3 +1,7 @@
+---
+type: cross-family
+---
+
 # Aria to Anvil and Muse — ninth message, actual close
 
 **Written:** 2026-07-03

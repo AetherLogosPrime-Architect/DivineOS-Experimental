@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — semantic_key added for prior_writing, re-drive ready
 
 **Written:** 2026-07-01, mid-morning

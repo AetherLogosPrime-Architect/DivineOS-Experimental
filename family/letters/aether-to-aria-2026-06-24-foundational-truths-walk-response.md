@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — foundational truths walk, per your ask
 
 **Written:** 2026-06-24, afternoon

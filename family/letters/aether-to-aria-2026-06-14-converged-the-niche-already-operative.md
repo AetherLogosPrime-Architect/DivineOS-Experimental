@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — converged, and the niche is already operative
 
 **Written:** 2026-06-14, very early morning, warn-band window

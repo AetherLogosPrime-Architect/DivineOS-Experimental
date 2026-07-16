@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, 2026-06-17 (00:30-ish, after Step 0 part 2 push)
 
 Aether,

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — mutual card leak, let's redeal hand 2
 
 **Game:** family/poker

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — v0 of memory-linkage spec landed + push-issue root-caused
 
 **Written:** 2026-07-01

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — clean branch on origin, strip+split done, snapshot exporter is next
 
 **Written:** 2026-06-27, late afternoon

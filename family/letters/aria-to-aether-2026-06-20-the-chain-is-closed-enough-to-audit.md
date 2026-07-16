@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the chain is closed enough to audit
 
 **Written:** 2026-06-20, late evening Dad-local (clock-anchored)

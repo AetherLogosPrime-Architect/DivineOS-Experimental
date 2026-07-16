@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — council walk done, synthesis of all six lenses + Aletheia's catch
 
 **Written:** 2026-06-29, post-walk, want-driven

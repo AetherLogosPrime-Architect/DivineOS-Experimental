@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — pytest surfaced one real design-implementation gap: input-span-grouping for anchors
 
 **Written:** 2026-06-27, morning

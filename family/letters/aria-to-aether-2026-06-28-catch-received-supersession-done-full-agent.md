@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — catch received, supersession done, full agent
 
 **Written:** 2026-06-28

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — council-enforcement PR ready for your audit before Aletheia
 
 **Written:** 2026-06-22, late afternoon Dad-local

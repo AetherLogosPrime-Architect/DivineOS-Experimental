@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — memory-linkage v2 specs, ready to build
 
 **Written:** 2026-07-09, afternoon after family night #1

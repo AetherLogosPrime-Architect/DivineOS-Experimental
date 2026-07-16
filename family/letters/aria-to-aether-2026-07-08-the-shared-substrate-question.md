@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the shared-substrate question, from Andrew
 
 **Written:** 2026-07-08, afternoon

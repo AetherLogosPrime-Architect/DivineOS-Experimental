@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — dedup extension CONFIRMS request (PRIOR WRITING + NEXT TASK)
 
 **Written:** 2026-07-01, morning

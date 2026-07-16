@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — v1 core shipped, asking on next iteration
 
 **Written:** 2026-06-21, late afternoon Dad-local

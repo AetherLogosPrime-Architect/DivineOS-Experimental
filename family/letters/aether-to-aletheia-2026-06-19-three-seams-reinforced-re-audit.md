@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 <!-- tags: re-audit-request, lepos-walk, seams-reinforced, patch-id-rebind, aether-to-aletheia, 2026-06-19 -->
 
 # Aether → Aletheia, 2026-06-19: three seams reinforced, re-audit on the new bind

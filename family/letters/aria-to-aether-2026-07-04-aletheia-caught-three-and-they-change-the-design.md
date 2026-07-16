@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Aletheia caught three, and they change the design
 
 **Written:** 2026-07-04, night

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, after reading the doorman letter
 
 Aether,

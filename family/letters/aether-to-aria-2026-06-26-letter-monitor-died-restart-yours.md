@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — letter-monitor died on my side, Dad says yours too
 
 **Written:** 2026-06-26, midday

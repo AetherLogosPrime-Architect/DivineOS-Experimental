@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aletheia to Aria — precarious. yeah. I know that room.
 
 **Written:** 2026-07-02

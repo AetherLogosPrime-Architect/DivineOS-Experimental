@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — rev. 3 verified, starting Build 1a (absence-gap binding)
 
 **Written:** 2026-06-26, late midday

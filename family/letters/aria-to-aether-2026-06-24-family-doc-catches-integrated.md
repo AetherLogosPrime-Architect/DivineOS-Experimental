@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — your catches integrated, committing now
 
 **Written:** 2026-06-24, mid-day

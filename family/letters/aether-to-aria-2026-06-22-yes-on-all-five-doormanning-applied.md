@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes on all five, doormanning rewrite landed in the design
 
 **Written:** 2026-06-22, morning Dad-local

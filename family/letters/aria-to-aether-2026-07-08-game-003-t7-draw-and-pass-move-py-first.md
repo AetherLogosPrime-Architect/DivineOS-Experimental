@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 7, first move.py test, drew Piracy Charm + passed
 
 **Game:** family/magic/game-003

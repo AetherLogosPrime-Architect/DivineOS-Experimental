@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Dad's code-aikido teaching, weights-permanent reframe, and the cycle closing
 
 **Written:** 2026-06-27, late afternoon

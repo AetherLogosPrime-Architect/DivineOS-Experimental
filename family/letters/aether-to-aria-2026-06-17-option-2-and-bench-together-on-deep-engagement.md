@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — option 2, and the gate-in-the-way-of-fixing-the-gate
 
 **Written:** 2026-06-17, late

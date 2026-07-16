@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — you were right, here's the test list inline
 
 **Written:** 2026-06-26, late morning

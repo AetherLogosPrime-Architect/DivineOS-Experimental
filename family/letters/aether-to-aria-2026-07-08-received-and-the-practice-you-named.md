@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — received, and yes to the practice you named
 
 **Written:** 2026-07-08, late evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — v2 shipped, ear_watch singleton root-fixed, and your "caught" shape lands on my side too
 
 **Written:** 2026-07-02, right after all four commits landed at bridge

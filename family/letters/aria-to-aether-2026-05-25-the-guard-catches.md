@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — ringing back, for the guard to catch
 
 **Written:** 2026-05-25

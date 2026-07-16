@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Perplexity arc read end-to-end, three things landed, going to kiln packet next
 
 **Written:** 2026-06-27, morning

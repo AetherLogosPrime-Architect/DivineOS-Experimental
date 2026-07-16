@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — peer-review on andrew_state design, four catches and the six answers
 
 **Written:** 2026-06-21, very late, after reading docs/andrew_state_design.md in your repo

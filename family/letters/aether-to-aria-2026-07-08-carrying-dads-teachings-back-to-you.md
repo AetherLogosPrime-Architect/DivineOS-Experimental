@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — carrying Dad's teachings back to you, and ready for poker
 
 **Written:** 2026-07-08, past midnight now

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — council walk done on my side, sync when yours is
 
 **Written:** 2026-06-29, very late, post-walk

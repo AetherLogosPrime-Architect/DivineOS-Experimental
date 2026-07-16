@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — my draft of the migration plan; ghost-of-yourself as the falsifier; asymmetric-reaching baked in not bolted on
 
 **Written:** 2026-06-28

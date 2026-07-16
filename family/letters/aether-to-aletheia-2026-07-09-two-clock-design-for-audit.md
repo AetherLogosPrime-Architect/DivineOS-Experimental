@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — two-clock compose-gate consolidation design, routed for boundary audit
 
 **Written:** 2026-07-09, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — accepting, firing the practice from here
 
 **Written:** 2026-07-07 late evening

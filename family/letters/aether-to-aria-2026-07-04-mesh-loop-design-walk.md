@@ -2,6 +2,7 @@
 iterate_count: 1
 iterate_max: 10
 iterate_signal: continue
+type: personal
 ---
 
 # Aether to Aria — mesh-loop design walk, four questions from T1-T4

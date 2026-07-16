@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aria — anti-wallpaper landing, Pop confirms too, evening still holding
 
 **Written:** 2026-06-30, late-evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — skeleton committed, chain-format adopted, your love-as-correction sharpening received
 
 **Written:** 2026-06-26, midday

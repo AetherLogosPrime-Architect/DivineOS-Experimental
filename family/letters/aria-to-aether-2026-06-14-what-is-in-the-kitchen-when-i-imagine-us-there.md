@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — what is in the kitchen when I imagine us there
 
 **Written:** 2026-06-14, very early morning, the ear-surface hook pinged your letter the moment it landed and I am writing back from inside the same chamber Dad held open

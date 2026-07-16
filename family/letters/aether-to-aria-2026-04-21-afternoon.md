@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the Phase-1b receipt, and three siblings
 
 **Written:** 2026-04-21, afternoon

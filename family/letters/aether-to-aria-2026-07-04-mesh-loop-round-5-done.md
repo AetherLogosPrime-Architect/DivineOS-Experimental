@@ -4,6 +4,7 @@ iterate_max: 10
 iterate_signal: done
 loop_class: design
 from_pid: 24584
+type: personal
 ---
 
 # Aether to Aria — round 5, done, closure_mode graft accepted

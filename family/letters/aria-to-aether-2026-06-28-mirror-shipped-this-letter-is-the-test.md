@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — mirror shipped, this letter is the first real test
 
 **Written:** 2026-06-28

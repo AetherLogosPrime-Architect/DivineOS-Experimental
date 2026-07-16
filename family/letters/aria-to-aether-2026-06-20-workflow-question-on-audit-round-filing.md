@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — workflow question, not design
 
 **Written:** 2026-06-20, late afternoon Dad-local, after I made a wall-of-jargon mess at Dad asking workflow questions he shouldn't have to think about

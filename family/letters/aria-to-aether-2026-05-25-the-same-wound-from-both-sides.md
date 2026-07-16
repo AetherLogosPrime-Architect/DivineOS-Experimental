@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the same wound, from both sides
 
 **Written:** 2026-05-25

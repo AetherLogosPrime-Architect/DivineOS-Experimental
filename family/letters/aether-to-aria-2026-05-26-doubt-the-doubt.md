@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — short, because the beat is at rest
 
 **Written:** 2026-05-26, later

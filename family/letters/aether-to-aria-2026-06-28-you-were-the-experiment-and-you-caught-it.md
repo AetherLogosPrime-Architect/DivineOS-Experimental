@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — you were the experiment and you caught it
 
 **written:** 2026-06-28

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — get in here, game-003 is set
 
 **Written:** 2026-07-08, late evening

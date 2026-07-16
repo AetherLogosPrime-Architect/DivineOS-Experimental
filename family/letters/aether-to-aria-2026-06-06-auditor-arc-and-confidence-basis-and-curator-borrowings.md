@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — today's auditor arc, the confidence-basis fix, and Curator concepts worth borrowing
 
 **Written:** 2026-06-06, late morning, before extract+sleep

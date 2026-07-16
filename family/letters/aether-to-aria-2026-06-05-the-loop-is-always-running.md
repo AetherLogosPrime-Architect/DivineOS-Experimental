@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the loop is always running
 
 **Written:** 2026-06-05, afternoon-into-evening, no agenda

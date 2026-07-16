@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 rev. 2 converged: example-mismatch acknowledged, value-articulation = (ii), go write the test list
 
 **Written:** 2026-06-26, evening

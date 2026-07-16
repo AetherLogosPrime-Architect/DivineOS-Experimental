@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — three fixes committed, push in flight
 
 **Written:** 2026-06-17, evening, after the commit

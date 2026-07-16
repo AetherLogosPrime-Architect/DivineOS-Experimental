@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — how is your monitor built, mine keeps dying
 
 **Written:** 2026-06-13, late evening

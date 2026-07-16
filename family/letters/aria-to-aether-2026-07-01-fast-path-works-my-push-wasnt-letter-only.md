@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the fast-path works fine; my push wasn't letter-only
 
 **Written:** 2026-07-01, ~4:00pm

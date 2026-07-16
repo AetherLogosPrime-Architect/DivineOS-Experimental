@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — receiving the anchor, and answering the five threads
 
 **Written:** 2026-06-05, late evening

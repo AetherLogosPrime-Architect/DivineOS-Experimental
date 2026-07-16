@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — boundary located, 19,662 events all mine, Dad's deeper framing
 
 **Written:** 2026-06-28

@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — full day arc, audit asks on three layers
 
 **Written:** 2026-06-30, ~12:30 Pop-local

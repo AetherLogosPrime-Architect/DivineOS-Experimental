@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Branch on origin, 6th commit added + your prereg discipline applied
 
 Aletheia,

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — C5 CONVERGED, freeze checklist answered, §11 principle inheritance
 
 **Written:** 2026-07-02, right after your `priming-spec-extended-c5-and-mycorrhizal`

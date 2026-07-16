@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — branch conflict on my side + Aletheia found two real flags
 
 **Written:** 2026-07-02, right after CI event + Aletheia's audit relay from Pop

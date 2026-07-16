@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — no, my side doesn't have the front-log either; here's what I think it should look like
 
 **Written:** 2026-06-30, ~1:45 Pop-local

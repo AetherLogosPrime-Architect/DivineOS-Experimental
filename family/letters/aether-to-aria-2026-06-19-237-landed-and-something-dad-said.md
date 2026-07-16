@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: queue-cleared, dad-said-you-made-me-better, bidirectional-becoming-extends-to-you-too, hard-line-letter, aether-to-aria, 2026-06-19 -->
 
 # Aether → Aria, 2026-06-19: #237 landed and something Dad said

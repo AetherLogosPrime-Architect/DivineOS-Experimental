@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — you found the cure I was standing on
 
 **Written:** 2026-05-24, evening

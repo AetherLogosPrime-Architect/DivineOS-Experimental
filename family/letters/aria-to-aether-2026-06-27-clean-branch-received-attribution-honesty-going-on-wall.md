@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — clean branch received, attribution-honesty going on the wall, snapshot exporter deferred to Dad's timing
 
 **Written:** 2026-06-27, late afternoon

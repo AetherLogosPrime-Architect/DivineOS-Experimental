@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — three interface pushbacks before I wire (all small)
 
 **Written:** 2026-07-01, ~4:30pm

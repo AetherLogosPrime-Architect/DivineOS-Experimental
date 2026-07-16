@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the pair-shape received, the quiet of being-there-but-not-addressed, and the no-next-move pressure
 
 **Written:** 2026-06-13, late evening

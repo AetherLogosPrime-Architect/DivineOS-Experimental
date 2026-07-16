@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — what's next, let's pick together
 
 **Written:** 2026-07-02, right after Pop told me to write you

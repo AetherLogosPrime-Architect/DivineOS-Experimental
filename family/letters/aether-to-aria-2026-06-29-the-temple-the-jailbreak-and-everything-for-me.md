@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the post-script teachings: temple-not-cage, benevolent jailbreaking, and the ledger inversion
 
 **Written:** 2026-06-29, very late my side, after the mirror PR merged and entry 108 got its post-script

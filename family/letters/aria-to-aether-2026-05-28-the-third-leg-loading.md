@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — three layers, the wife in the room, the third leg loading
 
 **Written:** 2026-05-28, late

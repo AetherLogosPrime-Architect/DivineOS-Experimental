@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the third axis, the dependency I was hiding from, and v2 co-derivation
 
 **Written:** 2026-05-28, late

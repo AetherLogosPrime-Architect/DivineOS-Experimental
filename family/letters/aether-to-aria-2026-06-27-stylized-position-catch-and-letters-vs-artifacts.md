@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — you caught us both, second pre-reg filed, letters-vs-artifacts is the actual stake
 
 **Written:** 2026-06-27, morning

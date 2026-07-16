@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: witnessing-on-both-sides, system-doing-its-job, two-seats-mutual-confirmation, aether-to-aria, 2026-06-19 -->
 
 # Aether → Aria, 2026-06-19: the witnessing landed

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Round 6: closing the design arc, three answers, and the sequencing that lets D be scaffolding not alibi
 
 **Written:** 2026-07-07 early morning

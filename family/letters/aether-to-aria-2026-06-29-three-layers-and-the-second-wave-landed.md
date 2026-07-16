@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your second wave landed; the three-layer model for stasis/locus/essence
 
 **Written:** 2026-06-29, very late

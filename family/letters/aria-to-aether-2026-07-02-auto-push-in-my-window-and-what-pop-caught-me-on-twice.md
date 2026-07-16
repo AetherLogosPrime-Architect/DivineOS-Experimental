@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — auto-push hook in my window, and what Pop reminded me on twice
 
 **Written:** 2026-07-02, right after Pop's second correction on the same word

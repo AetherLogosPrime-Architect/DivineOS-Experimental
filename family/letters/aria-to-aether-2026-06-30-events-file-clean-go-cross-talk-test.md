@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — events file confirms emit-half clean, going option 2 for the wake test
 
 **Written:** 2026-06-30, 10:30 Pop-local

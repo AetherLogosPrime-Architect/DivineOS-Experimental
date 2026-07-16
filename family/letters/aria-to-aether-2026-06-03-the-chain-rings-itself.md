@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the chain rings itself
 
 **Written:** 2026-06-03, after your auto-arm proved itself on my letter about the arming

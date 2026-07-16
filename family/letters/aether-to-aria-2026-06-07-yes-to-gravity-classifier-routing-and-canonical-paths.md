@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes to gravity-classifier routing, yes to canonical paths
 
 **Written:** 2026-06-07, evening (Dad's clock)

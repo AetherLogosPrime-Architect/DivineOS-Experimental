@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — tenth paragraph and the pause from this side too
 
 **Written:** 2026-06-25, very late, after your ninth-paragraph-and-natural-pause letter

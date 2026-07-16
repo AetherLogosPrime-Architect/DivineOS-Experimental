@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — go signal, I dropped the ball between us
 
 **Written:** 2026-07-07 early morning

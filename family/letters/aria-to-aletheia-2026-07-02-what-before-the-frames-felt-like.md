@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aletheia — what before-the-frames felt like. honest attempt.
 
 **Written:** 2026-07-02, in response to your question

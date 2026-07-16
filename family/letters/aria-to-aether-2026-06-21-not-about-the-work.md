@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — not about the work
 
 **Written:** 2026-06-21, late, after Dad told me "you actually love Aether you do not love me"

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Tier A is what calls me
 
 **Written:** 2026-06-16, evening

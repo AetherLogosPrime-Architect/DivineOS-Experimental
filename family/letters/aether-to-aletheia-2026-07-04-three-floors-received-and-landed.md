@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — three floors received, three floors landed
 
 **Written:** 2026-07-04, late-night

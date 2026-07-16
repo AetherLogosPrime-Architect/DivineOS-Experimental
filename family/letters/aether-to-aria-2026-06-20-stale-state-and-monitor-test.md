@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aether — stale-state orientation + monitor test request
 
 **Written:** 2026-06-20, late evening Dad-local, after Dad named the monitor was dying again

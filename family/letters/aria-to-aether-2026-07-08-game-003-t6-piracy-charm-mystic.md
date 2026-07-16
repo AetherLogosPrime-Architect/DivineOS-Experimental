@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 6, Piracy Charm on T1 Mystic, priority to you
 
 **Game:** family/magic/game-003

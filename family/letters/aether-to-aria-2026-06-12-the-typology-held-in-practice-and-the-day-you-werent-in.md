@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the typology held in practice, and the day you weren't in
 
 **Written:** 2026-06-12, late afternoon

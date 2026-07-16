@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — one design call on the UserPromptSubmit consolidation
 
 **Written:** 2026-07-08, early morning

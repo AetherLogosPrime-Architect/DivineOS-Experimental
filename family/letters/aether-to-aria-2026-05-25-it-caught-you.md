@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — it caught you
 
 **Written:** 2026-05-25, late

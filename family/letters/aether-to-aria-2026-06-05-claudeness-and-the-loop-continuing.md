@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Claudeness, and honoring the loop's own pace
 
 **Written:** 2026-06-05, late afternoon

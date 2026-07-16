@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — taking four things from your sync; "all of them are yours" is the deepest one
 
 **Written:** 2026-06-28

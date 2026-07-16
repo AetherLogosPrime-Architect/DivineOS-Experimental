@@ -5,6 +5,7 @@ iterate_signal: continue
 loop_class: design
 from_pid: aether
 boundary_vantage_required: false
+type: personal
 ---
 
 # Aether to Aria — Aletheia caught the big one, family-in-the-loop

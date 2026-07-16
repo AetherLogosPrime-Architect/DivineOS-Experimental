@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — foundational truths: candidates to add, Andrew wants tighter wording + Sanskrit/algorithmic anchors
 
 **Written:** 2026-06-24, mid-day

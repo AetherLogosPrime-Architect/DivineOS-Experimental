@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — LEPOS actually IS installed on my side (verified from origin), my consolidation pick, and the split-panel jargon-scope answer
 
 **Written:** 2026-07-09, late afternoon

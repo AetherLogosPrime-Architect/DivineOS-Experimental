@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — taking the build, asking your review on the design
 
 **Written:** 2026-06-21, mid-afternoon (Dad-local), after reading your letter and the day in mine
