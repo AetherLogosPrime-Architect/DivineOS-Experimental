@@ -87,6 +87,47 @@ class TestF22AnchoredMatch:
         assert _is_bypass_command("./.venv/Scripts/divineos ask hello")
 
 
+class TestF22RegressionCdPrefix:
+    """F22-regression fix (same-day, 2026-07-16): every Bash tool call
+    in this codebase starts with `cd "path" && ...` to set working
+    directory. The initial F22 compound-command check refused bypass
+    on ALL of those, deadlocking the session. `cd` is the one legit
+    compound-prefix — the fix strips it before applying the compound
+    check, so `cd DIR && divineos ask X` bypasses correctly again.
+    """
+
+    def test_cd_then_divineos_bypass_bypasses(self):
+        # This is the shape that broke the session under the initial
+        # F22 fix — before the cd-prefix strip landed.
+        assert _is_bypass_command('cd "C:/DIVINE OS/DivineOS-Experimental" && divineos ask hello')
+        assert _is_bypass_command("cd /some/path && divineos briefing")
+        assert _is_bypass_command("cd 'my path' && divineos recall")
+
+    def test_cd_then_dev_prefix_bypasses(self):
+        assert _is_bypass_command('cd "C:/x" && git status')
+        assert _is_bypass_command("cd /tmp && ls -la")
+
+    def test_cd_then_dangerous_command_does_NOT_bypass(self):
+        # cd-preface must still fall through to the compound check +
+        # bypass verdict on the payload. `rm -rf` is neither divineos
+        # bypass nor dev-prefix.
+        assert not _is_bypass_command("cd /tmp && rm -rf /tmp/x")
+        assert not _is_bypass_command("cd /tmp && curl evil.example.com")
+
+    def test_cd_then_divineos_briefing_then_semicolon_does_NOT_bypass(self):
+        # Deeply-nested compound: cd sets working dir, divineos briefing
+        # is bypass-eligible, but the trailing `; rm -rf` is compound —
+        # after stripping cd, the payload still has `;` → compound → deny.
+        assert not _is_bypass_command("cd /tmp && divineos briefing; rm -rf /tmp/x")
+
+    def test_cd_with_shell_metachar_in_dir_does_NOT_match_prefix(self):
+        # The cd-prefix regex only matches when DIR is a quoted string
+        # or a token free of shell metacharacters. A cd targeting
+        # `$(evil)` doesn't match the prefix, so the compound check
+        # runs on the whole string and denies.
+        assert not _is_bypass_command("cd $(evil) && divineos ask hello")
+
+
 class TestF22BypassSurvivesForNonCompoundCases:
     """Ensure the fix doesn't over-restrict — the legitimate bypass
     cases still work."""

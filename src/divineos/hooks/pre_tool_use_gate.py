@@ -178,15 +178,43 @@ def _has_compound_shape(cmd: str) -> bool:
     return any(marker in cmd for marker in _SHELL_COMPOUND_CHARS)
 
 
+# Match a leading `cd DIR && ` prefix where DIR is either a quoted
+# path or a token free of shell-metacharacters. F22-regression fix
+# (2026-07-16): every Bash tool call in this codebase starts with
+# `cd "path" && ...` to set working directory. The F22 compound-
+# command check refused bypass on ALL of those, deadlocking the
+# session. `cd` is the one legitimate compound-prefix — it changes
+# working directory without executing anything else — and only in
+# this specific shape (quoted OR safe-token, followed by `&&`).
+_CD_PREFIX_RE = re.compile(r"^\s*cd\s+(?:[\"\'][^\"\']+[\"\']|[^\s;&|`$]+)\s*&&\s*")
+
+
+def _strip_cd_prefix(cmd: str) -> str:
+    """If ``cmd`` starts with a safe ``cd DIR &&`` prefix, strip it and
+    return the remainder. Otherwise return cmd unchanged.
+    """
+    match = _CD_PREFIX_RE.match(cmd)
+    if not match:
+        return cmd
+    return cmd[match.end() :]
+
+
 def _is_bypass_command(cmd: str) -> bool:
     """True if the command should skip all gates (read-only / bootstrap).
 
     Aletheia F22 (2026-07-16): the check now requires the command to
     BE a safe command, not merely CONTAIN a safe word somewhere.
-    Compound commands (chained/piped/substituted) never bypass.
+    Compound commands (chained/piped/substituted) never bypass —
+    with one narrow exception for `cd DIR && SAFE_CMD` (working-dir
+    setup preface used by every Bash tool call in this codebase).
     """
     if not cmd:
         return False
+    # F22-regression fix (2026-07-16 same-day): strip `cd DIR && ` if
+    # present. `cd` is the one legitimate compound-prefix — it changes
+    # working directory without executing anything else. Anything else
+    # with a compound char still fails the bypass.
+    cmd = _strip_cd_prefix(cmd)
     # F22 gate: compound commands are never bypass candidates, even if
     # they contain a safe word. `divineos briefing; rm -rf /tmp/x` must
     # NOT bypass — the safe word is a decoy, not the command.
