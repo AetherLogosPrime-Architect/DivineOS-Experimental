@@ -627,6 +627,16 @@ def clear_marker() -> None:
     gate_marker entries of event_type ``correction_filed_unlogged`` are
     cleared in parallel. Fail-open: if the new store clear fails, the
     legacy clear still succeeds.
+
+    Symmetric-cascade clear (2026-07-15, Andrew fix — "stop dismissing
+    the compass and fix it"): ``set_marker`` fires the compass_required
+    cascade on correction detection. Without the symmetric clear here,
+    running ``divineos correction`` clears the correction but leaves the
+    compass cascade nagging indefinitely — which is what routes the
+    operator to `compass-ops dismiss` as a workflow. Fix: mirror the
+    set_marker cascade with a clear_marker cascade, precisely scoped to
+    kind='correction' so other cascade sources (claim, hedge, theater)
+    are untouched.
     """
     path = marker_path()
     if path.exists():
@@ -638,6 +648,19 @@ def clear_marker() -> None:
         from divineos.core import gate_marker as _gm
 
         _gm.clear_all("correction_filed_unlogged")
+    except (ImportError, OSError, AttributeError):
+        pass
+
+    # Symmetric cascade-clear: if the compass_required marker was set by
+    # the correction cascade (kind='correction'), clear it too. Precisely
+    # scoped so cascade markers from other trigger kinds (claim_t2,
+    # hedge, theater) are not affected.
+    try:
+        from divineos.core import compass_required_marker as _cr
+
+        cr = _cr.read_marker()
+        if cr is not None and cr.get("kind") == "correction":
+            _cr.clear_marker()
     except (ImportError, OSError, AttributeError):
         pass
 
