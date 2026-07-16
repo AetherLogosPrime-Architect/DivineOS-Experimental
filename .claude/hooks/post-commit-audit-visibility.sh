@@ -1,4 +1,10 @@
 #!/bin/bash
+# WIRED VIA .git/hooks/post-commit DELEGATOR — installed by setup/setup-hooks.sh.
+# The delegator loops over every post-commit-*.sh in .claude/hooks/, so
+# THIS FILE FIRES on every git commit (not via .claude/settings.json).
+# Third wiring surface beyond Claude Code settings + code-graph
+# (Aletheia cold-audit 2026-07-16 finding #2 marker).
+#
 # Post-commit audit-visibility warning — thin doorman.
 #
 # FAIL-LOUD half of the cure for the boundary-persistence root

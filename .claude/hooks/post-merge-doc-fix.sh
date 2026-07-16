@@ -1,4 +1,10 @@
 #!/bin/bash
+# WIRED VIA .git/hooks/post-merge — installed by setup/setup-hooks.sh,
+# which writes a git post-merge that explicitly calls THIS file. So it
+# FIRES on every merge (not via .claude/settings.json). Third wiring
+# surface beyond Claude Code settings + code-graph (Aletheia cold-audit
+# 2026-07-16 finding #2 marker).
+#
 # Post-merge: auto-fix architecture-tree drift introduced by merge resolution.
 #
 # Problem (lived through 2026-06-13 on PR #169): a feature branch had its

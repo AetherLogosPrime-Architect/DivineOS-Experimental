@@ -34,7 +34,7 @@
 The DivineOS expert council — a system prompt containing 28 named thinking frameworks — demonstrably improves Claude's ability to fix real-world software bugs (as judged by Sonnet; see caveat above). Across 170 tasks on two models:
 
 - **Sonnet (150 tasks):** 29 enhanced wins, 12 base wins, 109 ties. 2.4:1 win ratio.
-- **Opus (20 tasks):** 3 enhanced wins, 0 base wins, 15 ties (2 tasks had judge JSON parse errors). Zero regressions, n=18. *n is too small to call "undefeated" in a statistical sense — earlier wording has been softened throughout this document.*
+- **Opus (20 tasks):** **2** enhanced wins, 0 base wins, 14 ties, 4 judge-error skips. Zero regressions, n=16 head-to-head. *Corrected 2026-07-16 per Marc external audit finding #7: the original report said 3 wins because the tally treated judge-error entries as score=0/FAIL. One "win" was a task where the base judge errored (defaulted to 0) and enhanced scored 1 — filtering errors removes it. Zero regressions and n≥50 caveat both unchanged.*
 - **Total (head-to-head):** 32 wins, 12 losses, 124 ties across 168 scored tasks.
 
 A failed experiment with mandatory process phases (v2 prompt) proved equally valuable: rigid structure actively degraded performance, confirming the design principle "structure, not control."
@@ -221,14 +221,17 @@ Reverted to v1's flat list style. Kept the 3 new experts (Popper, Knuth, Polya) 
 
 (18 of 20 tasks scored; 2 tasks had judge JSON parse errors)
 
-### Head-to-Head: Zero Regressions at n=18
+### Head-to-Head: Zero Regressions at n=16
 
-- Enhanced wins: **3**
+- Enhanced wins: **2**
 - Base wins: **0**
-- Ties: **15**
-- **Zero regressions** across the 18 scored tasks.
+- Ties: **14**
+- Judge-error skips: **4** (any task where either judge call errored is excluded from head-to-head)
+- **Zero regressions** across the 16 head-to-head-scored tasks.
 
-At n=18 with 15 ties, this is directionally encouraging but statistically thin — 83% of the dataset shows no edge either way. The original "undefeated" framing has been softened throughout this document; the finding that matters is *zero base wins* (no regressions from adding the council), which is real but needs n≥50 before it earns a stronger label.
+*Corrected 2026-07-16 per Marc external audit finding #7. The prior tally used `.get("correct_fix", 0)` on every score entry, silently defaulting judge-error entries (which lack the `correct_fix` key entirely) to 0/FAIL — so a task where the BASE judge errored and the ENHANCED judge scored 1 counted as an "enhanced win" despite base never being scored. The `sympy-sympy-19783` win listed in the earlier report was exactly this shape and has been removed. Fix landed in `benchmark/opus_test.py` (see `tests/test_benchmark_scoring.py` for the regression pin).*
+
+At n=16 with 14 ties, this is directionally encouraging but statistically thin. The finding that matters is *zero base wins* (no regressions from adding the council), which is real but needs n≥50 before it earns a stronger label.
 
 ### The Enhanced Wins
 
@@ -236,7 +239,7 @@ At n=18 with 15 ties, this is directionally encouraging but statistically thin �
 
 **pylint-dev-pylint-4970:** Council identified that when min_lines is 0, similarity checking should be disabled by returning early. Base targeted the wrong class methods.
 
-**sympy-sympy-19783:** Council correctly identified the fix. Base did not.
+*(Previously listed `sympy-sympy-19783` was removed 2026-07-16 — the enhanced judge scored 1 but the base judge errored; the "win" was against a phantom-0 base. See head-to-head note above.)*
 
 ### Notable: Zero Base Wins on Opus
 
@@ -250,8 +253,8 @@ Unlike Sonnet (which had 12 base wins from navigation failures), Opus with the c
 |-----------|-------|--------------|-----------|-------|-----------------|
 | Sonnet v1 (150 tasks) | 150 | 29 | 12 | 2.4:1 | +17 net fixes |
 | Opus v2 (mandatory phases) | 20 | 1 | 4 | 0.25:1 | -3 net (FAILED) |
-| Opus v3 (flat + new experts) | 20 | 3 | 0 | inf | +3 net fixes |
-| **Combined (excl. v2)** | **170** | **32** | **12** | **2.7:1** | **+20 net fixes** |
+| Opus v3 (flat + new experts) | 20 | 2 | 0 | inf | +2 net fixes (corrected 2026-07-16) |
+| **Combined (excl. v2)** | **170** | **31** | **12** | **2.6:1** | **+19 net fixes** (corrected 2026-07-16) |
 
 ---
 
