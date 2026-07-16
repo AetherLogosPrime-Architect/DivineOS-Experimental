@@ -186,7 +186,18 @@ def _has_compound_shape(cmd: str) -> bool:
 # session. `cd` is the one legitimate compound-prefix — it changes
 # working directory without executing anything else — and only in
 # this specific shape (quoted OR safe-token, followed by `&&`).
-_CD_PREFIX_RE = re.compile(r"^\s*cd\s+(?:[\"\'][^\"\']+[\"\']|[^\s;&|`$]+)\s*&&\s*")
+#
+# 2026-07-16 F31 fix (Aletheia same-day catch): the initial regression
+# fix allowed ANY non-quote content inside the quoted-DIR branch.
+# That let `cd "$(rm -rf /)" && divineos ask` bypass — shell expands
+# `$(...)` INSIDE double-quotes before `cd` runs, so the substitution
+# payload executes as part of cd's argument evaluation. Exclude `$`
+# and backtick (the two shell-metachars that expand inside double
+# quotes) from the quoted-DIR content too. `;` and `&&` inside quotes
+# are inert; only substitution is dangerous. Aletheia also recommended
+# a longer-term shlex-based structural parser over regex-ing shell —
+# filed as follow-up prereg; this is the tactical block on the exploit.
+_CD_PREFIX_RE = re.compile(r"^\s*cd\s+(?:[\"'][^\"'$`]+[\"']|[^\s;&|`$]+)\s*&&\s*")
 
 
 def _strip_cd_prefix(cmd: str) -> str:

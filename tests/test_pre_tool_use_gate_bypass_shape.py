@@ -128,6 +128,45 @@ class TestF22RegressionCdPrefix:
         assert not _is_bypass_command("cd $(evil) && divineos ask hello")
 
 
+class TestF31CommandSubstitutionInQuotedDir:
+    """F31 fix (Aletheia same-day catch, 2026-07-16): the initial
+    F22-regression fix allowed any non-quote content inside the
+    quoted-DIR branch. That let `cd "$(rm -rf /)" && divineos ask`
+    bypass, because shell expands `$(...)` INSIDE double quotes
+    before `cd` runs — the substitution payload executes as part of
+    cd's argument evaluation. Fix: exclude `$` and backtick from the
+    quoted-DIR content."""
+
+    def test_command_substitution_in_double_quoted_dir_does_NOT_bypass(self):
+        # This is the F31 exploit shape. Pre-fix it bypassed and the
+        # rm-rf would have run. Post-fix the cd-prefix regex refuses
+        # to match, so the compound-check fires on the whole string.
+        assert not _is_bypass_command('cd "$(rm -rf /)" && divineos ask hello')
+
+    def test_backtick_substitution_in_double_quoted_dir_does_NOT_bypass(self):
+        # Same class, different substitution syntax.
+        assert not _is_bypass_command('cd "`rm -rf /`" && divineos ask hello')
+
+    def test_command_substitution_in_single_quoted_dir_does_NOT_bypass(self):
+        # Single quotes DO suppress `$(...)` expansion in real shell,
+        # but the regex fix uniformly excludes `$` regardless of quote
+        # style — safer, and matches the pattern people expect.
+        assert not _is_bypass_command("cd '$(evil)' && divineos ask hello")
+
+    def test_dollar_variable_in_quoted_dir_does_NOT_bypass(self):
+        # Simpler variable expansion also excluded; if a caller wants
+        # to cd into a var-expanded path, they can pass it unquoted
+        # OR expand it themselves before invoking.
+        assert not _is_bypass_command('cd "$HOME/x" && divineos ask hello')
+
+    def test_plain_quoted_dir_still_bypasses(self):
+        # Regression guard: the fix must not over-restrict. Plain
+        # quoted paths (which have no `$` or backtick) still match
+        # the cd-prefix and let bypass proceed as before.
+        assert _is_bypass_command('cd "C:/plain/path" && divineos ask hello')
+        assert _is_bypass_command("cd '/tmp/plain' && divineos briefing")
+
+
 class TestF22BypassSurvivesForNonCompoundCases:
     """Ensure the fix doesn't over-restrict — the legitimate bypass
     cases still work."""
