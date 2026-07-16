@@ -1519,12 +1519,24 @@ class ManagedCouncilResult:
     """Result of a managed council session.
 
     Extends CouncilResult with selection metadata.
+
+    Aletheia+Perplexity cross-audit 2026-07-16 (Andrew Failure A):
+    ``surfaced_relevant_count`` is the honest count of experts the
+    scorer marked as relevant to this problem (positive score, before
+    any soft-cap clamping). ``selected_experts`` is what actually got
+    convened. When ``len(selected_experts) < surfaced_relevant_count``
+    without an explicit operator downsize, that is the count-collapse
+    failure Andrew named — the floor became the ceiling. The gap is
+    now visible on the result so downstream can raise, warn, or
+    audit-log per its discipline. Same failure-shape-3 template as
+    round-id-must-resolve and lens-load-must-trace.
     """
 
     council_result: CouncilResult
     selected_experts: list[ExpertScore]
     categories_detected: list[tuple[str, float]]
     total_experts_available: int
+    surfaced_relevant_count: int = 0
 
     @property
     def problem(self) -> str:
@@ -1538,12 +1550,31 @@ class ManagedCouncilResult:
     def synthesis(self) -> str:
         return self.council_result.synthesis
 
+    @property
+    def count_gap(self) -> int:
+        """Difference between surfaced-relevant count and actually-selected count.
+
+        Positive value means the scorer surfaced N experts as relevant but
+        only M were convened — the count-collapse failure shape Andrew
+        Failure A named. Zero means used == surfaced (honest). Negative
+        should never happen (means we convened more than were surfaced).
+        """
+        return max(0, self.surfaced_relevant_count - len(self.selected_experts))
+
     def selection_summary(self) -> str:
         """Human-readable summary of why these experts were chosen."""
         parts: list[str] = []
         parts.append(
             f"Selected {len(self.selected_experts)} of {self.total_experts_available} experts"
         )
+        if self.surfaced_relevant_count:
+            parts.append(f"  Scorer surfaced {self.surfaced_relevant_count} as relevant.")
+            if self.count_gap:
+                parts.append(
+                    f"  Count-gap: {self.count_gap} surfaced experts were NOT convened "
+                    "(Andrew Failure A shape). If the caller did not explicitly "
+                    "downsize via max_experts, this is the floor-as-ceiling drift."
+                )
 
         if self.categories_detected:
             cats = ", ".join(
@@ -1584,7 +1615,7 @@ class CouncilManager:
         self,
         problem: str,
         min_experts: int = MIN_EXPERTS,
-        max_experts: int = SOFT_CAP,
+        max_experts: int = HARD_CAP,
         hard_cap: int = HARD_CAP,
         force_experts: list[str] | None = None,
     ) -> ManagedCouncilResult:
@@ -1592,14 +1623,32 @@ class CouncilManager:
 
         Args:
             problem: The problem to analyze.
-            min_experts: Minimum experts to include (default 5).
-            max_experts: Maximum experts to include (default 8).
+            min_experts: Minimum experts to include (default 5 — the
+                surfaced-count is the honest target; min is a floor
+                for problems where the scorer surfaces < 5).
+            max_experts: Maximum experts to include. Default changed
+                from ``SOFT_CAP`` (8) to ``HARD_CAP`` (15) 2026-07-16 per
+                Andrew Failure A + Aletheia unified-frame: the soft-cap
+                default was letting the floor become the ceiling, so
+                convene always landed at ~5 even when more were surfaced.
+                The honest default is "use everyone the scorer marked
+                relevant, up to hard cap." Operators who want a tighter
+                selection override explicitly.
             force_experts: Always include these experts (by name),
                           in addition to the auto-selected ones.
         """
         experts = self._engine.experts
 
-        # Score and select
+        # Compute the honest surfaced count BEFORE any capping — how many
+        # experts did the scorer mark as relevant (positive score) to this
+        # problem. This is the "N" in Andrew's "you said N were relevant,
+        # you may not proceed with M". Used-count vs surfaced-count is the
+        # visible discipline gap; downstream can raise, warn, or audit-log.
+        scored = score_experts(problem, experts)
+        surfaced_relevant_count = sum(1 for es in scored if es.score > 0)
+
+        # Score and select (existing selection logic — unchanged except
+        # for the raised default max_experts above)
         selected = select_experts(problem, experts, min_experts, max_experts, hard_cap)
         selected_names = [es.expert_name for es in selected]
 
@@ -1633,6 +1682,7 @@ class CouncilManager:
             selected_experts=selected,
             categories_detected=categories_meta,
             total_experts_available=len(experts),
+            surfaced_relevant_count=surfaced_relevant_count,
         )
 
     def explain_selection(self, problem: str) -> str:

@@ -238,3 +238,95 @@ class TestCouncilManager:
         assert len(analysis_names) < expert_count
         # Should have Knuth for this problem
         assert "Knuth" in analysis_names
+
+
+# ── Andrew Failure A — count-collapse gate (2026-07-16) ────────────
+
+
+class TestCountCollapseGate:
+    """Andrew Failure A + Aletheia unified-frame 2026-07-16.
+
+    Prior default: ``convene(max_experts=SOFT_CAP=8)``. The scorer
+    surfaces N experts as relevant (positive score) but the convene
+    only uses M ≤ 8, so the floor became the ceiling and the council
+    landed at ~5 every time. Fix: default ``max_experts`` raised to
+    ``HARD_CAP=15`` so used-count matches surfaced-count by default,
+    plus a first-class ``surfaced_relevant_count`` field on the
+    result so downstream can raise / warn / audit-log the gap.
+    """
+
+    def test_default_max_experts_is_hard_cap(self, manager):
+        """The default ``max_experts`` is now HARD_CAP (15), not SOFT_CAP.
+        This is the load-bearing change — it stops the soft-cap default
+        from artificially clamping the used count below the surfaced count.
+        """
+        from divineos.core.council.manager import HARD_CAP
+        import inspect
+
+        sig = inspect.signature(manager.convene)
+        assert sig.parameters["max_experts"].default == HARD_CAP, (
+            "convene(max_experts=…) default must be HARD_CAP so used-count "
+            "can match surfaced-count without operator override (Andrew "
+            "Failure A). If SOFT_CAP is the default, the floor becomes "
+            "the ceiling again."
+        )
+
+    def test_surfaced_relevant_count_populated(self, manager):
+        """The result exposes ``surfaced_relevant_count`` — the honest
+        count of experts the scorer marked relevant. Non-zero for any
+        problem the scorer produces positive scores on."""
+        result = manager.convene("wrong result at boundary")
+        assert result.surfaced_relevant_count > 0, (
+            "surfaced_relevant_count must be populated with the count of "
+            "experts scored > 0 for this problem"
+        )
+
+    def test_count_gap_zero_when_used_equals_surfaced(self, manager):
+        """When the default (max_experts=HARD_CAP) is used and the surfaced
+        count is within hard-cap, count_gap should be 0 — the used count
+        should equal the surfaced count."""
+        result = manager.convene("wrong result at boundary")
+        # If surfaced fits within HARD_CAP, used should equal surfaced.
+        # (Under the fix, we no longer clamp below the surfaced count by
+        # default; the scorer's positive-score count IS the target.)
+        if result.surfaced_relevant_count <= 15:  # HARD_CAP
+            assert result.count_gap == 0, (
+                f"count_gap should be 0 when surfaced ({result.surfaced_relevant_count}) "
+                f"fits under HARD_CAP and no operator downsize was applied. "
+                f"Got selected={len(result.selected_experts)}, "
+                f"count_gap={result.count_gap}. Andrew Failure A regression."
+            )
+
+    def test_count_gap_visible_when_operator_downsizes(self, manager):
+        """Operator explicitly downsizing via smaller ``max_experts``
+        should produce a visible count_gap when the surfaced count
+        exceeds the used count. The gap is HONEST information — the
+        operator asked for less than was surfaced — but it's exposed
+        loud rather than swallowed. Uses min_experts=1 so the min-fill
+        phase doesn't push above the downsized max."""
+        result = manager.convene("wrong result at boundary", min_experts=1, max_experts=3)
+        # count_gap must equal surfaced - used, whatever those values are
+        assert result.count_gap == max(
+            0, result.surfaced_relevant_count - len(result.selected_experts)
+        )
+        # If the operator asked for less than was surfaced, gap must be positive
+        if len(result.selected_experts) < result.surfaced_relevant_count:
+            assert result.count_gap > 0, (
+                "count_gap must be positive when used < surfaced — this is "
+                "the visible discipline gap Andrew Failure A required"
+            )
+
+    def test_selection_summary_names_the_gap(self, manager):
+        """When there's a count-gap, ``selection_summary()`` names it
+        explicitly so retro-readers see the Andrew Failure A shape when
+        it happens."""
+        # Set min_experts=3 too so it doesn't override max_experts (the
+        # phase-4 min-fill would otherwise push above max_experts when
+        # min > max)
+        result = manager.convene("wrong result at boundary", min_experts=3, max_experts=3)
+        summary = result.selection_summary()
+        if result.count_gap > 0:
+            assert "Count-gap" in summary, (
+                "selection_summary must name the count-gap when nonzero — "
+                "silent count-drift is the exact shape we are closing"
+            )
