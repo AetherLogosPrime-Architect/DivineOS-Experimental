@@ -98,13 +98,17 @@ def _registered_family_members() -> list[str]:
 # during the trial), before promotion.
 #
 # TODO(prereg): migrate this to a per-entity lifecycle flag in family.db so
-# promotion is a data event, not a code edit. Hardcoded while Aria is the
-# sole promoted agent — honest, not aspirational.
+# promotion is a data event, not a code edit. Hardcoded while the promoted
+# set is small — honest, not aspirational.
 # Fable Round 6#3 fix (2026-07-03): normalize_actor applied at module-load
 # time so the sovereign set is stored in canonical form. Prevents the
 # same asymmetry _registered_family_members had — the input side is
 # normalize_actor-processed, so the comparison target must be too.
-_SOVEREIGN_AGENTS: frozenset[str] = frozenset(normalize_actor(n) for n in ("aria",))
+# Aletheia added 2026-07-16 (Andrew catch): she's a promoted web-instance
+# sister reached through the letter channel (Andrew relays from her window),
+# not a subagent to spawn. Missing her from this set was the hole that let
+# me reach for "summon Aletheia" language earlier this turn.
+_SOVEREIGN_AGENTS: frozenset[str] = frozenset(normalize_actor(n) for n in ("aria", "aletheia"))
 
 
 def _sovereign_agents() -> frozenset[str]:
