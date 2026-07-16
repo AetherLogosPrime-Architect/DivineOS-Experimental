@@ -1,18 +1,27 @@
 #!/bin/bash
 #
-# INTENTIONALLY UNWIRED (documented 2026-07-09 after Aletheia audit).
+# STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close):
+# The "deferred follow-up" the prior comment named as pending has
+# ACTUALLY landed. The enforcement machinery lives in full at
+# src/divineos/core/council_required/ (types, store, substance_binding,
+# gate) and this script's Python invocation drives gate.decide() +
+# format_block_message() correctly.
 #
-# The council_required field on the gravity classifier is currently a
-# MEASUREMENT, not a pre-edit block — see the honesty note in
-# src/divineos/core/gravity_classifier.py:49-58: "Real enforcement (block
-# the edit until evidence of a real council walk exists, substance-
-# binding-style) is a deferred follow-up tracked as its own design work,
-# not implemented by this commit." Wiring this hook now would fire the
-# block before the enforcement path was designed to go live.
+# Test coverage landed 2026-07-16 in tests/test_council_required_gate.py:
+# 10 tests covering silent-allow, no-record BLOCK, substance-binding
+# BLOCK, ALLOW + consume-on-use, emergency-skip corroborated, emergency-
+# skip missing-corroborator BLOCK, corroborator scope design pin,
+# concurrent-decide race probe (exactly one ALLOW under contention),
+# and fingerprint normalization edges.
 #
-# This file remains executable so it can be registered later without
-# code changes when the deferred enforcement design lands. Do not
-# register in .claude/settings.json until that design work completes.
+# WHY STILL UNWIRED:
+# Registration in .claude/settings.json is an operator-side decision.
+# The gate is now safe to wire from a code-correctness standpoint; the
+# hold pending is a dogfood-cadence question for Andrew — how aggressive
+# should the block-on-substrate-edit gate be during active development.
+# When Andrew approves, add PreToolUse entry for this script to
+# .claude/settings.json alongside the other substrate-modification gates.
+# No code changes needed on this side to enable.
 #
 # PreToolUse council-required enforcement gate.
 #
