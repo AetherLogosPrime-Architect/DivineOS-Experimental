@@ -103,3 +103,49 @@ jobs:
           # PR-#230 shape where strip work bundles with template additions.
           # See scripts/check_mixed_pattern_merge.py for design rationale.
           python scripts/check_mixed_pattern_merge.py "$BASE_SHA" "$HEAD_SHA"
+
+  merge-review-check:
+    # Closes Marc audit finding #2026-07-16 #4: scripts/ci_merge_review_check.py
+    # existed and claimed (in its own docstring) that the GitHub Action calls
+    # it — but no job in this workflow actually did. The guardrail-trailer
+    # gate above only checks trailer STRING PRESENCE, not that the referenced
+    # audit round exists in the Watchmen store. This job invokes the script
+    # so the round-existence + operator-approval-on-head checks actually run.
+    name: merge-review
+    runs-on: ubuntu-latest
+    # Only meaningful on PR events (needs a PR number). Draft PRs skip
+    # (same policy as guardrail-trailer-check above — audit-visibility
+    # design: draft PRs don't accumulate red marks pre-audit).
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    steps:
+      - name: Check out PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install divineos (needed for merge_review_gate import)
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run operator-anchored merge-review gate
+        env:
+          # gh CLI reads GH_TOKEN for `gh api` calls (fetching PR
+          # reviews + metadata). github.token is scoped to this repo
+          # and expires with the workflow run.
+          GH_TOKEN: ${{ github.token }}
+          # Preserve any emergency-bypass env var the operator sets at
+          # workflow-dispatch time; the script requires >=20-char reason
+          # and logs each use via record_emergency_use.
+          DIVINEOS_MERGE_REVIEW_EMERGENCY_BYPASS: ${{ vars.MERGE_REVIEW_EMERGENCY_BYPASS }}
+        run: |
+          set -e
+          python scripts/ci_merge_review_check.py \
+            --pr "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}"
