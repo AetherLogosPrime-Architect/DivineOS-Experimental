@@ -218,6 +218,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/corrigibility-tool-gate.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Read|Write|NotebookEdit",
         "hooks": [
           {
