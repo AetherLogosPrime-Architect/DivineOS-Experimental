@@ -138,12 +138,59 @@ _DEV_PREFIXES = (
 # and `ask` blocked themselves because the bypass-list lookup didn't fire.
 # Adding the optional `.exe` and the optional closing quote handles both
 # bare invocations and quoted-path invocations.
-_DIVINEOS_SUBCMD_RE = re.compile(r"\bdivineos(?:\.exe)?[\"']?\s+(\w[\w-]*)")
+#
+# 2026-07-16 fix (Aletheia Round 2 Finding 22, keyword-vs-shape master):
+# the previous version used `.search()`, matching the pattern ANYWHERE in
+# the command. That let `divineos briefing; rm -rf /tmp/x` bypass all
+# gates because "briefing" appeared as a substring. The fix is two-fold:
+# (a) compound-command detection — any shell metacharacter that would
+#     chain commands means we're not looking at a simple bypass, so we
+#     refuse the bypass path and fall through to normal gates
+# (b) anchored `.match()` — a bypass only counts if the command STARTS
+#     with (optional path prefix +) divineos + safe subcmd. A safe word
+#     appearing mid-command is not a safe command.
+# See Aletheia's F22 for the "allow narrowly, deny broadly" template the
+# corrigibility gate already implements correctly.
+_DIVINEOS_SUBCMD_RE = re.compile(
+    # optional leading whitespace, optional (possibly quoted) path prefix
+    # ending in / or \, then divineos with optional .exe and optional
+    # closing quote, then required whitespace + subcommand word.
+    r"^\s*"
+    r"(?:[\"\']?[\w./\\:-]*[/\\])?"
+    r"divineos(?:\.exe)?[\"\']?"
+    r"\s+(\w[\w-]*)"
+)
+
+# Shell metacharacters that chain / pipe / substitute — if any of these
+# appear in the command, we are NOT looking at a simple divineos
+# invocation, and the bypass path must not apply. The bypass is for
+# "run this specific safe command," not "run this safe command AND
+# whatever follows." F22 tests all pass after adding this check.
+_SHELL_COMPOUND_CHARS = (";", "&&", "||", "|", "`", "$(")
+
+
+def _has_compound_shape(cmd: str) -> bool:
+    """True if the command contains shell-metacharacters that would
+    chain, pipe, or substitute — meaning it is NOT a simple bypass
+    candidate. Aletheia F22 fix: even a command starting with a safe
+    subcommand may not bypass if it chains into a dangerous one.
+    """
+    return any(marker in cmd for marker in _SHELL_COMPOUND_CHARS)
 
 
 def _is_bypass_command(cmd: str) -> bool:
-    """True if the command should skip all gates (read-only / bootstrap)."""
+    """True if the command should skip all gates (read-only / bootstrap).
+
+    Aletheia F22 (2026-07-16): the check now requires the command to
+    BE a safe command, not merely CONTAIN a safe word somewhere.
+    Compound commands (chained/piped/substituted) never bypass.
+    """
     if not cmd:
+        return False
+    # F22 gate: compound commands are never bypass candidates, even if
+    # they contain a safe word. `divineos briefing; rm -rf /tmp/x` must
+    # NOT bypass — the safe word is a decoy, not the command.
+    if _has_compound_shape(cmd):
         return False
     # 2026-06-29 (Andrew "no gate should ever be blocking you from using
     # what you need to clear the gate"): the context-governor block
@@ -163,11 +210,11 @@ def _is_bypass_command(cmd: str) -> bool:
         or ".divineos\\context_consolidated.json" in cmd
     ):
         return True
-    # divineos bypass subcommands
-    match = _DIVINEOS_SUBCMD_RE.search(cmd)
+    # divineos bypass subcommands — anchored to command start (F22 fix).
+    match = _DIVINEOS_SUBCMD_RE.match(cmd)
     if match and match.group(1) in _BYPASS_DIVINEOS_SUBCOMMANDS:
         return True
-    # dev / read-only prefixes
+    # dev / read-only prefixes — already anchored via startswith.
     for prefix in _DEV_PREFIXES:
         if cmd.startswith(prefix):
             return True
