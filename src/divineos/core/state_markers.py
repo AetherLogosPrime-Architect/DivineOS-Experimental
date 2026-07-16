@@ -54,6 +54,7 @@ verdict ("already consumed").
 from __future__ import annotations
 
 import json
+import sqlite3
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -185,7 +186,7 @@ def find_active_marker(
                 "LIMIT 500",
                 (_EMITTED,),
             ).fetchall()
-        except Exception as exc:
+        except sqlite3.Error as exc:
             raise StateMarkerLookupError(f"ledger EMITTED-event lookup failed: {exc}") from exc
 
         # Load consumed marker_ids into a set for O(1) membership check.
@@ -197,7 +198,7 @@ def find_active_marker(
                 "LIMIT 500",
                 (_CONSUMED,),
             ).fetchall()
-        except Exception as exc:
+        except sqlite3.Error as exc:
             raise StateMarkerLookupError(f"ledger CONSUMED-event lookup failed: {exc}") from exc
 
         consumed_ids: set[str] = set()
@@ -315,7 +316,7 @@ def consume_marker(marker_id: str, consumed_by_fingerprint: str) -> ConsumeVerdi
             # decision are the serialized part; the emits below run
             # after commit because log_event manages its own conn).
             conn.execute("COMMIT")
-        except Exception:
+        except sqlite3.Error:
             conn.execute("ROLLBACK")
             raise
     finally:
