@@ -432,6 +432,79 @@ def test_consume_on_use_race_two_concurrent_decides(scratch_ledger):
     )
 
 
+# ─── 8b. Atomic-primitive race regression (Aether ask 2026-07-16) ───
+
+
+def test_atomic_find_and_consume_high_concurrency_regression(scratch_ledger):
+    """Regression test for the CI-observed race in the naive two-call
+    find-then-consume sequence. Aria + Aether 2026-07-16 fix landed the
+    ``find_and_consume_atomically`` primitive; this test probes it
+    directly under high concurrency (10 threads racing against a single
+    record) to guarantee it holds under real contention.
+
+    Assertion: exactly ONE thread succeeds (record returned +
+    consumption event emitted); the other nine return None. AND exactly
+    ONE ``COUNCIL_RECORD_CONSUMED`` event exists in the ledger after
+    all threads finish — no double-consume under any interleaving.
+
+    Note: this passes on Windows-local because SQLite serialization is
+    tight enough there to hide the race even in the naive two-call form.
+    The real test surface is CI (Linux), which reliably exposes the
+    original race and which we ran with the naive form to confirm the
+    bug before the fix. If a future change re-introduces a two-call
+    path from the gate, this test will fail on Linux CI — the shape of
+    protection Aether asked for.
+    """
+    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
+    record = _valid_record_for(fingerprint)
+    store.log_council_record(record, actor="test-agent")
+
+    successes: list[str] = []  # record_ids returned
+    successes_lock = threading.Lock()
+    start_barrier = threading.Barrier(10)
+
+    def _fire():
+        start_barrier.wait()
+        try:
+            result = store.find_and_consume_atomically(
+                edit_fingerprint=fingerprint,
+                recency_seconds=60 * 60,  # 1 hour, well within window
+            )
+            if result is not None:
+                consumed_record, _consume_event_id = result
+                with successes_lock:
+                    successes.append(consumed_record.record_id)
+        except sqlite3.OperationalError:
+            pass  # lock contention counts as loss, not error
+
+    threads = [threading.Thread(target=_fire) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=15)
+
+    # Exactly one thread succeeded.
+    assert len(successes) == 1, (
+        f"expected exactly 1 successful atomic find_and_consume under "
+        f"10-thread contention, got {len(successes)}. successes: {successes}"
+    )
+
+    # Exactly one CONSUMED event in the ledger.
+    from divineos.core.ledger import get_events
+
+    consumed_events = get_events(
+        limit=100,
+        event_type="COUNCIL_RECORD_CONSUMED",
+    )
+    matching = [
+        e for e in consumed_events if e.get("payload", {}).get("record_id") == record.record_id
+    ]
+    assert len(matching) == 1, (
+        f"expected exactly 1 COUNCIL_RECORD_CONSUMED event for record "
+        f"{record.record_id}, got {len(matching)}. Race-under-load bug."
+    )
+
+
 # ─── 9. Fingerprint normalization ────────────────────────────────────
 
 
