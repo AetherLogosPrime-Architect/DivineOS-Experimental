@@ -83,8 +83,14 @@ data/*
 !src/divineos/data/**
 logs/
 **/logs/*.log
-/archive/
 cache/
+# /archive/ — REMOVED 2026-07-14 (Aether + Andrew): the archive-not-delete
+# discipline requires the archive be visible to git, otherwise moving to
+# archive is functionally equivalent to deleting. Matches the pattern
+# already applied to exploration/, docs/, family/letters/ — substrate-
+# preservation directories on experimental. The plural /archives/ was
+# already tracked (see line ~120); the singular /archive/ was still
+# ignored by legacy. Fixed.
 
 # Secrets
 .env

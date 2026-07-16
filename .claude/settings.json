@@ -208,6 +208,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-tool-bypass-rate-scan.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
         "hooks": [
           {
