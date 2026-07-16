@@ -189,3 +189,107 @@ class TestPromoteToAudit:
 class TestConsultationEventTypeName:
     def test_event_type_constant(self):
         assert CONSULTATION_EVENT_TYPE == "COUNCIL_CONSULTATION"
+
+
+class TestRaiseOnAbsenceOfLedgerWrite:
+    """Aletheia + Perplexity cross-audit 2026-07-16 (Perplexity Finding 1).
+
+    Prior behavior silently swallowed ledger-write failures via
+    ``except (ImportError, OSError, sqlite3.OperationalError, TypeError,
+    ValueError): logger.debug(...)`` — every failure returned a
+    LoggedConsultation with an empty event_id, downstream
+    ``invocation_tally()`` saw empty state, and the diversity boost that
+    is supposed to fight "same 5 experts always win" was silently dead.
+
+    Fix pattern from affect.py F-VAD-1 template: raise-on-absence. If the
+    ledger write can't succeed, callers see the failure so they can't
+    return-as-if-it-worked. These tests pin that discipline.
+    """
+
+    def test_ledger_write_failure_raises(self, tmp_db, monkeypatch):
+        """Force the ledger to raise; log_consultation must propagate,
+        NOT silently swallow. This is the exact class of failure the
+        prior swallow was hiding."""
+
+        def _boom(*_a, **_kw):
+            raise OSError("simulated: ledger DB not writable")
+
+        # Patch the ledger.log_event reference the module uses at call time
+        # (log_consultation does a local import; patch at the target module).
+        monkeypatch.setattr("divineos.core.ledger.log_event", _boom)
+
+        with pytest.raises(OSError, match="ledger DB not writable"):
+            log_consultation(
+                question="q",
+                selected_expert_names=["Kahneman"],
+                analyses=[_make_analysis("Kahneman", ["concern"])],
+                synthesis="s",
+            )
+
+    def test_ledger_write_failure_does_not_return_empty_event_id(self, tmp_db, monkeypatch):
+        """The specific silent-fail shape the prior code produced:
+        LoggedConsultation with event_id='' when the write failed.
+        The fix means this shape is impossible — either the write
+        succeeded (event_id truthy) or the function raised."""
+
+        def _boom(*_a, **_kw):
+            raise sqlite3.OperationalError("simulated lock timeout")
+
+        import sqlite3
+
+        monkeypatch.setattr("divineos.core.ledger.log_event", _boom)
+
+        try:
+            result = log_consultation(
+                question="q",
+                selected_expert_names=["K"],
+                analyses=[_make_analysis("K", ["c"])],
+                synthesis="s",
+            )
+            # If we get here without raise, the silent-swallow has come back.
+            # An empty event_id is the specific historical bug shape.
+            assert result.event_id, (
+                "log_consultation returned LoggedConsultation with empty "
+                "event_id — the silent-swallow bug (Perplexity Finding 1) "
+                "has regressed. The write failed but the return acted as if "
+                "it succeeded. Raise-on-absence is load-bearing here."
+            )
+        except sqlite3.OperationalError:
+            # This is the desired outcome — the failure propagated.
+            pass
+
+    def test_successful_write_still_returns_valid_consultation(self, tmp_db):
+        """Regression check: the raise-on-absence fix doesn't break the
+        happy path. Normal writes still return a LoggedConsultation with
+        a real event_id."""
+        result = log_consultation(
+            question="q",
+            selected_expert_names=["Kahneman"],
+            analyses=[_make_analysis("Kahneman", ["concern"])],
+            synthesis="s",
+        )
+        assert result.event_id, "successful write must produce a non-empty event_id"
+        assert result.consultation_id.startswith("consult-")
+        assert result.timestamp > 0
+
+    def test_invocation_tally_sees_successful_writes(self, tmp_db):
+        """The whole point of the fix: downstream invocation_tally() must
+        be able to see the consultation events that log_consultation
+        writes. If tally comes back empty after a successful write, the
+        diversity mechanism is still dead."""
+        from divineos.core.council.consultation_log import invocation_tally
+
+        # Log a few consultations naming different experts
+        log_consultation("q1", ["Kahneman"], [_make_analysis("Kahneman", ["c"])], "s")
+        log_consultation("q2", ["Popper"], [_make_analysis("Popper", ["c"])], "s")
+        log_consultation("q3", ["Kahneman"], [_make_analysis("Kahneman", ["c"])], "s")
+
+        tally = invocation_tally(last_n=10)
+        # Tally must be non-empty and reflect the writes
+        assert tally, (
+            "invocation_tally returned empty after successful log_consultation "
+            "writes — the diversity mechanism cannot boost under-invoked "
+            "experts if tally is empty. Perplexity Finding 1 regression."
+        )
+        assert tally.get("Kahneman", 0) >= 2, tally
+        assert tally.get("Popper", 0) >= 1, tally

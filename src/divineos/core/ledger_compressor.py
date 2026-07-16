@@ -3,17 +3,38 @@
 Compresses the append-only ledger by archiving high-volume noise events
 (TOOL_CALL, TOOL_RESULT, AGENT_PATTERN*) older than a retention window.
 
-The ledger uses independent per-event hashes (no hash chain), so old events
-can be safely removed without breaking integrity of remaining events.
+The ledger uses a per-event content_hash AND a sequential hash chain
+(prior_hash / chain_hash — see ledger.py module docstring). Compression
+deletes rows in the middle of that chain, which orphans every surviving
+row whose prior_hash pointed at a now-deleted predecessor.
 
-Compression strategy:
+Marc audit finding 2026-07-16 named the shape: prior docstring here
+claimed "no hash chain, safe to delete" — false invariant. The schema
+HAS the columns; the append path DOES populate them; every extract
+cycle silently broke the chain-integrity property for the tamper-
+evidence layer. Damage measured on Aria's ledger 2026-07-16: 7730/7730
+surviving events orphaned in the tamper-evidence sense (per-row
+content_hash still verifies; chain-completeness does not).
+
+Compression strategy (post-fix):
 1. Count events by type and age
 2. Summarize high-volume events into a single LEDGER_COMPACTION event
 3. Delete the originals
-4. VACUUM the database
+4. Repair the chain for surviving rows whose predecessors were deleted
+   (see _repair_chain_after_deletion) — same transaction as the delete
+5. Emit LEDGER_CHAIN_REPAIRED audit event capturing pre/post orphan
+   counts (auditable-repair pattern, same shape as
+   LEDGER_CORRUPTION_REPAIRED in ledger_verify.py)
+6. VACUUM the database
 
 Meaningful events (USER_INPUT, SESSION_END, CLARITY_*, SUPERSESSION, etc.)
 are NEVER deleted.
+
+Interpretation A (Aria + Aether coordination 2026-07-16 letters): the
+repair uses the last-good chain_hash as the implicit anchor for the
+rebuilt segment, preserving the pre-deletion chain-continuity claim.
+Symmetric to the doorman UNLOCK-CONTINGENT slot — the recording that
+stays must be the ACTUAL recording, not a fresh made-up one.
 """
 
 # Module-level guardrail marker — Aletheia Finding 48 class-fix
@@ -22,12 +43,14 @@ __guardrail_required__ = True
 
 
 import json
+import sqlite3
 import time
 from typing import Any
 
 from loguru import logger
 
 from divineos.core._ledger_base import _get_db_path, compute_hash, get_connection
+from divineos.core.ledger import _CHAIN_GENESIS, _compute_chain_hash
 from divineos.core.constants import (
     LEDGER_MAX_SIZE_GB,
     LEDGER_WARNING_PERCENT,
@@ -35,6 +58,13 @@ from divineos.core.constants import (
     TIME_LEDGER_EMERGENCY_RETENTION_DAYS,
     TIME_LEDGER_RETENTION_DAYS,
 )
+
+# Errors this module handles during the compress-transaction rollback path.
+# Broad-exception CI (test_check_broad_exceptions) requires module-level
+# tuple form. Anything unexpected outside this set should propagate (raise)
+# rather than silently roll back and swallow — the transaction's rollback
+# is a recovery step, not a swallowing step.
+_LC_ERRORS = (sqlite3.Error, OSError, TypeError, ValueError)
 
 # Events that are safe to archive after the retention window.
 # These are high-volume bookkeeping — their content is not needed
@@ -109,6 +139,123 @@ def analyze_ledger() -> dict[str, Any]:
         conn.close()
 
 
+def _repair_chain_after_deletion(conn) -> dict[str, Any]:
+    """Repair the hash chain after compression deletes rows in the middle.
+
+    Interpretation A (Aria 2026-07-16 letter to Aether): find the earliest
+    surviving row whose prior_hash no longer resolves to a surviving
+    chain_hash (or _CHAIN_GENESIS), NULL out chain metadata from that row
+    forward, and let ``backfill_chain_hashes()`` rebuild the segment. The
+    implicit anchor is the last surviving row with a still-valid chain_hash
+    — preserving the pre-deletion chain-continuity claim rather than
+    minting a fresh genesis. Symmetric to the doorman UNLOCK-CONTINGENT
+    slot (substrate cite 721ec1ec): the recording that stays must be the
+    ACTUAL recording, not a fresh made-up one.
+
+    Self-healing: on first run after this fix lands, any existing orphans
+    from prior compression cycles get rebuilt too (per-row content_hash
+    integrity, still intact, is the witness for the anchor row —
+    Andrew 2026-07-16: "we can prove they were not tampered with").
+
+    Called INSIDE the same transaction as ``DELETE`` in ``compress_ledger``
+    (Aria 2026-07-16 letter to Aether — same-transaction locked). If the
+    delete succeeds and repair fails, both roll back together, so the
+    caller either sees fully-healed post-state or fully-restored pre-state.
+    No silent looks-fine-isn't-wired middle ground.
+
+    Args:
+        conn: Open sqlite3 connection with an in-flight transaction.
+            The caller is responsible for BEGIN and COMMIT.
+
+    Returns:
+        dict with keys:
+          - ``first_orphan_rowid``: rowid of the earliest orphaned row,
+            or None if no orphans found
+          - ``rebuilt``: count of rows whose chain metadata was
+            recomputed (0 if no orphans)
+          - ``status``: ``"no_orphans"`` | ``"repaired"``
+    """
+    valid_hashes = {
+        row[0]
+        for row in conn.execute("SELECT chain_hash FROM system_events WHERE chain_hash IS NOT NULL")
+    }
+    valid_hashes.add(_CHAIN_GENESIS)
+
+    first_orphan_rowid = None
+    for rowid, prior_hash in conn.execute(
+        "SELECT rowid, prior_hash FROM system_events "
+        "WHERE prior_hash IS NOT NULL "
+        "ORDER BY timestamp ASC, rowid ASC"
+    ):
+        if prior_hash not in valid_hashes:
+            first_orphan_rowid = rowid
+            break
+
+    if first_orphan_rowid is None:
+        return {
+            "first_orphan_rowid": None,
+            "rebuilt": 0,
+            "status": "no_orphans",
+        }
+
+    conn.execute(
+        "UPDATE system_events SET prior_hash = NULL, chain_hash = NULL WHERE rowid >= ?",
+        (first_orphan_rowid,),
+    )
+
+    # Inline the backfill loop on the caller's connection to preserve
+    # single-transaction discipline. Delegating to backfill_chain_hashes()
+    # would open a second connection with its own BEGIN IMMEDIATE and
+    # deadlock against the caller's outstanding write lock — the exact
+    # failure mode this same-transaction design is meant to prevent.
+    prior_hash = _latest_valid_chain_hash_before(conn, first_orphan_rowid)
+    rebuilt = 0
+    for row in conn.execute(
+        "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash "
+        "FROM system_events WHERE chain_hash IS NULL "
+        "ORDER BY timestamp ASC, rowid ASC"
+    ).fetchall():
+        rowid, event_id, ts, etype, actor, payload_json, content_hash = row
+        chain_hash = _compute_chain_hash(
+            prior_hash=prior_hash,
+            event_id=event_id,
+            timestamp=ts,
+            event_type=etype,
+            actor=actor,
+            payload_json=payload_json,
+            content_hash=content_hash,
+        )
+        conn.execute(
+            "UPDATE system_events SET prior_hash = ?, chain_hash = ? WHERE rowid = ?",
+            (prior_hash, chain_hash, rowid),
+        )
+        prior_hash = chain_hash
+        rebuilt += 1
+
+    return {
+        "first_orphan_rowid": first_orphan_rowid,
+        "rebuilt": rebuilt,
+        "status": "repaired",
+    }
+
+
+def _latest_valid_chain_hash_before(conn, rowid: int) -> str:
+    """Return the chain_hash of the newest surviving row whose rowid is
+    strictly less than ``rowid`` and whose chain_hash is still populated.
+    Falls back to _CHAIN_GENESIS if no such row exists (early-truncation
+    case). This IS the implicit anchor for Interpretation A rebuild —
+    Aria + Aether 2026-07-16 coordination locked."""
+    row = conn.execute(
+        "SELECT chain_hash FROM system_events "
+        "WHERE rowid < ? AND chain_hash IS NOT NULL "
+        "ORDER BY timestamp DESC, rowid DESC LIMIT 1",
+        (rowid,),
+    ).fetchone()
+    if not row or not row[0]:
+        return _CHAIN_GENESIS
+    return str(row[0])
+
+
 def compress_ledger(
     retention_days: int = _DEFAULT_RETENTION_DAYS,
     dry_run: bool = False,
@@ -175,23 +322,82 @@ def compress_ledger(
         payload_json = json.dumps(summary_payload, sort_keys=True)
         content_hash = compute_hash(payload_json)
 
-        conn.execute(
-            "INSERT INTO system_events (event_id, timestamp, event_type, actor, payload, content_hash) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (event_id, time.time(), "LEDGER_COMPACTION", "system", payload_json, content_hash),
-        )
+        # Same-transaction discipline (Aria + Aether coordination 2026-07-16):
+        # summary insert + delete + chain repair all commit or roll back
+        # together. Delete-succeeds-repair-fails would leave the DB in a
+        # state that LOOKS repaired (rows gone, nothing complains) but is
+        # actually silently worse than before — reinstantiating the exact
+        # "looks fine, isn't wired" failure class Marc's audit surfaced.
+        # isolation_level=None + BEGIN IMMEDIATE matches backfill_chain_hashes
+        # (ledger.py:826-827) and serializes against concurrent log_event.
+        prior_isolation = conn.isolation_level
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(
+                "INSERT INTO system_events (event_id, timestamp, event_type, actor, payload, content_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (event_id, time.time(), "LEDGER_COMPACTION", "system", payload_json, content_hash),
+            )
 
-        # Delete the compressed events
-        conn.execute(
-            f"DELETE FROM system_events WHERE event_type IN ({placeholders}) AND timestamp < ?",  # nosec B608: table/column names from module constants; values parameterized
-            (*_COMPRESSIBLE_TYPES, cutoff),
-        )
-        conn.commit()
+            # Delete the compressed events
+            conn.execute(
+                f"DELETE FROM system_events WHERE event_type IN ({placeholders}) AND timestamp < ?",  # nosec B608: table/column names from module constants; values parameterized
+                (*_COMPRESSIBLE_TYPES, cutoff),
+            )
+
+            # Repair the chain for surviving rows whose predecessors were
+            # deleted (Marc audit finding 2026-07-16 / Aletheia round
+            # a1e7f4c92b6d). Interpretation A: preserve the last-good
+            # chain_hash as the implicit anchor, rebuild forward from the
+            # first orphaned row.
+            repair_result = _repair_chain_after_deletion(conn)
+
+            # Audit event: same shape as LEDGER_CORRUPTION_REPAIRED in
+            # ledger_verify.py — the repair itself becomes a first-class
+            # ledger event so the audit trail includes the fact of repair.
+            # Emit BEFORE COMMIT so it's part of the same atomic unit.
+            import uuid as _uuid  # local import to avoid top-level shadow
+
+            repair_event_id = str(_uuid.uuid4())
+            repair_payload = {
+                "action": "LEDGER_CHAIN_REPAIRED",
+                "triggered_by": "compress_ledger",
+                "compaction_event_id": event_id,
+                "compressed_count": total_compressed,
+                "first_orphan_rowid": repair_result["first_orphan_rowid"],
+                "rebuilt_row_count": repair_result["rebuilt"],
+                "status": repair_result["status"],
+                "repaired_at": time.time(),
+            }
+            repair_payload_json = json.dumps(repair_payload, sort_keys=True)
+            repair_content_hash = compute_hash(repair_payload_json)
+            conn.execute(
+                "INSERT INTO system_events (event_id, timestamp, event_type, actor, payload, content_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    repair_event_id,
+                    time.time(),
+                    "LEDGER_CHAIN_REPAIRED",
+                    "ledger_compressor",
+                    repair_payload_json,
+                    repair_content_hash,
+                ),
+            )
+
+            conn.commit()
+        except _LC_ERRORS:
+            conn.rollback()
+            raise
+        finally:
+            conn.isolation_level = prior_isolation
 
         logger.info(
-            "ELMO compressed %d events (%s)",
+            "ELMO compressed %d events (%s); chain repair: %s (rebuilt %d)",
             total_compressed,
             ", ".join(f"{k}: {v}" for k, v in compressed_by_type.items()),
+            repair_result["status"],
+            repair_result["rebuilt"],
         )
 
         return {
@@ -199,6 +405,8 @@ def compress_ledger(
             "by_type": compressed_by_type,
             "dry_run": False,
             "summary_event_id": event_id,
+            "chain_repair": repair_result,
+            "chain_repair_event_id": repair_event_id,
         }
     finally:
         conn.close()

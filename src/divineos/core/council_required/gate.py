@@ -90,6 +90,21 @@ def decide(
     fingerprint = _normalize_edit_fingerprint(primary_path, tool_name)
 
     recency_seconds = COUNCIL_RECENCY_MINUTES * 60
+
+    # Substance-binding must pass BEFORE we consume the record — a
+    # thin-substance walk shouldn't be atomically consumed and lost.
+    # So we do a read-only find first for the binding check, then
+    # (only if binding passes) run the atomic find_and_consume that
+    # races correctly against concurrent gate.decide() invocations.
+    #
+    # Race note (2026-07-16 CI): the atomicity is on the LAST step
+    # (find + consume in one BEGIN IMMEDIATE transaction), not on the
+    # binding check. A concurrent caller that already consumed the
+    # record between our binding check and our atomic find_and_consume
+    # will cause find_and_consume_atomically to return None; we
+    # gracefully return BLOCK CHECK_ARTIFACT_EXISTS in that case,
+    # which is the honest report of the state (record was consumed by
+    # someone else). No double-consume possible under any interleaving.
     record = store.find_unconsumed_record(
         edit_fingerprint=fingerprint,
         recency_seconds=recency_seconds,
@@ -127,18 +142,37 @@ def decide(
             check_result=bind_result,
         )
 
-    # Consume the record. From this point the record cannot satisfy a
-    # subsequent edit; the consume-on-use semantics close the walk-once-
-    # edit-many gaming route (Aether Catch 2).
-    store.consume_record(
-        record_id=record.record_id,
+    # Consume the record atomically. Under concurrent gate.decide()
+    # calls against the same fingerprint, only one caller's
+    # find_and_consume_atomically wins the write-lock race and returns
+    # (record, event_id); the other returns None. Closes the Aether
+    # Catch-2 gaming route AND the race surfaced by CI 2026-07-16.
+    consumed = store.find_and_consume_atomically(
         edit_fingerprint=fingerprint,
+        recency_seconds=recency_seconds,
         actor=actor,
         now=now,
     )
+    if consumed is None:
+        # A concurrent gate.decide() consumed the record between our
+        # binding check and our atomic consume. Honest report: no
+        # unconsumed record available now.
+        return GateDecision(
+            outcome=GateOutcome.BLOCK,
+            check_result=CheckResult(
+                passed=False,
+                failed_check_name=CHECK_ARTIFACT_EXISTS,
+                what_would_clear_it=(
+                    "The council walk that was on record was consumed by "
+                    "a concurrent edit while this gate was checking "
+                    "substance-binding. Walk council again for this edit."
+                ),
+            ),
+        )
+    consumed_record, _consume_event_id = consumed
     return GateDecision(
         outcome=GateOutcome.ALLOW,
-        matched_record_id=record.record_id,
+        matched_record_id=consumed_record.record_id,
     )
 
 
