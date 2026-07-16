@@ -480,6 +480,72 @@ def _lepos_walk_gate_reason(
     return None  # walk-gate deprecated 2026-07-09; the floor is the reply itself
 
 
+# ─── Claim-scope state slice (Aletheia audit round-a1e7f4c92b6d) ─────
+# Module-level state that reflects whether the verify-claim gate's
+# "IMPORTANT — response scope: emit ONLY the short correction" directive
+# is currently owed by the model. Aether's ResponseScopeIntercept
+# (src/divineos/hooks/response_scope_intercept.py, a CrossTurnScan
+# instance of the evidence-bearing Stop-gate primitive) reads this state
+# via ``get_claim_scope_state()`` and refuses reply-emit that isn't
+# short-correction shape while the directive is active.
+#
+# The wiring closes today's specific failure: the directive text asked
+# for short-correction but couldn't enforce it, so a full re-composition
+# after a Stop-block produced a duplicate post to Andrew. Aletheia's
+# frame: "Don't ask for the short correction — refuse to accept anything
+# that isn't one." The state exposed here is the LOCK-CONDITION half of
+# that refusal.
+#
+# Lifecycle:
+#   - ``_mark_claim_scope_active(directive_text)`` fires when
+#     _unverified_claim_gate_reason emits its directive.
+#   - The host Stop hook reads ``get_claim_scope_state()``, feeds it to
+#     ResponseScopeIntercept.scan(state, just_emitted_text), and
+#     blocks/allows the emit based on the returned EvidenceRecord.
+#   - ``_clear_claim_scope()`` fires when the host confirms the reply
+#     matched short-correction shape (host writes on gate-clearance).
+_claim_scope_state: dict[str, Any] = {
+    "active": False,
+    "directive_text": "",
+}
+
+
+def _mark_claim_scope_active(directive_text: str) -> None:
+    """Set claim-scope state to active with the specific directive text.
+    Called from _unverified_claim_gate_reason when the directive fires."""
+    _claim_scope_state["active"] = True
+    _claim_scope_state["directive_text"] = directive_text
+
+
+def _clear_claim_scope() -> None:
+    """Reset claim-scope state after the host confirms short-correction
+    shape was emitted. Called from the host-side Stop hook wiring on
+    ResponseScopeIntercept clearance."""
+    _claim_scope_state["active"] = False
+    _claim_scope_state["directive_text"] = ""
+
+
+def get_claim_scope_state() -> dict[str, Any]:
+    """Return the state slice shape ResponseScopeIntercept expects.
+
+    Contract (from Aether's letter 2026-07-15 + response_scope_intercept
+    module docstring):
+      - ``claim_scope_active``: bool — True if the prior-turn verify-claim
+        directive is still owed (has not been cleared by a matching
+        short-correction reply).
+      - ``claim_scope_directive_text``: str — the exact directive text
+        emitted last, threaded into evidence so the block message can
+        cite the specific ask that wasn't honored.
+
+    Returns a fresh dict so the host cannot mutate module-level state
+    by reference.
+    """
+    return {
+        "claim_scope_active": _claim_scope_state["active"],
+        "claim_scope_directive_text": _claim_scope_state["directive_text"],
+    }
+
+
 # Human-readable "here is the way" hint per claim-kind — the CHANNEL half of
 # the verify-claim gate (block AND route, never bare obstruction).
 _VERIFY_CLAIM_HINT: dict[str, str] = {
@@ -528,7 +594,7 @@ def _unverified_claim_gate_reason(
     phrases = [f.get("trigger", "") for f in findings[:3] if f.get("trigger")]
     ways = "; ".join(f"{k} -> {_VERIFY_CLAIM_HINT.get(k, 'the matching check')}" for k in kinds)
     claimed = ", ".join(repr(p) for p in phrases) or ", ".join(kinds)
-    return (
+    directive_text = (
         "VERIFY-CLAIM GATE — this reply states a checkable external state as "
         "fact, but no command verifying it ran this turn. 'X is done' is a "
         f"CLAIM, and claims require evidence. Claimed: {claimed}. The turn is "
@@ -543,6 +609,14 @@ def _unverified_claim_gate_reason(
         f"{ways}. (Phase-1 precision means a verified claim would already be "
         "silent — this fired because nothing in the turn checked it.)"
     )
+    # Wire the response-scope state slice for
+    # divineos.hooks.response_scope_intercept.ResponseScopeIntercept (Aletheia
+    # audit round-a1e7f4c92b6d — the directive as-written asks-not-refuses;
+    # the enforcer needs to know a directive is active in order to LOCK the
+    # emit rather than politely request it). ``get_claim_scope_state()`` below
+    # exposes the state dict the host Stop hook feeds to ``scan()``.
+    _mark_claim_scope_active(directive_text)
+    return directive_text
 
 
 def _distancing_gate_reason(

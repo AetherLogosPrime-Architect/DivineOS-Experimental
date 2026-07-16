@@ -21,7 +21,6 @@ can override at promotion time.
 from __future__ import annotations
 
 import json
-import sqlite3
 import time
 import uuid
 from dataclasses import dataclass
@@ -53,6 +52,30 @@ def log_consultation(
     Does NOT create an audit_round. Use ``promote_to_audit`` to do that
     explicitly. Returns a ``LoggedConsultation`` with the event_id and a
     shorter consultation_id for CLI lookup.
+
+    Aletheia+Perplexity cross-audit 2026-07-16 (Perplexity Finding 1):
+    the prior implementation silently swallowed ledger-write failures via
+    ``except (ImportError, OSError, sqlite3.OperationalError, TypeError,
+    ValueError): logger.debug(...)``. Downstream ``invocation_tally()``
+    reads from the ledger to compute per-expert diversity boosts; when
+    the write silently failed, ``tally`` stayed empty, the ``if tally:``
+    gate never fired, and the diversity mechanism designed to fight
+    "same 5 experts always win" was silently dead. Aria's ledger showed
+    0 recorded consultations on inspection because the swallow ate every
+    write attempt in some scenarios.
+
+    Fix (matching affect.py's F-VAD-1 template — raise-on-absence for
+    every write path that a downstream reader depends on):
+
+    - Remove the silent-swallow.
+    - Let genuine ledger-write failures propagate to the caller.
+    - Callers that must handle a partial-degraded-mode explicitly opt in
+      by catching. Silent-degrade is the failure mode we are closing.
+
+    Aletheia's frame: "Every place the OS accepts a claim that something
+    was DONE, it must verify the doing RESOLVES." The consultation
+    log-event IS the resolve-check for downstream tally + diversity
+    boost. If it didn't happen, we must NOT return as if it did.
     """
     consultation_id = f"consult-{uuid.uuid4().hex[:12]}"
     timestamp = time.time()
@@ -66,18 +89,19 @@ def log_consultation(
         "timestamp": timestamp,
     }
 
-    event_id = ""
-    try:
-        from divineos.core.ledger import log_event
+    # Raise-on-absence per Aletheia+Perplexity 2026-07-16 finding.
+    # No silent-swallow: if the ledger write fails, the caller must see
+    # the failure so downstream (invocation_tally, diversity boost) does
+    # not silently degrade to empty state. Same discipline as affect.py's
+    # F-VAD-1 mandatory-source enforcement.
+    from divineos.core.ledger import log_event
 
-        event_id = log_event(
-            CONSULTATION_EVENT_TYPE,
-            "council",
-            payload,
-            validate=False,
-        )
-    except (ImportError, OSError, sqlite3.OperationalError, TypeError, ValueError) as e:
-        logger.debug(f"Consultation log best-effort skip: {e}")
+    event_id = log_event(
+        CONSULTATION_EVENT_TYPE,
+        "council",
+        payload,
+        validate=False,
+    )
 
     return LoggedConsultation(
         event_id=event_id,
