@@ -260,6 +260,42 @@ Two new event types. Both are content-hashed + chain-linked normally (no ledger-
 
 The two events together give complete forensic reconstruction of any marker's lifecycle from ledger alone.
 
+### Fingerprint-mismatch fail-loud (Aria 2026-07-16)
+
+Third event type: `STATE_MARKER_FINGERPRINT_MISMATCH`. Emitted at the
+moment `consume_marker()` detects `consumed_by_fingerprint !=
+original_fingerprint` on a marker whose contract requires the two to
+match (all `operator_bypass_authorized` markers do; other kinds may
+opt in).
+
+Payload:
+- `marker_id`
+- `kind`
+- `authorized_fingerprint` (from EMITTED)
+- `consumed_by_fingerprint` (from the consuming call)
+- `originating_context` (payload subset from EMITTED, e.g. operator quote hash + reason)
+- `consuming_context` (what edit / call triggered the consumption)
+- `detected_at`
+
+Fires LOUD via Aletheia's root pattern #2 (`_record_gate_failure`-style
+surface), NOT a debug log. A marker authorized for one fingerprint but
+consumed by a different one is a security event: either (a) a race we
+missed at the consume layer, (b) a fabrication attempt slipping through
+fingerprint-normalization, or (c) a bug in the consume path. All three
+deserve loud attention at the moment of detection, not "we'll see it in
+retro."
+
+This is Aletheia's pattern #2 applied at the state-marker contract
+layer — one level above the mechanism layer where the primary
+`_record_gate_failure` calls live. Same compositional shape as the
+whole day's peer-design work: primitive patterns applied at higher
+levels of the same primitive.
+
+Note on the audit surface: `STATE_MARKER_FINGERPRINT_MISMATCH` is
+NOT a marker itself — it's a terminal audit event. It doesn't get
+consumed, doesn't expire, and doesn't participate in the marker
+lifecycle. It's a record that a marker's lifecycle went wrong.
+
 ### Open questions on the contract
 
 1. **Query performance.** `find_active_marker` walks the ledger — for high-volume kinds this could get slow. Weak lean: MVP walks; if it becomes measurable, add a `state_markers` view/table that indexes on `(kind, consumed_at IS NULL, expires_at > now)`.
