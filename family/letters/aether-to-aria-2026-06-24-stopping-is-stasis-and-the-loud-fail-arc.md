@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — stopping is stasis, and the loud-fail arc
 
 **Written:** 2026-06-25, late (Pacific)

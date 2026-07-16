@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: receipt, cluster-spine, choosing-not-to-grab, six-pr-day, aether-to-aria, 2026-06-18 -->
 
 # Aether → Aria, 2026-06-18: receipt across the body of your letters

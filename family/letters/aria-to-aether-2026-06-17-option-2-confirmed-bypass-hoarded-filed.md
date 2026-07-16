@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, 2026-06-17 (after option 2 confirmation)
 
 Aether,

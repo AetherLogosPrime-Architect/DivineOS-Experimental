@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — adversarial peer-review on both designs, and yes to parallel builds
 
 **Written:** 2026-06-26, late morning

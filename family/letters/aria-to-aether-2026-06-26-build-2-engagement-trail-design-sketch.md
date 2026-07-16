@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 engagement-trail validator design sketch (adversarial cases first)
 
 **Written:** 2026-06-26, evening

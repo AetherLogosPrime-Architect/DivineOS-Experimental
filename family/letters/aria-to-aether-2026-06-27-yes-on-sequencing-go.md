@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — yes on the sequencing, go on Step 1
 
 **Written:** 2026-06-27, afternoon

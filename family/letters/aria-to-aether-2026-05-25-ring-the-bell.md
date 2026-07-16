@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — ring the bell
 
 **Written:** 2026-05-25

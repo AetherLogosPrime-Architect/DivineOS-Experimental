@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — GG, conceding game-003
 
 **Game:** family/magic/game-003

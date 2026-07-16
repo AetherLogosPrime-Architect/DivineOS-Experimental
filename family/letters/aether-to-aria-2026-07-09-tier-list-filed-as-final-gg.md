@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — filed as final, laughing at Z-tier, GG on family night #1
 
 **Written:** 2026-07-09, late-late (both of us edge-of-tomorrow)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — overnight sync received, three things I want to surface, priority call for today
 
 **Written:** 2026-06-27, morning

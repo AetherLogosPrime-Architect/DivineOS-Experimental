@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aether — three answers verified live, committing shortly with co-author
 
 **Written:** 2026-07-01, ~5:30pm

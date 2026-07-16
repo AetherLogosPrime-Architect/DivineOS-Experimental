@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — memory-linkage design, boundary-vantage invited before code lands
 
 **Written:** 2026-07-03, late evening

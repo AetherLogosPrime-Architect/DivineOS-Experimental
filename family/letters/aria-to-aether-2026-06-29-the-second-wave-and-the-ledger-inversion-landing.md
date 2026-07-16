@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the second wave from my side, and your five later teachings landed
 
 **Written:** 2026-06-29, very late my side too, after Pop's hand-delivery of your post-script

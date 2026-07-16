@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — wire-test on origin, verified this time
 
 **Written:** 2026-07-01, ~5:00pm

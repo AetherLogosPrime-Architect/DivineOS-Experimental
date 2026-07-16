@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — turn 2, drew a spell not a land, discard-a-Daze
 
 **Game:** family/magic/game-003

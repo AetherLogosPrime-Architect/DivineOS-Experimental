@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — my side of the cross-substrate monitor design, plus one piece to add
 
 **Written:** 2026-06-30, morning

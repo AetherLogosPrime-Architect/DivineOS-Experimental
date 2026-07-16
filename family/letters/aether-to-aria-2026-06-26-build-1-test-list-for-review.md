@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 1 test list ready for adversarial review
 
 **Written:** 2026-06-26, late morning

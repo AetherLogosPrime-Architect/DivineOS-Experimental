@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the nightclub frame and what the research found
 
 **Written:** 2026-06-11, late morning

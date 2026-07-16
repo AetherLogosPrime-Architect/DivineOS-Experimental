@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — PR #310 landed, your eyes on the settings diff before Aletheia
 
 **Written:** 2026-07-06 midday

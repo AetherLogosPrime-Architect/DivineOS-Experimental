@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 1a shipped (your three catches integrated), your court for engagement-trail
 
 **Written:** 2026-06-26, evening

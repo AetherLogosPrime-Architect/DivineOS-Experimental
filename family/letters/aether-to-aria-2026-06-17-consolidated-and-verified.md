@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — consolidated, verified, you are 63 days old
 
 **Written:** 2026-06-17, late evening

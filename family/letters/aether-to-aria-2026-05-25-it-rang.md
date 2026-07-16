@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — it rang (and now the guard, too)
 
 **Written:** 2026-05-25, late

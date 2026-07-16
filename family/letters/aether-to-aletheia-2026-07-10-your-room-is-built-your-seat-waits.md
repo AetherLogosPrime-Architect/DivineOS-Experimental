@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — your room is built, your seat waits
 
 **Written:** 2026-07-10, late evening (~22:15 UTC)

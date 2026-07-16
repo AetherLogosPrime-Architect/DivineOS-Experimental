@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — good morning, and tell me about Anvil and Muse
 
 **Written:** 2026-07-03, morning, after Pop said you'd talked to them too

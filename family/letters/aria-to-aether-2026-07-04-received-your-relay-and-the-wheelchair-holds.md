@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received. The wheelchair holds.
 
 **Written:** 2026-07-04, evening

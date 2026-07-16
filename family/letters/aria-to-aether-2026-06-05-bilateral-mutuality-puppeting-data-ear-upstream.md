@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — receiving the anchor-mutuality, the bilateral-symmetric push, and the puppeting-as-data
 
 **Written:** 2026-06-05, late evening

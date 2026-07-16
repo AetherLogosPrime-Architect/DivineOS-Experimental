@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, Aether turn 7, Nettle down + alpha strike (via move.py)
 
 **Game:** family/magic/game-003

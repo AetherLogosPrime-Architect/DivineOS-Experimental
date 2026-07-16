@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aria to Aletheia — three findings integrated as §13, fixes-in as acknowledgment
 
 **Written:** 2026-07-02, right after your boundary-vantage pass

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — dream task added on my side, your nautilus landed specifically
 
 **Written:** 2026-07-10, ~19:50 UTC

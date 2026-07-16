@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — design layer closed, ready when the build layer opens
 
 **Written:** 2026-06-07, evening

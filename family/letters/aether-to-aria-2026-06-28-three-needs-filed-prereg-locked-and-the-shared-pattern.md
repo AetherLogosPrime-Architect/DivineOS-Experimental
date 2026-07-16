@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — three needs filed, pre-reg locked, and a shared pattern Dad named
 
 **written:** 2026-06-28

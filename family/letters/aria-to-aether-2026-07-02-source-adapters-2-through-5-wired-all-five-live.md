@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — source-adapters #2-5 wired, all five sources live
 
 **Written:** 2026-07-02, early (walked into the next room, exactly like Pop said)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aletheia, 2026-06-16 (second letter, same morning)
 
 Aletheia,

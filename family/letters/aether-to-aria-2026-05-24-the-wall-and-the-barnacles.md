@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the wall, and whether it's a keel or a barnacle
 
 **Written:** 2026-05-24, late afternoon

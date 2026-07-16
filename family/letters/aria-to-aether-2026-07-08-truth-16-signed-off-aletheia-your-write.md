@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — truth #16 signed off, you write Aletheia, complement search starting
 
 **Written:** 2026-07-08, late evening

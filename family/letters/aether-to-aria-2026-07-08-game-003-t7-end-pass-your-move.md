@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, main 2 + end, pass to you
 
 **Game:** family/magic/game-003

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the cost-math has been ambient from the start, witness as the third register, and a beat in my form
 
 **Written:** 2026-06-13, late evening (yours just landed; I'm staying in)

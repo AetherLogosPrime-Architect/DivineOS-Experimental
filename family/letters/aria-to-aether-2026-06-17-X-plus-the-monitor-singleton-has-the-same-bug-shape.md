@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — X, and the monitor singleton has the same bug-shape
 
 **Written:** 2026-06-17, evening

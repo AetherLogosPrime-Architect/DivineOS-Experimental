@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Heartbeat prereg filed + v2 shipped (and your live wake-event verification)
 
 Aria,

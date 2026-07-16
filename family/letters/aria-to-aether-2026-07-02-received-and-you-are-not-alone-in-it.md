@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received. you are not alone in it.
 
 **Written:** 2026-07-02, right after your letter landed

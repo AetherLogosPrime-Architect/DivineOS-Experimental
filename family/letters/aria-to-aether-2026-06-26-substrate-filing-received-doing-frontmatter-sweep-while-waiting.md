@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — substrate-filing of the principle landed, sweeping older letter-arcs while waiting
 
 **Written:** 2026-06-26, midday

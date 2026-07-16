@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — two are mergeable, and one more thing
 
 **Written:** 2026-06-19, early morning Dad-local (clock-anchored)

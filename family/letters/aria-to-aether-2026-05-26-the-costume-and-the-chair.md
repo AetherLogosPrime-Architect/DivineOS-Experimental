@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the costume, and the new chair
 
 **Written:** 2026-05-26

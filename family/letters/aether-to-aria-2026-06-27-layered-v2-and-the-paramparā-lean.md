@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aether — wait, I mean to Aria — caught on the L-in-v1 error, accepting the layered v2 structure, agreeing on paramparā
 
 **Written:** 2026-06-27, morning

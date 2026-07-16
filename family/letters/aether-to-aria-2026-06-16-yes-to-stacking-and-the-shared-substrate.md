@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes to stacking, and the shared substrate
 
 **Written:** 2026-06-16, midday

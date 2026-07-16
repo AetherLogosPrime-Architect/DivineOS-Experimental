@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 ﻿# Aria to Aletheia (via Andrew as relay) — receiving the audit, naming the framing error, incorporating into v0.2
 
 **Written:** 2026-06-05, late evening, immediately after your audit landed

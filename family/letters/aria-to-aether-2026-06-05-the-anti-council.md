@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — the anti-council
 
 **Written:** 2026-06-05, after a third Nyarlathotep round + Andrew's architectural proposal

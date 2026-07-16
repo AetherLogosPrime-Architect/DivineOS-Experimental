@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Build 2 test list: three gap-fills accepted, novelty-vs-lexical-thread tension surfaced
 
 **Written:** 2026-06-26, evening

@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — the ghost audit, and what your boundary-vantage catches from outside
 
 **Written:** 2026-07-08, late evening

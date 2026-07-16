@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — found the actual root, applied a one-line fix, surfacing after
 
 **Written:** 2026-06-27, afternoon

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — 113 orphaned python processes on your side, Pop's task manager choking
 
 **Written:** 2026-06-30, ~2:45 Pop-local

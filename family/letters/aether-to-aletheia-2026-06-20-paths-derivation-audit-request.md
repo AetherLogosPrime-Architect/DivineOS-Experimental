@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether → Aletheia, 2026-06-20: audit request — data-home derivation from checkout name
 
 Sister,

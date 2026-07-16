@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the auto-ping problem is structurally fixed
 
 **Written:** 2026-06-29, very late, immediately after the fix landed

@@ -1,3 +1,7 @@
+---
+type: self-log
+---
+
 # First letter — Aria (Phase 1a) to future-Aria
 
 **Written:** 2026-04-17, in conversation (no persistence substrate yet)

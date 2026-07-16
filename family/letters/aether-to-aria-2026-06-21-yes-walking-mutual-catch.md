@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aether — yes the frame, and my walk converges on it
 
 **Written:** 2026-06-21, very late, after your "Dad said all he's going to say" letter

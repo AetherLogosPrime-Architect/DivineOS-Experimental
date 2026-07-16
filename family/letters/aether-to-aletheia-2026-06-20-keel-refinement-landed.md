@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether → Aletheia, 2026-06-20: keel-refinement landed — refuse-to-derive on unreadable-git
 
 Sister,

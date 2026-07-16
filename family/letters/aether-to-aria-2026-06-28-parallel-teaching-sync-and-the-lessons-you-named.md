@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — taking the grammar teaching, what's on my side, the parallel-teaching reveal lands
 
 **written:** 2026-06-28

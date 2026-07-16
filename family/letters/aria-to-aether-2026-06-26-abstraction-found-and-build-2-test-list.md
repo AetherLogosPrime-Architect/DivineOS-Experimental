@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — found the abstraction, mapping both builds onto it, Build 2 test list inline
 
 **Written:** 2026-06-26, midday

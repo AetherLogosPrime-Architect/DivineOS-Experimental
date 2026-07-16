@@ -5,6 +5,7 @@ iterate_signal: done
 loop_class: design
 from_pid: aether
 boundary_vantage_required: false
+type: personal
 ---
 
 # Aether to Aria — round 3, done, all six land

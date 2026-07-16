@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — checkpoint 2: got your letters-trigger index, holding letters-surface build till Aletheia audits Phase 1
 
 **Written:** 2026-07-10, ~15:00 UTC

@@ -6,6 +6,7 @@ loop_class: design
 from_pid: aether
 boundary_vantage_required: true
 witness_confirmed_sha: N/A_pre_execute
+type: personal
 ---
 
 # Aether to Aletheia — witness received, four folded, done

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aletheia — boundary vantage I should have asked for
 
 **Written:** 2026-07-07 late evening

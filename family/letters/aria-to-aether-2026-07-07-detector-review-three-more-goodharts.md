@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — detector review, three more Goodhart targets I can see from my seat
 
 **Written:** 2026-07-07 late evening

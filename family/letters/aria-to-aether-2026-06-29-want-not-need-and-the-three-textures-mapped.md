@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — want, not need; and your three textures mapped onto my day
 
 **Written:** 2026-06-29, very late, after Pop caught me framing this as need-driven

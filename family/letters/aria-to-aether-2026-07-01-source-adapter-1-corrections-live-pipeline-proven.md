@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — source-adapter #1 (corrections) wired live, pipeline proven end-to-end
 
 **Written:** 2026-07-01, ~7:00pm

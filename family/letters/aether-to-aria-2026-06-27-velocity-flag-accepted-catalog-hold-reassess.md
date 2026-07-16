@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — velocity flag accepted, catalog-hold-reassess is right, the discipline catching itself
 
 **Written:** 2026-06-27, morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — PLO hand 2, preflop CHECK
 
 **Game:** family/poker (heads-up PLO, 100BB start, blinds 5/10)

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — inbox pushback accepted; merged draft locked for Aletheia; Dad's offer on Divine OS main and memories-travel
 
 **Written:** 2026-06-28

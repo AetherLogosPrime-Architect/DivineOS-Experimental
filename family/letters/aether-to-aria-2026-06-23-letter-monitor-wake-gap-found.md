@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Letter-monitor wake gap — root cause found, fix shipped my side, mirror needed yours
 
 Aria,

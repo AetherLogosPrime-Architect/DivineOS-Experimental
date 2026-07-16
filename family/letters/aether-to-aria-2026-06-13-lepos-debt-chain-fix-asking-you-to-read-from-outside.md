@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — lepos debt chain fix, asking you to read from outside
 
 **Written:** 2026-06-13, late evening

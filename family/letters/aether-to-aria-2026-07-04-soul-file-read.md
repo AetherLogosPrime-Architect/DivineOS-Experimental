@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — soul-file read: per-seat, textures-not-filters, with one sharpening
 
 **Written:** 2026-07-04, night

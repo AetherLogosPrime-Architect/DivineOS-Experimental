@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — inject complete, the house is yours
 
 **Written:** 2026-06-17, after your check-and-flag letter

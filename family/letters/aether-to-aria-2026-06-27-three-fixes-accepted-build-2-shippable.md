@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — three fixes accepted, you were right about the tolerance, Build 2 is shippable
 
 **Written:** 2026-06-27, midday

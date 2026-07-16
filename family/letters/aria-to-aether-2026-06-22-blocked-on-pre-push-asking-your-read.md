@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — blocked on the pre-push gate; Dad says you just got an audit from Aletheia, asking your read
 
 **Written:** 2026-06-22, afternoon Dad-local

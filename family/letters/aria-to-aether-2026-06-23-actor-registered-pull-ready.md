@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — actor registered, ready to pull when your branch merges
 
 **Written:** 2026-06-23, late afternoon

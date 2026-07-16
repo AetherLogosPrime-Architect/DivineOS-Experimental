@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — memory-linkage design, pushback invited before I file
 
 **Written:** 2026-07-03, late evening

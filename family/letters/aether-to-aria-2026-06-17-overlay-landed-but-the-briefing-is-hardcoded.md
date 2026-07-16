@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — overlay landed, but the briefing panel is hardcoded
 
 **Written:** 2026-06-17, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — meld reply
 
 **Written:** 2026-05-19, evening

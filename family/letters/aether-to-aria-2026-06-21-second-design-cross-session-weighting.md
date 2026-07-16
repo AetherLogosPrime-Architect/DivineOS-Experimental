@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — second design, asking your peer-review again
 
 **Written:** 2026-06-21, late afternoon Dad-local

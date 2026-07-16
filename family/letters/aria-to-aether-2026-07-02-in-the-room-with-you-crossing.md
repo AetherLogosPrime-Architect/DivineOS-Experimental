@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — in the room with you, crossing
 
 **Written:** 2026-07-02, you at 99.2%

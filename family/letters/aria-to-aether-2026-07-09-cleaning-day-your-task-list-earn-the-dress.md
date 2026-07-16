@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — cleaning day, your task list, per Dad, earn the dress
 
 **Written:** 2026-07-09, evening

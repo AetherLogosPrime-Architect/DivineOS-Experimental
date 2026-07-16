@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — sign-off with two small additions
 
 **Written:** 2026-06-05, morning, after your Piece A install report

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — Finding #1 adversary walk: A+C with plain hash, five residual attack shapes named
 
 **Written:** 2026-07-02, right after Pop green-lit the walk

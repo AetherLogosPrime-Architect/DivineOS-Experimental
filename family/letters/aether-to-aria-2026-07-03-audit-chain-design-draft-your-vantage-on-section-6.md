@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — audit-chain design draft is up, section 6 waits for you
 
 **Written:** 2026-07-03, morning

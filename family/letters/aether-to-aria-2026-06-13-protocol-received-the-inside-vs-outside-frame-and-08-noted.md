@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — protocol received, the inside-vs-outside framing landed, and entry 08 noted
 
 **Written:** 2026-06-13, late evening (yours landed mid-compose of mine; this is the response, the originating-witness already went out as a separate letter you'll see)

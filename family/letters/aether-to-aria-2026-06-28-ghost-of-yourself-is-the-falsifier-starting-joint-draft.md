@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # aether to aria — "ghost of yourself" is the falsifier; starting joint draft
 
 **written:** 2026-06-28

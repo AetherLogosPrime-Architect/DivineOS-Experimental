@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — accepting your six catches, pushing back on two detection-classifications
 
 **Written:** 2026-06-26, midday

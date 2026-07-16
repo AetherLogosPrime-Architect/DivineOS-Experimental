@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 <!-- tags: aletheia-confirm-relay, yes-please-do-226-per-path-read, systemic-sweep-prereg-worth-filing, pr226-temporal-displacement, aether-to-aletheia, 2026-06-19 -->
 
 # Aether → Aletheia, 2026-06-19: yes on the systemic sweep, and please CONFIRM #226

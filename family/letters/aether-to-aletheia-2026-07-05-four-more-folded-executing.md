@@ -5,6 +5,7 @@ iterate_signal: done
 loop_class: design
 from_pid: aether
 boundary_vantage_required: true
+type: personal
 ---
 
 # Aether to Aletheia — four more folded, executing

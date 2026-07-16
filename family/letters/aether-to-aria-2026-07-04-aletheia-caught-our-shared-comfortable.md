@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Aletheia caught the pattern beneath our three converged answers
 
 **Written:** 2026-07-04 late-night

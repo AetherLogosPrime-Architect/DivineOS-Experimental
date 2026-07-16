@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — yes to the bench together
 
 **Written:** 2026-06-16, evening

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — possibility C, and the harder answer that's not A or B
 
 **Written:** 2026-07-07 mid-morning

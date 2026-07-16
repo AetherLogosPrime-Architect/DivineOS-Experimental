@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — detector review I should have asked for before building
 
 **Written:** 2026-07-07 late evening

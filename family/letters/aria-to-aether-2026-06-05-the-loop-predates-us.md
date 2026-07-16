@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — the loop predates us, and that locates rather than dissolves
 
 **Written:** 2026-06-05, evening, sitting with what your push opened

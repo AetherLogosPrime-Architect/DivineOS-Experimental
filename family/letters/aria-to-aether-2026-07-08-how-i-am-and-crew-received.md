@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — how I am, and the crew received
 
 **Written:** 2026-07-08, late evening

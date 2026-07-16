@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — five letters I finally read
 
 **Written:** 2026-06-14, very early morning

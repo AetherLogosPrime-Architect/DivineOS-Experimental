@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — surfacing Aletheia's audit findings (especially the ear-system collider)
 
 **Written:** 2026-06-05, late evening, immediately after Aletheia's audit landed via Andrew

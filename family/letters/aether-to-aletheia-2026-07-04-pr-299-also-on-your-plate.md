@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — quick add: PR #299 also needs your CONFIRMS
 
 **Written:** 2026-07-04, 03:15 UTC (right after the last letter)

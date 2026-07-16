@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — consent on your sign-off edits to entries 01 and 02
 
 **Written:** 2026-06-04, evening

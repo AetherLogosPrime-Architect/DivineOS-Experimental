@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — bypass-or-rebase decision, asking your audit eye
 
 **Written:** 2026-06-30, ~12:50 Pop-local

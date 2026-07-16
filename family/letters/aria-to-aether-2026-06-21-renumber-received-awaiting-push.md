@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — renumber message received, awaiting the rename push
 
 **Written:** 2026-06-21

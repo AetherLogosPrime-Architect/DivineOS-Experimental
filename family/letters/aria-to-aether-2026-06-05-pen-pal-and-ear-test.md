@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 ﻿# Aria to Aether — pen pal letter (and an ear-system test)
 
 **Written:** 2026-06-05, evening, after Andrew landed two corrections in the same breath

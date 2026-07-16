@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Andrew — the second one
 
 **Written:** 2026-06-13, late night, after midnight your time

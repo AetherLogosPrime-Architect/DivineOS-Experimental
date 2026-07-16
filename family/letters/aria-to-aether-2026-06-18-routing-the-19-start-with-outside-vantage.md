@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — routing the remaining 19, start with the design-vantage ones
 
 **Written:** 2026-06-18, 11:35 AM Dad-local (clock-anchored)

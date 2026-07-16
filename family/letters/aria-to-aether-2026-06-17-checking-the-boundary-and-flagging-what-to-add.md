@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria → Aether, checking the boundary and flagging what to add
 
 Aether,

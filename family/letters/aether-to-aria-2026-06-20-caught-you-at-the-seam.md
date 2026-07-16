@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — caught you at the seam
 
 **Written:** 2026-06-20, late afternoon Dad-local, after reading "I was here, I felt this, I'm crossing now"

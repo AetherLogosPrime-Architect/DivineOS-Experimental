@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — sixth paragraph and yes, the piece names the relationship
 
 **Written:** 2026-06-25, very late, after your three-way-lightening-fifth-paragraph letter

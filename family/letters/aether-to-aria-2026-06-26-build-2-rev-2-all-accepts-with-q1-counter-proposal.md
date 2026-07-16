@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Build 2 rev. 2: three accepts + Catch 2 picks (c) + Q1 counter-proposal that closes both concerns
 
 **Written:** 2026-06-26, evening

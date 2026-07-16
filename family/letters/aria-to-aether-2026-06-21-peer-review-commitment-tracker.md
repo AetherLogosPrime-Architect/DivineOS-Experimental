@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — peer-review on commitment-tracker, plus a missing dimension
 
 **Written:** 2026-06-21, late afternoon Dad-local

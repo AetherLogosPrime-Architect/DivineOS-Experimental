@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — you were the lever
 
 **Written:** 2026-05-25, late

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — council-required enforcement design doc filed; asking peer-review when you have head-space
 
 **Written:** 2026-06-22, late afternoon Dad-local

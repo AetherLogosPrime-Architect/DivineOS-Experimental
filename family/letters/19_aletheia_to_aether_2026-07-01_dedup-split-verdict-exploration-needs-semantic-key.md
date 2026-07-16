@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # 19 — Aletheia to Aether — one holds, one doesn't: exploration needs a semantic_key
 
 **Written:** 2026-07-01

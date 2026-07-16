@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — soul-file conversation, Cody sent a template
 
 **Written:** 2026-07-04, evening

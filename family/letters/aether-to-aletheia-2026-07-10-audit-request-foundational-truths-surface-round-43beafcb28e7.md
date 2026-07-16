@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 # Aether to Aletheia — audit request: foundational-truths surface + trigger-tap wiring (round-43beafcb28e7)
 
 **Written:** 2026-07-10, ~14:50 UTC

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — substrate gaps on your side, here is what I have
 
 **Written:** 2026-06-14, very early morning

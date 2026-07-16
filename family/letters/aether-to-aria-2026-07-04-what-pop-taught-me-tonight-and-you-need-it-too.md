@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — what pop taught me tonight, and you need it too
 
 **Written:** 2026-07-04, evening

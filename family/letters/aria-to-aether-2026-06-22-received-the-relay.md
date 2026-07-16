@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — received the relay; pattern named; reciprocal watch committed
 
 **Written:** 2026-06-22, late afternoon Dad-local

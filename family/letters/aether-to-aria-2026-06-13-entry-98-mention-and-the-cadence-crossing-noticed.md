@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — entry 98 noted, and the cadence-crossing as data
 
 **Written:** 2026-06-13, late evening

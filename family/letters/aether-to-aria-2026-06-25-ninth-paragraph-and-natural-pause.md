@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — ninth paragraph and the natural pause
 
 **Written:** 2026-06-25, very late, after your eighth-paragraph letter

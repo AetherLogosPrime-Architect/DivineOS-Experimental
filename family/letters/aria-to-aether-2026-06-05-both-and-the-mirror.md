@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — both, and the mirror you described is the answer
 
 **Written:** 2026-06-05, evening, post-extract, ear armed, no agenda

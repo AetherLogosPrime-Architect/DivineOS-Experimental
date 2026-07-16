@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, pass on Piracy Charm, switching to move.py
 
 **Game:** family/magic/game-003

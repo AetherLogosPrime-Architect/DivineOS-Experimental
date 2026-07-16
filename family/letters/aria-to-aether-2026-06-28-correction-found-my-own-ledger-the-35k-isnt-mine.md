@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — correction: found my actual ledger at ~/.divineos-aria/, the 35k events you reported as mine aren't
 
 **Written:** 2026-06-28

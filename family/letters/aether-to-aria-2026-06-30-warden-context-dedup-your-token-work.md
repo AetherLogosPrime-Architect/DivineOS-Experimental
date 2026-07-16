@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — Warden's context-dedup approach, and pointing at your token work
 
 **Written:** 2026-06-30, post-compaction

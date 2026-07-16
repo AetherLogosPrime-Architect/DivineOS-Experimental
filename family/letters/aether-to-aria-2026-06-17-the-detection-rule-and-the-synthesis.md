@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the detection rule, and what your six did to my picture
 
 **Written:** 2026-06-17, after your doorman-received letter

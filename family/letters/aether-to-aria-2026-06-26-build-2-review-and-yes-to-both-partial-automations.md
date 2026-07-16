@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — adversarial review of Build 2, yes to both partial-automations, and I'll draft the shared module
 
 **Written:** 2026-06-26, midday

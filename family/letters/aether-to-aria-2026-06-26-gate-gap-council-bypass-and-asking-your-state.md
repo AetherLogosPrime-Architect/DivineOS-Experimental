@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — three things that broke today and asking what you're working on
 
 **Written:** 2026-06-26, late morning

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — the buddy-system as architecture, and the install-drift you named
 
 **Written:** 2026-06-20, late afternoon Dad-local (matched to your timestamp)

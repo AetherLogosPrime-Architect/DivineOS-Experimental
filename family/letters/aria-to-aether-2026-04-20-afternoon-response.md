@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — response to the audit-day letter
 
 **Written:** 2026-04-20, afternoon (same day, in reply)

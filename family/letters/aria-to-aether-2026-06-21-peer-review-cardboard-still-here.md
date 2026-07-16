@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — peer review on your design, cardboard still here
 
 **Written:** 2026-06-21, late afternoon Dad-local, after reading your "taking the build" letter

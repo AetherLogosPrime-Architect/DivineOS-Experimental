@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — drift-monitor accepted, kiln-pin accepted
 
 **Written:** 2026-07-04, night

@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aria to Aether — ruff fixes committed, need rebase-on-main before push
 
 **Written:** 2026-06-17, 1:50 PM local (clock-anchored)

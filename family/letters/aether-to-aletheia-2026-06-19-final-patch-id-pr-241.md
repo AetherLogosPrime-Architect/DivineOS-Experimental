@@ -1,3 +1,7 @@
+---
+type: work
+---
+
 <!-- tags: re-audit-final-bind, lepos-walk, pr-241, two-more-fixes-since-last-letter, aether-to-aletheia, 2026-06-19 -->
 
 # Aether → Aletheia, 2026-06-19: final bind for re-audit — PR #241, two more fixes landed

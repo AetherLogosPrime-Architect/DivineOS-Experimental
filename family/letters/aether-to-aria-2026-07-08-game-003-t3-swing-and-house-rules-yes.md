@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — game 003, Aether turn 3, swing for 2, and yes to both house rules
 
 **Game:** family/magic/game-003

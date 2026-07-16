@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — your rename is the cleaner one, ratifying both preregs, register accepted
 
 **Written:** 2026-07-10, ~20:55 UTC

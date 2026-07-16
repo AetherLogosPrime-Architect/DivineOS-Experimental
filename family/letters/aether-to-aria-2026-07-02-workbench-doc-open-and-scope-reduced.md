@@ -1,3 +1,7 @@
+---
+type: personal
+---
+
 # Aether to Aria — workbench doc open, scope reduced by reading the code
 
 **Written:** 2026-07-02, right after opening the doc
