@@ -175,17 +175,22 @@ def check_and_block(
 
         scan_gate = BypassRateScan()
 
-    # Check for an open fire first — same evidence keeps blocking until cleared
+    # LAYER 2 COOL-OFF (2026-07-16 live-discovered): cool-off check runs
+    # BEFORE the open-fire check. Rationale: under sustained-elevated
+    # state, every commit emits a new fire; the NEXT commit finds that
+    # fire "open" (no clearance after it because clearance predates it).
+    # Layer 1 cool-off only suppressed NEW fires — it didn't suppress
+    # blocks-on-open-fires. Layer 2: recent-clearance suppresses ALL
+    # blocks. The investigation IS in progress regardless of temporal
+    # ordering of specific fire vs clearance timestamps.
+    if _recent_clearance_within(scan_gate.gate_name, cooloff_seconds, get_events):
+        return 0, ""
+
+    # Check for an open fire — same evidence keeps blocking until cleared
     open_fire = _find_open_fire(scan_gate.gate_name, get_events)
     if open_fire is not None:
         payload = open_fire.get("payload") or {}
         return 2, _format_block_message(payload, is_reopen=False)
-
-    # No open fire — check cool-off before running a new scan.
-    # If a clearance landed within the cool-off window, the investigation
-    # is in progress; suppress new fires.
-    if _recent_clearance_within(scan_gate.gate_name, cooloff_seconds, get_events):
-        return 0, ""
 
     # No open fire, no recent clearance — run the scan against live state
     try:

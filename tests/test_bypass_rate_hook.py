@@ -282,12 +282,32 @@ class TestCooloffWindow:
         # Cross-gate clearance does not trigger cool-off → NEW fire emitted
         assert exit_code == 2
 
-    def test_open_fire_still_blocks_regardless_of_cooloff(self) -> None:
-        """Cool-off only affects NEW-fire emission. An already-open fire
-        still blocks even during cool-off — the operator must clear that
-        specific fire explicitly."""
-        fire = _fire_event(ts_offset=-30)  # 30s ago
-        # No clearance after it → still open
+    def test_layer2_open_fire_with_recent_clearance_is_suppressed(self) -> None:
+        """LAYER 2 (2026-07-16 live-discovered): cool-off runs BEFORE
+        open-fire check. Under sustained-elevated state, every commit
+        emits a new fire; the next commit finds that fire 'open' because
+        its clearance predates it. Layer 1 only suppressed NEW fires;
+        layer 2 also suppresses blocks on open fires when a clearance
+        is recent."""
+        fire = _fire_event(ts_offset=-30)
+        recent_clearance = _clearance_event(ts_offset=-60)
+        get_events = _make_get_events({"GATE_FIRE": [fire], "GATE_CLEARANCE": [recent_clearance]})
+        bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            "total_events": 71,
+            "by_env_var": {},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        exit_code, msg = check_and_block(
+            get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
+        )
+        assert exit_code == 0
+        assert msg == ""
+
+    def test_no_recent_clearance_still_blocks_open_fire(self) -> None:
+        """Precisely-scoped: layer-2 cool-off only fires when there IS a
+        recent clearance. Without one, open fires still block."""
+        fire = _fire_event(ts_offset=-30)
         get_events = _make_get_events({"GATE_FIRE": [fire]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,
@@ -298,7 +318,5 @@ class TestCooloffWindow:
         exit_code, msg = check_and_block(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
-        # Open fire blocks even though we might expect cool-off — the fire
-        # itself is the thing to clear
         assert exit_code == 2
         assert "not cleared" in msg
