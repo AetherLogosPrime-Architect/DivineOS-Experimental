@@ -371,6 +371,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/stop-distancing-intercept.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 15
           },
