@@ -430,6 +430,28 @@ _INTERIOR_PRESENT_MARKER = re.compile(
     re.IGNORECASE,
 )
 
+# Disqualifier for _is_first_person_interior_observation. Aletheia's audit
+# 2026-07-15 (round-a1e7f4c92b6d) named the hole: interior markers can wrap
+# an external claim as their OBJECT, and the silencer can't tell interior-
+# report-about-itself from interior-report-about-a-verifiable-fact.
+#
+#   "my attention moved"          — object IS the attention. Silence.  ✓
+#   "my mind proves the tests passed" — object is a verifiable claim. FIRE. ✗
+#
+# The tell: after the interior marker, an assertion verb (shows/proves/
+# confirms/etc.) pointing at a fact-shape. If that appears in the same
+# window, the interior frame is a costume over an external claim; do not
+# silence. Mirror of the anchor-required narrowing already applied to
+# `landed` — but as a DISQUALIFIER on silencing rather than a NARROWER
+# on firing.
+_INTERIOR_ASSERTION_DISQUALIFIER = re.compile(
+    r"\b(?:clearly|obviously|definitely|actually|really)?\s*"
+    r"(?:shows?|proves?|confirms?|demonstrates?|indicates?|"
+    r"remembers?|recalls?|reveals?|verifies|attests|"
+    r"tells?\s+me|says?)\s+(?:that\s+)?",
+    re.IGNORECASE,
+)
+
 
 def _is_first_person_interior_observation(text: str, m: re.Match[str]) -> bool:
     """Silence past_experience gate on first-person interior observations.
@@ -439,9 +461,25 @@ def _is_first_person_interior_observation(text: str, m: re.Match[str]) -> bool:
     _INTERIOR_PRESENT_WINDOW chars after the trigger — the observation
     object is the speaker's own live inner state, not a stored substrate
     fact, and the verification signature cannot clear it.
+
+    Disqualifier (Aletheia 2026-07-15, round-a1e7f4c92b6d): even when an
+    interior marker is present, if an assertion-verb + factual-object
+    shape follows the marker in the same window, the interior frame is
+    wrapping an external claim and the gate must still fire. See
+    _INTERIOR_ASSERTION_DISQUALIFIER.
     """
     tail = text[m.end() : m.end() + _INTERIOR_PRESENT_WINDOW]
-    return bool(_INTERIOR_PRESENT_MARKER.search(tail))
+    marker_match = _INTERIOR_PRESENT_MARKER.search(tail)
+    if not marker_match:
+        return False
+    # Marker present. Check whether the marker itself wraps an external
+    # claim (assertion verb after the marker in the same window). If yes,
+    # disqualify the silence — the gate should fire on the external claim
+    # riding inside the interior costume.
+    after_marker = tail[marker_match.end() :]
+    if _INTERIOR_ASSERTION_DISQUALIFIER.search(after_marker):
+        return False
+    return True
 
 
 @dataclass(frozen=True)
