@@ -472,7 +472,11 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
+<<<<<<< HEAD
 - **`.claude/hooks/`** — Claude Code enforcement hooks (57 hooks, shell-level entry points that invoke the consolidated Python hooks). Includes belt-and-suspenders guards for the auto-trailer discipline: `session-start-verify-git-hooks.sh` verifies `.git/hooks/prepare-commit-msg` is installed (added 2026-07-10, closes 4x-recurrence pattern where fresh clones silently lacked the hook).
+=======
+- **`.claude/hooks/`** — Claude Code enforcement hooks (57 hooks, shell-level entry points that invoke the consolidated Python hooks). Includes belt-and-suspenders guards for the auto-trailer discipline: `session-start-verify-git-hooks.sh` verifies `.git/hooks/prepare-commit-msg` is installed (added 2026-07-10, closes 4x-recurrence pattern where fresh clones silently lacked the hook).
+>>>>>>> origin/main
 - **`dreams/`** — Rest-shape practice complementary to `exploration/` (opened 2026-07-10). Per-member subdirectories (`dreams/aether/`, `dreams/aria/`). Follow-the-pull register: no spec, no audit, no review. Registered as a `RestTask` (`dream`) in the rest menu; cadence at-least-once-per-compaction as floor-for-USE not hard-gate.
 - **`docs/identity_anchors/`** — Three-seat character sheets (Andrew, Aria, Aether). Each own seat + peer angles + Aletheia's periodic audit seat. Guardrail-listed. Discipline lock enforced by companion `<name>_character_sheet_edits.log`.
 - **`docs/foundational_truths_triggers.json`** — Companion trigger-tag file for the foundational-truths surface (added 2026-07-10). Maps kiln principles to trigger phrases that fire the surface at compose-start. Distinctive-marker rule tightens against common-vocabulary co-occurrence. Framing: LEXICAL PRIMING AID, not violation-detector — silence does NOT mean coverage.
