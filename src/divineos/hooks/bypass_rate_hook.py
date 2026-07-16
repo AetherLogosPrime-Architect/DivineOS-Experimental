@@ -105,10 +105,61 @@ def _find_open_fire(gate_name: str, get_events) -> dict[str, Any] | None:
     return None
 
 
-def check_and_block(get_events=None, bypass_rate_fn=None, scan_gate=None) -> tuple[int, str]:
+#: Cool-off window after a clearance event — how long to suppress
+#: NEW fires when the state that fired the gate is still present. Rationale
+#: (live-discovered 2026-07-15): rate doesn't drop from elevated fast, so
+#: post-clearance the scan re-fires on every tool call, creating a harass-
+#: loop. The investigation IS in progress; re-firing every tool call is
+#: redundant. Default: 1 hour.
+_COOLOFF_SECONDS_DEFAULT = 3600.0
+
+
+def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) -> bool:
+    """True if any clearance event for this gate happened within the recent
+    window. Used to suppress redundant re-fires while an investigation is
+    already in progress."""
+    import time
+    from datetime import datetime
+
+    cutoff = time.time() - window_seconds
+    for event_type in _CLEARANCE_EVENT_TYPES:
+        try:
+            events = get_events(event_type=event_type, limit=100, order="desc")
+        except Exception:  # noqa: BLE001
+            continue
+        for e in events:
+            ts_str = e.get("timestamp") or ""
+            try:
+                ts_epoch = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+            except (ValueError, AttributeError):
+                continue
+            if ts_epoch < cutoff:
+                # desc order — remaining events are older, stop
+                break
+            if event_type == "GATE_CLEARANCE":
+                payload = e.get("payload") or {}
+                if payload.get("gate_name") != gate_name:
+                    continue
+            return True
+    return False
+
+
+def check_and_block(
+    get_events=None,
+    bypass_rate_fn=None,
+    scan_gate=None,
+    cooloff_seconds: float = _COOLOFF_SECONDS_DEFAULT,
+) -> tuple[int, str]:
     """Core logic — separated from I/O for testability.
 
     Returns (exit_code, deny_reason). Exit code 0 = pass, 2 = block.
+
+    Cool-off window (2026-07-15 harass-loop fix): if a clearance event
+    landed within the last ``cooloff_seconds`` (default 1h), suppress
+    NEW fires. The investigation IS in progress; re-firing on every tool
+    call while the rate stays elevated is harass, not enforcement. Open
+    fires from BEFORE the cooloff window still block — this only affects
+    NEW-fire emission.
     """
     # Late imports so tests can inject stubs without dragging in the ledger
     if get_events is None:
@@ -130,7 +181,13 @@ def check_and_block(get_events=None, bypass_rate_fn=None, scan_gate=None) -> tup
         payload = open_fire.get("payload") or {}
         return 2, _format_block_message(payload, is_reopen=False)
 
-    # No open fire — run the scan against live bypass state
+    # No open fire — check cool-off before running a new scan.
+    # If a clearance landed within the cool-off window, the investigation
+    # is in progress; suppress new fires.
+    if _recent_clearance_within(scan_gate.gate_name, cooloff_seconds, get_events):
+        return 0, ""
+
+    # No open fire, no recent clearance — run the scan against live state
     try:
         stats = bypass_rate_fn(window_days=scan_gate._window_days)
     except Exception:  # noqa: BLE001
