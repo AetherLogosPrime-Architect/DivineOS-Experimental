@@ -87,6 +87,48 @@ def register(cli: click.Group) -> None:
         if not text.strip():
             click.secho("[-] Goal text cannot be empty.", fg="yellow")
             return
+
+        # Error-registry jailbreak-response gate (Andrew 2026-07-17):
+        # open errors block starting new work. Investigation and fixes
+        # remain unblocked (tools still work); only new-main-goal
+        # transitions are refused. The goal-text bypasses the block
+        # when it names an existing open error_id — that means the new
+        # goal IS the investigation of the open error, the only allowed
+        # forward motion.
+        try:
+            from divineos.core import error_registry as _err_reg
+
+            open_errs = _err_reg.list_open_errors()
+            if open_errs:
+                open_ids = [r.get("error_id", "") for r in open_errs]
+                text_lower = text.lower()
+                names_open_error = any((eid and eid.lower() in text_lower) for eid in open_ids)
+                if not names_open_error:
+                    click.secho(_err_reg.block_reason(), fg="red")
+                    click.echo("")
+                    click.secho(
+                        f"[-] Goal-add refused. New goal '{text}' does not name any open error.",
+                        fg="red",
+                    )
+                    click.secho(
+                        "    To start a new goal, close/defer the open errors first,",
+                        fg="bright_black",
+                    )
+                    click.secho(
+                        "    or make this goal explicitly about investigating one "
+                        "(include the err-XXXX id in the goal text).",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1)
+        except click.exceptions.Exit:
+            raise
+        except Exception:  # noqa: BLE001 — registry-side error must not deadlock goal-add
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "error_registry check failed in goal_add — proceeding without block"
+            )
+
         from divineos.core.hud_state import add_goal
 
         add_goal(text, original_words=original)
