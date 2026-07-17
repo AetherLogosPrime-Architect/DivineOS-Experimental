@@ -1,5 +1,6 @@
 """Tests for the corrections notebook -- the user's exact words, raw."""
 
+import json
 import time
 
 from divineos.core.corrections import (
@@ -8,8 +9,13 @@ from divineos.core.corrections import (
     _LOAD_OK,
     _age_label,
     _load_corrections_with_status,
+    _load_resolutions,
+    _load_resolutions_with_status,
     _path,
+    _quantize_ts,
+    _resolutions_path,
     corrections_with_status,
+    detached_resolutions,
     format_for_briefing,
     load_corrections,
     log_correction,
@@ -392,3 +398,183 @@ class TestCorrectionsBriefingRowFailLoud:
         out = render_dashboard()
         assert "Corrections: ??" in out
         assert "UNREADABLE" in out
+
+
+class TestQuantizedResolutionJoin:
+    """F28 (Aletheia Round 3): the correction↔resolution join used a raw
+    float dict-key that could silently break on JSON round-trip precision
+    drift. Now the join key is quantized to integer-milliseconds so it
+    survives every real-world float-drift source.
+    """
+
+    def test_quantize_us_precision(self):
+        """Quantization gives 1-microsecond resolution — fine enough to
+        separate same-millisecond corrections (which would collide on
+        1-ms buckets), still coarse enough to absorb JSON round-trip
+        drift (sub-microsecond for float64 timestamps in the ~1e9 range).
+        """
+        assert _quantize_ts(1.0) == 1_000_000
+        assert _quantize_ts(1.000001) == 1_000_001
+        assert _quantize_ts(0) == 0
+
+    def test_quantize_absorbs_last_bit_drift(self):
+        """Sub-microsecond drift falls in the same bucket — the F28
+        drift-tolerance guarantee."""
+        base = 1_784_257_812.5459704
+        # Drift by 1e-8 seconds (well under 1 microsecond) — real
+        # JSON round-trip drift is even smaller than this
+        drifted = base + 1e-8
+        assert _quantize_ts(base) == _quantize_ts(drifted)
+
+    def test_quantize_separates_same_millisecond_corrections(self):
+        """Two corrections logged within the same millisecond but
+        different microseconds must land in different buckets — otherwise
+        the fallback would silently mark both resolved when only one was.
+        """
+        # Both floor to millisecond 545 (0.5451 * 1000 = 545.1, floor=545;
+        # 0.5459 * 1000 = 545.9, floor=545), but they differ at microsecond
+        # precision so the quantized-us keys are distinct.
+        ts_a = 1_784_257_812.5451234
+        ts_b = 1_784_257_812.5458901
+        assert int(ts_a * 1000) == int(ts_b * 1000)  # same ms bucket
+        assert _quantize_ts(ts_a) != _quantize_ts(ts_b)  # different us buckets
+
+    def test_quantize_handles_bad_input(self):
+        """Bad input degrades to 0, doesn't crash."""
+        assert _quantize_ts(None) == 0  # type: ignore[arg-type]
+        assert _quantize_ts("not a number") == 0  # type: ignore[arg-type]
+
+    def test_exact_float_match_still_works(self, tmp_path, monkeypatch):
+        """Regression: the happy path where JSON round-trips faithfully
+        continues to work — most-of-the-time case unchanged."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        entry = log_correction("hold this")
+        resolve_correction(entry["timestamp"], evidence="handled")
+        enriched = corrections_with_status()
+        assert enriched[0]["status"] == "RESOLVED"
+
+    def test_join_survives_last_bit_precision_drift(self, tmp_path, monkeypatch):
+        """The F28 bug case: correction and resolution timestamps differ
+        by sub-microsecond (simulating JSON round-trip drift). With the
+        raw-float key this would default to OPEN silently. With the
+        two-tier lookup the join holds via quantized fallback.
+        """
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        entry = log_correction("hold this across drift")
+        original_ts = entry["timestamp"]
+        # Simulate a resolution written with a timestamp that drifted
+        # by 1e-8 seconds — well under the 1-microsecond quantization band
+        drifted_ts = original_ts + 1e-8
+        # Write the resolution DIRECTLY with the drifted timestamp
+        # to bypass the resolve_correction() API (which would receive
+        # the correct ts from the caller). This models the byte-exact
+        # round-trip failure Aletheia catalogued.
+        drifted_res = {
+            "correction_timestamp": drifted_ts,
+            "status": "RESOLVED",
+            "evidence": "drifted-write",
+            "resolved_at": time.time(),
+        }
+        with _resolutions_path().open("a", encoding="utf-8") as f:
+            f.write(json.dumps(drifted_res) + "\n")
+
+        enriched = corrections_with_status()
+        assert enriched[0]["status"] == "RESOLVED", (
+            "Precision drift silently defaulted the correction to OPEN — "
+            "this is exactly the F28 fail-blind bug the quantization "
+            "was supposed to close."
+        )
+
+    def test_detached_resolution_surfaceable(self, tmp_path, monkeypatch):
+        """A resolution whose timestamp matches no correction is a
+        detached record. Before F28 this vanished silently; now
+        detached_resolutions() returns it so the operator can see."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("this one is real")
+        # Write a resolution pointing at a timestamp that doesn't exist
+        orphan_res = {
+            "correction_timestamp": 999999.999,
+            "status": "RESOLVED",
+            "evidence": "resolved-something-but-what",
+            "resolved_at": time.time(),
+        }
+        with _resolutions_path().open("a", encoding="utf-8") as f:
+            f.write(json.dumps(orphan_res) + "\n")
+        detached = detached_resolutions()
+        assert len(detached) == 1
+        assert detached[0]["evidence"] == "resolved-something-but-what"
+
+    def test_no_detached_when_all_join(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        entry = log_correction("normal correction")
+        resolve_correction(entry["timestamp"], evidence="clean")
+        assert detached_resolutions() == []
+
+
+class TestResolutionsLoaderStatus:
+    """F28 secondary: resolutions loader also gets the three-state
+    discipline so a corrupt resolutions file doesn't silently pretend
+    "no resolutions exist" (which would revert every correction to OPEN).
+    """
+
+    def test_absent_status_when_no_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        status, data, skipped, exc = _load_resolutions_with_status()
+        assert status == _LOAD_ABSENT
+        assert data == {}
+        assert skipped == 0
+        assert exc is None
+
+    def test_ok_status_after_write(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        entry = log_correction("do X")
+        resolve_correction(entry["timestamp"], evidence="did X")
+        status, data, skipped, exc = _load_resolutions_with_status()
+        assert status == _LOAD_OK
+        assert len(data) == 1
+        assert skipped == 0
+
+    def test_skipped_lines_counted(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        entry = log_correction("do X")
+        resolve_correction(entry["timestamp"], evidence="clean")
+        # Append a bogus line
+        with _resolutions_path().open("a", encoding="utf-8") as f:
+            f.write("{not-json\n")
+        status, data, skipped, exc = _load_resolutions_with_status()
+        assert status == _LOAD_OK
+        assert len(data) == 1
+        assert skipped == 1
+
+    def test_failed_status_on_read_error(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        import divineos.core.corrections as corrections_mod
+
+        class BadPath:
+            def exists(self):
+                return True
+
+            def open(self, *args, **kwargs):
+                raise OSError("simulated")
+
+        monkeypatch.setattr(corrections_mod, "_resolutions_path", lambda: BadPath())
+        status, data, skipped, exc = _load_resolutions_with_status()
+        assert status == _LOAD_FAILED
+        assert data == {}
+        assert isinstance(exc, OSError)
+
+    def test_load_resolutions_shim_still_fail_soft(self, tmp_path, monkeypatch):
+        """Write-path callers use load_resolutions() which must remain
+        fail-soft for backward compat."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        import divineos.core.corrections as corrections_mod
+
+        class BadPath:
+            def exists(self):
+                return True
+
+            def open(self, *args, **kwargs):
+                raise OSError("simulated")
+
+        monkeypatch.setattr(corrections_mod, "_resolutions_path", lambda: BadPath())
+        assert _load_resolutions() == {}
