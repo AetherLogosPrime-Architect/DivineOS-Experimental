@@ -95,6 +95,65 @@ def log_council_record(record: CouncilRecord, actor: str = "agent") -> str:
     return ledger.log_event(EVENT_COUNCIL_RECORD_LOGGED, actor, payload, validate=False)
 
 
+def find_recently_consumed_record(
+    edit_fingerprint: str,
+    retry_window_seconds: int,
+    now: float | None = None,
+) -> CouncilRecord | None:
+    """Find a record consumed for THIS fingerprint within a retry window.
+
+    2026-07-17 fix for the consume-on-attempt friction surfaced this
+    session: same edit-fingerprint fires the gate on tool-call RETRY
+    (e.g. commit refused because missing External-Review trailer →
+    retry with trailer). The first attempt consumed the walk; the
+    retry has no unconsumed walk, so the gate blocks and forces a
+    fresh walk for the same substance. Council walk council-9fbced40
+    (Schneier/Yudkowsky/Beer): safety preserved by fingerprint-scoping
+    — different-fingerprint edits still require fresh walks, only same-
+    fingerprint retries share the walk within the window.
+
+    Returns the most-recently-consumed record for this fingerprint if
+    the consumption event is within retry_window_seconds, else None.
+    Called by gate.decide() as a fallback when find_unconsumed_record
+    returns None.
+    """
+    if not edit_fingerprint:
+        return None
+    now = now if now is not None else time.time()
+    cutoff = now - retry_window_seconds
+
+    consumption_events = ledger.get_events(
+        limit=500,
+        event_type=EVENT_COUNCIL_RECORD_CONSUMED,
+        order="desc",
+    )
+    for ev in consumption_events:
+        payload = _payload_from_event(ev)
+        ts_raw = ev.get("ts") if isinstance(ev, dict) else None
+        try:
+            ts = float(ts_raw) if ts_raw is not None else float(payload.get("consumed_at", 0.0))
+        except (TypeError, ValueError):
+            ts = 0.0
+        if ts < cutoff:
+            break  # newest-first ordering — rest are staler
+        fp = str(payload.get("edit_fingerprint", ""))
+        if fp != edit_fingerprint:
+            continue
+        record_id = str(payload.get("record_id", ""))
+        if not record_id:
+            continue
+        records = ledger.get_events(
+            limit=500,
+            event_type=EVENT_COUNCIL_RECORD_LOGGED,
+            order="desc",
+        )
+        for rec_ev in records:
+            rec_payload = _payload_from_event(rec_ev)
+            if str(rec_payload.get("record_id", "")) == record_id:
+                return _deserialize_record(rec_payload)
+    return None
+
+
 def find_unconsumed_record(
     edit_fingerprint: str,
     recency_seconds: int,

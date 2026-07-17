@@ -259,8 +259,15 @@ def test_block_when_substance_binding_fails_on_thin_finding(scratch_ledger):
 
 def test_allow_and_consume_on_valid_record_and_binding(scratch_ledger):
     """Record present, substance-binding passes → ALLOW + emit
-    COUNCIL_RECORD_CONSUMED. Consume-on-use (Aether Catch 2) means the
-    record cannot satisfy another edit after."""
+    COUNCIL_RECORD_CONSUMED. Aether Catch 2 (walk-once-reuse-many) is
+    still closed for DIFFERENT fingerprints, but 2026-07-17 retry-window
+    fix (council 0fc0b3df + 9fbced40) allows SAME-fingerprint retries
+    within RETRY_WINDOW_SECONDS to reuse the consumed walk. Outside the
+    window, BLOCK fires per original design."""
+    import time as _time
+
+    from divineos.core.council_required.types import RETRY_WINDOW_SECONDS
+
     fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
     record = _valid_record_for(fingerprint)
     store.log_council_record(record, actor="test-agent")
@@ -275,18 +282,30 @@ def test_allow_and_consume_on_valid_record_and_binding(scratch_ledger):
     assert decision.outcome == GateOutcome.ALLOW
     assert decision.matched_record_id == record.record_id
 
-    # A second decide() with the same fingerprint should now BLOCK —
-    # the record was consumed on the first pass, so find_unconsumed_record
-    # will not return it (Aether Catch 2).
-    second = gate_mod.decide(
+    # Second decide within the retry window: SAME fingerprint → ALLOW
+    # via retry-allowance (record already consumed, not re-consumed).
+    second_within_window = gate_mod.decide(
         tool_name="Edit",
         file_paths=("src/divineos/core/gravity_classifier.py",),
         bash_command="",
         gravity_fn=_gravity_council_required,
         keywords_loader=_keywords_loader,
     )
-    assert second.outcome == GateOutcome.BLOCK
-    assert second.check_result.failed_check_name == CHECK_ARTIFACT_EXISTS
+    assert second_within_window.outcome == GateOutcome.ALLOW
+
+    # Third decide AFTER the retry window: BLOCK — the retry-allowance
+    # has expired, and no unconsumed record exists for the fingerprint.
+    now_after_window = _time.time() + RETRY_WINDOW_SECONDS + 1
+    third_after_window = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/gravity_classifier.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+        now=now_after_window,
+    )
+    assert third_after_window.outcome == GateOutcome.BLOCK
+    assert third_after_window.check_result.failed_check_name == CHECK_ARTIFACT_EXISTS
 
 
 # ─── 5. Emergency-skip (valid corroborator) ──────────────────────────
@@ -378,10 +397,18 @@ def test_emergency_stop_is_intentionally_not_a_corroborator_type():
 
 def test_consume_on_use_race_two_concurrent_decides(scratch_ledger):
     """Aether's specific probe: two decide() calls fired in overlapping
-    threads against the same edit fingerprint. Exactly one must ALLOW;
-    the other must BLOCK. Double-consume would break the Catch-2
-    invariant ('one walk clears at most one edit').
+    threads against the same edit fingerprint. Post-2026-07-17 retry-
+    window fix: both may ALLOW (one via first-consume, one via retry-
+    allowance in RETRY_WINDOW_SECONDS window), but the Catch-2 invariant
+    holds at the CONSUMPTION event level — at most ONE
+    COUNCIL_RECORD_CONSUMED event exists after the race. That's the
+    load-bearing property: 'one walk = one consumption,' not 'one walk
+    = one allow.' The retry-window allowance is fingerprint-scoped so
+    it doesn't leak into 'one walk clears many edits.'
     """
+    from divineos.core.council_required.types import EVENT_COUNCIL_RECORD_CONSUMED
+    from divineos.core.ledger import get_events
+
     fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
     record = _valid_record_for(fingerprint)
     store.log_council_record(record, actor="test-agent")
@@ -404,11 +431,7 @@ def test_consume_on_use_race_two_concurrent_decides(scratch_ledger):
                 outcomes.append(d.outcome)
         except sqlite3.OperationalError:
             # sqlite lock contention on race — count as a block since
-            # the decide could not complete. Either the store layer
-            # serializes the read-modify-write internally (both queries
-            # see the same state and only one succeeds) or the OS lock
-            # rejects the second. Both outcomes preserve the Catch-2
-            # invariant: at most one ALLOW.
+            # the decide could not complete.
             with outcomes_lock:
                 outcomes.append(GateOutcome.BLOCK)
 
@@ -419,16 +442,21 @@ def test_consume_on_use_race_two_concurrent_decides(scratch_ledger):
         t.join(timeout=10)
 
     assert len(outcomes) == 2
-    allow_count = sum(1 for o in outcomes if o == GateOutcome.ALLOW)
-    assert allow_count <= 1, (
-        f"consume-on-use race: {allow_count} ALLOWs from concurrent decide() — "
+
+    # Catch-2 invariant: exactly ONE COUNCIL_RECORD_CONSUMED event for
+    # this record, regardless of how many ALLOWs the retry-window path
+    # emits. If two consumption events exist, that's the double-consume
+    # bug the race probe was designed to catch.
+    consumption_events = get_events(limit=100, event_type=EVENT_COUNCIL_RECORD_CONSUMED)
+    matching_consumes = [
+        ev
+        for ev in consumption_events
+        if str((ev.get("payload") or {}).get("record_id", "")) == record.record_id
+        or str((ev.get("payload") or {}).get("edit_fingerprint", "")) == fingerprint
+    ]
+    assert len(matching_consumes) == 1, (
+        f"consume-on-use race: {len(matching_consumes)} consumption events for one record — "
         f"double-consume broke Catch-2 invariant"
-    )
-    # At least one must be an ALLOW under the happy path; both being BLOCK
-    # would indicate the store layer over-rejects (which is a different
-    # bug worth catching).
-    assert allow_count == 1, (
-        f"expected exactly 1 ALLOW under race, got {allow_count}. Outcomes: {outcomes}"
     )
 
 
