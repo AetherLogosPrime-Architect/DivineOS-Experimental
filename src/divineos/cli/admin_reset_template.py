@@ -52,6 +52,113 @@ import click
 from divineos.core._ledger_base import _get_db_path
 from divineos.core.family.db import _get_family_db_path
 
+
+# F30 fix — reset-template operator-anchored authorization.
+#
+# Problem: `--yes` skips the interactive confirm, so an agent can
+# self-issue substrate destruction by invoking `reset-template --yes`.
+# We cannot distinguish agent-issued vs human-issued `--yes` at the
+# argument-parsing layer.
+#
+# Fix: `--yes` structurally requires a fresh operator-emitted StateMarker
+# with a checkout-scoped fingerprint. The operator obtains the marker
+# via `divineos admin authorize-reset-template --reason "..."` and then
+# has RESET_TEMPLATE_AUTHORIZED_EXPIRY_SECONDS to run `reset-template
+# --yes`. Two-step ceremony IS the anchoring — an autonomous agent
+# would have to fire both commands in sequence, creating an audit trail
+# both operations logged, and cannot happen incidentally on autopilot.
+#
+# Same pattern as instance 4 (operator-bypass authorization). Different
+# marker kind + fingerprint scope so authorizing one tool never
+# authorizes another.
+RESET_TEMPLATE_AUTHORIZED_KIND = "reset_template_authorized"
+RESET_TEMPLATE_AUTHORIZED_EXPIRY_SECONDS = 15 * 60
+
+
+def _reset_template_fingerprint(checkout_root: Path) -> str:
+    """Fingerprint for reset-template marker, scoped to this checkout.
+
+    A marker authorizing reset on checkout /a MUST NOT authorize reset
+    on checkout /b — different fingerprints. Path is `.resolve()`d so
+    symlink games can't produce a mismatch that looks like a match.
+    """
+    return f"reset_template:{checkout_root.resolve()}"
+
+
+def _check_reset_template_authorization(
+    checkout_root: Path,
+) -> tuple[bool, str | None]:
+    """Return (authorized, refuse_message).
+
+    Returns (True, None) if a fresh marker exists AND was successfully
+    consumed for this checkout. Returns (False, message) otherwise
+    with a message explaining what to do.
+
+    Fail-loud discipline: if the state_markers module can't be imported
+    or the ledger lookup crashes, refuse the reset rather than
+    fail-open. A destructive operation must never proceed under
+    ambiguous authorization state.
+    """
+    try:
+        from divineos.core.state_markers import (
+            StateMarkerLookupError,
+            consume_marker,
+            find_active_marker,
+        )
+    except ImportError as exc:
+        return (
+            False,
+            "BLOCKED: --yes requires the StateMarker primitive but the "
+            f"module could not be imported ({exc}). This is a "
+            "substrate-integrity issue; refusing to reset under ambiguous "
+            "state. Fix the install and retry.",
+        )
+
+    fingerprint = _reset_template_fingerprint(checkout_root)
+    try:
+        marker = find_active_marker(
+            RESET_TEMPLATE_AUTHORIZED_KIND,
+            fingerprint_predicate=lambda fp: fp == fingerprint,
+        )
+    except StateMarkerLookupError as exc:
+        return (
+            False,
+            "BLOCKED: --yes requires a reset-template authorization marker "
+            f"but the ledger lookup crashed ({exc}). Refusing to reset "
+            "under ambiguous state. Investigate the ledger and retry.",
+        )
+
+    if marker is None:
+        return (
+            False,
+            "BLOCKED: --yes requires an operator-emitted authorization "
+            f"marker for reset-template on checkout {checkout_root.resolve()}. "
+            "None active.\n\n"
+            "To authorize (operator, from a real terminal):\n"
+            '  divineos admin authorize-reset-template --reason "<why>"\n\n'
+            "Then within 15 minutes:\n"
+            "  divineos admin reset-template --yes\n\n"
+            "Without --yes, the command prompts interactively and does "
+            "NOT require the marker (interactive confirm is the anchor).",
+        )
+
+    # Consume the marker, checking fingerprint match. Any mismatch
+    # emits a LOUD STATE_MARKER_FINGERPRINT_MISMATCH event via the
+    # state_markers layer.
+    verdict = consume_marker(marker.marker_id, consumed_by_fingerprint=fingerprint)
+    if verdict.outcome != "consumed" or verdict.fingerprint_mismatch:
+        return (
+            False,
+            "BLOCKED: reset-template authorization marker present but "
+            f"could not be consumed cleanly (outcome={verdict.outcome}, "
+            f"fingerprint_mismatch={verdict.fingerprint_mismatch}). "
+            "Refusing to reset under ambiguous state. If this is legitimate, "
+            "re-run the authorize command and retry.",
+        )
+
+    return (True, None)
+
+
 # Files that NEVER get removed even when their parent directory is being cleared.
 # These are the README.md / template files that the architecture ships and
 # that explain what the directory is for.
@@ -371,6 +478,16 @@ def reset_template(
 
     if not yes:
         click.confirm("Proceed with reset? A backup will be created first.", abort=True)
+    else:
+        # F30 — `--yes` bypasses the interactive confirm, so it structurally
+        # requires an operator-emitted authorization marker. See module docstring
+        # + `_check_reset_template_authorization` for the mechanism.
+        authorized, refuse_message = _check_reset_template_authorization(checkout)
+        if not authorized:
+            click.secho(
+                refuse_message or "BLOCKED: reset-template not authorized.", fg="red", err=True
+            )
+            raise SystemExit(1)
 
     # Phase 1: backup
     backup_dir = _backup_path()
@@ -467,3 +584,72 @@ def reset_template(
     click.echo(f"  Backup at: {backup_dir}")
     click.echo("  This install is now in fresh-template state.")
     click.echo("  Verify: divineos preflight && divineos body")
+
+
+@click.command("authorize-reset-template")
+@click.option(
+    "--reason",
+    required=True,
+    help="Why this authorization is being emitted. Recorded in the marker "
+    "payload for audit. Should name what/why in operator's words (e.g. "
+    '"prepping fresh template for share with X" or "starting over").',
+)
+def authorize_reset_template(reason: str) -> None:
+    """Emit an operator-anchored StateMarker authorizing `reset-template --yes`.
+
+    F30 fix: `reset-template --yes` skips the interactive confirm and can be
+    self-issued by an agent. This command emits a checkout-scoped
+    StateMarker (kind=`reset_template_authorized`,
+    expiry=15 min) that `reset-template` requires before allowing --yes to
+    proceed. Two-step ceremony is the operator-anchoring — an agent
+    reaching for --yes on autopilot cannot bypass without having fired
+    this command in a preceding step, creating an audit trail.
+
+    Emit → within 15 minutes → `divineos admin reset-template --yes` →
+    marker is consumed and reset proceeds.
+
+    The marker is scoped to this checkout's path; authorizing here does
+    NOT authorize reset on any other DivineOS install on this machine.
+    """
+    if len(reason.strip()) < 10:
+        click.secho(
+            "\n  Reason must be at least 10 characters — say why in operator's words.",
+            fg="red",
+            bold=True,
+        )
+        raise SystemExit(1)
+
+    try:
+        from divineos.core.state_markers import emit_marker
+    except ImportError as exc:
+        click.secho(
+            f"\n  StateMarker module unavailable ({exc}); cannot emit authorization.",
+            fg="red",
+            bold=True,
+        )
+        raise SystemExit(1) from exc
+
+    checkout = _checkout_root()
+    fingerprint = _reset_template_fingerprint(checkout)
+    marker_id = emit_marker(
+        RESET_TEMPLATE_AUTHORIZED_KIND,
+        fingerprint,
+        payload={
+            "reason": reason,
+            "checkout_root": str(checkout.resolve()),
+            "tool": "admin reset-template",
+        },
+        expires_in_seconds=RESET_TEMPLATE_AUTHORIZED_EXPIRY_SECONDS,
+    )
+    click.secho(
+        f"\n  [+] reset-template authorized for {checkout.resolve()}",
+        fg="green",
+        bold=True,
+    )
+    click.echo(f"      marker_id:  {marker_id}")
+    click.echo(f"      expires in: {RESET_TEMPLATE_AUTHORIZED_EXPIRY_SECONDS // 60} minutes")
+    click.echo(f"      reason:     {reason}")
+    click.echo("")
+    click.echo("  Run within the expiry window:")
+    click.echo("      divineos admin reset-template --yes")
+    click.echo("")
