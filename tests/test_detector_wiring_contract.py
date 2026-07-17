@@ -345,6 +345,12 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # Listed here as no-op to make the composite pair fully accounted-for
         # if the test scope changes to allowlist named-not-flagged entries.
         "operator_wallpaper_caller.py": "IS directly imported by operating_loop_audit run_audit; this entry is descriptive not exempting",
+        # mention_context is a SHARED UTILITY imported by detectors (residency,
+        # distancing, etc.) to filter use-vs-mention false positives. It is
+        # not itself a detector — it provides is_mention_context(text, pos)
+        # as a pre-filter the detectors call before counting matches. Added
+        # 2026-06-06 per arxiv 2404.01651 + council walk.
+        "mention_context.py": "shared use-vs-mention filter imported by detectors, not a detector itself",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))

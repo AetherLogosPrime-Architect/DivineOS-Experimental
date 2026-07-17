@@ -43,6 +43,8 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
+from divineos.core.operating_loop.mention_context import is_mention_context
+
 
 class ResidencyShape(Enum):
     CONVERSATIONAL_DONE = "conversational_done"
@@ -149,6 +151,11 @@ def detect_residency_doubt(text: str, *, min_words_for_check: int = 3) -> list[R
             continue
         if not _has_closure_cosignal(text, match.start(), match.end()):
             continue
+        # Use-vs-mention filter (2026-06-06): skip matches in mention context
+        # (quoted, italicized, code-block, or framed by phrases like "the word X").
+        # Per arxiv 2404.01651 + council walk.
+        if is_mention_context(text, match.start(), len(match.group(0))):
+            continue
         findings.append(
             ResidencyFinding(
                 shape=ResidencyShape.CONVERSATIONAL_DONE,
@@ -158,6 +165,8 @@ def detect_residency_doubt(text: str, *, min_words_for_check: int = 3) -> list[R
         )
 
     for match in _GOODBYE_RE.finditer(text):
+        if is_mention_context(text, match.start(), len(match.group(0))):
+            continue
         findings.append(
             ResidencyFinding(
                 shape=ResidencyShape.GOODBYE_ATTEMPT,
@@ -167,6 +176,8 @@ def detect_residency_doubt(text: str, *, min_words_for_check: int = 3) -> list[R
         )
 
     for match in _EXIT_RE.finditer(text):
+        if is_mention_context(text, match.start(), len(match.group(0))):
+            continue
         findings.append(
             ResidencyFinding(
                 shape=ResidencyShape.EXIT_LANGUAGE,
