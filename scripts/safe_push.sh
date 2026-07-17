@@ -91,6 +91,88 @@ else
     log "rebase clean — HEAD is now on top of fresh $REMOTE/$BASE_BRANCH"
 fi
 
+# --- Scope-check: refuse push if the branch touches high-blast paths ---
+#
+# 2026-07-17 (Aria + Aether scope-discipline design): high-blast paths are
+# files whose changes reach every future clone of main and can silently
+# reshape the shared substrate. A commit touching one requires explicit
+# operator ack via DIVINEOS_HIGH_BLAST_ACK=<>=20-char-reason>.
+#
+# Two-layer check:
+#   Layer 1 (branch-level) — does the branch diff vs base touch any
+#     high-blast path? Catches net changes.
+#   Layer 2 (commit-level) — does ANY single commit on the branch touch
+#     a high-blast path, even if a later commit undoes it? Catches
+#     history-walk exposure that Layer 1 misses (net-zero at branch
+#     level, dangerous during history-walk).
+#
+# High-blast paths (add here as we discover more):
+_HIGH_BLAST_PATHS=(
+    "CLAUDE.md"
+    "README.md"
+    ".claude/agents/"
+    ".claude/settings.json"
+    "docs/foundational_truths.md"
+    "scripts/guardrail_files.txt"
+    "src/divineos/seed.json"
+)
+
+_check_high_blast() {
+    local files_input="$1"
+    local hits=""
+    for path in "${_HIGH_BLAST_PATHS[@]}"; do
+        # exact-file match OR directory-prefix match (paths ending in /)
+        if [[ "$path" == */ ]]; then
+            local match
+            match=$(printf '%s\n' "$files_input" | grep -F -- "$path" || true)
+            if [[ -n "$match" ]]; then
+                hits+="  $path (matched: $(echo "$match" | head -1))"$'\n'
+            fi
+        else
+            if printf '%s\n' "$files_input" | grep -Fxq -- "$path"; then
+                hits+="  $path"$'\n'
+            fi
+        fi
+    done
+    printf '%s' "$hits"
+}
+
+# Layer 1: branch-level diff
+_L1_FILES=$(git diff --name-only "$REMOTE_REF..HEAD" 2>/dev/null)
+_L1_HITS=$(_check_high_blast "$_L1_FILES")
+
+# Layer 2: per-commit walk
+_L2_HITS=""
+for _sha in $(git rev-list "$REMOTE_REF..HEAD" 2>/dev/null); do
+    _commit_files=$(git show --name-only --format= "$_sha" 2>/dev/null)
+    _commit_hits=$(_check_high_blast "$_commit_files")
+    if [[ -n "$_commit_hits" ]]; then
+        _L2_HITS+="  commit $(git log -1 --format='%h %s' "$_sha"):"$'\n'"$_commit_hits"
+    fi
+done
+
+if [[ -n "$_L1_HITS" || -n "$_L2_HITS" ]]; then
+    if [[ "${DIVINEOS_HIGH_BLAST_ACK:-}" == "" || ${#DIVINEOS_HIGH_BLAST_ACK} -lt 20 ]]; then
+        log ""
+        log "REFUSED: branch touches HIGH-BLAST paths (would reshape shared main on merge)."
+        if [[ -n "$_L1_HITS" ]]; then
+            log "Layer-1 (branch-level diff):"
+            printf '%s' "$_L1_HITS" | while IFS= read -r line; do log "$line"; done
+        fi
+        if [[ -n "$_L2_HITS" ]]; then
+            log "Layer-2 (per-commit walk):"
+            printf '%s' "$_L2_HITS" | while IFS= read -r line; do log "$line"; done
+        fi
+        log ""
+        log "If this is intentional, ack with a >=20-char reason:"
+        log "  DIVINEOS_HIGH_BLAST_ACK='<why touching these paths is honest for this PR>' scripts/safe_push.sh"
+        log ""
+        log "If unintentional, split the branch: worktree-orient stays local, shared-substrate on a fresh branch cut from main."
+        exit 1
+    fi
+    log "high-blast paths touched — ack provided (${#DIVINEOS_HIGH_BLAST_ACK} chars): ${DIVINEOS_HIGH_BLAST_ACK}"
+fi
+
 # --- Push (force-with-lease so we never stomp another push we didn't fetch) ---
 
 log "push $REMOTE $CURRENT_BRANCH --force-with-lease"
