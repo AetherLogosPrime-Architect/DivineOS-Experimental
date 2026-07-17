@@ -956,6 +956,42 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                         "<spectrum> -p <position> -e <evidence>. Fail-closed."
                     )
 
+                # 2026-07-17 (Andrew "same chicken egg stuff"): the block
+                # message names `divineos compass-ops observe` (and dismiss)
+                # as the two remediation commands. Those must NEVER be
+                # blocked by this gate — that's Aletheia's Finding 37 class,
+                # gate-blocks-its-own-remedy. Bypass-list handles this for
+                # simple invocations at line ~1202 in main(), but ONLY when
+                # the command has no shell-compound characters (F22
+                # hardening). A piped invocation like
+                # `divineos compass-ops observe ... 2>&1 | tail -3`
+                # bypasses the bypass — leaving the gate to block its own
+                # remedy. Explicit exemption here: if the command's first
+                # segment (before any pipe/chain) IS the remedy, this gate
+                # allows through even at escalation.
+                # Schneier-lens catch (council walk council-fcbb1ec097b4):
+                # a naive first-segment check let
+                # `divineos compass-ops observe X && rm -rf ~/` pass, re-opening
+                # the F22 hole. Reject exemption if ANY chain-shape char is
+                # present (;, &&, ||, backtick, $()). Pipe (|) still allowed —
+                # piping observe output to tail/head is the concrete use case
+                # that triggered this exemption; pipe-RHS threat is out-of-
+                # scope for this gate's remedy-preservation duty.
+                _tn = (input_data or {}).get("tool_name", "") or ""
+                _cmd = ""
+                try:
+                    _cmd = (input_data or {}).get("tool_input", {}).get("command", "") or ""
+                except (AttributeError, TypeError):
+                    _cmd = ""
+                _chain_shape_re = re.compile(r";|&&|\|\||`|\$\(")
+                if _tn == "Bash" and _cmd and not _chain_shape_re.search(_cmd):
+                    _head = re.split(r"\|", _cmd, maxsplit=1)[0].strip()
+                    if _head.startswith("divineos compass-ops observe") or _head.startswith(
+                        "divineos compass-ops dismiss"
+                    ):
+                        # Fall through to allow — the remedy command must run.
+                        return None
+
                 advised_count = int(cr.get("advised_count", 0))
                 # Defensive guard: dedup should only suppress after a prior
                 # advisory set last_advised_ts (which also sets advised_count
@@ -1015,18 +1051,63 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
 
             # Same fail-closed-on-unreadable pattern as the hedge gate above.
             if marker_path().exists():
-                marker = read_marker()
-                if marker is not None:
-                    return _make_deny(format_gate_message(marker))
-                return _make_deny(
-                    "BLOCKED: correction marker present at "
-                    f"{marker_path()} but unreadable. "
-                    'Clear manually with `divineos learn "lesson"` or '
-                    '`divineos correction "description"` once the correction '
-                    "has been named, or inspect the file if you suspect "
-                    "corruption. Fail-closed by design: a corrupted marker "
-                    "must not silently disable the gate."
-                )
+                # 2026-07-17 (Andrew "same chicken egg stuff"): remedy commands
+                # named in the block message must never be blocked by this gate.
+                # Bypass-list covers this at line ~1202 in main() for simple
+                # invocations, but ONLY when there's no shell-compound (F22
+                # hardening). Piped remedy invocations like
+                # `divineos learn "..." 2>&1 | tail -3` break the bypass and
+                # deadlock this gate against its own remedy. Explicit exemption:
+                # if the command's first segment IS `divineos learn`,
+                # `divineos correction`, or `divineos corrections`, allow through.
+                # Schneier-lens tightening (council walk council-cfa35243920e):
+                # reject exemption if ANY chain-shape char is present
+                # (;, &&, ||, backtick, $()). Pipe (|) still allowed for
+                # piping remedy output to viewers. Same shape as compass
+                # exemption fix; if a third instance emerges, factor into
+                # a shared _is_safe_remedy_invocation helper.
+                _tn = (input_data or {}).get("tool_name", "") or ""
+                _cmd = ""
+                try:
+                    _cmd = (input_data or {}).get("tool_input", {}).get("command", "") or ""
+                except (AttributeError, TypeError):
+                    _cmd = ""
+                _chain_shape_re_1_5 = re.compile(r";|&&|\|\||`|\$\(")
+                if _tn == "Bash" and _cmd and not _chain_shape_re_1_5.search(_cmd):
+                    _head = re.split(r"\|", _cmd, maxsplit=1)[0].strip()
+                    if (
+                        _head.startswith("divineos learn")
+                        or _head.startswith("divineos correction")
+                        or _head.startswith("divineos corrections")
+                    ):
+                        # Fall through to allow — the remedy must run.
+                        pass
+                    else:
+                        marker = read_marker()
+                        if marker is not None:
+                            return _make_deny(format_gate_message(marker))
+                        return _make_deny(
+                            "BLOCKED: correction marker present at "
+                            f"{marker_path()} but unreadable. "
+                            'Clear manually with `divineos learn "lesson"` or '
+                            '`divineos correction "description"` once the correction '
+                            "has been named, or inspect the file if you suspect "
+                            "corruption. Fail-closed by design: a corrupted marker "
+                            "must not silently disable the gate."
+                        )
+                else:
+                    marker = read_marker()
+                    if marker is not None:
+                        return _make_deny(format_gate_message(marker))
+                    return _make_deny(
+                        "BLOCKED: correction marker present at "
+                        f"{marker_path()} but unreadable. "
+                        'Clear manually with `divineos learn "lesson"` or '
+                        '`divineos correction "description"` once the correction '
+                        "has been named, or inspect the file if you suspect "
+                        "corruption. Fail-closed by design: a corrupted marker "
+                        "must not silently disable the gate."
+                    )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_5_correction", _gate_exc)
 
