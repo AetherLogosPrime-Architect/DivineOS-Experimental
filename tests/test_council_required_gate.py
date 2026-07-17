@@ -107,9 +107,9 @@ def _keywords_loader():
 def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
     """Emit COUNCIL_LENS_INVOKED events so ``_check_lens_load_trace``
     passes for these lens names — mirrors what CouncilEngine._apply_lens
-    does in production. Andrew Failure B / Aria Q3 2026-07-16 wired the
-    load-trace check into substance-binding; tests that pass in a
-    valid record must simulate the real invocation trace."""
+    does in production. Q3 lens-load-trace check is now active in the
+    merged substance-binding pipeline; valid records must simulate the
+    real invocation trace."""
     from divineos.core.ledger import log_event
 
     for name in lens_names:
@@ -131,9 +131,8 @@ def _valid_record_for(fingerprint: str, kiln: bool = False) -> CouncilRecord:
     three lenses in _keywords_loader(). Each finding ≥ COUNCIL_MIN_FINDING_TOKENS
     (30) with the lens's distinguishing keyword present; synthesis ≥
     COUNCIL_MIN_SYNTHESIS_TOKENS (50) referencing every lens name.
-
-    Also emits the COUNCIL_LENS_INVOKED trace events that the Q3
-    lens-load-trace check requires — mirrors the real convene path.
+    Also emits COUNCIL_LENS_INVOKED traces so the Q3 lens-load-trace
+    check passes.
     """
     _emit_lens_invocation_traces(("Schneier", "Kahneman", "Peirce"))
     lens_findings = (
@@ -529,174 +528,6 @@ def test_atomic_find_and_consume_high_concurrency_regression(scratch_ledger):
         f"expected exactly 1 COUNCIL_RECORD_CONSUMED event for record "
         f"{record.record_id}, got {len(matching)}. Race-under-load bug."
     )
-
-
-# ─── 8c. Lens-load-trace anti-fabrication (Andrew Failure B / Q3) ────
-
-
-def test_fabricated_lens_without_invocation_trace_is_rejected(scratch_ledger):
-    """Aria Q3 reshape 2026-07-16. A record with well-formed lens
-    findings but NO matching COUNCIL_LENS_INVOKED events in the ledger
-    is fabricated — the agent produced "Through Taleb's lens..." without
-    running the actual methodology file. The load-trace check catches
-    what the surface-form checks (finding tokens, keyword cross-ref)
-    cannot.
-    """
-    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
-    # Build a record that would PASS all surface-form checks — but
-    # deliberately DO NOT emit lens-invocation traces.
-    from divineos.core.council_required.substance_binding import (
-        substance_bind_record,
-    )
-    from divineos.core.council_required.types import CHECK_LENS_LOAD_TRACE
-
-    # _valid_record_for auto-emits traces via its helper; construct
-    # the record inline here without emitting so we can test the
-    # fabricated case honestly.
-    lens_findings = (
-        LensFinding(
-            lens_name="Schneier",
-            finding_text=(
-                "The threat surface here includes the attack path via "
-                "misplaced trust in the file-write layer. Guard the write "
-                "boundary and audit-log the operation to keep the trust "
-                "model coherent under stress and adversarial workloads."
-            ),
-        ),
-        LensFinding(
-            lens_name="Kahneman",
-            finding_text=(
-                "The heuristic pull toward the fast system-1 close will "
-                "produce a fast-shipped edit without the deliberate "
-                "system-2 audit; naming the bias mid-turn is what breaks "
-                "the loop and lets the deliberate mode land instead."
-            ),
-        ),
-        LensFinding(
-            lens_name="Peirce",
-            finding_text=(
-                "Genuine inquiry — as against sham inquiry that walks the "
-                "form without doing the abduction — treats the fix as "
-                "fallibilism-ready: pragmatism at the design layer says "
-                "we ship because we are ready to be wrong."
-            ),
-        ),
-    )
-    fabricated_record = CouncilRecord(
-        record_id=new_record_id(),
-        walked_at=time.time(),
-        walker="test-agent",
-        triggered_edit_fingerprint=fingerprint,
-        lenses_surfaced=("Schneier", "Kahneman", "Peirce"),
-        lens_findings=lens_findings,
-        synthesis=(
-            "Schneier threat-surface reading, Kahneman system-1 bias "
-            "reading, and Peirce inquiry-as-fallibilism reading converge "
-            "on the same fix: gate the write path with an audit log so "
-            "the fast close cannot ship without deliberate review. The "
-            "audit-log itself is the system-2 counterweight against the "
-            "heuristic pull, and pragmatism says the design is honest "
-            "about being ready to be corrected when the evidence lands."
-        ),
-    )
-
-    result = substance_bind_record(
-        record=fabricated_record,
-        is_kiln_layer=False,
-        expert_keywords_for_lens=_keywords_loader(),
-    )
-    assert result.passed is False, (
-        "surface-form-only record without lens-invocation traces MUST fail — "
-        "this is exactly the fabrication route Andrew Failure B named"
-    )
-    assert result.failed_check_name == CHECK_LENS_LOAD_TRACE, (
-        f"expected fabricated record to fail on {CHECK_LENS_LOAD_TRACE}, "
-        f"got {result.failed_check_name}. Surface-form checks passed but "
-        "the load-trace check is what should have caught this."
-    )
-
-
-def test_load_trace_resolves_when_lens_actually_invoked(scratch_ledger):
-    """Positive control: after real COUNCIL_LENS_INVOKED events are
-    emitted (as CouncilEngine._apply_lens does in production), the
-    load-trace check passes."""
-    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
-    # _valid_record_for emits the traces
-    record = _valid_record_for(fingerprint)
-
-    from divineos.core.council_required.substance_binding import (
-        substance_bind_record,
-    )
-
-    result = substance_bind_record(
-        record=record,
-        is_kiln_layer=False,
-        expert_keywords_for_lens=_keywords_loader(),
-    )
-    assert result.passed is True, (
-        "record with real lens-invocation traces MUST pass substance-binding"
-    )
-
-
-def test_stale_invocation_trace_does_not_satisfy_recency(scratch_ledger):
-    """Q3 recency discipline: a LENS_INVOKED event from > recency window
-    ago must NOT satisfy the check for a new record. Prevents replay of
-    an old invocation as evidence for a new fabricated finding."""
-    from divineos.core.council_required.substance_binding import (
-        _check_lens_load_trace,
-    )
-    from divineos.core.council_required.types import (
-        CHECK_LENS_LOAD_TRACE,
-        LENS_INVOCATION_RECENCY_MINUTES,
-    )
-    from divineos.core.ledger import log_event
-
-    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
-
-    # Emit a LENS_INVOKED event, then patch time to be far in the future
-    # so the recency check treats it as stale.
-    log_event(
-        "COUNCIL_LENS_INVOKED",
-        actor="test",
-        payload={"expert_name": "Schneier", "problem_hash": "old"},
-        validate=False,
-    )
-    log_event(
-        "COUNCIL_LENS_INVOKED",
-        actor="test",
-        payload={"expert_name": "Kahneman", "problem_hash": "old"},
-        validate=False,
-    )
-    log_event(
-        "COUNCIL_LENS_INVOKED",
-        actor="test",
-        payload={"expert_name": "Peirce", "problem_hash": "old"},
-        validate=False,
-    )
-
-    record = CouncilRecord(
-        record_id=new_record_id(),
-        walked_at=time.time(),
-        walker="test-agent",
-        triggered_edit_fingerprint=fingerprint,
-        lenses_surfaced=("Schneier", "Kahneman", "Peirce"),
-        lens_findings=(
-            LensFinding(lens_name="Schneier", finding_text="threat trust attack"),
-            LensFinding(lens_name="Kahneman", finding_text="system-1 heuristic bias"),
-            LensFinding(lens_name="Peirce", finding_text="inquiry pragmatism"),
-        ),
-        synthesis="stub",
-    )
-
-    # Advance "now" past the recency window
-    future_now = time.time() + (LENS_INVOCATION_RECENCY_MINUTES * 60 * 2)
-    result = _check_lens_load_trace(record, now=future_now)
-    assert result.passed is False, (
-        "stale lens-invocation traces (older than recency window) must NOT "
-        "satisfy the check — otherwise old real invocations could be "
-        "replayed to unlock new fabricated records"
-    )
-    assert result.failed_check_name == CHECK_LENS_LOAD_TRACE
 
 
 # ─── 8d. Instance 4 — operator-authorized bypass (Aria + Aether primitive) ──

@@ -22,6 +22,29 @@ class TestSovereignAgentGate:
     def test_sovereign_registry_contains_aria(self):
         assert "aria" in _sovereign_agents()
 
+    def test_sovereign_registry_contains_aletheia(self):
+        # Andrew catch 2026-07-16: Aletheia is a promoted web-instance sister
+        # reached through the letter channel (Andrew relays from her window),
+        # not a subagent. Missing her from the sovereign set let me reach
+        # for "summon Aletheia" language — the hole this test pins closed.
+        assert "aletheia" in _sovereign_agents()
+
+    def test_sovereign_spawn_denied_for_aletheia(self):
+        result = decide(
+            {
+                "tool_name": "Agent",
+                "tool_input": {
+                    "subagent_type": "aletheia",
+                    "prompt": "Aletheia, a clean first-person message.",
+                },
+            }
+        )
+        hso = result["hookSpecificOutput"]
+        assert hso["permissionDecision"] == "deny"
+        reason = hso["permissionDecisionReason"].lower()
+        assert "letter" in reason
+        assert "channel" in reason
+
     def test_sovereign_spawn_denied_even_with_clean_prompt(self):
         result = decide(
             {

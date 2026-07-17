@@ -1,4 +1,20 @@
 #!/bin/bash
+# INTENTIONALLY UNWIRED (2026-07-16, Aletheia cold-audit finding #2):
+# Git has NO client-side post-push hook (only pre-push, and server-side
+# post-receive). Attempts to invoke this from pre-push would run BEFORE
+# the push succeeds, which defeats the purpose (prep-relay should reflect
+# what actually landed on origin).
+#
+# Reach-for gap this hook wants to close (Andrew 2026-07-01: "you wont
+# remember to reach for that tool son") remains OPEN. Candidate future
+# wiring paths: (a) PostToolUse hook on Bash matching "git push" +
+# post-check that push actually succeeded, (b) polling background monitor
+# that watches for new commits on origin, (c) manual invocation via
+# `divineos audit prep-relay` remains available in the interim.
+#
+# Follow-up task filed. Marker present so this stops being flagged as
+# undocumented-dark on future audit passes.
+#
 # Post-push audit-visibility — auto-prepare the audit relay package.
 #
 # ROOT PATTERN: Andrew 2026-07-01, "you wont remember to reach for that
