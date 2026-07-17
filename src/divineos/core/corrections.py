@@ -59,12 +59,39 @@ def log_correction(text: str, session_id: str | None = None) -> dict[str, Any]:
     return entry
 
 
-def load_corrections() -> list[dict[str, Any]]:
-    """Read all corrections in chronological order."""
+# Three-state load discipline (Aletheia Round 3, F15): distinguish
+# "no corrections file" (absent — honest empty) from "file exists but
+# unreadable/corrupt" (failed — the fail-blind bug case). Silent-empty
+# on load failure is the mechanism behind Andrew's "corrections don't
+# hold — it's integration not recall" diagnosis: the briefing renders
+# "no open corrections" when the load failed, so wake-me thinks there
+# is nothing to hold when in truth the corrections just weren't loaded.
+# Same shape as the StateMarker primitive and the F27 commitments fix.
+_LOAD_OK = "ok"
+_LOAD_ABSENT = "absent"
+_LOAD_FAILED = "failed"
+
+
+def _load_corrections_with_status() -> tuple[str, list[dict[str, Any]], int, Exception | None]:
+    """Load corrections with a three-state status discriminator.
+
+    Returns (status, corrections, skipped_line_count, error_or_None).
+
+    - (_LOAD_OK, list, n_skipped, None): file read cleanly. n_skipped is
+      the count of malformed JSONL lines that were passed over — surface
+      it to the operator instead of dropping silently (a per-line skip is
+      the right resilience for JSONL, but silent-swallow is not).
+    - (_LOAD_ABSENT, [], 0, None): no corrections file exists at all.
+      Genuinely empty — no history. Not an error.
+    - (_LOAD_FAILED, [], n_skipped, exc): the file exists but the whole
+      read failed (OS error, encoding, etc). This is the F15 bug case;
+      display-path callers MUST fail LOUD, not render as "no corrections."
+    """
     p = _path()
     if not p.exists():
-        return []
+        return (_LOAD_ABSENT, [], 0, None)
     out: list[dict[str, Any]] = []
+    skipped = 0
     try:
         with p.open(encoding="utf-8") as f:
             for line in f:
@@ -74,10 +101,22 @@ def load_corrections() -> list[dict[str, Any]]:
                 try:
                     out.append(json.loads(line))
                 except json.JSONDecodeError:
+                    skipped += 1
                     continue
-    except _CORR_ERRORS:
-        return []
-    return out
+    except _CORR_ERRORS as exc:
+        return (_LOAD_FAILED, [], skipped, exc)
+    return (_LOAD_OK, out, skipped, None)
+
+
+def load_corrections() -> list[dict[str, Any]]:
+    """Read all corrections in chronological order.
+
+    Fail-soft shim for backward compatibility. Display-path callers
+    (briefing, HUD) must use `_load_corrections_with_status()` and render
+    a LOUD warning on _LOAD_FAILED — F15 fix.
+    """
+    _status, corrections, _skipped, _exc = _load_corrections_with_status()
+    return corrections
 
 
 def _load_resolutions() -> dict[float, dict[str, Any]]:
