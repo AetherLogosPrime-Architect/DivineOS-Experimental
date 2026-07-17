@@ -38,6 +38,13 @@ _BYPASS_COMMANDS = frozenset(
         "preflight",
         "emit",
         "hud",
+        # Goal-setting is bootstrap: adding a goal for the session must not
+        # require briefing first — that creates a recursive deadlock with the
+        # require-goal PreToolUse hook (goal gate needs a goal set, but the CLI
+        # refuses `goal add` without briefing, and the goal gate blocks briefing
+        # if the command is chained through pipes). Root cause fix 2026-07-17,
+        # mirrors the hook-layer bypass at scripts/hook_bypass_commands.txt:48.
+        "goal",
         "recall",
         "active",
         "ask",
