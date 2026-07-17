@@ -355,6 +355,7 @@ src/divineos/
       reject_clause.py         Phase 1b operator: composition rule — content must match source_tag promise
       sycophancy_detector.py   Phase 1b operator: pain-side algedonic — catches drift-toward-agreement at write time
       costly_disagreement.py   Phase 1b operator: pleasure-side algedonic — rewards disagreement held across pushback
+      integrity_stance.py      Refinement of costly_disagreement (Andrew 2026-07-14): splits capitulation vs evidence-update, factual vs values-stance tracks, and unobserved-integrity records
       access_check.py          Phase 1b operator: pre-emission filter — routes phenomenological claims to ARCHITECTURAL
       planted_contradiction.py Phase 1b operator: seeded test material for Phase 4 ablation detector
       family_member_ledger.py  Per-member hash-chained mini-ledger (separate from event_ledger + family.db) — invocation lifecycle, cross-refs, identity drift diagnostics, NAMED_DRIFT events
