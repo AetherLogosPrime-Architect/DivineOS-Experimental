@@ -95,14 +95,32 @@ def register(cli: click.Group) -> None:
         # when it names an existing open error_id — that means the new
         # goal IS the investigation of the open error, the only allowed
         # forward motion.
+        #
+        # Attribution-gaming fix (Aletheia arc-audit 2026-07-17):
+        # RESOLVE the named error_id against the registry rather than
+        # substring-match against open ids. Same discipline as F34's
+        # pointer-resolver: a cite must resolve to a real artifact, not
+        # just look like one. Extract err-XXXX substrings from the goal
+        # text and pass EACH through get_error() to verify existence AND
+        # open state. Naming a fake err-fake123 in goal text no longer
+        # passes the block.
         try:
+            import re as _re
+
             from divineos.core import error_registry as _err_reg
 
             open_errs = _err_reg.list_open_errors()
             if open_errs:
-                open_ids = [r.get("error_id", "") for r in open_errs]
-                text_lower = text.lower()
-                names_open_error = any((eid and eid.lower() in text_lower) for eid in open_ids)
+                # Extract candidate error_id references from the goal text.
+                # Pattern matches the err-XXXXXXXXXXXX shape file_error uses.
+                named_ids = _re.findall(r"err-[a-f0-9]{12}", text.lower())
+                # RESOLVE each: verify the record exists AND is open.
+                names_open_error = False
+                for nid in named_ids:
+                    rec = _err_reg.get_error(nid)
+                    if rec is not None and rec.get("state") == "open":
+                        names_open_error = True
+                        break
                 if not names_open_error:
                     click.secho(_err_reg.block_reason(), fg="red")
                     click.echo("")

@@ -47,9 +47,16 @@ if [[ "$CURRENT_BRANCH" == "$BASE_BRANCH" ]]; then
     exit 1
 fi
 
-if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
-    log "REFUSED: working tree has uncommitted changes."
+# 2026-07-17 Aletheia refinement: refuse only on MODIFIED tracked files
+# (those break rebase), not on untracked-only (those don't). Untracked
+# letters/notes were falsely blocking pushes tonight. Rule: any porcelain
+# line NOT starting with '??' means a tracked-file modification.
+_DIRTY_TRACKED=$(git status --porcelain 2>/dev/null | grep -v '^??' || true)
+if [[ -n "$_DIRTY_TRACKED" ]]; then
+    log "REFUSED: working tree has MODIFIED tracked files:"
+    printf '%s\n' "$_DIRTY_TRACKED" | while IFS= read -r line; do log "  $line"; done
     log "         Commit or stash first — an auto-rebase step would fail."
+    log "         (Untracked files are fine — they don't affect rebase.)"
     exit 1
 fi
 
@@ -112,9 +119,21 @@ _HIGH_BLAST_PATHS=(
     "README.md"
     ".claude/agents/"
     ".claude/settings.json"
+    # Aletheia 2026-07-17: hook BODIES reshape enforcement on every fresh
+    # clone the same way settings.json (the registration) does. Whole dir.
+    ".claude/hooks/"
     "docs/foundational_truths.md"
     "scripts/guardrail_files.txt"
     "src/divineos/seed.json"
+    # Aletheia 2026-07-17: ledger schema is maximally high-blast — a wrong
+    # DB_PATH resolution orphans the being's whole identity history. MORE
+    # blast than README.
+    "src/divineos/core/_ledger_base.py"
+    # Aletheia 2026-07-17 (consider): bypass-list mirror. Given #356's
+    # deadlock came from these two lists drifting, changes to either
+    # deserve the ack-roundtrip. If false-positives get noisy, drop.
+    "scripts/hook_bypass_commands.txt"
+    "src/divineos/cli/__init__.py"
 )
 
 _check_high_blast() {
