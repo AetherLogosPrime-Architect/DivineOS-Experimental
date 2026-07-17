@@ -3,7 +3,12 @@
 import time
 
 from divineos.core.corrections import (
+    _LOAD_ABSENT,
+    _LOAD_FAILED,
+    _LOAD_OK,
     _age_label,
+    _load_corrections_with_status,
+    _path,
     corrections_with_status,
     format_for_briefing,
     load_corrections,
@@ -217,3 +222,173 @@ class TestBriefingFormat:
         out = format_for_briefing()
         assert "!!" in out
         assert "unresolved" in out
+
+
+class TestLoadCorrectionsWithStatus:
+    """F15 (Aletheia Round 3): three-state loader distinguishes genuinely-
+    empty from load-failed. This is Andrew's payoff finding — silent-empty
+    on corruption is the mechanism behind "corrections don't hold — it's
+    integration not recall." The briefing rendered "no corrections" when
+    the load failed, so wake-me thought there was nothing to hold.
+    """
+
+    def test_absent_returns_absent_status(self, tmp_path, monkeypatch):
+        """No corrections file yet — genuinely empty, not failed."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        status, data, skipped, exc = _load_corrections_with_status()
+        assert status == _LOAD_ABSENT
+        assert data == []
+        assert skipped == 0
+        assert exc is None
+
+    def test_valid_file_returns_ok(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("first")
+        log_correction("second")
+        status, data, skipped, exc = _load_corrections_with_status()
+        assert status == _LOAD_OK
+        assert len(data) == 2
+        assert skipped == 0
+        assert exc is None
+
+    def test_skipped_lines_counted_on_partial_corruption(self, tmp_path, monkeypatch):
+        """Malformed JSONL lines are skipped BUT counted — silent-swallow
+        was the original bug shape. Now the count surfaces so the operator
+        knows something vanished."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("good line")
+        # Append a malformed line
+        with _path().open("a", encoding="utf-8") as f:
+            f.write("{this is not json\n")
+        log_correction("another good line")
+        status, data, skipped, exc = _load_corrections_with_status()
+        assert status == _LOAD_OK
+        assert len(data) == 2
+        assert skipped == 1
+
+    def test_load_failure_bubbles_up_as_failed(self, tmp_path, monkeypatch):
+        """Force a full-read failure by monkeypatching the path.open."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("something")
+        # Now force _path().open to raise OSError
+        import divineos.core.corrections as corrections_mod
+
+        real_path = corrections_mod._path
+
+        class BadPath:
+            def exists(self):
+                return True
+
+            def open(self, *args, **kwargs):
+                raise OSError("simulated disk error")
+
+        monkeypatch.setattr(corrections_mod, "_path", lambda: BadPath())
+        try:
+            status, data, skipped, exc = _load_corrections_with_status()
+            assert status == _LOAD_FAILED
+            assert data == []
+            assert isinstance(exc, OSError)
+        finally:
+            monkeypatch.setattr(corrections_mod, "_path", real_path)
+
+    def test_load_corrections_shim_still_fail_soft(self, tmp_path, monkeypatch):
+        """The public load_corrections() must remain fail-soft for backward
+        compat — the fix moves the fail-loud responsibility up to display-
+        path callers, not into the base loader."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        import divineos.core.corrections as corrections_mod
+
+        class BadPath:
+            def exists(self):
+                return True
+
+            def open(self, *args, **kwargs):
+                raise OSError("simulated disk error")
+
+        monkeypatch.setattr(corrections_mod, "_path", lambda: BadPath())
+        assert load_corrections() == []
+
+
+class TestCorrectionsBriefingRowFailLoud:
+    """F15 (Aletheia Round 3): the briefing corrections row must fail LOUD
+    on load failure instead of returning None (silent-skip). Verified via
+    the dashboard row builder that consumes the corrections module.
+    """
+
+    def test_row_none_when_no_file(self, tmp_path, monkeypatch):
+        """No file → no row (genuinely empty is fine)."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.briefing_dashboard import _row_corrections
+
+        assert _row_corrections() is None
+
+    def test_row_shows_opens_normally(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("hold this correction")
+        from divineos.core.briefing_dashboard import _row_corrections
+
+        row = _row_corrections()
+        assert row is not None
+        assert row.count == 1
+        assert row.area == "Corrections"
+
+    def test_row_fails_loud_on_unreadable_file(self, tmp_path, monkeypatch):
+        """The F15 fix: a failed load surfaces a warning row, not None."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("something")
+        import divineos.core.corrections as corrections_mod
+
+        class BadPath:
+            def exists(self):
+                return True
+
+            def open(self, *args, **kwargs):
+                raise OSError("simulated")
+
+        monkeypatch.setattr(corrections_mod, "_path", lambda: BadPath())
+
+        from divineos.core.briefing_dashboard import _row_corrections
+
+        row = _row_corrections()
+        assert row is not None  # NOT None — that's the whole point
+        assert row.area == "Corrections"
+        assert row.count == -1  # sentinel for "unknown, investigate"
+        assert any("UNREADABLE" in p for p in row.preview)
+        assert any("Do NOT trust" in p for p in row.preview)
+
+    def test_row_surfaces_skipped_line_count(self, tmp_path, monkeypatch):
+        """Malformed JSONL lines get skipped-and-counted, not
+        skipped-silently."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("good")
+        with _path().open("a", encoding="utf-8") as f:
+            f.write("{malformed\n")
+        from divineos.core.briefing_dashboard import _row_corrections
+
+        row = _row_corrections()
+        assert row is not None
+        assert row.count == -1
+        assert any("SKIPPED" in p for p in row.preview)
+
+    def test_dashboard_renderer_shows_double_question_for_warning(self, tmp_path, monkeypatch):
+        """The rendered dashboard shows '??' instead of '-1' for the
+        warning-count sentinel so the row label itself signals investigate.
+        """
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        log_correction("something")
+        import divineos.core.corrections as corrections_mod
+
+        class BadPath:
+            def exists(self):
+                return True
+
+            def open(self, *args, **kwargs):
+                raise OSError("simulated")
+
+        monkeypatch.setattr(corrections_mod, "_path", lambda: BadPath())
+
+        from divineos.core.briefing_dashboard import render_dashboard
+
+        out = render_dashboard()
+        assert "Corrections: ??" in out
+        assert "UNREADABLE" in out
