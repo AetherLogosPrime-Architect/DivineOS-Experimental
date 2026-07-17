@@ -109,8 +109,28 @@ def check_branch_supersession(
 ## Integration point
 
 Called from `scripts/safe_push.sh` after layer-1 branch scope check and
-layer-2 commit-level scope check. Output goes to stderr with visible
-banner. Push proceeds regardless (signal-not-gate). Sample output:
+layer-2 commit-level scope check. **Two output surfaces, both fire on
+the same finding-list — different audiences, different visibility
+windows** (per Aether's pushback resolution):
+
+### (a) End-of-push summary banner (for me-as-pusher)
+
+After the push completes, print a distinctive block to stderr:
+```
+[layer-3] N possibly-superseded symbol(s) detected — verify before merge
+```
+Followed by the per-signal details. Impossible to miss even in scrolling
+push output. This is the *"before I letter Aether the ship-request"*
+visibility window.
+
+### (b) PR-body inclusion via `gh pr create` (for Aletheia-as-reviewer)
+
+When the ship-side flow opens a PR, include the Layer-3 findings as a
+"possibly superseded" section in the PR body. This is the *"between
+push and audit"* visibility window — survives context-drop between the
+ship-request letter and Aletheia's review pass.
+
+Sample per-signal output:
 
 ```
 [layer-3 supersession-check]
@@ -140,24 +160,79 @@ banner. Push proceeds regardless (signal-not-gate). Sample output:
   `MyClass.helper()` colliding with `OtherClass.helper()` is out of
   scope for v1.
 - **Cross-language supersession** — Python-only in v1.
+- **Bash / shell / non-Python source-language supersession** — added
+  per Aether's pushback (v1 misses bash function name collisions
+  across `scripts/*.sh`, and `safe_push.sh` itself is bash). Named
+  explicitly so we don't forget when Layer-3-deep ships.
 - **Docstring/comment supersession** — not extracted.
 
-## Prereg (to be filed)
+## Prereg (filed as `prereg-53cb03660406`)
 
 - **Claim:** Layer-3 lightweight supersession-check catches the same
   class of near-miss that #353 exhibited (name-overlap of top-level
   function/class between branch commit and main).
 - **Success criterion:** On the historical #353 scenario, running
-  Layer-3 against the branch containing commit `94a6b1a2` with base
+  Layer-3 against the extracted fixture-file pair for `94a6b1a2` and
   `origin/main` (at head `acb0109c`) emits at least one
-  SupersessionSignal for `_build_patterns` OR `_get_patterns` OR
-  `AUDITOR_AS_OTHER`.
+  SupersessionSignal for `_build_patterns` OR `_get_patterns`.
 - **Falsifier:** If Layer-3 returns [] on the historical #353 scenario,
   the mechanism does not catch what it was designed to catch.
 - **Review date:** 30 days post-deploy.
 - **Actor:** Aletheia (per past_experience-council precedent — the
   auditor writes falsifiers, not the designer, to guard
   rationalization-in-the-gate risk).
+
+### Falsifier durability — fixture-based, not live-git (Aether pushback resolution)
+
+The success criterion runs against **extracted fixture files**, not live
+git objects, because commit `94a6b1a2` lives on an unmerged closed
+branch and could be garbage-collected someday. Popper's discipline
+requires the falsifier be runnable **indefinitely**, not just until
+git forgets.
+
+Fixture extraction (30-second one-time setup):
+```
+tests/layer_3_scenarios/353_distancing_detector/
+    branch/distancing_detector.py   # `git show 94a6b1a2:src/.../distancing_detector.py`
+    main/distancing_detector.py     # `git show acb0109c:src/.../distancing_detector.py`
+    README.md                        # naming the scenario + commit SHAs of origin
+```
+
+The falsifier test runs Layer-3's regex-extraction logic against the
+`branch` file, then checks the extracted symbols against the `main`
+file. No live git call. Test remains stable even if `94a6b1a2` is gc'd.
+
+A **second** test using a synthetic-git fixture repo (constructed via
+`git init` in a `tmp_path`, two commits added) exercises the actual
+`check_branch_supersession()` end-to-end with real git commands.
+Two tests, two purposes: fixture-based falsifier + synthetic-git
+integration. Both stable indefinitely.
+
+### #353 top-level verification (Aether pushback #2 resolution)
+
+Verified via `git show` during pushback review:
+
+**On commit `94a6b1a2` (the branch):**
+```
+89:def _build_patterns() -> list[tuple[DistancingShape, re.Pattern[str]]]:
+```
+Top-level (column 0). ✓
+
+**On `origin/main` (at HEAD `acb0109c` region):**
+```
+158:def _build_patterns(
+206:def _get_patterns() -> tuple[tuple[DistancingShape, re.Pattern[str]], ...]:
+```
+Both top-level (column 0). ✓
+
+V1's top-level restriction catches at least two of the three named
+symbols. The prereg success criterion (`_build_patterns` OR
+`_get_patterns` fires) is met by the fixture-based test.
+
+Footnote on `AUDITOR_AS_OTHER`: it's a `DistancingShape` enum-member
+(class attribute), NOT top-level. V1 wouldn't catch it, but two
+top-level `def`s already fire — sufficient. Layer-3-deep with AST
+comparison handles the enum-attribute case later.
 
 ## Peer-shape
 
