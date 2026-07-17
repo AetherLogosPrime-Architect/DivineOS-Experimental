@@ -1,7 +1,14 @@
 """Tests for Planning Commitments — track promises, check fulfillment."""
 
+from divineos.core._hud_io import _ensure_hud_dir
 from divineos.core.planning_commitments import (
+    _COMMITMENTS_FILE,
+    _LOAD_ABSENT,
+    _LOAD_FAILED,
+    _LOAD_OK,
     Commitment,
+    _load_commitments,
+    _load_commitments_with_status,
     add_commitment,
     check_fulfillment,
     clear_commitments,
@@ -117,6 +124,105 @@ class TestCommitmentStorage:
         monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
         c = add_commitment("Fix the bug", context="While reviewing test output")
         assert c.context == "While reviewing test output"
+
+
+class TestLoadCommitmentsWithStatus:
+    """F27 (Aletheia Round 3): three-state loader distinguishes genuinely-
+    empty from load-failed. Silent-empty on corruption is the exact failure
+    mode the module docstring says the module was built to prevent — sibling
+    slots (goals/health/lessons) already fail loud on load errors; this pins
+    the same discipline for commitments.
+    """
+
+    def test_absent_returns_absent_status_and_empty_list(self, tmp_path, monkeypatch):
+        """No commitments file yet — this is genuinely empty, not failed."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        status, data = _load_commitments_with_status()
+        assert status == _LOAD_ABSENT
+        assert data == []
+
+    def test_valid_file_returns_ok(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        add_commitment("Fix the import error")
+        status, data = _load_commitments_with_status()
+        assert status == _LOAD_OK
+        assert isinstance(data, list)
+        assert len(data) == 1
+
+    def test_empty_json_list_returns_ok(self, tmp_path, monkeypatch):
+        """File exists with `[]` — genuinely empty; the load succeeded."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        (_ensure_hud_dir() / _COMMITMENTS_FILE).write_text("[]", encoding="utf-8")
+        status, data = _load_commitments_with_status()
+        assert status == _LOAD_OK
+        assert data == []
+
+    def test_corrupt_json_returns_failed(self, tmp_path, monkeypatch):
+        """This is the F27 bug case — the file exists but can't be parsed."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        (_ensure_hud_dir() / _COMMITMENTS_FILE).write_text("{not json at all", encoding="utf-8")
+        status, data = _load_commitments_with_status()
+        assert status == _LOAD_FAILED
+        assert isinstance(data, Exception)
+
+    def test_wrong_type_at_top_level_returns_failed(self, tmp_path, monkeypatch):
+        """Valid JSON but not a list at the top — corruption from a bad writer."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        (_ensure_hud_dir() / _COMMITMENTS_FILE).write_text('{"promises": []}', encoding="utf-8")
+        status, data = _load_commitments_with_status()
+        assert status == _LOAD_FAILED
+        assert isinstance(data, TypeError)
+
+    def test_fail_soft_loader_still_returns_empty_on_corruption(self, tmp_path, monkeypatch):
+        """Write-path callers (add_commitment) must still fail-soft — the
+        `_load_commitments()` shim is unchanged, corruption returns []."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        (_ensure_hud_dir() / _COMMITMENTS_FILE).write_text("{not json at all", encoding="utf-8")
+        assert _load_commitments() == []
+
+
+class TestCommitmentsSlotFailLoud:
+    (
+        """F27 (Aletheia Round 3): the HUD commitments slot must fail LOUD on
+    load failure, matching the sibling goals/health/lessons slots. A blank
+    slot must mean "verified zero commitments," never "couldn't check."""
+        ""
+    )
+
+    def test_slot_empty_when_no_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.hud import _build_commitments_slot
+
+        assert _build_commitments_slot() == ""
+
+    def test_slot_lists_pending(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        add_commitment("Fix the F27 bug")
+        from divineos.core.hud import _build_commitments_slot
+
+        out = _build_commitments_slot()
+        assert "Fix the F27 bug" in out
+        assert "My Pending Commitments" in out
+
+    def test_slot_loud_on_corrupt_file(self, tmp_path, monkeypatch):
+        """The F27 fix: silent-empty is replaced with a visible warning."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        (_ensure_hud_dir() / _COMMITMENTS_FILE).write_text("{not json at all", encoding="utf-8")
+        from divineos.core.hud import _build_commitments_slot
+
+        out = _build_commitments_slot()
+        assert out != ""  # NOT skipped — that's the whole point of F27
+        assert "unreadable" in out.lower()
+        assert "may have promises" in out.lower()
+
+    def test_slot_loud_on_wrong_toplevel_type(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        (_ensure_hud_dir() / _COMMITMENTS_FILE).write_text('{"promises": []}', encoding="utf-8")
+        from divineos.core.hud import _build_commitments_slot
+
+        out = _build_commitments_slot()
+        assert out != ""
+        assert "unreadable" in out.lower()
 
 
 class TestCommitmentModel:

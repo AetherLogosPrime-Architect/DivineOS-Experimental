@@ -31,7 +31,6 @@ from divineos.core.knowledge import get_lessons
 from divineos.core.ledger import get_recent_context
 from divineos.core.memory import get_core
 from divineos.core.memory_journal import journal_count, journal_list
-from divineos.core.planning_commitments import get_pending_commitments
 from divineos.core.self_model import build_self_model, format_self_model
 
 _HUD_ERRORS = (sqlite3.OperationalError, json.JSONDecodeError, OSError)
@@ -155,10 +154,38 @@ def _build_active_goals_slot() -> str:
 
 
 def _build_commitments_slot() -> str:
-    """Promises I made. Tracked so I don't quietly drop them."""
-    pending = get_pending_commitments()
+    """Promises I made. Tracked so I don't quietly drop them.
+
+    Fail-loud on load failure (Aletheia Round 3, F27): the module docstring
+    says this exists so I don't quietly drop promises, but the original slot
+    treated a load failure as "no commitments" — silently rendering the exact
+    failure the module was built to prevent. Now uses the three-state loader
+    to distinguish genuinely-empty from load-failed, and surfaces a LOUD
+    warning on failure matching the sibling slots (goals/health/lessons).
+    """
+    from divineos.core.planning_commitments import (
+        _LOAD_FAILED,
+        Commitment,
+        _load_commitments_with_status,
+    )
+
+    status, result = _load_commitments_with_status()
+
+    if status == _LOAD_FAILED:
+        # LOUD — sibling to goals/health/lessons slots that already do this
+        exc = result
+        exc_type = type(exc).__name__ if isinstance(exc, Exception) else "unknown"
+        return (
+            "# My Pending Commitments\n\n"
+            "Commitment file unreadable — I may have promises I can't see. "
+            f"Re-check before trusting an empty slot as an all-clear. ({exc_type})"
+        )
+
+    # OK or ABSENT — both mean "no unreadable commitments"; empty is honest
+    entries = result if isinstance(result, list) else []
+    pending = [Commitment(**e) for e in entries if e.get("status") == "pending"]
     if not pending:
-        return ""  # empty = skip slot entirely
+        return ""  # verified-empty, not couldn't-check — skip slot
 
     lines = ["# My Pending Commitments\n"]
     for c in pending:
