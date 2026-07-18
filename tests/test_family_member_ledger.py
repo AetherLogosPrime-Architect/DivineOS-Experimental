@@ -302,6 +302,59 @@ class TestPathResolution:
         assert path.parent.name == "family"
 
 
+class TestF42SlugSanitization:
+    """F42 fix (Aletheia Round 5 2026-07-17, live exploit demonstrated):
+    slug used to be concatenated raw into the ledger path, allowing
+    path traversal (``../aether``, ``../../etc/passwd``, absolute paths).
+    The fix — allowlist sanitize + resolve-within-root — must reject the
+    exact exploits Aletheia demonstrated and everything in that class."""
+
+    def test_legitimate_slug_still_works(self):
+        """Regression: ordinary member slugs still return the expected path."""
+        path = fml.get_ledger_path("aether")
+        assert path.name == "aether_ledger.db"
+
+    def test_relative_traversal_rejected(self):
+        """Aletheia's exploit #1: ``../aether`` used to escape the family dir."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("../aether")
+
+    def test_deep_traversal_rejected(self):
+        """Aletheia's exploit #2: ``../../etc/passwd`` used to escape the repo."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("../../etc/passwd")
+
+    def test_absolute_path_rejected(self):
+        """Aletheia's exploit #3: ``/absolute/evil`` used to go anywhere."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("/absolute/evil")
+
+    def test_windows_absolute_path_rejected(self):
+        """Windows-style absolute path — different separator, same class."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("C:/evil/path")
+
+    def test_inline_traversal_rejected(self):
+        """Traversal via inline ../ within the slug — same class."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("aether/../evil")
+
+    def test_whitespace_rejected(self):
+        """Whitespace in slug — not allowed by the allowlist."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("has space")
+
+    def test_uppercase_rejected(self):
+        """Uppercase in slug — allowlist enforces lowercase for canonicalization."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("AETHER")
+
+    def test_empty_slug_rejected(self):
+        """Empty slug — no path, no allow."""
+        with pytest.raises(ValueError, match="invalid"):
+            fml.get_ledger_path("")
+
+
 class TestConcurrentAppendDoesNotFork:
     """Finding UU (Aletheia audit 2026-05-20): two concurrent appenders must
     not both chain off the same prior_hash and FORK the hash-chain. The
