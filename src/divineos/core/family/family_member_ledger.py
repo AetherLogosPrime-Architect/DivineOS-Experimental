@@ -84,6 +84,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import time
 import uuid
@@ -112,9 +113,48 @@ def _get_ledger_root() -> Path:
     return Path(__file__).parent.parent.parent.parent.parent / "family"
 
 
+_SLUG_ALLOWED_RE = re.compile(r"^[a-z0-9_-]+$")
+
+
 def get_ledger_path(member_slug: str) -> Path:
-    """Return the ledger DB path for a given member slug."""
-    return _get_ledger_root() / f"{member_slug}_ledger.db"
+    """Return the ledger DB path for a given member slug.
+
+    F42 fix (Aletheia Round 5 2026-07-17, live exploit demonstrated):
+    the slug used to be concatenated raw into the path, so a slug like
+    ``../aether`` or ``../../etc/passwd`` escaped the family root. The
+    family layer's whole premise is per-member isolation; that premise
+    is only as strong as this path construction. Three defenses now,
+    per the finding's fix direction (allowlist + sanitize + resolve-
+    within-root):
+
+    1. Sanitize — reject anything not matching ``[a-z0-9_-]+`` before
+       building any path. No dots, no slashes, no separators.
+    2. Resolve-and-verify — after constructing the path, ``.resolve()``
+       both the ledger path and the root, and assert the ledger path is
+       inside the root. Belt-and-suspenders catch even if sanitize has
+       a gap. Same shape as the F31 cd-carve-out fix.
+
+    Raises ValueError on any slug that fails validation or that would
+    escape the root after resolution. Fail-loud: an invalid slug never
+    silently touches the filesystem.
+    """
+    if not member_slug or not _SLUG_ALLOWED_RE.match(member_slug):
+        raise ValueError(
+            f"family member slug {member_slug!r} is invalid — must match "
+            f"[a-z0-9_-]+. Path traversal shapes (../, /, whitespace, "
+            f"non-lowercase) are rejected. See F42 (Aletheia Round 5)."
+        )
+    root = _get_ledger_root().resolve()
+    candidate = (root / f"{member_slug}_ledger.db").resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            f"family member slug {member_slug!r} resolved to {candidate!r}, "
+            f"which is outside the family ledger root {root!r}. Path-"
+            f"traversal attempt rejected."
+        ) from exc
+    return candidate
 
 
 # -----------------------------------------------------------------------------
