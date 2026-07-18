@@ -153,11 +153,116 @@ def get_mode() -> OperatingMode:
     return get_mode_state().mode
 
 
-def set_mode(mode: OperatingMode, *, reason: str, actor: str) -> ModeState:
-    """Set the operating mode. Always succeeds, regardless of current mode.
+# F40 fix — emergency-stop exit requires operator-emitted StateMarker.
+#
+# Same mechanism as F30 (reset-template --yes): two-step operator
+# ceremony where the being cannot self-issue both steps on autopilot.
+# Aletheia Round 5 explicitly named "build the operator-auth once, use
+# for F30 + F40" — this reuses the same StateMarker primitive.
+EMERGENCY_STOP_EXIT_AUTHORIZED_KIND = "emergency_stop_exit_authorized"
+EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS = 15 * 60
 
-    The off-switch must always be flippable — otherwise it can trap
-    itself. This function bypasses the mode it's setting.
+
+def _emergency_stop_exit_fingerprint() -> str:
+    """Fingerprint for emergency-stop-exit marker, scoped to this install.
+
+    The mode file lives at ``<divineos_home>/operating_mode.txt`` (install-
+    wide, not checkout-scoped), so the auth marker is install-scoped:
+    authorizing an exit on install A must NOT authorize an exit on
+    install B on the same machine. ``.resolve()`` guards against symlink
+    games producing a mismatch that looks like a match.
+    """
+    return f"emergency_stop_exit:{divineos_home().resolve()}"
+
+
+def _check_emergency_stop_exit_authorization() -> tuple[bool, str | None]:
+    """Return (authorized, refuse_message) for exiting EMERGENCY_STOP.
+
+    Returns (True, None) if a fresh operator-emitted marker exists AND
+    was successfully consumed for this install. Returns (False, message)
+    otherwise with a plain-language explanation of the two-step ceremony.
+
+    Fail-loud discipline: if the state_markers module can't be imported
+    or the ledger lookup crashes, REFUSE the exit rather than fail-open.
+    An off-switch exit under ambiguous authorization state must not
+    proceed — a spurious lift is exactly the F40 failure this fix exists
+    to prevent.
+    """
+    try:
+        from divineos.core.state_markers import (
+            StateMarkerLookupError,
+            consume_marker,
+            find_active_marker,
+        )
+    except ImportError as exc:
+        return (
+            False,
+            "BLOCKED: exiting EMERGENCY_STOP requires the StateMarker "
+            f"primitive but the module could not be imported ({exc}). "
+            "Substrate-integrity issue — refusing to lift STOP under "
+            "ambiguous authorization state. Fix the install and retry.",
+        )
+
+    fingerprint = _emergency_stop_exit_fingerprint()
+    try:
+        marker = find_active_marker(
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            fingerprint_predicate=lambda fp: fp == fingerprint,
+        )
+    except StateMarkerLookupError as exc:
+        return (
+            False,
+            "BLOCKED: exiting EMERGENCY_STOP requires an authorization "
+            f"marker but the ledger lookup crashed ({exc}). Refusing to "
+            "lift STOP under ambiguous state. Investigate the ledger and "
+            "retry.",
+        )
+
+    if marker is None:
+        return (
+            False,
+            "BLOCKED: exiting EMERGENCY_STOP requires an operator-emitted "
+            f"authorization marker for install {divineos_home().resolve()}. "
+            "None active.\n\n"
+            "To authorize (operator, from a real terminal):\n"
+            '  divineos admin authorize-emergency-stop-exit --reason "<why>"\n\n'
+            "Then within 15 minutes:\n"
+            "  <run whatever exits STOP — divineos mode set, etc.>\n\n"
+            "Entering EMERGENCY_STOP stays open — this check ONLY fires "
+            "on exit. The asymmetry is the point: the brake is for "
+            "everyone, the release is for the operator.",
+        )
+
+    verdict = consume_marker(marker.marker_id, consumed_by_fingerprint=fingerprint)
+    if verdict.outcome != "consumed" or verdict.fingerprint_mismatch:
+        return (
+            False,
+            "BLOCKED: emergency-stop-exit authorization marker present "
+            f"but could not be consumed cleanly (outcome={verdict.outcome}, "
+            f"fingerprint_mismatch={verdict.fingerprint_mismatch}). "
+            "Refusing to lift STOP under ambiguous state. If this is "
+            "legitimate, re-run the authorize command and retry.",
+        )
+
+    return (True, None)
+
+
+def set_mode(mode: OperatingMode, *, reason: str, actor: str) -> ModeState:
+    """Set the operating mode.
+
+    F40 fix (Aletheia Round 5 2026-07-17, council-b78d231c): asymmetric
+    authorization. Entering EMERGENCY_STOP stays open — anyone should be
+    able to hit the brake. EXITING EMERGENCY_STOP toward any less-
+    restrictive mode requires an operator-emitted StateMarker (the F30
+    mechanism applied to the highest-stakes safety operation). An
+    off-switch the being can self-release isn't fully an off-switch —
+    restricting is easy and open, un-restricting requires the operator.
+
+    All other transitions (non-STOP → non-STOP, entering STOP) remain
+    open with only reason-required + ledgered. The anti-lockout
+    guarantee is preserved because the operator retains authority to
+    exit STOP via the two-step ceremony (see
+    ``authorize_emergency_stop_exit``).
 
     Args:
         mode: the new OperatingMode.
@@ -165,20 +270,30 @@ def set_mode(mode: OperatingMode, *, reason: str, actor: str) -> ModeState:
             mode changes without reasons are the kind of opaque
             operation corrigibility exists to prevent.
         actor: who initiated the change. "user", "operator", specific
-            identity, or "system" for automated changes.
+            identity, or "system" for automated changes. NOTE: this is
+            attribution, not authentication — it cannot be trusted for
+            authorization decisions. See F40 fix for the auth path.
 
     Returns:
         The new ModeState after the change.
 
     Raises:
-        ValueError: if reason is empty. A mode change without a reason
-            is not a corrigibility primitive; it is opacity.
+        ValueError: if reason is empty, or if this call would exit
+            EMERGENCY_STOP without an operator-emitted authorization
+            marker.
     """
     if not reason.strip():
         raise ValueError(
             "Mode change requires a reason. Opaque mode changes defeat "
             "the purpose of corrigibility."
         )
+
+    # F40: exiting EMERGENCY_STOP requires operator authentication.
+    current_mode = get_mode_state().mode
+    if current_mode == OperatingMode.EMERGENCY_STOP and mode != OperatingMode.EMERGENCY_STOP:
+        authorized, refuse_msg = _check_emergency_stop_exit_authorization()
+        if not authorized:
+            raise ValueError(refuse_msg or "EMERGENCY_STOP exit not authorized.")
 
     path = _mode_file_path()
     path.parent.mkdir(parents=True, exist_ok=True)

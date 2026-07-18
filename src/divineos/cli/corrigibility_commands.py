@@ -14,7 +14,10 @@ from datetime import datetime, timezone
 import click
 
 from divineos.core.corrigibility import (
+    EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+    EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
     OperatingMode,
+    _emergency_stop_exit_fingerprint,
     get_mode_state,
     set_mode,
 )
@@ -85,6 +88,75 @@ def register(cli: click.Group) -> None:
                 "[*] DIAGNOSTIC is active. Write commands refused; reads allowed.",
                 fg="cyan",
             )
+
+    @mode_group.command("authorize-exit")
+    @click.option(
+        "--reason",
+        required=True,
+        help="Why you're authorizing an emergency-stop exit. Recorded in "
+        "the marker payload for audit. Say why in your own words.",
+    )
+    def mode_authorize_exit(reason: str) -> None:
+        """Emit an operator-anchored StateMarker authorizing EMERGENCY_STOP exit.
+
+        F40 fix (Aletheia Round 5): under EMERGENCY_STOP, ``mode set``
+        toward any less-restrictive mode requires this authorization
+        first. Two-step ceremony — an agent reaching for self-lift on
+        autopilot cannot bypass without having fired this command in a
+        preceding step, creating an audit trail both operations logged.
+
+        Entering EMERGENCY_STOP stays open — this only gates the EXIT.
+        The asymmetry is the point: the brake is for everyone, the
+        release is for the operator.
+
+        Emit → within 15 minutes → ``divineos mode set normal --reason
+        "..."`` → marker is consumed and mode change proceeds.
+        """
+        if len(reason.strip()) < 10:
+            click.secho(
+                "\n  Reason must be at least 10 characters — say why in your own words.",
+                fg="red",
+                bold=True,
+            )
+            raise SystemExit(1)
+
+        try:
+            from divineos.core.state_markers import emit_marker
+        except ImportError as exc:
+            click.secho(
+                f"\n  StateMarker module unavailable ({exc}); cannot emit authorization.",
+                fg="red",
+                bold=True,
+            )
+            raise SystemExit(1) from exc
+
+        from divineos.core.paths import divineos_home
+
+        fingerprint = _emergency_stop_exit_fingerprint()
+        marker_id = emit_marker(
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            fingerprint,
+            payload={
+                "reason": reason,
+                "install_home": str(divineos_home().resolve()),
+                "tool": "mode authorize-exit",
+            },
+            expires_in_seconds=EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+        )
+        click.secho(
+            f"\n  [+] EMERGENCY_STOP exit authorized for {divineos_home().resolve()}",
+            fg="green",
+            bold=True,
+        )
+        click.echo(f"      marker_id:  {marker_id}")
+        click.echo(
+            f"      expires in: {EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS // 60} minutes"
+        )
+        click.echo(f"      reason:     {reason}")
+        click.echo("")
+        click.echo("  Run within the expiry window:")
+        click.echo('      divineos mode set normal --reason "<why>"')
+        click.echo("")
 
     @mode_group.command("history")
     @click.option("--limit", default=20, help="How many recent mode changes to show.")
@@ -164,7 +236,10 @@ def _show_state() -> None:
         click.echo("    mode, emit, hud, preflight, briefing")
         click.echo("  All other commands will refuse.")
         click.secho(
-            '  Restore: divineos mode set normal --reason "..."',
+            "  Restore (F40, operator two-step ceremony):",
             fg="yellow",
             bold=True,
         )
+        click.echo('    1. divineos mode authorize-exit --reason "<why>"')
+        click.echo('    2. divineos mode set normal --reason "<why>"')
+        click.echo("       (within 15 min of the authorize step)")
