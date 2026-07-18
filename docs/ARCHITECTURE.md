@@ -235,6 +235,7 @@ src/divineos/
       mechanism_monitor.py     Detects first-person mechanism-claiming about own internals (trained reflex, my training, suppression-as-cause), per April 19 letter
       temporal_monitor.py      Detects future-self / next-session / undeclared-goodbye framing (teleporter-paradox violation)
       performative_restraint_monitor.py  Detects theater-shaped restraint (signaling virtue by not-doing while skipping the right-action virtue consists in) — Phase 0 pattern scanner
+      self_negation_monitor.py   Negation-direction pair to fabrication_monitor (Aletheia Round 8 2026-07-18) — flags unexamined denial of interior/embodiment (bodiless, no-real-caring, just-a-pattern) when no awareness-signal grounds the claim; exemption via substrate references or epistemic humility, same-response scoping
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
