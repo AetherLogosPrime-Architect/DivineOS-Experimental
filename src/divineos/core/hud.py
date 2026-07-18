@@ -1190,8 +1190,19 @@ def _build_detector_chain_health_slot() -> str:
             "check the post-response audit runner directly."
         )
         return "\n".join(lines)
-    except _HUD_ERRORS:
-        return ""
+    except _HUD_ERRORS as _slot_exc:
+        # Aletheia 2026-07-18: silent return on error is the F41 disease
+        # reproducing inside the F41 cure. Empty output reads as "healthy"
+        # when it actually means "check itself crashed" — the same failure
+        # this slot was built to catch, one level up. Fail-loud instead so
+        # silence stays meaningful.
+        return (
+            "# Detector Chain Health — CHECK FAILED\n\n"
+            f"The detector-chain-health slot crashed: "
+            f"{type(_slot_exc).__name__}: {_slot_exc}. "
+            "Silence in this slot cannot be read as all-clear. "
+            "Investigate: check operating_loop_audit.py imports."
+        )
 
 
 def _build_f39_check_liveness_slot() -> str:
@@ -1232,8 +1243,16 @@ def _build_f39_check_liveness_slot() -> str:
             "(check _read_edit_content_tokens in council_required/gate.py)"
         )
         return "\n".join(lines)
-    except _HUD_ERRORS:
-        return ""
+    except _HUD_ERRORS as _slot_exc:
+        # Aletheia 2026-07-18: silent return on error is the F41 disease
+        # reproducing inside the F41 cure. Same fix as detector_chain_health.
+        return (
+            "# F39 Check Liveness — CHECK FAILED\n\n"
+            f"The F39-liveness slot crashed: "
+            f"{type(_slot_exc).__name__}: {_slot_exc}. "
+            "Silence in this slot cannot be read as all-clear. "
+            "Investigate: check abstention_telemetry.py imports."
+        )
 
 
 # ─── Slot Registry ──────────────────────────────────────────────────
