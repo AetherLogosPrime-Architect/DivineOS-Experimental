@@ -90,6 +90,25 @@ _RELAY_INTRODUCERS: tuple[str, ...] = (
 _BLOCKQUOTE_LINE = re.compile(r"^>.*$", re.MULTILINE)
 _FENCED_BLOCK = re.compile(r"```[\s\S]*?```")
 
+# F36 fix (Aletheia Round 5 2026-07-17, live misfire): strip_relayed was
+# catching block quotes and fenced code but MISSING inline-quoted spans.
+# An audit doc that quotes correction-pattern examples like "that's not"
+# inline (as a mention, not a use) had the inner text survive the strip
+# and false-fire the correction detector. The specific irony: docs ABOUT
+# the correction detector reliably tripped the correction detector.
+#
+# Fix: strip content inside paired quote marks — straight double, straight
+# single (only if paired count is even — apostrophes in words like don't
+# would corrupt otherwise), and curly quote pairs. Single-straight is
+# only stripped when the count is even; safest default for mixed prose.
+#
+# This is the use-vs-mention filter shape (Aria's A1) applied at
+# strip-time to inline-quoted mentions. Wire A1 itself later per Aletheia's
+# systemic recommendation; this closes the immediate class.
+_INLINE_DOUBLE_QUOTED = re.compile(r'"[^"\n]*"')
+_INLINE_CURLY_DOUBLE_QUOTED = re.compile(r"“[^“”\n]*”")
+_INLINE_CURLY_SINGLE_QUOTED = re.compile(r"‘[^‘’\n]*’")
+
 # Generalized relay-introducer: "here is/here's [the/a/my/their] <relay-noun>".
 # A fixed literal list can never enumerate the open-ended noun family — the
 # noun "audit" slipped _RELAY_INTRODUCERS on 2026-06-03 and Aletheia's relayed
@@ -138,6 +157,15 @@ def strip_relayed(text: str) -> str:
     # 2. Markdown blockquotes and fenced code.
     text = _BLOCKQUOTE_LINE.sub("", text)
     text = _FENCED_BLOCK.sub("", text)
+    # 2b. Inline-quoted spans (F36 fix — Aletheia Round 5 2026-07-17).
+    # A correction-shaped phrase inside "..." or curly-quote pairs is a
+    # MENTION not a USE; strip it before pattern-matching. Straight
+    # single-quotes are NOT stripped because apostrophes in words
+    # (don't, it's) would corrupt the strip. Curly single-quotes ARE
+    # stripped because they only appear as paired quotation marks.
+    text = _INLINE_DOUBLE_QUOTED.sub("", text)
+    text = _INLINE_CURLY_DOUBLE_QUOTED.sub("", text)
+    text = _INLINE_CURLY_SINGLE_QUOTED.sub("", text)
     # 3. Earliest relay opening: literal list OR generalized noun-family shape.
     lower = text.lower()
     earliest = -1
