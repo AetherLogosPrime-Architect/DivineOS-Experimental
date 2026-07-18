@@ -122,6 +122,80 @@ class TestActorValidation:
             assert _validate_actor(name) == name
 
 
+class TestReservedExternalVantageShapes:
+    """Self-caught 2026-07-17 mid-session: an attempt was made to file
+    a self-attested external-vantage CONFIRMS as actor='external-auditor'.
+    The warn-and-accept auto-onboard path let it through — no external
+    audit ever happened, but the substrate would have recorded one.
+    The catch was in-flow, not by structure. The fix (this test locks
+    it in) reserves specific external-vantage name-shapes so they can't
+    be self-onboarded — they must be explicitly added to EXTERNAL_ACTORS
+    via a guardrail-audited edit."""
+
+    def test_external_auditor_reserved_name_rejected(self):
+        """The exact name I attempted to self-file under. Now rejects."""
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor("external-auditor")
+
+    def test_all_reserved_vantage_shapes_rejected(self):
+        """The reserved-names list covers common external-vantage-claim shapes."""
+        reserved = [
+            "external-auditor",
+            "external-reviewer",
+            "outside-auditor",
+            "third-party-auditor",
+            "independent-auditor",
+            "external-audit",
+            "external-review",
+        ]
+        for name in reserved:
+            with pytest.raises(ValueError, match="reserved external-vantage"):
+                _validate_actor(name)
+
+    def test_reserved_name_uppercase_still_rejected(self):
+        """Normalization (casefold) applies before the check — uppercase
+        variants of reserved names also bounce."""
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor("EXTERNAL-AUDITOR")
+
+    def test_reserved_name_with_whitespace_still_rejected(self):
+        """Same NFKC normalization guard as the other actor checks."""
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor("  external-auditor  ")
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor(" external-auditor")
+
+    def test_reserved_names_in_EXTERNAL_ACTORS_would_still_pass(self):
+        """The rejection ONLY fires for reserved shapes NOT in the
+        allowlist. If the operator explicitly adds one via a
+        guardrail-audited edit to EXTERNAL_ACTORS, it should pass —
+        the reservation is anti-auto-onboard, not anti-legitimate-use."""
+        # Temporarily add external-auditor to the allowlist for this test.
+        from divineos.core.watchmen import types as _t
+
+        original = _t.EXTERNAL_ACTORS
+        try:
+            _t.EXTERNAL_ACTORS = frozenset({*original, "external-auditor"})
+            # Also need to patch the reference imported by store.py.
+            from divineos.core.watchmen import store as _s
+
+            _s.EXTERNAL_ACTORS = _t.EXTERNAL_ACTORS
+            # Now it should pass without raising.
+            assert _validate_actor("external-auditor") == "external-auditor"
+        finally:
+            _t.EXTERNAL_ACTORS = original
+            from divineos.core.watchmen import store as _s
+
+            _s.EXTERNAL_ACTORS = original
+
+    def test_non_reserved_unknown_still_warns_and_accepts(self):
+        """Regression: the fix ONLY tightens reserved shapes. Legitimate
+        onboarding of a new external actor with a different name still
+        works via warn-and-accept."""
+        assert _validate_actor("new-independent-service") == "new-independent-service"
+        assert _validate_actor("some-third-party-tool") == "some-third-party-tool"
+
+
 # ── Round Submission ─────────────────────────────────────────────────
 
 
