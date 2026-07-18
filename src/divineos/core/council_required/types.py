@@ -37,6 +37,15 @@ RETRY_WINDOW_SECONDS: int = 300
 COUNCIL_MIN_LENSES: int = 3
 COUNCIL_MIN_FINDING_TOKENS: int = 30
 COUNCIL_MIN_SYNTHESIS_TOKENS: int = 50
+# Aletheia Round 5 F39 (2026-07-17): the union of a walk's finding-tokens
+# must share at least this many content-tokens with the edited file's own
+# content. Closes the "lens-differentiated but edit-agnostic boilerplate"
+# gap — a walk that sounds like Taleb/Schneier/Norman but never mentions
+# anything in the actual edit was generic-to-lens, not specific-to-edit.
+# Conservative: real findings ABSTRACT the edit's concerns, so require
+# modest overlap (2 tokens), not heavy. Fail-open when edit content is
+# unreadable (bash-anchored fingerprints, missing paths, permission errors).
+COUNCIL_MIN_EDIT_TOKEN_OVERLAP: int = 2
 EMERGENCY_SKIP_RATE_WINDOW_DAYS: int = 7
 EMERGENCY_SKIP_RATE_THRESHOLD: float = 0.05
 CALIBRATION_WALKS: int = 20
@@ -220,6 +229,10 @@ CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
 # what the finding-token / keyword / synthesis checks cannot, because
 # those all operate on the surface form of the text.
 CHECK_LENS_LOAD_TRACE = "lens_load_trace"
+# Aletheia Round 5 F39 (2026-07-17) — union of finding tokens must share
+# minimum overlap with the edit's own content tokens. Catches lens-
+# differentiated but edit-agnostic boilerplate.
+CHECK_EDIT_TOKEN_OVERLAP = "edit_token_overlap"
 CHECK_NOT_CONSUMED = "not_consumed"
 
 CHECK_NAMES: frozenset[str] = frozenset(
@@ -234,6 +247,7 @@ CHECK_NAMES: frozenset[str] = frozenset(
         CHECK_KILN_CONFIRMED_BY,
         CHECK_NOT_CONSUMED,
         CHECK_LENS_LOAD_TRACE,
+        CHECK_EDIT_TOKEN_OVERLAP,
     }
 )
 

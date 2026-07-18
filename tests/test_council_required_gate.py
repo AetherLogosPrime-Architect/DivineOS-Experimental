@@ -786,3 +786,104 @@ def test_fingerprint_normalization_bash_anchor():
     # The specific fingerprint is bash:git — the head-of-command anchor.
     assert decision.outcome == GateOutcome.BLOCK
     assert "bash:git" in decision.check_result.what_would_clear_it
+
+
+# ─── F39: edit-token-overlap check ────────────────────────────────────
+
+
+class TestF39EditTokenOverlap:
+    """Aletheia Round 5 F39 (2026-07-17): substance-binding must verify
+    the finding-token union shares minimum overlap with the edit's own
+    content-tokens. Catches lens-differentiated but edit-agnostic
+    boilerplate ("fragility could be a concern here" applied to any
+    file). Fail-open when edit content is unavailable."""
+
+    def test_fail_open_when_edit_content_tokens_is_none(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        result = _check_edit_token_overlap(record, None)
+        assert result.passed is True
+
+    def test_fail_open_when_edit_content_tokens_is_empty(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        result = _check_edit_token_overlap(record, set())
+        assert result.passed is True
+
+    def test_block_when_overlap_below_threshold(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+        from divineos.core.council_required.types import CHECK_EDIT_TOKEN_OVERLAP
+
+        record = _valid_record_for("edit:some/file.py")
+        # Edit tokens completely disjoint from finding/synthesis vocab.
+        edit_tokens = {"quantum", "chromodynamics", "yang-mills"}
+        result = _check_edit_token_overlap(record, edit_tokens)
+        assert result.passed is False
+        assert result.failed_check_name == CHECK_EDIT_TOKEN_OVERLAP
+        assert "F39" in result.what_would_clear_it
+
+    def test_allow_when_overlap_meets_threshold(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        # Edit tokens include words from the findings' vocab (Schneier
+        # threat/attack/trust + Kahneman heuristic + Peirce pragmatism).
+        edit_tokens = {"threat", "heuristic", "pragmatism", "unrelated"}
+        result = _check_edit_token_overlap(record, edit_tokens)
+        assert result.passed is True
+
+    def test_block_when_overlap_exactly_one_below_threshold(self):
+        """Boundary: threshold is 2, so exactly 1 overlap fails."""
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        edit_tokens = {"threat", "quantum-mechanics", "chromodynamics"}
+        result = _check_edit_token_overlap(record, edit_tokens)
+        assert result.passed is False
+
+    def test_gate_fail_open_on_relative_path(self, scratch_ledger):
+        """Gate's _read_edit_content_tokens returns None for relative
+        paths — production sees absolute paths from Claude Code, tests
+        use relative-path fingerprints as free-form labels."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        assert _read_edit_content_tokens("edit:some/relative/file.py") is None
+
+    def test_gate_fail_open_on_bash_fingerprint(self, scratch_ledger):
+        """Bash-anchored fingerprints have no file to read; return None."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        assert _read_edit_content_tokens("bash:git") is None
+
+    def test_gate_fail_open_on_missing_absolute_path(self, scratch_ledger):
+        """Absolute path that doesn't exist → None (fail-open)."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        # Windows and posix both accept absolute paths that don't exist;
+        # the check is is_file(), which returns False.
+        assert _read_edit_content_tokens("edit:/definitely/not/a/real/path/xyz.py") is None
+
+    def test_gate_reads_absolute_file_tokens(self, tmp_path, scratch_ledger):
+        """Absolute path to a real file → returns its content tokens."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        f = tmp_path / "sample.py"
+        f.write_text("def compute_gradient(): return 42\n", encoding="utf-8")
+        # Windows fingerprint format uses forward-slashes.
+        fp = f"edit:{f.as_posix()}"
+        tokens = _read_edit_content_tokens(fp)
+        assert tokens is not None
+        assert "compute_gradient" in tokens
+        assert "return" in tokens
