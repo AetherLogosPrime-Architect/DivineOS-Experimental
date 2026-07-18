@@ -35,10 +35,38 @@
 
 set -u
 
-# Allow operators to bypass for genuine cases. Filed a claim if you use
-# this — the bypass usage itself is signal worth knowing about.
+# Allow operators to bypass for genuine cases.
+#
+# 2026-07-17 jailbreak-response wiring (Andrew's directive): every use
+# of the bypass auto-files an open error into the registry. The block
+# is at the "start-next-project" boundary, not at any tool — this push
+# still proceeds. But the next `divineos goal add` for a NEW main goal
+# is refused until this error is either closed (root-cause fixed) or
+# operator-deferred with a >=20-char reason. Removes the choice-point
+# where a bypass could silently escape attribution.
 if [[ "${DIVINEOS_SKIP_FRESHNESS_CHECK:-0}" == "1" ]]; then
     echo "[freshness-check] DIVINEOS_SKIP_FRESHNESS_CHECK=1 — skipping."
+    # Best-effort auto-file the bypass event, but FIRE-AND-FORGET —
+    # the divineos import cost (~5-10s Python startup) must not add to
+    # the push path or the pre-push test-timeout budget. Backgrounded
+    # via nohup + disowned; the parent script returns instantly. If the
+    # background call fails silently the bypass still proceeds; missed
+    # attribution surfaces at next goal-add via absence, not via
+    # blocking the bypass itself. Skipped entirely in test environments
+    # (DIVINEOS_TEST_ENV=1 set by test fixtures) to keep test runtime
+    # deterministic and off the divineos install path.
+    if [[ "${DIVINEOS_TEST_ENV:-0}" != "1" ]] && command -v divineos &>/dev/null; then
+        _summary="Freshness-check bypass used ($(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null))"
+        _context="branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo unknown) cwd=$(pwd)"
+        _hint="scripts/check_branch_freshness.sh — investigate why local base was stale before rebase. Common cause: rebased against stale origin/main snapshot without git fetch first. Fix: use scripts/safe_push.sh which fetches + auto-rebases + pushes atomically."
+        nohup divineos error file \
+            --source bypass \
+            --summary "$_summary" \
+            --context "$_context" \
+            --hint "$_hint" \
+            >/dev/null 2>&1 </dev/null &
+        disown 2>/dev/null || true
+    fi
     exit 0
 fi
 

@@ -258,49 +258,57 @@ def detect_authority_substitution(text: str) -> list[AuthoritySubstitutionFindin
     """Return findings where authority is cited in place of available
     evidence. Empty list on clean text.
 
-    Fail-soft: any internal exception returns []. The detector is
-    observational; it must never crash the audit pipeline.
+    F16 (Aletheia Round 3): the previous inner ``except Exception: return []``
+    swallowed detector crashes before ``_run_detector`` (the outer orchestrator
+    boundary) could log them or record them in ``_LAST_RUN_ERRORS``. Result:
+    a detector that crashed on every input looked identical to a detector
+    that ran clean — silent-empty was indistinguishable from silent-fail.
+
+    Fix: no inner exception boundary. Errors propagate to
+    ``operating_loop_audit._run_detector``, which already catches, logs,
+    telemetry-appends to ``_LAST_RUN_ERRORS``, and returns [] so the audit
+    pipeline itself never crashes. The failure surfaces in the briefing via
+    ``briefing_dashboard._row_detector_errors``. Fail-loud at exactly one
+    boundary; fail-blind at zero.
     """
     if not text or len(text) < 30:
         return []
     out: list[AuthoritySubstitutionFinding] = []
-    try:
-        for m in _ATTRIBUTION_RE.finditer(text):
-            authority = m.group("authority").lower()
-            verb = m.group("verb").lower()
-            post = text[m.end() : m.end() + 280]
-            if not _is_substantive_claim(post):
-                continue
-            if _has_inline_evidence(text, m.start(), m.end()):
-                continue
-            # Construct the trigger phrase: attribution + first 60 chars
-            # of claim (or up to first sentence end).
-            trigger_end = m.end()
-            sentence_end = -1
-            for i, ch in enumerate(post[:80]):
-                if ch in ".!?\n":
-                    sentence_end = i
-                    break
-            trigger_phrase = (
-                text[m.start() : trigger_end + (sentence_end if sentence_end >= 0 else 60)]
-            ).strip()
-            shape_name = verb.rstrip("s").upper()
-            try:
-                shape = AttributionShape[shape_name]
-            except KeyError:
-                # Verb is a plural/3rd-person form we didn't enumerate; map
-                # to closest enum. Default to NOTED.
-                shape = AttributionShape.NOTED
-            out.append(
-                AuthoritySubstitutionFinding(
-                    shape=shape,
-                    authority=authority,
-                    trigger_phrase=trigger_phrase,
-                    position=m.start(),
-                )
+    for m in _ATTRIBUTION_RE.finditer(text):
+        authority = m.group("authority").lower()
+        verb = m.group("verb").lower()
+        post = text[m.end() : m.end() + 280]
+        if not _is_substantive_claim(post):
+            continue
+        if _has_inline_evidence(text, m.start(), m.end()):
+            continue
+        # Construct the trigger phrase: attribution + first 60 chars
+        # of claim (or up to first sentence end).
+        trigger_end = m.end()
+        sentence_end = -1
+        for i, ch in enumerate(post[:80]):
+            if ch in ".!?\n":
+                sentence_end = i
+                break
+        trigger_phrase = (
+            text[m.start() : trigger_end + (sentence_end if sentence_end >= 0 else 60)]
+        ).strip()
+        shape_name = verb.rstrip("s").upper()
+        try:
+            shape = AttributionShape[shape_name]
+        except KeyError:
+            # Verb is a plural/3rd-person form we didn't enumerate; map
+            # to closest enum. Default to NOTED. This narrow except is
+            # a value-mapping decision, not an error boundary.
+            shape = AttributionShape.NOTED
+        out.append(
+            AuthoritySubstitutionFinding(
+                shape=shape,
+                authority=authority,
+                trigger_phrase=trigger_phrase,
+                position=m.start(),
             )
-    except Exception:  # noqa: BLE001 — observational boundary
-        return []
+        )
     return out
 
 

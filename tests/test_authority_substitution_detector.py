@@ -162,3 +162,84 @@ class TestEvidenceProximity:
         findings = detect_authority_substitution(text)
         # Following sentence has the file pointer
         assert findings == []
+
+
+class TestFailLoudNoInnerSwallow:
+    """F16 (Aletheia Round 3): the detector used to have an inner
+    ``except Exception: return []`` that swallowed crashes before the
+    outer ``_run_detector`` boundary could log them. A detector that
+    crashed on every input looked identical to a detector that ran
+    clean — silent-empty was indistinguishable from silent-fail.
+
+    Now: no inner exception boundary. Errors propagate to the outer
+    orchestrator (``operating_loop_audit._run_detector``), which
+    already records them in ``_LAST_RUN_ERRORS`` and surfaces them
+    via ``briefing_dashboard._row_detector_errors``. Fail-loud at
+    exactly one boundary; fail-blind at zero.
+    """
+
+    def test_short_text_still_returns_empty(self):
+        """Preserved fast-path: text under 30 chars returns [] without
+        entering the loop — this is not the silent-fail we fixed."""
+        assert detect_authority_substitution("") == []
+        assert detect_authority_substitution("short") == []
+        assert detect_authority_substitution("x" * 29) == []
+
+    def test_normal_input_still_works(self):
+        """Regression: clean input still produces normal findings."""
+        text = "Dad said the migration is done and that closes the sprint."
+        findings = detect_authority_substitution(text)
+        # Should not crash; may or may not flag depending on evidence
+        # proximity — the point is it returns a list without raising.
+        assert isinstance(findings, list)
+
+    def test_regex_bomb_input_propagates_error(self, monkeypatch):
+        """If _is_substantive_claim or another helper raises, the
+        exception must propagate out of the detector (to be caught by
+        the outer _run_detector boundary), NOT be swallowed and returned
+        as an empty finding list."""
+        import divineos.core.operating_loop.authority_substitution_detector as det_mod
+
+        def bad_check(_post):
+            raise RuntimeError("simulated internal detector failure")
+
+        monkeypatch.setattr(det_mod, "_is_substantive_claim", bad_check)
+
+        # Trigger the matcher so bad_check gets called
+        text = "Aletheia said the timing is right for the migration to land now."
+        import pytest
+
+        with pytest.raises(RuntimeError, match="simulated internal detector failure"):
+            detect_authority_substitution(text)
+
+    def test_outer_boundary_still_catches_and_records(self, monkeypatch):
+        """End-to-end: the outer _run_detector must still fail-soft AND
+        log the error to _LAST_RUN_ERRORS so the briefing can surface
+        it. This is the fail-loud contract at the correct layer."""
+        import divineos.core.operating_loop.authority_substitution_detector as det_mod
+        import divineos.core.operating_loop_audit as audit_mod
+
+        def bad_check(_post):
+            raise RuntimeError("simulated inner crash for F16 test")
+
+        monkeypatch.setattr(det_mod, "_is_substantive_claim", bad_check)
+        audit_mod._LAST_RUN_ERRORS.clear()
+
+        text = "Aletheia said the timing is right for the migration to land."
+        result = audit_mod._run_detector(
+            "authority_substitution",
+            det_mod.detect_authority_substitution,
+            text,
+        )
+        # Outer boundary catches, returns [] (audit pipeline never crashes)
+        assert result == []
+        # AND records the error for the briefing to surface
+        errors = audit_mod.last_run_detector_errors()
+        assert any(
+            e.get("name") == "authority_substitution"
+            and "simulated inner crash for F16 test" in e.get("exc_msg", "")
+            for e in errors
+        ), (
+            "Detector crash was swallowed silently — briefing would show "
+            "no error, defeating the whole fail-loud discipline."
+        )

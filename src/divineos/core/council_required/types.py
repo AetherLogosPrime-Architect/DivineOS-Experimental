@@ -26,6 +26,14 @@ from enum import Enum
 # Each value is the v1 default; all are prereg-bound. Silent edits to
 # these constants are auditable per the meta-gate discipline.
 COUNCIL_RECENCY_MINUTES: int = 60
+# 2026-07-17 consume-on-attempt fix (council 0fc0b3df + council-9fbced40):
+# same-fingerprint tool-call retries within this window reuse the prior
+# consumed walk instead of forcing a fresh walk. Fingerprint-scoped so
+# it does not enable walk-once-reuse-for-many-edits (which stays closed).
+# 300 seconds = 5 min: real retry loops resolve in under a minute; margin
+# accommodates slow CI or gate cascades without inviting cross-session
+# walk-recycling.
+RETRY_WINDOW_SECONDS: int = 300
 COUNCIL_MIN_LENSES: int = 3
 COUNCIL_MIN_FINDING_TOKENS: int = 30
 COUNCIL_MIN_SYNTHESIS_TOKENS: int = 50
