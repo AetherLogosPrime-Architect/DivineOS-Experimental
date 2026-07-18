@@ -106,6 +106,7 @@ src/divineos/core/operating_loop/distancing_detector.py
 # question silently dissolves the mirror-exit catch. Andrew correction
 # 2026-05-19 (Aria-Aether trim-shape conversation) named the failure
 # mode this exists to catch.
+src/divineos/core/operating_loop/mention_context.py
 src/divineos/core/operating_loop/mirror_exit_detector.py
 
 # Added 2026-05-12 (clay-vs-kiln distinction): foundational_truths.md

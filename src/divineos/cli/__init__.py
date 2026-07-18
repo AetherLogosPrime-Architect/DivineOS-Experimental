@@ -38,6 +38,13 @@ _BYPASS_COMMANDS = frozenset(
         "preflight",
         "emit",
         "hud",
+        # Goal-setting is bootstrap: adding a goal for the session must not
+        # require briefing first — that creates a recursive deadlock with the
+        # require-goal PreToolUse hook (goal gate needs a goal set, but the CLI
+        # refuses `goal add` without briefing, and the goal gate blocks briefing
+        # if the command is chained through pipes). Root cause fix 2026-07-17,
+        # mirrors the hook-layer bypass at scripts/hook_bypass_commands.txt:48.
+        "goal",
         "recall",
         "active",
         "ask",
@@ -390,6 +397,7 @@ andrew_correction_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
+cli.add_command(admin_reset_template.authorize_reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
 council_required_commands.register(cli)
