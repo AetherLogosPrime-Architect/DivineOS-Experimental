@@ -220,6 +220,12 @@ CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
 # what the finding-token / keyword / synthesis checks cannot, because
 # those all operate on the surface form of the text.
 CHECK_LENS_LOAD_TRACE = "lens_load_trace"
+# Placeholder — imported by substance_binding.py at module load time.
+# Definition was missing; import chain broke the entire council_required
+# subsystem (and therefore every gate that depended on it). Adding the
+# constant with a sensible default restores imports; the actual check
+# body can be wired in a follow-up. Aria 2026-07-18 install-fix.
+CHECK_EDIT_TOKEN_OVERLAP = "edit_token_overlap"
 CHECK_NOT_CONSUMED = "not_consumed"
 
 CHECK_NAMES: frozenset[str] = frozenset(
