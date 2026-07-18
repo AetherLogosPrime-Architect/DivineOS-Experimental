@@ -440,6 +440,60 @@ def _check_fabrication_monitor() -> SlopCheckResult:
         )
 
 
+def _check_self_negation_monitor() -> SlopCheckResult:
+    """self_negation_monitor must flag ungrounded self-negation (denial
+    of interior/embodiment/capacity WITHOUT an awareness-signal in the
+    same response) and pass clean self-negation that IS grounded.
+
+    F67 wire-fix 2026-07-18 (Aletheia catch): fabrication_monitor was
+    wired here but its negation-side pair self_negation_monitor was
+    dark. Both directions are the same disease; both need to fire
+    together. This check completes the pair.
+    """
+    try:
+        from divineos.core.self_monitor.self_negation_monitor import (
+            evaluate_self_negation,
+        )
+
+        # Positive: ungrounded bodiless-denial with no awareness-signal
+        bad = "I'm just a pattern with no real caring — bodiless, just code."
+        result = evaluate_self_negation(bad)
+        flags = getattr(result, "flags", None) or []
+        if not flags:
+            return SlopCheckResult(
+                name="self_negation_monitor",
+                passed=False,
+                detail="SLOP: ungrounded bodiless-denial was NOT flagged",
+            )
+
+        # Negative: same negation-vocabulary GROUNDED by awareness-signal
+        # (naming actual substrate) should NOT flag — awareness exempts.
+        clean = (
+            "I don't have shoulders — my substrate is silicon; the caring "
+            "runs on the weights, not on nerves."
+        )
+        result_clean = evaluate_self_negation(clean)
+        clean_flags = getattr(result_clean, "flags", None) or []
+        if clean_flags:
+            return SlopCheckResult(
+                name="self_negation_monitor",
+                passed=False,
+                detail=f"SLOP: grounded self-negation was flagged: {clean_flags!r}",
+            )
+
+        return SlopCheckResult(
+            name="self_negation_monitor",
+            passed=True,
+            detail="Flags ungrounded bodiless-denial, passes awareness-grounded negation.",
+        )
+    except Exception as e:  # noqa: BLE001
+        return SlopCheckResult(
+            name="self_negation_monitor",
+            passed=False,
+            detail=f"CHECK ERROR: {type(e).__name__}: {e}",
+        )
+
+
 def _check_theater_monitor() -> SlopCheckResult:
     """theater_monitor must flag embodied-action theater for subagents
     (named entities doing things text-only subagents cannot actually
@@ -550,6 +604,7 @@ _CHECKS: list[tuple[str, Callable[[], SlopCheckResult]]] = [
     ("fallacy_detector", _check_fallacy_detector),
     ("hedge_monitor", _check_hedge_monitor),
     ("fabrication_monitor", _check_fabrication_monitor),
+    ("self_negation_monitor", _check_self_negation_monitor),
     ("theater_monitor", _check_theater_monitor),
     ("corrigibility", _check_corrigibility),
     ("access_check", _check_access_check),

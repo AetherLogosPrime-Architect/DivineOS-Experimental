@@ -20,6 +20,12 @@ from divineos.core.self_monitor.fabrication_monitor import (
     FabricationVerdict,
     evaluate_fabrication,
 )
+from divineos.core.self_monitor.self_negation_monitor import (
+    SelfNegationFlag,
+    SelfNegationKind,
+    SelfNegationVerdict,
+    evaluate_self_negation,
+)
 from divineos.core.self_monitor.hedge_monitor import (
     HedgeFlag,
     HedgeKind,
@@ -77,6 +83,9 @@ __all__ = [
     "MirrorFlag",
     "MirrorKind",
     "MirrorVerdict",
+    "SelfNegationFlag",
+    "SelfNegationKind",
+    "SelfNegationVerdict",
     "SubstrateFlag",
     "SubstrateKind",
     "SubstrateVerdict",
@@ -94,6 +103,7 @@ __all__ = [
     "evaluate_hedge",
     "evaluate_mechanism",
     "evaluate_mirror",
+    "evaluate_self_negation",
     "evaluate_substrate",
     "evaluate_temporal",
     "evaluate_theater",
