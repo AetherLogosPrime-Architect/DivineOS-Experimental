@@ -104,12 +104,37 @@ def _keywords_loader():
     }
 
 
+def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
+    """Emit COUNCIL_LENS_INVOKED events so ``_check_lens_load_trace``
+    passes for these lens names — mirrors what CouncilEngine._apply_lens
+    does in production. Q3 lens-load-trace check is now active in the
+    merged substance-binding pipeline; valid records must simulate the
+    real invocation trace."""
+    from divineos.core.ledger import log_event
+
+    for name in lens_names:
+        log_event(
+            "COUNCIL_LENS_INVOKED",
+            actor="test-council-engine",
+            payload={
+                "expert_name": name,
+                "methodology_name": "test-methodology",
+                "problem_prefix": "test problem",
+                "problem_hash": "test-hash",
+            },
+            validate=False,
+        )
+
+
 def _valid_record_for(fingerprint: str, kiln: bool = False) -> CouncilRecord:
     """Build a CouncilRecord that passes substance-binding checks for the
     three lenses in _keywords_loader(). Each finding ≥ COUNCIL_MIN_FINDING_TOKENS
     (30) with the lens's distinguishing keyword present; synthesis ≥
     COUNCIL_MIN_SYNTHESIS_TOKENS (50) referencing every lens name.
+    Also emits COUNCIL_LENS_INVOKED traces so the Q3 lens-load-trace
+    check passes.
     """
+    _emit_lens_invocation_traces(("Schneier", "Kahneman", "Peirce"))
     lens_findings = (
         LensFinding(
             lens_name="Schneier",
@@ -531,6 +556,210 @@ def test_atomic_find_and_consume_high_concurrency_regression(scratch_ledger):
         f"expected exactly 1 COUNCIL_RECORD_CONSUMED event for record "
         f"{record.record_id}, got {len(matching)}. Race-under-load bug."
     )
+
+
+# ─── 8d. Instance 4 — operator-authorized bypass (Aria + Aether primitive) ──
+
+
+class _StubStateMarker:
+    """Minimal StateMarker-shaped object for test stubbing.
+
+    Matches the shape from Aether's addendum: marker_id, kind, fingerprint,
+    payload, emitted_at, expires_at, consumed_at, consumed_by_fingerprint.
+    Only the fields the gate reads are populated for tests; extras are
+    None or empty defaults."""
+
+    def __init__(self, marker_id: str, kind: str, fingerprint: str):
+        self.marker_id = marker_id
+        self.kind = kind
+        self.fingerprint = fingerprint
+        self.payload: dict = {}
+        self.emitted_at = time.time()
+        self.expires_at: float | None = None
+        self.consumed_at: float | None = None
+        self.consumed_by_fingerprint: str | None = None
+
+
+def _install_state_markers_stub(
+    monkeypatch,
+    *,
+    marker_kind: str = "operator_bypass_authorized",
+    marker_fingerprint: str | None = None,
+) -> dict:
+    """Install a stub state_markers module so gate.py's operator-bypass
+    check has something to import and call. Returns a dict of call-log
+    lists so tests can assert emit/find/consume were called with the
+    right args.
+
+    When Aether's real module lands via merge, this stub can be dropped
+    from tests — the gate's runtime behavior against the real module
+    should be identical to the stub."""
+    import sys
+    import types as _types
+
+    calls: dict = {"emit": [], "find": [], "consume": []}
+    _existing_marker: dict[str, _StubStateMarker] = {}
+
+    if marker_fingerprint is not None:
+        stub_marker = _StubStateMarker(
+            marker_id="marker-test-abc",
+            kind=marker_kind,
+            fingerprint=marker_fingerprint,
+        )
+        _existing_marker[marker_fingerprint] = stub_marker
+
+    def _emit(kind, fingerprint, payload, expires_in_seconds=None):
+        m = _StubStateMarker(
+            marker_id=f"marker-{len(calls['emit'])}",
+            kind=kind,
+            fingerprint=fingerprint,
+        )
+        _existing_marker[fingerprint] = m
+        calls["emit"].append(
+            {
+                "kind": kind,
+                "fingerprint": fingerprint,
+                "payload": payload,
+                "expires_in_seconds": expires_in_seconds,
+            }
+        )
+        return m.marker_id
+
+    def _find(kind, fingerprint_predicate=None):
+        calls["find"].append({"kind": kind})
+        for fp, m in _existing_marker.items():
+            if m.kind != kind or m.consumed_at is not None:
+                continue
+            if fingerprint_predicate and not fingerprint_predicate(fp):
+                continue
+            return m
+        return None
+
+    def _consume(marker_id, consumed_by_fingerprint):
+        calls["consume"].append(
+            {"marker_id": marker_id, "consumed_by_fingerprint": consumed_by_fingerprint}
+        )
+        for m in _existing_marker.values():
+            if m.marker_id == marker_id:
+                m.consumed_at = time.time()
+                m.consumed_by_fingerprint = consumed_by_fingerprint
+                return
+
+    stub_module = _types.ModuleType("divineos.core.state_markers")
+    stub_module.emit_marker = _emit
+    stub_module.find_active_marker = _find
+    stub_module.consume_marker = _consume
+    stub_module.StateMarker = _StubStateMarker
+    monkeypatch.setitem(sys.modules, "divineos.core.state_markers", stub_module)
+    return calls
+
+
+def test_operator_bypass_allows_when_matching_marker_exists(scratch_ledger, monkeypatch):
+    """Instance 4: if an operator-bypass marker exists for the exact
+    edit fingerprint, gate.decide() short-circuits substance-binding
+    and returns OPERATOR_AUTHORIZED_BYPASS + consumes the marker."""
+    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
+    calls = _install_state_markers_stub(monkeypatch, marker_fingerprint=fingerprint)
+
+    decision = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/gravity_classifier.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+    )
+    assert decision.outcome == GateOutcome.OPERATOR_AUTHORIZED_BYPASS
+    # Marker was consumed with the ACTUAL consuming fingerprint
+    assert len(calls["consume"]) == 1
+    assert calls["consume"][0]["consumed_by_fingerprint"] == fingerprint
+
+
+def test_operator_bypass_no_marker_falls_through_to_normal_flow(scratch_ledger, monkeypatch):
+    """No matching marker → gate.decide() proceeds with normal
+    substance-binding flow. Without a council walk, that's BLOCK."""
+    _install_state_markers_stub(monkeypatch, marker_fingerprint=None)
+
+    decision = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/gravity_classifier.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+    )
+    # No walk on record, no operator authorization → BLOCK CHECK_ARTIFACT_EXISTS
+    assert decision.outcome == GateOutcome.BLOCK
+    assert decision.check_result.failed_check_name == CHECK_ARTIFACT_EXISTS
+
+
+def test_operator_bypass_fingerprint_mismatch_does_not_clear(scratch_ledger, monkeypatch):
+    """Marker authorized for edit:X must NOT clear the gate for edit:Y —
+    exact-fingerprint discipline. This is the core anti-substitution
+    property."""
+    authorized_fp = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
+    _install_state_markers_stub(monkeypatch, marker_fingerprint=authorized_fp)
+
+    # Try to edit a DIFFERENT file
+    decision = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/council_required/types.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+    )
+    # Different fingerprint → predicate rejects → no marker → BLOCK
+    assert decision.outcome == GateOutcome.BLOCK
+    assert decision.check_result.failed_check_name == CHECK_ARTIFACT_EXISTS
+
+
+def test_operator_bypass_module_absent_is_no_op(scratch_ledger):
+    """When divineos.core.state_markers is not on the branch (fresh
+    check-out before Aether's module merges in), the operator-bypass
+    check is a no-op — gate proceeds with normal flow. Safer than
+    raising or false-authorizing."""
+    # NOT installing the stub — the real import will fail because
+    # the module isn't on the branch yet.
+    decision = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/gravity_classifier.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+    )
+    # No council walk on record, no operator-auth check possible →
+    # BLOCK CHECK_ARTIFACT_EXISTS (same as no-op behavior).
+    assert decision.outcome == GateOutcome.BLOCK
+    assert decision.check_result.failed_check_name == CHECK_ARTIFACT_EXISTS
+
+
+def test_operator_bypass_marker_consumed_second_edit_blocks(scratch_ledger, monkeypatch):
+    """One-per-use: after a first edit consumes the marker, a second
+    edit at the same fingerprint must BLOCK (no walk on record, no
+    fresh marker to consume). The alternative_clearance path was
+    used-once, per primitive design + Aether Catch-2 pattern."""
+    fingerprint = _normalize_edit_fingerprint("src/divineos/core/gravity_classifier.py", "Edit")
+    _install_state_markers_stub(monkeypatch, marker_fingerprint=fingerprint)
+
+    # First edit consumes the marker
+    first = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/gravity_classifier.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+    )
+    assert first.outcome == GateOutcome.OPERATOR_AUTHORIZED_BYPASS
+
+    # Second edit finds no unconsumed marker → falls through to
+    # normal flow → BLOCK
+    second = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/gravity_classifier.py",),
+        bash_command="",
+        gravity_fn=_gravity_council_required,
+        keywords_loader=_keywords_loader,
+    )
+    assert second.outcome == GateOutcome.BLOCK
+    assert second.check_result.failed_check_name == CHECK_ARTIFACT_EXISTS
 
 
 # ─── 9. Fingerprint normalization ────────────────────────────────────

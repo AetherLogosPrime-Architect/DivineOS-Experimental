@@ -32,6 +32,7 @@ from divineos.core.council_required.types import (
     EMERGENCY_CORROBORATOR_ACTORS,
     EMERGENCY_CORROBORATOR_EVENT_TYPES,
     RETRY_WINDOW_SECONDS,
+    STATE_MARKER_KIND_OPERATOR_BYPASS,
     CheckResult,
     GateDecision,
     GateOutcome,
@@ -57,6 +58,78 @@ def is_kiln_layer_edit(fired_features: tuple[str, ...]) -> bool:
     confirmation in addition to substance-binding.
     """
     return "edit-kiln-layer" in fired_features
+
+
+def _check_operator_bypass_authorization(fingerprint: str, actor: str) -> GateDecision | None:
+    """Instance 4 (operator-authorization) of the ForcedWorkGate primitive.
+
+    Looks for an active operator-bypass state marker whose authorized
+    fingerprint exactly matches this edit's fingerprint. If found,
+    consumes the marker (recording the ACTUAL consuming fingerprint
+    separately from the authorized one for the mismatch-audit surface)
+    and returns a ``GateDecision(OPERATOR_AUTHORIZED_BYPASS)``. If no
+    matching marker exists, returns ``None`` so ``decide()`` proceeds
+    with the normal substance-binding flow.
+
+    The check runs against Aether's ``state_markers`` module (part of
+    the primitive-supporting infra). When that module is not yet
+    available on the branch (fresh check-out before merge), the check
+    is a no-op — safer than raising or false-authorizing.
+
+    Marker discipline (all enforced by ``state_markers``):
+      - One-per-use consume (subsequent edits under same fingerprint
+        must have a fresh marker)
+      - Exact-fingerprint match via predicate (``edit:X`` marker doesn't
+        clear ``edit:Y``)
+      - Expiry-scoped (default 15 min per
+        ``OPERATOR_BYPASS_EXPIRY_SECONDS``)
+      - Mismatch on consume fires LOUD as
+        ``STATE_MARKER_FINGERPRINT_MISMATCH`` per Aria's amendment to
+        the StateMarker addendum
+    """
+    try:
+        from divineos.core.state_markers import (
+            consume_marker,
+            find_active_marker,
+        )
+    except ImportError:
+        # Module not yet on branch — no-op is honest. When it lands,
+        # this check becomes active without any code change here.
+        return None
+
+    marker = find_active_marker(
+        kind=STATE_MARKER_KIND_OPERATOR_BYPASS,
+        fingerprint_predicate=lambda fp: fp == fingerprint,
+    )
+    if marker is None:
+        return None
+
+    # Consume with the ACTUAL consuming fingerprint. If the state_markers
+    # module detects `consumed_by_fingerprint != authorized_fingerprint`
+    # it emits STATE_MARKER_FINGERPRINT_MISMATCH loud. In our case here
+    # they should always match because we're looking up by exact
+    # fingerprint predicate — but recording the pair honestly is what
+    # makes the audit surface work for future callers who might use
+    # broader predicates.
+    consume_marker(
+        marker_id=marker.marker_id,
+        consumed_by_fingerprint=fingerprint,
+    )
+
+    return GateDecision(
+        outcome=GateOutcome.OPERATOR_AUTHORIZED_BYPASS,
+        check_result=CheckResult(
+            passed=True,
+            failed_check_name="",
+            what_would_clear_it="",
+        ),
+        matched_record_id=marker.marker_id,
+        # Reuse the corroborator field to carry the marker id — it's the
+        # closest existing slot for "the substrate artifact that
+        # authorized this outcome." Cleaner would be a dedicated field
+        # but that's a follow-up refactor.
+        corroborator_event_id=marker.marker_id,
+    )
 
 
 def decide(
@@ -89,6 +162,31 @@ def decide(
         # For Bash tools the fingerprint anchors on the command head.
         primary_path = bash_command.strip().split(maxsplit=1)[0] if bash_command else ""
     fingerprint = _normalize_edit_fingerprint(primary_path, tool_name)
+
+    # Instance 4 (operator-authorization) — explicit alternative_clearance
+    # per the ForcedWorkGate primitive design (Aria + Aether 2026-07-16).
+    # If the operator explicitly authorized this specific edit via a
+    # state marker (`divineos council authorize-bypass ...`), short-
+    # circuit the substance-binding path — allow + consume the marker
+    # with the actual consuming fingerprint recorded for the mismatch-
+    # audit surface (Aria's addition to Catch-4 pattern one meta-level up).
+    #
+    # Marker discipline (per primitive design + StateMarker addendum):
+    #   - One-per-use consume (no second edit clears on the same marker)
+    #   - Exact-fingerprint match (`edit:X` marker doesn't clear `edit:Y`)
+    #   - Expiry-scoped (default 15 min via OPERATOR_BYPASS_EXPIRY_SECONDS)
+    #   - `consumed_by_fingerprint != authorized_fingerprint` fires LOUD
+    #     as STATE_MARKER_FINGERPRINT_MISMATCH per Aria's amendment.
+    #
+    # If state_markers module unavailable (fresh check-out before Aether's
+    # module lands), the check is a no-op — gate proceeds with normal
+    # substance-binding flow. Safer than raising or claiming false
+    # authorization.
+    operator_bypass_decision = _check_operator_bypass_authorization(
+        fingerprint=fingerprint, actor=actor
+    )
+    if operator_bypass_decision is not None:
+        return operator_bypass_decision
 
     recency_seconds = COUNCIL_RECENCY_MINUTES * 60
 

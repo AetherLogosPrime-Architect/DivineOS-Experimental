@@ -7,6 +7,8 @@ through them; they don't think for you.
 
 from __future__ import annotations
 
+import hashlib
+import sqlite3
 from dataclasses import dataclass, field
 
 from loguru import logger
@@ -21,6 +23,19 @@ from divineos.core.council.lab_evidence import (
     format_for_synthesis,
     gather_lab_evidence,
 )
+
+# Errors this module tolerates during the best-effort lens-load-trace
+# emit path. Broad-exception CI (test_check_broad_exceptions) requires
+# module-level tuple form. Anything outside this set propagates.
+_ENGINE_LEDGER_ERRORS = (ImportError, sqlite3.Error, OSError, TypeError, ValueError)
+
+
+def _hash_problem(problem: str) -> str:
+    """SHA256 of the problem text — used to bind a LENS_INVOKED event
+    to the specific problem the lens ran against, so substance_binding
+    can verify the trace matches the record's problem (not an old
+    trace replayed for a different problem)."""
+    return hashlib.sha256(problem.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -229,6 +244,35 @@ class CouncilEngine:
             integration_findings,
             df.what_they_optimize_for,
         )
+
+        # 7. Emit lens-load-trace event so downstream substance_binding
+        # can verify the expert's methodology actually ran against the
+        # problem. Andrew Failure B / Aria Q3 reshape 2026-07-16:
+        # without this trace the agent could produce council-shaped
+        # output for a fabricated lens ("Through Taleb's lens…") without
+        # ever invoking Taleb's actual methodology. Best-effort emit
+        # (bare ledger unavailable = tests / offline mode); real gate
+        # verification happens in substance_binding._check_lens_load_trace
+        # which checks for the event's PRESENCE.
+        try:
+            from divineos.core.council_required.types import (
+                EVENT_COUNCIL_LENS_INVOKED,
+            )
+            from divineos.core.ledger import log_event
+
+            log_event(
+                EVENT_COUNCIL_LENS_INVOKED,
+                actor="council_engine",
+                payload={
+                    "expert_name": wisdom.expert_name,
+                    "methodology_name": methodology.name,
+                    "problem_prefix": problem[:200],
+                    "problem_hash": _hash_problem(problem),
+                },
+                validate=False,
+            )
+        except _ENGINE_LEDGER_ERRORS:
+            pass
 
         return LensAnalysis(
             expert_name=wisdom.expert_name,

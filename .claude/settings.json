@@ -205,6 +205,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-council-required.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
@@ -221,16 +231,6 @@
             "type": "command",
             "command": "bash .claude/hooks/corrigibility-tool-gate.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/check-council-required.sh",
-            "timeout": 8
           }
         ]
       },

@@ -47,6 +47,17 @@ CALIBRATION_DAYS: int = 7
 EVENT_COUNCIL_RECORD_LOGGED: str = "COUNCIL_RECORD_LOGGED"
 EVENT_COUNCIL_RECORD_CONSUMED: str = "COUNCIL_RECORD_CONSUMED"
 EVENT_COUNCIL_WALK_REJECTED: str = "COUNCIL_WALK_REJECTED"
+
+# Andrew Failure B / Aria Q3 reshape 2026-07-16 — lens-load-trace.
+# Emitted by CouncilEngine._apply_lens when a real expert's methodology
+# actually runs against a problem. Downstream substance-binding verifies
+# each lens named in a council_record has a matching LENS_INVOKED event
+# in the ledger within the recency window. No load trace → the lens was
+# fabricated (agent wrote "Through Taleb's lens..." without running the
+# actual methodology file). Same failure-shape-3 template as the
+# round-id-must-resolve and count-must-match fixes: verify the doing
+# RESOLVES, don't accept the surface form.
+EVENT_COUNCIL_LENS_INVOKED: str = "COUNCIL_LENS_INVOKED"
 EVENT_EMERGENCY_COUNCIL_SKIP: str = "EMERGENCY_COUNCIL_SKIP"
 EVENT_DECISION_WALK_LINKED_COUNCIL: str = "DECISION_WALK_LINKED_COUNCIL"
 
@@ -76,6 +87,28 @@ class GateOutcome(Enum):
     ALLOW = "allow"
     BLOCK = "block"
     EMERGENCY_SKIP = "emergency_skip"
+    # Aria + Aether ForcedWorkGate primitive, instance 4 (operator-
+    # authorization), 2026-07-16. Explicit alternative_clearance path
+    # per primitive design: if the gate would BLOCK, check for a
+    # matching operator-bypass state marker; if found, ALLOW-with-
+    # OPERATOR_AUTHORIZED_BYPASS + consume the marker. Distinct from
+    # ALLOW so downstream (audit, telemetry, retrospective) can see
+    # EXACTLY which edits proceeded via operator-authorized bypass vs
+    # which passed the substance-binding path cleanly.
+    OPERATOR_AUTHORIZED_BYPASS = "operator_authorized_bypass"
+
+
+# Marker kind for the operator-bypass state marker Aether's
+# state_markers module emits/finds/consumes. Named as a constant so
+# both the CLI (that emits) and the gate (that finds+consumes) resolve
+# to the same string — no split-brain if either side changes the kind.
+STATE_MARKER_KIND_OPERATOR_BYPASS: str = "operator_bypass_authorized"
+
+# Expiry window for operator-authorized-bypass markers per Aria's
+# answer to primitive design-question #1: 15 minutes matches Andrew's
+# per-moment authorization discipline. Longer windows re-introduce the
+# exact race class we closed on council-required consume.
+OPERATOR_BYPASS_EXPIRY_SECONDS: int = 15 * 60
 
 
 @dataclass(frozen=True)
@@ -179,6 +212,14 @@ CHECK_FINDING_KEYWORD = "finding_keyword"
 CHECK_SYNTHESIS_TOKEN_COUNT = "synthesis_token_count"
 CHECK_SYNTHESIS_REFERENCES_LENSES = "synthesis_references_lenses"
 CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
+# Andrew Failure B / Aria Q3 reshape 2026-07-16 — verify each lens
+# named in the record has a matching COUNCIL_LENS_INVOKED event in the
+# ledger. No trace → the lens was fabricated (agent-generated "Through
+# Taleb's lens..." without running the actual methodology). This is
+# the load-bearing anti-fabrication check for the council: it catches
+# what the finding-token / keyword / synthesis checks cannot, because
+# those all operate on the surface form of the text.
+CHECK_LENS_LOAD_TRACE = "lens_load_trace"
 CHECK_NOT_CONSUMED = "not_consumed"
 
 CHECK_NAMES: frozenset[str] = frozenset(
@@ -192,8 +233,15 @@ CHECK_NAMES: frozenset[str] = frozenset(
         CHECK_SYNTHESIS_REFERENCES_LENSES,
         CHECK_KILN_CONFIRMED_BY,
         CHECK_NOT_CONSUMED,
+        CHECK_LENS_LOAD_TRACE,
     }
 )
+
+# Recency window for LENS_INVOKED events. Q3 discipline: a lens-load
+# trace must be RECENT (within this many minutes of the council_record
+# being logged) to prevent replay of an old invocation as evidence for
+# a new record.
+LENS_INVOCATION_RECENCY_MINUTES: int = 45
 
 
 @dataclass(frozen=True)
