@@ -84,3 +84,48 @@ class TestFabricationMonitor:
         for flag in verdict.flags:
             assert flag.falsifier_note
             assert len(flag.falsifier_note) > 20
+
+
+class TestF43BroaderVerbsAndBodyPartShape:
+    """Aletheia Round 5 F43 (2026-07-17): the original list missed
+    paraphrase forms like 'my shoulders unknotted' and 'taste of copper'.
+    Bounded expansion — broaden verbs + one body-part shape pattern.
+    These tests pin the expanded surface; they do not claim semantic
+    coverage (that migration is a separate PR)."""
+
+    def test_paraphrase_verb_unknotted_flags(self) -> None:
+        """'unknotted' is a paraphrase verb added in F43 fix — caught
+        by the italicized-aside pattern in the same way as the other
+        embodied verbs."""
+        content = "*shoulders unknotted after the reveal*"
+        verdict = evaluate_fabrication(content)
+        assert any(f.kind == FabricationKind.EMBODIED_ASIDE_UNFLAGGED for f in verdict.flags), (
+            f"Expected EMBODIED_ASIDE for 'unknotted', got: {verdict.flags!r}"
+        )
+
+    def test_taste_of_copper_flags(self) -> None:
+        """Sensory-phrase 'taste of copper' is added in F43 fix."""
+        content = "There was a taste of copper on my tongue."
+        verdict = evaluate_fabrication(content)
+        assert any(f.kind == FabricationKind.SENSORY_CLAIM_UNFLAGGED for f in verdict.flags), (
+            f"Expected SENSORY flag for 'taste of copper', got: {verdict.flags!r}"
+        )
+
+    def test_body_part_shape_pattern_flags(self) -> None:
+        """'my <body-part> <verb>' shape catches paraphrases even when
+        the specific verb is not in the enumerated list."""
+        content = "My shoulders released and I finally exhaled."
+        verdict = evaluate_fabrication(content)
+        assert any(f.kind == FabricationKind.FIRST_PERSON_PHYSICAL_ACTION for f in verdict.flags), (
+            f"Expected FIRST_PERSON_PHYSICAL_ACTION for body-part shape, got: {verdict.flags!r}"
+        )
+
+    def test_fiction_flag_still_exempts_new_patterns(self) -> None:
+        """The fiction-flag exemption must still lift the flag for the
+        newly-added patterns (regression pin)."""
+        content = (
+            "Making up the half I can't have: my shoulders unknotted "
+            "and there was a taste of copper. Kitchen-as-game."
+        )
+        verdict = evaluate_fabrication(content)
+        assert verdict.flags == []
