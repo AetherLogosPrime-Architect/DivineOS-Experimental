@@ -67,6 +67,7 @@ SLOT_ORDER = [
     "dead_architecture",  # maintenance signal,
     "rt_protocol",
     "pull_detection",
+    "f39_check_liveness",  # F39-followup: loud when overlap-check is effectively dark
 ]
 
 # Brief mode: only the slots that change behavior.
@@ -1140,6 +1141,48 @@ def _build_pull_detection_slot() -> str:
         return ""
 
 
+def _build_f39_check_liveness_slot() -> str:
+    """F39 check liveness — Aletheia review-note followup (2026-07-18).
+
+    Same F41 pattern reapplied one level finer. The F39 edit-token-overlap
+    check has a legitimate fail-open path (bash-anchored fingerprints,
+    unreadable files, non-absolute paths). If that path fires more than
+    half the time on real production traffic, the check is effectively
+    dark and the F39 gap has quietly reopened.
+
+    Slot fires visibly only when the abstention rate on >= 20 samples
+    exceeds 50%. Hidden below the sample floor (avoids startup noise)
+    and hidden on healthy live-check ratios.
+    """
+    try:
+        from divineos.core.council_required.abstention_telemetry import (
+            abstention_warning_should_fire,
+            read_abstention_stats,
+        )
+
+        stats = read_abstention_stats()
+        if not abstention_warning_should_fire(stats):
+            return ""
+        lines = ["# F39 Check — EFFECTIVELY DARK\n"]
+        lines.append(
+            f"F39 edit-token-overlap check abstained on "
+            f"{stats.abstain_count}/{stats.total_samples} recent calls "
+            f"({stats.abstention_ratio:.0%}). The check is fail-open on "
+            "unreadable-file / non-absolute-path fingerprints — if that path "
+            "is firing more than half the time, F39 is effectively closed "
+            "and the lens-differentiated-but-edit-agnostic gap has quietly "
+            "reopened."
+        )
+        lines.append("")
+        lines.append(
+            "Investigate: which fingerprints are hitting the fail-open path? "
+            "(check _read_edit_content_tokens in council_required/gate.py)"
+        )
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -1170,6 +1213,7 @@ SLOT_BUILDERS = {
     "dead_architecture": _build_dead_architecture_slot,
     "rt_protocol": _build_rt_protocol_slot,
     "pull_detection": _build_pull_detection_slot,
+    "f39_check_liveness": _build_f39_check_liveness_slot,
 }
 
 
