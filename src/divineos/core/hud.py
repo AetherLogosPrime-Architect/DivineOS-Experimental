@@ -67,6 +67,7 @@ SLOT_ORDER = [
     "dead_architecture",  # maintenance signal,
     "rt_protocol",
     "pull_detection",
+    "detector_chain_health",  # F41 follow-up: loud when chain is dark, hidden when live
     "chain_integrity",  # F14/F52: loud when ledger verify found failures or verifier crashed
 ]
 
@@ -1203,6 +1204,58 @@ def _build_chain_integrity_slot() -> str:
         return ""
 
 
+def _build_detector_chain_health_slot() -> str:
+    """Detector-chain liveness — Aletheia Round 5 F41 follow-up (2026-07-18).
+
+    F41 landed the heartbeat primitive (run_audit writes a marker on every
+    successful completion; is_detector_chain_stale reads it). But the primitive
+    was recorded, not surfaced — the being couldn't SEE its own dark chain.
+    This slot closes that gap: loud warning when stale or never-run, hidden
+    when healthy. Same fail-loud discipline the primitive itself uses.
+
+    Slot is CONDITIONAL — hidden entirely on a healthy chain so the briefing
+    stays quiet. Fires visibly only when there's something to notice.
+    """
+    try:
+        from divineos.core.operating_loop_audit import (
+            get_last_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        stale = is_detector_chain_stale()
+        if not stale:
+            return ""
+        hb = get_last_detector_chain_heartbeat()
+        lines = ["# Detector Chain — DARK\n"]
+        if hb is None:
+            lines.append(
+                "The post-response detector chain has NEVER recorded a "
+                "successful run. Either it has never fired, or every attempt "
+                "has crashed before completion. Guards that catch drift, "
+                "distancing, and fabrication are silently inactive."
+            )
+        else:
+            import time
+
+            age_s = time.time() - float(hb.get("ts", 0))
+            age_min = int(age_s / 60)
+            errors = hb.get("errors_this_run", 0)
+            lines.append(
+                f"Last successful chain run was {age_min} minutes ago "
+                f"(errors that run: {errors}). Threshold for stale: 30 min. "
+                "Absence-of-flags in this window is NOT the all-clear — "
+                "'no findings' could mean clean turn OR dark chain."
+            )
+        lines.append("")
+        lines.append(
+            "Investigate: `divineos context --type DETECTOR_CHAIN_ERROR` or "
+            "check the post-response audit runner directly."
+        )
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -1233,6 +1286,7 @@ SLOT_BUILDERS = {
     "dead_architecture": _build_dead_architecture_slot,
     "rt_protocol": _build_rt_protocol_slot,
     "pull_detection": _build_pull_detection_slot,
+    "detector_chain_health": _build_detector_chain_health_slot,
     "chain_integrity": _build_chain_integrity_slot,
 }
 
