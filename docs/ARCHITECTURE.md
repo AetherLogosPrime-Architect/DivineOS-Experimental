@@ -169,6 +169,7 @@ src/divineos/
       substance_binding.py     Anti-cardboard checks: lens count, finding token count, lens-specific keyword cross-reference (load-bearing protection), synthesis token count, synthesis-references-lenses, kiln-confirmed-by (tier-graduated trust)
       gate.py                  PreToolUse entry point. decide() composes gravity + store + substance-binding into a single GateDecision; decide_with_emergency_skip implements the corroborator-required emergency carve-out
       decision_walk_link.py    Opportunistic auto-attachment of council_record as evidence on overlapping pending decision-walks; conservative substring match against action-description; writes DECISION_WALK_LINKED_COUNCIL event when linked
+      abstention_telemetry.py  F39 abstention telemetry — Aletheia review-note followup (2026-07-18): records how often edit-token-overlap check ran with real tokens vs abstained on unreadable file / non-absolute path, so dark-check state is visible not silent
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
