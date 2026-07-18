@@ -231,7 +231,9 @@ CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
 CHECK_LENS_LOAD_TRACE = "lens_load_trace"
 # Aletheia Round 5 F39 (2026-07-17) — union of finding tokens must share
 # minimum overlap with the edit's own content tokens. Catches lens-
-# differentiated but edit-agnostic boilerplate.
+# differentiated but edit-agnostic boilerplate. First landed as a
+# placeholder via Aria's 2026-07-18 install-fix (#365) that stabilized
+# the import chain before this check body arrived.
 CHECK_EDIT_TOKEN_OVERLAP = "edit_token_overlap"
 CHECK_NOT_CONSUMED = "not_consumed"
 
