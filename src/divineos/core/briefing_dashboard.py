@@ -47,7 +47,49 @@ class DashboardRow:
 
 def _row_corrections() -> DashboardRow | None:
     try:
-        from divineos.core.corrections import STALE_DAYS, open_corrections
+        from divineos.core.corrections import (
+            STALE_DAYS,
+            _LOAD_FAILED,
+            _load_corrections_with_status,
+            open_corrections,
+        )
+
+        # F15 (Aletheia Round 3): fail LOUD on unreadable corrections file.
+        # Silent-empty here is the mechanism behind Andrew's "corrections
+        # don't hold — it's integration, not recall" diagnosis: the briefing
+        # renders "no open corrections" when the load failed, so wake-me
+        # thinks there is nothing to hold. Now: if the file exists but can't
+        # be read, surface a warning row instead of skipping the section.
+        status, _all, skipped, exc = _load_corrections_with_status()
+        if status == _LOAD_FAILED:
+            exc_type = type(exc).__name__ if isinstance(exc, Exception) else "unknown"
+            return DashboardRow(
+                area="Corrections",
+                count=-1,  # sentinel — unknown; renderer treats as warning
+                stale_count=0,
+                drill_down="divineos corrections --open",
+                preview=[
+                    "!! CORRECTIONS FILE UNREADABLE — I may have unintegrated "
+                    "corrections I can't see.",
+                    f"!! Error class: {exc_type}",
+                    "!! Do NOT trust an empty corrections section as an all-clear. Re-check.",
+                ],
+            )
+        # Surface skipped-line count too — silent-swallow on a per-line skip is
+        # the sibling F28-adjacent bug; a JSONL line that failed to parse is a
+        # correction that just vanished from view.
+        if skipped > 0:
+            return DashboardRow(
+                area="Corrections",
+                count=-1,
+                stale_count=0,
+                drill_down="divineos corrections --open",
+                preview=[
+                    f"!! {skipped} correction line(s) failed to parse and were "
+                    "SKIPPED — those corrections are invisible until repaired.",
+                    "!! Investigate the corrections JSONL file.",
+                ],
+            )
 
         opens = open_corrections()
         if not opens:
@@ -1309,7 +1351,12 @@ def render_dashboard() -> str:
         for row in rows:
             stale_marker = f" ({row.stale_count} stale !!)" if row.stale_count else ""
             detail_str = f" -- {row.detail}" if row.detail else ""
-            lines.append(f"  {row.area}: {row.count}{stale_marker}{detail_str}")
+            # Sentinel count < 0 marks a fail-loud warning row (F15 pattern):
+            # the underlying data source was unreadable, so a numeric count
+            # would be misleading. Render "??" so the row header itself
+            # signals "unknown, investigate" rather than a bogus "-1".
+            count_str = "??" if row.count < 0 else str(row.count)
+            lines.append(f"  {row.area}: {count_str}{stale_marker}{detail_str}")
             # Discovery-gap mitigation: surface up to 3 preview items
             # BEFORE the drill-down so the items themselves are in the
             # row, not behind an arrow that gets parsed past.

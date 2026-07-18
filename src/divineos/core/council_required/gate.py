@@ -31,6 +31,7 @@ from divineos.core.council_required.types import (
     COUNCIL_RECENCY_MINUTES,
     EMERGENCY_CORROBORATOR_ACTORS,
     EMERGENCY_CORROBORATOR_EVENT_TYPES,
+    RETRY_WINDOW_SECONDS,
     STATE_MARKER_KIND_OPERATOR_BYPASS,
     CheckResult,
     GateDecision,
@@ -210,6 +211,36 @@ def decide(
     )
 
     if record is None:
+        # 2026-07-17 consume-on-attempt fix (council 0fc0b3df): if a walk
+        # for THIS fingerprint was consumed within the retry window, this
+        # is a tool-call retry (e.g. commit refused for missing trailer,
+        # then re-attempted with trailer). The walk substance is still
+        # substrate-visible; retries should not force fresh walks. Falls
+        # back to find_recently_consumed_record; if that finds a record,
+        # substance-bind and ALLOW without re-consuming. Safety:
+        # fingerprint-scoped so different-fingerprint edits still require
+        # fresh walks; substance-binding still enforced on retry_record.
+        retry_record = store.find_recently_consumed_record(
+            edit_fingerprint=fingerprint,
+            retry_window_seconds=RETRY_WINDOW_SECONDS,
+            now=now,
+        )
+        if retry_record is not None:
+            fired_features = tuple(getattr(gravity_result, "fired_features", ()))
+            is_kiln = is_kiln_layer_edit(fired_features)
+            keywords = keywords_loader()
+            bind_result = substance_binding.substance_bind_record(
+                retry_record,
+                is_kiln_layer=is_kiln,
+                expert_keywords_for_lens=keywords,
+            )
+            if bind_result.passed:
+                # Retry allowance: record already consumed, do not re-consume.
+                return GateDecision(
+                    outcome=GateOutcome.ALLOW,
+                    check_result=bind_result,
+                )
+            # Substance-binding rejects the retry_record — fall through to BLOCK.
         return GateDecision(
             outcome=GateOutcome.BLOCK,
             check_result=CheckResult(

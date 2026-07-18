@@ -87,6 +87,66 @@ def register(cli: click.Group) -> None:
         if not text.strip():
             click.secho("[-] Goal text cannot be empty.", fg="yellow")
             return
+
+        # Error-registry jailbreak-response gate (Andrew 2026-07-17):
+        # open errors block starting new work. Investigation and fixes
+        # remain unblocked (tools still work); only new-main-goal
+        # transitions are refused. The goal-text bypasses the block
+        # when it names an existing open error_id — that means the new
+        # goal IS the investigation of the open error, the only allowed
+        # forward motion.
+        #
+        # Attribution-gaming fix (Aletheia arc-audit 2026-07-17):
+        # RESOLVE the named error_id against the registry rather than
+        # substring-match against open ids. Same discipline as F34's
+        # pointer-resolver: a cite must resolve to a real artifact, not
+        # just look like one. Extract err-XXXX substrings from the goal
+        # text and pass EACH through get_error() to verify existence AND
+        # open state. Naming a fake err-fake123 in goal text no longer
+        # passes the block.
+        try:
+            import re as _re
+
+            from divineos.core import error_registry as _err_reg
+
+            open_errs = _err_reg.list_open_errors()
+            if open_errs:
+                # Extract candidate error_id references from the goal text.
+                # Pattern matches the err-XXXXXXXXXXXX shape file_error uses.
+                named_ids = _re.findall(r"err-[a-f0-9]{12}", text.lower())
+                # RESOLVE each: verify the record exists AND is open.
+                names_open_error = False
+                for nid in named_ids:
+                    rec = _err_reg.get_error(nid)
+                    if rec is not None and rec.get("state") == "open":
+                        names_open_error = True
+                        break
+                if not names_open_error:
+                    click.secho(_err_reg.block_reason(), fg="red")
+                    click.echo("")
+                    click.secho(
+                        f"[-] Goal-add refused. New goal '{text}' does not name any open error.",
+                        fg="red",
+                    )
+                    click.secho(
+                        "    To start a new goal, close/defer the open errors first,",
+                        fg="bright_black",
+                    )
+                    click.secho(
+                        "    or make this goal explicitly about investigating one "
+                        "(include the err-XXXX id in the goal text).",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1)
+        except click.exceptions.Exit:
+            raise
+        except Exception:  # noqa: BLE001 — registry-side error must not deadlock goal-add
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "error_registry check failed in goal_add — proceeding without block"
+            )
+
         from divineos.core.hud_state import add_goal
 
         add_goal(text, original_words=original)
