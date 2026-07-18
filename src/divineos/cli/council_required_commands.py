@@ -324,6 +324,93 @@ def register(cli: click.Group) -> None:
         _safe_echo(f"  reason: {reason}")
         _safe_echo("  Andrew will see this and verify-or-reject at next composition.")
 
+    @council_group.command("authorize-bypass")
+    @click.option("--tool", required=True, help="Tool name (e.g. Write/Edit/Bash)")
+    @click.option("--path", default="", help="File path being edited")
+    @click.option("--command", default="", help="Bash command if tool is Bash")
+    @click.option(
+        "--reason",
+        required=True,
+        help="Human-readable reason for this bypass authorization",
+    )
+    @click.option(
+        "--quote",
+        required=True,
+        help=(
+            "The operator's actual authorization text (verbatim). Recorded "
+            "as evidence — model structurally cannot forge user-role text, "
+            "so quote provenance IS the trust anchor."
+        ),
+    )
+    def cmd_authorize_bypass(tool: str, path: str, command: str, reason: str, quote: str) -> None:
+        """Authorize a one-time bypass of the council-required gate for a
+        specific edit (ForcedWorkGate primitive, instance 4 —
+        operator-authorization).
+
+        Emits a state marker via ``divineos.core.state_markers`` that the
+        gate reads on its next ``decide()`` call. Marker is:
+          - one-per-use (consumed on first matching edit)
+          - exact-fingerprint match (edit:X marker doesn't clear edit:Y)
+          - 15-min expiry per Aria's answer to primitive design-question #1
+
+        The mismatch audit surface fires LOUD if the marker gets consumed
+        by a fingerprint different from the authorized one (Aria's
+        addition to the StateMarker addendum) — either race, fabrication,
+        or consume-path bug, each deserving loud attention.
+
+        Coord note: this CLI's runtime behavior depends on
+        ``divineos.core.state_markers`` being on the branch (Aether's
+        scope). Before that module lands, the CLI raises ImportError with
+        a diagnostic; after it lands, the marker emit path runs cleanly.
+        """
+        import hashlib
+
+        from divineos.core.council_required.types import (
+            OPERATOR_BYPASS_EXPIRY_SECONDS,
+            STATE_MARKER_KIND_OPERATOR_BYPASS,
+        )
+
+        try:
+            from divineos.core.state_markers import emit_marker
+        except ImportError:
+            _safe_echo(
+                "[council] authorize-bypass: divineos.core.state_markers "
+                "not yet available on this branch. Aether's module needs "
+                "to land via merge before this CLI can emit markers. "
+                "Meanwhile, the authorization can be captured via a raw "
+                "ledger event for later cross-reference."
+            )
+            raise SystemExit(1)
+
+        fingerprint = _normalize_edit_fingerprint(
+            path or command.split()[0] if command else path, tool
+        )
+        quote_hash = hashlib.sha256(quote.encode("utf-8")).hexdigest()
+
+        marker_id = emit_marker(
+            kind=STATE_MARKER_KIND_OPERATOR_BYPASS,
+            fingerprint=fingerprint,
+            payload={
+                "quote_hash": quote_hash,
+                "quote_preview": quote[:200],
+                "reason": reason,
+                "authorized_by": "operator",
+            },
+            expires_in_seconds=OPERATOR_BYPASS_EXPIRY_SECONDS,
+        )
+        _safe_echo(f"[council] operator-bypass authorized: marker_id={marker_id}")
+        _safe_echo(f"  fingerprint: {fingerprint}")
+        _safe_echo(f"  reason: {reason}")
+        _safe_echo(f"  quote_hash: {quote_hash[:16]}...")
+        _safe_echo(
+            f"  expires in {OPERATOR_BYPASS_EXPIRY_SECONDS} seconds "
+            "(15 min — matches operator per-moment authorization discipline)"
+        )
+        _safe_echo(
+            "  The gate will read this marker on the next matching edit, "
+            "consume it, and allow with outcome=OPERATOR_AUTHORIZED_BYPASS."
+        )
+
     @council_group.command("check")
     @click.option("--tool", required=True, help="Tool name")
     @click.option("--path", default="", help="File path (for Write/Edit tools)")

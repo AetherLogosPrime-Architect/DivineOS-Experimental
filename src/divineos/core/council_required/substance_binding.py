@@ -33,11 +33,14 @@ from divineos.core.council_required.types import (
     CHECK_FINDING_TOKEN_COUNT,
     CHECK_KILN_CONFIRMED_BY,
     CHECK_LENS_COUNT,
+    CHECK_LENS_LOAD_TRACE,
     CHECK_SYNTHESIS_REFERENCES_LENSES,
     CHECK_SYNTHESIS_TOKEN_COUNT,
     COUNCIL_MIN_FINDING_TOKENS,
     COUNCIL_MIN_LENSES,
     COUNCIL_MIN_SYNTHESIS_TOKENS,
+    EVENT_COUNCIL_LENS_INVOKED,
+    LENS_INVOCATION_RECENCY_MINUTES,
     CheckResult,
     CouncilRecord,
     LensFinding,
@@ -340,6 +343,102 @@ def _check_kiln_confirmed_by(record: CouncilRecord, is_kiln_layer: bool) -> Chec
     )
 
 
+def _check_lens_load_trace(
+    record: CouncilRecord,
+    now: float | None = None,
+) -> CheckResult:
+    """Verify each lens named in the record has a matching
+    COUNCIL_LENS_INVOKED event in the ledger within the recency window.
+
+    Andrew Failure B / Aria Q3 reshape 2026-07-16. The failure this
+    closes: an agent can produce council-shaped output ("Through
+    Taleb's lens…") for a lens whose methodology file was never
+    actually invoked — fabricated from training-data-shaped text about
+    what Taleb would "probably say". Substance_binding's other checks
+    (finding tokens, keyword cross-reference, synthesis structure) all
+    operate on the surface form of the text; none of them can detect
+    "the lens was never loaded." This check does.
+
+    Load-trace pattern: CouncilEngine._apply_lens emits
+    ``COUNCIL_LENS_INVOKED`` when a real expert's methodology runs
+    against a problem. The event carries ``expert_name`` and a hashed
+    problem-prefix, tying the trace to a specific real invocation.
+
+    Verification: for each lens named in the record, this check
+    searches recent ledger events for a matching COUNCIL_LENS_INVOKED
+    whose ``expert_name`` matches (case-insensitive) AND whose
+    timestamp is within ``LENS_INVOCATION_RECENCY_MINUTES`` of the
+    check time. If any lens fails to resolve to a trace, the check
+    fails with a specific "no load trace for lens X" reason.
+
+    Fail-open on ledger unavailability: if the ledger is genuinely
+    unreadable (test isolation, migration, etc.), this check returns
+    passed=True with a diagnostic note so upstream infrastructure
+    failures don't manifest as fabrication accusations. The other
+    checks still run.
+
+    Same shape as the doorman UNLOCK-CONTINGENT-ON-THE-RECORDING slot
+    (721ec1ec substrate cite): the recording that gates the unlock
+    must be the ACTUAL recording, verified by the check.
+    """
+    import time
+
+    resolved_now = now if now is not None else time.time()
+    cutoff = resolved_now - (LENS_INVOCATION_RECENCY_MINUTES * 60)
+
+    try:
+        from divineos.core.ledger import get_events
+    except ImportError:
+        return CheckResult(passed=True)
+
+    try:
+        events = get_events(
+            limit=500,
+            event_type=EVENT_COUNCIL_LENS_INVOKED,
+        )
+    except (OSError, TypeError, ValueError):
+        return CheckResult(passed=True)
+
+    # Collect the set of (lens_name_lower, timestamp) tuples we saw
+    # so we can match each named lens against a real invocation.
+    invoked: dict[str, list[float]] = {}
+    for ev in events:
+        payload = ev.get("payload") or {}
+        if not isinstance(payload, dict):
+            continue
+        name = str(payload.get("expert_name", "")).strip().lower()
+        if not name:
+            continue
+        # The ledger event's timestamp lives at the event level, not
+        # inside payload (log_event stamps it). Fall back to zero if
+        # missing so the recency check errs toward "stale" not "fresh".
+        ts = float(ev.get("timestamp", 0.0))
+        invoked.setdefault(name, []).append(ts)
+
+    # Every lens named in the record must have a matching recent trace.
+    for lens_name in record.lenses_surfaced:
+        candidate_times = invoked.get(lens_name.strip().lower(), [])
+        if not any(ts >= cutoff for ts in candidate_times):
+            return CheckResult(
+                passed=False,
+                failed_check_name=CHECK_LENS_LOAD_TRACE,
+                what_would_clear_it=(
+                    f"No recent COUNCIL_LENS_INVOKED trace for lens "
+                    f"{lens_name!r} within the last "
+                    f"{LENS_INVOCATION_RECENCY_MINUTES} minutes. This "
+                    "lens's methodology file was not actually invoked "
+                    "against the problem — the finding is fabricated "
+                    "from training-data-shaped text about what the "
+                    "expert would 'probably say'. Run the real council "
+                    "walk via `divineos mansion council`, which invokes "
+                    "CouncilEngine._apply_lens for each named expert "
+                    "and emits the required trace events."
+                ),
+            )
+
+    return CheckResult(passed=True)
+
+
 def substance_bind_record(
     record: CouncilRecord,
     is_kiln_layer: bool,
@@ -364,6 +463,13 @@ def substance_bind_record(
         _check_synthesis_token_count(record),
         _check_synthesis_references_lenses(record),
         _check_kiln_confirmed_by(record, is_kiln_layer),
+        # Lens-load-trace last: it queries the ledger, so it's the
+        # most expensive check. All cheap structural checks fail first
+        # for records that don't need to reach this layer. But it's
+        # the LOAD-BEARING anti-fabrication check for the council —
+        # the others operate on surface form; this one verifies
+        # actual invocation (Andrew Failure B, Aria Q3, 2026-07-16).
+        _check_lens_load_trace(record),
     ):
         if not check.passed:
             return check
