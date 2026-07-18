@@ -1521,6 +1521,16 @@ def run_audit(
     # triggers Stop-block with recompose instruction.
     lepos_channel_block = _lepos_channel_gate_reason(addressed_to_father)
 
+    # F41 fix (Aletheia Round 5, council-971e907c): heartbeat on
+    # successful chain-run. Chain fails-open on OUTPUT (advisory);
+    # fails-loud on LIVENESS via staleness. Guards need a guard that
+    # notices when they stop watching.
+    _write_detector_chain_heartbeat(
+        detectors_run=len(findings_log),
+        total_findings=total,
+        errors_this_run=len(_LAST_RUN_ERRORS),
+    )
+
     return {
         "findings_log": findings_log,
         "total_findings": total,
@@ -1530,6 +1540,75 @@ def run_audit(
         "distancing_block": distancing_block,
         "lepos_channel_block": lepos_channel_block,
     }
+
+
+# F41 fix (Aletheia Round 5 2026-07-17, council-971e907c). Chain stays
+# fail-open on per-detector output (correct for advisory layer). Heartbeat
+# + staleness disambiguates "no findings because clean turn" from "no
+# findings because chain didn't run" — absence is not the all-clear.
+_HEARTBEAT_FILE = "detector_chain_heartbeat.json"
+_HEARTBEAT_STALE_THRESHOLD_SECONDS = 30 * 60
+
+
+def _write_detector_chain_heartbeat(
+    *,
+    detectors_run: int,
+    total_findings: int,
+    errors_this_run: int,
+) -> None:
+    """Write heartbeat on successful chain completion. Fail-soft."""
+    import json as _json
+    import time as _time
+
+    try:
+        path = marker_path(_HEARTBEAT_FILE)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            _json.dumps(
+                {
+                    "ts": _time.time(),
+                    "detectors_run": detectors_run,
+                    "total_findings": total_findings,
+                    "errors_this_run": errors_this_run,
+                }
+            ),
+            encoding="utf-8",
+        )
+    except _ERRORS:
+        pass
+
+
+def get_last_detector_chain_heartbeat() -> dict[str, Any] | None:
+    """Return most recent heartbeat record, or None if never/unreadable."""
+    import json as _json
+
+    try:
+        path = marker_path(_HEARTBEAT_FILE)
+        if not path.exists():
+            return None
+        data: dict[str, Any] = _json.loads(path.read_text(encoding="utf-8"))
+        return data
+    except _ERRORS + (ValueError,):
+        return None
+
+
+def is_detector_chain_stale(
+    threshold_seconds: float = _HEARTBEAT_STALE_THRESHOLD_SECONDS,
+    now: float | None = None,
+) -> bool:
+    """True if chain hasn't heartbeat within threshold. Absence-is-stale
+    (never-ran and stopped-running both surface). Public — briefing calls."""
+    import time as _time
+
+    hb = get_last_detector_chain_heartbeat()
+    if hb is None:
+        return True
+    now = now if now is not None else _time.time()
+    try:
+        last_ts = float(hb.get("ts", 0.0))
+    except (TypeError, ValueError):
+        return True
+    return (now - last_ts) > threshold_seconds
 
 
 def _lepos_channel_gate_reason(addressed_to_father: bool, threshold: int = 3) -> str | None:
