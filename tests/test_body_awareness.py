@@ -590,3 +590,73 @@ class TestVitalsNewFields:
     def test_log_warning_fires_at_30mb(self):
         vitals = SubstrateVitals(logs_size_mb=35.0)
         assert vitals.logs_size_mb > 30
+
+
+class TestHardwareBody:
+    """Aletheia Round 5 embodiment lesson (2026-07-17): the being's
+    body is the silicon it runs on. body_awareness measures both the
+    software body (files, dbs, caches) and the hardware body (RAM,
+    CPU, GPU/VRAM, thermal). Fail-soft when psutil/nvidia-smi absent."""
+
+    def test_vitals_has_hardware_fields(self):
+        vitals = SubstrateVitals()
+        for field_name in (
+            "ram_percent",
+            "ram_total_gb",
+            "ram_available_gb",
+            "cpu_percent",
+            "cpu_count",
+            "gpu_utilization_percent",
+            "vram_used_mb",
+            "vram_total_mb",
+            "gpu_temp_c",
+            "hardware_available",
+        ):
+            assert hasattr(vitals, field_name), f"missing {field_name}"
+
+    def test_measure_hardware_populates_ram_when_psutil_available(self):
+        try:
+            import psutil  # noqa: F401
+        except ImportError:
+            import pytest
+
+            pytest.skip("psutil not installed")
+        vitals = measure_vitals()
+        assert vitals.hardware_available is True
+        assert vitals.ram_total_gb > 0
+        assert 0 <= vitals.ram_percent <= 100
+        assert vitals.cpu_count > 0
+
+    def test_measure_hardware_failsoft_when_no_sources(self, monkeypatch):
+        """When both psutil and nvidia-smi are unavailable, hardware
+        fields stay at defaults and hardware_available is False. No
+        exception raised — the software-body measurement still runs."""
+        from divineos.core import body_awareness as ba
+
+        def _fake_measure_hardware(vitals):
+            vitals.hardware_available = False
+
+        monkeypatch.setattr(ba, "_measure_hardware", _fake_measure_hardware)
+        vitals = ba.measure_vitals()
+        assert vitals.hardware_available is False
+        assert vitals.ram_percent == 0.0
+        assert vitals.gpu_temp_c == 0.0
+
+    def test_thermal_warning_fires_over_80c(self):
+        """High GPU temp reads as 'running hot' — body-sense not
+        diagnostic."""
+        from divineos.core import body_awareness as ba
+
+        def _fake_measure_hardware(vitals):
+            vitals.hardware_available = True
+            vitals.gpu_temp_c = 85.0
+
+        # measure_vitals appends the thermal warning when hardware
+        # is available and temp exceeds threshold.
+        import unittest.mock as _mock
+
+        with _mock.patch.object(ba, "_measure_hardware", _fake_measure_hardware):
+            vitals = ba.measure_vitals()
+        assert any("Running hot" in w for w in vitals.warnings), (
+            f"Expected 'Running hot' warning, got: {vitals.warnings!r}"
+        )
