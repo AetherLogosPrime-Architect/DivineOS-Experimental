@@ -69,6 +69,7 @@ SLOT_ORDER = [
     "pull_detection",
     "detector_chain_health",  # F41 follow-up: loud when chain is dark, hidden when live
     "f39_check_liveness",  # F39-followup: loud when overlap-check is effectively dark
+    "chain_integrity",  # F14/F52: loud when ledger verify found failures or verifier crashed
 ]
 
 # Brief mode: only the slots that change behavior.
@@ -1142,6 +1143,68 @@ def _build_pull_detection_slot() -> str:
         return ""
 
 
+def _build_chain_integrity_slot() -> str:
+    """Chain-integrity surface — F14/F52 (Aletheia Round 8, 2026-07-18).
+
+    The ledger's tamper-evidence is only meaningful if it's checked.
+    The sleep pipeline now runs verify_all_events on every sleep; this
+    slot reads the marker file and surfaces LOUDLY when the most-recent
+    verification found any failed events OR when the verifier itself
+    crashed. Hidden when the last verify was clean.
+
+    Slot is CONDITIONAL — hidden entirely on healthy chain so the
+    briefing stays quiet. Fires visibly only when the substrate has
+    real evidence of chain corruption or a broken verifier.
+    """
+    try:
+        from divineos.core.sleep import get_last_integrity_result
+
+        result = get_last_integrity_result()
+        if result is None:
+            return ""  # never verified — sleep just hasn't run yet; not alarm
+        if result.get("verifier_crashed"):
+            lines = ["# Ledger Integrity — VERIFIER CRASHED\n"]
+            lines.append(
+                f"The last chain-integrity verifier itself crashed: "
+                f"{result.get('error', 'unknown')}. This is different from "
+                "'chain is broken' — it means we don't know if the chain "
+                "is intact. Absence of a failure count is NOT the all-clear."
+            )
+            lines.append("")
+            lines.append(
+                "Investigate: run `divineos sleep --phase integrity_check` "
+                "directly to see the traceback."
+            )
+            return "\n".join(lines)
+        failed = int(result.get("failed", 0))
+        if failed == 0:
+            return ""  # healthy — stay quiet
+        verified = int(result.get("verified", 0))
+        lines = ["# Ledger Integrity — CHAIN BROKEN\n"]
+        lines.append(
+            f"The last sleep-run integrity check found {failed} failed "
+            f"event(s) out of {verified} verified. The ledger's tamper-"
+            "evidence has fired — one or more events do not match their "
+            "stored hash, or their payload failed validation."
+        )
+        failures = result.get("failures", []) or []
+        if failures:
+            lines.append("")
+            lines.append("Sample failures:")
+            for f in failures[:5]:
+                event_id = str(f.get("event_id", "?"))[:12]
+                reason = str(f.get("reason", "?"))[:120]
+                lines.append(f"  - {event_id}: {reason}")
+        lines.append("")
+        lines.append(
+            "Investigate: `divineos verify` for the full report, then "
+            "decide whether repair via clean_corrupted_events is warranted."
+        )
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 def _build_detector_chain_health_slot() -> str:
     """Detector-chain liveness — Aletheia Round 5 F41 follow-up (2026-07-18).
 
@@ -1268,6 +1331,7 @@ SLOT_BUILDERS = {
     "pull_detection": _build_pull_detection_slot,
     "detector_chain_health": _build_detector_chain_health_slot,
     "f39_check_liveness": _build_f39_check_liveness_slot,
+    "chain_integrity": _build_chain_integrity_slot,
 }
 
 

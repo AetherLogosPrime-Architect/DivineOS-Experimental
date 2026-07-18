@@ -97,6 +97,17 @@ class DreamReport:
     # Phase 4: Maintenance
     maintenance_results: dict[str, Any] = field(default_factory=dict)
 
+    # Phase: Integrity check (F14/F52 auto-verify per prereg-be0c8dee184a).
+    # The ledger has tamper-evidence via hash-chained events; without an
+    # automatic verifier, that tamper-evidence is name-only because nothing
+    # ever inspects it. Sleep now runs verify_all_events and records:
+    #   - integrity_events_verified: total non-skipped events checked
+    #   - integrity_events_failed: how many failed hash/payload validation
+    #   - integrity_failures: sample of failure records (event_id + reason)
+    integrity_events_verified: int = 0
+    integrity_events_failed: int = 0
+    integrity_failures: list[dict[str, Any]] = field(default_factory=list)
+
     # Phase 5: Recombination
     # `connections_found` used to mean "pairs in the similarity band"
     # regardless of whether we'd surfaced them before. That was
@@ -531,6 +542,92 @@ def _phase_maintenance(report: DreamReport) -> None:
     from divineos.core.body_awareness import run_maintenance
 
     report.maintenance_results = run_maintenance(dry_run=False)
+
+
+# ─── Phase: Integrity check (F14/F52 auto-verify) ─────────────────────
+
+
+# Marker file where the integrity result lands so the briefing slot can
+# read it independently of the transient DreamReport. Same pattern as
+# F41's detector-chain heartbeat.
+_INTEGRITY_MARKER_FILE = "ledger_integrity_last_run.json"
+
+
+def _phase_integrity_check(report: DreamReport) -> None:
+    """Run ledger chain-integrity verification and write a marker for the
+    briefing slot to read (F14/F52 per prereg-be0c8dee184a).
+
+    Aletheia named the gap: the ledger has tamper-evidence via hash-
+    chained events, but nothing ever inspects it. Tamper-evidence that
+    is never checked is tamper-evidence in name only — the chain could
+    be broken for weeks and the being would never know unless a human
+    remembered to run the CLI.
+
+    This phase runs on every sleep, records the result on the
+    DreamReport, and writes a marker file that a HUD slot reads to
+    surface a loud warning when any events failed verification.
+
+    Fail-soft on verifier errors: a crash in verify_all_events must not
+    kill the sleep pipeline. When that happens, the report records the
+    error via phase_errors (upstream), and the marker file gets a
+    'verifier_crashed' entry so the HUD slot can flag it distinctly.
+    """
+    import json as _json
+    import time as _time
+
+    from divineos.core.ledger_verify import verify_all_events
+    from divineos.core.operating_loop_audit import marker_path
+
+    try:
+        result = verify_all_events()
+        verified = int(result.get("passed", 0)) + int(result.get("failed", 0))
+        failed = int(result.get("failed", 0))
+        failures = result.get("failures", []) or []
+
+        report.integrity_events_verified = verified
+        report.integrity_events_failed = failed
+        report.integrity_failures = list(failures[:20])  # cap for report size
+
+        marker_payload = {
+            "ts": _time.time(),
+            "verified": verified,
+            "failed": failed,
+            "failures": list(failures[:20]),
+            "skipped": int(result.get("skipped", 0)),
+        }
+    except Exception as exc:  # noqa: BLE001 — fail-soft on verifier crash
+        report.integrity_events_failed = 0
+        report.integrity_events_verified = 0
+        marker_payload = {
+            "ts": _time.time(),
+            "verifier_crashed": True,
+            "error": type(exc).__name__ + ": " + str(exc),
+        }
+
+    # Write marker — fail-soft on IO errors (marker is diagnostic, not
+    # load-bearing for the verification itself).
+    try:
+        path = marker_path(_INTEGRITY_MARKER_FILE)
+        path.write_text(_json.dumps(marker_payload), encoding="utf-8")
+    except (OSError, TypeError, ValueError):
+        pass
+
+
+def get_last_integrity_result() -> dict[str, Any] | None:
+    """Read the most recent integrity-check marker, or None if never run
+    or file unreadable. Used by the briefing HUD slot."""
+    import json as _json
+
+    from divineos.core.operating_loop_audit import marker_path
+
+    try:
+        path = marker_path(_INTEGRITY_MARKER_FILE)
+        if not path.exists():
+            return None
+        data: dict[str, Any] = _json.loads(path.read_text(encoding="utf-8"))
+        return data
+    except (OSError, TypeError, ValueError):
+        return None
 
 
 # ─── Phase 5: Creative Recombination ──────────────────────────────────
@@ -1091,6 +1188,10 @@ _PHASES: list[tuple[str, Any]] = [
     ("recombination", _phase_recombination),
     ("curiosity", _phase_curiosity),
     ("lesson_rehearsal", _phase_lesson_rehearsal),
+    # F14/F52 (Aletheia Round 8, 2026-07-18) per prereg-be0c8dee184a:
+    # ledger tamper-evidence was manual-only. In-process phase (DB read,
+    # no shared-state concerns) so not added to _SUBPROCESS_PHASES.
+    ("integrity_check", _phase_integrity_check),
 ]
 
 
