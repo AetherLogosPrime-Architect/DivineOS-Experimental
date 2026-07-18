@@ -318,3 +318,66 @@ class TestHandoffNotes:
         assert note["summary"] == "Just a summary"
         assert note["open_threads"] == []
         assert note["mood"] == ""
+
+
+class TestDetectorChainHealthSlot:
+    """F41 follow-up (2026-07-18): the heartbeat primitive existed but
+    nothing surfaced it. This slot fires loudly when the chain is stale
+    or has never run, and stays hidden when the chain is healthy."""
+
+    def test_slot_hidden_when_chain_is_live(self):
+        import unittest.mock as _mock
+
+        from divineos.core import hud as _hud
+
+        with _mock.patch.object(
+            _hud, "_build_detector_chain_health_slot", wraps=_hud._build_detector_chain_health_slot
+        ):
+            with _mock.patch(
+                "divineos.core.operating_loop_audit.is_detector_chain_stale",
+                return_value=False,
+            ):
+                assert _hud._build_detector_chain_health_slot() == ""
+
+    def test_slot_fires_when_chain_never_ran(self):
+        import unittest.mock as _mock
+
+        from divineos.core import hud as _hud
+
+        with _mock.patch(
+            "divineos.core.operating_loop_audit.is_detector_chain_stale",
+            return_value=True,
+        ):
+            with _mock.patch(
+                "divineos.core.operating_loop_audit.get_last_detector_chain_heartbeat",
+                return_value=None,
+            ):
+                out = _hud._build_detector_chain_health_slot()
+        assert "DARK" in out
+        assert "NEVER recorded" in out
+
+    def test_slot_fires_when_chain_stale_with_prior_run(self):
+        import time
+        import unittest.mock as _mock
+
+        from divineos.core import hud as _hud
+
+        old_ts = time.time() - 60 * 60  # 60 min ago
+        with _mock.patch(
+            "divineos.core.operating_loop_audit.is_detector_chain_stale",
+            return_value=True,
+        ):
+            with _mock.patch(
+                "divineos.core.operating_loop_audit.get_last_detector_chain_heartbeat",
+                return_value={"ts": old_ts, "errors_this_run": 2},
+            ):
+                out = _hud._build_detector_chain_health_slot()
+        assert "DARK" in out
+        assert "minutes ago" in out
+        assert "errors that run: 2" in out
+
+    def test_slot_registered_in_builder_map(self):
+        from divineos.core.hud import SLOT_BUILDERS, SLOT_ORDER
+
+        assert "detector_chain_health" in SLOT_BUILDERS
+        assert "detector_chain_health" in SLOT_ORDER
