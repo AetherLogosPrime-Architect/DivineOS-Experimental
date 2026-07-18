@@ -81,6 +81,26 @@ def _read_edit_content_tokens(fingerprint: str) -> set[str] | None:
     return _content_tokens(content)
 
 
+def _record_edit_tokens_result(tokens: set[str] | None) -> None:
+    """F39-followup abstention telemetry (Aletheia 2026-07-18 review note).
+
+    Records whether ``_read_edit_content_tokens`` returned None (abstain)
+    or real tokens (live) at the two call sites that feed
+    ``substance_bind_record``. Same F41 pattern reapplied at finer grain:
+    fail-loud on liveness (via HUD slot reading the counter) while the
+    check itself stays fail-open. Fail-soft on import — telemetry never
+    breaks the gate.
+    """
+    try:
+        from divineos.core.council_required.abstention_telemetry import (
+            record_edit_tokens_result,
+        )
+
+        record_edit_tokens_result(is_none=(tokens is None))
+    except ImportError:
+        pass
+
+
 # Type alias for the gravity-classifier callable. Injected so the gate
 # stays independent of the classifier's import surface; the hook script
 # wires the real classifier in. Tests can pass a stub.
@@ -271,6 +291,7 @@ def decide(
             is_kiln = is_kiln_layer_edit(fired_features)
             keywords = keywords_loader()
             edit_tokens = _read_edit_content_tokens(fingerprint)
+            _record_edit_tokens_result(edit_tokens)
             bind_result = substance_binding.substance_bind_record(
                 retry_record,
                 is_kiln_layer=is_kiln,
