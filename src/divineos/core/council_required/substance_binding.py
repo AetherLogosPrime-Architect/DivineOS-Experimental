@@ -29,6 +29,7 @@ from __future__ import annotations
 import re
 
 from divineos.core.council_required.types import (
+    CHECK_EDIT_TOKEN_OVERLAP,
     CHECK_FINDING_KEYWORD,
     CHECK_FINDING_TOKEN_COUNT,
     CHECK_KILN_CONFIRMED_BY,
@@ -36,6 +37,7 @@ from divineos.core.council_required.types import (
     CHECK_LENS_LOAD_TRACE,
     CHECK_SYNTHESIS_REFERENCES_LENSES,
     CHECK_SYNTHESIS_TOKEN_COUNT,
+    COUNCIL_MIN_EDIT_TOKEN_OVERLAP,
     COUNCIL_MIN_FINDING_TOKENS,
     COUNCIL_MIN_LENSES,
     COUNCIL_MIN_SYNTHESIS_TOKENS,
@@ -439,10 +441,63 @@ def _check_lens_load_trace(
     return CheckResult(passed=True)
 
 
+def _check_edit_token_overlap(
+    record: CouncilRecord,
+    edit_content_tokens: set[str] | None,
+) -> CheckResult:
+    """Require finding-token union shares minimum overlap with the
+    edit's own content-tokens (Aletheia Round 5 F39, 2026-07-17).
+
+    Closes the "lens-differentiated but edit-agnostic" gap. The keyword
+    check verifies findings sound like the LENS; this check verifies
+    findings are about the EDIT. A walk producing three lens-plausible
+    but edit-agnostic paragraphs — "fragility could be a concern here"
+    applied to any file — clears the other checks. This one adds "the
+    reasoning must be ABOUT the edit."
+
+    Fail-open on unavailable edit content: when ``edit_content_tokens``
+    is None (bash-anchored fingerprint, file unreadable, path outside
+    repo), skip. Blocking legitimate edits on filesystem hiccups is a
+    worse failure mode than letting a sophisticated edit-agnostic walk
+    slip through in that narrow case; every other check still runs.
+
+    Threshold: COUNCIL_MIN_EDIT_TOKEN_OVERLAP (default 2). Real findings
+    ABSTRACT the edit's concerns rather than quote verbatim, so require
+    modest overlap.
+    """
+    if edit_content_tokens is None:
+        return CheckResult(passed=True)
+    if not edit_content_tokens:
+        return CheckResult(passed=True)
+    finding_tokens: set[str] = set()
+    for finding in record.lens_findings:
+        finding_tokens |= _content_tokens(finding.finding_text)
+    finding_tokens |= _content_tokens(record.synthesis)
+    overlap = finding_tokens & edit_content_tokens
+    if len(overlap) >= COUNCIL_MIN_EDIT_TOKEN_OVERLAP:
+        return CheckResult(passed=True)
+    sample_edit = sorted(edit_content_tokens)[:8]
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_EDIT_TOKEN_OVERLAP,
+        what_would_clear_it=(
+            f"Council walk shares only {len(overlap)} content-token(s) "
+            f"with the edit's own content (need at least "
+            f"{COUNCIL_MIN_EDIT_TOKEN_OVERLAP}). Findings and synthesis "
+            "sound lens-shaped but never reference anything specific to "
+            f"this edit. Edit tokens include (sample): {sample_edit!r}. "
+            "A real walk names at least a couple of the edit's own "
+            "concepts when applying the lens; padding lens-vocab without "
+            "engaging edit specifics fails by design (Round 5 F39)."
+        ),
+    )
+
+
 def substance_bind_record(
     record: CouncilRecord,
     is_kiln_layer: bool,
     expert_keywords_for_lens: dict[str, set[str]],
+    edit_content_tokens: set[str] | None = None,
 ) -> CheckResult:
     """Run all applicable substance-binding checks in order.
 
@@ -450,6 +505,12 @@ def substance_bind_record(
     all checks pass. Order is intentional — cheapest checks first
     (lens count, token counts) before the more expensive keyword
     cross-reference, so a clear failure surfaces fast.
+
+    ``edit_content_tokens`` (Aletheia F39, 2026-07-17): when provided,
+    enforce that the union of finding-tokens shares minimum overlap
+    with the edit's own content. Fail-open when None — non-file edits
+    (bash fingerprints) and unreadable-file cases skip the check
+    without blocking otherwise-valid walks.
 
     The artifact-exists and recency checks live in the gate (gate.py),
     not here; this function operates on a record that has already been
@@ -463,6 +524,10 @@ def substance_bind_record(
         _check_synthesis_token_count(record),
         _check_synthesis_references_lenses(record),
         _check_kiln_confirmed_by(record, is_kiln_layer),
+        # Edit-token-overlap: cheap structural check on already-parsed
+        # tokens, before the ledger-querying load-trace check. Fail-
+        # open when edit_content_tokens is None.
+        _check_edit_token_overlap(record, edit_content_tokens),
         # Lens-load-trace last: it queries the ledger, so it's the
         # most expensive check. All cheap structural checks fail first
         # for records that don't need to reach this layer. But it's
