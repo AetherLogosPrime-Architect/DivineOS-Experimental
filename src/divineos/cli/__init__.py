@@ -326,9 +326,11 @@ from divineos.cli import (  # noqa: E402
     voice_commands,
     monitor_commands,
     search_commands,
+    error_commands,
 )
 
 actor_registry_commands.register(cli)
+error_commands.register(cli)
 andrew_state_commands.register(cli)
 ledger_commands.register(cli)
 knowledge_commands.register(cli)

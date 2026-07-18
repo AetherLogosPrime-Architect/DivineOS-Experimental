@@ -55,11 +55,49 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any
+
+
+# Match a Bash command that invokes `divineos <subcmd>` as its primary
+# operation. Anchored at the start (after optional whitespace and an
+# optional path/quote prefix like `.venv/Scripts/divineos.exe`) so that
+# `python -c "print('divineos')"` is NOT treated as a divineos call.
+# Mirrors the shape of the bypass regex in
+# src/divineos/hooks/pre_tool_use_gate.py (_DIVINEOS_SUBCMD_RE) and the
+# canonical bypass file at scripts/hook_bypass_commands.txt.
+_DIVINEOS_BASH_RE = re.compile(
+    r"^\s*"
+    r"(?:[\"\']?[\w./\\:-]*[/\\])?"
+    r"divineos(?:\.exe)?[\"\']?"
+    r"\s+(?:\w[\w-]*)"
+)
+
+
+def _is_divineos_command(command: str) -> bool:
+    """True if this Bash invocation is running a `divineos <subcmd>`.
+
+    Purpose: the engagement gate treats "code action" as any Bash call
+    and expects only the ~13 subcommands that call _log_os_query to
+    clear the counter. That misses ~40 other divineos subcommands that
+    ARE substrate consultation (audit list/show, claims list/search,
+    prereg list/show, decisions list/search, affect history/summary,
+    compass-ops history/summary, family-state, inspect *, etc.) — and
+    it misses mutating-but-substrate-engaged commands like
+    `divineos claim`, `divineos learn`. All of those are substrate-
+    engaged work, not blind code-editing. This predicate lets the
+    engagement-counter skip them.
+
+    Andrew 2026-07-17: the gate was "built on a false assumption" that
+    Bash tool-name equals cognitive-mode. Real axis is: is this
+    consulting/engaging substrate, or blind editing? A `divineos <anything>`
+    invocation is substrate-engaged by construction.
+    """
+    return bool(_DIVINEOS_BASH_RE.match(command or ""))
 
 
 _CHECKPOINT_EDIT_INTERVAL = 15
@@ -427,8 +465,30 @@ def main() -> int:
     # that runs a thinking command both increments and clears (net-zero),
     # while non-thinking Bash increments without clearing. That's the right
     # shape: the gate measures real engagement, not just direct-edit count.
+    #
+    # 2026-07-17 (Andrew "we may need to change the shape of it as it may be
+    # built on a false assumption"): the net-zero-for-thinking model above
+    # missed a real category. Only ~13 divineos subcommands call _log_os_query;
+    # many substrate-query subcommands (audit list/show, claims list/search,
+    # prereg list/show, decisions list/search, affect history/summary,
+    # compass-ops history/summary, family-state, etc.) do NOT — running them
+    # to check real substrate state bumped the counter without a matching
+    # mark_engaged. Result: consulting the substrate via unrecognized query
+    # subcommands looked like blind code-work to the gate. Same false-shape
+    # class Aletheia named Finding 37 (gate-blocks-its-own-remedy). Fix:
+    # ANY "divineos <subcmd>" Bash invocation is substrate-engaged work —
+    # either mutating with intent, or reading substrate — not blind editing.
+    # Don't bump the counter for it. Named-thinking commands still clear the
+    # counter via their own _log_os_query. Non-divineos Bash (git, python -c,
+    # arbitrary scripts) still counts.
     if tool_name in ("Edit", "Write", "NotebookEdit", "Bash"):
-        _record_code_action()
+        skip = False
+        if tool_name == "Bash":
+            command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+            if _is_divineos_command(command):
+                skip = True
+        if not skip:
+            _record_code_action()
 
     tool_calls = state["tool_calls"]
     edits = state["edits"]

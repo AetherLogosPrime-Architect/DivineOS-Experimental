@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (406 commands across 82 modules)
+  cli/                         CLI package (412 commands across 82 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -33,6 +33,7 @@ src/divineos/
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
+    error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
@@ -594,6 +595,7 @@ src/divineos/
       primitives.py            Doorman shape-primitives: sentence_containing, is_hypothetical, is_inside_code_quote, is_peer_relayed, is_internal_observation.
     subprocess_jobs.py         Windows Job Object subprocess wrapper — kernel-guaranteed parent-death-kills-children.
     wiring_dark.py             Wiring dark-node query — the standing check Aletheia asked for.
+    error_registry.py          Error registry — no forward progress while errors are open.
 
   analysis/
     _session_types.py          Session analysis type definitions

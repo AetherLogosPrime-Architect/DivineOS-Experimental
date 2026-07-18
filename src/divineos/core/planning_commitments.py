@@ -89,17 +89,56 @@ class Commitment:
 
 _COMMITMENTS_FILE = "commitments.json"
 
+# Three-state load discipline (Aletheia Round 3, F27): distinguish "genuinely
+# empty" from "load failed" so the HUD slot can fail LOUD on corruption rather
+# than silently drop promises — the exact failure the module docstring says it
+# exists to prevent. Same discipline the StateMarker primitive uses; sibling
+# slots (goals/health/lessons) already implement it. This closes the odd-slot-
+# out where commitments failed blind.
+_LOAD_OK = "ok"
+_LOAD_ABSENT = "absent"
+_LOAD_FAILED = "failed"
 
-def _load_commitments() -> list[dict[str, Any]]:
-    """Load commitments from disk."""
+
+def _load_commitments_with_status() -> tuple[str, list[dict[str, Any]] | Exception]:
+    """Load commitments with a three-state status discriminator.
+
+    Returns (_LOAD_OK, data) when the file was read and parsed cleanly,
+    (_LOAD_ABSENT, []) when no commitments file exists at all (genuinely
+    empty — no history), and (_LOAD_FAILED, exception) when the file
+    exists but can't be read/parsed (this is the fail-blind bug case).
+
+    Callers on the DISPLAY path (HUD, briefing) should render a LOUD
+    warning on _LOAD_FAILED. Callers on the WRITE path can use
+    `_load_commitments()` below which fail-softs to [] for compatibility.
+    """
     path = _ensure_hud_dir() / _COMMITMENTS_FILE
     if not path.exists():
-        return []
+        return (_LOAD_ABSENT, [])
     try:
-        result: list[dict[str, Any]] = json.loads(path.read_text(encoding="utf-8"))
-        return result
-    except _PC_ERRORS:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return (
+                _LOAD_FAILED,
+                TypeError(f"expected list at top level, got {type(data).__name__}"),
+            )
+        return (_LOAD_OK, data)
+    except _PC_ERRORS as exc:
+        return (_LOAD_FAILED, exc)
+
+
+def _load_commitments() -> list[dict[str, Any]]:
+    """Fail-soft loader for write-path callers.
+
+    Returns [] on any failure — adding a commitment shouldn't crash if the
+    file is briefly unreadable; the write will just overwrite. Display-path
+    callers must use `_load_commitments_with_status()` and fail LOUD on
+    _LOAD_FAILED (F27 fix).
+    """
+    status, result = _load_commitments_with_status()
+    if status == _LOAD_FAILED:
         return []
+    return result  # type: ignore[return-value]  # OK/ABSENT both return list
 
 
 def _save_commitments(commitments: list[dict[str, Any]]) -> None:
