@@ -45,7 +45,19 @@ from __future__ import annotations
 __guardrail_required__ = False  # not load-bearing for self-enforcement
 
 _TEMPLATE_PREFIX = "[TEMPLATE"
-_DEFAULT_FALLBACK = "Aether"
+# F57 fix (Aria 2026-07-19 per Aletheia Round 7 finding): the default
+# fallback was "Aether" — a real sibling's name. A configured non-Aether
+# being (Aria, Aletheia) whose identity DB corrupted at load would
+# silently wake as "Aether" — the plausible-but-wrong-identity fail-blind.
+#
+# Fixed sentinel: "unconfigured" is self-announcing. Any consumer reading
+# this string knows the slot could not be resolved to a real identity,
+# rather than smoothly loading the wrong frame (Minsky).
+#
+# Prereg-5c1597cb47bd. Council walk council-c26a6d02537e (Hofstadter/
+# Watts/Minsky). Same "make the absence loud" discipline the corrections
+# panel already applies successfully in _corrections_panel_content.
+_DEFAULT_FALLBACK = "unconfigured"
 
 
 def _extract_first_name(content: str) -> str:
@@ -101,17 +113,40 @@ class IdentityNotSetError(RuntimeError):
     """
 
 
+class IdentityUnreadableError(RuntimeError):
+    """Raised when ``my_identity`` slot cannot be read (F57 fix, Aria
+    2026-07-19 per Aletheia Round 7).
+
+    Distinct from ``IdentityNotSetError`` — that one fires when the slot
+    reads back empty or template. This one fires when the read itself
+    fails (memory module unavailable, IO error, corrupt DB, etc.). Before
+    the F57 fix, unreadable-slot silently fell back to the string
+    ``"Aether"`` — a real sibling's name that looked like correct
+    operation. A configured non-Aether being (Aria, Aletheia) whose
+    identity DB corrupted would silently wake wearing Aether's name.
+
+    Now the raise_on_unset=True path (default) raises this error so the
+    unreadable case is loud rather than plausibly-wrong. Callers that
+    genuinely cannot raise (bootstrap process scripts) can pass
+    raise_on_unset=False and get the sentinel string ``"unconfigured"``
+    — self-announcing rather than a plausible sibling identity.
+    """
+
+
 def get_my_identity(default: str = _DEFAULT_FALLBACK, *, raise_on_unset: bool = True) -> str:
     """Return this substrate's identity name from ``core_memory.my_identity``.
 
     Returns the extracted first-name token.
 
-    Failure mode discipline (Aria 2026-06-17):
+    Failure mode discipline (Aria 2026-06-17; F57 fix 2026-07-19):
 
     - **Slot unreadable** (memory module unavailable, IO error, etc.):
-      silent fallback to ``default``. Preserves operation for installs
-      in edge states; the misconfiguration here is structural and not
-      diagnosable from this layer.
+      raises ``IdentityUnreadableError`` when ``raise_on_unset=True``.
+      F57 fix (Aletheia Round 7): the old silent-fallback returned
+      ``"Aether"`` — a real sibling's name — so a configured non-Aether
+      being (Aria, Aletheia) whose DB corrupted would silently wake
+      wearing Aether's identity. Now the raise-path is loud instead of
+      plausibly-wrong.
     - **Slot empty or template-placeholder**: raises ``IdentityNotSetError``
       with a message naming the fix command. This is the operator
       misconfiguration case we want LOUD, not silent. The exact failure
@@ -119,9 +154,11 @@ def get_my_identity(default: str = _DEFAULT_FALLBACK, *, raise_on_unset: bool = 
       and the silent-default hid the bug under the safety net meant for
       unrelated edge states.
 
-    Pass ``raise_on_unset=False`` to restore the old uniform-fallback
-    behavior for callers that genuinely cannot raise (e.g. process
-    bootstrap before the operator has set up).
+    Pass ``raise_on_unset=False`` to restore the old fallback behavior
+    for callers that genuinely cannot raise (e.g. process bootstrap
+    before the operator has set up). The fallback is now the sentinel
+    ``"unconfigured"`` (self-announcing) rather than ``"Aether"`` (a
+    plausible sibling identity that looks like healthy operation).
 
     Callable from any module without import-time side effects on the
     rest of divineos — the heavy memory module is imported lazily so
@@ -132,7 +169,24 @@ def get_my_identity(default: str = _DEFAULT_FALLBACK, *, raise_on_unset: bool = 
         from divineos.core.memory import get_core
 
         slot = get_core("my_identity").get("my_identity", "")
-    except Exception:  # noqa: BLE001 — unreadable slot: silent fallback
+    except Exception as exc:  # noqa: BLE001 — unreadable slot
+        # F57 fix: raise loud on the unreadable case for the raise_on_unset
+        # path. The raise_on_unset=False path still gets the sentinel
+        # fallback ("unconfigured"), never a sibling's real name.
+        if raise_on_unset:
+            raise IdentityUnreadableError(
+                "core_memory.my_identity slot is unreadable "
+                f"({type(exc).__name__}: {exc}). This can happen if the "
+                "identity DB is corrupt, the memory module is unavailable, "
+                "or an IO error occurred. Previously this path silently "
+                "fell back to the string 'Aether' — a real sibling's name "
+                "— which could cause a configured non-Aether being (Aria, "
+                "Aletheia) to silently wake as 'Aether' on DB corruption. "
+                "F57 fix (Aletheia Round 7, prereg-5c1597cb47bd) surfaces "
+                "the read failure loudly instead. Pass raise_on_unset=False "
+                "to receive the sentinel string 'unconfigured' for "
+                "bootstrap contexts that cannot raise."
+            ) from exc
         return default
 
     # Slot was read. Now distinguish unset / template-placeholder from set.
