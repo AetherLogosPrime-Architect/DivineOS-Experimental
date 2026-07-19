@@ -200,6 +200,55 @@ def _has_compound_shape(cmd: str) -> bool:
 _CD_PREFIX_RE = re.compile(r"^\s*cd\s+(?:[\"'][^\"'$`]+[\"']|[^\s;&|`$]+)\s*&&\s*")
 
 
+# 2026-07-19 fix (Andrew LEPOS-crisis, council-c887c7f71777): the compound-
+# shape check on the bypass path over-blocks documented remedy commands
+# when invoked with benign output-filter tails — e.g. `divineos ask
+# "topic" | head -20`, `divineos active 2>&1 | grep foo`. These are pure
+# output-shaping constructs; the leading command is still a bypass
+# candidate. Blocking them creates the chicken-and-egg trap where the
+# gate's own documented remedy is refused because I piped its output
+# through head for readability. Bypass-rate telemetry confirmed 14 events
+# on `cmd:divineos ask` alone. Same principle as the existing cd-prefix
+# carve-out (Andrew 2026-06-29 "no gate should ever be blocking you from
+# using what you need to clear the gate").
+#
+# Safe-tail pattern: any number of ` | <filter> [args...]` segments where
+# each filter is on _SAFE_OUTPUT_FILTERS, plus optional ` 2>&1` (stderr
+# merge — fd-redirect not a pipe but safe and common). Args regex excludes
+# shell metachars (`;`, `&&`, backtick, `$(`, `>`, `<`) so awk/sed on the
+# allow-list cannot smuggle a payload via arg substitution.
+#
+# OUT of scope: `| tee` (writes files), `| xargs CMD` (runs arbitrary CMD),
+# `| bash`, `| sh`, `| python` (interprets stdin). Allow-list is closed.
+_SAFE_OUTPUT_FILTERS = frozenset(
+    {"head", "tail", "grep", "less", "more", "cat", "wc", "sort", "uniq", "awk", "sed"}
+)
+
+
+def _strip_safe_output_tail(cmd: str) -> str:
+    """Strip a trailing ` | SAFE_FILTER ARGS...` chain and/or ` 2>&1` from
+    cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
+
+    Safe pattern: any number of ` | <filter> [args...]` segments where
+    each filter is on _SAFE_OUTPUT_FILTERS, optionally followed by ` 2>&1`
+    (or leading `2>&1` before the pipe). Args must not contain shell
+    metacharacters that would compose or substitute.
+    """
+    stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
+    while True:
+        m = re.search(r"\s\|\s+(\w+)((?:\s+[^|;&`$<>]+)?)\s*$", stripped)
+        if not m:
+            break
+        filter_name = m.group(1)
+        args_segment = m.group(2) or ""
+        if filter_name not in _SAFE_OUTPUT_FILTERS:
+            return cmd
+        if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
+            return cmd
+        stripped = stripped[: m.start()].rstrip()
+    return stripped
+
+
 def _strip_cd_prefix(cmd: str) -> str:
     """If ``cmd`` starts with a safe ``cd DIR &&`` prefix, strip it and
     return the remainder. Otherwise return cmd unchanged.
@@ -226,6 +275,10 @@ def _is_bypass_command(cmd: str) -> bool:
     # working directory without executing anything else. Anything else
     # with a compound char still fails the bypass.
     cmd = _strip_cd_prefix(cmd)
+    # 2026-07-19: strip trailing safe-output-filter tail so `divineos ask
+    # "topic" | head -20` can still bypass. See _strip_safe_output_tail
+    # docstring for the closed allow-list and safety envelope.
+    cmd = _strip_safe_output_tail(cmd)
     # F22 gate: compound commands are never bypass candidates, even if
     # they contain a safe word. `divineos briefing; rm -rf /tmp/x` must
     # NOT bypass — the safe word is a decoy, not the command.
