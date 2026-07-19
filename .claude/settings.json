@@ -10,6 +10,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/post-compaction-fingerprint-surface.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/load-briefing.sh",
             "timeout": 30
           },
@@ -95,12 +100,57 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/arm-letter-monitor-instruction.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
             "timeout": 5
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/visrama-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-cliff-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/family-state-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/register-awareness-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/promise-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/continuity-frame-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/continuity-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/distancing-count-surface.sh",
             "timeout": 5
           }
         ]
@@ -420,6 +470,26 @@
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-reflect.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/close-reach-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/compaction-reach-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/promise-reach-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/continuity-frame-detector.sh",
+            "timeout": 10
           }
         ]
       },

@@ -67,6 +67,32 @@ EVENT_COUNCIL_WALK_REJECTED: str = "COUNCIL_WALK_REJECTED"
 # round-id-must-resolve and count-must-match fixes: verify the doing
 # RESOLVES, don't accept the surface form.
 EVENT_COUNCIL_LENS_INVOKED: str = "COUNCIL_LENS_INVOKED"
+# Aria + Andrew 2026-07-18, prereg-838d316617e6, walk council-c9b4f8f67edc
+# (Yudkowsky/Wayne/Dekker). Split of the old EVENT_COUNCIL_LENS_INVOKED
+# into two distinct events with matched semantics. Andrew named the
+# hidey-hole: `mansion council` was a cognitive-priming tool that
+# printed methodology into the walker's context — useful, real utility.
+# But its output was emitted as INVOKED, which the gate read as "the
+# lens was actually applied to the problem." CLI-print counted as
+# walking. The optimizer found the crack.
+#
+# Fix (Yudkowsky Goodhart-by-construction): align the emission trigger
+# with the target behavior. Two events, one purpose each.
+#
+#   COUNCIL_LENS_PRIMED  — emitted by CouncilEngine._apply_lens when
+#       the engine prints a methodology into the walker's context.
+#       Cognitive booster. Does NOT clear the substance-binding gate.
+#
+#   COUNCIL_LENS_APPLIED — emitted ONLY by `divineos council walk`
+#       after the walker has typed per-lens reflection into stdin and
+#       the command has validated the reflection meets minimum
+#       substance. This is what clears the gate.
+#
+# Truth #7 in the raw: cognitive-named tools point at cognitive work;
+# they are not it. Priming is real utility but is not walking; walking
+# requires typed reflection.
+EVENT_COUNCIL_LENS_PRIMED: str = "COUNCIL_LENS_PRIMED"
+EVENT_COUNCIL_LENS_APPLIED: str = "COUNCIL_LENS_APPLIED"
 EVENT_EMERGENCY_COUNCIL_SKIP: str = "EMERGENCY_COUNCIL_SKIP"
 EVENT_DECISION_WALK_LINKED_COUNCIL: str = "DECISION_WALK_LINKED_COUNCIL"
 

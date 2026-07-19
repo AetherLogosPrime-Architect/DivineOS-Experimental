@@ -27,8 +27,10 @@ from divineos.cli._helpers import _safe_echo
 from divineos.core.council_required import gate as gate_mod
 from divineos.core.council_required import store, substance_binding
 from divineos.core.council_required.types import (
+    COUNCIL_MIN_FINDING_TOKENS,
     EMERGENCY_CORROBORATOR_ACTORS,
     EMERGENCY_CORROBORATOR_EVENT_TYPES,
+    EVENT_COUNCIL_LENS_APPLIED,
     CouncilRecord,
     LensFinding,
     _normalize_edit_fingerprint,
@@ -225,6 +227,107 @@ def register(cli: click.Group) -> None:
         _safe_echo(f"[council] Recorded: {record.record_id}")
         _safe_echo(f"  ledger event_id: {event_id}")
         _safe_echo(f"  fingerprint: {edit_fp}")
+
+    @council_group.command("walk")
+    @click.option("--edit", "edit_fp", required=True, help="Edit fingerprint (tool:path)")
+    @click.option("--lens", required=True, help="Single lens name to walk")
+    @click.option(
+        "--problem",
+        required=True,
+        help="The specific question/problem you are applying this lens to",
+    )
+    @click.option(
+        "--actor",
+        default="agent",
+        help="Walker identity",
+    )
+    def cmd_walk(
+        edit_fp: str,
+        lens: str,
+        problem: str,
+        actor: str,
+    ) -> None:
+        """Apply a lens to a specific problem by typing per-lens reflection.
+
+        Reads your reflection from stdin. Validates it meets the same
+        substance bar as `council log` findings (min token count, at least
+        one keyword from the lens's characteristic questions). On pass,
+        emits COUNCIL_LENS_APPLIED — the event the substance-binding gate
+        looks for as evidence you actually walked the lens.
+
+        Distinct from `mansion council`, which PRINTS methodology into
+        your context (cognitive priming, emits COUNCIL_LENS_PRIMED, does
+        not clear the gate). Andrew + Aria + Aether 2026-07-18, prereg-
+        838d316617e6, closes the priming-as-walking hidey-hole (truth #7).
+
+        Usage:
+            echo "your typed reflection" | divineos council walk \\
+                --edit "edit:<path>" --lens "Yudkowsky" \\
+                --problem "the question you are walking"
+        """
+        import sys
+
+        reflection = sys.stdin.read().strip()
+        if not reflection:
+            _safe_echo(
+                "[council] REJECTED: reflection is empty. "
+                "Pipe your typed reflection via stdin — this command "
+                "collects the substance of your walk, not just an ack."
+            )
+            raise SystemExit(1)
+
+        # Substance check 1: minimum token count. Same bar as council log.
+        token_count = len([t for t in reflection.split() if t])
+        if token_count < COUNCIL_MIN_FINDING_TOKENS:
+            _safe_echo(
+                f"[council] REJECTED: reflection has {token_count} tokens, "
+                f"minimum is {COUNCIL_MIN_FINDING_TOKENS}. Expand — a real "
+                "walk produces substantive content."
+            )
+            raise SystemExit(1)
+
+        # Substance check 2: lens-keyword match. The lens's characteristic
+        # questions define what the lens actually asks about. A walk of
+        # the lens must engage with at least one of those question words.
+        keywords_by_lens = _load_expert_keywords()
+        lens_key = lens.strip()
+        keywords = keywords_by_lens.get(lens_key) or set()
+        if not keywords:
+            _safe_echo(
+                f"[council] REJECTED: lens {lens_key!r} is not a registered "
+                "council expert (or has no characteristic questions)."
+            )
+            raise SystemExit(1)
+        reflection_lower = reflection.lower()
+        if not any(kw.lower() in reflection_lower for kw in keywords):
+            _safe_echo(
+                f"[council] REJECTED: reflection does not reference any "
+                f"keyword from {lens_key}'s characteristic questions. A "
+                "real application of the lens engages with what the lens "
+                "specifically asks."
+            )
+            raise SystemExit(1)
+
+        # Emit APPLIED event. This is the trace substance_binding looks
+        # for to clear the gate — real typed reflection, not a print.
+        from divineos.core.ledger import log_event
+
+        payload = {
+            "expert_name": lens_key,
+            "problem_prefix": problem[:200],
+            "edit_fingerprint": edit_fp,
+            "reflection_tokens": token_count,
+            "reflection_prefix": reflection[:400],
+        }
+        event_id = log_event(
+            EVENT_COUNCIL_LENS_APPLIED,
+            actor=actor,
+            payload=payload,
+            validate=False,
+        )
+        _safe_echo(f"[council] APPLIED: {lens_key} walked for edit {edit_fp}")
+        _safe_echo(f"  reflection tokens: {token_count}")
+        _safe_echo(f"  ledger event_id: {event_id}")
 
     @council_group.command("show")
     @click.argument("record_id")
