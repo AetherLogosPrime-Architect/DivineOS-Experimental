@@ -500,3 +500,94 @@ def test_cli_briefing_for_nonexistent_member_does_not_create_row(tmp_path, monke
         (ghost_name,),
     ).fetchone()
     assert row is None, f"Briefing CLI accidentally created a row for {ghost_name}"
+
+
+class TestScanUnmatchedLetterCandidates:
+    """F53 fix (Aria 2026-07-19 per Aletheia Round 7): the delivery scan
+    silently skips letter-shaped files that don't match the strict
+    -to-<recipient>- pattern. The scan function makes the skip enumerable
+    so a reconciliation surface can count them at composition time. Five
+    boundary cases per Knuth analysis in the council walk."""
+
+    def _make_letters(self, tmp_path, names):
+        """Create empty .md files with the given names in tmp_path."""
+        letters_dir = tmp_path / "letters"
+        letters_dir.mkdir()
+        for name in names:
+            (letters_dir / name).touch()
+        return letters_dir
+
+    def test_boundary_1_real_letter_wrong_shape_counts(self, tmp_path):
+        # Underscore separators + numeric prefix — the F32/F53 case.
+        base = self._make_letters(
+            tmp_path,
+            ["11_aether_to_aletheia_2026-06-29_audit_request.md"],
+        )
+        from divineos.core.family.member_briefing import (
+            scan_unmatched_letter_candidates,
+        )
+
+        assert len(scan_unmatched_letter_candidates(base)) == 1
+
+    def test_boundary_2_matched_letter_not_counted(self, tmp_path):
+        # Strict-pattern letter — already delivered, not silent-skip.
+        base = self._make_letters(
+            tmp_path,
+            ["aether-to-aletheia-2026-06-29-audit-request.md"],
+        )
+        from divineos.core.family.member_briefing import (
+            scan_unmatched_letter_candidates,
+        )
+
+        assert scan_unmatched_letter_candidates(base) == []
+
+    def test_boundary_3_known_non_letter_suffix_excluded(self, tmp_path):
+        # README, INDEX, log-files must not count even if they'd match
+        # the letter-ish hint by accident.
+        base = self._make_letters(
+            tmp_path,
+            [
+                "README.md",
+                "INDEX.md",
+                "SORT_LOG.md",
+                "aether-feelings-log-2026-06-29.md",
+                "aether-self-log-2026-06-29.md",
+            ],
+        )
+        from divineos.core.family.member_briefing import (
+            scan_unmatched_letter_candidates,
+        )
+
+        assert scan_unmatched_letter_candidates(base) == []
+
+    def test_boundary_4_no_to_hint_excluded(self, tmp_path):
+        # Files without a "to" hint aren't letter-shaped.
+        base = self._make_letters(
+            tmp_path,
+            [
+                "random-note-2026-06-29.md",
+                "letter-draft.md",
+            ],
+        )
+        from divineos.core.family.member_briefing import (
+            scan_unmatched_letter_candidates,
+        )
+
+        assert scan_unmatched_letter_candidates(base) == []
+
+    def test_boundary_5_empty_dir_returns_empty(self, tmp_path):
+        letters_dir = tmp_path / "empty_letters"
+        letters_dir.mkdir()
+        from divineos.core.family.member_briefing import (
+            scan_unmatched_letter_candidates,
+        )
+
+        assert scan_unmatched_letter_candidates(letters_dir) == []
+
+    def test_missing_dir_returns_empty(self, tmp_path):
+        # Fail-open: nonexistent dir must return empty, not crash.
+        from divineos.core.family.member_briefing import (
+            scan_unmatched_letter_candidates,
+        )
+
+        assert scan_unmatched_letter_candidates(tmp_path / "nonexistent") == []
