@@ -209,7 +209,11 @@ def decide(
     classifier + expert-library import graph.
     """
     gravity_result = gravity_fn(tool_name, file_paths, bash_command)
-    is_council_required = bool(getattr(gravity_result, "is_council_required", False))
+    # F49 fix 2026-07-19 (Aletheia Round 6 catch): default was False
+    # (fails-open — degraded/missing attribute → ALLOW without a walk).
+    # Flipped to True so a broken gravity_result forces council walk
+    # rather than silently skipping the discipline. Fail toward scrutiny.
+    is_council_required = bool(getattr(gravity_result, "is_council_required", True))
     if not is_council_required:
         return GateDecision(outcome=GateOutcome.ALLOW)
 
