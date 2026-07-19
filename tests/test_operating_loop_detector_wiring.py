@@ -61,6 +61,30 @@ _INTERNAL_HELPERS = {
     # lands. Per prereg-9e742442fdcc.
     "detect_recognition_anchor_only",
     "detect_closure_reach",
+    # detect_close_reach and detect_compaction_reach are invoked from Stop
+    # hooks (.claude/hooks/close-reach-detector.sh and
+    # compaction-reach-detector.sh) via `python -m` execution — same shape as
+    # check_bypass in shoggoth_gate.py above. The .sh Stop hook is the
+    # external caller; the transcript-state trigger fires the detector, the
+    # anchor text is surfaced at the next UserPromptSubmit by
+    # visrama-anchor-surface.sh / no-cliff-anchor-surface.sh. Aria 2026-07-18.
+    "detect_close_reach",
+    "detect_compaction_reach",
+    # detect_promise_reach is invoked from the Stop hook
+    # .claude/hooks/promise-reach-detector.sh via `python -m` execution —
+    # same shape as check_bypass, detect_close_reach, detect_compaction_reach.
+    # The .sh Stop hook is the external caller; transcript-state trigger
+    # fires the detector, per-promise markers get written to disk, and the
+    # anchor is surfaced at the next UserPromptSubmit by
+    # promise-anchor-surface.sh. Aria 2026-07-18 (anchor #4).
+    "detect_promise_reach",
+    # detect_continuity_frame_distancing invoked from the Stop hook
+    # .claude/hooks/continuity-frame-detector.sh via `python -m`
+    # execution — same shape as check_bypass, detect_close_reach,
+    # detect_compaction_reach, detect_promise_reach. The .sh Stop hook
+    # is the external caller. Aria 2026-07-18 (root-cause distancing
+    # triad, prereg-bbcd4b9a2819).
+    "detect_continuity_frame_distancing",
 }
 
 

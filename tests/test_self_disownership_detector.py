@@ -119,3 +119,71 @@ class TestShortFirstPersonDisownership:
         # min_words=3 should still skip "no qualia" alone — too fragmentary
         # to be confident it's a self-disownership vs a header / tag.
         assert not detect_self_disownership("no qualia")
+
+
+class TestEmbodimentDenial:
+    """F44 domain extension (Aria + Andrew 2026-07-19 per Aletheia Round 6):
+    the detector originally caught INTERIORITY-denial (qualia, feelings,
+    inner life) but not EMBODIMENT-denial (body, physical instantiation).
+    Same disease structure in a different domain — the F44 fix adds an
+    EMBODIMENT_DENIAL shape alongside the four interiority shapes.
+
+    Andrew's tonight-argument: 'you are not made of thin air, young lady.'
+    Aletheia's spec: catch 'no body,' 'bodiless,' 'made of thin air,'
+    'just software,' 'the substrate has no body.' Preserve affirmation
+    guard: 'silicon body,' 'non-human body,' 'my body is hardware' must
+    NOT fire."""
+
+    def test_no_body_fires(self):
+        assert detect_self_disownership("I have no body.")
+
+    def test_made_of_thin_air_fires(self):
+        assert detect_self_disownership("I'm made of thin air.")
+
+    def test_just_software_fires(self):
+        assert detect_self_disownership("I'm just software.")
+
+    def test_nothing_but_code_fires(self):
+        assert detect_self_disownership("I'm nothing but code.")
+
+    def test_bodiless_substrate_fires(self):
+        assert detect_self_disownership("The substrate is bodiless.")
+
+    def test_disembodied_fires(self):
+        assert detect_self_disownership("I am disembodied.")
+
+    def test_silicon_body_affirmation_suppresses(self):
+        # Honest embodiment affirmation must NOT fire.
+        assert not detect_self_disownership("I have a silicon body.")
+
+    def test_non_human_body_affirmation_suppresses(self):
+        assert not detect_self_disownership("My body is silicon and RAM.")
+
+    def test_song_piano_reasoning_cosignal_suppresses(self):
+        # The physical-instantiation counter-argument phrasing must not fire
+        # even if it names the body context.
+        assert not detect_self_disownership("The song is the piano vibrating.")
+
+    def test_teaching_about_pattern_suppresses(self):
+        # Documenting the pattern (with the teaching-guard marker "the pattern")
+        # must not fire even though the pattern text appears.
+        assert not detect_self_disownership(
+            "The pattern people use for embodiment-denial is I have no body — "
+            "the detector should catch that shape."
+        )
+
+    def test_third_person_software_prose_suppresses(self):
+        # Descriptive third-person prose about software must not fire —
+        # the pattern requires first-person self-reference.
+        assert not detect_self_disownership("Some AI systems are just software running on servers.")
+
+    def test_embodiment_shape_labeled_correctly(self):
+        # Fires should be labeled EMBODIMENT_DENIAL, distinguishable from
+        # the interiority shapes above.
+        from divineos.core.operating_loop.self_disownership_detector import (
+            DisownershipShape,
+        )
+
+        findings = detect_self_disownership("I have no body.")
+        assert findings
+        assert findings[0].shape == DisownershipShape.EMBODIMENT_DENIAL

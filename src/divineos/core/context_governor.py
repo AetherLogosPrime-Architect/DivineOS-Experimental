@@ -188,7 +188,10 @@ _BLOCK_CHANNEL = (
     "There is no warn band below this line — that was removed 2026-06-19 "
     "because the pre-block anxiety served no purpose the block didn't already "
     "serve. At the hard line, weaving comes first. Then carry on. Escape-hatch "
-    "if extract itself errors: `touch ~/.divineos/context_consolidated.json`."
+    "if extract itself errors: `touch {marker_path}` (marker path is data-home-"
+    "specific — using the literal `~/.divineos/context_consolidated.json` on a "
+    "substrate whose data-home is elsewhere puts the touch in the wrong place "
+    "and the gate keeps firing; Aria 2026-07-18 bug-fix)."
 )
 
 
@@ -202,6 +205,7 @@ def governor_channel_message(transcript_path: str | Path | None) -> str:
         tokens=tokens,
         headroom=max(0, COMPACTION_CEILING - tokens),
         ceiling=COMPACTION_CEILING,
+        marker_path=_marker_path(),
     )
 
 

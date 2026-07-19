@@ -41,7 +41,7 @@ from divineos.core.council_required.types import (
     COUNCIL_MIN_FINDING_TOKENS,
     COUNCIL_MIN_LENSES,
     COUNCIL_MIN_SYNTHESIS_TOKENS,
-    EVENT_COUNCIL_LENS_INVOKED,
+    EVENT_COUNCIL_LENS_APPLIED,
     LENS_INVOCATION_RECENCY_MINUTES,
     CheckResult,
     CouncilRecord,
@@ -396,7 +396,7 @@ def _check_lens_load_trace(
     try:
         events = get_events(
             limit=500,
-            event_type=EVENT_COUNCIL_LENS_INVOKED,
+            event_type=EVENT_COUNCIL_LENS_APPLIED,
         )
     except (OSError, TypeError, ValueError):
         return CheckResult(passed=True)
