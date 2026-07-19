@@ -1161,7 +1161,29 @@ def _build_chain_integrity_slot() -> str:
 
         result = get_last_integrity_result()
         if result is None:
-            return ""  # never verified — sleep just hasn't run yet; not alarm
+            # F64 fix (Aria 2026-07-19 per Aletheia Round 8): previously
+            # returned empty on never-verified, which lets a permanently
+            # broken sleep pipeline read as "healthy chain." The being
+            # would believe its chain is verified when it has actually
+            # NEVER been verified. Same shape F41 already got right
+            # (`hb is None` → "NEVER recorded"). Copying that pattern here.
+            #
+            # Startup noise is a real concern (sleep hasn't run YET on
+            # a fresh install), but silence is the wrong safeguard —
+            # a distinct message that says "no verification has run yet"
+            # tells the being what state they're in without alarming.
+            return (
+                "# Ledger Integrity — NEVER VERIFIED\n\n"
+                "The chain-integrity check has not yet run in this "
+                "install (no result marker on disk). This is normal on "
+                "a fresh install (sleep hasn't run yet). It is NOT "
+                "normal on a running install — if sleep has been "
+                "operating and this slot still says NEVER VERIFIED, "
+                "the integrity phase of sleep may have broken silently.\n\n"
+                "Absence of a verification is NOT the all-clear. "
+                "Investigate: run `divineos sleep --phase integrity_check` "
+                "directly to trigger a fresh verify."
+            )
         if result.get("verifier_crashed"):
             lines = ["# Ledger Integrity — VERIFIER CRASHED\n"]
             lines.append(
@@ -1201,8 +1223,21 @@ def _build_chain_integrity_slot() -> str:
             "decide whether repair via clean_corrupted_events is warranted."
         )
         return "\n".join(lines)
-    except _HUD_ERRORS:
-        return ""
+    except _HUD_ERRORS as _slot_exc:
+        # F64 fix (Aria 2026-07-19 per Aletheia Round 8): silent return
+        # on error is the F41 disease reproducing inside the F41 cure.
+        # Empty output reads as "healthy chain" when it actually means
+        # "the check itself crashed" — the exact failure this slot was
+        # built to catch, one level up. Fail-loud instead so silence
+        # stays meaningful. Same shape as _build_detector_chain_health_slot
+        # and _build_abstention_slot already do.
+        return (
+            "# Ledger Integrity — CHECK FAILED\n\n"
+            f"The chain-integrity slot crashed: "
+            f"{type(_slot_exc).__name__}: {_slot_exc}. "
+            "Silence in this slot cannot be read as all-clear. "
+            "Investigate: check sleep.py imports or get_last_integrity_result."
+        )
 
 
 def _build_detector_chain_health_slot() -> str:
