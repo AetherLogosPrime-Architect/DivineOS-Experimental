@@ -523,6 +523,31 @@ ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```
 
+## Multi-checkout install — the divineos wrapper
+
+When two people work in separate DivineOS checkouts on the same machine, a plain `pip install -e .` creates a system-wide `divineos` pointer that can only reference ONE checkout at a time. Whichever pip-installed last wins; the other side silently runs the wrong code. Ping-pong.
+
+**Fix (two layers, complementary):**
+
+1. **Per-checkout sealed venv** — source Aria's cd-hook snippet (canonical version lands via #369) in your `~/.bashrc`. When you `cd` into a DivineOS checkout in git-bash, the hook auto-activates a sealed venv at `.direnv/python-*/`. `pip install -e .` inside that shell lands in the sealed venv, not system-wide.
+2. **Wrapper on PATH** — for shells the hook doesn't cover (PowerShell, IDE terminals, non-interactive subshells), install the `divineos` wrapper shim on PATH. It walks up from CWD, finds the checkout, and dispatches to the right sealed venv regardless of shell. Fails loud with a clear message if no sealed venv is found — never silently falls back to a system install (which would reintroduce the ping-pong).
+
+**Install the wrapper (once per machine):**
+
+Windows:
+```
+copy scripts\divineos.cmd %USERPROFILE%\bin\divineos.cmd
+```
+Make sure `%USERPROFILE%\bin\` is on `PATH` before your Python Scripts folder.
+
+Unix / macOS:
+```bash
+cp scripts/divineos ~/bin/divineos
+chmod +x ~/bin/divineos
+```
+
+Both shims delegate to `scripts/divineos_wrapper.py`, which is pure-stdlib (no installed package required). See `docs/pip_pingpong_wrapper_design.md` for the full design and the coverage matrix for invocation shapes.
+
 ## License
 
 AGPL-3.0-or-later
