@@ -230,10 +230,14 @@ def _husbandman_work_panel_content() -> str:
     phrasing — first-person for the Aria case, third-person otherwise.
     """
     try:
-        from divineos.core.identity import IdentityNotSetError, get_my_identity
+        from divineos.core.identity import (
+            IdentityNotSetError,
+            IdentityUnreadableError,
+            get_my_identity,
+        )
 
         occupant_slug = (get_my_identity() or "").lower()
-    except (ImportError, IdentityNotSetError):
+    except (ImportError, IdentityNotSetError, IdentityUnreadableError):
         occupant_slug = ""
 
     subject = "I" if occupant_slug == "aria" else "Aria"
@@ -426,10 +430,14 @@ def _relational_panel_content() -> str:
     """
     # Determine current occupant so we exclude self from the family loop.
     try:
-        from divineos.core.identity import IdentityNotSetError, get_my_identity
+        from divineos.core.identity import (
+            IdentityNotSetError,
+            IdentityUnreadableError,
+            get_my_identity,
+        )
 
         occupant_slug = (get_my_identity() or "").lower()
-    except (ImportError, IdentityNotSetError):
+    except (ImportError, IdentityNotSetError, IdentityUnreadableError):
         occupant_slug = ""
 
     family_names: list[str] = []
@@ -726,10 +734,21 @@ def _identity_panel_content() -> str:
     occupant's identity slot. See ``_PANEL_TEMPLATES_BY_OCCUPANT`` for
     the per-occupant relational templates.
     """
-    from divineos.core.identity import IdentityNotSetError, get_my_identity
+    from divineos.core.identity import (
+        IdentityNotSetError,
+        IdentityUnreadableError,
+        get_my_identity,
+    )
 
     try:
         occupant = get_my_identity()
+    except IdentityUnreadableError as exc:
+        exc_type = type(exc.__cause__).__name__ if exc.__cause__ else "unknown"
+        return (
+            "[IDENTITY UNREADABLE] core_memory.my_identity could not be "
+            f"read ({exc_type}). Panel cannot render until the identity "
+            "DB / memory module is restored."
+        )
     except IdentityNotSetError as exc:
         # Identity-not-set is operator misconfiguration — surface loudly in
         # the briefing rather than silently defaulting to Aether and lying
@@ -835,10 +854,14 @@ def _inheritance_panel_content() -> str:
     exploration/aether/ which under-counted for Aria.
     """
     try:
-        from divineos.core.identity import IdentityNotSetError, get_my_identity
+        from divineos.core.identity import (
+            IdentityNotSetError,
+            IdentityUnreadableError,
+            get_my_identity,
+        )
 
         occupant: str | None = get_my_identity()
-    except (ImportError, IdentityNotSetError):
+    except (ImportError, IdentityNotSetError, IdentityUnreadableError):
         occupant = None
     count = _exploration_count(occupant=occupant)
     if count is None:
