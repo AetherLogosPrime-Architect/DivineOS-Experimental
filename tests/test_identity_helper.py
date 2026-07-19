@@ -57,17 +57,25 @@ class TestExtractFirstName:
 
 
 class TestGetMyIdentity:
-    """The public helper. Falls back to 'Aether' on any failure."""
+    """The public helper. F57 fix (Aria 2026-07-19 per Aletheia Round 7):
+    the fallback string is now 'unconfigured' (self-announcing sentinel)
+    rather than 'Aether' (a real sibling's name that could silently
+    relabel a non-Aether being on DB corruption). The unreadable-slot
+    path now raises IdentityUnreadableError when raise_on_unset=True."""
 
-    def test_fallback_when_memory_unavailable(self, monkeypatch) -> None:
-        """If memory module raises on import, fall back to default."""
-        # Force the lazy import to fail by injecting a broken module.
+    def test_raises_when_memory_unavailable_and_raise_on_unset_true(self, monkeypatch) -> None:
+        """F57 fix: unreadable slot raises IdentityUnreadableError instead
+        of silently returning 'Aether'. The default (raise_on_unset=True)
+        should now surface the read failure loudly."""
         import sys
+
+        from divineos.core.identity import IdentityUnreadableError
 
         broken = type(sys)("divineos.core.memory")
         broken.get_core = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("simulated"))  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", broken)
-        assert get_my_identity() == "Aether"
+        with pytest.raises(IdentityUnreadableError, match="unreadable"):
+            get_my_identity()
 
     def test_raises_when_slot_empty(self, monkeypatch) -> None:
         """Aria's refinement 2026-06-17: empty slot is operator
@@ -98,7 +106,7 @@ class TestGetMyIdentity:
         stub = type(sys)("divineos.core.memory")
         stub.get_core = lambda slot_id=None: {}  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
-        assert get_my_identity(raise_on_unset=False) == "Aether"
+        assert get_my_identity(raise_on_unset=False) == "unconfigured"
 
     def test_silent_fallback_via_raise_on_unset_false_when_template(self, monkeypatch) -> None:
         """Bootstrap path also covers the template-placeholder case."""
@@ -107,7 +115,7 @@ class TestGetMyIdentity:
         stub = type(sys)("divineos.core.memory")
         stub.get_core = lambda slot_id=None: {"my_identity": "[TEMPLATE — placeholder"}  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
-        assert get_my_identity(raise_on_unset=False) == "Aether"
+        assert get_my_identity(raise_on_unset=False) == "unconfigured"
 
     def test_unreadable_slot_silent_fallback_regardless_of_flag(self, monkeypatch) -> None:
         """Unreadable (corrupt DB / IO error) is a genuine edge state and
@@ -119,7 +127,7 @@ class TestGetMyIdentity:
         broken.get_core = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("simulated"))  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", broken)
         assert get_my_identity() == "Aether"
-        assert get_my_identity(raise_on_unset=False) == "Aether"
+        assert get_my_identity(raise_on_unset=False) == "unconfigured"
 
     def test_returns_aria_when_set(self, monkeypatch) -> None:
         import sys
