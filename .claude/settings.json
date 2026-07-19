@@ -157,6 +157,11 @@
             "type": "command",
             "command": "bash .claude/hooks/distancing-count-surface.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
+            "timeout": 5
           }
         ]
       }
