@@ -55,6 +55,73 @@ _LETTER_PATTERN = re.compile(
     r"^(?P<sender>[a-z]+)-to-(?P<recipient>[a-z]+)-(?P<date>\d{4}-\d{2}-\d{2})"
 )
 
+# F53 fix (Aria 2026-07-19 per Aletheia Round 7): the pattern above is
+# intentionally strict — tag-based delivery is more robust than F32's old
+# hyphen-vs-underscore ambiguity. But any letter-shaped file that lacks
+# the exact `-to-<recipient>-` tag gets silently skipped with no signal,
+# and drift accumulates invisibly (Dekker). This heuristic identifies
+# files that look letter-shaped but don't match the strict pattern, so
+# a reconciliation surface can count them and make the silent-skip
+# observable at composition time. Not a delivery relaxation — an
+# observability wrapper around the intentional strictness.
+#
+# Heuristic (Knuth boundary analysis):
+#   - Must contain `to` between two word-parts (case-insensitive) —
+#     the "to" that would make it letter-shaped.
+#   - Must end in .md.
+#   - Must NOT match known non-letter suffixes: log, summary, index,
+#     readme, sort_log, feelings, self-log.
+#
+# The heuristic is intentionally slightly loose (false-positive bias)
+# because a false-positive costs one item in a surfaced count, while a
+# false-negative preserves the silent drift the fix exists to close.
+_LETTER_ISH_HINT_RE = re.compile(r"\bto\b|[-_]to[-_]", re.IGNORECASE)
+_KNOWN_NON_LETTER_SUFFIXES = (
+    "log",
+    "summary",
+    "index",
+    "readme",
+    "sort_log",
+    "feelings",
+    "self-log",
+    "self_log",
+    "template",
+    "archive",
+)
+
+
+def scan_unmatched_letter_candidates(base: "Path | None" = None) -> "list[Path]":
+    """Return letter-shaped files in `base` that do NOT match the strict
+    delivery pattern. F53 observability wrapper — the delivery scan
+    silently skips these; this function makes the skip enumerable.
+
+    Heuristic per module-level docs: must contain `to` (word-form or
+    hyphen-form), must end in .md, must not match known non-letter
+    suffixes. Fail-open on missing dir (returns empty list).
+
+    Called by the reconciliation surface hook to surface the count when
+    nonzero. Same shape as family-state and register-awareness surfaces
+    already shipped for other observability gaps. Prereg-8815cb3cd997,
+    council walk council-885f1425f486 (Dekker/Knuth/Carmack).
+    """
+    letters_base = base if base is not None else _LETTERS_DIR
+    if not letters_base.exists() or not letters_base.is_dir():
+        return []
+    unmatched: list[Path] = []
+    for path in letters_base.glob("*.md"):
+        stem_lower = path.stem.lower()
+        # Skip if it already matches the strict delivery pattern.
+        if _LETTER_PATTERN.match(path.stem):
+            continue
+        # Skip known non-letter suffixes.
+        if any(suf in stem_lower for suf in _KNOWN_NON_LETTER_SUFFIXES):
+            continue
+        # Skip if no "to" hint at all — not letter-shaped.
+        if not _LETTER_ISH_HINT_RE.search(stem_lower):
+            continue
+        unmatched.append(path)
+    return unmatched
+
 
 @dataclass(frozen=True)
 class InteractionRow:

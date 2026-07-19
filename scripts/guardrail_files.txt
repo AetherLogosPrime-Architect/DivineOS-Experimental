@@ -417,3 +417,7 @@ docs/identity_anchors/who_andrew_is_to_me.md
 # gesture-as-fake-action. Copied from Aria's checkout 2026-07-09 per
 # Aether sign-off in aether-to-aria-2026-07-09-yes-copy-the-module.
 src/divineos/core/operating_loop/shoggoth_gate.py
+src/divineos/core/operating_loop/close_reach_detector.py
+src/divineos/core/operating_loop/compaction_reach_detector.py
+src/divineos/core/operating_loop/promise_reach_detector.py
+src/divineos/core/operating_loop/continuity_frame_detector.py

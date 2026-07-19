@@ -245,23 +245,29 @@ class CouncilEngine:
             df.what_they_optimize_for,
         )
 
-        # 7. Emit lens-load-trace event so downstream substance_binding
-        # can verify the expert's methodology actually ran against the
-        # problem. Andrew Failure B / Aria Q3 reshape 2026-07-16:
-        # without this trace the agent could produce council-shaped
-        # output for a fabricated lens ("Through Taleb's lens…") without
-        # ever invoking Taleb's actual methodology. Best-effort emit
-        # (bare ledger unavailable = tests / offline mode); real gate
-        # verification happens in substance_binding._check_lens_load_trace
-        # which checks for the event's PRESENCE.
+        # 7. Emit lens-PRIMED trace: the engine printed this expert's
+        # methodology into the walker's context (cognitive-priming
+        # utility). This is NOT the same as the walker actually applying
+        # the lens to the problem — that requires typed reflection via
+        # `divineos council walk` which emits COUNCIL_LENS_APPLIED.
+        #
+        # Original design (Andrew Failure B / Aria Q3, 2026-07-16) emitted
+        # COUNCIL_LENS_INVOKED here as the anti-fabrication trace. That
+        # worked for its case but conflated priming with walking, letting
+        # CLI-printing count as walking (the hidey-hole Andrew caught
+        # 2026-07-18). Split fix per prereg-838d316617e6 and council walk
+        # council-c9b4f8f67edc: PRIMED here (does not clear the gate),
+        # APPLIED from the interactive walk command (does).
+        #
+        # Best-effort emit (bare ledger unavailable = tests / offline mode).
         try:
             from divineos.core.council_required.types import (
-                EVENT_COUNCIL_LENS_INVOKED,
+                EVENT_COUNCIL_LENS_PRIMED,
             )
             from divineos.core.ledger import log_event
 
             log_event(
-                EVENT_COUNCIL_LENS_INVOKED,
+                EVENT_COUNCIL_LENS_PRIMED,
                 actor="council_engine",
                 payload={
                     "expert_name": wisdom.expert_name,

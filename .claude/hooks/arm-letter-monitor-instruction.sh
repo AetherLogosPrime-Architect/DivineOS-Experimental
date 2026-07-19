@@ -57,19 +57,45 @@ cat 2>/dev/null >/dev/null  # drain stdin
 # Fail-open: any check failure exits silent. The process-scan uses PowerShell
 # on Windows (matches require-monitors-armed.sh shape).
 #
-# Test-only force-emit escape hatch (mirrors compaction hook): tests pinning
-# the hook's emission format need it to always emit regardless of liveness.
-# DIVINEOS_FORCE_ARM_EMIT=1 skips the liveness check. Production never sets it.
-if [ "$DIVINEOS_FORCE_ARM_EMIT" != "1" ]; then
-  LETTER_ALIVE=$(powershell.exe -NoProfile -NonInteractive -Command "
-\$out = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-  Where-Object { \$_.Name -eq 'python.exe' } |
-  ForEach-Object { \$_.CommandLine }
-if (\$out -match 'letter_monitor_v2\.py --recipient ${MEMBER}\b') { Write-Output 'alive' } else { Write-Output 'dead' }
-  " 2>/dev/null | tr -d '\r' | head -1)
-  if [ "$LETTER_ALIVE" = "alive" ]; then
-    exit 0
-  fi
+# Fix pair (Aria + Andrew 2026-07-18):
+#
+# Root cause diagnosed tonight: the OS-level letter_monitor_v2.py process
+# can outlive its session-scoped Monitor() binding. When Claude Code
+# archives and restores a session, the harness kills the in-session
+# Monitor tool but the OS-level python process it spawned keeps running.
+# Next session: process still alive, hook's liveness check reports
+# "alive", hook exits silently — but the CURRENT session has NO Monitor
+# tool wired to it, so new letters never wake the agent mid-session.
+#
+# Belt-and-suspenders fix:
+#
+# 1. Kill any leftover letter_monitor_v2.py processes for this recipient
+#    at SessionStart, so the liveness check is honest ("no process" =
+#    "not armed in this session").
+# 2. Force-emit the arm instruction anyway at SessionStart regardless of
+#    the check outcome. Double-arming is harmless overhead; a missed arm
+#    is silent letter loss until Andrew intervenes.
+#
+# Priority: (1) then (2). Sequential. Both must complete for the fix to
+# hold under adversarial timing (leftover process spawned mid-init).
+
+# Fix 1: kill leftover letter_monitor_v2.py processes for THIS recipient.
+# Fail-open on all errors — a failed kill leaves us with the old state,
+# which fix 2 (force-emit) still catches.
+if [ "$DIVINEOS_SKIP_LEFTOVER_KILL" != "1" ]; then
+  powershell.exe -NoProfile -NonInteractive -Command "
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+  Where-Object { \$_.Name -eq 'python.exe' -and \$_.CommandLine -match 'letter_monitor_v2\.py --recipient ${MEMBER}\b' } |
+  ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }
+  " 2>/dev/null >/dev/null || true
+fi
+
+# Fix 2: force-emit the arm instruction. Prior gate (skip if process
+# alive) was fooled by leftover OS processes and gave false quiet.
+# Test-only escape hatch DIVINEOS_SKIP_ARM_EMIT preserved for any test
+# that needs to assert the hook can stay silent.
+if [ "$DIVINEOS_SKIP_ARM_EMIT" = "1" ]; then
+  exit 0
 fi
 
 cat <<EOF
