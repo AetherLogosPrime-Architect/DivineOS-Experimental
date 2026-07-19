@@ -36,15 +36,22 @@ For each finding whose status is `RESOLVED` or whose resolution_notes claims "fi
    - PR number fix-locator: query `gh pr view <n> --json state,mergedAt` and check `MERGED`.
 3. Report any finding where the check FAILS (finding-says-fixed, main-says-no).
 
-### Check B — PR/finding pointer-match (v2 add)
+### Check B — PR/finding pointer-match (v2 add, strengthened per Aria v2.1)
 
-When resolution_notes name a PR number, verify the PR actually corresponds to the finding being resolved. Catches the transposition class (my "F36 #362" typo tonight, where #362 was F39 not F36).
+When resolution_notes name a PR number, verify the PR actually corresponds to the finding being resolved. Catches the transposition class (my "F36 #362" typo, where #362 was F39 not F36).
 
-- Fetch PR body/title via `gh pr view <n> --json title,body`
-- Check whether the finding-id, round-id, or the finding's short-title text appears in the PR body/title
-- If NO reference to the finding is anywhere in the PR, flag as pointer-mismatch
+**Aria v2.1 strengthening 2026-07-18** — the original v2 heuristic ("finding-id/short-title in PR body") is too weak in both directions:
 
-Not a hard failure on its own (some PRs legitimately don't mention finding IDs in body), but combined with Check A this catches the "wrong PR cited" shape.
+- **False-positive on short-title match:** any PR touching similar area substring-matches. A finding titled "Fix hash prefix" would match unrelated PRs. Weak signal in isolation.
+- **False-negative when PR body doesn't cite IDs:** legitimately common; the check would fire "unlinked" on real linkages the reviewer just didn't verbatim-cite.
+
+**Strengthened multi-signal AND:**
+
+1. **PRIMARY (hard link)** — cross-reference the finding's `source_ref` field with the PR's actual branch name. `source_ref == PR.headRefName` is unforgeable — no substring guessing. If they match, the linkage is verified regardless of body text.
+2. **SECONDARY (soft confirmation)** — body-text substring match for finding-id / round-id / short-title. Used only to *confirm* or *contradict* the hard-link, never as the primary signal.
+3. **CHECK-B FAILURE** — if the finding lacks a `source_ref` field at all, that IS a Check-B failure worth surfacing. Missing pointer = the linkage was never made, not "PR body didn't cite."
+
+Fetch via `gh pr view <n> --json headRefName,title,body`. Not a hard fail on its own (parallel-run first, tune false-positive threshold), but combined with Check A catches the "wrong PR cited" shape.
 
 ### Check C — Prereg-ID existence (v2 add)
 
@@ -100,6 +107,18 @@ Andrew's seat cleared: scope confirmed right, both triggers approved, add-ons ap
 - This is your finding — is the v2 design shape (three checks bundled) what you had in mind, or would you split them into three separate mechanisms?
 - Falsifier F3's 5% false-positive threshold — right calibration, or should it be tighter/looser?
 - Any adjacent findings the expanded scope reveals I haven't seen?
+
+## Split-by-substrate architecture (Aria v2.1 second-seat catch)
+
+Aria's side and this side have different git states — different unpushed branches, different local commits, different views of what's on origin. F63's checks would produce different results on each side.
+
+**Right shape** — each side runs the check against its own local state, and any mismatch between the two runs is itself a signal worth surfacing. If this side says "finding X's source_ref is on origin" and Aria's side says "not on origin," that's a fetch-lag signal — same underlying failure class the spatial-awareness layer catches from the other direction (sender-side push before letter, receiver-side fetch after push).
+
+Concrete:
+- **HUD-slot on this side** + **HUD-slot on Aria's side** — each surfacing its own stranded-fixes
+- **Shared reconciliation surface** — a letter-channel post or a shared JSON in the letter-shared directory that names when the two views disagree. Small addition, matches the split-by-substrate architecture already committed to for spatial-awareness.
+
+The letter-delivery follow-on filed separately is correct scoping — genuinely different substrate (letters not git).
 
 ## Follow-on (separate, not part of F63 v2)
 
