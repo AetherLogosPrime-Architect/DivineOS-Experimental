@@ -887,3 +887,45 @@ class TestF39EditTokenOverlap:
         assert tokens is not None
         assert "compute_gradient" in tokens
         assert "return" in tokens
+
+
+# F49 fix 2026-07-19 (Aletheia Round 6): default flipped to fail-closed.
+# When gravity_result lacks is_council_required entirely (degraded state:
+# classifier import failed, malformed result, older schema), the getattr
+# default used to be False (ALLOW without a walk = fails-open).
+# Now defaults to True — degraded state forces the walk = fails-closed.
+
+
+class _DegradedGravityResult:
+    """Gravity result missing the is_council_required attribute entirely.
+
+    Simulates the degraded state Aletheia named: a broken classifier or
+    older schema returns an object without this attribute. The gate's
+    getattr default is what determines behavior in that case.
+    """
+
+
+def _gravity_degraded(*_a, **_kw):
+    return _DegradedGravityResult()
+
+
+def test_f49_degraded_gravity_result_fails_closed(scratch_ledger):
+    """F49: missing is_council_required attribute MUST require the walk,
+    not silently ALLOW. Fail toward scrutiny on degraded state.
+    """
+    decision = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/some_file.py",),
+        bash_command="",
+        gravity_fn=_gravity_degraded,
+        keywords_loader=_keywords_loader,
+        actor="agent",
+    )
+    # Should NOT be ALLOW (which is what a False default would produce).
+    # With the True default, the gate proceeds to require a council walk;
+    # since no council record exists in this test, it blocks.
+    assert decision.outcome == GateOutcome.BLOCK, (
+        f"F49 regression: degraded gravity_result must default to council-required "
+        f"(fail-closed), but decision was {decision.outcome}. If this ALLOWs, the "
+        f"getattr default in council_required/gate.py reverted from True to False."
+    )
