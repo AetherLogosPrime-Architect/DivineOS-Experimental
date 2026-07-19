@@ -74,7 +74,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 - **Comprehensive source tree across many packages** — see `scripts/check_doc_counts.py` for live counts
 - **Real-DB test suite** (SQLite, minimal mocks)
-- **412 CLI commands** (designed for the agent, not the operator — humans mostly run three)
+- **416 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
 - **75 Claude Code enforcement hooks**
 - **42 expert frameworks** in the council
@@ -246,7 +246,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 42-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"412 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"416 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
@@ -285,7 +285,7 @@ pytest tests/ -q --tb=short   # real-DB suite, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (412 commands)
+## CLI Surface (416 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -481,7 +481,7 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 412 commands across 82 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/cli/`** — 416 commands across 82 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (42 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests, `evidence_bearing_stop_gate.py` — abstract Stop-gate primitive with IntraTurnIntercept and CrossTurnScan variants, prototyped by the LEPOS-channel gate 2026-07-15).
