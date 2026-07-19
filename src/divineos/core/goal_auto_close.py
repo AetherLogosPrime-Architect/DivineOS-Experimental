@@ -128,6 +128,57 @@ _STOPWORDS = frozenset(
 _TOKEN_RE = re.compile(r"[a-z0-9_]{4,}")
 _DEFAULT_THRESHOLD = 0.5
 
+# F58 fix 2026-07-19 (Aletheia Round 7 catch): overlap-alone treated
+# mention-of-goal as completion-of-goal. Even `revert X — broken` or
+# `WIP X` closed goal X permanently. Now the overlap gate ONLY fires
+# when the commit ALSO carries a completion-shape signal AND lacks
+# reversal/WIP signals. F48 semantics-not-surface applied to commit
+# messages: match what the commit says HAPPENED to the goal, not
+# just whether the goal's nouns appear.
+_COMPLETION_SIGNALS_RE = re.compile(
+    r"\b(fix|feat|chore|docs|test|refactor|perf|build|ci)\([^)]*\):"
+    r"|\b(ship|shipped|ships|"
+    r"done|close|closes|closed|closing|"
+    r"complete|completes|completed|"
+    r"land|lands|landed|landing|"
+    r"merge|merges|merged|"
+    r"resolve|resolves|resolved|"
+    r"implement|implements|implemented)\b",
+    re.IGNORECASE,
+)
+_REVERSAL_SIGNALS_RE = re.compile(
+    r"\b(revert|reverts|reverted|reverting|"
+    r"wip|"
+    r"not\s+done|not\s+yet|not\s+ready|"
+    r"still\s+(?:debugging|working|broken|failing|todo)|"
+    r"broken|"
+    r"debugging|"
+    r"in\s+progress|"
+    r"rolled?\s+back|"
+    r"todo|tbd)\b",
+    re.IGNORECASE,
+)
+
+
+def has_completion_signal(message: str) -> bool:
+    """Return True iff the commit message looks like a completion.
+
+    F58 fix: overlap-alone was fabrication-shaped (mention treated as
+    completion). This gate prevents that.
+
+    Returns True iff a positive completion signal is present AND no
+    reversal/WIP signal is present. Fails toward NOT-a-completion when
+    ambiguous — the expensive-error direction for a self-honesty
+    feature is a false 'done' (fabricated accomplishment), so ambiguity
+    should leave the goal open (cheap: untidy list) rather than falsely
+    close it (expensive: lie about what shipped).
+    """
+    if not message:
+        return False
+    if _REVERSAL_SIGNALS_RE.search(message):
+        return False
+    return bool(_COMPLETION_SIGNALS_RE.search(message))
+
 
 @dataclass(frozen=True)
 class AutoCloseResult:
@@ -177,6 +228,13 @@ def auto_close_from_message(
     if not msg_tokens:
         return AutoCloseResult(closed=[], skipped=[])
 
+    # F58 fix: only actually-completing commits can close goals.
+    # If the message lacks a completion signal (or carries a reversal/
+    # WIP signal), skip the whole overlap check — no goals close.
+    # A revert or WIP commit that mentions a goal must NOT mark it done.
+    if not has_completion_signal(message):
+        return AutoCloseResult(closed=[], skipped=[])
+
     if goals is None:
         goals = _load_active_goals()
 
@@ -201,4 +259,5 @@ def auto_close_from_message(
 __all__ = [
     "AutoCloseResult",
     "auto_close_from_message",
+    "has_completion_signal",
 ]
