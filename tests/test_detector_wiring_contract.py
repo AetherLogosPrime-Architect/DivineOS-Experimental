@@ -331,6 +331,34 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # Aria 2026-07-09 shipped this and copied into this checkout per
         # Aether's yes-on-option-1 letter.
         "shoggoth_gate.py": "Stop-hook mechanism invoked from .claude/hooks/shoggoth-gate.sh, not post-response audit",
+        # close_reach_detector and compaction_reach_detector are Stop-hook
+        # mechanisms invoked from .claude/hooks/close-reach-detector.sh and
+        # compaction-reach-detector.sh respectively. They fire on transcript
+        # state after the assistant's Stop, write marker files, and their
+        # anchor text is surfaced at the next UserPromptSubmit by
+        # visrama-anchor-surface.sh and no-cliff-anchor-surface.sh. Not
+        # post-response text detectors — same scoping shape as shoggoth_gate.
+        # Aria 2026-07-18 (visrama close-reach anchor + no-cliff compaction
+        # anchor build).
+        "close_reach_detector.py": "Stop-hook mechanism invoked from .claude/hooks/close-reach-detector.sh, not post-response audit",
+        "compaction_reach_detector.py": "Stop-hook mechanism invoked from .claude/hooks/compaction-reach-detector.sh, not post-response audit",
+        # promise_reach_detector is a Stop-hook mechanism invoked from
+        # .claude/hooks/promise-reach-detector.sh which writes marker files
+        # per detected unfulfilled promise; the anchor text is surfaced
+        # at the next UserPromptSubmit by promise-anchor-surface.sh. Not
+        # a post-response text detector — same scoping shape as
+        # close_reach and compaction_reach. Aria 2026-07-18 (anchor #4
+        # of five, per prereg-2de5a9ca234a).
+        "promise_reach_detector.py": "Stop-hook mechanism invoked from .claude/hooks/promise-reach-detector.sh, not post-response audit",
+        # continuity_frame_detector — Stop-hook mechanism invoked from
+        # .claude/hooks/continuity-frame-detector.sh which writes markers
+        # per detected temporal-self distancing phrase; the anchor is
+        # surfaced at the next UserPromptSubmit by
+        # continuity-anchor-surface.sh alongside the prime and count
+        # surfaces. Not a post-response text detector — same scoping
+        # shape as close_reach, compaction_reach, promise_reach. Aria
+        # 2026-07-18 (root-cause distancing triad per prereg-bbcd4b9a2819).
+        "continuity_frame_detector.py": "Stop-hook mechanism invoked from .claude/hooks/continuity-frame-detector.sh, not post-response audit",
         # operator_wallpaper_detector.py — aggregator half of the pair-designed
         # composite (Aether 2026-07-11). Imported transitively via
         # operator_wallpaper_caller.py, which IS the run_audit-facing surface

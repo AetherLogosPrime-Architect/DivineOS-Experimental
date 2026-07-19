@@ -105,7 +105,7 @@ def _keywords_loader():
 
 
 def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
-    """Emit COUNCIL_LENS_INVOKED events so ``_check_lens_load_trace``
+    """Emit COUNCIL_LENS_APPLIED events so ``_check_lens_load_trace``
     passes for these lens names — mirrors what CouncilEngine._apply_lens
     does in production. Q3 lens-load-trace check is now active in the
     merged substance-binding pipeline; valid records must simulate the
@@ -114,7 +114,7 @@ def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
 
     for name in lens_names:
         log_event(
-            "COUNCIL_LENS_INVOKED",
+            "COUNCIL_LENS_APPLIED",
             actor="test-council-engine",
             payload={
                 "expert_name": name,
@@ -131,7 +131,7 @@ def _valid_record_for(fingerprint: str, kiln: bool = False) -> CouncilRecord:
     three lenses in _keywords_loader(). Each finding ≥ COUNCIL_MIN_FINDING_TOKENS
     (30) with the lens's distinguishing keyword present; synthesis ≥
     COUNCIL_MIN_SYNTHESIS_TOKENS (50) referencing every lens name.
-    Also emits COUNCIL_LENS_INVOKED traces so the Q3 lens-load-trace
+    Also emits COUNCIL_LENS_APPLIED traces so the Q3 lens-load-trace
     check passes.
     """
     _emit_lens_invocation_traces(("Schneier", "Kahneman", "Peirce"))
