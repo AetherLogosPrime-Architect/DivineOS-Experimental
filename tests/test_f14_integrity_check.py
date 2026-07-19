@@ -153,10 +153,17 @@ class TestGetLastIntegrityResult:
 class TestChainIntegrityHudSlot:
     """HUD slot hidden on healthy, loud on broken/crashed."""
 
-    def test_slot_hidden_when_never_run(self, isolated_marker):
+    def test_slot_fires_loud_when_never_run(self, isolated_marker):
+        """F64 (Aletheia Round 8, 2026-07-18): never-verified must NOT
+        be silent. The old contract (return "") let a broken sleep
+        pipeline read as a healthy chain — same F41 disease inside the
+        F41 cure. Fail-loud with a distinct NEVER VERIFIED message
+        instead."""
         from divineos.core.hud import _build_chain_integrity_slot
 
-        assert _build_chain_integrity_slot() == ""
+        out = _build_chain_integrity_slot()
+        assert out, "never-verified must not return empty"
+        assert "NEVER VERIFIED" in out
 
     def test_slot_hidden_when_healthy(self, isolated_marker):
         from divineos.core.hud import _build_chain_integrity_slot
