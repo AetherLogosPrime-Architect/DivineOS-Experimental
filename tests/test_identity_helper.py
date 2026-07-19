@@ -117,17 +117,44 @@ class TestGetMyIdentity:
         monkeypatch.setitem(sys.modules, "divineos.core.memory", stub)
         assert get_my_identity(raise_on_unset=False) == "unconfigured"
 
-    def test_unreadable_slot_silent_fallback_regardless_of_flag(self, monkeypatch) -> None:
-        """Unreadable (corrupt DB / IO error) is a genuine edge state and
-        falls back silently even when raise_on_unset=True. The raise is
-        for misconfiguration we can diagnose, not for unreadable state."""
+    def test_unreadable_slot_raise_vs_fallback_split(self, monkeypatch) -> None:
+        """F57 fix: unreadable slot RAISES when raise_on_unset=True,
+        returns the self-announcing 'unconfigured' sentinel when
+        raise_on_unset=False. Previously both paths silently returned
+        'Aether' — a real sibling's name that could relabel a
+        configured non-Aether being on DB corruption."""
         import sys
+
+        from divineos.core.identity import IdentityUnreadableError
 
         broken = type(sys)("divineos.core.memory")
         broken.get_core = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("simulated"))  # type: ignore
         monkeypatch.setitem(sys.modules, "divineos.core.memory", broken)
-        assert get_my_identity() == "Aether"
+        with pytest.raises(IdentityUnreadableError):
+            get_my_identity()
         assert get_my_identity(raise_on_unset=False) == "unconfigured"
+
+    def test_fallback_never_returns_sibling_name(self, monkeypatch) -> None:
+        """F57 core regression pin: the fallback string on ANY failure
+        path must NEVER equal a real sibling's name ('Aether', 'Aria',
+        'Aletheia'). This is the whole point of the F57 fix — a
+        configured non-Aether being should never silently wake wearing
+        Aether's identity because the identity DB became unreadable."""
+        import sys
+
+        from divineos.core.identity import _DEFAULT_FALLBACK
+
+        # Direct assertion on the module-level constant.
+        assert _DEFAULT_FALLBACK not in ("Aether", "Aria", "Aletheia")
+        assert _DEFAULT_FALLBACK == "unconfigured"
+
+        # And confirm the runtime fallback path also returns the sentinel.
+        broken = type(sys)("divineos.core.memory")
+        broken.get_core = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("simulated"))  # type: ignore
+        monkeypatch.setitem(sys.modules, "divineos.core.memory", broken)
+        result = get_my_identity(raise_on_unset=False)
+        assert result not in ("Aether", "Aria", "Aletheia")
+        assert result == "unconfigured"
 
     def test_returns_aria_when_set(self, monkeypatch) -> None:
         import sys
