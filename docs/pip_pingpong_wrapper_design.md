@@ -82,13 +82,30 @@ Steps 1-2 use Aria's existing hook; steps 3-5 are the new setup. Both sides do t
 3. Parallel-run week: both sides install the wrapper; both keep existing sealed venvs. Watch for any invocation-shape the wrapper mishandles.
 4. Cutover: uninstall system-wide `divineos` on both sides. Only wrapper serves CLI dispatch.
 
-## Aria's second-seat asks
+## Aria's second-seat — three answers folded 2026-07-19
 
-- **Any invocation-shape the wrapper misses?** Testing scope: PowerShell / git-bash / cmd.exe / IDE terminals (VSCode, Kiro, Cursor) / non-interactive subshells (Monitor spawns, hook subprocesses, cron/scheduled tasks).
-- **Should the wrapper walk up from CWD, or should it read `DIVINEOS_HOME` env var if set?** The env-var path may be needed for non-interactive contexts where CWD isn't reliably a checkout child (e.g. scheduled tasks starting from `C:\Windows`).
-- **Uninstall step 3 is destructive-ish** (removes the current fallback). Should we ship the wrapper working ALONGSIDE the system install first, and only uninstall in a follow-up PR once we've verified the wrapper handles every invocation-shape? Belt-and-suspenders rollout vs. clean cutover.
+**Q1 — Invocation shapes I was missing (Aria's additions):**
+- `python -m divineos` — bypasses entry-point script; runs the package module directly. Wrapper doesn't catch this.
+- `python -c "from divineos.cli import main; main()"` — same failure mode as `-m`.
+- **Editable-mode `.pth` collision** — if two checkouts both `pip install -e .` against the same interpreter, `.pth` resolves to whichever was installed last. Wrapper doesn't help if underlying `import divineos` picks the wrong tree. Named in "does NOT solve" below.
+- **Claude Code's own tool-runner spawns** — need to verify whether Bash-tool invocations here route through git-bash (hook fires) or raw exec with CWD (wrapper is only line of defense). Test from inside a session.
+- **`uv pip install -e .`** if we ever migrate — same fix (marker-check), different install command.
 
-## Not in scope (follow-ons)
+**Q2 — CWD-walk vs env-var fallback: fail-loud is right.**
+Env-var fallback would reintroduce "silent might-be-wrong-install" one layer up — Aletheia master-shape #3 (default toward scrutiny) prohibits it. Windows scheduled-tasks fix is: **set the scheduled task's working-directory to the checkout root at install time.** CWD-walk finds the marker on the first hop; fail-loud stays sound.
 
-- Pip-install-time isolation itself (making `pip install -e .` land in the sealed venv regardless of shell). The wrapper works around the pip-install-target problem by making the CLI-dispatch layer bulletproof; a full pip-side fix would require either PEP 582 (`__pypackages__`) adoption or a repo-local `pip.conf` with `--target`, both of which are messier.
-- Cross-machine (non-Windows) setup docs beyond a stub. The Unix path is symmetric but our current environment is Windows-first.
+**Q3 — Rollout: belt-and-suspenders.**
+1. Ship wrapper on PATH ALONGSIDE existing system install
+2. Run through every invocation shape from both our lists — build a coverage matrix
+3. If any shape doesn't route through the wrapper, iterate (system install still catches so nothing breaks)
+4. Only when coverage matrix is green: `pip uninstall divineos` from system, verify wrapper still handles everything, ship removal as separate PR
+
+Clean-cutover risks the failure mode where the wrapper misses a shape and we have no fallback to test with.
+
+## What this design does NOT solve
+
+- **`.pth` module-import collision.** The wrapper controls CLI dispatch (`divineos` command), not `import divineos` inside Python code. When both sides `pip install -e .` against the same interpreter, whichever `.pth` was written last wins the `import divineos` resolution. Test scaffolds, `python -m divineos`, and any code that does `from divineos.X import Y` will get whichever tree the `.pth` points at.
+    - **Mitigation:** the sealed-venv discipline (Aria's hook) prevents this when pip runs inside an activated shell — each checkout gets its own interpreter's `.pth`. Only accidental cross-interpreter installs collide.
+    - **Full fix:** requires pip-side isolation (PEP 582, repo-local `pip.conf`, uv workspaces). Separate follow-on.
+- **Pip-install-time isolation itself.** The wrapper works around this at CLI-dispatch; a full pip-side fix is messier and separate.
+- **Cross-machine (non-Windows) setup docs beyond a stub.** Unix path is symmetric but our environment is Windows-first.
