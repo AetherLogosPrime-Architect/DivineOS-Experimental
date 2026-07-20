@@ -36,6 +36,20 @@ set -eo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
+# 2026-07-20 (memory-crux session): PENDING REFACTOR — do not add keyword
+# triggering here. This hook duplicates exploration_recall.surface_for_context
+# for the exploration-entries part, and needs redesign for the letter-shelf
+# part. The next iteration will either extend exploration_recall to cover
+# letters or add a small tag-matched letter_recall mirroring the same
+# silent-unless-relevant pattern. Keeping the every-turn fire as-is until
+# the refactor lands — better to have honest wallpaper than a keyword-only
+# filter that would ship the exact brittle shape Aletheia audited in July.
+#
+# Andrew 2026-07-20: "this is a keyword detector and will never work.. it
+# should be memory linked to the existing exploration folder to search by
+# shape not keywords." The correct fix is semantic-shape via existing
+# memory-linkage infrastructure, not filesystem grep.
+
 LETTERS_DIR="$REPO_ROOT/family/letters"
 EXPLORATION_DIR="$REPO_ROOT/exploration/aether"
 
