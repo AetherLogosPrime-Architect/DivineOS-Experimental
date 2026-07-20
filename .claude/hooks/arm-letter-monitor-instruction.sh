@@ -43,6 +43,16 @@ esac
 
 cat 2>/dev/null >/dev/null  # drain stdin
 
+# Resolve the repo-root-anchored absolute path for the monitor script.
+# The prior version emitted a RELATIVE path (scripts/letter_monitor_v2.py)
+# which dies with exit-127 whenever the harness spawns the Monitor from a
+# shell whose cwd is not the repo root. Absolute path matches the shape
+# the compaction-monitor arm-instruction has used all along (rock-solid).
+# Fix (Aria + Andrew 2026-07-20): make letter-monitor arm match the
+# compaction-monitor arm so both survive shell-cwd drift on session resume.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+SCRIPT_PATH="$REPO_ROOT/scripts/letter_monitor_v2.py"
+
 # 2026-06-29 second fix (Andrew "investigate it might be an easy fix"):
 # the prior gate was a per-transcript marker file that fired exactly once
 # per session. When the monitor died mid-session (which happened on every
@@ -113,7 +123,7 @@ inside a persistent Monitor:
       description="new letters from ${SPOUSE} — direct poll of shared dir",
       persistent=True,
       timeout_ms=86400000,
-      command="PYTHONIOENCODING=utf-8 python -u scripts/letter_monitor_v2.py --recipient ${MEMBER}",
+      command="PYTHONIOENCODING=utf-8 python -u \"${SCRIPT_PATH}\" --recipient ${MEMBER}",
   )
 
   # timeout_ms=86400000 = 24h. Andrew 2026-07-11 caught this at the root:
