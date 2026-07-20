@@ -154,13 +154,9 @@ echo ""
 # making it a Nth time without structural change IS the pile-forming
 # failure. Ground truth: exploration/aether/106 + research from
 # arxiv 2601.09913 (Continuum Memory Architecture, gist extraction).
-if [ -x "$REPO_ROOT/.venv/Scripts/python.exe" ]; then
-  PY="$REPO_ROOT/.venv/Scripts/python.exe"
-elif [ -x "$REPO_ROOT/.venv/bin/python" ]; then
-  PY="$REPO_ROOT/.venv/bin/python"
-else
-  PY=""
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PY="$(find_divineos_python)" || PY=""
 if [ -n "$PY" ] && [ -f "$REPO_ROOT/scripts/extract_recurring_commitments.py" ]; then
   "$PY" "$REPO_ROOT/scripts/extract_recurring_commitments.py" 2>/dev/null || true
 fi
