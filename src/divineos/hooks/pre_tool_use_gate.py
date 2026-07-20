@@ -379,6 +379,30 @@ _CODE_FILE_SUFFIXES: frozenset[str] = frozenset(
 )
 
 
+# Engagement-clearing consult commands. When invoked via Bash/PowerShell tool,
+# the soft-engagement gates (2/4/4.5) skip pre-emptive block so the command
+# whose execution would clear the block can actually run. Matches at start of
+# any pipeline segment. Deadlock-fix 2026-07-18.
+_ENGAGEMENT_CLEARING_RE = re.compile(
+    r"^divineos\s+(ask|recall|briefing|lessons|active|context|decide|feel|"
+    r"directives|body|compass|hud|preflight|goal|corrections)\b"
+)
+
+
+def _is_engagement_clearing_command(command: str) -> bool:
+    """True if any pipeline segment of the shell command is a consult CLI.
+
+    Uses the same shell-separator split as is_substrate_write_command so
+    substring matches in echo args / quoted strings don't spuriously match.
+    """
+    if not command:
+        return False
+    for segment in re.split(r"\s*(?:&&|\|\||;|\|)\s*", command):
+        if _ENGAGEMENT_CLEARING_RE.match(segment.strip()):
+            return True
+    return False
+
+
 def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
     """True if the tool is a Write/Edit to a low-friction exemption path.
 
@@ -1173,6 +1197,21 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # retry, context-governor) still apply unconditionally.
     # Correction #45 / 2026-06-08.
     _low_friction = input_data is not None and _is_low_friction_write(input_data)
+
+    # Deadlock-fix 2026-07-18 (Aether, Andrew-authorized inline patch, audit-later):
+    # the engagement gate demands `divineos ask|recall|context|decide|briefing|...`
+    # but had no whitelist for bash/PowerShell tool invocations of those exact
+    # commands, so trying to run the fix tripped the gate that demanded the fix.
+    # Detect engagement-clearing consult commands and treat them like low-friction
+    # writes for the soft-engagement cluster (gates 2 / 4 / 4.5). The consult
+    # still runs mark_engaged internally; this just prevents pre-emptive block
+    # of the very command whose execution would clear the block.
+    if not _low_friction and input_data is not None:
+        _tn = input_data.get("tool_name", "") or ""
+        if _tn in ("Bash", "PowerShell"):
+            _cmd = (input_data.get("tool_input", {}) or {}).get("command", "") or ""
+            if _is_engagement_clearing_command(_cmd):
+                _low_friction = True
 
     # Gate 2: session-fresh goal
     if not _low_friction:
