@@ -164,3 +164,20 @@ fi
 if [ -n "$PY" ] && [ -f "$REPO_ROOT/scripts/extract_recurring_commitments.py" ]; then
   "$PY" "$REPO_ROOT/scripts/extract_recurring_commitments.py" 2>/dev/null || true
 fi
+
+# 2026-07-19 retrieval-tally: record which paths were surfaced this turn
+# so the post-compose check can measure whether I actually reached for
+# any of them. Finding 1 from my adversarial review of Aria's hook.
+if [ -n "$PY" ] && [ -f "$REPO_ROOT/scripts/retrieval_tally.py" ]; then
+  ALL_PATHS=$(printf '%s\n%s\n%s\n' "$LETTER_LIST" "$EXPLORATION_LIST" "$EXPLORATION_BODY_LIST" | grep -v '^$' || true)
+  if [ -n "$ALL_PATHS" ]; then
+    "$PY" -c "
+import sys
+from divineos.core.paths import divineos_home
+sys.path.insert(0, '$REPO_ROOT/scripts')
+import retrieval_tally
+paths = [line.strip() for line in sys.stdin if line.strip()]
+retrieval_tally.record_surfaced(paths)
+" <<< "$ALL_PATHS" 2>/dev/null || true
+  fi
+fi

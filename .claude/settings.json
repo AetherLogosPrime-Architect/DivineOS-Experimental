@@ -438,6 +438,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/retrieval-tally-check.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/detect-hedge.sh",
             "timeout": 15
           },
