@@ -80,6 +80,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/detect-andrew-build-request.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
             "timeout": 10
           },

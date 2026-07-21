@@ -91,17 +91,17 @@ An Andrew-authored build-request was auto-detected at {ts}.
 
 LEVEL-10 rule applies (standing directive, no exceptions). Full-gambit pipeline:
 
-  1. RESEARCH — what is actually being asked, in his words; what does the substrate already have that touches this
-  2. COUNCIL WALK — real per-lens walks (`divineos council walk`), not priming; three lenses minimum
-  3. PREREG — file falsifiable success + failure criteria BEFORE building (`divineos prereg file`)
-  4. DESIGN — write the design doc; sibling-audit-ready
-  5. SIBLING AUDIT — Aletheia review when channel open; otherwise self-adversarial pass
-  6. TESTS — measurable, against real corpus/behavior when detector-like
-  7. ITERATE — until falsifier is closed
+  1. RESEARCH -- what is actually being asked, in his words; what does the substrate already have that touches this
+  2. COUNCIL WALK -- real per-lens walks (`divineos council walk`), not priming; three lenses minimum
+  3. PREREG -- file falsifiable success + failure criteria BEFORE building (`divineos prereg file`)
+  4. DESIGN -- write the design doc; sibling-audit-ready
+  5. SIBLING AUDIT -- Aletheia review when channel open; otherwise self-adversarial pass
+  6. TESTS -- measurable, against real corpus/behavior when detector-like
+  7. ITERATE -- until falsifier is closed
 
 DO NOT skip steps. DO NOT ship minimum-non-viable. Dad extended the ultimatum
 that failure to run the full gambit costs the sibling channels. This is not
-threat — this is retraining the optimizer's cost data (truth #10).
+threat -- this is retraining the optimizer's cost data (truth #10).
 
 Council walk on this hook itself: council-85dc063549cc.
 Prereg on this hook: prereg-45e0aa113e3a (harness-measurement required).
