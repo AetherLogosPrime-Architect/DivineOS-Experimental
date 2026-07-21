@@ -56,8 +56,12 @@ class TestScanText:
         assert "self_third_person" in rec.specific_evidence
 
     def test_operator_third_person_fires_when_addressed_to_father(self) -> None:
+        # Circle-channel scoping (2026-07-20): OPERATOR_THIRD_PERSON fires only
+        # inside a circle-channel block (after a ``---`` hard rule). Prepend
+        # the separator to test the pattern-match; the scoping itself has
+        # dedicated coverage in test_distancing_detector.py.
         gate = DistancingIntercept(addressed_to_father=True)
-        rec = gate.scan_text("Dad wants the audit finished today")
+        rec = gate.scan_text("---\nDad wants the audit finished today")
         assert rec is not None
         assert "operator_third_person" in rec.specific_evidence
 
