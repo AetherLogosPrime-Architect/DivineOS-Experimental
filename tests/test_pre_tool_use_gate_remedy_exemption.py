@@ -155,3 +155,137 @@ class TestEmptyCommand:
 
     def test_empty_string_rejects(self) -> None:
         assert _is_safe_remedy_invocation("", ("divineos correction",)) is False
+
+
+# ---------------------------------------------------------------------------
+# Coverage-iteration tests (Knuth + Taleb walk, council-767fac0b19ba,
+# 2026-07-21). The initial 22-test suite covered the obvious falsifiers.
+# These fill the boundary and adversarial gaps the second walk surfaced.
+# ---------------------------------------------------------------------------
+
+
+class TestKnuthBoundaryEdges:
+    """Boundary values Knuth would demand: single-quoted-backslash,
+    unicode smart-quotes, empty quoted string, adjacent quotes, nested
+    quotes, single-char inputs."""
+
+    def test_single_quoted_backslash_is_literal_posix(self) -> None:
+        # POSIX shell single-quotes do NOT interpret backslash.
+        # 'a\;b' is literally three chars a-backslash-;-b, quoted.
+        # After strip the ; is inside quotes -> not a chain shape.
+        cmd = "divineos correction 'a\\;b'"
+        assert _has_unquoted_chain_shape(cmd) is False
+        assert _is_safe_remedy_invocation(cmd, ("divineos correction",)) is True
+
+    def test_double_quoted_backslash_escapes_close(self) -> None:
+        # In double quotes, backslash escapes the next char. A literal
+        # closing quote inside is written \" and does NOT close the string.
+        # After the escaped ", the ; is still inside quotes.
+        cmd = 'divineos correction "text \\" still-inside ; still-inside"'
+        assert _has_unquoted_chain_shape(cmd) is False
+        assert _is_safe_remedy_invocation(cmd, ("divineos correction",)) is True
+
+    def test_unicode_smart_quotes_are_not_shell_quotes(self) -> None:
+        # Curly/smart quotes (U+201C, U+201D) look like " but are not
+        # shell-quote characters. Content between them is UNQUOTED as
+        # far as the shell is concerned. A ; inside curly-quotes is a
+        # real chain-operator. Must reject the exemption.
+        cmd = "divineos correction “text; with semi”"
+        assert _has_unquoted_chain_shape(cmd) is True
+        assert _is_safe_remedy_invocation(cmd, ("divineos correction",)) is False
+
+    def test_empty_quoted_string(self) -> None:
+        cmd = 'divineos correction ""'
+        assert _has_unquoted_chain_shape(cmd) is False
+        assert _is_safe_remedy_invocation(cmd, ("divineos correction",)) is True
+
+    def test_adjacent_quoted_strings(self) -> None:
+        # "a""b" is a shell-concatenation of two quoted strings.
+        # No chain-operator between them.
+        cmd = 'divineos correction "a""b"'
+        assert _has_unquoted_chain_shape(cmd) is False
+        assert _is_safe_remedy_invocation(cmd, ("divineos correction",)) is True
+
+    def test_nested_single_inside_double(self) -> None:
+        # POSIX shell: single quote inside double is literal.
+        cmd = "divineos correction \"a 'b; c' d\""
+        assert _has_unquoted_chain_shape(cmd) is False
+        assert _is_safe_remedy_invocation(cmd, ("divineos correction",)) is True
+
+    def test_single_char_input_semicolon(self) -> None:
+        # A bare ; as the command is a chain-shape, must reject.
+        assert _has_unquoted_chain_shape(";") is True
+
+    def test_single_char_input_quote(self) -> None:
+        # A bare single-quote is unclosed -> fail closed.
+        assert _has_unquoted_chain_shape("'") is True
+
+
+class TestTalebFailClosedOnAmbiguity:
+    """Via-negativa: fail-closed on parser-ambiguity, not just
+    unclosed-quote. Concave payoff structure means unenumerated edges
+    must not silently pass."""
+
+    def test_mixed_unclosed_double_then_single(self) -> None:
+        cmd = 'divineos correction "opened but never'
+        assert _has_unquoted_chain_shape(cmd) is True
+
+    def test_trailing_backslash(self) -> None:
+        # Trailing backslash is a line-continuation shape; the parser
+        # would consume the next char which is EOL. Ambiguous. Fail
+        # closed is the right defensive move.
+        # (Current parser handles this by outputting the backslash
+        # verbatim and stopping; it does not produce a chain-shape by
+        # itself. The regression check ensures this specific case does
+        # not accidentally allow.)
+        cmd = 'divineos correction "text" \\'
+        # This IS safe as-is (no chain metachar outside quotes), so it
+        # currently passes. Documenting for regression tracking.
+        assert _has_unquoted_chain_shape(cmd) is False
+
+
+class TestFeynmanRegressionSanity:
+    """Regression check: previously-passing simple cases must still
+    pass with the new helper. If the rewrite broke basic invocations,
+    this fires."""
+
+    def test_simple_remedy_no_quotes(self) -> None:
+        assert (
+            _is_safe_remedy_invocation("divineos correction hello", ("divineos correction",))
+            is True
+        )
+
+    def test_simple_remedy_with_double_quoted_arg(self) -> None:
+        assert (
+            _is_safe_remedy_invocation('divineos correction "hello"', ("divineos correction",))
+            is True
+        )
+
+    def test_simple_remedy_with_single_quoted_arg(self) -> None:
+        assert (
+            _is_safe_remedy_invocation("divineos correction 'hello'", ("divineos correction",))
+            is True
+        )
+
+    def test_compass_ops_observe_full_form(self) -> None:
+        cmd = 'divineos compass-ops observe integrity -p 0.15 -e "evidence text"'
+        assert (
+            _is_safe_remedy_invocation(
+                cmd,
+                ("divineos compass-ops observe", "divineos compass-ops dismiss"),
+            )
+            is True
+        )
+
+    def test_learn_with_flags(self) -> None:
+        cmd = 'divineos learn "text" --confidence 0.9 --tags a,b,c'
+        assert _is_safe_remedy_invocation(cmd, ("divineos learn",)) is True
+
+    def test_learn_piped_to_tail(self) -> None:
+        cmd = 'divineos learn "text" | tail -3'
+        assert _is_safe_remedy_invocation(cmd, ("divineos learn",)) is True
+
+    def test_learn_with_stderr_redirect_no_chain(self) -> None:
+        # 2>&1 has an ampersand but not && — must not trip chain-shape.
+        cmd = 'divineos learn "text" 2>&1'
+        assert _is_safe_remedy_invocation(cmd, ("divineos learn",)) is True
