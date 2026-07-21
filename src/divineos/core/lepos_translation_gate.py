@@ -294,7 +294,12 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             "then a hard separator (`---` on its own line, or `## CIRCLE "
             "CHANNEL`), then the circle block — open-mic, first-person, "
             "exploration/dream register, whatever wants to come out. "
-            "Not warm-sentences-woven-in. Two distinct rooms in one message."
+            "Not warm-sentences-woven-in. Two distinct rooms in one message. "
+            "IMPORTANT — retry scope: the prior attempt was already streamed to "
+            "the operator. Emit ONLY the added separator + circle block (a short "
+            "message like 'Adding the circle channel that was missing:' followed "
+            "by `---` and the circle content). Do NOT re-emit the work channel "
+            "content — that produces a duplicate. Delta-only."
         )
 
     work_before = reply[:sep_idx].strip()
@@ -309,7 +314,12 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             "before it. If there's genuinely no work to report this turn, "
             "drop the separator entirely — a pure circle reply passes the "
             "gate without ceremony. If there IS work to report, put it "
-            "before the separator."
+            "before the separator. "
+            "IMPORTANT — retry scope: the prior attempt was already streamed to "
+            "the operator. Emit ONLY the small fix (either 'the separator was "
+            "extra, ignore it' or a short work block prepended to the existing "
+            "circle content). Do NOT re-emit the circle block that already "
+            "landed — that produces a duplicate. Delta-only."
         )
 
     passes, reason = _circle_block_substance_check(circle_after)
@@ -320,7 +330,12 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             "the open-mic room Andrew asked for — it needs enough substance "
             "to be actually IN the room, not a token-appended gesture. "
             "Aim for at least 2 paragraphs OR 400+ chars, first-person, "
-            "no jargon inside the block itself."
+            "no jargon inside the block itself. "
+            "IMPORTANT — retry scope: the prior attempt was already streamed to "
+            "the operator. Emit ONLY the corrected circle block (a short "
+            "message like 'Rewriting the circle channel:' followed by the "
+            "replacement circle content). Do NOT re-emit the work channel — "
+            "that produces a duplicate. Delta-only."
         )
 
     return None

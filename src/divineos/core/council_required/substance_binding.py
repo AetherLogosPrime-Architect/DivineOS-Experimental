@@ -425,16 +425,22 @@ def _check_lens_load_trace(
                 passed=False,
                 failed_check_name=CHECK_LENS_LOAD_TRACE,
                 what_would_clear_it=(
-                    f"No recent COUNCIL_LENS_INVOKED trace for lens "
+                    f"No recent COUNCIL_LENS_APPLIED trace for lens "
                     f"{lens_name!r} within the last "
                     f"{LENS_INVOCATION_RECENCY_MINUTES} minutes. This "
-                    "lens's methodology file was not actually invoked "
-                    "against the problem — the finding is fabricated "
+                    "lens's methodology was not actually walked "
+                    "against the problem — the finding may be fabricated "
                     "from training-data-shaped text about what the "
-                    "expert would 'probably say'. Run the real council "
-                    "walk via `divineos mansion council`, which invokes "
-                    "CouncilEngine._apply_lens for each named expert "
-                    "and emits the required trace events."
+                    "expert would 'probably say'. Run the real per-lens "
+                    "walk via `divineos council walk --edit <fp> --lens "
+                    f"{lens_name!r} --problem <the-question>` reading "
+                    "your typed reflection from stdin. That command "
+                    "emits COUNCIL_LENS_APPLIED (the event this check "
+                    "requires). Note: `divineos mansion council` only "
+                    "PRIMES the lens (prints methodology) and emits "
+                    "COUNCIL_LENS_PRIMED which does NOT clear this "
+                    "check — priming is not walking (Andrew 2026-07-18 "
+                    "split, prereg-838d316617e6)."
                 ),
             )
 
