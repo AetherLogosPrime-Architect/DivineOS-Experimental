@@ -19,7 +19,7 @@
 
 set -eo pipefail
 
-INPUT=$(cat 2>/dev/null || true)
+INPUT=$(cat 2>/dev/null || true) # fail-soft: standard hook-prelude when tool invoked without stdin, empty input path exits clean
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
@@ -79,6 +79,6 @@ try:
     retrieval_tally.check_reply(last_assistant)
 except Exception:
     pass
-" 2>/dev/null || true
+" 2>/dev/null || true # fail-soft: inline python probe stderr silenced, hook is advisory not blocking on probe failure
 
 exit 0

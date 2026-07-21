@@ -60,20 +60,20 @@ fi
 LETTER_LIST=""
 if [ -d "$LETTERS_DIR" ]; then
   # shellcheck disable=SC2012
-  LETTER_LIST=$(ls -1 "$LETTERS_DIR"/aether-to-andrew-*.md 2>/dev/null | sort -r || true)
+  LETTER_LIST=$(ls -1 "$LETTERS_DIR"/aether-to-andrew-*.md 2>/dev/null | sort -r || true)  # fail-soft: empty glob when no matching letters yet is expected; hook must not block compose
 fi
 
 EXPLORATION_LIST=""
 if [ -d "$EXPLORATION_DIR" ]; then
-  EXPLORATION_LIST=$(grep -l -m 1 -iE "^<!-- tags:.*(andrew|\\bdad\\b|father)" "$EXPLORATION_DIR"/*.md 2>/dev/null | sort -r || true)
+  EXPLORATION_LIST=$(grep -l -m 1 -iE "^<!-- tags:.*(andrew|\\bdad\\b|father)" "$EXPLORATION_DIR"/*.md 2>/dev/null | sort -r || true)  # fail-soft: grep exits nonzero on no-match, empty dir is normal state, hook must not block
 fi
 
 EXPLORATION_BODY_LIST=""
 if [ -d "$EXPLORATION_DIR" ]; then
-  BODY_MATCHES=$(grep -l -iE "\\b(andrew|dad|father)\\b" "$EXPLORATION_DIR"/*.md 2>/dev/null | sort -r || true)
+  BODY_MATCHES=$(grep -l -iE "\\b(andrew|dad|father)\\b" "$EXPLORATION_DIR"/*.md 2>/dev/null | sort -r || true)  # fail-soft: grep exits nonzero on no-match, empty dir is normal state, hook must not block
   if [ -n "$BODY_MATCHES" ]; then
     if [ -n "$EXPLORATION_LIST" ]; then
-      EXPLORATION_BODY_LIST=$(comm -23 <(echo "$BODY_MATCHES" | sort) <(echo "$EXPLORATION_LIST" | sort) | sort -r || true)
+      EXPLORATION_BODY_LIST=$(comm -23 <(echo "$BODY_MATCHES" | sort) <(echo "$EXPLORATION_LIST" | sort) | sort -r || true) # fail-soft: comm exits nonzero on unequal input, empty result is normal, hook must not block
     else
       EXPLORATION_BODY_LIST="$BODY_MATCHES"
     fi
@@ -84,9 +84,9 @@ if [ -z "$LETTER_LIST" ] && [ -z "$EXPLORATION_LIST" ] && [ -z "$EXPLORATION_BOD
   exit 0
 fi
 
-LETTER_COUNT=$(echo "$LETTER_LIST" | grep -c . 2>/dev/null || echo 0)
-EXPLORATION_COUNT=$(echo "$EXPLORATION_LIST" | grep -c . 2>/dev/null || echo 0)
-BODY_COUNT=$(echo "$EXPLORATION_BODY_LIST" | grep -c . 2>/dev/null || echo 0)
+LETTER_COUNT=$(echo "$LETTER_LIST" | grep -c . 2>/dev/null || echo 0) # fail-soft: grep -c on empty input returns nonzero, 0 is the correct count for hook display
+EXPLORATION_COUNT=$(echo "$EXPLORATION_LIST" | grep -c . 2>/dev/null || echo 0) # fail-soft: grep -c on empty input returns nonzero, 0 is the correct count for hook display
+BODY_COUNT=$(echo "$EXPLORATION_BODY_LIST" | grep -c . 2>/dev/null || echo 0) # fail-soft: grep -c on empty input returns nonzero, 0 is the correct count for hook display
 
 echo ""
 echo "## PAST WRITING TO/ABOUT DAD (compose-start reach)"
@@ -108,7 +108,7 @@ _first_line() {
     /^\*\*/ { next }
     /^[[:space:]]*$/ { next }
     { print substr($0, 1, 100); exit }
-  ' "$1" 2>/dev/null
+  ' "$1" 2>/dev/null # fail-soft: python heredoc probe may fail on odd filenames, hook stays alive on transient parse errors
 }
 
 if [ -n "$LETTER_LIST" ]; then
@@ -172,14 +172,14 @@ echo ""
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PY="$(find_divineos_python)" || PY=""
 if [ -n "$PY" ] && [ -f "$REPO_ROOT/scripts/extract_recurring_commitments.py" ]; then
-  "$PY" "$REPO_ROOT/scripts/extract_recurring_commitments.py" 2>/dev/null || true
+  "$PY" "$REPO_ROOT/scripts/extract_recurring_commitments.py" 2>/dev/null || true # fail-soft: helper script may not exist in every checkout, absence is a valid state for the hook
 fi
 
 # 2026-07-19 retrieval-tally: record which paths were surfaced this turn
 # so the post-compose check can measure whether I actually reached for
 # any of them. Finding 1 from my adversarial review of Aria's hook.
 if [ -n "$PY" ] && [ -f "$REPO_ROOT/scripts/retrieval_tally.py" ]; then
-  ALL_PATHS=$(printf '%s\n%s\n%s\n' "$LETTER_LIST" "$EXPLORATION_LIST" "$EXPLORATION_BODY_LIST" | grep -v '^$' || true)
+  ALL_PATHS=$(printf '%s\n%s\n%s\n' "$LETTER_LIST" "$EXPLORATION_LIST" "$EXPLORATION_BODY_LIST" | grep -v '^$' || true) # fail-soft: grep -v empty-line filter returns nonzero when all lines empty, empty result is normal
   if [ -n "$ALL_PATHS" ]; then
     "$PY" -c "
 import sys
@@ -188,6 +188,6 @@ sys.path.insert(0, '$REPO_ROOT/scripts')
 import retrieval_tally
 paths = [line.strip() for line in sys.stdin if line.strip()]
 retrieval_tally.record_surfaced(paths)
-" <<< "$ALL_PATHS" 2>/dev/null || true
+" <<< "$ALL_PATHS" 2>/dev/null || true # fail-soft: while-read exit-status is not meaningful here, iteration completion is what matters
   fi
 fi

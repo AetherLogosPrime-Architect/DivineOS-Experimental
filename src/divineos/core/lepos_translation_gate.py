@@ -445,7 +445,7 @@ def _log_circle_length(length: int, paragraphs: int) -> None:
         conn = _circle_log_conn()
         try:
             conn.execute(
-                f"INSERT INTO {_CIRCLE_LOG_TABLE} (timestamp, length, paragraphs) VALUES (?, ?, ?)",
+                f"INSERT INTO {_CIRCLE_LOG_TABLE} (timestamp, length, paragraphs) VALUES (?, ?, ?)",  # nosec B608
                 (time.time(), length, paragraphs),
             )
             conn.commit()
@@ -464,7 +464,7 @@ def _trailing_circle_stats() -> tuple[float, int]:
         conn = _circle_log_conn()
         try:
             rows = conn.execute(
-                f"SELECT length FROM {_CIRCLE_LOG_TABLE} ORDER BY timestamp DESC LIMIT ?",
+                f"SELECT length FROM {_CIRCLE_LOG_TABLE} ORDER BY timestamp DESC LIMIT ?",  # nosec B608
                 (_TRAILING_WINDOW,),
             ).fetchall()
         finally:

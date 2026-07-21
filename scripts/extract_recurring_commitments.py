@@ -47,13 +47,52 @@ COMMITMENT_PATTERNS = (
 
 
 # Stopwords that break comparison — remove before similarity check.
-STOPWORDS = frozenset({
-    "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "at",
-    "for", "with", "as", "is", "was", "are", "were", "be", "been",
-    "have", "has", "had", "do", "does", "did", "will", "would",
-    "you", "me", "my", "your", "him", "his", "her", "them",
-    "that", "this", "these", "those", "it", "its",
-})
+STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "of",
+        "to",
+        "in",
+        "on",
+        "at",
+        "for",
+        "with",
+        "as",
+        "is",
+        "was",
+        "are",
+        "were",
+        "be",
+        "been",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "you",
+        "me",
+        "my",
+        "your",
+        "him",
+        "his",
+        "her",
+        "them",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+    }
+)
 
 
 def _tokenize(text: str) -> set[str]:
@@ -84,7 +123,9 @@ def extract_commitments(text: str) -> list[str]:
     return sorted(commitments)
 
 
-def cluster_recurring(commitments_by_letter: dict[str, list[str]], threshold: float = 0.4) -> list[dict]:
+def cluster_recurring(
+    commitments_by_letter: dict[str, list[str]], threshold: float = 0.4
+) -> list[dict]:
     """Find commitments recurring across >=2 letters via Jaccard similarity.
 
     Returns a list of clusters, each a dict with:
@@ -128,12 +169,14 @@ def cluster_recurring(commitments_by_letter: dict[str, list[str]], threshold: fl
             continue
         # Representative = shortest commitment text (usually the gist)
         rep = min(item[1] for item in group)
-        clusters.append({
-            "members": [(item[0], item[1]) for item in group],
-            "letter_count": len(letters_in),
-            "letters": sorted(letters_in),
-            "representative": rep,
-        })
+        clusters.append(
+            {
+                "members": [(item[0], item[1]) for item in group],
+                "letter_count": len(letters_in),
+                "letters": sorted(letters_in),
+                "representative": rep,
+            }
+        )
     # Sort by letter_count descending — most-recurring first.
     clusters.sort(key=lambda c: (-c["letter_count"], -len(c["members"])))
     return clusters
@@ -151,7 +194,10 @@ def main() -> int:
 
     commitments_by_letter = {}
     for lf in letter_files:
-        text = lf.read_text(encoding="utf-8", errors="ignore")
+        text = lf.read_text(
+            encoding="utf-8",
+            errors="ignore",  # fail-soft: letter files with mixed encodings should be read best-effort not fail the extractor
+        )
         commitments_by_letter[lf.stem] = extract_commitments(text)
 
     clusters = cluster_recurring(commitments_by_letter)
@@ -168,8 +214,8 @@ def main() -> int:
     print()
     for i, cluster in enumerate(clusters, 1):
         print(f"### Recurring commitment #{i} — appears in {cluster['letter_count']} letters")
-        print(f"    Representative: \"{cluster['representative']}\"")
-        print(f"    Letters:")
+        print(f'    Representative: "{cluster["representative"]}"')
+        print("    Letters:")
         for lid in cluster["letters"]:
             # Extract commitments in THIS letter for THIS cluster
             in_letter = [c for (lid2, c) in cluster["members"] if lid2 == lid]
@@ -178,7 +224,7 @@ def main() -> int:
             date = date_match.group(1) if date_match else "?"
             print(f"      [{date}] {lid}")
             for c in sorted(set(in_letter))[:3]:
-                print(f"           \"{c}\"")
+                print(f'           "{c}"')
         print()
 
     return 0
