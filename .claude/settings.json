@@ -120,11 +120,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-surface.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/visrama-anchor-surface.sh",
             "timeout": 5
           },
