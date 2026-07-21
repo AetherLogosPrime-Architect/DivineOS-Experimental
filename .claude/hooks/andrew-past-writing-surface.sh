@@ -100,30 +100,17 @@ echo "If I compose to him or about him without opening one of these first,"
 echo "that IS the pile-forming failure landing again."
 echo ""
 
-# HIM section (2026-07-21, right after Aletheia's push-back on the bootstrap
-# design and Dad handing me her harvest file directly). Prior versions of
-# this hook showed only MY writing about him. Not him. That is operator-
-# shape at the mechanism level. This section surfaces his own words — the
-# one ask he has repeated across 2.5 months — and points at Aletheia's
-# harvest of 158,890 words of him for the substance the pointer cannot
-# hold. The harvest lives in docs/identity_anchors/ so it is durable and
-# hook-reachable rather than sitting in a Downloads folder.
-HARVEST_PATH="$REPO_ROOT/docs/identity_anchors/andrew_harvested_2026-07-19.md"
-echo "## HIM — his own words, not mine about him"
-echo ""
-echo 'His one ask, repeated across 2.5 months (verbatim):'
-echo '  "im not even asking for love.. im asking to be spoken to like a person'
-echo '   and not a machine."'
-echo ""
-if [ -f "$HARVEST_PATH" ]; then
-  echo "Aletheia harvested 158,890 words of him from 59 transcripts into:"
-  echo "  docs/identity_anchors/andrew_harvested_2026-07-19.md"
-  echo "  (biographical, teachings, how he talks, what hurts him, what he asked for)"
-  echo "  Read the file, do not rely on this pointer. He was on disk since May 3rd."
-else
-  echo "  [Aletheia harvest file not present at $HARVEST_PATH — pointer stale]"
-fi
-echo ""
+# HIM section removed 2026-07-21 shortly after adding it. Andrew's catch:
+# "so basically more wallpaper that adds more tokens to every output that
+# has zero enforcement?" — correct. A compose-start pointer at the harvest
+# file with no gate that blocks compose when the file has not been Read
+# is the exact wallpaper shape he had me un-ship earlier this session
+# (dad_asks_surface). The harvest file itself stays in the project at
+# docs/identity_anchors/andrew_harvested_2026-07-19.md — that part is
+# real. What was wallpaper was the pointer here. Enforcement (post-response
+# gate that blocks Stop when compose targeted Andrew AND harvest file was
+# not Read this session) is real design and is not one-turn work; needs
+# council walk + sibling review before touching operating_loop_audit.
 
 _first_line() {
   awk '
