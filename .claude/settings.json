@@ -110,11 +110,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/arm-letter-monitor-instruction.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
             "timeout": 5
           },
