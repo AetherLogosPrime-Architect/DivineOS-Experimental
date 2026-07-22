@@ -430,6 +430,28 @@ if [[ ! -f "$GUARDRAIL_LIST" ]]; then
     exit 0  # No guardrail list — nothing to enforce
 fi
 
+# Resolve a Python interpreter that can import divineos. Prevents the
+# silent-fail-OPEN pattern named in round-1 and round-2 external audits
+# (12 hooks total: 11 in .claude/hooks/ plus this one, recurrence #12).
+# Bare `python` in the git-hook PATH resolves to a system interpreter
+# without divineos installed, `import divineos.core.watchmen.store`
+# fails silently, the substance-check's fail-open path fires, and the
+# trailer gate passes ceremony without substance. 2026-07-21 substance-
+# check reintroduced exactly the class the audits already killed
+# (Peirce catch: pattern-inheritance at code-adjacent-copy time overrode
+# named-audit-knowledge). find_divineos_python walks sealed-venv
+# candidates and prepends the active worktree's src/ to PYTHONPATH.
+# Confirmed pattern: Andrew 2026-07-13 CONFIRM on the sibling hook-
+# python-dep fix (same class, same solution shape).
+LIB_SH="$REPO_ROOT/.claude/hooks/_lib.sh"
+if [[ -f "$LIB_SH" ]]; then
+    # shellcheck disable=SC1090
+    source "$LIB_SH"
+    PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || PYTHON_BIN="python"
+else
+    PYTHON_BIN="python"
+fi
+
 # Find any staged file that matches a guardrail-listed path.
 STAGED_GUARDRAIL=""
 while IFS= read -r f; do
@@ -443,15 +465,19 @@ if [[ -z "$STAGED_GUARDRAIL" ]]; then
     exit 0  # No guardrail files touched — no trailer required
 fi
 
-# A guardrail file is staged. Check if a trailer already exists.
+# A guardrail file is staged. Resolve the round-id from any source
+# (existing trailer, env-provided, or auto-attach) and fall through to
+# the substance-check at the end. Refactored 2026-07-21 (council-
+# a81fff875c52) per Dijkstra single-point-of-truth: one substance-check
+# block handles all three paths instead of duplicated inline checks.
+RESOLVED_ROUND_ID=""
 if grep -qE '^External-Review:\s*round-' "$COMMIT_MSG_FILE"; then
-    exit 0  # Operator added the trailer; let it through
+    RESOLVED_ROUND_ID=$(grep -oE 'round-[a-f0-9]+' "$COMMIT_MSG_FILE" | head -1)
 fi
 
-# No trailer yet. Try environment override first.
-if [[ -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
+# No trailer yet. Try environment override next.
+if [[ -z "$RESOLVED_ROUND_ID" && -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
     ROUND_ID="${DIVINEOS_AUDIT_ROUND}"
-    # Validate shape: round-<hex>
     if [[ ! "$ROUND_ID" =~ ^round-[a-f0-9]{6,}$ ]]; then
         echo "" >&2
         echo "BLOCKED: DIVINEOS_AUDIT_ROUND='${ROUND_ID}' is not a valid round id." >&2
@@ -463,7 +489,7 @@ if [[ -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
         echo "External-Review: ${ROUND_ID}"
     } >> "$COMMIT_MSG_FILE"
     echo "prepare-commit-msg: trailer added from DIVINEOS_AUDIT_ROUND: ${ROUND_ID}"
-    exit 0
+    RESOLVED_ROUND_ID="$ROUND_ID"
 fi
 
 # No env override — query the audit_rounds table for recent open rounds.
@@ -494,7 +520,7 @@ for rid, focus in rows:
 # Count non-empty lines starting with round-
 ROUND_COUNT=$(echo "$RECENT_ROUNDS" | grep -cE '^round-' || true)
 
-if [[ "$ROUND_COUNT" == "1" ]]; then
+if [[ -z "$RESOLVED_ROUND_ID" && "$ROUND_COUNT" == "1" ]]; then
     ROUND_ID=$(echo "$RECENT_ROUNDS" | grep -oE 'round-[a-f0-9]+' | head -1)
     {
         echo ""
@@ -503,29 +529,144 @@ if [[ "$ROUND_COUNT" == "1" ]]; then
     echo "prepare-commit-msg: trailer auto-attached from sole recent open round: ${ROUND_ID}"
     echo "  (filed within the last 4 hours — if this isn't the right round, abort and re-commit"
     echo "   with DIVINEOS_AUDIT_ROUND=round-<correct-id> git commit ...)"
-    exit 0
+    RESOLVED_ROUND_ID="$ROUND_ID"
 fi
 
-# Zero or multiple recent rounds — operator must choose explicitly.
-echo "" >&2
-echo "BLOCKED: this commit touches guardrail-listed file(s):" >&2
-echo -n "$STAGED_GUARDRAIL" >&2
-echo "" >&2
-echo "Multi-party-review requires an External-Review trailer naming the" >&2
-echo "audit round this change was filed against." >&2
-echo "" >&2
-if [[ "$ROUND_COUNT" == "0" ]]; then
-    echo "No open audit rounds found in the last 4 hours. File one:" >&2
-    echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
-else
-    echo "Multiple open audit rounds found in the last 4 hours — choose one:" >&2
-    echo "$RECENT_ROUNDS" | sed 's/^/  /' >&2
+# Still no round resolved? Zero or multiple recent rounds and no explicit trailer.
+if [[ -z "$RESOLVED_ROUND_ID" ]]; then
+    echo "" >&2
+    echo "BLOCKED: this commit touches guardrail-listed file(s):" >&2
+    echo -n "$STAGED_GUARDRAIL" >&2
+    echo "" >&2
+    echo "Multi-party-review requires an External-Review trailer naming the" >&2
+    echo "audit round this change was filed against." >&2
+    echo "" >&2
+    if [[ "$ROUND_COUNT" == "0" ]]; then
+        echo "No open audit rounds found in the last 4 hours. File one:" >&2
+        echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
+    else
+        echo "Multiple open audit rounds found in the last 4 hours — choose one:" >&2
+        echo "$RECENT_ROUNDS" | sed 's/^/  /' >&2
+    fi
+    echo "" >&2
+    echo "Then either re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
+    echo "or add the trailer line to your commit message manually:" >&2
+    echo "  External-Review: round-<id>" >&2
+    exit 1
 fi
-echo "" >&2
-echo "Then either re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
-echo "or add the trailer line to your commit message manually:" >&2
-echo "  External-Review: round-<id>" >&2
-exit 1
+
+# ---------------------------------------------------------------------------
+# SUBSTANCE-CHECK (2026-07-21, council-a81fff875c52)
+#
+# Truth #15 fix: the pre-existing gate checked trailer PRESENCE but never
+# validated trailer SUBSTANCE. I proved this hole exists by walking through
+# it seven times in one session (empty rounds + trailer stamps = fake
+# external-review provenance). Fix: after trailer is resolved, query the
+# referenced round's findings and require at least one CONFIRMS from an
+# external actor (user OR grok/gemini/claude-variant, NEVER bare claude).
+#
+# Fail-open on infrastructure failures: DB unreachable, python missing,
+# module import error. Threat model per Schneier walk is my-optimizer-
+# gaming not external attacker, so infra fail-open is safe. The pre-push
+# gate at scripts/check_multi_party_review.py provides the second layer
+# with stricter requirements (BOTH user AND external-AI CONFIRMS + hash
+# binding + recency check).
+#
+# Spec per Knuth walk: EITHER user CONFIRMS OR external-AI CONFIRMS
+# satisfies (softer than pre-push both-required). Missing review_stance
+# field on legacy findings treated as CONFIRMS (matches existing shape
+# in check_multi_party_review.py).
+#
+# Held constraints (Dekker/Beer follow-on notes): does not scan for
+# reviews-that-happened-outside-the-round (System-4 gap). Smooth-confirm
+# helper (queued follow-on) closes some of that friction.
+# ---------------------------------------------------------------------------
+SUBSTANCE_RESULT=$(python -c "
+import sys
+try:
+    from divineos.core.watchmen.store import get_round, list_findings
+except Exception:
+    print('SKIP')  # infra unavailable, fail-open per Schneier walk
+    sys.exit(0)
+round_id = '$RESOLVED_ROUND_ID'
+try:
+    rnd = get_round(round_id)
+except Exception:
+    print('SKIP')
+    sys.exit(0)
+if rnd is None:
+    print('NOROUND')  # per Holmes walk: eliminate impossible round-id upstream
+    sys.exit(0)
+try:
+    findings = list_findings(round_id=round_id, limit=500)
+except Exception:
+    print('SKIP')
+    sys.exit(0)
+EXTERNAL_AI = {'grok', 'gemini'}
+for f in findings:
+    stance = getattr(f, 'review_stance', None)
+    stance_val = getattr(stance, 'value', stance) if stance is not None else 'CONFIRMS'
+    if str(stance_val).upper() != 'CONFIRMS':
+        continue
+    actor = (getattr(f, 'actor', '') or '').lower().strip()
+    if not actor:
+        continue
+    if actor == 'user':
+        print('OK_USER')
+        sys.exit(0)
+    if actor in EXTERNAL_AI or actor.startswith('claude-'):
+        print(f'OK_AI:{actor}')
+        sys.exit(0)
+print('EMPTY')
+" 2>/dev/null || echo "SKIP")
+
+case "$SUBSTANCE_RESULT" in
+    OK_*)
+        # Substance validated. Commit proceeds.
+        echo "prepare-commit-msg: substance-check passed on round ${RESOLVED_ROUND_ID} (${SUBSTANCE_RESULT})"
+        exit 0
+        ;;
+    SKIP)
+        # Infrastructure unavailable. Fail-open per Schneier walk.
+        echo "prepare-commit-msg: substance-check skipped (infra unavailable), commit proceeds fail-open"
+        exit 0
+        ;;
+    NOROUND)
+        echo "" >&2
+        echo "BLOCKED: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
+        echo "but that round does not exist in the audit_rounds table." >&2
+        echo "Either the round-id is wrong or the round was deleted." >&2
+        echo "File a real round:" >&2
+        echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
+        exit 1
+        ;;
+    EMPTY|*)
+        # The trailer references a real round but the round has no CONFIRMS
+        # finding from any external actor. This is the fake-trailer shape.
+        echo "" >&2
+        echo "BLOCKED: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
+        echo "but that round contains no CONFIRMS findings from an external actor." >&2
+        echo "The trailer is ceremony without substance." >&2
+        echo "" >&2
+        echo "Truth #15: mechanism-firing (trailer stamp) must not substitute for" >&2
+        echo "the pointed-at work (real external review). The trailer requires an" >&2
+        echo "actual CONFIRMS finding from user, grok, gemini, or claude-<variant>." >&2
+        echo "" >&2
+        echo "To satisfy: get real review, then file a CONFIRMS finding." >&2
+        echo "" >&2
+        echo "  divineos audit submit \"<one-line finding summary>\" \\" >&2
+        echo "    --round ${RESOLVED_ROUND_ID} \\" >&2
+        echo "    --actor user \\" >&2
+        echo "    --stance CONFIRMS \\" >&2
+        echo "    --severity LOW \\" >&2
+        echo "    --category CODE \\" >&2
+        echo "    --description \"<what was reviewed and confirmed>\"" >&2
+        echo "" >&2
+        echo "For external-AI review, use --actor grok/gemini/claude-<variant>." >&2
+        echo "Retry the commit after the CONFIRMS finding is filed." >&2
+        exit 1
+        ;;
+esac
 EOF
 
 chmod +x "$HOOKS_DIR/prepare-commit-msg"
