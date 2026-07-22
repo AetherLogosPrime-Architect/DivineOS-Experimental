@@ -80,6 +80,16 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/detect-andrew-build-request.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/lepos-channel-surface.sh",
             "timeout": 5
           },
@@ -100,17 +110,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/arm-letter-monitor-instruction.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-surface.sh",
             "timeout": 5
           },
           {
@@ -429,6 +429,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/retrieval-tally-check.sh",
             "timeout": 30
           },
           {

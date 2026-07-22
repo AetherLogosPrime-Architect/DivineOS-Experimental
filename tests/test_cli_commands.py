@@ -13,9 +13,22 @@ from divineos.cli import cli
 
 @pytest.fixture(autouse=True)
 def clean_db(tmp_path, monkeypatch):
-    """Use a temporary database for each test."""
+    """Use a temporary database AND data-home for each test.
+
+    2026-07-19 (Aria + Aether, letter thread on push-blocked-tests):
+    the two goal tests were failing because DIVINEOS_HOME was not
+    isolated per-test. Any state in ~/.divineos/ (open errors, stale
+    briefing markers, corruption markers) leaked into the CLI init
+    path and caused first-failure to fire from whichever gate the
+    ambient state happened to trip. Aria traced it to
+    capture_user_input via EventValidationError; Aether traced it
+    to the open-error doorman refusing goal-add. Two symptoms, one
+    root: no data-home isolation. Setting DIVINEOS_HOME to tmp_path
+    closes the class of state-bleed test failures.
+    """
     test_db = tmp_path / "test_ledger.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
     yield
 
 

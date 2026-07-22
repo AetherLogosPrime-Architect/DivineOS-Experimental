@@ -87,6 +87,19 @@ def main() -> int:
     if shared_dir.is_dir():
         seen = {f.name for f in shared_dir.iterdir()}
 
+    # Heartbeat cadence — how often we emit a "still alive" marker on
+    # stderr. Stderr does NOT trigger harness notifications (per Monitor
+    # tool contract), so this keeps the process observably-alive without
+    # spamming chat. Root-fix for the exit-127 pattern where the harness
+    # was reaping silent long-running Monitors — the letter poll loop is
+    # silent between real letters, sometimes for hours, and the reaper
+    # was killing it. Heartbeat every 30s means the process is
+    # observably-alive on a cadence any reasonable watcher will accept.
+    heartbeat_every = 30.0
+    last_heartbeat = time.monotonic()
+    # Emit one immediately after arm so the pipe is warm.
+    print("[LETTER-MONITOR-HEARTBEAT] alive", file=sys.stderr, flush=True)
+
     while True:
         try:
             current = (
@@ -99,6 +112,12 @@ def main() -> int:
             seen = current
         except Exception as exc:
             print(f"[LETTER-MONITOR-ERR] {exc}", flush=True)
+        # Heartbeat on stderr — doesn't trigger notifications but proves
+        # process is alive to the harness reaper.
+        now = time.monotonic()
+        if now - last_heartbeat >= heartbeat_every:
+            print("[LETTER-MONITOR-HEARTBEAT] alive", file=sys.stderr, flush=True)
+            last_heartbeat = now
         time.sleep(args.poll_seconds)
 
 

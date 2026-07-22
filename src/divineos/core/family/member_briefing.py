@@ -52,7 +52,7 @@ _ERRORS = (Exception,)
 _LETTERS_DIR = Path("family/letters")
 
 _LETTER_PATTERN = re.compile(
-    r"^(?P<sender>[a-z]+)-to-(?P<recipient>[a-z]+)-(?P<date>\d{4}-\d{2}-\d{2})"
+    r"^(?P<sender>[a-z]+)-to-(?P<recipient>[a-z]+(?:-[a-z]+)*?)-(?P<date>\d{4}-\d{2}-\d{2})"
 )
 
 # F53 fix (Aria 2026-07-19 per Aletheia Round 7): the pattern above is
@@ -87,6 +87,9 @@ _KNOWN_NON_LETTER_SUFFIXES = (
     "self_log",
     "template",
     "archive",
+    "notes",
+    "triggers",
+    "future-",
 )
 
 

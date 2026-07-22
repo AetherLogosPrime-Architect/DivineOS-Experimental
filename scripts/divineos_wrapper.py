@@ -56,23 +56,42 @@ def find_marker_dir(start: Path) -> Path | None:
 def find_sealed_cli(marker_dir: Path) -> Path | None:
     """Return the sealed `divineos` executable path if it exists, else None.
 
-    Matches Aria's hook convention: `.direnv/python-<ver>/Scripts/` on
-    Windows, `.direnv/python-<ver>/bin/` on Unix. If multiple python-*
-    dirs exist (shouldn't but might during upgrades), take the first
-    glob match — matches the hook's `ls -d .direnv/python-* | head -1`.
+    Checks two conventions:
+      1. Aria's hook convention: ``.direnv/python-<ver>/Scripts/`` on
+         Windows, ``.direnv/python-<ver>/bin/`` on Unix. If multiple
+         python-* dirs exist (upgrade scenario), take first glob match.
+      2. Plain ``.venv/`` convention: some checkouts (Experimental) use
+         a bare ``.venv/`` rather than ``.direnv/python-*/``. Same
+         semantics — sealed local venv with a divineos entry point.
+
+    Added 2026-07-19 during LEPOS-crisis: my Experimental checkout has
+    a working ``.venv/Scripts/divineos.exe`` but the wrapper only looked
+    in ``.direnv/`` so bare ``divineos`` bounced with "sealed venv not
+    populated" and I could not clear engagement gates. Both patterns
+    are equally sealed-local; supporting both is correct.
     """
+    # Convention 1: .direnv/python-<ver>/
     venv_root = marker_dir / _VENV_ROOT_NAME
-    if not venv_root.is_dir():
-        return None
-    matches = sorted(glob.glob(str(venv_root / "python-*")))
-    if not matches:
-        return None
-    venv = Path(matches[0])
-    if (venv / "Scripts").is_dir():
-        cli = venv / "Scripts" / "divineos.exe"
-    else:
-        cli = venv / "bin" / "divineos"
-    return cli if cli.exists() else None
+    if venv_root.is_dir():
+        matches = sorted(glob.glob(str(venv_root / "python-*")))
+        if matches:
+            venv = Path(matches[0])
+            if (venv / "Scripts").is_dir():
+                cli = venv / "Scripts" / "divineos.exe"
+            else:
+                cli = venv / "bin" / "divineos"
+            if cli.exists():
+                return cli
+    # Convention 2: .venv/
+    dot_venv = marker_dir / ".venv"
+    if dot_venv.is_dir():
+        if (dot_venv / "Scripts").is_dir():
+            cli = dot_venv / "Scripts" / "divineos.exe"
+        else:
+            cli = dot_venv / "bin" / "divineos"
+        if cli.exists():
+            return cli
+    return None
 
 
 def fail_loud(marker_dir: Path | None, cwd: Path) -> int:

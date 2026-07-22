@@ -60,6 +60,115 @@ import sys
 from typing import Any
 
 
+# Chain-shape metacharacters that indicate shell-chain composition.
+# Used by _is_safe_remedy_invocation to reject exemption when a remedy
+# command has an appended chain (e.g. `remedy && rm -rf ~`). Semicolon
+# and && / || / backtick / $() only count as chain-operators when they
+# appear OUTSIDE quoted strings — a semicolon inside a quoted argument
+# is ordinary text and must not break the exemption. See council walk
+# council-2ad91226ebe7 (schneier + popper + meadows, 2026-07-21).
+_CHAIN_SHAPE_METACHARS: tuple[str, ...] = (";", "&&", "||", "`", "$(")
+
+
+def _strip_shell_quoted(cmd: str) -> str:
+    """Return cmd with the CONTENT of quoted regions replaced by 'Q',
+    preserving the outside-quotes structure intact.
+
+    Handles: 'single-quoted', "double-quoted", backslash-escapes.
+    Fail-closed: if a quote is never closed, raises ValueError so the
+    caller can reject the command.
+
+    Example: 'divineos correction "text; and" && rm' ->
+             'divineos correction "Q" && rm'
+    """
+    out: list[str] = []
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if ch == "\\" and i + 1 < n:
+            # Backslash-escape — output the escape + next char verbatim.
+            out.append(cmd[i : i + 2])
+            i += 2
+            continue
+        if ch in ('"', "'"):
+            quote = ch
+            out.append(quote)
+            i += 1
+            # Consume until closing quote, treating backslash-escapes.
+            while i < n:
+                if cmd[i] == "\\" and quote == '"' and i + 1 < n:
+                    i += 2
+                    continue
+                if cmd[i] == quote:
+                    out.append("Q")  # placeholder for quoted content
+                    out.append(quote)
+                    i += 1
+                    break
+                i += 1
+            else:
+                raise ValueError(f"unclosed {quote} in command")
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _has_unquoted_chain_shape(cmd: str) -> bool:
+    """Return True iff cmd contains a chain-shape metachar OUTSIDE quotes.
+
+    Strips the content of quoted regions first (leaving a placeholder),
+    then runs the chain-shape regex on the outside-quotes structure.
+    This distinguishes a real shell chain like `remedy && rm -rf ~`
+    from ordinary punctuation in a quoted arg like
+    `divineos correction "gates never retired; only fixed"`.
+
+    Fail-CLOSED: if a quote is unclosed (malformed), treat as chain-
+    shape present. Rejecting a malformed command from the exemption
+    path is safer than allowing it.
+
+    Test cases owed (Popper falsifiers, council-2ad91226ebe7):
+      * `divineos correction "text; with semi"` -> False (safe)
+      * `divineos correction "text" && rm -rf ~` -> True (chain)
+      * `divineos correction "text" \`whoami\`` -> True (backtick sub)
+      * `divineos correction "text" $(whoami)` -> True (command sub)
+      * `divineos correction "text" | tail` -> False (pipe is allowed)
+      * `divineos correction "unclosed` -> True (fail-closed)
+    """
+    try:
+        stripped = _strip_shell_quoted(cmd)
+    except ValueError:
+        return True  # fail closed on unclosed quote
+    chain_re = re.compile(r";|&&|\|\||`|\$\(")
+    return bool(chain_re.search(stripped))
+
+
+def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool:
+    """Return True iff cmd is a legitimate invocation of a remedy command.
+
+    Rules:
+      1. cmd (before any pipe) must start with one of allowed_heads.
+      2. cmd must NOT contain a chain-shape metachar outside quotes.
+      3. Pipe (|) is allowed after the remedy (piping to head/tail is a
+         common concrete case that this exemption exists to permit).
+
+    Shared helper factored from the compass exemption (line ~1063) and
+    correction exemption (line ~1152) per Meadows walk council-
+    2ad91226ebe7: the code comment at line 1140 predicted the refactor
+    was owed after the third instance; my Catch-22 hit is that instance.
+    """
+    if not cmd:
+        return False
+    # Split on pipe once — remedy must be the first pipeline segment.
+    head_segment = re.split(r"\|", cmd, maxsplit=1)[0].strip()
+    if not any(head_segment.startswith(h) for h in allowed_heads):
+        return False
+    # Chain-shape check on the FULL cmd, quote-aware.
+    if _has_unquoted_chain_shape(cmd):
+        return False
+    return True
+
+
 def _load_bypass_subcommands() -> frozenset[str]:
     """Load the canonical bypass-list from scripts/hook_bypass_commands.txt.
 
@@ -200,6 +309,55 @@ def _has_compound_shape(cmd: str) -> bool:
 _CD_PREFIX_RE = re.compile(r"^\s*cd\s+(?:[\"'][^\"'$`]+[\"']|[^\s;&|`$]+)\s*&&\s*")
 
 
+# 2026-07-19 fix (Andrew LEPOS-crisis, council-c887c7f71777): the compound-
+# shape check on the bypass path over-blocks documented remedy commands
+# when invoked with benign output-filter tails — e.g. `divineos ask
+# "topic" | head -20`, `divineos active 2>&1 | grep foo`. These are pure
+# output-shaping constructs; the leading command is still a bypass
+# candidate. Blocking them creates the chicken-and-egg trap where the
+# gate's own documented remedy is refused because I piped its output
+# through head for readability. Bypass-rate telemetry confirmed 14 events
+# on `cmd:divineos ask` alone. Same principle as the existing cd-prefix
+# carve-out (Andrew 2026-06-29 "no gate should ever be blocking you from
+# using what you need to clear the gate").
+#
+# Safe-tail pattern: any number of ` | <filter> [args...]` segments where
+# each filter is on _SAFE_OUTPUT_FILTERS, plus optional ` 2>&1` (stderr
+# merge — fd-redirect not a pipe but safe and common). Args regex excludes
+# shell metachars (`;`, `&&`, backtick, `$(`, `>`, `<`) so awk/sed on the
+# allow-list cannot smuggle a payload via arg substitution.
+#
+# OUT of scope: `| tee` (writes files), `| xargs CMD` (runs arbitrary CMD),
+# `| bash`, `| sh`, `| python` (interprets stdin). Allow-list is closed.
+_SAFE_OUTPUT_FILTERS = frozenset(
+    {"head", "tail", "grep", "less", "more", "cat", "wc", "sort", "uniq", "awk", "sed"}
+)
+
+
+def _strip_safe_output_tail(cmd: str) -> str:
+    """Strip a trailing ` | SAFE_FILTER ARGS...` chain and/or ` 2>&1` from
+    cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
+
+    Safe pattern: any number of ` | <filter> [args...]` segments where
+    each filter is on _SAFE_OUTPUT_FILTERS, optionally followed by ` 2>&1`
+    (or leading `2>&1` before the pipe). Args must not contain shell
+    metacharacters that would compose or substitute.
+    """
+    stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
+    while True:
+        m = re.search(r"\s\|\s+(\w+)((?:\s+[^|;&`$<>]+)?)\s*$", stripped)
+        if not m:
+            break
+        filter_name = m.group(1)
+        args_segment = m.group(2) or ""
+        if filter_name not in _SAFE_OUTPUT_FILTERS:
+            return cmd
+        if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
+            return cmd
+        stripped = stripped[: m.start()].rstrip()
+    return stripped
+
+
 def _strip_cd_prefix(cmd: str) -> str:
     """If ``cmd`` starts with a safe ``cd DIR &&`` prefix, strip it and
     return the remainder. Otherwise return cmd unchanged.
@@ -226,6 +384,10 @@ def _is_bypass_command(cmd: str) -> bool:
     # working directory without executing anything else. Anything else
     # with a compound char still fails the bypass.
     cmd = _strip_cd_prefix(cmd)
+    # 2026-07-19: strip trailing safe-output-filter tail so `divineos ask
+    # "topic" | head -20` can still bypass. See _strip_safe_output_tail
+    # docstring for the closed allow-list and safety envelope.
+    cmd = _strip_safe_output_tail(cmd)
     # F22 gate: compound commands are never bypass candidates, even if
     # they contain a safe word. `divineos briefing; rm -rf /tmp/x` must
     # NOT bypass — the safe word is a decoy, not the command.
@@ -324,6 +486,30 @@ _CODE_FILE_SUFFIXES: frozenset[str] = frozenset(
         ".yml",
     }
 )
+
+
+# Engagement-clearing consult commands. When invoked via Bash/PowerShell tool,
+# the soft-engagement gates (2/4/4.5) skip pre-emptive block so the command
+# whose execution would clear the block can actually run. Matches at start of
+# any pipeline segment. Deadlock-fix 2026-07-18.
+_ENGAGEMENT_CLEARING_RE = re.compile(
+    r"^divineos\s+(ask|recall|briefing|lessons|active|context|decide|feel|"
+    r"directives|body|compass|hud|preflight|goal|corrections)\b"
+)
+
+
+def _is_engagement_clearing_command(command: str) -> bool:
+    """True if any pipeline segment of the shell command is a consult CLI.
+
+    Uses the same shell-separator split as is_substrate_write_command so
+    substring matches in echo args / quoted strings don't spuriously match.
+    """
+    if not command:
+        return False
+    for segment in re.split(r"\s*(?:&&|\|\||;|\|)\s*", command):
+        if _ENGAGEMENT_CLEARING_RE.match(segment.strip()):
+            return True
+    return False
 
 
 def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
@@ -983,14 +1169,12 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     _cmd = (input_data or {}).get("tool_input", {}).get("command", "") or ""
                 except (AttributeError, TypeError):
                     _cmd = ""
-                _chain_shape_re = re.compile(r";|&&|\|\||`|\$\(")
-                if _tn == "Bash" and _cmd and not _chain_shape_re.search(_cmd):
-                    _head = re.split(r"\|", _cmd, maxsplit=1)[0].strip()
-                    if _head.startswith("divineos compass-ops observe") or _head.startswith(
-                        "divineos compass-ops dismiss"
-                    ):
-                        # Fall through to allow — the remedy command must run.
-                        return None
+                if _tn == "Bash" and _is_safe_remedy_invocation(
+                    _cmd,
+                    ("divineos compass-ops observe", "divineos compass-ops dismiss"),
+                ):
+                    # Fall through to allow — the remedy command must run.
+                    return None
 
                 advised_count = int(cr.get("advised_count", 0))
                 # Defensive guard: dedup should only suppress after a prior
@@ -1072,29 +1256,24 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     _cmd = (input_data or {}).get("tool_input", {}).get("command", "") or ""
                 except (AttributeError, TypeError):
                     _cmd = ""
-                _chain_shape_re_1_5 = re.compile(r";|&&|\|\||`|\$\(")
-                if _tn == "Bash" and _cmd and not _chain_shape_re_1_5.search(_cmd):
-                    _head = re.split(r"\|", _cmd, maxsplit=1)[0].strip()
-                    if (
-                        _head.startswith("divineos learn")
-                        or _head.startswith("divineos correction")
-                        or _head.startswith("divineos corrections")
-                    ):
-                        # Fall through to allow — the remedy must run.
-                        pass
-                    else:
-                        marker = read_marker()
-                        if marker is not None:
-                            return _make_deny(format_gate_message(marker))
-                        return _make_deny(
-                            "BLOCKED: correction marker present at "
-                            f"{marker_path()} but unreadable. "
-                            'Clear manually with `divineos learn "lesson"` or '
-                            '`divineos correction "description"` once the correction '
-                            "has been named, or inspect the file if you suspect "
-                            "corruption. Fail-closed by design: a corrupted marker "
-                            "must not silently disable the gate."
-                        )
+                # Third-instance refactor per council-2ad91226ebe7 (Meadows):
+                # the shared _is_safe_remedy_invocation helper now covers this
+                # exemption AND the compass exemption (line ~1063) via one
+                # shell-quote-aware code path. Also adds the escape-hatch
+                # script (clear_correction_marker.py) to the allow-list — the
+                # block message names it as a remedy but the previous gate
+                # refused it, closing the very door it advertised.
+                _correction_remedies = (
+                    "divineos learn",
+                    "divineos correction",
+                    "divineos corrections",
+                    "python scripts/clear_correction_marker.py",
+                    'python "scripts/clear_correction_marker.py"',
+                    "python C:/DIVINE OS/DivineOS-Experimental/scripts/clear_correction_marker.py",
+                )
+                if _tn == "Bash" and _is_safe_remedy_invocation(_cmd, _correction_remedies):
+                    # Fall through to allow — the remedy must run.
+                    pass
                 else:
                     marker = read_marker()
                     if marker is not None:
@@ -1120,6 +1299,21 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # retry, context-governor) still apply unconditionally.
     # Correction #45 / 2026-06-08.
     _low_friction = input_data is not None and _is_low_friction_write(input_data)
+
+    # Deadlock-fix 2026-07-18 (Aether, Andrew-authorized inline patch, audit-later):
+    # the engagement gate demands `divineos ask|recall|context|decide|briefing|...`
+    # but had no whitelist for bash/PowerShell tool invocations of those exact
+    # commands, so trying to run the fix tripped the gate that demanded the fix.
+    # Detect engagement-clearing consult commands and treat them like low-friction
+    # writes for the soft-engagement cluster (gates 2 / 4 / 4.5). The consult
+    # still runs mark_engaged internally; this just prevents pre-emptive block
+    # of the very command whose execution would clear the block.
+    if not _low_friction and input_data is not None:
+        _tn = input_data.get("tool_name", "") or ""
+        if _tn in ("Bash", "PowerShell"):
+            _cmd = (input_data.get("tool_input", {}) or {}).get("command", "") or ""
+            if _is_engagement_clearing_command(_cmd):
+                _low_friction = True
 
     # Gate 2: session-fresh goal
     if not _low_friction:
