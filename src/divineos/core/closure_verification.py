@@ -214,13 +214,21 @@ def _verify_substrate_id(citation: str, reference_ts: float, recency: float) -> 
     # NameError elsewhere in this codebase. Norman vantage: the double check
     # makes the invariant self-documenting for the next reader — resolves iff
     # BOTH exit code is zero AND stdout does not carry divineos's error mark.
-    if result.stdout.lstrip().startswith("[!]"):
-        snippet = result.stdout.strip().splitlines()[0][:120] if result.stdout.strip() else ""
+    # Check ANY line of stdout for divineos's error marker `[!]` — not just
+    # the first, because on fresh test environments divineos initializes
+    # the ledger on-demand and prints `[+] Seed v2.1.0 applied...` BEFORE
+    # the actual error line. Iterate lines and look for any that start with
+    # the error prefix (allowing for leading whitespace).
+    error_line = next(
+        (ln.strip() for ln in result.stdout.splitlines() if ln.lstrip().startswith("[!]")),
+        None,
+    )
+    if error_line:
         return VerificationResult(
             False,
             citation,
             "substrate_id",
-            f"stdout error-marker (windows-cmd-wrapper exit-code drop): {snippet}",
+            f"stdout error-marker (windows-cmd-wrapper exit-code drop): {error_line[:120]}",
         )
     return VerificationResult(
         True, citation, "substrate_id", f"resolved via divineos {' '.join(cli_subcommand)}"

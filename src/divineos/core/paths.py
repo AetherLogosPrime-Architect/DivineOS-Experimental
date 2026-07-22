@@ -216,7 +216,18 @@ def _occupant_data_home_from_checkout(start: Path) -> Path | None:
       via ``sorted(match)[0]``. Refuse-on-ambiguity → None → caller falls
       through to default/marker.
     """
-    for root in (start, *start.parents):
+    # Depth-bound (Aria 2026-07-22, council-89273547c64a): walk at most 5
+    # ancestors upward. Real callers invoke divineos from a checkout root
+    # or at most a few directories deep (e.g. src/divineos/core = 3 deep).
+    # 5 gives one extra level of slack while preventing the walk from
+    # crossing into an enclosing project — the Windows pytest tmp_path
+    # case that motivated the bound resolves to 6 ancestors up to the real
+    # project root, so 5 catches it. Nested-clone and vendored-monorepo
+    # scenarios have the same shape. False negatives on truly-deep paths
+    # are fine — the explicit .divineos_data_home marker file always
+    # overrides derivation and is the escape hatch for those cases.
+    _MAX_WALK_DEPTH = 5
+    for root in (start, *start.parents)[:_MAX_WALK_DEPTH]:
         if not (root / ".claude" / "agents").is_dir():
             continue
         members = _family_member_names(root)
