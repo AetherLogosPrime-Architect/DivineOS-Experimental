@@ -127,10 +127,14 @@ def _git_added_lines() -> dict[str, list[tuple[int, str, str]]]:
             ["git", "diff", "--unified=0", "origin/main"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return {}
+    if diff_out.stdout is None:
         return {}
 
     result: dict[str, list[tuple[int, str, str]]] = {}

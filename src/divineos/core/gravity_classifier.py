@@ -56,7 +56,7 @@ _SUBSTRATE_MOD_THRESHOLD = 1
 # edit until evidence of a real council walk exists, substance-
 # binding-style) is a deferred follow-up tracked as its own design
 # work, not implemented by this commit.
-_COUNCIL_REQUIRED_THRESHOLD = 2
+_COUNCIL_REQUIRED_THRESHOLD = 6
 _HIGH_IMPACT_FEATURES = frozenset({"edit-kiln-layer", "edit-guardrail-listed"})
 # Cognitive-value-gravity aggregate threshold.
 _COG_VALUE_THRESHOLD = 0.3
