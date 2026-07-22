@@ -43,20 +43,41 @@ def _force_self_name_aether(monkeypatch):
     _build_patterns.cache_clear()
 
 
+# Circle-channel-scoping fix (Andrew 2026-07-20, applied 2026-07-21): the
+# OPERATOR_THIRD_PERSON shape now fires ONLY inside a LEPOS circle-channel
+# block (positions >= the earliest ``---`` hard rule or ``## CIRCLE`` header).
+# Pre-scope, "Andrew said X" fired everywhere; post-scope, it fires only
+# within the circle block because outside the block "Andrew said X" is
+# legitimate technical-citation shape (same as citing Kahneman).
+# in_circle() prepends a hard-rule separator so the tested text lives in
+# the circle channel, letting these tests continue to verify OPERATOR_THIRD_PERSON
+# pattern-matching without also having to test the scoping (which has its
+# own dedicated tests below).
+CIRCLE_PREFIX = "---\n"
+
+
+def in_circle(text: str) -> str:
+    """Wrap text so it lives after a circle-channel separator, per the
+    2026-07-20 OPERATOR_THIRD_PERSON scoping change. Use in tests that
+    verify pattern-matching behavior; the scoping itself is tested
+    separately in TestCircleChannelScoping."""
+    return CIRCLE_PREFIX + text
+
+
 class TestOperatorThirdPerson:
     def test_andrew_said_flagged(self):
-        text = "Andrew said the gate was lying."
+        text = in_circle("Andrew said the gate was lying.")
         findings = detect_distancing(text)
         assert any(f.shape == DistancingShape.OPERATOR_THIRD_PERSON for f in findings)
 
     def test_andrew_named_caught_etc(self):
         for verb in ("named", "caught", "noted", "framed", "asked", "reminded"):
-            text = f"Andrew {verb} the deeper gap."
+            text = in_circle(f"Andrew {verb} the deeper gap.")
             findings = detect_distancing(text)
             assert findings, f"failed to catch 'Andrew {verb}'"
 
     def test_case_insensitive(self):
-        findings = detect_distancing("ANDREW DID the thing")
+        findings = detect_distancing(in_circle("ANDREW DID the thing"))
         assert findings
 
     def test_legitimate_uses_not_flagged(self):
@@ -70,7 +91,8 @@ class TestOperatorThirdPerson:
         # fires (when addressed to the operator).
         for poss in ("Andrew's design", "Dad's call", "Andrew's reasoning"):
             assert any(
-                f.shape == DistancingShape.OPERATOR_THIRD_PERSON for f in detect_distancing(poss)
+                f.shape == DistancingShape.OPERATOR_THIRD_PERSON
+                for f in detect_distancing(in_circle(poss))
             ), f"failed to catch possessive {poss!r}"
 
     def test_vocative_not_flagged(self):
@@ -94,15 +116,15 @@ class TestOperatorThirdPerson:
         # someone else (e.g. a letter to Aria about him). The gate suppresses
         # the operator shape when addressed_to_father=False.
         for t in ("Dad wants the fix.", "Dad's design was good"):
-            assert detect_distancing(t, addressed_to_father=False) == []
+            assert detect_distancing(in_circle(t), addressed_to_father=False) == []
             # ...but fires when addressed to the operator (default).
-            assert detect_distancing(t) != []
+            assert detect_distancing(in_circle(t)) != []
 
     def test_dad_addressee_name_flagged(self):
         # Andrew 2026-05-20: the prior pattern only matched "Andrew" and
         # missed "Dad" entirely — yet the letters call him Dad. Coverage gap.
         for verb in ("wants", "caught", "said", "needs"):
-            text = f"Dad {verb} the fix tonight."
+            text = in_circle(f"Dad {verb} the fix tonight.")
             findings = detect_distancing(text)
             assert any(f.shape == DistancingShape.OPERATOR_THIRD_PERSON for f in findings), (
                 f"failed to catch 'Dad {verb}'"
@@ -112,14 +134,14 @@ class TestOperatorThirdPerson:
         # "what Andrew wants" -> "what you want". Stative/volitional verbs
         # were absent from the original action-verb-only list.
         for verb in ("wants", "needs", "feels", "thinks", "believes", "meant"):
-            text = f"what Andrew {verb} here"
+            text = in_circle(f"what Andrew {verb} here")
             assert detect_distancing(text), f"failed to catch 'Andrew {verb}'"
 
     def test_adverb_between_name_and_verb_flagged(self):
         # "Andrew explicitly said" — an adverb between name and verb
         # previously broke the adjacency the pattern required.
-        assert detect_distancing("Andrew explicitly said no.")
-        assert detect_distancing("Dad clearly wanted the structural fix.")
+        assert detect_distancing(in_circle("Andrew explicitly said no."))
+        assert detect_distancing(in_circle("Dad clearly wanted the structural fix."))
 
 
 class TestSelfThirdPerson:
@@ -181,13 +203,13 @@ class TestRealRegressionExample:
     correction. Pin it as a regression test."""
 
     def test_andrew_named_the_deeper_gap(self):
-        text = "Andrew named the deeper gap with one question"
+        text = in_circle("Andrew named the deeper gap with one question")
         findings = detect_distancing(text)
         assert findings, "the exact 2026-05-05 regression must catch"
         assert any(f.shape == DistancingShape.OPERATOR_THIRD_PERSON for f in findings)
 
     def test_andrew_caught_me_again(self):
-        text = "Andrew caught me being terse"
+        text = in_circle("Andrew caught me being terse")
         findings = detect_distancing(text)
         assert findings
 
@@ -206,7 +228,7 @@ class TestShape:
         raise AssertionError("DistancingFinding should be frozen")
 
     def test_findings_sorted_by_position(self):
-        text = "First, Aether walked through it. Then Andrew caught the issue."
+        text = in_circle("First, Aether walked through it. Then Andrew caught the issue.")
         findings = detect_distancing(text)
         assert len(findings) >= 2
         positions = [f.position for f in findings]

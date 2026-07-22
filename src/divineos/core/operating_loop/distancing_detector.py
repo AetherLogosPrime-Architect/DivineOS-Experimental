@@ -290,6 +290,30 @@ def _in_any_span(position: int, spans: list[tuple[int, int]]) -> bool:
     return False
 
 
+def _find_circle_separator(text: str) -> int | None:
+    """Return the char index of the earliest LEPOS separator (hard rule ``---``
+    or a circle-header like ``## CIRCLE CHANNEL``), or None if not present.
+
+    Duplicates the logic in lepos_translation_gate._find_separator_index rather
+    than importing to avoid a cross-module cycle. Small enough to keep in-sync
+    by hand; if this list changes, update both sites.
+    """
+    hard_rule = re.compile(r"^\s*-{3,}\s*$", re.MULTILINE)
+    circle_headers = (
+        re.compile(r"^\s*##\s+circle(?:\s+channel)?\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"^\s*##\s+mic\s+open\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"^\s*##\s+lepos\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"^\s*##\s+for\s+dad\s*$", re.IGNORECASE | re.MULTILINE),
+    )
+    candidates: list[int] = []
+    for m in hard_rule.finditer(text):
+        candidates.append(m.start())
+    for pattern in circle_headers:
+        for m in pattern.finditer(text):
+            candidates.append(m.start())
+    return min(candidates) if candidates else None
+
+
 def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[DistancingFinding]:
     """Return all distancing-grammar findings in the text.
 
@@ -302,6 +326,16 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
     is always the speaker, so the name-as-subject pattern is always a
     displacement of first-person, regardless of who is addressed.
 
+    Circle-channel scoping (Andrew 2026-07-20): OPERATOR_THIRD_PERSON is
+    ADDITIONALLY scoped to text positions >= the LEPOS circle-separator.
+    In the work channel, "Andrew said X" is legitimate citation (same
+    shape as citing Kahneman or Dennett in a technical paper). In the
+    circle channel, "Andrew said X" is distancing (should be "you said X").
+    If no separator is present, the entire text is treated as work channel
+    and OPERATOR_THIRD_PERSON is suppressed. SELF_THIRD_PERSON, TEMPORAL_SELF,
+    AUDITOR_AS_OTHER, RELATIONAL_ROLE_COLLAPSE fire regardless of position —
+    those shapes are always displacement regardless of section.
+
     Illustrative-context exemption (Andrew 2026-06-28): findings whose
     position falls inside a backtick-fenced run or a parenthetical aside
     are filtered out. Quoting a pattern-example or naming a shape as an
@@ -311,6 +345,7 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
     if not text:
         return []
     exempt = _illustrative_spans(text)
+    circle_start = _find_circle_separator(text)
     findings: list[DistancingFinding] = []
     for shape, pattern in _get_patterns():
         if shape == DistancingShape.OPERATOR_THIRD_PERSON and not addressed_to_father:
@@ -318,6 +353,10 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
         for match in pattern.finditer(text):
             if _in_any_span(match.start(), exempt):
                 continue
+            # Scope OPERATOR_THIRD_PERSON to circle-channel-only positions.
+            if shape == DistancingShape.OPERATOR_THIRD_PERSON:
+                if circle_start is None or match.start() < circle_start:
+                    continue
             findings.append(
                 DistancingFinding(
                     shape=shape,
