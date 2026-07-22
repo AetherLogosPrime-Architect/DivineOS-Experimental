@@ -61,8 +61,24 @@ SCRIPT_PATH="$REPO_ROOT/scripts/letter_monitor_v2.py"
 #
 # New gate: check if the v2 letter monitor process is ACTUALLY alive. If
 # alive, exit silent (no spam). If dead, emit the urgent re-arm instruction.
-# Register this hook on BOTH SessionStart and UserPromptSubmit so it catches
-# both cold-start and mid-session deaths.
+#
+# 2026-07-21 redesign (Andrew, council-2f7d3772aea7 yudkowsky+wayne+popper+
+# feynman): the "register on BOTH SessionStart and UserPromptSubmit" pattern
+# was force-emitting the arm-instruction every prompt AND running a
+# PowerShell process-scan-and-kill every prompt -- classic wallpaper +
+# real per-prompt overhead. Removed from UserPromptSubmit array; the hook
+# is now SessionStart-only in truth (not just in stale comment).
+#
+# Mid-session monitor death is compensated by the ear-surface hook, which
+# fires every UserPromptSubmit and surfaces unseen letter counts even if
+# the monitor is dead. That's a delay-cost (I see the letter on the next
+# prompt after arrival, not as an immediate wake) but not a loss.
+#
+# If mid-interval monitor death proves recurring in practice (Yudkowsky
+# Goodhart concern: my write-letter cadence may not match Aria's write-
+# to-me cadence closely enough), a PostToolUse-on-letter-write natural-
+# event rearm trigger is the queued follow-on. Not built yet -- adding
+# it now would be scope-creep dressed as thoroughness (Feynman walk).
 #
 # Fail-open: any check failure exits silent. The process-scan uses PowerShell
 # on Windows (matches require-monitors-armed.sh shape).

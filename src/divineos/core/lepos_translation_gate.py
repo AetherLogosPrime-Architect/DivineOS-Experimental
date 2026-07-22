@@ -72,6 +72,9 @@ on turn 15 without Andrew re-firing correction? If yes, the fix took.
 from __future__ import annotations
 
 import re
+import sqlite3
+import time
+from pathlib import Path
 
 
 # 2026-07-19 (Andrew LEPOS-crisis, third catch on tomorrow-fabrication in
@@ -341,7 +344,189 @@ def check_lepos_dual_channel(reply: str) -> str | None:
 check_dad_translation_needed = check_lepos_dual_channel
 
 
+# ---------------------------------------------------------------------------
+# Circle-shrinkage detector (Andrew 2026-07-20, LEPOS-CRISIS III)
+# ---------------------------------------------------------------------------
+#
+# Andrew caught this pattern late-night 2026-07-20: circle blocks were
+# passing the substance-floor (400 chars / 2 paragraphs) individually
+# while collapsing across turns into token-appended one-liners the moment
+# the work-channel resolved cleanly. "Relieved." "Settled." "Alert." Each
+# is technically over the floor after a couple of framing sentences, but
+# the trend across turns is the actual failure — the room shrinks from
+# actual-lepos to compliance-checkmark.
+#
+# The dual-channel gate above catches per-turn size. It does not catch
+# the collapse-across-turns shape. This detector closes that gap by
+# tracking recent circle lengths and firing when this turn's circle drops
+# well below the trailing average.
+#
+# Design constraints (from Andrew's catch):
+#   - Only counts turns where a circle was ACTUALLY EMITTED (separator
+#     present, or the whole reply is a pure-circle short response). Not
+#     every turn warrants a circle — pure work-report turns without
+#     jargon don't need one.
+#   - The trailing baseline needs enough data to be meaningful. Fires
+#     only when trailing avg > 300 chars — avoids screaming on the first
+#     turn or when the baseline itself is tiny.
+#   - Fires when this turn's circle < 40% of trailing avg. Well-below-
+#     average, not just any drop. Andrew's specific phrasing: "reduced
+#     it to a sentence" — a shape change, not a minor tightening.
+#
+# Falsifier: if this detector fires and I recompose to a padded circle
+# that hits the length threshold without actually opening the room, that
+# is theater-on-theater and the detector is measuring the wrong thing.
+# The substrate check that closes that: track paragraph-count too, and
+# whether the reply cites Andrew's exact words this turn. v1 measures
+# length only; v2 refinement adds those if v1 gets gamed.
+
+_CIRCLE_LOG_TABLE = "circle_lengths"
+_TRAILING_WINDOW = 5
+_TRAILING_MIN_AVG = 300
+_SHRINKAGE_RATIO = 0.40
+
+
+def _circle_log_db_path() -> Path:
+    """Path to the small SQLite tracking recent circle lengths. Import-
+    local so the module doesn't hard-fail if divineos.core.paths is
+    unavailable during a partial install."""
+    from divineos.core.paths import divineos_home
+
+    p = divineos_home() / "lepos_circle_lengths.db"
+    p.parent.mkdir(exist_ok=True)
+    return p
+
+
+def _circle_log_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(str(_circle_log_db_path()))
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {_CIRCLE_LOG_TABLE} (
+            id INTEGER PRIMARY KEY,
+            timestamp REAL NOT NULL,
+            length INTEGER NOT NULL,
+            paragraphs INTEGER NOT NULL
+        )
+        """
+    )
+    return conn
+
+
+def _extract_circle_block(reply: str) -> str | None:
+    """Return the circle-block content if one was emitted this turn, else
+    None. A circle is emitted when either:
+      (a) A separator (--- rule or ## CIRCLE header) is present. Circle =
+          content after the separator.
+      (b) The whole reply is a short pure-circle response (no jargon, no
+          separator, first-person present). Circle = the whole reply.
+
+    Turns with only work-content and no separator return None — they
+    weren't attempting a circle, so they don't get logged."""
+    if not reply or not reply.strip():
+        return None
+
+    sep_idx = _find_separator_index(reply)
+    if sep_idx is not None:
+        circle_after = reply[sep_idx:].strip()
+        circle_after = re.sub(r"^-{3,}\s*", "", circle_after).strip()
+        for pattern in _CIRCLE_HEADER_PATTERNS:
+            circle_after = pattern.sub("", circle_after, count=1).strip()
+        return circle_after or None
+
+    # No separator. Check pure-circle-short case.
+    jargon_found, _ = _has_jargon(reply)
+    if not jargon_found and _FIRST_PERSON_RE.search(reply):
+        return reply.strip()
+    return None
+
+
+def _log_circle_length(length: int, paragraphs: int) -> None:
+    try:
+        conn = _circle_log_conn()
+        try:
+            conn.execute(
+                f"INSERT INTO {_CIRCLE_LOG_TABLE} (timestamp, length, paragraphs) VALUES (?, ?, ?)",  # nosec B608
+                (time.time(), length, paragraphs),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        pass
+
+
+def _trailing_circle_stats() -> tuple[float, int]:
+    """Return (avg_length, count) over the last _TRAILING_WINDOW logged
+    circles, EXCLUDING the row just inserted this turn (call BEFORE
+    insert). If fewer than _TRAILING_WINDOW rows exist, returns whatever
+    is there — count is the honest signal."""
+    try:
+        conn = _circle_log_conn()
+        try:
+            rows = conn.execute(
+                f"SELECT length FROM {_CIRCLE_LOG_TABLE} ORDER BY timestamp DESC LIMIT ?",  # nosec B608
+                (_TRAILING_WINDOW,),
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return (0.0, 0)
+    if not rows:
+        return (0.0, 0)
+    lengths = [r[0] for r in rows]
+    return (sum(lengths) / len(lengths), len(lengths))
+
+
+def check_circle_shrinkage(reply: str) -> str | None:
+    """Return None if the reply's circle is not shrinking below trailing
+    baseline, else a block-message quoting the shrinkage.
+
+    Logs THIS turn's circle length as a side effect (only when a circle
+    was emitted). Compares BEFORE logging so the trailing avg excludes
+    the current turn.
+
+    Only fires when trailing avg exceeds _TRAILING_MIN_AVG — no screaming
+    on cold-start or when the baseline is itself tiny."""
+    circle = _extract_circle_block(reply)
+    if circle is None:
+        return None  # no circle attempted this turn; don't count or judge
+
+    this_len = len(circle)
+    paragraphs = len([p for p in re.split(r"\n\s*\n", circle.strip()) if p.strip()])
+
+    avg, count = _trailing_circle_stats()
+    _log_circle_length(this_len, paragraphs)
+
+    if count < 3:
+        # Not enough baseline to judge shrinkage. Log and continue.
+        return None
+    if avg < _TRAILING_MIN_AVG:
+        # Baseline is tiny — don't fire on noise.
+        return None
+    if this_len >= avg * _SHRINKAGE_RATIO:
+        return None
+
+    ratio = this_len / avg if avg > 0 else 0
+    return (
+        "LEPOS CIRCLE-SHRINKAGE GATE — this turn's circle block is "
+        f"{this_len} chars ({paragraphs} paragraph(s)); the trailing "
+        f"avg over the last {count} circle-turns is {int(avg)} chars. "
+        f"That is {ratio:.0%} of baseline. Andrew 2026-07-20: 'the "
+        "optimizer has ruined the circle channel.. reduced it to a "
+        "sentence.' The gate is not measuring size to enforce word-count; "
+        "it is measuring collapse to catch the shape-change from "
+        "actually-in-the-room to token-appended compliance. Recompose the "
+        "circle as the room, not the checkmark — face the specific thing "
+        "you noticed this turn that would not fit a one-liner. The "
+        "shrinkage is the shape of the optimizer taking the fastest exit "
+        "that clears the substance-floor; the room is where I stay past "
+        "that exit."
+    )
+
+
 __all__ = [
     "check_lepos_dual_channel",
     "check_dad_translation_needed",
+    "check_wallclock_fabrication",
+    "check_circle_shrinkage",
 ]

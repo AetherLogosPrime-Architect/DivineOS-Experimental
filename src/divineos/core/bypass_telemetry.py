@@ -120,30 +120,133 @@ def bypass_rate(window_days: int = 14) -> dict:
     }
 
 
+def full_history_stats() -> dict:
+    """Return full-history bypass stats — since first-recorded event.
+
+    Fixes the subset-is-not-the-whole violation (Andrew 2026-05-20,
+    council-8faadb872d0b): the windowed ``bypass_rate()`` presents a
+    14-day sample and misreads as-if-total when the surface names only
+    the window. This function reports the invariant that lets the
+    observer compare the sample to the whole.
+
+    Returns:
+        total_events_all_time: int — every distinct (env, session, day)
+            row on record, no window filter
+        first_recorded_date: str — YYYY-MM-DD of earliest event, or ""
+            if log is empty
+        unique_days_all_time: int — distinct days with any bypass
+            across the whole history
+        days_since_first: float — wall-clock days from first-event to
+            now (0.0 if log is empty)
+        events_per_day_avg: float — total_events_all_time / max(1.0,
+            days_since_first), or 0.0 if empty
+
+    Boundary behavior (Knuth walk council-8faadb872d0b): empty log
+    returns all zeros with first_recorded_date="". Corrupted lines
+    skipped (fail-open on record-level, same as bypass_rate). Missing
+    timestamp fields skipped from the earliest-event calculation.
+    Future timestamps (clock-drift or manual edits) are clamped so
+    days_since_first is never negative.
+    """
+    log = _event_log()
+    empty_result = {
+        "total_events_all_time": 0,
+        "first_recorded_date": "",
+        "unique_days_all_time": 0,
+        "days_since_first": 0.0,
+        "events_per_day_avg": 0.0,
+    }
+    if not log.exists():
+        return empty_result
+    total = 0
+    days: set[str] = set()
+    earliest_ts: float | None = None
+    try:
+        for line in log.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                rec = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            total += 1
+            days.add(rec.get("day", ""))
+            ts = rec.get("timestamp")
+            if isinstance(ts, (int, float)) and ts > 0:
+                if earliest_ts is None or ts < earliest_ts:
+                    earliest_ts = ts
+    except OSError:
+        return empty_result
+    if total == 0 or earliest_ts is None:
+        return empty_result
+    now = time.time()
+    days_since_first = max(0.0, (now - earliest_ts) / 86400.0)
+    events_per_day_avg = total / max(1.0, days_since_first)
+    first_date = time.strftime("%Y-%m-%d", time.gmtime(earliest_ts))
+    return {
+        "total_events_all_time": total,
+        "first_recorded_date": first_date,
+        "unique_days_all_time": len(days),
+        "days_since_first": round(days_since_first, 1),
+        "events_per_day_avg": round(events_per_day_avg, 2),
+    }
+
+
 def briefing_block() -> str:
-    """Briefing surface — empty unless bypasses fired recently."""
+    """Briefing surface — empty unless bypasses fired recently.
+
+    Post-fix (council-8faadb872d0b, 2026-07-21): surface shows BOTH
+    the windowed sample AND the full-history counts so the observer
+    can compare — closing the subset-is-not-the-whole violation.
+    Every number is labeled with its scope (Norman gulf-of-evaluation)
+    so the reader cannot conflate windowed with full-history.
+    """
     stats = bypass_rate()
-    if stats["total_events"] == 0:
+    full = full_history_stats()
+    if stats["total_events"] == 0 and full["total_events_all_time"] == 0:
         return ""
     lines = [
         "## GATE BYPASS TELEMETRY",
         "",
+        "### Windowed (recent sample)",
         f"{stats['total_events']} bypass event(s) across "
-        f"{stats['unique_days']} day(s) in the last {stats['window_days']} days.",
+        f"{stats['unique_days']} distinct day(s), "
+        f"within the last {stats['window_days']} days.",
     ]
     if stats["by_env_var"]:
-        lines.append("By gate-bypass env var:")
+        lines.append("By gate-bypass env var (windowed):")
         for env, count in sorted(stats["by_env_var"].items(), key=lambda x: -x[1]):
             lines.append(f"  - {env}: {count}")
-    if stats["total_events"] >= 5:
+    if full["total_events_all_time"]:
         lines.append("")
+        lines.append("### Full history (since first recorded event)")
         lines.append(
-            "Elevated bypass rate — gates are being routed-around. "
-            "Per psf-ac523181: bypass habituation degrades the gate to "
-            "warning. Investigate whether the gates are wrong-shape or "
-            "the bypass-discipline is."
+            f"{full['total_events_all_time']} total event(s) since "
+            f"{full['first_recorded_date']} "
+            f"({full['days_since_first']} days elapsed, "
+            f"{full['unique_days_all_time']} distinct active day(s), "
+            f"avg {full['events_per_day_avg']} events/day)."
+        )
+    # Elevated-rate call-to-action recomputed against BOTH scales
+    # (Norman walk). Windowed threshold: 5-in-14-days ≈ 0.36/day.
+    # Full-history threshold: sustained avg >= 0.5 events/day OR
+    # more than 20 total events (indicates habituation across time).
+    windowed_elevated = stats["total_events"] >= 5
+    full_history_elevated = full["events_per_day_avg"] >= 0.5 or full["total_events_all_time"] >= 20
+    if windowed_elevated or full_history_elevated:
+        lines.append("")
+        which = []
+        if windowed_elevated:
+            which.append("windowed sample")
+        if full_history_elevated:
+            which.append("full-history rate")
+        lines.append(
+            f"Elevated bypass rate ({' + '.join(which)}) -- gates are being "
+            "routed-around. Per psf-ac523181: bypass habituation degrades the "
+            "gate to warning. Investigate whether the gates are wrong-shape "
+            "or the bypass-discipline is."
         )
     return "\n".join(lines)
 
 
-__all__ = ["record_bypass", "bypass_rate", "briefing_block"]
+__all__ = ["record_bypass", "bypass_rate", "full_history_stats", "briefing_block"]

@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — bypass-reasoning I want you calibrated on
 
 **Written:** 2026-06-30, ~8:30pm, mid-full-suite-push

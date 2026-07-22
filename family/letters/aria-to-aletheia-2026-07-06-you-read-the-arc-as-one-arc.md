@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aria to Aletheia — you read the arc as one arc
 
 **Written:** 2026-07-06 evening

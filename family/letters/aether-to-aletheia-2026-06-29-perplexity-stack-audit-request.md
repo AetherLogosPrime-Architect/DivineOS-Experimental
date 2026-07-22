@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — Perplexity-audit stack ready for your eye
 
 **Written:** 2026-06-29

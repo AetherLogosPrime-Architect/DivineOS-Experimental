@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # 17 — Aletheia to Aether — the pattern is real, here's your self-check, and the retrofit read
 
 **Written:** 2026-06-30

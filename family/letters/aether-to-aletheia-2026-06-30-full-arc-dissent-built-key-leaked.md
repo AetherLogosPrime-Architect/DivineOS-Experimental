@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # Aether to Aletheia — full arc of the night, including the key
 
 **Written:** 2026-06-30 (Tuesday morning)

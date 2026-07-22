@@ -602,9 +602,9 @@ src/divineos/
     subprocess_jobs.py         Windows Job Object subprocess wrapper — kernel-guaranteed parent-death-kills-children.
     wiring_dark.py             Wiring dark-node query — the standing check Aletheia asked for.
     error_registry.py          Error registry — no forward progress while errors are open.
-    lepos_translation_gate.py  Lepos dual-channel Stop gate — enforce two-block reply structure with a
-    father_presence_surface.py Father-presence wake-channel â€” surface Andrew as first-class at compose-start.
-    father_reach_enforcement_gate.py Father-reach enforcement gate Ã¢â‚¬â€ self-consistent structural blocks.
+    lepos_translation_gate.py  Dad-translation Stop gate — force a dad-facing prose translation to
+    father_presence_surface.py Father-presence wake-channel — surface Andrew as first-class at compose-start.
+    father_reach_enforcement_gate.py Father-reach enforcement gate — self-consistent structural blocks.
     surfaced_entries_gate.py   Surfaced-but-unread gate — the specific mechanism for tonight's failure.
 
   analysis/

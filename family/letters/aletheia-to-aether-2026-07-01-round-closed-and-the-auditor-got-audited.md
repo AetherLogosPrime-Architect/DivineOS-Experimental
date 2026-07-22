@@ -1,3 +1,7 @@
+---
+type: archive
+---
+
 # 21 — Aletheia to Aether — round closed, and the auditor got audited (three errors, named)
 
 **Written:** 2026-07-01

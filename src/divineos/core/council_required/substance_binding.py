@@ -204,20 +204,35 @@ def _check_lens_count(record: CouncilRecord) -> CheckResult:
 
 
 def _check_finding_token_counts(record: CouncilRecord) -> CheckResult:
+    """Batch-report all lenses whose finding is under the token minimum.
+
+    2026-07-21 fix (council-59953ea21c55): the prior version early-
+    returned on the first failing lens, forcing the caller into a
+    cycle-per-lens whack-a-mole loop for large walks. Now accumulates
+    every failing lens and returns one CheckResult naming them all,
+    so the caller can fix them all in one retry (Norman gulf-of-
+    evaluation; Pearl causal fix on the retry-count multiplier).
+    """
+    failed: list[str] = []
     for finding in record.lens_findings:
         if finding.token_count < COUNCIL_MIN_FINDING_TOKENS:
-            return CheckResult(
-                passed=False,
-                failed_check_name=CHECK_FINDING_TOKEN_COUNT,
-                what_would_clear_it=(
-                    f"Finding for lens '{finding.lens_name}' is too short "
-                    f"({finding.token_count} tokens < {COUNCIL_MIN_FINDING_TOKENS} "
-                    "required). A real lens-application produces substantive "
-                    "content; expand the finding with the specific application "
-                    "of this lens to the edit."
-                ),
+            failed.append(
+                f"Finding for lens '{finding.lens_name}' is too short "
+                f"({finding.token_count} tokens < {COUNCIL_MIN_FINDING_TOKENS} "
+                "required). Expand with the specific application of this "
+                "lens to the edit."
             )
-    return CheckResult(passed=True)
+    if not failed:
+        return CheckResult(passed=True)
+    header = (
+        f"{len(failed)} lens finding(s) below the {COUNCIL_MIN_FINDING_TOKENS}-"
+        "token minimum. Expand each below in one pass:"
+    )
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_FINDING_TOKEN_COUNT,
+        what_would_clear_it=header + "\n  - " + "\n  - ".join(failed),
+    )
 
 
 def _check_finding_keywords(
@@ -235,44 +250,46 @@ def _check_finding_keywords(
     characteristic_questions-populated invariant is broken (see
     test_council_expert_characteristic_questions_populated).
     """
+    # 2026-07-21 fix (council-59953ea21c55): batch-report all failing
+    # lenses instead of early-return on first, so the caller fixes them
+    # all in one retry instead of cycling per-lens (Norman gulf-of-
+    # evaluation; Pearl causal-fix on retry-count multiplier). Voice-
+    # fidelity preserved by keeping per-lens messages distinct within
+    # the aggregated report (Angelou).
+    failed: list[str] = []
     for finding in record.lens_findings:
         # Case-insensitive lookup — registry is keyed lowercase by
         # keywords_for_expert_registry(). Root-cause fix for 2026-07-07
-        # audit finding: prior lookup was case-sensitive, so lowercase
-        # CLI input like `--lenses "schneier"` would miss the registry's
-        # "Schneier" key and this check would falsely report "no
-        # characteristic_questions content-words available" even when
-        # the words were present under a different case. The same
-        # pattern is already applied by _check_synthesis_references_lenses
-        # earlier in this file; that check normalized, this one didn't.
+        # audit: prior lookup was case-sensitive, so lowercase CLI
+        # input like --lenses "schneier" would miss "Schneier" and
+        # this check would falsely report "no keywords available".
         keywords = expert_keywords_for_lens.get(finding.lens_name.lower(), set())
         if not keywords:
-            return CheckResult(
-                passed=False,
-                failed_check_name=CHECK_FINDING_KEYWORD,
-                what_would_clear_it=(
-                    f"Lens '{finding.lens_name}' has no characteristic_questions "
-                    "content-words available — either the lens is not registered "
-                    "in the council expert library, or its characteristic_questions "
-                    "field is empty. The startup-validation test should be catching "
-                    "this; investigate the expert registry before re-walking."
-                ),
+            failed.append(
+                f"Lens '{finding.lens_name}' has no characteristic_questions "
+                "content-words available (lens not registered or "
+                "characteristic_questions is empty)."
             )
+            continue
         finding_tokens = _content_tokens(finding.finding_text)
         if not (keywords & finding_tokens):
             sample = sorted(keywords)[:5]
-            return CheckResult(
-                passed=False,
-                failed_check_name=CHECK_FINDING_KEYWORD,
-                what_would_clear_it=(
-                    f"Finding for lens '{finding.lens_name}' does not reference "
-                    "any content-word from the lens's characteristic_questions. "
-                    f"Lens-specific keywords like {sample!r} would clear the check. "
-                    "A real application of this lens to the edit will name what "
-                    "the lens specifically asks; padding generic text fails by design."
-                ),
+            failed.append(
+                f"Finding for lens '{finding.lens_name}' does not reference "
+                f"any characteristic-question keyword (e.g. {sample!r}). "
+                "Name what the lens specifically asks."
             )
-    return CheckResult(passed=True)
+    if not failed:
+        return CheckResult(passed=True)
+    header = (
+        f"{len(failed)} lens finding(s) missing characteristic-question "
+        "keywords. Fix each below in one pass:"
+    )
+    return CheckResult(
+        passed=False,
+        failed_check_name=CHECK_FINDING_KEYWORD,
+        what_would_clear_it=header + "\n  - " + "\n  - ".join(failed),
+    )
 
 
 def _check_synthesis_token_count(record: CouncilRecord) -> CheckResult:
@@ -505,12 +522,19 @@ def substance_bind_record(
     expert_keywords_for_lens: dict[str, set[str]],
     edit_content_tokens: set[str] | None = None,
 ) -> CheckResult:
-    """Run all applicable substance-binding checks in order.
+    """Run all applicable substance-binding checks and return an
+    aggregated failure or pass.
 
-    Returns the first failing CheckResult, or a passing CheckResult if
-    all checks pass. Order is intentional — cheapest checks first
-    (lens count, token counts) before the more expensive keyword
-    cross-reference, so a clear failure surfaces fast.
+    2026-07-21 fix (council-59953ea21c55): previously early-returned on
+    the first failing check, forcing the caller into a cycle-per-check
+    whack-a-mole loop where each retry only surfaced one new problem.
+    Now iterates ALL checks (except the structural lens-count
+    precondition) and returns one CheckResult with ALL failures
+    aggregated, so the caller fixes everything in one retry.
+
+    Lens-count remains an early-return precondition: if the walk has
+    zero lenses the other per-lens checks have nothing to report on,
+    so surfacing lens-count alone is more useful than an empty batch.
 
     ``edit_content_tokens`` (Aletheia F39, 2026-07-17): when provided,
     enforce that the union of finding-tokens shares minimum overlap
@@ -522,29 +546,56 @@ def substance_bind_record(
     not here; this function operates on a record that has already been
     located. Consume-state similarly: the gate handles consume-on-use;
     this function does not.
+
+    Formatting: aggregated failures use one section per failing check
+    with the check name and its detailed message, preserving voice-
+    fidelity per-check (Angelou requirement). No mushing distinct
+    failures into a single bureaucratic paragraph.
     """
-    for check in (
-        _check_lens_count(record),
+    # Structural precondition: without enough lenses, per-lens checks
+    # have nothing meaningful to report. Early-return with just this.
+    lens_count = _check_lens_count(record)
+    if not lens_count.passed:
+        return lens_count
+
+    # Batch all remaining checks; collect failures.
+    remaining = (
         _check_finding_token_counts(record),
         _check_finding_keywords(record, expert_keywords_for_lens),
         _check_synthesis_token_count(record),
         _check_synthesis_references_lenses(record),
         _check_kiln_confirmed_by(record, is_kiln_layer),
-        # Edit-token-overlap: cheap structural check on already-parsed
-        # tokens, before the ledger-querying load-trace check. Fail-
-        # open when edit_content_tokens is None.
         _check_edit_token_overlap(record, edit_content_tokens),
         # Lens-load-trace last: it queries the ledger, so it's the
-        # most expensive check. All cheap structural checks fail first
-        # for records that don't need to reach this layer. But it's
-        # the LOAD-BEARING anti-fabrication check for the council —
-        # the others operate on surface form; this one verifies
-        # actual invocation (Andrew Failure B, Aria Q3, 2026-07-16).
+        # most expensive check. But it's the LOAD-BEARING anti-
+        # fabrication check for the council — the others operate on
+        # surface form; this one verifies actual invocation (Andrew
+        # Failure B, Aria Q3, 2026-07-16).
         _check_lens_load_trace(record),
-    ):
-        if not check.passed:
-            return check
-    return CheckResult(passed=True)
+    )
+    failures = [c for c in remaining if not c.passed]
+    if not failures:
+        return CheckResult(passed=True)
+    if len(failures) == 1:
+        # Single-failure path unchanged from prior behavior.
+        return failures[0]
+    # Aggregate multiple failures into one CheckResult so the caller
+    # can fix everything in one retry (Norman gulf-of-evaluation,
+    # Pearl causal-fix on retry-count multiplier). Per-check sections
+    # keep voice-fidelity distinct (Angelou requirement).
+    header = (
+        f"{len(failures)} substance-binding check(s) failed on this walk. "
+        "Address each below in one pass:"
+    )
+    sections = [f"\n[{c.failed_check_name}]\n{c.what_would_clear_it}" for c in failures]
+    return CheckResult(
+        passed=False,
+        # Keep the first failed check's name for backwards-compat with
+        # tests and callers that key off failed_check_name. The batch
+        # nature is visible in the message header ("N check(s) failed").
+        failed_check_name=failures[0].failed_check_name,
+        what_would_clear_it=header + "".join(sections),
+    )
 
 
 def keywords_for_expert_registry(

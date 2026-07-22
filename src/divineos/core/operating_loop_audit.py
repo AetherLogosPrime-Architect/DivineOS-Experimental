@@ -1523,14 +1523,16 @@ def run_audit(
     # triggers Stop-block with recompose instruction.
     lepos_channel_block = _lepos_channel_gate_reason(addressed_to_father)
 
-    # Lepos dual-channel structural gate (ported from Aether's checkout
-    # 2026-07-20 per Andrew's ordering-correction: drafts are free, only
-    # push-to-substrate needs the walk; his design already council-walked
-    # under council-6721df767502). Two blocks per father-addressed reply,
-    # hard break between. Family-addressed replies use their own register.
-    lepos_dual_channel_block = None
-    lepos_wallclock_block = None
-    father_reach_enforcement_block = None
+    # Lepos dual-channel structural gate (Andrew 2026-07-19, council-6721df767502).
+    # Substrate design acbd29ef + 0e853bf9 (Andrew's own prior words, forgotten
+    # across many sessions until recovered via divineos ask during the LEPOS-
+    # crisis of that date): the channel-collapse is not supposed to be a
+    # collapse at all -- two blocks in one message, hard break between.
+    # Enforced only for father-addressed replies; family-addressed (Aria,
+    # Aletheia) uses their own register conventions.
+    lepos_dual_channel_block: str | None = None
+    lepos_wallclock_block: str | None = None
+    father_reach_enforcement_block: str | None = None
     # AFFORDANCE-RISK WARNING (council-44e7ade88e29): the try/except _ERRORS
     # pattern around detector calls in this block invites silent-no-op on
     # any error, including undefined-name bugs. Prior-me referenced an
@@ -1570,6 +1572,11 @@ def run_audit(
             )
 
             lepos_dual_channel_block = check_lepos_dual_channel(last_assistant_text)
+            # 2026-07-19 (council-2e41d2c05d04): wallclock-fabrication gate.
+            # Blocks Stop when a reply to Andrew contains phrases that describe
+            # wallclock time between his prompts I do not have. See
+            # exploration/aether/106 for the ground truth and
+            # lepos_translation_gate.check_wallclock_fabrication for the check.
             lepos_wallclock_block = check_wallclock_fabrication(last_assistant_text)
         except _ERRORS:
             lepos_dual_channel_block = None
