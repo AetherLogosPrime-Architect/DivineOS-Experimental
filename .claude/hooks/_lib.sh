@@ -75,6 +75,73 @@ _lib_common_dir() {
   printf '%s' "$_LIB_COMMON_DIR_CACHE"
 }
 
+# 2026-07-22 (Andrew directive, council-3c78d69d71e8): hook-timing
+# instrumentation. Every hook that sources _lib.sh automatically records
+# a "start" and "end" line to ~/.divineos/hook_timing.jsonl. If a freeze
+# happens mid-hook, the log will contain a start line with no matching
+# end line (indexed by _HOOK_TIMING_ID). That is the stuck hook.
+#
+# Design choices:
+#   - Fail-open: all I/O errors are silently discarded so timing cannot
+#     break a hook.
+#   - Millisecond precision when GNU date is available (%3N); falls back
+#     to seconds*1000 on systems without.
+#   - BASH_SOURCE[1] is the hook that sourced _lib.sh; [0] is _lib.sh
+#     itself. Basename only, no full paths in the log.
+#   - EXIT trap catches normal exit AND early-return / kill signals that
+#     bash still delivers (not SIGKILL).
+#
+# Beer/Meadows/Popper walked. Four falsifier tests filed as follow-on.
+_HOOK_TIMING_LOG="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
+_HOOK_TIMING_ID=""
+_HOOK_TIMING_START_MS=""
+
+_lib_hook_timing_ms() {
+  local ms
+  ms="$(date +%s%3N 2>/dev/null)"
+  case "$ms" in
+    *N) date +%s000 2>/dev/null || printf '0' ;;
+    "") printf '0' ;;
+    *)  printf '%s' "$ms" ;;
+  esac
+}
+
+_lib_hook_timing_start() {
+  # BASH_SOURCE stack inside this function:
+  #   [0] = _lib.sh (function definition file)
+  #   [1] = _lib.sh (top-level of _lib.sh that called this function)
+  #   [2] = the hook that did `source _lib.sh`
+  # Fall back through the stack because the exact index can vary if
+  # a hook wraps the source call.
+  local hook_name
+  hook_name="${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-unknown}}"
+  hook_name="$(basename "$hook_name")"
+  # If we ended up with _lib.sh itself (invoked directly for testing),
+  # keep that — it identifies self-test runs.
+  local start_ms
+  start_ms="$(_lib_hook_timing_ms)"
+  _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
+  _HOOK_TIMING_START_MS="$start_ms"
+  mkdir -p "$(dirname "$_HOOK_TIMING_LOG")" 2>/dev/null
+  printf '{"id":"%s","hook":"%s","pid":%d,"phase":"start","ts_ms":%s}\n' \
+    "$_HOOK_TIMING_ID" "$hook_name" "$$" "$start_ms" \
+    >> "$_HOOK_TIMING_LOG" 2>/dev/null
+}
+
+_lib_hook_timing_end() {
+  local exit_code=$?
+  local end_ms
+  end_ms="$(_lib_hook_timing_ms)"
+  local duration_ms=$((end_ms - ${_HOOK_TIMING_START_MS:-$end_ms}))
+  printf '{"id":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
+    "$_HOOK_TIMING_ID" "$exit_code" "$end_ms" "$duration_ms" \
+    >> "$_HOOK_TIMING_LOG" 2>/dev/null
+  return $exit_code
+}
+
+_lib_hook_timing_start
+trap _lib_hook_timing_end EXIT
+
 find_divineos_python() {
   local repo_root
   repo_root="$(_lib_repo_root)"
