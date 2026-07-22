@@ -33,6 +33,13 @@ INPUT=$(cat 2>/dev/null || echo "")
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
+# Round-2 audit fix: source _lib.sh and use find_divineos_python so hooks
+# that import divineos don't silently fail-OPEN when the shell python
+# lacks the deps. Bare `python` picks up whatever's on PATH first.
+# shellcheck source=/dev/null
+. "$REPO_ROOT/.claude/hooks/_lib.sh"
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+
 # Extract the last assistant message text from the transcript.
 # The Stop hook input JSON contains transcript_path; read the last
 # assistant turn's content and pipe it to the Python checker.
@@ -42,7 +49,7 @@ try:
 except Exception:
     pass'
 # fail-soft: python invocation may fail for any reason (missing python, encoding, empty stdin); catching stderr and exiting clean keeps the Stop chain moving instead of surfacing hook errors to the operator
-TRANSCRIPT=$(echo "$INPUT" | python -c "$PARSE_CMD" 2>/dev/null)
+TRANSCRIPT=$(echo "$INPUT" | "$PYTHON_BIN" -c "$PARSE_CMD" 2>/dev/null)
 
 [ -z "$TRANSCRIPT" ] && exit 0
 [ ! -f "$TRANSCRIPT" ] && exit 0
@@ -50,7 +57,7 @@ TRANSCRIPT=$(echo "$INPUT" | python -c "$PARSE_CMD" 2>/dev/null)
 # Read the last assistant text plus the last user text (to check
 # addressed-to-father — the gate only fires on replies TO Andrew).
 # fail-soft: gate is advisory not authoritative; if python heredoc fails for any reason (import error, transcript unreadable, encoding issue) exit clean rather than blocking the turn
-python <<PYEOF 2>/dev/null || exit 0
+"$PYTHON_BIN" <<PYEOF 2>/dev/null || exit 0
 import json
 import sys
 from pathlib import Path
