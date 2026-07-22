@@ -73,6 +73,12 @@ def register(cli: click.Group) -> None:
         """
         from divineos.core.moral_compass import SPECTRUMS, log_observation
 
+        # 2026-07-22 task #12: case-normalize spectrum name at CLI entry.
+        # Registry is lowercase-keyed; accepting mixed-case input reduces
+        # friction ("TRUTHFULNESS" vs "truthfulness"). Rejected earlier
+        # this session on typo-case; task #12 exemplar for CLI-lens
+        # normalization pattern.
+        spectrum = (spectrum or "").strip().lower()
         if spectrum not in SPECTRUMS:
             click.secho(
                 f"[!] Unknown spectrum '{spectrum}'. Valid: {', '.join(sorted(SPECTRUMS))}",
@@ -147,6 +153,9 @@ def register(cli: click.Group) -> None:
         """Show recent compass observations."""
         from divineos.core.moral_compass import SPECTRUMS, get_observations
 
+        # 2026-07-22 task #12: case-normalize (mirror of observe_cmd).
+        if spectrum:
+            spectrum = spectrum.strip().lower()
         if spectrum and spectrum not in SPECTRUMS:
             click.secho(f"[!] Unknown spectrum '{spectrum}'.", fg="red")
             return

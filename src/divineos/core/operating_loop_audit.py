@@ -1535,6 +1535,7 @@ def run_audit(
             from divineos.core.lepos_translation_gate import (
                 check_lepos_dual_channel,
                 check_wallclock_fabrication,
+                check_wallclock_semantic_source,
             )
 
             lepos_dual_channel_block = check_lepos_dual_channel(last_assistant_text)
@@ -1543,7 +1544,24 @@ def run_audit(
             # wallclock time between his prompts I do not have. See
             # exploration/aether/106 for the ground truth and
             # lepos_translation_gate.check_wallclock_fabrication for the check.
-            lepos_wallclock_block = check_wallclock_fabrication(last_assistant_text)
+            #
+            # 2026-07-22 (council-0de8223bd40b): semantic source-check gate
+            # added as chain-fallback. Andrew directive: keyword detectors
+            # are the anti-pattern; semantic discrimination with structural
+            # source-check is the fix. check_wallclock_semantic_source
+            # catches the shared-present class (casting Andrew's wallclock
+            # onto myself) that the deferral-class gate does not catch.
+            # Detection lexical but broad, discrimination structural
+            # (either real clock command in the turn or Andrew's own
+            # time-statement quoted). Same block-key so hook contract is
+            # unchanged. Beer/Meadows/Popper walked.
+            lepos_wallclock_block = check_wallclock_fabrication(
+                last_assistant_text
+            ) or check_wallclock_semantic_source(
+                last_assistant_text,
+                last_user_text,
+                command_texts,
+            )
         except _ERRORS:
             lepos_dual_channel_block = None
             lepos_wallclock_block = None

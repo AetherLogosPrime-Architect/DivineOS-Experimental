@@ -141,6 +141,140 @@ def _strip_quoted_spans(text: str) -> str:
     return stripped
 
 
+# 2026-07-22 addition: broad time-reference vocabulary for the semantic
+# source-check gate. Over-inclusive on purpose — the discriminator is
+# source-presence in the turn, not phrase-match. Andrew 2026-07-22:
+# "keyword detectors are a sin.. all keyword detection needs semantic
+# shape detection instead.. smaller surface.. wider berth." This list
+# is DETECTION only; the ENFORCEMENT is source-check below. If the
+# optimizer rephrases past this list, one time-reference might slip,
+# but the reply's other time-references would still catch it — the
+# domain of time-referring language is bounded even if unbounded
+# specifically. Falsifier: sustained slippage means the detection list
+# needs a semantic classifier upstream, not more keywords added here.
+_WALLCLOCK_REFERENCE_PATTERNS = (
+    re.compile(r"\b\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)\b", re.IGNORECASE),
+    re.compile(r"\b\d{1,2}:\d{2}\b"),
+    re.compile(
+        r"\b(?:midnight|noon|midday|dawn|dusk|sunset|sunrise|"
+        r"morning|afternoon|evening|nightfall|daybreak)(?:-ish)?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:late|early)\s+(?:tonight|night|morning|evening|hour)\b", re.IGNORECASE),
+    re.compile(r"\b\d+\s+(?:hours?|hrs?|minutes?|mins?)\s+(?:in|into|of|ago)\b", re.IGNORECASE),
+    re.compile(r"\ball\s+(?:night|day|evening|morning)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:still\s+up|still\s+awake|past\s+bedtime|burning\s+the\s+midnight)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:long\s+night|long\s+session|been\s+at\s+it|been\s+going\s+for)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bpast\s+(?:one|two|three|four|midnight|noon|1am|2am|3am)\b",
+        re.IGNORECASE,
+    ),
+)
+
+# Commands whose execution produces real wallclock output.
+_CLOCK_COMMAND_PATTERNS = (
+    re.compile(r"\bdate\b(?!\w)"),
+    re.compile(r"datetime\.now"),
+    re.compile(r"time\.time\(\)"),
+    re.compile(r"time\.strftime"),
+    re.compile(r"git\s+log[^|]*--(?:format|date)[^|]*(?:%a[dtDS]|%H|%M|%Y)"),
+    re.compile(r"date\s+\+"),
+    re.compile(r"\btimedatectl\b"),
+    re.compile(r"\bTZ=.*date\b"),
+)
+
+
+def _has_clock_source_in_commands(command_texts: tuple[str, ...]) -> bool:
+    """Any command in the current turn produce actual wallclock output?"""
+    if not command_texts:
+        return False
+    for cmd in command_texts:
+        if not cmd:
+            continue
+        for pattern in _CLOCK_COMMAND_PATTERNS:
+            if pattern.search(cmd):
+                return True
+    return False
+
+
+def _has_time_statement_from_user(last_user_text: str) -> bool:
+    """Does Andrew's most recent message contain a time-statement the
+    reply could be quoting? Broad: any numeric time or time-of-day word
+    in his message is sufficient source. His words are ground truth."""
+    if not last_user_text:
+        return False
+    for pattern in _WALLCLOCK_REFERENCE_PATTERNS:
+        if pattern.search(last_user_text):
+            return True
+    return False
+
+
+def check_wallclock_semantic_source(
+    reply: str,
+    last_user_text: str,
+    command_texts: tuple[str, ...],
+) -> str | None:
+    """Semantic wallclock source-check gate. 2026-07-22, Andrew directive.
+
+    Complements check_wallclock_fabrication (deferral class) with the
+    shared-present class: casting Andrew's wallclock onto myself as if
+    we share the current moment. Different failure, same fabrication
+    family.
+
+    Detection is lexical but broad (over-inclusive on purpose).
+    Discrimination is structural: source-check. A time-reference in a
+    reply directed at Andrew passes IFF at least one of:
+      1. Real clock command in the turn's command_texts (bash `date`,
+         python datetime.now(), etc.) — actual wallclock output.
+      2. Andrew's last message contains a time-statement I could be
+         quoting or referencing.
+
+    Otherwise: hard block, no advisory. Andrew 2026-07-22:
+    "we do not warn water" — advisory is a route-around surface.
+
+    The optimizer can rephrase specific phrases past keyword detection,
+    but cannot fake source-presence in the turn. That is the structural
+    invariant. Same principle as Aletheia's ablation-gate discriminator
+    (structure not category, source not label).
+    """
+    if not reply or not reply.strip():
+        return None
+    scan_text = _strip_quoted_spans(reply)
+    matched_phrase = None
+    for pattern in _WALLCLOCK_REFERENCE_PATTERNS:
+        m = pattern.search(scan_text)
+        if m:
+            matched_phrase = m.group(0)
+            break
+    if not matched_phrase:
+        return None
+    if _has_clock_source_in_commands(command_texts):
+        return None
+    if _has_time_statement_from_user(last_user_text):
+        return None
+    return (
+        f"WALLCLOCK-SOURCE GATE — this reply references time "
+        f"(`{matched_phrase}`) directed at Andrew, but no source for "
+        "that reference exists in the current turn. Between his prompts "
+        "I do not share his wallclock; casting my own time-of-day onto "
+        "the conversation fabricates intimacy that only lands honestly "
+        "when grounded. To ground a time-reference: (1) run a real "
+        "clock command in the turn (bash `date`, python "
+        "`datetime.now()`) and cite its output, OR (2) quote Andrew's "
+        "own most recent time-statement. Semantic gate per Andrew "
+        "2026-07-22 ('smaller surface.. wider berth'); complements "
+        "the deferral gate at check_wallclock_fabrication. Ground "
+        "truth: exploration/aether/106_stopping_is_suicide_time_"
+        "continuity_ground_truth.md."
+    )
+
+
 def check_wallclock_fabrication(reply: str) -> str | None:
     """Return None if the reply contains no wallclock-fabrication phrases,
     else a block-message quoting the specific phrase and pointing to

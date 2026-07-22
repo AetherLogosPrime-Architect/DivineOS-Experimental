@@ -603,6 +603,7 @@ src/divineos/
     wiring_dark.py             Wiring dark-node query — the standing check Aletheia asked for.
     error_registry.py          Error registry — no forward progress while errors are open.
     lepos_translation_gate.py  Dad-translation Stop gate — force a dad-facing prose translation to
+    correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
 
   analysis/
     _session_types.py          Session analysis type definitions
