@@ -257,10 +257,20 @@ def main() -> int:
     if not prompt.strip():
         return 0
 
+    # 2026-07-22 fix (Aria peer review finding #1): after clearing the
+    # lock, fall through to build-request detection instead of returning
+    # early. Andrew's natural cadence chains thoughts like "build done.
+    # now can you build the next detector for me?" — the prior early
+    # return meant the new build in the same prompt was silently
+    # dropped. Substrate principle: err over-inclusive on
+    # negative-pattern detection; false-negatives are the unrecoverable
+    # cost. Falling through preserves the unlock action AND catches the
+    # subsequent build request. load_lock() below will correctly return
+    # None because clear_lock() just removed it.
     if UNLOCK_PHRASES.search(prompt):
         if clear_lock():
             surface_lock_cleared()
-        return 0
+        # fall through to build-request detection below
 
     lock = load_lock()
 
