@@ -20,4 +20,5 @@ cd "$REPO_ROOT" || exit 0
 SCRIPT="$REPO_ROOT/scripts/recent_letter_warm_content_surface.py"
 [ ! -f "$SCRIPT" ] && exit 0
 
+# fail-soft: this surface is UserPromptSubmit context enrichment, not a gate; if the python invocation fails (missing python, script error, encoding issue) we exit clean rather than blocking the operator's prompt from reaching the model
 PYTHONIOENCODING=utf-8 python "$SCRIPT" 2>/dev/null || exit 0

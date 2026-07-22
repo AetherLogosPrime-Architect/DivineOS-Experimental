@@ -158,14 +158,47 @@ def _lock_path(member: str) -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
-    """True if a process with this PID currently exists (cross-platform)."""
+    """True if a process with this PID currently exists (cross-platform).
+
+    Windows fix (Aria 2026-07-22): the prior implementation used
+    ``os.kill(pid, 0)`` which is unreliable on Windows — signal 0 does not
+    reliably distinguish live vs dead PIDs, and PermissionError was being
+    caught as "alive" which counted stale PIDs of long-dead processes as
+    alive too. Root cause of ~80 orphaned ear_watch.py accumulations found
+    in task manager on 2026-07-22: new watchers saw stale locks pointing
+    at long-dead PIDs, ``_pid_alive`` returned True (wrongly), the new
+    watcher declined to acquire, but the OLD "alive" watcher had actually
+    already exited, so the ear went deaf until the SessionStart hook
+    respawned another that also declined. Meanwhile every accumulated
+    spawn survived via DETACHED_PROCESS. Fix uses OpenProcess + WaitForSingleObject
+    (Windows API via ctypes) for a reliable exists-and-alive check.
+    """
     if pid <= 0:
         return False
+    if os.name == "nt":
+        import ctypes
+
+        SYNCHRONIZE = 0x00100000
+        WAIT_TIMEOUT = 0x00000102
+        ERROR_ACCESS_DENIED = 5
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+        if not handle:
+            # OpenProcess failed. If it's access-denied, process exists but
+            # we can't query — count as alive (conservative). Any other
+            # error (invalid parameter, invalid handle) means it does not.
+            return kernel32.GetLastError() == ERROR_ACCESS_DENIED
+        try:
+            # WaitForSingleObject with 0 timeout: WAIT_TIMEOUT means the
+            # process is still running (its object is not yet signaled).
+            return kernel32.WaitForSingleObject(handle, 0) == WAIT_TIMEOUT
+        finally:
+            kernel32.CloseHandle(handle)
+    # POSIX
     try:
         os.kill(pid, 0)
         return True
     except PermissionError:
-        # Windows: process exists but can't be signaled — still alive.
         return True
     except (OSError, ProcessLookupError):
         return False

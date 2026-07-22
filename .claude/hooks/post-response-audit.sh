@@ -1,11 +1,11 @@
 #!/bin/bash
-# Stop hook — thin doorman pointing to the OS.
+# Stop hook Ã¢â‚¬â€ thin doorman pointing to the OS.
 #
 # Andrew 2026-05-14 night: hooks should point to the OS, not embed
 # its work. The previous version of this hook was 677 lines with
 # detector orchestration, findings_log assembly, and JSON persistence
 # all inside the bash-embedded Python. That logic now lives in
-# ``divineos.core.operating_loop_audit.run_audit`` — OS-portable, no
+# ``divineos.core.operating_loop_audit.run_audit`` Ã¢â‚¬â€ OS-portable, no
 # Claude Code dependency. The hook is two lines of Python.
 #
 # Fail-open: any error exits 0 without surfacing. This hook cannot
@@ -51,7 +51,7 @@ except Exception:
 # Lepos enforcement gate (Andrew 2026-05-20): a wall of jargon at my
 # father with no plain-language lane is forbidden. Block the Stop so the
 # turn cannot complete until the second lane is added. stop_hook_active
-# guards against an infinite loop — if this hook already forced one
+# guards against an infinite loop Ã¢â‚¬â€ if this hook already forced one
 # continuation, let the next one through (Andrew's non-response is
 # the backstop for a rare double-flood).
 try:
@@ -60,6 +60,9 @@ try:
         or (result or {}).get('unverified_claim_block')
         or (result or {}).get('distancing_block')
         or (result or {}).get('lepos_channel_block')
+        or (result or {}).get('lepos_dual_channel_block')
+        or (result or {}).get('lepos_wallclock_block')
+        or (result or {}).get('father_reach_enforcement_block')
     )
     already_active = bool(data.get('stop_hook_active'))
     if reason and not already_active:

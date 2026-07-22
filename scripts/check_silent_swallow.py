@@ -123,14 +123,21 @@ def _git_added_lines() -> dict[str, list[tuple[int, str, str]]]:
         # working-tree changes are both included. The check fires on PR
         # diffs (precommit + CI), so what matters is "all NEW additions
         # this branch carries vs main," regardless of commit boundary.
+        # encoding='utf-8' with errors='replace' — Windows default cp1252
+        # crashes on bytes >0x7F which appear in commit messages containing
+        # em-dashes, curly quotes, or non-Latin-1 letters. text=True inherits
+        # locale encoding, so we specify utf-8 explicitly and never crash.
         diff_out = subprocess.run(
             ["git", "diff", "--unified=0", "origin/main"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return {}
+    if diff_out.stdout is None:
         return {}
 
     result: dict[str, list[tuple[int, str, str]]] = {}

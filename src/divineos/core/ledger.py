@@ -578,6 +578,44 @@ def get_events(
         conn.close()
 
 
+def get_events_by_session(
+    session_id: str, limit: int = 10000, order: str = "desc"
+) -> list[dict[str, Any]]:
+    """Return events whose payload.session_id matches the given id.
+
+    Thin wrapper on get_events that filters in Python by payload["session_id"].
+    Not all event types carry session_id in payload (only session-scoped ones);
+    events without the field are excluded.
+
+    Design (council-3343cc838c0b, 2026-07-22):
+    - dijkstra: composition of two correct primitives (get_events + filter);
+      no schema change, no new invariants, no new indices.
+    - taleb: default limit=10000 (not get_events default 100) to avoid silent
+      truncation for busy sessions. Callers that KNOW their session is small
+      can pass a smaller limit; the default is generous.
+    - norman: returns [] on empty/unknown session_id, not None or exception —
+      the calling gates iterate the result and empty-list is the natural
+      no-op affordance. Default order is "desc" (newest first) because the
+      typical caller is a recency-detector; pass order="asc" for full history.
+
+    Args:
+        session_id: the session UUID to filter by. Empty string returns [].
+        limit: upper bound on events scanned from get_events (default 10000).
+            Sessions producing more events than this will be truncated to
+            the most-recent `limit` events when order="desc".
+        order: "desc" (default, newest-first) or "asc" (oldest-first).
+
+    Returns:
+        List of event dicts (same shape as get_events results) filtered to
+        those whose payload["session_id"] equals `session_id`. Empty list if
+        no matches, empty session_id, or unknown session.
+    """
+    if not session_id:
+        return []
+    events = get_events(limit=limit, order=order)
+    return [e for e in events if (e.get("payload") or {}).get("session_id") == session_id]
+
+
 def search_events(keyword: str, limit: int = 50, order: str = "asc") -> list[dict[str, Any]]:
     """Search events where the payload contains a keyword (case-insensitive).
 

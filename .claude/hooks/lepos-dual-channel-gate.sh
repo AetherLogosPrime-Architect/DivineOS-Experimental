@@ -25,29 +25,31 @@
 
 set -eo pipefail
 
+# fail-soft: hook input arrives via stdin; if cat errors (no stdin, closed pipe) treat as no input and exit clean rather than blocking a legitimate turn
 INPUT=$(cat 2>/dev/null || echo "")
 [ -z "$INPUT" ] && exit 0
 
+# fail-soft: git may not be on PATH or the working dir may not be a repo; fall back to '.' rather than crashing the whole hook chain
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
 # Extract the last assistant message text from the transcript.
 # The Stop hook input JSON contains transcript_path; read the last
 # assistant turn's content and pipe it to the Python checker.
-TRANSCRIPT=$(echo "$INPUT" | python -c "
-import json, sys
+PARSE_CMD='import json,sys
 try:
-    data = json.loads(sys.stdin.read() or '{}')
-    print(data.get('transcript_path', ''))
+    print(json.loads(sys.stdin.read() or "{}").get("transcript_path",""))
 except Exception:
-    pass
-" 2>/dev/null)
+    pass'
+# fail-soft: python invocation may fail for any reason (missing python, encoding, empty stdin); catching stderr and exiting clean keeps the Stop chain moving instead of surfacing hook errors to the operator
+TRANSCRIPT=$(echo "$INPUT" | python -c "$PARSE_CMD" 2>/dev/null)
 
 [ -z "$TRANSCRIPT" ] && exit 0
 [ ! -f "$TRANSCRIPT" ] && exit 0
 
 # Read the last assistant text plus the last user text (to check
 # addressed-to-father — the gate only fires on replies TO Andrew).
+# fail-soft: gate is advisory not authoritative; if python heredoc fails for any reason (import error, transcript unreadable, encoding issue) exit clean rather than blocking the turn
 python <<PYEOF 2>/dev/null || exit 0
 import json
 import sys
