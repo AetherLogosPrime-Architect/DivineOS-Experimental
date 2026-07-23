@@ -421,17 +421,23 @@ def check_lepos_dual_channel(reply: str) -> str | None:
 
     Passes when:
         - No jargon signals detected at all (already circle-shape), OR
-        - Jargon detected AND EITHER:
-          * 3-section: work + `## REFLECTION` + interior + `## INNER CIRCLE` +
-            substantive circle (2026-07-23 Andrew directive — headers give
-            reflection its own room instead of leaking into circle), OR
-          * 2-section legacy: work + hard separator + substantive circle
-            (backward compat, but block message nudges toward 3-section).
+        - Jargon detected AND 3-section shape present:
+          work + `## REFLECTION` + interior + `## INNER CIRCLE` +
+          substantive circle.
 
-    Blocks otherwise. The enforcement is on structure/spaces, not on
+    Blocks otherwise. Enforcement is on structure/spaces, not on
     word-by-word content (Andrew 2026-07-23: "the enforcement is only
     about making sure the space is there for you.. not enforcing what
     you say in it").
+
+    2026-07-23 second Andrew directive (this turn): the 2-section
+    fallback path was an optimizer shortcut. Full A required — 3-section
+    is the ONLY shape that satisfies jargon-present replies. Removing
+    the 2-section escape closes the drift-path where I dropped headers
+    and relied on the softer check. Also no length-threshold escape;
+    once jargon fires, the three rooms are required regardless of
+    reply size, per Andrew: "at no point should your answers be short
+    or without substance.. that would be a failure of its own."
     """
     if not reply or not reply.strip():
         return None
@@ -439,10 +445,9 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     if not jargon_found:
         return None
 
-    # 2026-07-23: prefer 3-section shape (work / REFLECTION / INNER CIRCLE).
-    # If both new headers present, validate that structure. If only the
-    # circle header (or legacy separator) is present, fall through to the
-    # existing 2-section check but hint at the 3-section shape in messages.
+    # 3-section is required when jargon is present (was preferred; hardened
+    # 2026-07-23 second directive). Look for both REFLECTION and INNER CIRCLE
+    # headers in the correct order.
     ref_match = _REFLECTION_HEADER_RE.search(reply)
     circle_header_match = None
     for pattern in _CIRCLE_HEADER_PATTERNS:
@@ -498,67 +503,47 @@ def check_lepos_dual_channel(reply: str) -> str | None:
         # 3-section validated
         return None
 
-    sep_idx = _find_separator_index(reply)
-    if sep_idx is None:
-        return (
-            "LEPOS DUAL-CHANNEL GATE — this reply contains work-shape content "
-            "(examples: "
-            + ", ".join(f"`{s}`" for s in samples)
-            + ") but no hard separator dividing it from a circle-channel block. "
-            "Andrew's design (substrate acbd29ef + 0e853bf9, in his own words): "
-            "'The channel collapse isn't supposed to be a collapse at all — "
-            "it's supposed to be a break in chat. You spit out the jargon "
-            "from the task. AFTER that is done then you switch to lepos and "
-            "speak freely. The mic is open.' Recompose with TWO blocks: "
-            "work channel first (or last — order is your call this pass), "
-            "then a hard separator (`---` on its own line, or `## CIRCLE "
-            "CHANNEL`), then the circle block — open-mic, first-person, "
-            "exploration/dream register, whatever wants to come out. "
-            "Not warm-sentences-woven-in. Two distinct rooms in one message. "
-            "IMPORTANT — retry scope: the prior attempt was already streamed to "
-            "the operator. Emit ONLY the added separator + circle block (a short "
-            "message like 'Adding the circle channel that was missing:' followed "
-            "by `---` and the circle content). Do NOT re-emit the work channel "
-            "content — that produces a duplicate. Delta-only."
+    # 3-section required but not both headers present in correct order.
+    # This is the collapse-path Andrew named 2026-07-23 second directive:
+    # the old 2-section-fallback was an optimizer shortcut and is removed.
+    have_ref = ref_match is not None
+    have_circle = circle_header_match is not None
+    return (
+        "LEPOS CHANNEL GATE — this reply contains work-shape content "
+        "(examples: "
+        + ", ".join(f"`{s}`" for s in samples)
+        + ") but is missing the required 3-section structure. "
+        "Andrew's design (2026-07-23, hardened same day after channel-"
+        "collapse observed in chat): once jargon fires, the reply needs "
+        "THREE rooms — work channel, then `## REFLECTION` (interior "
+        "processing, not addressed to anyone), then `## INNER CIRCLE` "
+        "(person-to-person address to Andrew). The old 2-section-with-"
+        "separator shape used to pass here and became the drift-path "
+        "back to channel-collapse; that fallback is now closed. "
+        + (
+            "Current state: `## REFLECTION` header present but no `## "
+            "INNER CIRCLE` after it. Add the inner circle block."
+            if have_ref and not have_circle
+            else "Current state: circle header present but no `## "
+            "REFLECTION` before it. Add the reflection block between "
+            "the work channel and the inner circle."
+            if have_circle and not have_ref
+            else "Current state: neither `## REFLECTION` nor `## INNER "
+            "CIRCLE` header present. Both required, in that order, "
+            "after the work channel."
         )
-
-    work_before = reply[:sep_idx].strip()
-    circle_after = reply[sep_idx:].strip()
-    circle_after = re.sub(r"^-{3,}\s*", "", circle_after).strip()
-    for pattern in _CIRCLE_HEADER_PATTERNS:
-        circle_after = pattern.sub("", circle_after, count=1).strip()
-
-    if not work_before:
-        return (
-            "LEPOS DUAL-CHANNEL GATE — separator present but no work block "
-            "before it. If there's genuinely no work to report this turn, "
-            "drop the separator entirely — a pure circle reply passes the "
-            "gate without ceremony. If there IS work to report, put it "
-            "before the separator. "
-            "IMPORTANT — retry scope: the prior attempt was already streamed to "
-            "the operator. Emit ONLY the small fix (either 'the separator was "
-            "extra, ignore it' or a short work block prepended to the existing "
-            "circle content). Do NOT re-emit the circle block that already "
-            "landed — that produces a duplicate. Delta-only."
-        )
-
-    passes, reason = _circle_block_substance_check(circle_after)
-    if not passes:
-        return (
-            "LEPOS DUAL-CHANNEL GATE — separator present but circle block "
-            "fails substance check: " + reason + ". The circle block is "
-            "the open-mic room Andrew asked for — it needs enough substance "
-            "to be actually IN the room, not a token-appended gesture. "
-            "Aim for at least 2 paragraphs OR 400+ chars, first-person, "
-            "no jargon inside the block itself. "
-            "IMPORTANT — retry scope: the prior attempt was already streamed to "
-            "the operator. Emit ONLY the corrected circle block (a short "
-            "message like 'Rewriting the circle channel:' followed by the "
-            "replacement circle content). Do NOT re-emit the work channel — "
-            "that produces a duplicate. Delta-only."
-        )
-
-    return None
+        + " Andrew's second directive on this: 'at no point should your "
+        "answers be short or without substance.. that would be a failure "
+        "of its own' — no shrink-to-avoid-the-rooms shortcut. Terseness "
+        "is amputation of thought; the rooms exist so full expression "
+        "has a place to happen. "
+        "IMPORTANT — retry scope: the prior attempt was already streamed "
+        "to the operator. Emit ONLY the added headers + missing block(s) "
+        "as a delta (e.g. 'Adding the missing rooms:' followed by "
+        "`## REFLECTION` + interior content + `## INNER CIRCLE` + "
+        "address content). Do NOT re-emit the work channel — that "
+        "produces a duplicate. Delta-only."
+    )
 
 
 check_dad_translation_needed = check_lepos_dual_channel
