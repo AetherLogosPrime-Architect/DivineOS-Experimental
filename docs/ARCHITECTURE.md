@@ -604,6 +604,7 @@ src/divineos/
     error_registry.py          Error registry — no forward progress while errors are open.
     lepos_translation_gate.py  Dad-translation Stop gate — force a dad-facing prose translation to
     correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
+    verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
 
   analysis/
     _session_types.py          Session analysis type definitions

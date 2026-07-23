@@ -80,6 +80,42 @@ def record_bypass(gate_name: str, env_var: str, reason: str = "") -> None:
             fh.write(json.dumps(event) + "\n")
     except OSError:
         pass
+    # 2026-07-22 (task #18, prereg-30485a180429, council-411666e581dd):
+    # every bypass event auto-files a pending investigation obligation
+    # via structural_fix_tracker. The obligation surfaces in the
+    # briefing dashboard and blocks the extract pipeline (via
+    # enforce_bypass_investigation_gate) until resolved. Andrew
+    # directive 93164891: "A bypass or escape hatch is last resort so
+    # any use of them gets logged and needs to automatically launch a
+    # root cause investigation." Truth #10: feed the optimizer cost
+    # data in its own currency — every bypass costs a real followup
+    # task. Council walk file-ALL decision per Yudkowsky + Schneier:
+    # authorization-filter is the attack surface; better to file all
+    # and require corroborator on resolution. Corroborator-resolution
+    # enforcement is task #24 followup. This filing wire is
+    # best-effort: if structural_fix_tracker is unavailable, the
+    # telemetry event still lands and the bypass is not lost.
+    try:
+        from divineos.core.structural_fix_tracker import record_pending_fix
+
+        record_pending_fix(
+            content=(
+                f"Root-cause investigation owed: bypass of gate "
+                f"'{gate_name}' via env var '{env_var}' on "
+                f"{time.strftime('%Y-%m-%d')}. Reason given: "
+                f"{(reason or '(none)').strip()[:200]}. Investigate "
+                f"whether this gate is wrong-shape (frequent legitimate "
+                f"bypass = gate discipline is off) or the bypass-use "
+                f"is wrong (frequent bypass without operator "
+                f"authorization = my discipline is off). Resolve by "
+                f"either landing a structural fix to the gate OR "
+                f"citing an operator-authorization corroborator."
+            ),
+            trigger=f"bypass:{env_var}",
+            source_kind="bypass_use",
+        )
+    except Exception:  # noqa: BLE001 - fail-open on tracker import
+        pass
 
 
 def bypass_rate(window_days: int = 14) -> dict:

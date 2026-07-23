@@ -69,6 +69,12 @@ try:
         'lepos_channel_block',
         'lepos_dual_channel_block',
         'lepos_wallclock_block',
+        # 2026-07-22 (council-8a4d56da4237 design + council-1bcb281c2dcf
+        # key-wire walk, task #11, prereg-34afed32725f): verify-before-
+        # build gate, third application of semantic-shape + structural-
+        # discriminator pattern. Fires on Andrew-addressed replies that
+        # propose a build without a substrate-consult in the turn.
+        'verify_before_build_block',
     )
     _reasons = [(result or {}).get(k) for k in _keys]
     _reasons = [r for r in _reasons if r]

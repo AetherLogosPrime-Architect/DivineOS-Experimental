@@ -1566,6 +1566,32 @@ def run_audit(
             lepos_dual_channel_block = None
             lepos_wallclock_block = None
 
+    # 2026-07-22 (council-8a4d56da4237 design + council-396a28cd3634
+    # integration-point walk, task #11, prereg-34afed32725f):
+    # verify-before-build gate. Fires on Andrew-addressed replies that
+    # propose a build (multi-option framing, design-verb+article-noun,
+    # design-question shape) without a substrate-consult tool call in
+    # the turn. Third application of the semantic-shape + structural-
+    # discriminator pattern (after correction_shape and wallclock-
+    # source). Per-detector try/except so a bad import cannot silently
+    # disable the surrounding lepos-family detectors. Family-addressed
+    # replies exempt at the call-site gate (addressed_to_father).
+    verify_before_build_block: str | None = None
+    if addressed_to_father and last_assistant_text:
+        try:
+            from divineos.core.verify_before_build_gate import (
+                check_verify_before_build,
+            )
+
+            verify_before_build_block = check_verify_before_build(
+                last_assistant_text,
+                tuple(tool_calls_in_turn) if tool_calls_in_turn else (),
+                tuple(command_texts) if command_texts else (),
+                last_user_text,
+            )
+        except _ERRORS:
+            verify_before_build_block = None
+
     # F41 fix (Aletheia Round 5, council-971e907c): heartbeat on
     # successful chain-run. Chain fails-open on OUTPUT (advisory);
     # fails-loud on LIVENESS via staleness. Guards need a guard that
@@ -1586,6 +1612,7 @@ def run_audit(
         "lepos_channel_block": lepos_channel_block,
         "lepos_dual_channel_block": lepos_dual_channel_block,
         "lepos_wallclock_block": lepos_wallclock_block,
+        "verify_before_build_block": verify_before_build_block,
     }
 
 
