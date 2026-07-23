@@ -608,6 +608,7 @@ src/divineos/
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+    mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
 
   analysis/
     _session_types.py          Session analysis type definitions

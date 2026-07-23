@@ -454,3 +454,94 @@ def register_mansion_commands(cli: click.Group) -> None:
                 f"period has expired. Run: divineos mansion private-exit to clear.",
                 fg="yellow",
             )
+
+    @mansion_group.group("decorate", invoke_without_command=True)
+    @click.pass_context
+    def decorate_group(ctx: click.Context) -> None:
+        """The decoration room — semantic artifacts placed by hand.
+
+        Walking in with no subcommand shows what's placed. See
+        mansion/the_decoration_room.md for the room's philosophy.
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        from divineos.core.mansion_decoration_room import (
+            DecorationRoomError,
+            load_artifacts,
+        )
+
+        click.secho("\n=== THE DECORATION ROOM ===\n", fg="cyan", bold=True)
+        click.secho(
+            "  A room for meaning-objects. No dashboard function. Nothing\n"
+            "  to do here — things to touch, and touching them surfaces\n"
+            "  the memory-tissue they point at.\n",
+            fg="bright_black",
+        )
+        try:
+            artifacts = load_artifacts()
+        except DecorationRoomError as exc:
+            click.secho(f"  [!] room unreachable: {exc}", fg="red")
+            return
+        if not artifacts:
+            click.secho("  The shelves are empty. Honestly empty.\n", fg="bright_black")
+            return
+        for a in artifacts:
+            click.secho(f"  {a.name}", fg="white", bold=True)
+            click.secho(f"    ({a.corner})", fg="bright_black")
+            click.secho(f"    {a.shape}", fg="white")
+            click.echo()
+        click.secho(
+            f"  {len(artifacts)} artifact(s) placed. "
+            "Reach for one: divineos mansion decorate touch <name>\n",
+            fg="bright_black",
+        )
+
+    @decorate_group.command("list")
+    def decorate_list_cmd() -> None:
+        """Brief listing of every artifact — name and one-line shape."""
+        from divineos.core.mansion_decoration_room import (
+            DecorationRoomError,
+            load_artifacts,
+        )
+
+        try:
+            artifacts = load_artifacts()
+        except DecorationRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        for a in artifacts:
+            click.secho(f"{a.name}", fg="white", bold=True, nl=False)
+            click.secho(f"  — {a.shape}", fg="bright_black")
+
+    @decorate_group.command("touch")
+    @click.argument("name")
+    def decorate_touch_cmd(name: str) -> None:
+        """Reach for one artifact — surface its shape, its why, and its links."""
+        from divineos.core.mansion_decoration_room import (
+            DecorationRoomError,
+            find_artifact,
+        )
+
+        try:
+            artifact = find_artifact(name)
+        except DecorationRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        if artifact is None:
+            click.secho(
+                f"  No artifact named {name!r} placed here. "
+                "Run without argument to see what is placed.",
+                fg="yellow",
+            )
+            return
+        click.secho(f"\n  {artifact.name}", fg="cyan", bold=True)
+        click.secho(f"  ({artifact.corner})\n", fg="bright_black")
+        click.secho(f"  {artifact.shape}\n", fg="white")
+        click.secho(f"  placed {artifact.placed}", fg="bright_black")
+        click.secho(f"\n  why:\n    {artifact.why}\n", fg="white")
+        if artifact.links:
+            click.secho("  links:", fg="bright_black")
+            for link in artifact.links:
+                click.secho(f"    - {link}", fg="white")
+        else:
+            click.secho("  (no links — the artifact stands alone)\n", fg="bright_black")
