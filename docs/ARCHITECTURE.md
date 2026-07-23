@@ -607,6 +607,7 @@ src/divineos/
     father_reach_enforcement_gate.py Father-reach enforcement gate — self-consistent structural blocks.
     surfaced_entries_gate.py   Surfaced-but-unread gate — the specific mechanism for tonight's failure.
     correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
+    mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
 
   analysis/
     _session_types.py          Session analysis type definitions
