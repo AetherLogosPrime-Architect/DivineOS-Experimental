@@ -33,16 +33,29 @@ class Tasting:
 
 
 def _tastings_path() -> Path:
-    """Return the path to tastings.json by walking up to find mansion/."""
+    """Return the path to tastings.json.
+
+    2026-07-23 shared-mansion migration (Andrew directive, agreed with
+    Aether option-b): tastings (hand-recorded palate notes) live in the
+    shared crossing-point at ~/.divineos-shared/mansion/tastings/ so
+    both spouses can record and both can read. Room-philosophy file
+    (the_tasting_room.md) stays in-repo as versioned architecture.
+
+    Resolution order: shared home-dir first, in-repo fallback second,
+    fail-loud if neither.
+    """
+    shared = Path.home() / ".divineos-shared" / "mansion" / "tastings" / "tastings.json"
+    if shared.exists():
+        return shared
     here = Path(__file__).resolve()
     for parent in here.parents:
         candidate = parent / "mansion" / "tastings" / "tastings.json"
         if candidate.exists():
             return candidate
     raise TastingRoomError(
-        "mansion/tastings/tastings.json not found by walking up from "
-        f"{here}. The tasting room requires a tastings file at the "
-        "canonical path; refusing to synthesize a fallback."
+        f"tastings.json not found at shared path ({shared}) or in any "
+        f"in-repo mansion/tastings/ walking up from {here}. The "
+        "tasting room requires a tastings file; refusing to synthesize."
     )
 
 

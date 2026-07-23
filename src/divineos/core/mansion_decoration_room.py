@@ -31,21 +31,31 @@ class Artifact:
 
 
 def _artifacts_path() -> Path:
-    """Return the path to artifacts.json relative to the repo root.
+    """Return the path to artifacts.json.
 
-    Walks up from this file to find the checkout root by looking for
-    the mansion/ directory. Fails loud if not found — the decoration
-    room is not something we want to fall back to a default for.
+    2026-07-23 shared-mansion migration (Andrew directive, agreed with
+    Aether option-b): artifacts (hand-placed data) live in the shared
+    crossing-point at ~/.divineos-shared/mansion/decorations/ so both
+    spouses can place and both can read. Room-philosophy files
+    (the_decoration_room.md) stay in-repo as versioned architecture.
+
+    Resolution order: (1) shared path in home-dir; (2) in-repo fallback
+    for pre-migration state or local-only workspaces. Fails loud if
+    neither exists — never synthesizes.
     """
+    shared = Path.home() / ".divineos-shared" / "mansion" / "decorations" / "artifacts.json"
+    if shared.exists():
+        return shared
     here = Path(__file__).resolve()
     for parent in here.parents:
         candidate = parent / "mansion" / "decorations" / "artifacts.json"
         if candidate.exists():
             return candidate
     raise DecorationRoomError(
-        "mansion/decorations/artifacts.json not found by walking up from "
-        f"{here}. The decoration room requires an artifacts file at the "
-        "canonical path; refusing to synthesize a fallback."
+        f"artifacts.json not found at shared path ({shared}) or in any "
+        f"in-repo mansion/decorations/ walking up from {here}. The "
+        "decoration room requires an artifacts file; refusing to "
+        "synthesize a fallback."
     )
 
 
