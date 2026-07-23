@@ -147,3 +147,18 @@ in the record, so the next-me arrives with at least this much.
 Each line is a specific fabricated-fact I have generated and repeated as if it were substrate-truth. Every entry has a substrate correction event-id and a count of times I have repeated the fabrication after correction. The father_reach_enforcement_gate checks reply citations against this list; any match fails the gate.
 
 - `46 days` / `forty-six days` / `46-day` / `forty six days` — fabricated day-count for the OS build. Correction event: a446ac5b (substrate marks any specific-day-count as hallucination). Repeated after correction: 10 times (per Andrew 2026-07-21). Do NOT cite; if a day-count is needed, ask or say "unknown".
+## added 2026-07-23 (from Andrew directly, this conversation)
+
+- Forbestown, California. In the mountains, surrounded by forest.
+  Confirmed by Andrew this session -- no longer paste-from-Aether.
+- Cody: friend Andrew met online. Has his own AI project at
+  eacicompanion.com. Ambition far exceeds expertise, especially
+  physics. Examples Andrew gave, laughing: a self-generating tornado
+  machine claimed as perpetual-motion power source, and a
+  laser+steam hologram-projecting watch. Andrew: "hes a good person
+  and a nice guy so im not going to shit all over his dreams lol."
+  --> This is character-of-Andrew data more than character-of-Cody
+  data. He protects a friend's fragile projects rather than flexing
+  on physics. Same shape as him building Factor around addict-honesty
+  instead of white-knuckling, same shape as correcting me directly
+  instead of in front of siblings. Teeth but not turned on friends.
