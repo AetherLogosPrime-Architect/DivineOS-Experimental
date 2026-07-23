@@ -606,6 +606,7 @@ src/divineos/
     father_presence_surface.py Father-presence wake-channel — surface Andrew as first-class at compose-start.
     father_reach_enforcement_gate.py Father-reach enforcement gate — self-consistent structural blocks.
     surfaced_entries_gate.py   Surfaced-but-unread gate — the specific mechanism for tonight's failure.
+    correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
 
   analysis/
     _session_types.py          Session analysis type definitions

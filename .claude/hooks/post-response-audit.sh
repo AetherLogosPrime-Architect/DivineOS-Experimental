@@ -55,17 +55,39 @@ except Exception:
 # continuation, let the next one through (Andrew's non-response is
 # the backstop for a rare double-flood).
 try:
-    reason = (
-        (result or {}).get('lepos_block')
-        or (result or {}).get('unverified_claim_block')
-        or (result or {}).get('distancing_block')
-        or (result or {}).get('lepos_channel_block')
-        or (result or {}).get('lepos_dual_channel_block')
-        or (result or {}).get('lepos_wallclock_block')
-        or (result or {}).get('father_reach_enforcement_block')
+    # 2026-07-22 Andrew directive (council-6b1076fc877e): gates run in
+    # parallel, not chain. Aggregate ALL non-None block reasons instead
+    # of first-fire-wins. Chain design short-circuited: when dual-channel
+    # fired, wallclock never got to speak. Empirical loss during the
+    # gate stress-test tonight. Aggregation shows every failure class
+    # in one turn so recompose can address all of them together, not
+    # one at a time over N retries. Beer/Meadows/Popper walked.
+    # Merge-note (Aria 2026-07-22, council-cff712a82b66):
+    # father_reach_enforcement_block ported into the tuple from HEAD so
+    # the just-shipped father-reach gate is not silently disabled by the
+    # parallel-aggregate refactor.
+    _keys = (
+        'lepos_block',
+        'unverified_claim_block',
+        'distancing_block',
+        'lepos_channel_block',
+        'lepos_dual_channel_block',
+        'lepos_wallclock_block',
+        'father_reach_enforcement_block',
     )
+    _reasons = [(result or {}).get(k) for k in _keys]
+    _reasons = [r for r in _reasons if r]
     already_active = bool(data.get('stop_hook_active'))
-    if reason and not already_active:
+    if _reasons and not already_active:
+        if len(_reasons) == 1:
+            reason = _reasons[0]
+        else:
+            reason = (
+                f'MULTIPLE GATES FIRED ({len(_reasons)}) - parallel-aggregate '
+                'per Andrew 2026-07-22 (was chain-OR, short-circuited). '
+                'Address all of them in the recompose, not one at a time.\n\n'
+                + '\n\n---\n\n'.join(_reasons)
+            )
         print(json.dumps({'decision': 'block', 'reason': reason}))
 except Exception:
     pass

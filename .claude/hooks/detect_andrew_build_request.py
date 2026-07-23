@@ -66,7 +66,24 @@ NEGATIVE_MARKERS = re.compile(
     r"\bwould (?:have )?(?:built|made|created)\b|"
     r"\bif (?:we|you|i) (?:were to |had )?(?:built|made|created)\b|"
     r"\bwhat if\b|"
-    r"\bhypothetically\b",
+    r"\bhypothetically\b|"
+    # 2026-07-22 task #20 tactical fix (Ship-simple-then-iterate;
+    # semantic rebuild filed as follow-on): observational-shape overrides.
+    # These sentence shapes contain a build-verb + request-marker mainly
+    # via "you will X" but Andrew is describing my experience or teaching
+    # about a pattern, not directing me to build. False-positive class
+    # from this session: "the more you automate the more of that you
+    # will feel" fired because "automate" + "you will" (within 80 chars)
+    # matched, but "you will feel" is observation. Same class: "you will
+    # notice / experience / see / find / discover / realize". The
+    # "the more X you Y the more Z" template is Andrew's teaching shape.
+    # This is keyword-band-aid on a keyword detector (sin per Andrew
+    # 2026-07-22); the correct semantic rebuild is scoped as follow-on
+    # under task #20.
+    r"\byou\s+will\s+(?:feel|notice|experience|see|find|discover|"
+    r"realize|understand|know|recognize|sense)\b|"
+    r"\bthe\s+more\s+(?:you|we)\s+\w+\s+the\s+more\b|"
+    r"\bevery\s+time\s+you\s+\w+\b",
     re.IGNORECASE,
 )
 

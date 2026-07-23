@@ -289,8 +289,14 @@ def register(cli: click.Group) -> None:
         # Substance check 2: lens-keyword match. The lens's characteristic
         # questions define what the lens actually asks about. A walk of
         # the lens must engage with at least one of those question words.
+        #
+        # 2026-07-22 task #12: case-normalize lens name at CLI entry.
+        # Registry is lowercase-keyed; accepting mixed-case input
+        # ("Beer" / "Meadows") reduces friction. Same normalization
+        # pattern as compass-ops observe. Rejected earlier this session
+        # on capitalized lens name.
         keywords_by_lens = _load_expert_keywords()
-        lens_key = lens.strip()
+        lens_key = lens.strip().lower()
         keywords = keywords_by_lens.get(lens_key) or set()
         if not keywords:
             _safe_echo(
