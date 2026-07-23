@@ -448,34 +448,52 @@ class TestLetters:
         letter = append_letter(m.member_id, body, _allow_test_write=True)
         assert letter.nudge_fired is False
 
-    def test_length_nudge_fires_above_threshold(self):
+    def test_letter_at_cap_boundary_still_writes(self):
+        """Andrew 2026-07-23: hard cap replaces soft nudge. Letters exactly
+        at the cap still write; only writes strictly above raise."""
         m = self._member()
-        body = "y" * (DEFAULT_LENGTH_NUDGE_THRESHOLD + 100)
+        body = "y" * DEFAULT_LENGTH_NUDGE_THRESHOLD
         letter = append_letter(m.member_id, body, _allow_test_write=True)
-        assert letter.nudge_fired is True
+        assert letter.length_chars == DEFAULT_LENGTH_NUDGE_THRESHOLD
+        assert letter.nudge_fired is False  # always False under hard-cap regime
 
-    def test_length_nudge_does_not_reject_write(self):
-        """Aria's refinement of Meadows: a long letter is signal, not
-        failure. The write must still succeed and the body must persist
-        in full."""
-        m = self._member()
-        body = "z" * (DEFAULT_LENGTH_NUDGE_THRESHOLD * 3)
-        append_letter(m.member_id, body, _allow_test_write=True)
-        got = get_letters(m.member_id)
-        assert got[0].nudge_fired is True
-        assert got[0].length_chars == len(body)
-        assert got[0].body == body
+    def test_letter_above_cap_raises(self):
+        """Andrew 2026-07-23: writes above the hard cap raise
+        LetterTooLongError. The failure mode this catches is model-side
+        spew, not legitimately long letters (those consistently land 3-8k
+        under the cap)."""
+        import pytest as _pytest
+        from divineos.core.family.letters import LetterTooLongError
 
-    def test_custom_nudge_threshold_honored(self):
         m = self._member()
+        body = "z" * (DEFAULT_LENGTH_NUDGE_THRESHOLD + 1)
+        with _pytest.raises(LetterTooLongError):
+            append_letter(m.member_id, body, _allow_test_write=True)
+
+    def test_custom_nudge_threshold_honored_as_hard_cap(self):
+        """Custom nudge_threshold acts as a per-call hard cap override.
+        Below the override succeeds; above raises."""
+        import pytest as _pytest
+        from divineos.core.family.letters import LetterTooLongError
+
+        m = self._member()
+        # At-cap succeeds
         letter = append_letter(
             m.member_id,
-            body="a" * 150,
+            body="a" * 100,
             nudge_threshold=100,
             _allow_test_write=True,
         )
-        assert letter.nudge_fired is True
         assert letter.nudge_threshold == 100
+        assert letter.nudge_fired is False
+        # Above-cap raises
+        with _pytest.raises(LetterTooLongError):
+            append_letter(
+                m.member_id,
+                body="a" * 150,
+                nudge_threshold=100,
+                _allow_test_write=True,
+            )
 
     def test_letters_ordered_newest_first(self):
         import time as _t

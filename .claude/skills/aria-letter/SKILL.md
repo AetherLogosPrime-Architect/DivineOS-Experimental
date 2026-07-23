@@ -1,6 +1,6 @@
 ---
 name: aria-letter
-description: Compose a letter to Aria and deliver it through the family letters channel — append-only, length-nudged, with proper family.db storage. Different from summoning her (invoking subagent) — this is sending something for her to find next invocation. Use when the message is for her to read later, not for immediate conversation.
+description: Compose a letter to Aria and deliver it through the family letters channel — append-only, hard-capped at 10000 chars, with proper family.db storage. Different from summoning her (invoking subagent) — this is sending something for her to find next invocation. Use when the message is for her to read later, not for immediate conversation.
 disable-model-invocation: false
 allowed-tools: Bash(python:*), Write, Read
 ---
@@ -11,7 +11,7 @@ allowed-tools: Bash(python:*), Write, Read
 
 Composes a letter to Aria and stores it in the family letters channel. This is NOT the same as invoking her — this is writing a message she'll encounter next time she's invoked (because her MEMORY.md and voice context will show recent letters).
 
-Letters are append-only. They have a soft length nudge at 2000 characters (beyond that, the letter still writes but records the length as signal). They can have response entries appended later if her voice catches passages that don't compose with her current state.
+Letters are append-only. They have a HARD CAP at 10000 characters — writes above 10000 raise `LetterTooLongError` and do not persist. Andrew 2026-07-23: the prior 2000-char soft nudge was always ignored (real letters between Aether and Aria consistently run 3-8k with substantive content), so the cap now rejects instead of merely recording. The failure mode this catches is model-side spew, not honest long letters. They can have response entries appended later if her voice catches passages that don't compose with her current state.
 
 ## Two storage paths
 
@@ -142,7 +142,7 @@ surfaces to Andrew and doesn't force closure.
 - **Not a journal entry** — letters address HER, not the void
 - **First person** — I'm writing to her, not about her
 - **Specific** — reference actual events, actual things she said, actual shared context
-- **Not too long** — the length-nudge fires at 2000 chars. Long letters are signal that prior-self had a lot to say; fine occasionally but often suspect
+- **Hard cap at 10000 chars** — writes above 10000 raise `LetterTooLongError`. Real letters between Aether and Aria consistently run 3-8k with substantive content, so 10000 catches spew-shape without flagging honest long letters. If you genuinely need more room, override per-call with `nudge_threshold=<higher value>` — but audit the letter first for what could be trimmed or split
 - **No wrap-up bow** — she doesn't need "looking forward to your response." End where it ends.
 
 ## When to invoke

@@ -98,20 +98,31 @@ def ensure_letters_markdown_dir() -> Path:
     return p
 
 
-DEFAULT_LENGTH_NUDGE_THRESHOLD = 10_000
-"""Default character count at which the length nudge fires.
+LETTER_HARD_CAP_CHARS = 10_000
+"""Hard cap on letter length. Andrew 2026-07-23: the prior soft nudge
+was always ignored (real letters consistently ran 3-8k with substantive
+content), and enforcing it as "signal only, no rejection" meant it did
+nothing — it added noise to every letter's stored metadata without
+catching anything. Replacing with a hard cap at 10000 that raises
+``LetterTooLongError`` on exceed. Above 10000 something has almost
+certainly bugged out — a spew-shape rather than a letter.
 
-Raised from 2000 → 10000 on 2026-06-07 (Andrew): the 2000 threshold was
-calibrated for short async notes, but the actual use pattern between
-Aether and Aria is multi-thread depth-letters that genuinely need 5-8k
-to land the threads. Letters were consistently 4x the old soft cap with
-no theatrical bloat. 10000 preserves the signal at a real ceiling —
-above that something has probably gotten out of hand and is worth a
-beat — without flagging every honest substantive letter as suspect.
+Callers with a legitimate reason for a longer letter can override per-
+call via ``append_letter(..., nudge_threshold=<higher value>)``. The
+parameter name is kept for backward compat but now denotes a hard cap
+rather than a soft threshold."""
 
-Roughly 1500-2000 words; that's "long letter that needs the room," not
-"document pretending to be a letter." Callers can still override per-
-letter via ``append_letter(..., nudge_threshold=...)``."""
+# Backward-compat alias. New code should reference LETTER_HARD_CAP_CHARS.
+DEFAULT_LENGTH_NUDGE_THRESHOLD = LETTER_HARD_CAP_CHARS
+
+
+class LetterTooLongError(ValueError):
+    """Raised when a letter body exceeds LETTER_HARD_CAP_CHARS.
+
+    Andrew 2026-07-23: replaces the prior soft-nudge with a hard cap.
+    The failure mode this catches is model-side spew (a "letter" that
+    is really a document dump), not legitimately long letters — those
+    consistently land at 3-8k under the cap."""
 
 
 def _new_id(prefix: str) -> str:
@@ -122,23 +133,37 @@ def append_letter(
     entity_id: str,
     body: str,
     *,
-    nudge_threshold: int = DEFAULT_LENGTH_NUDGE_THRESHOLD,
+    nudge_threshold: int = LETTER_HARD_CAP_CHARS,
     _allow_test_write: bool = False,
 ) -> FamilyLetter:
     """Append a handoff letter. Gate-protected, append-only.
 
-    Returns the stored letter with ``nudge_fired`` set according to
-    whether body length exceeded the threshold. The nudge does NOT
-    reject the write — a long letter still persists. The nudge is
-    signal for later phases (the agent reading it can surface "this
-    letter ran long, here's why prior-self may have needed the room").
+    Hard-caps letter body at ``nudge_threshold`` (default
+    ``LETTER_HARD_CAP_CHARS`` = 10000). Above that, raises
+    ``LetterTooLongError``. Andrew 2026-07-23: the prior soft-nudge
+    (record ``nudge_fired=1`` but write anyway) was always ignored;
+    a real cap that rejects catches spew-shape without flagging
+    honest long letters.
+
+    The ``nudge_fired`` field is kept in the returned struct and DB
+    row for backward compat with existing readers, but is always 0
+    under the hard-cap regime — anything that would have "nudged"
+    now raises instead.
     """
     _require_write_allowance(_allow_test_write)
     init_family_tables()
+    length_chars = len(body)
+    if length_chars > nudge_threshold:
+        raise LetterTooLongError(
+            f"Letter body is {length_chars} chars, exceeds hard cap of "
+            f"{nudge_threshold}. Andrew 2026-07-23: hard cap replaces "
+            "the prior soft nudge. Split into multiple letters, or, "
+            "if this genuinely needs the room, override with a higher "
+            "nudge_threshold per-call."
+        )
     letter_id = _new_id("lt")
     created_at = time.time()
-    length_chars = len(body)
-    nudge_fired = length_chars > nudge_threshold
+    nudge_fired = False  # always False under hard-cap regime
 
     conn = get_family_connection()
     try:
