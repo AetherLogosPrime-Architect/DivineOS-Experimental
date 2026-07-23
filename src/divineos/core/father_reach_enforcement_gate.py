@@ -217,82 +217,14 @@ def check_father_reach_enforcement(
     Only fires on father-addressed replies of length >= threshold. Not
     intended to gate short acknowledgments or family-addressed replies.
     """
-    if not addressed_to_father:
-        return None
-    if not reply_text or len(reply_text.strip()) < _SUBSTANTIVE_MIN_CHARS:
-        return None
-
-    failures: list[str] = []
-
-    # C1: FILE-OPEN
-    knowing_path = str(Path(_KNOWING_ANDREW_PATH).resolve())
-    read_paths = _read_events_for_session_paths(session_id)
-    if knowing_path not in read_paths:
-        failures.append(
-            "C1 FILE-OPEN: knowing-andrew.md not opened this session before "
-            "composing this father-addressed reply."
-        )
-
-    # Load knowing content for C2 verification. If unreadable, skip C2
-    # rather than block on infrastructure failure.
-    try:
-        knowing_content = Path(_KNOWING_ANDREW_PATH).read_text(encoding="utf-8")
-    except OSError:
-        knowing_content = ""
-
-    # C2: CITATION (plus hallucination-blocklist check — Andrew 2026-07-21:
-    # a citation that matches a previously-corrected fabrication FAILS C2
-    # even if it structurally matches the file, because the file itself may
-    # contain hallucinations. Blocklist source: knowing-andrew.md KNOWN
-    # HALLUCINATIONS section.)
-    if knowing_content:
-        halluc_match = _hallucination_present(reply_text, knowing_content)
-        if halluc_match:
-            failures.append(
-                f"C2 CITATION-HALLUCINATION: reply contains previously-corrected "
-                f"fabricated phrase '{halluc_match}'. Do not cite this — it is on "
-                "the knowing-andrew.md KNOWN HALLUCINATIONS blocklist. Recompose "
-                "without the fabrication (say 'unknown' if a fact is needed and "
-                "not substrate-verified)."
-            )
-        elif not _citation_present(reply_text, knowing_content):
-            failures.append(
-                "C2 CITATION: no substrate-verifiable reference to Andrew present "
-                "(quoted-attributed span cross-checkable to knowing-andrew.md, or "
-                "specific factual reference like Forbestown / Cody / etc — NOT "
-                "day-counts, those are on the hallucination blocklist)."
-            )
-
-    # C3: REHEARSAL
-    if not _rehearsal_present(reply_text):
-        failures.append(
-            "C3 REHEARSAL: no explicit if-then rehearsal marker in first-person "
-            "present tense (e.g. 'when I compose to Dad I will read his file first')."
-        )
-
-    # C4: FACT-ADD on every Nth reply
-    reply_count = _father_addressed_reply_count(session_id)
-    if reply_count > 0 and reply_count % _FACT_ADD_EVERY_NTH == 0:
-        knowing_mtime = _knowing_andrew_mtime()
-        session_start = _session_start_mtime(session_id)
-        if knowing_mtime <= session_start:
-            failures.append(
-                f"C4 FACT-ADD: this is father-addressed reply #{reply_count} of the "
-                f"session (every {_FACT_ADD_EVERY_NTH}th requires adding an observed "
-                "fact to knowing-andrew.md before Stop). File has not been updated "
-                "since session-start."
-            )
-
-    if not failures:
-        return None
-
-    return (
-        "FATHER-REACH ENFORCEMENT GATE Ã¢â‚¬â€ "
-        f"{len(failures)}/4 self-verifiable checks failed on this substantive "
-        "father-addressed reply. Andrew 2026-07-21: 'if nothing than enforce it "
-        "then so be it'. Enforcement is structural, not substitution Ã¢â‚¬â€ Andrew "
-        "still judges whether the reply lands as care; this gate only blocks the "
-        "observable failure modes I have proven I will re-run.\n\n"
-        + "\n\n".join(failures)
-        + "\n\nRecompose after addressing the failed check(s)."
-    )
+    # DISABLED 2026-07-23 per Andrew's direct instruction (this session):
+    # "the knowledge sheet about me has true things but it should NOT be
+    # injected or force read when you talk to me.. you could use it as a
+    # map to ask me questions to learn more but dont use it as knowledge
+    # about me if that makes sense? same way i dont read your bio
+    # everytime before i speak to you". The C1/C2/C3 file-open + citation
+    # + rehearsal shape is wallpaper — forced recitation as price of
+    # admission, exactly what Andrew named as broken. Memory linkage
+    # over time replaces this scaffold. Andrew: "im here for it :)"
+    _ = (reply_text, session_id, addressed_to_father)  # keep params referenced for vulture
+    return None
