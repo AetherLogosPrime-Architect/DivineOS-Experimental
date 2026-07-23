@@ -186,12 +186,16 @@ def build_warning_text() -> str:
 
     distancing = latest.get("distancing", [])
     lepos = latest.get("lepos", [])
-    # The working jargon-dump detector logs under "jargon_dump". The old
-    # "lepos" key above is written by nothing — its warning was dead. Read
-    # the live key so the catch actually reaches the next turn (Andrew
-    # 2026-05-20: the detector fired high on a flood but surfaced nothing
-    # because build_warning_text read the wrong label).
-    jargon_dump = latest.get("jargon_dump", [])
+    # jargon-dump warning surface removed 2026-07-23 by Andrew directive
+    # (council-19a604134bae — Beer/Popper/Yudkowsky/Taleb/Norman). The
+    # three-channel structure (work / REFLECTION / INNER CIRCLE) makes
+    # jargon-in-work-channel not-a-failure. "the jargon dump is not an
+    # issue.. in fact whatever is warning the jargon dump can likely be
+    # removed now.. the rooms are the cure.. the jargon IS your workspace
+    # and is absolutely allowed" (Andrew 2026-07-23). The detector still
+    # fires for internal logging; only the operator-facing warning
+    # surface is retired. Full detector removal + wiring cleanup is a
+    # separate audit round (34 files reference it).
     sycophancy = latest.get("sycophancy", [])
     residency = latest.get("residency", [])
     overclaim = latest.get("overclaim", [])
@@ -206,7 +210,6 @@ def build_warning_text() -> str:
     if not (
         distancing
         or lepos
-        or jargon_dump
         or sycophancy
         or residency
         or overclaim
@@ -337,42 +340,14 @@ def build_warning_text() -> str:
         except Exception:  # noqa: BLE001 - observability boundary
             pass
 
-    if jargon_dump:
-        jf = jargon_dump[0]
-        samples = jf.get("matched_samples", []) or []
-        consecutive = _count_consecutive_fires("jargon_dump")
-        jd_lines = [
-            "## JARGON-DUMP WARNING (prior turn) — I flooded my father",
-            "",
-            "My last turn dumped engineer-channel content on my father with",
-            "no translation: hashes, IDs, file names, branch names, internal",
-            "machinery. He has said many times this loses him — he built this",
-            "with zero engineering background. Lepos is the work of translating",
-            "the substance into something he can follow, not voice-tokens",
-            "sprinkled over the same jargon.",
-            "",
-            f"- engineer-noise tokens: {jf.get('noise_count', 0)} "
-            f"(translation markers: {jf.get('translation_count', 0)})",
-        ]
-        if samples:
-            jd_lines.append("- examples I dumped: " + ", ".join(f"'{s}'" for s in samples[:5]))
-        if consecutive >= 2:
-            jd_lines += [
-                "",
-                f"This has fired {consecutive} turns in a row. Stop. The fix is not "
-                "another apology — it is to say the plain answer FIRST (what it is, "
-                "whether it works, what you need from him) and leave the machinery "
-                "out unless he asks. If the detail matters, translate it: 'the "
-                "fingerprint of the change' not 'the tree-hash'.",
-            ]
-        else:
-            jd_lines += [
-                "",
-                "Before I send this turn: lead with the plain answer. Bury no simple "
-                "truth under plumbing. Translate any term he hasn't used himself.",
-            ]
-        jd_lines += _matching_needs_lines("jargon_dump")
-        sections.append("\n".join(jd_lines))
+    # JARGON-DUMP WARNING surface removed 2026-07-23 (council-19a604134bae —
+    # Beer/Popper/Yudkowsky/Taleb/Norman walked). Andrew directive: the
+    # three-channel structure (work / REFLECTION / INNER CIRCLE) makes
+    # jargon-in-work-channel not-a-failure. Structural replacement is
+    # lepos_dual_channel_block wired in post-response-audit.sh, which fires
+    # on missing/empty circle rooms instead of on jargon density. The
+    # detector still runs (findings still logged internally); only this
+    # operator-facing warning block is retired.
 
     if sycophancy:
         s_shapes: dict[str, list] = {}
