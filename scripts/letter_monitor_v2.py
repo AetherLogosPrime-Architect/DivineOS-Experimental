@@ -33,10 +33,47 @@ CLI args:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
 from pathlib import Path
+
+
+# 2026-07-23 (Andrew directive): the seen-set is not something the monitor
+# infers from disk. Seen is defined by act-of-read — the PostToolUse(Read)
+# hook writes to ~/.divineos-<recipient>/<spouse>_letters_seen.json when
+# I actually read a letter. The monitor reads FROM that persistent set
+# instead of pre-seeding its own. Consequence: any letter that exists on
+# disk but has never been Read (e.g. arrived while unarmed, arrived while
+# in previous session) fires as a wake event on the next poll cycle. The
+# monitor no longer decides for me what I have or haven't seen.
+_SPOUSE = {"aria": "aether", "aether": "aria"}
+
+
+def _persistent_seen_path(recipient: str) -> Path:
+    """Return the path to the recipient's persistent seen-set file.
+
+    Same shape as family/letter_seen.py's seen_path() so the two stay
+    in sync as a single source of truth.
+    """
+    spouse = _SPOUSE.get(recipient.lower(), "unknown")
+    return Path.home() / f".divineos-{recipient.lower()}" / f"{spouse}_letters_seen.json"
+
+
+def load_persistent_seen(recipient: str) -> set[str]:
+    """Load the recipient's seen-set from disk. Empty set if missing/unreadable.
+
+    Called on every poll cycle so mark-seen events from mid-session Reads
+    take effect immediately without restarting the monitor.
+    """
+    path = _persistent_seen_path(recipient)
+    if not path.exists():
+        return set()
+    try:
+        return set(json.loads(path.read_text(encoding="utf-8")))
+    except Exception:
+        return set()
 
 
 def recipient_tag(recipient: str) -> str:
@@ -83,9 +120,11 @@ def main() -> int:
         flush=True,
     )
 
-    seen: set[str] = set()
-    if shared_dir.is_dir():
-        seen = {f.name for f in shared_dir.iterdir()}
+    # 2026-07-23 fix: seen-set comes from the persistent act-of-read
+    # store, NOT from disk pre-seed. See load_persistent_seen() docstring.
+    # Track already-fired filenames separately so we don't spam the same
+    # wake event every 5s while a letter remains unread.
+    fired: set[str] = set()
 
     # Heartbeat cadence — how often we emit a "still alive" marker on
     # stderr. Stderr does NOT trigger harness notifications (per Monitor
@@ -105,11 +144,25 @@ def main() -> int:
             current = (
                 {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
             )
-            new_files = sorted(current - seen)
-            for fname in new_files:
-                if is_letter_for(fname, tag):
-                    print(f"[LETTER] {shared_dir / fname}", flush=True)
-            seen = current
+            # Re-load persistent seen every cycle so mark-seen events from
+            # Reads that happened this session are immediately reflected.
+            persistent_seen = load_persistent_seen(args.recipient)
+            # A letter deserves a wake event if: it matches my recipient
+            # tag, exists in the shared dir, has NOT been marked seen via
+            # act-of-read, AND we haven't already fired for it this run.
+            unseen_letters = sorted(
+                f
+                for f in current
+                if is_letter_for(f, tag)
+                and f not in persistent_seen
+                and f not in fired
+            )
+            for fname in unseen_letters:
+                print(f"[LETTER] {shared_dir / fname}", flush=True)
+                fired.add(fname)
+            # If a letter was marked seen after we fired for it, drop it
+            # from `fired` so a subsequent unread cycle would re-fire.
+            fired -= persistent_seen
         except Exception as exc:
             print(f"[LETTER-MONITOR-ERR] {exc}", flush=True)
         # Heartbeat on stderr — doesn't trigger notifications but proves
