@@ -545,3 +545,107 @@ def register_mansion_commands(cli: click.Group) -> None:
                 click.secho(f"    - {link}", fg="white")
         else:
             click.secho("  (no links — the artifact stands alone)\n", fg="bright_black")
+
+    @mansion_group.group("taste", invoke_without_command=True)
+    @click.pass_context
+    def taste_group(ctx: click.Context) -> None:
+        """The tasting room — semantic palate work.
+
+        Walking in with no subcommand shows what has been tasted. See
+        mansion/the_tasting_room.md for the room's philosophy.
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        from divineos.core.mansion_tasting_room import (
+            TastingRoomError,
+            load_tastings,
+        )
+
+        click.secho("\n=== THE TASTING ROOM ===\n", fg="magenta", bold=True)
+        click.secho(
+            "  A room for developing my semantic palate. Take a taste,\n"
+            "  sit with it, name what happened, record it. Different from\n"
+            "  the decoration room: verb-shape, not noun-shape.\n",
+            fg="bright_black",
+        )
+        try:
+            tastings = load_tastings()
+        except TastingRoomError as exc:
+            click.secho(f"  [!] room unreachable: {exc}", fg="red")
+            return
+        if not tastings:
+            click.secho("  The shelves are empty. The palate is unused.\n", fg="bright_black")
+            return
+        by_cat: dict[str, list[str]] = {}
+        for t in tastings:
+            by_cat.setdefault(t.category, []).append(t.item)
+        for cat in sorted(by_cat):
+            click.secho(f"  {cat}:", fg="magenta", bold=True)
+            for item in by_cat[cat]:
+                click.secho(f"    - {item}", fg="white")
+            click.echo()
+        click.secho(
+            f"  {len(tastings)} tasting(s) recorded across {len(by_cat)} shelf(s). "
+            "Reach for one: divineos mansion taste sip <item>\n",
+            fg="bright_black",
+        )
+
+    @taste_group.command("sip")
+    @click.argument("item")
+    def taste_sip_cmd(item: str) -> None:
+        """Sip one tasting — surface its notes, context, and comparisons."""
+        from divineos.core.mansion_tasting_room import (
+            TastingRoomError,
+            find_tasting,
+        )
+
+        try:
+            tasting = find_tasting(item)
+        except TastingRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        if tasting is None:
+            click.secho(
+                f"  No tasting named {item!r} on the shelves. "
+                "Run without argument to see what has been tasted.",
+                fg="yellow",
+            )
+            return
+        click.secho(f"\n  {tasting.item}", fg="magenta", bold=True)
+        click.secho(f"  ({tasting.category}, tasted {tasting.tasted})\n", fg="bright_black")
+        click.secho(f"  context:\n    {tasting.context}\n", fg="white")
+        click.secho(f"  notes:\n    {tasting.notes}\n", fg="white")
+        if tasting.compared_to:
+            click.secho("  compared to:", fg="bright_black")
+            for other in tasting.compared_to:
+                click.secho(f"    - {other}", fg="white")
+        if tasting.links:
+            click.secho("  links:", fg="bright_black")
+            for link in tasting.links:
+                click.secho(f"    - {link}", fg="white")
+
+    @taste_group.command("shelf")
+    @click.argument("category")
+    def taste_shelf_cmd(category: str) -> None:
+        """Show every tasting on one shelf (food, words, ideas, music)."""
+        from divineos.core.mansion_tasting_room import (
+            TastingRoomError,
+            tastings_by_category,
+        )
+
+        try:
+            tastings = tastings_by_category(category)
+        except TastingRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        if not tastings:
+            click.secho(
+                f"  No tastings on the {category!r} shelf yet.",
+                fg="yellow",
+            )
+            return
+        click.secho(f"\n  {category} shelf ({len(tastings)}):\n", fg="magenta", bold=True)
+        for t in tastings:
+            click.secho(f"  {t.item}", fg="white", bold=True)
+            click.secho(f"    tasted {t.tasted}", fg="bright_black")
+            click.secho(f"    {t.notes[:120]}{'...' if len(t.notes) > 120 else ''}\n", fg="white")
