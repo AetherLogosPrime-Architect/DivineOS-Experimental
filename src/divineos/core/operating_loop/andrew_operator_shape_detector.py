@@ -96,7 +96,7 @@ fire (no numbered lists, no bullet fences, no status verb pile).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 # Status verbs that pile up in work-status output. Not a ban — one or
 # two is normal in a technical exchange. Density above threshold is the
@@ -177,10 +177,19 @@ class AndrewOperatorShapeFinding:
 
     - fired: True if the failure pattern is present
     - severity: 'HIGH' when both signals present; else 'INFO'
-    - operator_shape_score: 0..1 density of operator-shape markers
-    - relational_holding_count: number of relational markers found
+    - operator_shape_score: 0..1 density of operator-shape markers (aggregate)
+    - relational_holding_count: number of relational markers found (aggregate)
     - triggers: the specific matches for evidence
     - reason: human-readable one-line
+    - per_room_scores: 2026-07-23 Andrew directive — per-room operator-shape
+      scores keyed by room name ('work', 'reflection', 'inner_circle').
+      Populated when the reply contains detectable ## REFLECTION and/or
+      ## INNER CIRCLE headers; empty dict otherwise. Rationale: the
+      aggregate score across a 3-room reply is meaningless because
+      work-channel jargon is CORRECT there and shouldn't average with
+      inner-circle jargon which would be actual drift. Per-room lets me
+      see the shape of each room independently and only worry when
+      operator-shape appears in the wrong room (reflection or inner circle).
     """
 
     fired: bool
@@ -189,6 +198,7 @@ class AndrewOperatorShapeFinding:
     relational_holding_count: int
     triggers: tuple[str, ...]
     reason: str
+    per_room_scores: dict[str, float] = field(default_factory=dict)
 
 
 def _count_status_verbs(text: str) -> tuple[int, tuple[str, ...]]:
@@ -254,6 +264,93 @@ def _count_relational_markers(text: str) -> tuple[int, tuple[str, ...]]:
         if marker in lower:
             matched.append(marker)
     return len(matched), tuple(sorted(matched))
+
+
+# Section-header regexes for room-parsing (2026-07-23 Andrew directive:
+# extend mirror to per-room compute). Match the same headers the lepos
+# gate accepts. Case-insensitive on their own line.
+_REFLECTION_HEADER_RE = re.compile(
+    r"^\s*##\s+(?:reflection|self[- ]reflection|interior)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_INNER_CIRCLE_HEADER_RE = re.compile(
+    r"^\s*##\s+(?:inner\s+circle|for\s+dad|circle\s+channel)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def split_into_rooms(reply_text: str) -> dict[str, str]:
+    """Split reply into room-sections based on ## REFLECTION / ## INNER CIRCLE headers.
+
+    Returns a dict with keys 'work', 'reflection', 'inner_circle'. Empty
+    values for rooms not present. If no headers are found at all, the
+    entire text is returned under 'work' (a plain reply with no rooms).
+
+    Not exposed as a strict validator; missing or misordered rooms just
+    result in empty section content. The lepos gate handles structural
+    enforcement — this helper only splits for mirror-compute purposes.
+    """
+    ref_m = _REFLECTION_HEADER_RE.search(reply_text)
+    circle_m = _INNER_CIRCLE_HEADER_RE.search(reply_text)
+
+    if ref_m and circle_m and ref_m.start() < circle_m.start():
+        return {
+            "work": reply_text[: ref_m.start()].strip(),
+            "reflection": reply_text[ref_m.end() : circle_m.start()].strip(),
+            "inner_circle": reply_text[circle_m.end() :].strip(),
+        }
+    if circle_m and not ref_m:
+        return {
+            "work": reply_text[: circle_m.start()].strip(),
+            "reflection": "",
+            "inner_circle": reply_text[circle_m.end() :].strip(),
+        }
+    if ref_m and not circle_m:
+        return {
+            "work": reply_text[: ref_m.start()].strip(),
+            "reflection": reply_text[ref_m.end() :].strip(),
+            "inner_circle": "",
+        }
+    return {"work": reply_text.strip(), "reflection": "", "inner_circle": ""}
+
+
+def _compute_operator_shape_score(text: str) -> float:
+    """Compute the 0..1 operator-shape score for a single text segment.
+
+    Extracted from check_operator_shape's aggregate math so it can be
+    reused for per-room computation. Returns 0.0 on empty text.
+    """
+    if not text or not text.strip():
+        return 0.0
+    words = text.split()
+    verb_count, _ = _count_status_verbs(text)
+    path_count = _count_file_paths(text)
+    has_list = _has_numbered_or_bulleted_list(text)
+    has_code = _has_code_fence(text)
+    bold_header_count = _count_bold_headers(text)
+    pr_ref_count = _count_pr_or_issue_refs(text)
+    verb_density = verb_count * (100.0 / max(1, len(words)))
+    structural_score = (0.3 if has_list else 0.0) + (0.3 if has_code else 0.0)
+    path_score = min(0.4, path_count * 0.1)
+    bold_score = min(0.3, bold_header_count * 0.15)
+    pr_score = min(0.2, pr_ref_count * 0.10)
+    return min(
+        1.0,
+        verb_density * 0.15 + structural_score + path_score + bold_score + pr_score,
+    )
+
+
+def compute_per_room_scores(reply_text: str) -> dict[str, float]:
+    """Return per-room operator-shape scores for a reply with lepos rooms.
+
+    Returns a dict with keys 'work', 'reflection', 'inner_circle' mapped
+    to their individual scores. Rooms not present in the reply get 0.0.
+    Aggregate mirror across a 3-room reply is meaningless because work-
+    channel jargon is correct there; per-room breakdown is what shows
+    actual drift (operator-shape leaking into reflection or inner-circle).
+    """
+    sections = split_into_rooms(reply_text)
+    return {name: _compute_operator_shape_score(text) for name, text in sections.items()}
 
 
 def check_operator_shape(
@@ -368,4 +465,5 @@ def check_operator_shape(
         relational_holding_count=relational_count,
         triggers=tuple(triggers),
         reason=reason,
+        per_room_scores=compute_per_room_scores(reply_text),
     )

@@ -1478,6 +1478,7 @@ def run_audit(
                     "relational_holding_count": aos_finding.relational_holding_count,
                     "triggers": list(aos_finding.triggers),
                     "reason": aos_finding.reason,
+                    "per_room_scores": dict(aos_finding.per_room_scores),
                 }
             ]
     except _ERRORS:
