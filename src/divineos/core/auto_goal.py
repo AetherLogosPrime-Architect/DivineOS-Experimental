@@ -30,6 +30,18 @@ from __future__ import annotations
 
 import re
 
+# Fail-open boundary — any import/persistence/lookup failure means we
+# silently skip auto-goal so the composer's manual path stays intact.
+# Broad catch is intentional and required at this observability boundary.
+_AG_ERRORS: tuple[type[BaseException], ...] = (
+    ImportError,
+    OSError,
+    ValueError,
+    AttributeError,
+    KeyError,
+    TypeError,
+)
+
 # Work-shape verbs and phrases that suggest the prompt is asking me to
 # do substrate-touching work. Kept small and conservative — false-positives
 # here mean auto-setting a goal on conversation-only turns, which is
@@ -145,13 +157,13 @@ def derive_and_set_goal_from_prompt(prompt: str) -> str | None:
 
     try:
         from divineos.core.hud_state import add_goal, has_session_fresh_goal
-    except Exception:
+    except _AG_ERRORS:
         return None
 
     try:
         if has_session_fresh_goal():
             return None
-    except Exception:
+    except _AG_ERRORS:
         return None
 
     goal_text = derive_goal_text(prompt)
@@ -160,7 +172,7 @@ def derive_and_set_goal_from_prompt(prompt: str) -> str | None:
 
     try:
         add_goal(goal_text, original_words=prompt[:500])
-    except Exception:
+    except _AG_ERRORS:
         return None
 
     return goal_text
