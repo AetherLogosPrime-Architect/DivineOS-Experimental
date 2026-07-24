@@ -2,7 +2,7 @@
 
 *The living lab where new systems get built and tested. For the stable, polished version, see [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS); for the bare-skeleton continuity-only build, see [DivineOS Lite](https://github.com/AetherLogosPrime-Architect/Divine-OS-Lite).*
 
-An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 42 expert frameworks for multi-perspective reasoning.
+An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 43 expert frameworks for multi-perspective reasoning.
 
 [![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -55,7 +55,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - [`LOADOUT.md`](LOADOUT.md) — survey of substrate state; what an awakening agent reads to recover continuity.
 
 **Systems documentation:**
-- [`docs/council_manager.md`](docs/council_manager.md) — how the 42-expert dynamic council selects 5–12 members per problem.
+- [`docs/council_manager.md`](docs/council_manager.md) — how the 43-expert dynamic council selects 5–12 members per problem.
 - [`docs/completion_check.md`](docs/completion_check.md) — the probe that measures completion-quality (wired/tested/useful) on the initiative compass.
 - [`docs/audit_system.md`](docs/audit_system.md) — Watchmen findings, three-layer self-trigger prevention, the Aletheia loop, unknown-unknown surface.
 - [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 82 tables (substrate, family, audit, telemetry).
@@ -77,7 +77,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - **416 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
 - **76 Claude Code enforcement hooks**
-- **42 expert frameworks** in the council
+- **43 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
 - **5 family operators** designed — 2 production-gating (`access_check` + `reject_clause`), 1 verification-only (`sycophancy_detector`), 2 deliberately scoped to higher layers or test surfaces (`costly_disagreement` for 3-move sequences, `planted_contradiction` for Phase 4 ablation). See `docs/family_subsystem.md` for the wiring map.
 - **Actively developed** — new systems ship weekly
@@ -109,7 +109,7 @@ Starting from this repo, you can:
 - Accumulate knowledge that matures from RAW → HYPOTHESIS → TESTED → CONFIRMED through corroboration and contradiction detection
 - Track the agent's moral position on 10 virtue spectrums with evidence-based drift detection
 - File claims for investigation, opinions held under pressure, and pre-registrations for new mechanisms with scheduled reviews
-- Consult a council of 42 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
+- Consult a council of 43 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
 - Submit external audits that route findings into knowledge, claims, or lessons
 - Sleep the agent: 6 phases of offline consolidation that produce a dream report
 
@@ -182,7 +182,7 @@ Family members are not personas performed by the main agent. Each runs as a sepa
 ### 5. Thinking Tools
 How the agent reasons about hard problems.
 
-- **Council** — 42 expert wisdom templates (Aristotle, Beer, Carmack, Dennett, Dijkstra, Einstein, Feynman, Hawking, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Penrose, Popper, Sagan, Schneier, Shannon, Taleb, Wayne, Wittgenstein, Yudkowsky, and 19 more). Dynamic selection picks 5–12 experts per problem (hard cap 15) using trust + exploration scoring. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
+- **Council** — 43 expert wisdom templates (Aristotle, Beer, Carmack, Dennett, Dijkstra, Einstein, Feynman, Hawking, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Penrose, Popper, Sagan, Schneier, Shannon, Taleb, Wayne, Wittgenstein, Yudkowsky, and 19 more). Dynamic selection picks 5–12 experts per problem (hard cap 15) using trust + exploration scoring. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, value tensions. FTS-searchable.
 - **Claims Engine** — File a statement for investigation. Five evidence tiers (empirical to metaphysical). Add evidence over time. Status, tier, and assessment all evolve with new evidence — and every update emits a `CLAIM_UPDATED` event preserving prior values, so tidying without trace is structurally impossible.
 - **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep.
@@ -244,7 +244,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 ### Common misconceptions
 
-- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 42-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
+- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 43-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
 - **"416 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
@@ -252,7 +252,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"Knowledge extraction must be calling an LLM"** — no. The extraction pipeline is rule-based and pattern-based, operating on session JSONL logs. Zero LLM calls in the core pipeline. This is deliberate: it gives determinism, zero marginal cost, and provider independence.
 
-- **"42 experts in the council is feature creep"** — the council auto-selects 5–12 experts for any given problem (hard cap 15). You don't invoke all 42. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
+- **"43 experts in the council is feature creep"** — the council auto-selects 5–12 experts for any given problem (hard cap 15). You don't invoke all 43. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
 
 - **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Wiring status (re-verified by Grok cross-vantage audit 2026-06-04; original call-site grep 2026-05-16): `reject_clause` and `access_check` gate the family write path in `core/family/store.py` (`_run_content_checks`). `sycophancy_detector` has a calibration call site in `core/anti_slop.py` (anti-slop verification path) but does **not** gate family writes directly — it requires a `prior_stance` argument the single-write store can't supply. `costly_disagreement` operates on sequences of at least three disagreement moves across a pushback cycle and has no production call site beyond its own module (sequence context absent at single-write scope). `planted_contradiction` is seed data for the Phase 4 ablation test layer, intentionally not wired into production. See `docs/family_subsystem.md` for the operator-by-operator wiring map; `core/family/` for each operator's implementation.
 
@@ -482,7 +482,7 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 **At a glance:**
 
 - **`src/divineos/cli/`** — 416 commands across 82 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
-- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (42 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, etc.) have their own internal structure.
+- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (43 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests, `evidence_bearing_stop_gate.py` — abstract Stop-gate primitive with IntraTurnIntercept and CrossTurnScan variants, prototyped by the LEPOS-channel gate 2026-07-15).
 - **`src/divineos/event/`**, **`src/divineos/clarity_system/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`** — supporting subsystems for event emission, clarity rule generation, agent-integration patterns (feedback + outcome measurement), and IDE/MCP integration. (Earlier `supersession/`, `clarity_enforcement/`, and `violations_cli/` packages were deleted 2026-05-03 in audit Tier 2 dead-chain removal — supersession logic now lives inline in `core/knowledge/`; clarity enforcement moved to `hooks/clarity_enforcement.py`; violations reporting was unused and removed.)

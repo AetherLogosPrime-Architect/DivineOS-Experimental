@@ -176,7 +176,7 @@ src/divineos/
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 42 expert wisdom profiles
+      experts/                 43 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
@@ -190,6 +190,7 @@ src/divineos/
         dillahunty.py          Epistemic discipline, burden of proof, patient public dialogue
         einstein.py            Theoretical physics, thought experiments, frame-invariance, spacetime
         feynman.py             First principles, clarity, epistemology
+        foucault.py            Discipline, power-knowledge coupling, the self that structure produces
         godel.py               Incompleteness, self-reference, formal limits
         bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
         hawking.py             Cosmology, black holes, quantum gravity, information paradox
@@ -606,7 +607,6 @@ src/divineos/
     correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
-    foucault.py                Michel Foucault — discipline, power, and the self that structure produces.
 
   analysis/
     _session_types.py          Session analysis type definitions

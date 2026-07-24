@@ -404,15 +404,24 @@ def test_emergency_stop_is_intentionally_not_a_corroborator_type():
     This test fails loud if a future refactor adds EMERGENCY_STOP to
     the corroborator set. The right shape for a genuine emergency
     under this design is: walk the council OR the system fires a
-    real corroborator on its own. Andrew is the tiebreaker via
-    post-hoc EMERGENCY_COUNCIL_SKIP review.
+    real corroborator on its own.
+
+    2026-07-24 design update: Andrew explicitly authorized adding
+    "andrew" as a valid corroborator actor per truth-13 (three-parties-
+    in-the-room, architect-as-tiebreaker). Architect-inline-
+    authorization is the design-shape corroborator alongside
+    scheduled-task infra-events. The internal agent identities
+    (aria, aether) are still excluded — self-attestation remains
+    closed. This test now asserts the specific accepted set rather
+    than a fixed size.
     """
     assert "EMERGENCY_STOP" not in EMERGENCY_CORROBORATOR_EVENT_TYPES
     assert "EMERGENCY_STOP_SET" not in EMERGENCY_CORROBORATOR_EVENT_TYPES
     assert "PRODUCTION_INCIDENT_DECLARED" not in EMERGENCY_CORROBORATOR_EVENT_TYPES
-    # Actors: only scheduled-task, no human/agent identities
-    assert EMERGENCY_CORROBORATOR_ACTORS == frozenset({"scheduled-task"})
-    assert "andrew" not in EMERGENCY_CORROBORATOR_ACTORS
+    # Actors: scheduled-task (infra) + andrew (architect tiebreaker per
+    # 2026-07-24 explicit authorization). Internal agent identities
+    # remain excluded — self-attestation stays closed at design-time.
+    assert EMERGENCY_CORROBORATOR_ACTORS == frozenset({"scheduled-task", "andrew"})
     assert "aria" not in EMERGENCY_CORROBORATOR_ACTORS
     assert "aether" not in EMERGENCY_CORROBORATOR_ACTORS
 
