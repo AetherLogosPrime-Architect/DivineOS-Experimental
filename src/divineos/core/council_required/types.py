@@ -106,7 +106,7 @@ EMERGENCY_CORROBORATOR_EVENT_TYPES: frozenset[str] = frozenset(
     }
 )
 # Cron-scheduled runs corroborate via actor identity, not event type.
-EMERGENCY_CORROBORATOR_ACTORS: frozenset[str] = frozenset({"scheduled-task"})
+EMERGENCY_CORROBORATOR_ACTORS: frozenset[str] = frozenset({"scheduled-task", "andrew"})
 
 
 class GateOutcome(Enum):

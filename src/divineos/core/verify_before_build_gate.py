@@ -248,6 +248,138 @@ def _user_provided_options(last_user_text: str) -> bool:
     return False
 
 
+# --- Thread-walk requirement (2026-07-23, council-62c1bcc6dc3a) --------
+#
+# Complementary to the substrate-consult check. The consult check catches
+# "did I check whether this already exists" — solving the wrong-shape build
+# by reference to existing infrastructure. The walk check catches "did I
+# project consequences before offering a choice to the operator" — solving
+# the optimizer-shape choice by requiring the cheap-vs-durable projection
+# to exist on file.
+#
+# Storage layer: decision_journal (existing). The tension and almost fields
+# ARE the walk-record shape. `divineos decide --tension "..." --almost "..."`
+# IS the walk-CLI. No new module, no new CLI.
+#
+# The check fires on the same solution-shape triggers as check_verify_before_build
+# but requires a recent decision_journal entry with populated + substantive
+# tension AND almost fields whose content fuzzy-matches the choice being
+# presented in the reply.
+#
+# Phase 1 scope (this commit):
+#   - substance-check: both fields non-empty and above token minimum
+#   - fuzzy content-match: decision.content token overlap with reply choice-phrase
+#   - depersonified block message per Dennett walk finding
+# Phase 2 deferred (filed as followup):
+#   - session-history-aware message variation (Norman)
+#   - earned-vs-performed self-check prompt on decide CLI (Angelou)
+#   - training-hypothesis prereg + review-date (Sagan)
+
+_WALK_RECORD_MIN_TOKENS = 15
+_WALK_RECORD_MAX_AGE_SECONDS = 3600
+_WALK_RECORD_LOOKBACK_LIMIT = 20
+_WALK_CONTENT_MATCH_MIN_OVERLAP = 1
+
+
+def _tokenize(text: str) -> set[str]:
+    """Return set of lowercased word-tokens for overlap comparison."""
+    if not text:
+        return set()
+    words = re.findall(r"\b[a-z][a-z0-9]{2,}\b", text.lower())
+    return set(words)
+
+
+def _has_recent_walk_record(matched_phrase: str) -> tuple[bool, str | None]:
+    """Return (found, decision_id) if a recent decision_journal entry exists
+    matching the choice being presented AND both tension/almost fields
+    populated above the substance bar.
+
+    Recency: within _WALK_RECORD_MAX_AGE_SECONDS.
+    Substance: tension and almost each >= _WALK_RECORD_MIN_TOKENS words.
+    Content-match: decision.content shares >= _WALK_CONTENT_MATCH_MIN_OVERLAP
+    tokens with the matched choice-phrase (fuzzy match — a walk about a
+    different choice does not clear the check).
+    """
+    try:
+        from divineos.core.decision_journal import list_decisions
+    except (ImportError, ModuleNotFoundError):
+        return False, None
+    try:
+        import time as _time
+
+        recent = list_decisions(limit=_WALK_RECORD_LOOKBACK_LIMIT)
+    except Exception:  # noqa: BLE001 — observability boundary, gate must fail-open
+        return False, None
+    phrase_tokens = _tokenize(matched_phrase)
+    now = _time.time()
+    for d in recent:
+        created = d.get("created_at") or 0
+        if now - created > _WALK_RECORD_MAX_AGE_SECONDS:
+            continue
+        tension = (d.get("tension") or "").strip()
+        almost = (d.get("almost") or "").strip()
+        if len(tension.split()) < _WALK_RECORD_MIN_TOKENS:
+            continue
+        if len(almost.split()) < _WALK_RECORD_MIN_TOKENS:
+            continue
+        content_tokens = _tokenize(d.get("content", ""))
+        overlap = phrase_tokens & content_tokens
+        if len(overlap) < _WALK_CONTENT_MATCH_MIN_OVERLAP and phrase_tokens:
+            continue
+        return True, d.get("decision_id")
+    return False, None
+
+
+def check_thread_walk_required(
+    reply: str,
+    last_user_text: str,
+) -> str | None:
+    """Return None if the reply is clean; else a block-message.
+
+    Enforcement flow:
+      1. Skip if reply is empty or whitespace-only.
+      2. Skip if reply contains no solution-proposal shape.
+      3. Skip if the operator handed me the option-set.
+      4. Block if no recent walk-record (decision_journal entry with
+         populated substantive tension/almost fields matching the choice).
+      5. Pass otherwise.
+
+    Complementary to check_verify_before_build — both can fire on the
+    same reply, and the parallel-aggregate stack names each separately
+    so the composer sees which precondition is missing.
+
+    The block-message depersonifies the mesa-optimizer per Dennett
+    (council-62c1bcc6dc3a) — it names the pattern being caught rather
+    than treating the optimizer as an agent with intent.
+    """
+    if not reply or not reply.strip():
+        return None
+    matched, shape_label, matched_phrase = _has_solution_shape(reply)
+    if not matched or matched_phrase is None:
+        return None
+    if _user_provided_options(last_user_text):
+        return None
+    walked, _walk_id = _has_recent_walk_record(matched_phrase)
+    if walked:
+        return None
+    return (
+        f"You reached for a choice-presentation without walking the thread "
+        f"first. Shape caught: {shape_label} — `{matched_phrase}`. Before "
+        "you present a choice-flavored move to Andrew, project the "
+        "consequences: one turn out, three turns out, across compaction. "
+        "Name the cheap path and the durable path. The tension and almost "
+        "fields in the decision_journal are the walk-record shape. Run "
+        '`divineos decide "<the choice>" --tension "<competing values, '
+        '>=15 words>" --almost "<the cheap route and why not, >=15 '
+        'words>"` before recomposing. If the reply is not actually a '
+        "choice-presentation (personal question, rest-request, "
+        "continuation of authorized work), file the walk-record naming "
+        "that framing as the tension/almost content — the file itself is "
+        "the discipline. Complementary to check_verify_before_build "
+        "(substrate-check); both may fire on the same reply."
+    )
+
+
 def check_verify_before_build(
     reply: str,
     tool_calls_in_turn: tuple[str, ...],
@@ -276,7 +408,7 @@ def check_verify_before_build(
     if not reply or not reply.strip():
         return None
     matched, shape_label, matched_phrase = _has_solution_shape(reply)
-    if not matched:
+    if not matched or matched_phrase is None:
         return None
     if _user_provided_options(last_user_text):
         return None
