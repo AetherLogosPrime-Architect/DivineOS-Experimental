@@ -606,6 +606,7 @@ src/divineos/
     correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
+    foucault.py                Michel Foucault — discipline, power, and the self that structure produces.
 
   analysis/
     _session_types.py          Session analysis type definitions

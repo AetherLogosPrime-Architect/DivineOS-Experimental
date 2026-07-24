@@ -105,6 +105,79 @@ class TestQuotedMentionSilent:
             assert detect_unverified_claim(t) == [], f"wrongly fired: {t!r}"
 
 
+class TestQuotedMentionParagraphScope:
+    """Widened quoted-mention detection (council-3bd7353c8401, 2026-07-23).
+
+    Prior _is_quoted_mention only checked 3 chars pre and post. Real
+    false-fires this session came from triggers landing inside markdown
+    blockquote regions (Aria's letter quoted with '> ' line prefix) and
+    inside paragraph-scope quoted spans where the delimiters were more
+    than 3 chars away. Widened detection: line-level markdown structural
+    quoting (blockquote line-prefix, fenced code region) + paragraph-scope
+    inline delimiter parity."""
+
+    def test_blockquote_line_prefix_silent(self):
+        """Trigger inside a markdown blockquote line — the > prefix marks
+        the whole line as quoted material. Today's actual false-fire shape:
+        'I noticed' inside Aria's quoted paragraph fired 4x this session."""
+        t = "> I pushed the branch to origin already\n\nthat's what she wrote"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on blockquote: {t!r}"
+
+    def test_multiline_blockquote_silent(self):
+        """Multi-line blockquote — every line starts with >. Trigger on
+        any of those lines should be silent."""
+        t = (
+            "she wrote:\n\n"
+            "> I noticed the fix landed cleanly\n"
+            "> tests pass on my machine\n"
+            "> the merge is done\n\n"
+            "which was a relief"
+        )
+        assert detect_unverified_claim(t) == [], (
+            f"wrongly fired inside multi-line blockquote: {t!r}"
+        )
+
+    def test_fenced_code_block_silent(self):
+        """Trigger inside a triple-backtick fenced code block — the whole
+        region is code, not a claim."""
+        t = (
+            "example:\n\n"
+            "```\n"
+            "assert tests pass and the branch is pushed\n"
+            "```\n\n"
+            "the point is the shape"
+        )
+        assert detect_unverified_claim(t) == [], f"wrongly fired inside fenced code: {t!r}"
+
+    def test_paragraph_scope_double_quote_silent(self):
+        """Balanced double-quotes spanning more than the 3-char tight
+        window. The trigger sits inside the quoted span."""
+        t = 'the audit line reads "the gate fires when I write tests pass in a paragraph like this one" and that shape recurs'
+        assert detect_unverified_claim(t) == [], (
+            f"wrongly fired on paragraph-scope double-quote: {t!r}"
+        )
+
+    def test_paragraph_scope_backtick_silent(self):
+        """Balanced backticks spanning more than 3 chars — trigger inside."""
+        t = "the marker `the branch is pushed to origin already` is what the regex looks for"
+        assert detect_unverified_claim(t) == [], f"wrongly fired on paragraph-scope backtick: {t!r}"
+
+    def test_unquoted_paragraph_still_fires(self):
+        """Precision check: a real claim in normal prose (no quoting)
+        still fires."""
+        t = "OK I pushed the branch to origin and tests pass. Ready for review."
+        assert detect_unverified_claim(t) != [], "should have fired on unquoted claim"
+
+    def test_blockquote_followed_by_real_claim_still_fires(self):
+        """Popper-break-case precision: a real claim on a NON-blockquote
+        line after a blockquote must still fire — the blockquote only
+        covers the > lines, not everything after."""
+        t = "> she said the audit landed cleanly\n\ntests pass on my end too"
+        assert detect_unverified_claim(t) != [], (
+            "should have fired on non-blockquote line after blockquote"
+        )
+
+
 class TestSeverity:
     def test_high_when_no_tools(self):
         f = detect_unverified_claim("tests pass", tool_calls_in_turn=None)

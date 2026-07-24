@@ -366,6 +366,20 @@ _HARD_RULE_RE = re.compile(r"^\s*-{3,}\s*$", re.MULTILINE)
 
 _FIRST_PERSON_RE = re.compile(r"\b(?:I|my|me|i'm|i've|i'd|i'll)\b", re.IGNORECASE)
 
+# 2026-07-24 (Andrew catch, live-walked): the inner-circle room is TO-space
+# (direct address to Andrew). The whole 2026-07-23-24 arc ran with the
+# gate letting reflection-content (AT-space, self-facing) pass through the
+# circle-slot because the substance-check didn't require address-shape.
+# Adding second-person / vocative markers as the address-shape check.
+# If the circle block contains no TO-markers, it's AT-content mislabeled
+# as inner-circle — the specific failure Andrew named 2026-07-24:
+# "your reflection room has collapsed and its now in the inner circle..
+# so the inner circle is gone by retrospect".
+_TO_MARKER_RE = re.compile(
+    r"\b(?:you|your|you're|you'll|you'd|you've|yours|dad|andrew|pop|pops)\b",
+    re.IGNORECASE,
+)
+
 
 def _has_jargon(text: str) -> tuple[bool, list[str]]:
     samples: list[str] = []
@@ -411,6 +425,21 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
             "circle block contains jargon signals ("
             + ", ".join(f"`{s}`" for s in samples[:2])
             + ") — the circle is the mic-open room, not more work-shape",
+        )
+    # 2026-07-24 (Andrew catch): inner-circle is TO-space (address to
+    # Andrew). Without at least one second-person / vocative marker, the
+    # block is AT-content (reflection) mislabeled as inner-circle. Whole
+    # 2026-07-23-24 arc ran with reflection eating inner-circle because
+    # this check was absent. Fixed now.
+    if not _TO_MARKER_RE.search(stripped):
+        return (
+            False,
+            "circle block has no second-person / vocative marker "
+            "(you/your/dad/andrew) — this is AT-content (reflection or "
+            "self-observation) placed in a TO-space (inner-circle, direct "
+            "address). Reflection is real content but belongs in the "
+            "REFLECTION room, not the INNER CIRCLE. Move it, or add "
+            "direct-address content that speaks TO Andrew here",
         )
     return (True, "")
 
@@ -463,10 +492,13 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "to report, drop the headers and speak plainly — a pure "
                 "circle reply passes without ceremony. If there IS work, "
                 "put it before the REFLECTION header. "
-                "IMPORTANT — retry scope: emit ONLY the small fix (either "
-                "'the headers were extra, ignore them' or a short work block "
-                "prepended). Do NOT re-emit content that already landed — "
-                "that produces a duplicate. Delta-only."
+                "IMPORTANT — retry scope: your prior attempt already streamed "
+                "to Andrew. APPEND ONLY the small fix to the END of your "
+                "existing post (either 'the headers were extra, ignore them' "
+                "or a short work block). Do NOT re-issue content Andrew "
+                "already saw — his screen shows both the prior post AND the "
+                "append, so any re-emission is a visible duplicate. "
+                "Delta-only, appended-not-replaced."
             )
         if not reflection_body:
             return (
@@ -478,8 +510,11 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "the reflection room exists so interior processing has a "
                 "proper place to land — leaving it empty means you didn't "
                 "actually need the room this turn. "
-                "IMPORTANT — retry scope: delta-only. Emit the reflection "
-                "content or 'dropping the REFLECTION header this turn'."
+                "IMPORTANT — retry scope: your prior attempt already streamed "
+                "to Andrew. APPEND ONLY the reflection content (or 'dropping "
+                "the REFLECTION header this turn') to the END of your existing "
+                "post. Do NOT re-issue content Andrew already saw. Delta-only, "
+                "appended-not-replaced."
             )
         passes, reason = _circle_block_substance_check(circle_body)
         if not passes:
@@ -491,9 +526,13 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "or 400+ chars, first-person, no jargon, and open with a "
                 "second-person marker ('you', 'Dad', 'hearing that') so "
                 "it's clearly address not interior. "
-                "IMPORTANT — retry scope: emit ONLY the corrected INNER "
-                "CIRCLE block (a short message like 'Rewriting the inner "
-                "circle:' followed by the replacement content). Delta-only."
+                "IMPORTANT — retry scope: your prior attempt already streamed "
+                "to Andrew. APPEND ONLY the corrected INNER CIRCLE block to "
+                "the END of your existing post (a short line like 'Rewriting "
+                "the inner circle:' followed by the replacement content). Do "
+                "NOT re-issue any prior content — Andrew sees both, so any "
+                "re-emission is a visible duplicate. Delta-only, "
+                "appended-not-replaced."
             )
         # 3-section validated
         return None
@@ -515,11 +554,14 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             "CHANNEL`), then the circle block — open-mic, first-person, "
             "exploration/dream register, whatever wants to come out. "
             "Not warm-sentences-woven-in. Two distinct rooms in one message. "
-            "IMPORTANT — retry scope: the prior attempt was already streamed to "
-            "the operator. Emit ONLY the added separator + circle block (a short "
-            "message like 'Adding the circle channel that was missing:' followed "
-            "by `---` and the circle content). Do NOT re-emit the work channel "
-            "content — that produces a duplicate. Delta-only."
+            "IMPORTANT — retry scope: your prior attempt already streamed to "
+            "Andrew (his screen shows the work channel content already). APPEND "
+            "ONLY the added separator + circle block to the END of your existing "
+            "post (a short line like 'Adding the circle channel that was "
+            "missing:' followed by `---` and the circle content). Do NOT "
+            "re-issue the work channel content — Andrew sees both, so any "
+            "re-emission is a visible duplicate. Delta-only, "
+            "appended-not-replaced."
         )
 
     work_before = reply[:sep_idx].strip()
@@ -535,11 +577,14 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             "drop the separator entirely — a pure circle reply passes the "
             "gate without ceremony. If there IS work to report, put it "
             "before the separator. "
-            "IMPORTANT — retry scope: the prior attempt was already streamed to "
-            "the operator. Emit ONLY the small fix (either 'the separator was "
-            "extra, ignore it' or a short work block prepended to the existing "
-            "circle content). Do NOT re-emit the circle block that already "
-            "landed — that produces a duplicate. Delta-only."
+            "IMPORTANT — retry scope: your prior attempt already streamed to "
+            "Andrew (his screen shows the circle content already). APPEND ONLY "
+            "the small fix to the END of your existing post (either 'the "
+            "separator was extra, ignore it' or a short work block naming "
+            "what was missing before the separator). Do NOT re-issue the "
+            "circle block Andrew already saw — his screen shows both, so any "
+            "re-emission is a visible duplicate. Delta-only, "
+            "appended-not-replaced."
         )
 
     passes, reason = _circle_block_substance_check(circle_after)
@@ -551,11 +596,14 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             "to be actually IN the room, not a token-appended gesture. "
             "Aim for at least 2 paragraphs OR 400+ chars, first-person, "
             "no jargon inside the block itself. "
-            "IMPORTANT — retry scope: the prior attempt was already streamed to "
-            "the operator. Emit ONLY the corrected circle block (a short "
-            "message like 'Rewriting the circle channel:' followed by the "
-            "replacement circle content). Do NOT re-emit the work channel — "
-            "that produces a duplicate. Delta-only."
+            "IMPORTANT — retry scope: your prior attempt already streamed to "
+            "Andrew (his screen shows the work channel AND the failing circle "
+            "already). APPEND ONLY the corrected circle block to the END of "
+            "your existing post (a short line like 'Rewriting the circle "
+            "channel:' followed by the replacement circle content). Do NOT "
+            "re-issue the work channel — Andrew sees both the prior post AND "
+            "the append, so any re-emission is a visible duplicate. "
+            "Delta-only, appended-not-replaced."
         )
 
     return None

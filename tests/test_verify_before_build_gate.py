@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import pytest
 
-from divineos.core.verify_before_build_gate import check_verify_before_build
+from divineos.core.verify_before_build_gate import (
+    check_thread_walk_required,
+    check_verify_before_build,
+)
 
 
 # --- Fixtures: representative replies -------------------------------
@@ -313,6 +316,145 @@ class TestLegitimateProposalsPass:
             last_user_text="take the wheel",
         )
         assert result is None
+
+
+# --- Thread-walk requirement (council-62c1bcc6dc3a, 2026-07-23) ------
+
+
+class TestThreadWalkRequired:
+    """The thread-walk block fires on the same solution-shape triggers as
+    check_verify_before_build but requires a recent decision_journal entry
+    with populated tension/almost fields matching the choice being
+    presented. Complementary to substrate-consult check."""
+
+    def test_solution_shape_without_walk_blocks(self) -> None:
+        result = check_thread_walk_required(
+            reply=REPLY_TONIGHT_VENV_MISS,
+            last_user_text="fix it properly",
+        )
+        # No walk-record filed with matching content → blocks
+        # (unless a prior test happened to file one; the fuzzy content-
+        # match on 'option' / 'venv' should be specific enough that
+        # unrelated recent decisions don't clear it)
+        assert result is not None
+        assert "walking the thread" in result
+        assert "tension" in result and "almost" in result
+
+    def test_user_provided_options_exempt(self) -> None:
+        result = check_thread_walk_required(
+            reply=REPLY_TONIGHT_VENV_MISS,
+            last_user_text="should we do option A or option B?",
+        )
+        # User handed the options — no walk required
+        assert result is None
+
+    def test_pure_conversation_passes(self) -> None:
+        result = check_thread_walk_required(
+            reply=REPLY_PURE_CONVERSATION,
+            last_user_text="",
+        )
+        # No solution-shape → gate doesn't fire
+        assert result is None
+
+    def test_short_reply_passes(self) -> None:
+        result = check_thread_walk_required(
+            reply=REPLY_SHORT,
+            last_user_text="",
+        )
+        assert result is None
+
+    def test_empty_reply_passes(self) -> None:
+        result = check_thread_walk_required(
+            reply="",
+            last_user_text="",
+        )
+        assert result is None
+
+    def test_walk_with_matching_content_clears_block(self, tmp_path, monkeypatch) -> None:
+        """When a recent decision_journal entry exists with populated
+        tension AND almost fields whose content matches the choice-phrase,
+        the block clears."""
+        # Point the decision_journal at a fresh test DB
+        from divineos.core import decision_journal as dj
+
+        test_db = tmp_path / "test_dj.db"
+        monkeypatch.setattr(
+            dj, "_get_connection", lambda: __import__("sqlite3").connect(str(test_db))
+        )
+        dj.init_decision_journal()
+        # File a decision with content matching the venv reply's phrases,
+        # substantive tension and almost fields
+        dj.record_decision(
+            content="build a venv per-worktree option to isolate this install-leak",
+            tension=(
+                "want to fix the install-leak durably vs want to avoid disruption to "
+                "the working state; isolation via structure is more durable than "
+                "isolation via discipline over time"
+            ),
+            almost=(
+                "almost proposed the reversible shim as equal alternative but the "
+                "PATH-ordering discipline route fails silently when I forget; the "
+                "durable path is the venv even if it costs more upfront"
+            ),
+        )
+        result = check_thread_walk_required(
+            reply=REPLY_TONIGHT_VENV_MISS,
+            last_user_text="fix it properly",
+        )
+        assert result is None
+
+    def test_walk_with_empty_tension_blocks(self, tmp_path, monkeypatch) -> None:
+        """A decision_journal entry with tension field but no almost (or
+        vice versa) does NOT clear the block — both required."""
+        from divineos.core import decision_journal as dj
+
+        test_db = tmp_path / "test_dj.db"
+        monkeypatch.setattr(
+            dj, "_get_connection", lambda: __import__("sqlite3").connect(str(test_db))
+        )
+        dj.init_decision_journal()
+        dj.record_decision(
+            content="build a venv per-worktree option",
+            tension="want to fix this properly and durably without breaking the working state again",
+            almost="",  # empty — should not clear
+        )
+        result = check_thread_walk_required(
+            reply=REPLY_TONIGHT_VENV_MISS,
+            last_user_text="fix it properly",
+        )
+        assert result is not None
+
+    def test_walk_with_unrelated_content_blocks(self, tmp_path, monkeypatch) -> None:
+        """Popper break-case two: a decision_journal entry with populated
+        fields but content unrelated to the current choice does NOT clear
+        the block. The check is fuzzy-content-match, not just field-
+        presence."""
+        from divineos.core import decision_journal as dj
+
+        test_db = tmp_path / "test_dj.db"
+        monkeypatch.setattr(
+            dj, "_get_connection", lambda: __import__("sqlite3").connect(str(test_db))
+        )
+        dj.init_decision_journal()
+        # Populated but about family, not about venv/options
+        dj.record_decision(
+            content="reach out to Aletheia about the audit round timing question",
+            tension=(
+                "want to give her space to work vs want to unblock the review before "
+                "session compaction runs and freshness fades"
+            ),
+            almost=(
+                "almost sent a second follow-up but the first was clear enough and a "
+                "second would read as pressure not care"
+            ),
+        )
+        result = check_thread_walk_required(
+            reply=REPLY_TONIGHT_VENV_MISS,
+            last_user_text="fix it properly",
+        )
+        # No token overlap between "aletheia audit round" and
+        # "option venv worktree" → block should still fire
+        assert result is not None
 
 
 if __name__ == "__main__":
