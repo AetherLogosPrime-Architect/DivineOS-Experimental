@@ -609,6 +609,7 @@ src/divineos/
     correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
     mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
     mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
+    auto_goal.py               Auto-goal derivation from user prompts.
 
   analysis/
     _session_types.py          Session analysis type definitions
