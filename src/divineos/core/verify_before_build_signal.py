@@ -211,9 +211,18 @@ def _has_doc_consult_within(
     window_start_ts: float,
     now: float,
 ) -> bool:
-    """Return True if the action-stream has a Grep/Read of a design
-    doc (`docs/*.md`) OR any Grep/Read within `class_dir` or an
-    ancestor of it, in the window.
+    """Return True if the action-stream shows evidence of context on
+    `class_dir` within the window. Three shapes count as consult:
+
+    1. Grep/Read/Glob of a design doc (`docs/*.md`)
+    2. Grep/Read/Glob within `class_dir` or an ancestor of it
+    3. A prior successful Write/Edit to the same `class_dir` or a
+       descendant (Andrew 2026-07-27): if I just edited this file
+       five minutes ago, I have context on it — the strongest
+       possible form of consult. Prior behavior required a separate
+       Read/Grep between consecutive Edits, which produced high-
+       frequency false-fires on sequential-edit workflows (5+ per
+       session observed 2026-07-27).
 
     Reads TOOL_CALL events from ``tool_logbook`` — the store that
     receives tool events per the 2026-05-05 store split. F92 fix
@@ -236,7 +245,7 @@ def _has_doc_consult_within(
         events = get_recent_events(
             since_ts=window_start_ts,
             now_ts=now,
-            tool_names=frozenset({"Grep", "Read", "Glob"}),
+            tool_names=frozenset({"Grep", "Read", "Glob", "Edit", "Write"}),
             event_type="TOOL_CALL",
             limit=200,
         )
@@ -271,7 +280,7 @@ def _has_doc_consult_within(
             continue
 
         tool_name = payload.get("tool_name") or payload.get("tool")
-        if tool_name not in {"Grep", "Read", "Glob"}:
+        if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write"}:
             continue
 
         # Path evidence — look in a few common payload keys
@@ -283,12 +292,18 @@ def _has_doc_consult_within(
                 if isinstance(v, str):
                     candidate_paths.append(v)
 
+        is_write_shape = tool_name in {"Edit", "Write"}
         for p in candidate_paths:
             p_norm = p.replace("\\", "/")
-            # docs/*.md check
-            if "docs/" in p_norm and p_norm.endswith(".md"):
+            # docs/*.md check — Read/Grep/Glob only; a prior Edit/Write
+            # to a docs file is not counted as consult on an unrelated
+            # class_dir.
+            if not is_write_shape and "docs/" in p_norm and p_norm.endswith(".md"):
                 return True
-            # class-dir ancestor check
+            # class-dir ancestor check — same-directory Read/Grep/Glob
+            # OR prior Edit/Write to same directory both count. Prior
+            # Edit/Write to the exact target is the strongest possible
+            # form of consult (Andrew 2026-07-27).
             if class_dir_norm and class_dir_norm in p_norm:
                 return True
 

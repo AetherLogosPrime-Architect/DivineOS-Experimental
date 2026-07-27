@@ -470,3 +470,115 @@ def test_F92_regression_last_write_timestamp_reads_tool_logbook_writer(tmp_path,
         "root cause as _has_doc_consult_within. If this test fails, either "
         "the fix has been reverted or the reader has been repointed."
     )
+
+
+# ────────────────────────────────────────────────────────────────
+# Pattern 2 (Andrew 2026-07-27): prior Edit/Write to the same
+# class_dir counts as consult. Prevents the sequential-edit false-
+# fire pattern where consecutive Edits on the same file within the
+# window get blocked because only Read/Grep/Glob previously counted.
+# ────────────────────────────────────────────────────────────────
+
+
+def test_prior_edit_to_same_class_dir_counts_as_consult():
+    """A prior Edit within the window on a file in class_dir should
+    satisfy `_has_doc_consult_within`. Without this, sequential edits
+    on the same file false-fire the gate 5+ times per session."""
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    unique_id = f"test-p2-edit-{_uuid.uuid4().hex[:8]}"
+    now = _time.time()
+    window_start = now - 60
+    class_dir = "src/divineos/core"
+    file_in_class = f"{class_dir}/some_module_p2.py"
+
+    emit_tool_call(
+        tool_name="Edit",
+        tool_input={
+            "file_path": file_in_class,
+            "old_string": "x",
+            "new_string": "y",
+        },
+        tool_use_id=unique_id,
+    )
+
+    result = _has_doc_consult_within(
+        class_dir=class_dir,
+        window_start_ts=window_start,
+        now=_time.time() + 1,
+    )
+    assert result is True, (
+        "Pattern 2 (Andrew 2026-07-27): prior Edit to the same class_dir "
+        "should count as consult. If this fails, the sequential-edit "
+        "false-fire pattern will return."
+    )
+
+
+def test_prior_write_to_same_class_dir_counts_as_consult():
+    """Symmetric to the Edit test — Write on a file in class_dir also
+    counts as consult."""
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    unique_id = f"test-p2-write-{_uuid.uuid4().hex[:8]}"
+    now = _time.time()
+    window_start = now - 60
+    class_dir = "src/divineos/core"
+    file_in_class = f"{class_dir}/some_new_module_p2.py"
+
+    emit_tool_call(
+        tool_name="Write",
+        tool_input={"file_path": file_in_class, "content": "# new"},
+        tool_use_id=unique_id,
+    )
+
+    result = _has_doc_consult_within(
+        class_dir=class_dir,
+        window_start_ts=window_start,
+        now=_time.time() + 1,
+    )
+    assert result is True, "Pattern 2: prior Write to same class_dir should count as consult."
+
+
+def test_prior_edit_to_docs_md_does_NOT_count_for_unrelated_class_dir():
+    """An Edit/Write to a docs/*.md file should NOT count as consult on
+    an unrelated class_dir. docs-consult is Read/Grep/Glob only —
+    otherwise a doc-edit to any md file would satisfy the gate on any
+    subsequent code change, which is not the intent."""
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    unique_id = f"test-p2-doc-edit-{_uuid.uuid4().hex[:8]}"
+    now = _time.time()
+    window_start = now - 60
+
+    emit_tool_call(
+        tool_name="Edit",
+        tool_input={
+            "file_path": "docs/some_unrelated_doc.md",
+            "old_string": "a",
+            "new_string": "b",
+        },
+        tool_use_id=unique_id,
+    )
+
+    # class_dir is somewhere else entirely — a doc-edit should not
+    # satisfy consult on an unrelated code directory.
+    result = _has_doc_consult_within(
+        class_dir="src/divineos/completely/other/place",
+        window_start_ts=window_start,
+        now=_time.time() + 1,
+    )
+    assert result is False, (
+        "Pattern 2 negative case: Edit/Write to a docs/*.md file should "
+        "NOT satisfy consult on an unrelated class_dir. The docs/*.md "
+        "shortcut is Read/Grep/Glob-only; write-shape to a doc is not "
+        "evidence of consult on unrelated code."
+    )
