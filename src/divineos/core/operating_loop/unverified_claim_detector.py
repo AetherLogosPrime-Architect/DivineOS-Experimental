@@ -521,17 +521,92 @@ def _is_not_yet(text: str, match: re.Match[str]) -> bool:
 # exclusion shape as `_merge_lacks_anchor`.
 _QUOTE_CHARS = frozenset("'\"`")
 
+# Bound paragraph-scope quote detection to a fixed window on each side of
+# the match. Real paragraphs are typically well under 800 chars; the bound
+# prevents catastrophic scanning on pathological long inputs (same
+# defense-in-depth principle as _FILE_PATH_RE's 200-char cap).
+_PARAGRAPH_WINDOW = 800
+
+
+def _paragraph_slice_bounds(text: str, match: re.Match[str]) -> tuple[int, int]:
+    """Return (start, end) indices of the paragraph containing the match.
+    A paragraph is bounded by a blank line (\\n\\n) on either side, or by
+    the text bounds. Capped at _PARAGRAPH_WINDOW chars on each side."""
+    lo = max(0, match.start() - _PARAGRAPH_WINDOW)
+    hi = min(len(text), match.end() + _PARAGRAPH_WINDOW)
+    p_start_search = text.rfind("\n\n", lo, match.start())
+    p_start = lo if p_start_search == -1 else p_start_search + 2
+    p_end_search = text.find("\n\n", match.end(), hi)
+    p_end = hi if p_end_search == -1 else p_end_search
+    return (p_start, p_end)
+
+
+def _match_line_is_blockquote(text: str, match: re.Match[str]) -> bool:
+    """True when the line containing the match starts with '>' after
+    optional leading whitespace — markdown blockquote line-prefix format.
+    This catches the shape Aria's letters land in: every line of the
+    quoted paragraph begins with '> '."""
+    line_start_search = text.rfind("\n", 0, match.start())
+    line_start = 0 if line_start_search == -1 else line_start_search + 1
+    line_prefix = text[line_start : match.start()].lstrip()
+    return line_prefix.startswith(">")
+
+
+def _match_inside_fenced_code(text: str, match: re.Match[str]) -> bool:
+    """True when the match is inside a triple-backtick fenced code block —
+    the count of ``` sequences before the match position is odd, meaning
+    a fence has been opened and not yet closed."""
+    fence_count = text.count("```", 0, match.start())
+    return fence_count % 2 == 1
+
+
+def _match_inside_paragraph_delim_parity(text: str, match: re.Match[str]) -> bool:
+    """True when the match sits inside an unclosed inline-delimiter span
+    within its paragraph — a `, ", or * character opened before the match
+    without a matching closer before the match. Paragraph-scoped so a
+    stray quote elsewhere in the document does not silence unrelated
+    matches. Single-quote is handled separately (contractions confound
+    raw parity)."""
+    p_start, _ = _paragraph_slice_bounds(text, match)
+    pre = text[p_start : match.start()]
+    for delim in ('"', "`", "*"):
+        if pre.count(delim) % 2 == 1:
+            return True
+    return False
+
 
 def _is_quoted_mention(text: str, match: re.Match[str]) -> bool:
-    """True when the matched span is enclosed in quote characters — naming
-    the phrase, not asserting it. Check the 3 chars immediately before the
-    match for an opening quote AND the 3 chars immediately after for a
-    matching closing quote of the same type."""
+    """True when the matched span is naming a phrase rather than asserting
+    it. Layered detection (council-3bd7353c8401, 2026-07-23):
+
+    (1) Fast-path tight window — 3 chars pre and post carry a matching
+        quote pair. Preserves original behavior for compact `'tests pass'`
+        style mentions and keeps the common case cheap.
+    (2) Line-level markdown structural quoting — the match's line begins
+        with '>' (blockquote prefix), or the match sits inside a
+        triple-backtick fenced code block. Feynman-corrected: blockquotes
+        have no closing marker so pure inline-parity misses them.
+    (3) Paragraph-scope inline delimiter parity — an unclosed `, ", or *
+        opens earlier in the paragraph and has no closer before the match,
+        indicating the match is inside an open inline quote span.
+
+    Anti-silencer for first-person completion claims inside quoted regions
+    is deferred (see Popper walk finding in council-3bd7353c8401): the
+    rare case of self-quoting a real claim mid-turn is expected to be
+    infrequent enough that a subsequent bare claim in the same reply
+    still fires and surfaces the check. If it emerges as a real
+    false-negative, add the override."""
     pre = text[max(0, match.start() - 3) : match.start()]
     post = text[match.end() : min(len(text), match.end() + 3)]
     for q in _QUOTE_CHARS:
         if q in pre and q in post:
             return True
+    if _match_line_is_blockquote(text, match):
+        return True
+    if _match_inside_fenced_code(text, match):
+        return True
+    if _match_inside_paragraph_delim_parity(text, match):
+        return True
     return False
 
 

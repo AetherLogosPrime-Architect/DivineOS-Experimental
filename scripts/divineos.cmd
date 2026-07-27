@@ -12,12 +12,22 @@ REM Also copy divineos_wrapper.py to the same directory (adjacent-install).
 REM
 REM See docs/pip_pingpong_wrapper_design.md for the full design.
 
-setlocal
+REM ERRORLEVEL propagation bug fix 2026-07-26: %ERRORLEVEL% inside a
+REM parenthesized block is PARSE-time expanded (captures ERRORLEVEL=0
+REM before python runs), losing python's actual exit code. Delayed
+REM expansion !ERRORLEVEL! is RUNTIME-evaluated per line. Symptom
+REM this fixed: divineos prereg show <fake-id> returned exit 0 in
+REM subprocess environments (pytest fixtures with fresh DIVINEOS_HOME)
+REM even though the CLI code raised click.exceptions.Exit(1). Class
+REM of failure: silent exit-code loss making fake substrate IDs pass
+REM closure_verification. See tests/test_closure_verification.py
+REM test_plausible_but_fake_substrate_id_fails.
+setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
 
 if exist "%SCRIPT_DIR%divineos_wrapper.py" (
     python "%SCRIPT_DIR%divineos_wrapper.py" %*
-    exit /b %ERRORLEVEL%
+    exit /b !ERRORLEVEL!
 )
 
 echo divineos: wrapper .py not found next to this .cmd 1>&2

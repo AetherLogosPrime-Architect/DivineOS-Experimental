@@ -300,6 +300,17 @@
         ]
       },
       {
+        "matcher": "Edit|Write|NotebookEdit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-before-build-signal.sh",
+            "timeout": 10
+          }
+        ]
+      },
+
+      {
         "matcher": "Task|Agent",
         "hooks": [
           {
@@ -347,6 +358,16 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-tool-use-emit-to-logbook.sh",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Bash",
         "hooks": [
