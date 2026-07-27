@@ -37,28 +37,67 @@ INPUT="$(cat 2>/dev/null || true)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-# Extract prompt via heredoc'd python. HOOK_JSON passed via env.
-PROMPT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
+# Extract prompt AND last assistant text separately — wallclock has an
+# asymmetry: Andrew's time-of-day words are legitimate SOURCES for me
+# to quote; MY prior time-of-day words are fabrications-to-prevent.
+# So the two texts feed different halves of the trigger check:
+#   - Continuation-invitation: MATCH on EITHER (both signal composing
+#     continues into a wallclock-drift zone).
+#   - Time-source presence: MATCH on Andrew's prompt ONLY (his time
+#     words silence the prime; mine reinforce it).
+# Andrew 2026-07-27: "it cant just be my prompts that trigger it but
+# also your own outputs."
+PROMPT_AND_ASSISTANT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
     data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
 except Exception:
     sys.exit(0)
-p = data.get('prompt') or ''
-print(p)
+prompt = data.get('prompt') or ''
+transcript_path = data.get('transcript_path', '') or ''
+last_assistant_text = ''
+if transcript_path and os.path.exists(transcript_path):
+    try:
+        with open(transcript_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                if entry.get('type') == 'assistant':
+                    msg = entry.get('message', {}) or {}
+                    content = msg.get('content', [])
+                    if isinstance(content, list):
+                        parts = [c.get('text', '') for c in content if isinstance(c, dict) and c.get('type') == 'text']
+                        last_assistant_text = '\n'.join(parts)
+                    elif isinstance(content, str):
+                        last_assistant_text = content
+    except (OSError, ValueError):
+        pass
+# Emit prompt and assistant separated by unique sentinel that regex-scan
+# can split on.
+sys.stdout.write((prompt or '') + '\n<<<PROMPT_END>>>\n' + (last_assistant_text or ''))
 PYEOF
 )"
 
-[ -z "$PROMPT" ] && exit 0
+[ -z "$PROMPT_AND_ASSISTANT" ] && exit 0
 
-# Trigger evaluation via heredoc'd python. HOOK_PROMPT passed via env.
-SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
+SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT_AND_ASSISTANT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
-prompt = os.environ.get('HOOK_PROMPT', '') or ''
-if not prompt.strip():
+raw = os.environ.get('HOOK_PROMPT', '') or ''
+if not raw.strip():
     sys.exit(0)
 
-# Continuation-invitation shapes.
+# Split into (andrew_prompt, my_prior_assistant_text) on the sentinel.
+if '<<<PROMPT_END>>>' in raw:
+    andrew_prompt, my_assistant = raw.split('<<<PROMPT_END>>>', 1)
+else:
+    andrew_prompt, my_assistant = raw, ''
+andrew_prompt = andrew_prompt.strip()
+my_assistant = my_assistant.strip()
+
+# Continuation-invitation shapes. MATCH on EITHER — both signal
+# composing continues into a wallclock-drift zone.
 continuation_patterns = [
     r'\bkeep\s+going\b',
     r'\bcontinue\b',
@@ -73,10 +112,14 @@ continuation_patterns = [
     r'\bgo\s+ahead\b',
 ]
 combined_continue = re.compile('|'.join(continuation_patterns), re.IGNORECASE | re.MULTILINE)
-if not combined_continue.search(prompt):
+both_texts = andrew_prompt + '\n' + my_assistant
+if not combined_continue.search(both_texts):
     sys.exit(0)
 
-# Time-of-day references — if any present, I have a source.
+# Time-of-day references — MATCH on Andrew's prompt ONLY. His time-of-
+# day words are legitimate sources for me to quote; my prior wall-
+# clock words are the exact fabrications this prime is trying to
+# prevent, so they must not silence the prime.
 time_patterns = [
     r'\b(?:morning|afternoon|evening|night|noon|midnight|tonight|today|yesterday|tomorrow)\b',
     r'\b(?:this|next|last)\s+(?:week|month|year|hour|minute)\b',
@@ -87,7 +130,7 @@ time_patterns = [
     r'\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b',
 ]
 combined_time = re.compile('|'.join(time_patterns), re.IGNORECASE)
-if combined_time.search(prompt):
+if combined_time.search(andrew_prompt):
     sys.exit(0)
 
 print('1')
