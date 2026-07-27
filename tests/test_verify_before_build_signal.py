@@ -170,11 +170,38 @@ def test_pick_primary_path_from_file_paths():
 
 
 def test_pick_primary_path_from_bash():
-    assert _pick_primary_path((), "git add src/foo.py") == "src/foo.py"
+    # 2026-07-27: uses a path that ACTUALLY exists in the repo — the
+    # new implementation validates via os.path.exists to distinguish
+    # real paths from tokens-that-happen-to-contain-a-slash (git
+    # branches, refspecs, URLs).
+    assert _pick_primary_path((), "git add src/divineos") == "src/divineos"
 
 
 def test_pick_primary_path_empty():
     assert _pick_primary_path((), "") == ""
+
+
+def test_pick_primary_path_git_push_branch_name_returns_empty():
+    """2026-07-27 fix: `git push -u origin feat/gate-automation-sweep-...`
+    was returning `feat/gate-automation-sweep-...` as if it were a file
+    path, then downstream class_dir_for extracted `feat` as the class-dir
+    and the gate demanded consultation of that non-existent directory.
+    Non-existent slash-tokens must return empty (no path)."""
+    result = _pick_primary_path((), "git push -u origin feat/gate-automation-sweep-2026-07-27")
+    assert result == ""
+
+
+def test_pick_primary_path_url_returns_empty():
+    """URLs contain slashes but are not filesystem paths."""
+    result = _pick_primary_path((), "curl https://example.com/api/foo")
+    assert result == ""
+
+
+def test_pick_primary_path_refspec_colon_returns_empty():
+    """Git refspec like `origin +feat:refs/heads/feat` — contains slashes,
+    is not a path."""
+    result = _pick_primary_path((), "git push origin refs/heads/feat/some-branch")
+    assert result == ""
 
 
 # ─── Window computation ─────────────────────────────────────────────
