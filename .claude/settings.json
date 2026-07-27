@@ -150,6 +150,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/wallclock-source-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/continuity-anchor-surface.sh",
             "timeout": 5
           },
