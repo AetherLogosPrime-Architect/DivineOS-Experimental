@@ -132,7 +132,7 @@ def _git_added_lines() -> dict[str, list[tuple[int, str, str]]]:
             timeout=10,
             check=False,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError, UnicodeDecodeError):
         return {}
     if diff_out.stdout is None:
         return {}
