@@ -229,7 +229,7 @@ class TestAutoResolve:
                     context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
                     tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
                     session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
-                    almost TEXT DEFAULT '')"""
+                    almost TEXT DEFAULT '', synergy TEXT DEFAULT '')"""
             )
             for sid in ["s5", "s6", "s7"]:
                 ledger_conn.execute(
@@ -320,7 +320,7 @@ class TestAutoResolve:
                     context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
                     tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
                     session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
-                    almost TEXT DEFAULT '')"""
+                    almost TEXT DEFAULT '', synergy TEXT DEFAULT '')"""
             )
             for sid in ["s6", "s7", "s8"]:
                 ledger_conn.execute(
@@ -666,7 +666,7 @@ class TestResolvedWithHistory:
                     alternatives TEXT DEFAULT '[]',
                     context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
                     tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
-                    tension TEXT DEFAULT '', almost TEXT DEFAULT '')"""
+                    tension TEXT DEFAULT '', almost TEXT DEFAULT '', synergy TEXT DEFAULT '')"""
             )
             # Stimulus session IDs MUST match session IDs in the lesson's
             # sessions list, because _count_stimulus_sessions iterates the

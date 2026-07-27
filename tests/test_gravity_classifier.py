@@ -104,49 +104,63 @@ class TestCouncilRequiredTier2026_06_20:
     fired only the basic substrate-gate at score >= 1; edits to guardrail-
     listed detector files scored 1 (borderline-single-feature, edit-src-
     divineos only) and passed through with passive surface only — no
-    council requirement. The fix: add edit-guardrail-listed feature reading
-    scripts/guardrail_files.txt, plus is_council_required tier.
+    council requirement. The fix (as-of 2026-06-20): add edit-guardrail-
+    listed feature reading scripts/guardrail_files.txt, plus
+    is_council_required tier.
 
-    Council-walked before implementing (consult-944ad9d332e5). These tests
-    pin the today's-slip cases at council-required and pin routine edits to
-    non-guardrail src/ files at just-surface, so the regression boundary is
-    explicit.
+    Andrew 2026-07-26 CLAY-MODE-VS-KILN-MODE UPDATE: edit-guardrail-listed
+    was REMOVED from _HIGH_IMPACT_FEATURES short-circuit. Clay-mode
+    workspace edits to guardrail-listed files should NOT trigger council-
+    required per-edit — External-Review at merge time is the discipline
+    for guardrail-listed drift. Only edit-kiln-layer (foundational_truths,
+    seed.json — the actual identity substrate) still short-circuits council-
+    required. Cumulative score-threshold still fires council-required at
+    total >= 6. Tests below updated to match new correct behavior.
+
+    Council-walked (2026-06-20 consult-944ad9d332e5 original design;
+    council-939eae4d46a3 for the 2026-07-26 revision).
     """
 
-    def test_edit_guardrail_listed_detector_fires_new_feature(self):
-        # The exact slip-through: editing a detector file in the guardrail
-        # list. Prior design: only edit-src-divineos fired (score 1).
-        # New design: edit-guardrail-listed ALSO fires (score >= 2) AND
-        # triggers council-required via high-impact short-circuit.
+    def test_edit_guardrail_listed_detector_fires_feature_but_not_council(self):
+        # Prior test-name and assertion asserted council-required=True.
+        # 2026-07-26 update: feature-fire preserved (guardrail-listed still
+        # gets +1 to score), but is_council_required is False for guardrail-
+        # only edits under threshold. External-Review at merge is the
+        # discipline for guardrail-listed drift.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/core/operating_loop/distancing_detector.py",),
         )
         assert "edit-guardrail-listed" in r.fired_features
         assert "edit-src-divineos" in r.fired_features
-        assert r.is_council_required, (
-            "guardrail-listed edits must require council walk per high-impact short-circuit"
+        assert not r.is_council_required, (
+            "2026-07-26: guardrail-listed edits should NOT short-circuit council-required "
+            "in clay mode; External-Review at merge is the discipline. Only edit-kiln-layer "
+            "(foundational_truths + seed.json) should trigger the high-impact short-circuit."
         )
 
-    def test_edit_unverified_claim_detector_requires_council(self):
-        # The other detector I edited today. Same shape.
+    def test_edit_unverified_claim_detector_fires_feature_but_not_council(self):
+        # 2026-07-26 update: same as above — guardrail-listed classification
+        # preserved, council-required no longer short-circuits for it.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/core/operating_loop/unverified_claim_detector.py",),
         )
         assert "edit-guardrail-listed" in r.fired_features
-        assert r.is_council_required
+        assert not r.is_council_required
 
-    def test_edit_gravity_classifier_itself_requires_council(self):
-        # Meta-case: editing the classifier itself is high-gravity (it's
-        # guardrail-listed for exactly the same reason — modifying it
-        # weakens the gate against self-modification).
+    def test_edit_gravity_classifier_itself_fires_feature_but_not_council(self):
+        # Meta-case, 2026-07-26 update: editing the classifier itself is
+        # still guardrail-listed (feature fires) but no longer short-circuits
+        # council-required. Was previously required-council; now flows in
+        # clay mode. External-Review at merge is where classifier changes
+        # get scrutinized.
         r = score_substrate_modification(
             "Edit",
             file_paths=("src/divineos/core/gravity_classifier.py",),
         )
         assert "edit-guardrail-listed" in r.fired_features
-        assert r.is_council_required
+        assert not r.is_council_required
 
     def test_edit_non_guardrail_src_does_not_require_council(self):
         # Routine edit to a non-guardrail file under src/divineos/ scores 1
@@ -171,12 +185,14 @@ class TestCouncilRequiredTier2026_06_20:
         assert "edit-kiln-layer" in r.fired_features
         assert r.is_council_required
 
-    def test_borderline_indicator_returns_council_required_label(self):
-        # The substrate borderline indicator surfaces "council-required"
-        # ahead of the basic score-based labels when the council tier fires.
+    def test_borderline_indicator_uses_kiln_layer_for_council_required_label(self):
+        # 2026-07-26 update: previously tested that guardrail-listed edits
+        # returned "council-required" label. Now guardrail-listed no longer
+        # triggers council-required, so we test the label with a kiln-layer
+        # file (foundational_truths.md) which STILL fires council-required.
         r = score_substrate_modification(
             "Edit",
-            file_paths=("src/divineos/core/operating_loop/distancing_detector.py",),
+            file_paths=("docs/foundational_truths.md",),
         )
         assert borderline_indicator_substrate(r) == "council-required"
 

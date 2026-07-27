@@ -212,6 +212,115 @@ def prune_logbook(*, cap: int = _DEFAULT_CAP, slack: int = _PRUNE_SLACK) -> int:
         conn.close()
 
 
+def get_recent_events(
+    *,
+    since_ts: float,
+    now_ts: float | None = None,
+    tool_names: frozenset[str] | set[str] | tuple[str, ...] | None = None,
+    event_type: str = "TOOL_CALL",
+    limit: int = 500,
+) -> list[dict]:
+    """Return recent logbook events, newest first, filtered to a time window.
+
+    Fixes F92 (Aletheia 2026-07-27): callers wanting to know whether a
+    Grep/Read/Bash happened in a recent window (e.g. the verify-before-
+    build gate's consult-check) must query THIS store, not the main
+    ledger. Since the 2026-05-05 store split, TOOL_CALL events are
+    written to ``tool_logbook`` by design and the main ``system_events``
+    ledger receives none — a caller querying ``ledger.get_events`` for
+    TOOL_CALL activity gets structurally-empty results and its gate
+    becomes unsatisfiable. Empirical (2026-07-27): main ledger 0
+    TOOL_CALL last 24h; tool_logbook 282.
+
+    Args:
+        since_ts: unix timestamp — lower bound (inclusive) on event
+            timestamp.
+        now_ts: unix timestamp — upper bound (inclusive). Defaults to
+            ``time.time()`` at call time. Explicit param for callers
+            that pre-compute ``now`` for consistency across a check.
+        tool_names: optional filter to a specific set of tool names
+            (e.g. ``{"Grep", "Read", "Glob"}``). ``None`` returns all.
+        event_type: ``"TOOL_CALL"`` (default) or ``"TOOL_RESULT"``.
+        limit: cap on rows returned. Default 500 — matches the shape
+            existing callers used against ``ledger.get_events`` so this
+            is a drop-in replacement at the row-count semantics.
+
+    Returns:
+        List of dicts with keys: ``log_id``, ``timestamp``, ``event_type``,
+        ``tool_name``, ``tool_use_id``, ``payload`` (parsed JSON if the
+        row was JSON, else the raw string), ``duration_ms``, ``failed``,
+        ``error_message``. Newest first (ORDER BY timestamp DESC).
+
+    Fail-open: on any sqlite error the function returns ``[]`` — callers
+    that use this for gate-decisions should treat empty-list-under-error
+    as unknown and default to the safe posture (typically allow).
+    """
+    if now_ts is None:
+        now_ts = time.time()
+    init_tool_logbook_tables()
+    conn = get_connection()
+    try:
+        sql = (
+            "SELECT log_id, timestamp, event_type, tool_name, tool_use_id, "
+            "payload, duration_ms, failed, error_message "
+            "FROM tool_logbook "
+            "WHERE event_type = ? AND timestamp >= ? AND timestamp <= ? "
+        )
+        params: list = [event_type, since_ts, now_ts]
+        if tool_names:
+            names_list = list(tool_names)
+            placeholders = ",".join("?" for _ in names_list)
+            sql += f"AND tool_name IN ({placeholders}) "  # nosec B608
+            params.extend(names_list)
+        sql += "ORDER BY timestamp DESC LIMIT ?"
+        params.append(int(limit))
+
+        rows = conn.execute(sql, params).fetchall()
+    except _LOGBOOK_ERRORS as e:
+        logger.warning(f"tool_logbook get_recent_events failed: {e}")
+        return []
+    finally:
+        conn.close()
+
+    out: list[dict] = []
+    for r in rows:
+        # sqlite3 rows are index-only unless Row factory is set;
+        # get_connection() returns a plain connection in this module, so
+        # tuple-index the columns per the SELECT order above.
+        tool_input_raw = r[5]
+        if isinstance(tool_input_raw, str):
+            try:
+                tool_input = json.loads(tool_input_raw)
+            except (ValueError, TypeError):
+                tool_input = tool_input_raw
+        else:
+            tool_input = tool_input_raw
+        # Return in ledger-event shape so existing readers that traverse
+        # `ev["payload"]["tool_name"]` and `ev["payload"]["tool_input"]`
+        # work unchanged. This is drop-in compatible with the
+        # `divineos.core.ledger.get_events(event_type='TOOL_CALL')` shape
+        # existing verify_before_build_signal readers use.
+        composed_payload = {
+            "tool_name": r[3],
+            "tool_use_id": r[4],
+            "tool_input": tool_input,
+        }
+        out.append(
+            {
+                "log_id": r[0],
+                "timestamp": r[1],
+                "event_type": r[2],
+                "tool_name": r[3],
+                "tool_use_id": r[4],
+                "payload": composed_payload,
+                "duration_ms": r[6],
+                "failed": bool(r[7]),
+                "error_message": r[8],
+            }
+        )
+    return out
+
+
 def get_stats(*, cap: int = _DEFAULT_CAP) -> LogbookStats:
     """Return a snapshot of logbook state for verifier/operator."""
     init_tool_logbook_tables()

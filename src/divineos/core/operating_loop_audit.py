@@ -1566,6 +1566,19 @@ def run_audit(
             lepos_dual_channel_block = None
             lepos_wallclock_block = None
 
+    # 2026-07-22 (council-8a4d56da4237 design + council-396a28cd3634
+    # verify_before_build_block and thread_walk_block RETIRED 2026-07-26
+    # per Aletheia F87 finding + Andrew rebuild-permission + council walk
+    # council-b60f9a2e7b89. Both gates keyed on _has_solution_shape lexical
+    # detector which was bypassable by prose formatting. Replacement:
+    # check_should_block in verify_before_build_signal.py fires at
+    # PreToolUse against substrate-mutating tools with combined walk-record-
+    # OR-doc-consult check. Structural signal (which tool is about to fire),
+    # not lexical (what does the reply text look like). Wired via
+    # .claude/hooks/verify-before-build-signal.sh. See
+    # docs/retired_mechanisms/2026-07-26_lexical_solution_shape_detector.md
+    # for full retirement reasoning. Prereg-892323c61454.
+
     # F41 fix (Aletheia Round 5, council-971e907c): heartbeat on
     # successful chain-run. Chain fails-open on OUTPUT (advisory);
     # fails-loud on LIVENESS via staleness. Guards need a guard that

@@ -69,6 +69,13 @@ try:
         'lepos_channel_block',
         'lepos_dual_channel_block',
         'lepos_wallclock_block',
+        # verify_before_build_block and thread_walk_block RETIRED
+        # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
+        # Stop-hook lexical detectors bypassable by prose formatting.
+        # Replacement: check_should_block at PreToolUse via
+        # .claude/hooks/verify-before-build-signal.sh. Structural gate
+        # not lexical. Prereg-892323c61454. See
+        # docs/retired_mechanisms/2026-07-26_lexical_solution_shape_detector.md
     )
     _reasons = [(result or {}).get(k) for k in _keys]
     _reasons = [r for r in _reasons if r]

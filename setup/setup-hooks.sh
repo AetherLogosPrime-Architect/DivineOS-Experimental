@@ -532,27 +532,28 @@ if [[ -z "$RESOLVED_ROUND_ID" && "$ROUND_COUNT" == "1" ]]; then
     RESOLVED_ROUND_ID="$ROUND_ID"
 fi
 
-# Still no round resolved? Zero or multiple recent rounds and no explicit trailer.
+# Andrew 2026-07-24 design correction: WARN not BLOCK at commit-time.
+# Commits and pushes-to-origin require no external review; only merge-to-main
+# does. The chicken-egg was: guardrail changes couldn't be committed for
+# review because commit required review. Push origin IS how external
+# reviewers see the change to review it. Real gate stays at merge-to-main.
 if [[ -z "$RESOLVED_ROUND_ID" ]]; then
     echo "" >&2
-    echo "BLOCKED: this commit touches guardrail-listed file(s):" >&2
+    echo "WARN: this commit touches guardrail-listed file(s):" >&2
     echo -n "$STAGED_GUARDRAIL" >&2
     echo "" >&2
-    echo "Multi-party-review requires an External-Review trailer naming the" >&2
-    echo "audit round this change was filed against." >&2
-    echo "" >&2
+    echo "No External-Review trailer set. Commits proceed without a trailer;" >&2
+    echo "the real multi-party-review gate fires at merge-to-main." >&2
+    echo "To attach a trailer now (recommended for guardrail changes):" >&2
     if [[ "$ROUND_COUNT" == "0" ]]; then
-        echo "No open audit rounds found in the last 4 hours. File one:" >&2
         echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
+        echo "  then re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
     else
-        echo "Multiple open audit rounds found in the last 4 hours — choose one:" >&2
-        echo "$RECENT_ROUNDS" | sed 's/^/  /' >&2
+        echo "  Recent open rounds (pick one and re-commit with DIVINEOS_AUDIT_ROUND=round-<id>):" >&2
+        echo "$RECENT_ROUNDS" | sed 's/^/    /' >&2
     fi
     echo "" >&2
-    echo "Then either re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
-    echo "or add the trailer line to your commit message manually:" >&2
-    echo "  External-Review: round-<id>" >&2
-    exit 1
+    exit 0
 fi
 
 # ---------------------------------------------------------------------------
@@ -633,18 +634,17 @@ case "$SUBSTANCE_RESULT" in
         ;;
     NOROUND)
         echo "" >&2
-        echo "BLOCKED: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
+        echo "WARN: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
         echo "but that round does not exist in the audit_rounds table." >&2
-        echo "Either the round-id is wrong or the round was deleted." >&2
-        echo "File a real round:" >&2
+        echo "Commit proceeds; fix the trailer before pushing to main. File a real round:" >&2
         echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
-        exit 1
+        exit 0
         ;;
     EMPTY|*)
         # The trailer references a real round but the round has no CONFIRMS
         # finding from any external actor. This is the fake-trailer shape.
         echo "" >&2
-        echo "BLOCKED: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
+        echo "WARN: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
         echo "but that round contains no CONFIRMS findings from an external actor." >&2
         echo "The trailer is ceremony without substance." >&2
         echo "" >&2
@@ -663,8 +663,8 @@ case "$SUBSTANCE_RESULT" in
         echo "    --description \"<what was reviewed and confirmed>\"" >&2
         echo "" >&2
         echo "For external-AI review, use --actor grok/gemini/claude-<variant>." >&2
-        echo "Retry the commit after the CONFIRMS finding is filed." >&2
-        exit 1
+        echo "Commit proceeds; fix the trailer substance before merging to main." >&2
+        exit 0
         ;;
 esac
 EOF

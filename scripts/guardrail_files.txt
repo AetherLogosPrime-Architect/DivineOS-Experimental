@@ -176,6 +176,7 @@ src/divineos/core/hedge_audit.py
 src/divineos/core/session_start.py
 src/divineos/core/briefing_freshness.py
 src/divineos/core/structural_fix_tracker.py
+src/divineos/core/verify_before_build_gate.py
 
 # Substrate routing & ownership — load-bearing for per-clone separation.
 # Aletheia Finding 69 (2026-05-17): the PR demonstrated the gap empirically —
