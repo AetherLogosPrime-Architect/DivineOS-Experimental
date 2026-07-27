@@ -204,6 +204,20 @@ def test_pick_primary_path_refspec_colon_returns_empty():
     assert result == ""
 
 
+def test_check_should_block_fails_open_when_no_class_dir():
+    """2026-07-27 fix: git push / git commit -m 'x' have no derivable
+    filesystem class_dir. Gate has no substrate to enforce consultation
+    on — fail-open. Individual file touches (Edit/Write) already fire
+    the gate independently with real class_dirs."""
+    result = check_should_block(
+        tool_name="Bash",
+        file_paths=(),
+        bash_command="git push -u origin feat/gate-automation-sweep-2026-07-27",
+        now=time.time(),
+    )
+    assert result is None
+
+
 # ─── Window computation ─────────────────────────────────────────────
 
 
