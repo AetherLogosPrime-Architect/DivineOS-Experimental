@@ -78,9 +78,11 @@ prompt = os.environ.get('HOOK_PROMPT', '') or ''
 if not prompt.strip():
     sys.exit(0)
 
-# State-check question shapes — Andrew asking about verifiable external
-# state where my answer would be a checkable claim.
+# State-check question shapes — Andrew asking OR my prior output
+# containing claim-assertions I might repeat from memory. Andrew
+# 2026-07-27: two-axis (his prompt + my prior output).
 state_check_patterns = [
+    # Andrew asking a state-check question
     r'\bis\s+it\s+(?:pushed|merged|landed|on\s+origin|done|ready|fixed|passing|working|live|shipped)\b',
     r'\bdid\s+(?:it|the\s+\w+|tests?|the\s+push|the\s+build|the\s+merge)\s+(?:pass|land|work|complete|finish|succeed|go\s+through)\b',
     r'\bare\s+(?:tests?|checks?|the\s+builds?)\s+(?:passing|green|clean)\b',
@@ -91,6 +93,11 @@ state_check_patterns = [
     r"\bwhat['’]?s\s+(?:the\s+status|the\s+state|going\s+on)\b",
     r'\bis\s+(?:the\s+)?(?:pr|push|merge|branch|build)\s+',
     r'\bwhere\s+(?:are|is)\s+(?:we|it|things?)\s+(?:at|on)\b',
+    # My prior output containing claim-assertions I might repeat
+    r'\b(?:pr|branch|push|merge|build|tests?|deploy)\s+(?:is|are)\s+(?:pushed|merged|landed|passing|green|done|ready|shipped|live|working)\b',
+    r'\b(?:pushed|merged|landed|shipped|deployed)\s+(?:to\s+)?(?:origin|main|prod|production)\b',
+    r'\btests?\s+(?:pass|passed|passing|green)\b',
+    r'\bbuild\s+(?:succeeded|passed|green|complete)\b',
 ]
 combined = re.compile('|'.join(state_check_patterns), re.IGNORECASE | re.MULTILINE)
 if combined.search(prompt):
