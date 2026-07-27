@@ -451,6 +451,15 @@ def check_should_block(
     primary_path = _pick_primary_path(file_paths, bash_command)
     class_dir = _class_dir_for_path(primary_path)
 
+    # 2026-07-27 fix: if no filesystem class_dir is derivable (e.g.
+    # `git push`, `git commit -m "..."` where the touched files come
+    # from the staged index rather than from command args), the gate
+    # has no substrate to enforce consultation on. Individual file
+    # touches (Edit/Write) already fire the gate with real class_dirs;
+    # branch/refspec-level Bash operations should fail-open.
+    if not class_dir:
+        return None
+
     window_start = compute_window_start(class_dir, now, session_start_ts)
 
     if _has_walk_record_within(window_start, now):
