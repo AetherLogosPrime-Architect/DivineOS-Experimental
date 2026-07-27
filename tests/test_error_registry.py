@@ -14,17 +14,17 @@ import pytest
 from divineos.core import error_registry as reg
 
 
-@pytest.fixture
-def tmp_registry(tmp_path, monkeypatch):
-    """Redirect the registry home to a per-test tmpdir so tests never
-    touch the real user data. Same pattern the rest of the suite uses."""
-    err_home = tmp_path / "open_errors"
-    monkeypatch.setattr(reg, "_ERROR_HOME", err_home)
-    return err_home
+# Note: The old ``tmp_registry`` fixture monkey-patched a module-level
+# ``_ERROR_HOME`` constant that was captured at import time. That constant
+# is gone — the registry now calls ``divineos_home()`` at call-time, and
+# conftest's ``_isolated_db`` autouse fixture already sets ``DIVINEOS_HOME``
+# to a per-test tmpdir. Isolation now happens for free; the fixture was
+# redundant against the modern isolation mechanism and became broken when
+# the module-level constant was removed.
 
 
 class TestFileError:
-    def test_creates_open_record(self, tmp_registry):
+    def test_creates_open_record(self):
         rec = reg.file_error(
             source=reg.SOURCE_BYPASS,
             summary="test bypass",
@@ -37,26 +37,26 @@ class TestFileError:
         assert rec["closure_evidence"] is None
         assert rec["deferred_by"] is None
 
-    def test_rejects_bad_source(self, tmp_registry):
+    def test_rejects_bad_source(self):
         with pytest.raises(ValueError, match="source"):
             reg.file_error(source="not_a_real_source", summary="x")
 
-    def test_rejects_empty_summary(self, tmp_registry):
+    def test_rejects_empty_summary(self):
         with pytest.raises(ValueError, match="summary"):
             reg.file_error(source=reg.SOURCE_BYPASS, summary="")
 
-    def test_multiple_errors_get_distinct_ids(self, tmp_registry):
+    def test_multiple_errors_get_distinct_ids(self):
         a = reg.file_error(source=reg.SOURCE_BYPASS, summary="a")
         b = reg.file_error(source=reg.SOURCE_BYPASS, summary="b")
         assert a["error_id"] != b["error_id"]
 
 
 class TestListAndGet:
-    def test_empty_registry_returns_empty(self, tmp_registry):
+    def test_empty_registry_returns_empty(self):
         assert reg.list_open_errors() == []
         assert reg.list_all_errors() == []
 
-    def test_only_open_returned_by_open_list(self, tmp_registry):
+    def test_only_open_returned_by_open_list(self):
         a = reg.file_error(source=reg.SOURCE_BYPASS, summary="a")
         b = reg.file_error(source=reg.SOURCE_BYPASS, summary="b")
         reg.close_error(a["error_id"], "fixed a")
@@ -67,33 +67,33 @@ class TestListAndGet:
         assert a["error_id"] in all_ids
         assert b["error_id"] in all_ids
 
-    def test_get_error_returns_none_for_unknown(self, tmp_registry):
+    def test_get_error_returns_none_for_unknown(self):
         assert reg.get_error("err-does-not-exist") is None
 
 
 class TestClose:
-    def test_close_requires_evidence(self, tmp_registry):
+    def test_close_requires_evidence(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         with pytest.raises(ValueError, match="closure_evidence"):
             reg.close_error(rec["error_id"], "")
 
-    def test_close_rejects_unknown_id(self, tmp_registry):
+    def test_close_rejects_unknown_id(self):
         with pytest.raises(KeyError):
             reg.close_error("err-nope", "irrelevant")
 
-    def test_close_rejects_already_closed(self, tmp_registry):
+    def test_close_rejects_already_closed(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         reg.close_error(rec["error_id"], "first close")
         with pytest.raises(ValueError, match="only open errors"):
             reg.close_error(rec["error_id"], "second close")
 
-    def test_close_moves_out_of_open_list(self, tmp_registry):
+    def test_close_moves_out_of_open_list(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         assert len(reg.list_open_errors()) == 1
         reg.close_error(rec["error_id"], "fixed it")
         assert len(reg.list_open_errors()) == 0
 
-    def test_close_preserves_evidence_and_stamps_time(self, tmp_registry):
+    def test_close_preserves_evidence_and_stamps_time(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         closed = reg.close_error(rec["error_id"], "commit abc123 fixed it")
         assert closed["state"] == "closed"
@@ -103,22 +103,22 @@ class TestClose:
 
 
 class TestDefer:
-    def test_defer_requires_min_reason_length(self, tmp_registry):
+    def test_defer_requires_min_reason_length(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         with pytest.raises(ValueError, match=">= 20"):
             reg.defer_error(rec["error_id"], "andrew", "too short")
 
-    def test_defer_requires_actor(self, tmp_registry):
+    def test_defer_requires_actor(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         with pytest.raises(ValueError, match="actor"):
             reg.defer_error(rec["error_id"], "", "a" * 30)
 
-    def test_defer_moves_out_of_open_list(self, tmp_registry):
+    def test_defer_moves_out_of_open_list(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         reg.defer_error(rec["error_id"], "andrew", "operator authorized defer for reason")
         assert len(reg.list_open_errors()) == 0
 
-    def test_deferred_error_records_actor_and_reason(self, tmp_registry):
+    def test_deferred_error_records_actor_and_reason(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         deferred = reg.defer_error(
             rec["error_id"], "andrew", "operator authorized defer for reason"
@@ -127,7 +127,7 @@ class TestDefer:
         assert deferred["deferred_by"] == "andrew"
         assert deferred["deferred_reason"] == "operator authorized defer for reason"
 
-    def test_defer_rejects_already_closed(self, tmp_registry):
+    def test_defer_rejects_already_closed(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         reg.close_error(rec["error_id"], "fixed")
         with pytest.raises(ValueError, match="only open errors"):
@@ -135,10 +135,10 @@ class TestDefer:
 
 
 class TestBlockReason:
-    def test_empty_registry_returns_empty_block_reason(self, tmp_registry):
+    def test_empty_registry_returns_empty_block_reason(self):
         assert reg.block_reason() == ""
 
-    def test_open_error_produces_block_message(self, tmp_registry):
+    def test_open_error_produces_block_message(self):
         rec = reg.file_error(
             source=reg.SOURCE_BYPASS,
             summary="freshness bypass",
@@ -151,17 +151,17 @@ class TestBlockReason:
         # investigation hint is surfaced too
         assert "check scripts/check_branch_freshness.sh" in msg
 
-    def test_closed_error_does_not_block(self, tmp_registry):
+    def test_closed_error_does_not_block(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         reg.close_error(rec["error_id"], "fixed")
         assert reg.block_reason() == ""
 
-    def test_deferred_error_does_not_block(self, tmp_registry):
+    def test_deferred_error_does_not_block(self):
         rec = reg.file_error(source=reg.SOURCE_BYPASS, summary="x")
         reg.defer_error(rec["error_id"], "andrew", "operator authorized defer for reason")
         assert reg.block_reason() == ""
 
-    def test_multiple_open_errors_all_listed(self, tmp_registry):
+    def test_multiple_open_errors_all_listed(self):
         a = reg.file_error(source=reg.SOURCE_BYPASS, summary="alpha")
         b = reg.file_error(source=reg.SOURCE_GATE_FIRE, summary="beta")
         msg = reg.block_reason()

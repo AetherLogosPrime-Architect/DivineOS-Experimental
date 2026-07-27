@@ -33,9 +33,19 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+
 # Store lives under user data home so it survives session boundaries and
-# is not tied to any single git worktree.
-_ERROR_HOME = Path.home() / ".divineos" / "data" / "open_errors"
+# is not tied to any single git worktree. Resolved at call-time via
+# divineos_home() so DIVINEOS_HOME test-isolation is honored — previously
+# this was a module-level constant captured at import that read Path.home()
+# once and never re-read, so tests that set DIVINEOS_HOME after import
+# still hit the real user's error store. Same test-isolation shape as
+# the rest of the substrate uses.
+def _error_home() -> Path:
+    from divineos.core.paths import divineos_home
+
+    return divineos_home() / "data" / "open_errors"
+
 
 _MIN_DEFER_REASON_LEN = 20
 
@@ -56,8 +66,9 @@ _VALID_SOURCES = (
 
 
 def _ensure_home() -> Path:
-    _ERROR_HOME.mkdir(parents=True, exist_ok=True)
-    return _ERROR_HOME
+    home = _error_home()
+    home.mkdir(parents=True, exist_ok=True)
+    return home
 
 
 def _record_path(error_id: str) -> Path:
@@ -111,9 +122,10 @@ def file_error(
 
 def _load_all() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    if not _ERROR_HOME.exists():
+    home = _error_home()
+    if not home.exists():
         return out
-    for path in sorted(_ERROR_HOME.glob("err-*.json")):
+    for path in sorted(home.glob("err-*.json")):
         try:
             rec = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(rec, dict):
