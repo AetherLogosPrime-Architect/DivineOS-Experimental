@@ -179,6 +179,52 @@ def _write_attestation_marker() -> None:
         pass
 
 
+def explain_integrate_refusal(correction_id: int, evidence: str) -> str:
+    """Return a human-readable reason why ``integrate()`` would refuse.
+
+    Aria 2026-07-27: the ``integrate()`` API returns bool, which collapses
+    four distinct failure modes into one silent False. The CLI could only
+    surface a generic "not found or non-OPEN or too short" message that
+    left the composer guessing — and in particular did not name the
+    structural-artifact requirement added 2026-06-13, which is the failure
+    mode most likely to hit composers whose evidence is prose-only
+    behavior-change description without a pointer.
+
+    This helper is called by the CLI when ``integrate()`` returns False so
+    the specific reason lands in the error message. Preserves the bool
+    return type for backward-compat with existing tests and callers.
+
+    Returns "" on the happy path (integrate would succeed) — callers only
+    invoke this after integrate() already returned False, so a non-empty
+    return is the useful case.
+    """
+    if not evidence or len(evidence.strip()) < 20:
+        return "evidence too short (< 20 chars)"
+    if not _has_structural_artifact(evidence):
+        return (
+            "evidence has no structural-artifact pointer — needs one of: "
+            "commit hash (7-40 hex chars), PR/issue number (#N or PR #N), "
+            "claim/prereg id (claim-XXX / prereg-XXX), file path with "
+            "extension (.py/.md/.sh/...), or test name (test_XXX). "
+            "Prose-only 'I learned and will do better' is refused per "
+            "Andrew 2026-06-13 root-cause-fix discipline."
+        )
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT status FROM andrew_corrections WHERE id = ?",
+            (correction_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return f"correction #{correction_id} not found"
+    status = row[0] if not hasattr(row, "keys") else row["status"]
+    if status != "OPEN":
+        return f"correction #{correction_id} already {status}"
+    return ""
+
+
 def integrate(correction_id: int, evidence: str) -> bool:
     """Mark a correction INTEGRATED with evidence pointer.
 
