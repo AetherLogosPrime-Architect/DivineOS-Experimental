@@ -106,6 +106,16 @@ EMERGENCY_CORROBORATOR_EVENT_TYPES: frozenset[str] = frozenset(
     }
 )
 # Cron-scheduled runs corroborate via actor identity, not event type.
+# 2026-07-24 reverted: architect-inline-authorization goes through the
+# existing `divineos council authorize-bypass` state_markers channel
+# (quote-attested trust anchor per operator-bypass design). Earlier
+# addition of "andrew" here was reinventing the wrong-shape version —
+# actor=andrew events accept any --actor string at the CLI layer without
+# verification, so blind actor-corroboration was a bypass hole. The
+# state_markers path uses --quote as the trust anchor (model
+# structurally cannot forge user-role text). Correct architecture: keep
+# EMERGENCY_CORROBORATOR_ACTORS limited to substrate-attested actors;
+# route architect authorization through authorize-bypass CLI instead.
 EMERGENCY_CORROBORATOR_ACTORS: frozenset[str] = frozenset({"scheduled-task"})
 
 
@@ -188,6 +198,41 @@ def _normalize_edit_fingerprint(file_path: str, tool_kind: str) -> str:
     """
     norm = (file_path or "").replace("\\", "/").strip()
     kind = (tool_kind or "").strip().lower()
+    # 2026-07-24 fix (BFBA catch): implement the repo-root-relative
+    # normalization the docstring has always promised. Without this, the
+    # Claude Code hook (which passes the absolute path from tool_input.
+    # file_path) and the `divineos council authorize-bypass` CLI (typically
+    # invoked with a relative path) produce diverging fingerprints for the
+    # same edit, breaking the operator-authorization channel. The bug
+    # forced fallback to raw file-write bypasses when the honest channel
+    # was needed. Fix: compute repo root and strip it from absolute paths
+    # that resolve inside the repo.
+    if norm:
+        try:
+            import os as _os
+            from pathlib import Path as _Path
+
+            _root = _os.environ.get("DIVINEOS_REPO_ROOT")
+            if not _root:
+                # Walk up from this module to find repo root (contains .git or pyproject.toml)
+                _here = _Path(__file__).resolve()
+                for _p in [_here] + list(_here.parents):
+                    if (_p / ".git").exists() or (_p / "pyproject.toml").exists():
+                        _root = str(_p)
+                        break
+            if _root:
+                _root_norm = _root.replace("\\", "/").rstrip("/")
+                if norm.startswith(_root_norm + "/"):
+                    norm = norm[len(_root_norm) + 1 :]
+        except (OSError, TypeError, ValueError):  # noqa: BLE001
+            # Any failure in root-resolution: keep the input as-is.
+            # Fail-open preserves prior behavior; the docstring already
+            # says "when the input is inside the repo" — outside-repo
+            # inputs stay unchanged either way. Specific exception set
+            # matches the failure modes of Path.resolve() and env-var
+            # access; anything more exotic legitimately deserves to
+            # crash rather than silently keep the wrong fingerprint.
+            pass
     return f"{kind}:{norm}"
 
 

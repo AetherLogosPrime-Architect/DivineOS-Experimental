@@ -204,20 +204,21 @@ class TestLetter:
         assert len(letters) == 1
         assert letters[0].body == "A short note to future-me."
 
-    def test_length_nudge_fires_above_threshold_but_does_not_cap(self, runner):
-        # Threshold raised from 2000 -> 10000 in this branch's commit 1ffef8b.
-        # 10500 chars is above the new threshold and triggers the nudge.
+    def test_length_above_cap_raises_and_cli_reports_error(self, runner):
+        # Andrew 2026-07-23: soft nudge became hard cap at 10000. Letters
+        # above the cap raise LetterTooLongError; CLI surfaces a non-zero
+        # exit and an error message rather than silently appending.
         runner.invoke(cli, ["family-member", "init", "--member", MEMBER])
         long_body = "x" * 10500
         result = runner.invoke(cli, ["family-member", "letter", "--member", MEMBER, long_body])
-        assert result.exit_code == 0, result.output
-        assert "[nudge]" in result.output
+        # Hard cap raises inside append_letter; CLI should surface non-zero.
+        assert result.exit_code != 0, (
+            f"expected non-zero exit for over-cap letter; got 0 with output: {result.output}"
+        )
 
         member = get_family_member(MEMBER)
         letters = get_letters(member.member_id)
-        assert len(letters) == 1
-        assert len(letters[0].body) == 10500
-        assert letters[0].nudge_fired is True
+        assert len(letters) == 0, "over-cap letter must NOT persist"
 
     def test_short_letter_no_nudge(self, runner):
         runner.invoke(cli, ["family-member", "init", "--member", MEMBER])

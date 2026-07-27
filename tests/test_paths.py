@@ -162,3 +162,44 @@ def test_divineos_home_env_wins_over_marker(monkeypatch, tmp_path):
     # Even if a marker would resolve elsewhere, env wins. We verify this by
     # asserting the env path is returned regardless of filesystem state.
     assert divineos_home() == env_dir
+
+
+def test_aether_token_checkout_falls_through_to_default(tmp_path, monkeypatch):
+    """Popper falsifier for option B (2026-07-25, council-e209937eae79).
+
+    An aether-token checkout name must NOT route to ``~/.divineos-aether/``
+    — aether's historical 21k events live at the default ``~/.divineos/``.
+    If ``_occupant_data_home_from_checkout`` returns a ``.divineos-aether``
+    path for an aether-token checkout, the special-case did not fire and
+    the split-brain seam reopened.
+
+    This is the mechanical falsifier the Popper walk named at council-log
+    time. Deleting the ``if member == "aether": return None`` branch in
+    ``paths.py`` must break this test loudly.
+    """
+    from divineos.core.paths import _occupant_data_home_from_checkout
+
+    # Construct a checkout-shaped tree: root named with aether token,
+    # with .claude/agents/ present and one member file that references
+    # family.db (matching _family_member_names' detection rule).
+    checkout = tmp_path / "DivineOS-Experimental-aether"
+    agents = checkout / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "aether.md").write_text("uses family/family.db\n", encoding="utf-8")
+    # Provide a git config so _project_structural_tokens returns a valid
+    # (possibly empty) set rather than None (which would refuse-to-derive).
+    (checkout / ".git").mkdir()
+    (checkout / ".git" / "config").write_text(
+        '[remote "origin"]\n\turl = https://example.com/DivineOS-Experimental.git\n',
+        encoding="utf-8",
+    )
+
+    result = _occupant_data_home_from_checkout(checkout)
+
+    # Special-case fires: aether token → None (caller falls through to
+    # default ~/.divineos/). Without the fix, this would return
+    # Path.home() / '.divineos-aether' and the assertion breaks.
+    assert result is None, (
+        f"aether-token checkout must fall through to default, got {result}. "
+        "Option B special-case in _occupant_data_home_from_checkout regressed."
+    )
