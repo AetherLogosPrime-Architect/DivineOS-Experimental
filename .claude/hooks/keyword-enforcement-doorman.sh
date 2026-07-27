@@ -1,0 +1,156 @@
+#!/bin/bash
+# PreToolUse hook — keyword-enforcement-doorman.
+#
+# Andrew 2026-07-27 teaching: keyword detectors as enforcement are the
+# wrong shape (infinite whack-a-mole, easy to subvert, always false-
+# firing). This doorman catches the specific optimizer-hijack pattern
+# where I add MORE regex to an existing keyword-enforcement gate to
+# patch its false-fires — the exact anti-pattern that walked me
+# 2026-07-27 on correction_shape.py.
+#
+# Trigger: Edit or Write to a path in docs/keyword_enforcement_gates.txt
+# where the new content contains regex-shape strings (r"..." patterns)
+# that are not present in the old content.
+#
+# Response: BLOCK (never warn — warn-mode is the optimizer's cheap
+# route to route around).
+#
+# Fail-open discipline: any exception → exit 0 (no block). The doorman
+# is a preventive layer; the deeper defense is the audit sweep at the
+# ledger level (Layer 2, designed but not yet built).
+
+INPUT=$(cat)
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
+
+REGISTRY_FILE="$REPO_ROOT/docs/keyword_enforcement_gates.txt"
+if [ ! -f "$REGISTRY_FILE" ]; then
+    exit 0
+fi
+
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+
+# Force UTF-8 stdout on Windows Python — the block message may contain
+# non-ASCII glyphs and the default cp1252 codec crashes on them.
+export PYTHONIOENCODING=utf-8
+
+# shellcheck disable=SC2016
+BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c "
+import json, re, sys
+from pathlib import Path
+
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+except Exception:
+    sys.exit(0)
+
+tool_name = data.get('tool_name', '')
+if tool_name not in ('Edit', 'Write'):
+    sys.exit(0)
+
+tool_input = data.get('tool_input', {}) or {}
+file_path = tool_input.get('file_path', '') or ''
+if not file_path:
+    sys.exit(0)
+
+# Load registry
+registry_path = Path('$REGISTRY_FILE')
+try:
+    registered_paths = set()
+    for line in registry_path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if line and not line.startswith('#'):
+            registered_paths.add(line)
+except Exception:
+    sys.exit(0)
+
+# Normalize file_path to repo-relative form
+try:
+    repo_root = Path('$REPO_ROOT').resolve()
+    fp_resolved = Path(file_path).resolve()
+    fp_rel = str(fp_resolved.relative_to(repo_root)).replace('\\\\', '/')
+except Exception:
+    fp_rel = file_path.replace('\\\\', '/')
+
+# Match against registry (also check any path component overlap)
+matched_registry = None
+for reg_path in registered_paths:
+    reg_norm = reg_path.replace('\\\\', '/').strip('/')
+    if fp_rel.endswith(reg_norm) or reg_norm in fp_rel:
+        matched_registry = reg_path
+        break
+
+if matched_registry is None:
+    sys.exit(0)
+
+# Regex-shape signal: r'...' or r\"...\" patterns of substantive length
+# Catches re.compile(r'...'), re.match(r'...'), re.search(r'...'), and
+# bare pattern constants like PATTERN = r'...'. Length filter avoids
+# firing on trivial r'X' literals (like single-char delimiters).
+REGEX_PATTERN_RE = re.compile(r'''r[\"'][^\"']{8,}[\"']''')
+
+def count_regex_patterns(text):
+    return len(REGEX_PATTERN_RE.findall(text or ''))
+
+if tool_name == 'Write':
+    new_content = tool_input.get('content', '') or ''
+    # For Write on existing file, compare against current disk content
+    old_content = ''
+    try:
+        if fp_resolved.exists():
+            old_content = fp_resolved.read_text(encoding='utf-8')
+    except Exception:
+        pass
+    old_count = count_regex_patterns(old_content)
+    new_count = count_regex_patterns(new_content)
+    if new_count <= old_count:
+        sys.exit(0)
+    delta = new_count - old_count
+
+elif tool_name == 'Edit':
+    old_string = tool_input.get('old_string', '') or ''
+    new_string = tool_input.get('new_string', '') or ''
+    old_count = count_regex_patterns(old_string)
+    new_count = count_regex_patterns(new_string)
+    if new_count <= old_count:
+        sys.exit(0)
+    delta = new_count - old_count
+else:
+    sys.exit(0)
+
+# BLOCK
+print(f'''KEYWORD-ENFORCEMENT-DOORMAN — this substrate-mutation adds {delta} new regex pattern(s) to {matched_registry}, a file classified as keyword-enforcement gate.
+
+Andrew 2026-07-27: keyword detectors as ENFORCEMENT are the wrong shape (infinite whack-a-mole, easy to subvert, always false-firing). Adding more regex to patch regex-false-fires is the exact anti-pattern that walked the composer on this same file the same day.
+
+If this is genuinely the right call — meaning either:
+  (a) this file is misclassified and should be removed from
+      docs/keyword_enforcement_gates.txt, OR
+  (b) the addition is to a RETRIEVAL-shape section of the file (not
+      the enforcement path), OR
+  (c) semantic layer landed and these are transitional patterns —
+
+then name it explicitly by running:
+
+    divineos correction \"authorized keyword-pattern addition to {matched_registry}: <specific-reason ≥ 40 chars>\"
+
+then retry the edit. The correction gets logged for later audit-time
+review of whether the authorization was honest or optimizer-argued.
+
+If none of (a)/(b)/(c) apply — rollback and design the semantic
+replacement. Task #20 semantic rebuild owns this class.
+
+NO WARN-MODE. NO EXEMPTION LOGIC. Both are the optimizer's cheap route.
+''')
+")
+
+# If Python produced a block message, block the tool call
+if [ -n "$BLOCK_MSG" ]; then
+    # Emit as PreToolUse deny (exit 2 with message on stderr)
+    echo "$BLOCK_MSG" >&2
+    exit 2
+fi
+
+exit 0

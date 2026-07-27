@@ -311,6 +311,17 @@
       },
 
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/keyword-enforcement-doorman.sh",
+            "timeout": 10
+          }
+        ]
+      },
+
+      {
         "matcher": "Task|Agent",
         "hooks": [
           {

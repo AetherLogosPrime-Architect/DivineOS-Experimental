@@ -15,6 +15,8 @@ returns the right verdict.
 
 from __future__ import annotations
 
+import pytest
+
 from divineos.core.correction_shape import classify_correction_v2
 
 
@@ -330,3 +332,73 @@ class TestInversionRejection:
             (),
         )
         assert v.fires is False
+
+
+class TestTeachingShapeInversion:
+    """Documents the false-fire class the correction detector still has,
+    marked xfail until a semantic layer replaces the keyword enforcement.
+
+    Andrew 2026-07-27: keyword detectors as enforcement are the wrong
+    shape — infinite whack-a-mole, easy to subvert, always false-firing.
+    An initial keyword-band-aid patch was attempted here and rolled back
+    same night per that teaching. The right fix is semantic classification
+    (LLM call / embedding similarity / real Andrew-teaching-vs-correcting
+    parse), not more regex. Task #20 semantic rebuild owns this.
+
+    These test cases stay as documentation of the target behavior so the
+    semantic layer, when it ships, has a real corpus to validate against.
+    """
+
+    @pytest.mark.xfail(
+        reason="False-fire class documented; awaiting semantic layer (task #20). "
+        "Keyword-band-aid patch attempted 2026-07-27 and rolled back per "
+        "Andrew's teaching about keyword-detectors-as-enforcement.",
+        strict=True,
+    )
+    def test_like_that_teaching_shape_does_not_fire(self):
+        v = classify_correction_v2(
+            "practicing something is not something that will ever hold son.. it doesnt work like that lol",
+            "I filed the lesson and said I would practice it.",
+            ("Bash",),
+        )
+        assert v.fires is False
+
+    @pytest.mark.xfail(strict=True, reason="Awaiting semantic layer (task #20)")
+    def test_adjectival_wrong_shape_does_not_fire(self):
+        v = classify_correction_v2(
+            "keyword detectors are the wrong shape for this problem in general",
+            "I built a keyword detector.",
+            ("Edit", "Write"),
+        )
+        assert v.fires is False
+
+    def test_generalizing_subject_negative_does_not_fire(self):
+        # Actually passes today via existing stance-feature — the
+        # sentence has no direct negative-evaluative verdict on my action;
+        # "is not something that will ever hold" reads as descriptive
+        # about the class, not evaluative about me. Kept as a live
+        # passing test to pin that this shape stays non-firing.
+        v = classify_correction_v2(
+            "practicing something is not something that will ever hold",
+            "I said I would practice the new discipline.",
+            ("Bash",),
+        )
+        assert v.fires is False
+
+    @pytest.mark.xfail(strict=True, reason="Awaiting semantic layer (task #20)")
+    def test_for_example_teaching_marker_does_not_fire(self):
+        v = classify_correction_v2(
+            "for example if you build X wrong you have to redo it",
+            "I built X.",
+            ("Edit",),
+        )
+        assert v.fires is False
+
+    def test_real_correction_with_specific_reference_still_fires(self):
+        # Guard preserved (this one is a true-positive that must keep firing).
+        v = classify_correction_v2(
+            "hold up, dont force push yet",
+            "going to force-push now",
+            (),
+        )
+        assert v.fires is True

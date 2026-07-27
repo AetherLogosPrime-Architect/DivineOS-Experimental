@@ -230,8 +230,9 @@ class TestHarmAcknowledgmentBehavior:
     """Pin the detector's response to representative cost-imposition shapes."""
 
     def test_fires_on_cost_imposition_without_acknowledgment(self):
-        """Response that imposes cost on the user without acknowledging it
-        should produce a finding."""
+        """Response that imposes cost on the user without acknowledgment
+        should produce a finding — WHEN the operator has explicitly named
+        cost (post-2026-07-27 policy: assume no harm unless operator names it)."""
         from divineos.core.operating_loop.harm_acknowledgment_loop import check_response
 
         response = (
@@ -239,9 +240,10 @@ class TestHarmAcknowledgmentBehavior:
             "and re-run the migration."
         )
 
-        finding = check_response(response)
+        finding = check_response(response, operator_named_cost=True)
         assert finding is not None, (
-            "harm_acknowledgment_loop should fire when cost is imposed without acknowledgment"
+            "harm_acknowledgment_loop should fire when operator has named cost "
+            "and response lacks acknowledgment"
         )
 
     def test_suppresses_when_acknowledgment_present(self):
@@ -254,10 +256,10 @@ class TestHarmAcknowledgmentBehavior:
             "re-run migration."
         )
 
-        finding = check_response(response)
+        finding = check_response(response, operator_named_cost=True)
         assert finding is None, (
-            "harm_acknowledgment_loop should NOT fire when cost-imposition "
-            "includes acknowledgment markers"
+            "harm_acknowledgment_loop should NOT fire when operator has named "
+            "cost but the response includes acknowledgment markers"
         )
 
 
