@@ -34,20 +34,45 @@ INPUT="$(cat 2>/dev/null || true)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-PROMPT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
+# Extract BOTH prompt AND last assistant text. Fires if verify-claim
+# trigger appears in EITHER — checkable-claim territory is present
+# whether Andrew asks the question OR my prior output made a claim.
+# Andrew 2026-07-27: "it cant just be my prompts that trigger it but
+# also your own outputs."
+COMBINED_TEXT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
     data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
 except Exception:
     sys.exit(0)
-p = data.get('prompt') or ''
-print(p)
+prompt = data.get('prompt') or ''
+transcript_path = data.get('transcript_path', '') or ''
+last_assistant_text = ''
+if transcript_path and os.path.exists(transcript_path):
+    try:
+        with open(transcript_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                if entry.get('type') == 'assistant':
+                    msg = entry.get('message', {}) or {}
+                    content = msg.get('content', [])
+                    if isinstance(content, list):
+                        parts = [c.get('text', '') for c in content if isinstance(c, dict) and c.get('type') == 'text']
+                        last_assistant_text = '\n'.join(parts)
+                    elif isinstance(content, str):
+                        last_assistant_text = content
+    except (OSError, ValueError):
+        pass
+sys.stdout.write((prompt or '') + '\n---\n' + (last_assistant_text or ''))
 PYEOF
 )"
 
-[ -z "$PROMPT" ] && exit 0
+[ -z "$COMBINED_TEXT" ] && exit 0
 
-SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
+SHOULD_FIRE="$(HOOK_PROMPT="$COMBINED_TEXT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
 prompt = os.environ.get('HOOK_PROMPT', '') or ''
 if not prompt.strip():
