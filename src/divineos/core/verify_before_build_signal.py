@@ -157,15 +157,29 @@ def _pick_primary_path(file_paths: tuple[str, ...], bash_command: str) -> str:
     For file-modifying tools, use the first file_path. For Bash, try
     to extract a path from the command (e.g. `git add path/to/file`).
     Returns empty string if no path is discoverable.
+
+    2026-07-27 fix: tokens that contain a slash but do not actually
+    exist as a filesystem path relative to CWD (git branch names like
+    `feat/gate-automation-sweep-2026-07-27`, remote refspecs, URLs)
+    were being returned as if they were file paths, then downstream
+    `class_dir_for(...)` extracted the first segment (`feat`) and the
+    gate demanded consultation of that non-existent directory. Now
+    only tokens that resolve to a real filesystem entry count as
+    paths. Non-path slash-containing tokens are ignored.
     """
+    import os
+
     if file_paths:
         return file_paths[0]
     if bash_command:
-        # Best-effort — most commands with paths have them as later args
         tokens = bash_command.strip().split()
         for tok in tokens[1:]:
-            if "/" in tok or "\\" in tok:
-                return tok
+            if "/" not in tok and "\\" not in tok:
+                continue
+            # Strip common shell quoting artifacts before testing.
+            candidate = tok.strip("'\"")
+            if os.path.exists(candidate):
+                return candidate
     return ""
 
 
