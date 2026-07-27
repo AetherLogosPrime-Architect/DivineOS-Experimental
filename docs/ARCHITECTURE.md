@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (416 commands across 82 modules)
+  cli/                         CLI package (420 commands across 82 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -608,6 +608,8 @@ src/divineos/
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+    mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
+    mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
 
   analysis/
     _session_types.py          Session analysis type definitions
