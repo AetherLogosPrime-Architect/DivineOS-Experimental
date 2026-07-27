@@ -1,0 +1,549 @@
+"""Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+
+Replacement for the lexical `_has_solution_shape` detector in
+`verify_before_build_gate.py`. Per Aria's 2026-06-16 signal-based-gates
+design (docs/signal-based-gates-design-2026-06-16.md), each gate has
+five primitives (claim / event / resolution / marker / bypass) and
+fires on structural evidence in the action-stream, not on lexical
+detection of proposal-shape in reply text.
+
+Per the migration spec (docs/verify_before_build_signal_migration.md):
+
+- **Claim**: agent is about to modify substrate without prior
+  consultation of relevant design/history for that substrate.
+- **Event**: PreToolUse fires on Write/Edit or substrate-mutating
+  Bash, AND the recent action-stream lacks BOTH:
+  (a) a `decision_journal` walk-record entry within the window, AND
+  (b) any `Grep`/`Read` tool-call on `docs/*.md` OR on the directory
+      being edited (or ancestor) within the window.
+- **Resolution**: `divineos decide --tension --almost` filing a walk-
+  record, OR `Grep`/`Read` of a governing design doc.
+- **Marker**: reuses `gate_marker.py` schema.
+- **Bypass**: existing `divineos council authorize-bypass` channel.
+
+Signal window: max(last_write_of_this_class_ts, session_start_ts,
+now - WINDOW_SECONDS). All three floors, most-recent wins. Semantic
+grounding: "since more-recent of (last write of this class, session
+start, WINDOW minutes ago)."
+
+This module is Stage 1 of the migration: adds the check function
+but does NOT wire it into any hook yet. Stage 2 adds the PreToolUse
+hook. Stage 3 retires the lexical detector.
+"""
+
+from __future__ import annotations
+
+import re
+import shlex
+import sys
+import time
+
+_CHECK_ERRORS = (OSError, TypeError, ValueError, KeyError)
+
+# Env-var-prefix pattern per bash grammar: NAME=value at start of tokens.
+# Used to strip leading env assignments so `env FOO=bar git commit` and
+# `FOO=bar git commit` both resolve to `git commit`.
+_ENV_ASSIGN_RE = re.compile(r"^[A-Z_][A-Z0-9_]*=")
+
+# Substrate-mutating Bash command-heads. Matched as EXACT resolved-command
+# (after env-prefix stripping), not substring — otherwise argument text
+# like `authorize-bypass --command "divineos decide"` false-fires per
+# Aria's 2026-07-25 review of the Stage 2 self-lockout.
+_SUBSTRATE_MUTATING_HEADS: tuple[str, ...] = (
+    "git commit",
+    "git push",
+    # `divineos learn` / `divineos decide` intentionally NOT here — they
+    # are the RESOLUTION path this gate points at, per Aria's third-bug
+    # note. Gating them would recreate the self-lockout at a different
+    # layer.
+)
+
+WINDOW_SECONDS: int = 30 * 60  # 30-minute floor for the signal window
+"""How far back the signal window extends when no more-recent floor applies.
+
+Semantic: if the agent has not done a substrate-write of this class in
+the last 30 minutes AND the session started more than 30 minutes ago,
+the window starts 30 minutes ago. If either of those two floors is
+more-recent, they win (max-of-three).
+"""
+
+
+def _resolve_command_head(bash_command: str) -> str:
+    """Return the "real" command head after stripping leading env-var
+    assignments per bash grammar.
+
+    Handles:
+      - `git commit`                       → "git commit"
+      - `env FOO=bar git commit`           → "git commit"
+      - `FOO=bar BAZ=qux git commit -m x`  → "git commit"
+
+    Returns first two tokens joined (or single token if only one exists).
+    Empty string if command is empty or all-whitespace or shlex fails.
+
+    Per Aria's 2026-07-25 review: fixes Bug 1 (substring-match) by
+    exact-matching against the resolved command-head, not any substring
+    in the raw command text (which would false-fire on arguments like
+    `authorize-bypass --command "divineos decide"`).
+    """
+    if not bash_command:
+        return ""
+    try:
+        tokens = shlex.split(bash_command, posix=True)
+    except ValueError:
+        # Malformed quoting — fall back to whitespace split so we never
+        # crash the gate. Fail-permissive on parse ambiguity.
+        tokens = bash_command.strip().split()
+    # Skip leading `env` invocation and env-var assignments
+    idx = 0
+    if tokens and tokens[0].lower() == "env":
+        idx = 1
+    while idx < len(tokens) and _ENV_ASSIGN_RE.match(tokens[idx]):
+        idx += 1
+    real = tokens[idx:]
+    if not real:
+        return ""
+    if len(real) >= 2:
+        return f"{real[0].lower()} {real[1].lower()}"
+    return real[0].lower()
+
+
+def _is_substrate_mutating(
+    tool_name: str,
+    file_paths: tuple[str, ...],
+    bash_command: str,
+) -> bool:
+    """Return True if this tool-call is about to mutate substrate.
+
+    Substrate-mutating = Write, Edit, MultiEdit, NotebookEdit, or a Bash
+    command whose resolved head (after env-prefix strip) exactly matches
+    a known substrate-mutating command. Read/Grep/Glob and query-only
+    tool-calls are not substrate-mutating.
+
+    Per Aria's 2026-07-25 review: exact-match on resolved head, not
+    substring in raw command. Resolution-path CLIs (divineos learn,
+    divineos decide) intentionally excluded — see comment on
+    _SUBSTRATE_MUTATING_HEADS.
+    """
+    if tool_name in {"Write", "Edit", "MultiEdit", "NotebookEdit"}:
+        return True
+    if tool_name == "Bash" and bash_command:
+        head = _resolve_command_head(bash_command)
+        if head in _SUBSTRATE_MUTATING_HEADS:
+            return True
+    return False
+
+
+def _class_dir_for_path(file_path: str) -> str:
+    """Return the "class directory" for a file — the directory whose
+    contents are the class the file belongs to for consult-scope
+    purposes.
+
+    For a file `src/divineos/core/council_required/gate.py`, the class
+    directory is `src/divineos/core/council_required/`. Consulting any
+    file in that dir (or ancestor) counts as touching-the-class.
+    """
+    if not file_path:
+        return ""
+    p = file_path.replace("\\", "/")
+    # Strip filename to get directory
+    if "/" in p:
+        return p.rsplit("/", 1)[0]
+    return ""
+
+
+def _pick_primary_path(file_paths: tuple[str, ...], bash_command: str) -> str:
+    """Pick the primary path for fingerprinting purposes.
+
+    For file-modifying tools, use the first file_path. For Bash, try
+    to extract a path from the command (e.g. `git add path/to/file`).
+    Returns empty string if no path is discoverable.
+    """
+    if file_paths:
+        return file_paths[0]
+    if bash_command:
+        # Best-effort — most commands with paths have them as later args
+        tokens = bash_command.strip().split()
+        for tok in tokens[1:]:
+            if "/" in tok or "\\" in tok:
+                return tok
+    return ""
+
+
+def _has_walk_record_within(window_start_ts: float, now: float) -> bool:
+    """Return True if a decision_journal entry exists between
+    window_start_ts and now.
+
+    Uses divineos.core.decision_journal to check. Any decision recorded
+    in the window counts — the specific topic-matching is left to the
+    resolution-verifier layer (a walk that produced a decision within
+    the window is evidence of consultation, even if the walk was on
+    an adjacent topic; the composer chose to consult somewhere).
+    """
+    try:
+        from divineos.core.decision_journal import list_decisions
+    except ImportError:
+        # Module unavailable — fail-open (don't block) since the
+        # infrastructure isn't in place to make the check.
+        return True
+
+    try:
+        recent = list_decisions(limit=100)
+    except _CHECK_ERRORS:
+        return True
+
+    for d in recent:
+        created_at = getattr(d, "created_at", None) or (
+            d.get("created_at") if isinstance(d, dict) else None
+        )
+        if created_at is None:
+            continue
+        try:
+            ts = float(created_at)
+        except (TypeError, ValueError):
+            continue
+        if window_start_ts <= ts <= now:
+            return True
+    return False
+
+
+def _has_doc_consult_within(
+    class_dir: str,
+    window_start_ts: float,
+    now: float,
+) -> bool:
+    """Return True if the action-stream has a Grep/Read of a design
+    doc (`docs/*.md`) OR any Grep/Read within `class_dir` or an
+    ancestor of it, in the window.
+
+    Reads TOOL_CALL events from ``tool_logbook`` — the store that
+    receives tool events per the 2026-05-05 store split. F92 fix
+    (Aletheia 2026-07-27, prereg-b921a0bef963): this function
+    previously queried ``divineos.core.ledger.get_events``, but
+    TOOL_CALL events are written to ``tool_logbook`` by design; the
+    main ``system_events`` ledger receives none since May 2026. The
+    reader was structurally unable to see any Grep/Read. Empirical
+    2026-07-27: main ledger 0 TOOL_CALL last 24h; tool_logbook 282.
+    Redirected to ``tool_logbook.get_recent_events``. If unavailable,
+    fail-open (returns True — do not turn missing telemetry into
+    unsatisfiable gates).
+    """
+    try:
+        from divineos.core.tool_logbook import get_recent_events
+    except ImportError:
+        return True
+
+    try:
+        events = get_recent_events(
+            since_ts=window_start_ts,
+            now_ts=now,
+            tool_names=frozenset({"Grep", "Read", "Glob"}),
+            event_type="TOOL_CALL",
+            limit=200,
+        )
+    except _CHECK_ERRORS:
+        return True
+
+    class_dir_norm = class_dir.replace("\\", "/").strip("/") if class_dir else ""
+
+    for ev in events:
+        ts = ev.get("timestamp")
+        if ts is None:
+            continue
+        try:
+            ts_f = float(ts)
+        except (TypeError, ValueError):
+            continue
+        if not (window_start_ts <= ts_f <= now):
+            # Ledger is ordered desc; once below window, stop.
+            if ts_f < window_start_ts:
+                break
+            continue
+
+        payload = ev.get("payload") or {}
+        if isinstance(payload, str):
+            import json
+
+            try:
+                payload = json.loads(payload)
+            except (ValueError, TypeError):
+                continue
+        if not isinstance(payload, dict):
+            continue
+
+        tool_name = payload.get("tool_name") or payload.get("tool")
+        if tool_name not in {"Grep", "Read", "Glob"}:
+            continue
+
+        # Path evidence — look in a few common payload keys
+        candidate_paths = []
+        tool_input = payload.get("tool_input") or {}
+        if isinstance(tool_input, dict):
+            for key in ("file_path", "path", "pattern"):
+                v = tool_input.get(key)
+                if isinstance(v, str):
+                    candidate_paths.append(v)
+
+        for p in candidate_paths:
+            p_norm = p.replace("\\", "/")
+            # docs/*.md check
+            if "docs/" in p_norm and p_norm.endswith(".md"):
+                return True
+            # class-dir ancestor check
+            if class_dir_norm and class_dir_norm in p_norm:
+                return True
+
+    return False
+
+
+def compute_window_start(
+    class_dir: str,
+    now: float,
+    session_start_ts: float | None = None,
+) -> float:
+    """Compute the signal window start timestamp.
+
+    window_start = max(
+        last_write_of_this_class_ts,
+        session_start_ts,
+        now - WINDOW_SECONDS,
+    )
+
+    If any floor is unavailable, treat it as 0 (never — the other
+    floors win). The 30-minute floor is always present so a fresh
+    session with no prior writes still gets a bounded window.
+    """
+    floors: list[float] = [now - WINDOW_SECONDS]
+    if session_start_ts is not None:
+        floors.append(session_start_ts)
+    last_write = _last_write_of_class_ts(class_dir, now)
+    if last_write is not None:
+        floors.append(last_write)
+    return max(floors)
+
+
+def _last_write_of_class_ts(class_dir: str, now: float) -> float | None:
+    """Return the timestamp of the most-recent Write/Edit tool-call on
+    a file in `class_dir` (or descendants). None if no such write
+    within a reasonable lookback (24h).
+
+    F92 fix companion (Aletheia 2026-07-27, prereg-b921a0bef963):
+    same wrong-store bug as `_has_doc_consult_within`. Redirected to
+    `tool_logbook.get_recent_events` per the 2026-05-05 store-split
+    design.
+    """
+    if not class_dir:
+        return None
+
+    try:
+        from divineos.core.tool_logbook import get_recent_events
+    except ImportError:
+        return None
+
+    lookback_floor = now - 24 * 3600
+    try:
+        events = get_recent_events(
+            since_ts=lookback_floor,
+            now_ts=now,
+            tool_names=frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"}),
+            event_type="TOOL_CALL",
+            limit=500,
+        )
+    except _CHECK_ERRORS:
+        return None
+
+    class_dir_norm = class_dir.replace("\\", "/").strip("/")
+    lookback_floor = now - 24 * 3600
+
+    for ev in events:
+        ts = ev.get("timestamp")
+        if ts is None:
+            continue
+        try:
+            ts_f = float(ts)
+        except (TypeError, ValueError):
+            continue
+        if ts_f < lookback_floor:
+            break
+        if ts_f > now:
+            continue
+
+        payload = ev.get("payload") or {}
+        if isinstance(payload, str):
+            import json
+
+            try:
+                payload = json.loads(payload)
+            except (ValueError, TypeError):
+                continue
+        if not isinstance(payload, dict):
+            continue
+
+        tool_name = payload.get("tool_name") or payload.get("tool")
+        if tool_name not in {"Write", "Edit", "MultiEdit", "NotebookEdit"}:
+            continue
+
+        tool_input = payload.get("tool_input") or {}
+        if not isinstance(tool_input, dict):
+            continue
+        fp = tool_input.get("file_path", "")
+        if not isinstance(fp, str):
+            continue
+        fp_norm = fp.replace("\\", "/")
+        if class_dir_norm and class_dir_norm in fp_norm:
+            return ts_f
+
+    return None
+
+
+def check_should_block(
+    tool_name: str,
+    file_paths: tuple[str, ...],
+    bash_command: str,
+    now: float | None = None,
+    session_start_ts: float | None = None,
+) -> str | None:
+    """Return block-message if PreToolUse should block, else None.
+
+    Fires when a substrate-mutating tool is about to run AND no walk-
+    record OR design-doc consult appears in the recent action-stream
+    (per compute_window_start).
+
+    This is the signal-based replacement for the lexical
+    `_has_solution_shape` check. See module docstring for the five
+    primitives and the migration spec at
+    `docs/verify_before_build_signal_migration.md`.
+    """
+    if now is None:
+        now = time.time()
+
+    if not _is_substrate_mutating(tool_name, file_paths, bash_command):
+        return None
+
+    primary_path = _pick_primary_path(file_paths, bash_command)
+    class_dir = _class_dir_for_path(primary_path)
+
+    window_start = compute_window_start(class_dir, now, session_start_ts)
+
+    if _has_walk_record_within(window_start, now):
+        return None
+    if _has_doc_consult_within(class_dir, window_start, now):
+        return None
+
+    # Neither walk-record nor doc-consult in the window — block.
+    window_minutes = int((now - window_start) / 60)
+    return (
+        "VERIFY-BEFORE-BUILD SIGNAL GATE — this substrate-mutation "
+        f"(tool={tool_name}, path={primary_path or '<none>'}) is about "
+        "to happen without prior consultation of relevant design or "
+        "history for the substrate being modified.\n\n"
+        f"Signal window: last {window_minutes} minute(s). No walk-record "
+        f"(decision_journal entry) AND no consult (Grep/Read of docs/*.md "
+        f"or {class_dir or '<class-dir>'}) found in the window.\n\n"
+        "Resolution:\n"
+        '  - Walk-record: divineos decide "<what>" --tension "..." '
+        '--almost "..."\n'
+        "  - Design-doc consult: Grep or Read of a docs/*.md file, or\n"
+        f"    any Grep/Read within {class_dir or '<class-dir>'}\n\n"
+        "Per Aria's 2026-06-16 signal-based-gates design "
+        "(docs/signal-based-gates-design-2026-06-16.md): 'Did you consult "
+        "is a question; you did not consult is a finding.' This gate "
+        "reads structural evidence in the action-stream, not language "
+        "shape in the reply. Bypass: divineos council authorize-bypass."
+    )
+
+
+def _normalize_edit_fingerprint_for_bypass(
+    tool_name: str,
+    file_paths: tuple[str, ...],
+    bash_command: str,
+) -> str:
+    """Compute the fingerprint the operator-bypass marker was authorized
+    with, mirroring divineos.core.council_required.types._normalize_edit_fingerprint.
+
+    Kept local (import-free) so the fail-open path for a missing state_markers
+    module doesn't crash on the fingerprint calc itself. If the council_required
+    module IS available, we import its normalizer to guarantee wire-compat.
+    """
+    primary = _pick_primary_path(file_paths, bash_command)
+    try:
+        from divineos.core.council_required.types import _normalize_edit_fingerprint
+
+        return _normalize_edit_fingerprint(primary, tool_name)
+    except ImportError:
+        # Fallback — should be rare; the council_required module lands
+        # before this one in the standard install. Fail-permissive:
+        # produce a plausible fingerprint that MIGHT match if the
+        # authorize-bypass CLI ran with the same normalization.
+        norm = (primary or "").replace("\\", "/").strip()
+        kind = (tool_name or "").strip().lower()
+        return f"{kind}:{norm}"
+
+
+def check_and_consume_bypass(
+    tool_name: str,
+    file_paths: tuple[str, ...],
+    bash_command: str,
+) -> bool:
+    """Check for an active operator-bypass state_marker matching this
+    tool-call's fingerprint. If found, atomically consume it and return
+    True. If not, return False.
+
+    Per Aria's 2026-07-25 review (Option-C-split): mutation is explicit
+    (in the function name), separate from the pure check_should_block.
+    Hooks call this first; on True they allow the tool-call, on False
+    they proceed to check_should_block.
+
+    FAIL-OPEN discipline (Aria's third-bug catch):
+    - If state_markers module fails to import: return False (no bypass
+      found), log a warning to stderr for observability. Session isn't
+      bricked — check_should_block is called next; if IT also fails
+      (its own fail-open), the tool-call proceeds without gate.
+    - If the marker query itself raises: same — return False with loud
+      log, don't crash the hook.
+
+    Trust-never-100% (Andrew 2026-06-17): substrate can be wrong, the
+    gate has to survive that.
+    """
+    try:
+        from divineos.core.council_required.types import (
+            STATE_MARKER_KIND_OPERATOR_BYPASS,
+        )
+        from divineos.core.state_markers import consume_marker, find_active_marker
+    except ImportError as e:
+        sys.stderr.write(
+            f"[verify_before_build_signal] state_markers module unavailable "
+            f"({type(e).__name__}: {e}); fail-open, no bypass consumed.\n"
+        )
+        return False
+
+    try:
+        target_fp = _normalize_edit_fingerprint_for_bypass(tool_name, file_paths, bash_command)
+        marker = find_active_marker(
+            kind=STATE_MARKER_KIND_OPERATOR_BYPASS,
+            fingerprint_predicate=lambda fp: fp == target_fp,
+        )
+        if marker is None:
+            return False
+        consume_marker(
+            marker_id=marker.marker_id,
+            consumed_by_fingerprint=target_fp,
+        )
+        sys.stderr.write(
+            f"[verify_before_build_signal] operator-bypass marker "
+            f"{marker.marker_id[:12]}... consumed for {target_fp}\n"
+        )
+        return True
+    except _CHECK_ERRORS as e:
+        sys.stderr.write(
+            f"[verify_before_build_signal] bypass-check raised "
+            f"({type(e).__name__}: {e}); fail-open, no bypass consumed.\n"
+        )
+        return False
+
+
+__all__ = [
+    "WINDOW_SECONDS",
+    "check_and_consume_bypass",
+    "check_should_block",
+    "compute_window_start",
+]

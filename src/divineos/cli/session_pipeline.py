@@ -20,6 +20,7 @@ from divineos.cli._wrappers import (
 )
 from divineos.cli.pipeline_gates import (
     enforce_briefing_gate,
+    enforce_bypass_investigation_gate,
     enforce_engagement_gate,
     run_goal_extraction,
     run_quality_gate,
@@ -100,6 +101,15 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
         run_goal_extraction(analysis)
         enforce_briefing_gate()
         enforce_engagement_gate()
+
+        # 2026-07-22 (task #18, prereg-30485a180429): block extract
+        # when any bypass_use investigations remain unresolved. Andrew
+        # directive 93164891: every bypass launches a root-cause
+        # investigation that must be resolved before the session can
+        # close cleanly. Gate returns False to block; ctx.exit(1)
+        # matches the extract pipeline's early-exit convention.
+        if not enforce_bypass_investigation_gate():
+            raise click.exceptions.Exit(1)
 
         # ── Early orientation capture (prereg-abb5a786fe94) ──────
         # Write the orientation/handoff note NOW — before the heavy

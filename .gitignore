@@ -2,8 +2,10 @@
 .worktrees/
 .claude/worktrees/
 
-# User-specific Claude settings
-.claude/settings.local.json
+# User-specific Claude settings — glob covers .pre-prune-* backups per
+# Vanta 2026-07-26 security audit (find-b82d7f1f9e88 / Aletheia F91):
+# .claude/settings.local.json.pre-prune-2026-07-23 slipped past exact match.
+.claude/settings.local.json*
 
 # 2026-05-11 audit-transparency pass (Aether + Andrew, addressing
 # Grok's Schneier finding on gitignored-folders-escaping-audit):
@@ -97,6 +99,10 @@ cache/
 .env.*
 !.env.example
 .env.local
+# .envrc per Vanta 2026-07-26 audit (find-60756a755850): .gitignore
+# covered .env and .env.* but NOT .envrc. Currently empty blob so no
+# active exposure, but future export lines would commit silently.
+.envrc
 *.key
 *.pem
 secrets/
@@ -109,6 +115,11 @@ Thumbs.db
 *.tmp
 tmp/
 clone_*/
+# Windows bash runtime crash artifacts — read once (msys-2.0.dll runtime
+# crashes; not DivineOS-code-level). Aletheia F91 2026-07-26: crash dump
+# that keeps updating means bash is still crashing — signal for
+# investigation, not for version control.
+*.stackdump
 
 # reset-template backup directory — local DB snapshots before scrubbing
 _pre_reset_backups/

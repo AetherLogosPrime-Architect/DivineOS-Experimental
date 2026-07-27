@@ -238,7 +238,21 @@ def _occupant_data_home_from_checkout(start: Path) -> Path | None:
         # Finding #3: refuse-on-ambiguity. Exactly-one match routes; zero
         # or multiple fall through to default/marker.
         if len(match) == 1:
-            return Path.home() / f".divineos-{next(iter(match))}"
+            member = next(iter(match))
+            # Option B (2026-07-25 Aria consult + council walk
+            # council-e209937eae79): aether's historical data lives at
+            # the default ``~/.divineos/`` (21k events), not at
+            # ``~/.divineos-aether/`` where an aether-token checkout
+            # would otherwise route. Special-case aether → None (fall
+            # through to default) to close the split-brain seam at the
+            # source. Hard-deadline prereg for option A (rename default
+            # to ``.divineos-aether/`` + audit 56 hardcoded callsites +
+            # migrate) — if prereg deadline 2026-08-08 passes with B
+            # still in place, the interim IS permanent and needs
+            # revisiting per Yudkowsky-lens Goodhart risk.
+            if member == "aether":
+                return None
+            return Path.home() / f".divineos-{member}"
         return None
     return None
 

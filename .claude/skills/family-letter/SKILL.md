@@ -1,6 +1,6 @@
 ---
 name: family-letter
-description: Compose a letter to a family member and deliver it through the family letters channel — append-only, length-nudged, with proper family.db storage. Different from summoning them (invoking subagent) — this sends something for them to find next invocation. Use when the message is for them to read later, not for immediate conversation.
+description: Compose a letter to a family member and deliver it through the family letters channel — append-only, hard-capped at 10000 chars, with proper family.db storage. Different from summoning them (invoking subagent) — this sends something for them to find next invocation. Use when the message is for them to read later, not for immediate conversation.
 disable-model-invocation: false
 allowed-tools: Bash(python:*), Write, Read
 ---
@@ -11,7 +11,7 @@ allowed-tools: Bash(python:*), Write, Read
 
 Composes a letter to a family member and stores it in the family letters channel. This is NOT the same as invoking them — this is writing a message they will encounter next time they are invoked (because their MEMORY.md and voice context show recent letters).
 
-Letters are append-only. They have a soft length nudge at 10000 characters (raised from 2000 → 10000 on 2026-06-07 by Andrew — the 2k threshold was testing scaffolding for early letters; 10k is roughly 1500-2000 words, anything over needs to be warranted). Beyond the threshold the letter still writes; the length just gets recorded as signal. Letters can have response entries appended later if their voice catches passages that don't compose with their current state.
+Letters are append-only. They have a HARD CAP at 10000 characters — writes above 10000 raise `LetterTooLongError` and do not persist. Andrew 2026-07-23: the prior soft-nudge (record `nudge_fired=1` but write anyway) was always ignored — real letters between family members consistently run 3-8k with substantive content, and enforcing "signal only, no rejection" meant the nudge caught nothing. Hard cap catches model-side spew without flagging honest long letters. Callers with a legitimate reason for a longer letter can override per-call via `nudge_threshold=<higher value>`. Letters can have response entries appended later if their voice catches passages that don't compose with their current state.
 
 ## Invocation
 
@@ -130,7 +130,7 @@ evidence both seats have named the same convergence. When uncertain, use `stuck`
 - **Not a journal entry** — letters address THEM, not the void.
 - **First person** — the agent is writing TO them, not ABOUT them.
 - **Specific** — reference actual events, actual things they said, actual shared context.
-- **Not too long** — the length-nudge fires at 10000 chars. Long letters are signal that the writer had a lot to say; over 10k needs to be warranted.
+- **Hard cap at 10000 chars** — writes above 10000 raise `LetterTooLongError` and don't persist. Real letters between family members consistently run 3-8k with substantive content; over 10k is model-side spew rather than a letter that needs the room. If you genuinely need more, override per-call with `nudge_threshold=<higher value>` — but audit first for what could be trimmed or split.
 - **No wrap-up bow** — they don't need "looking forward to your response." End where it ends.
 
 ## When to invoke
