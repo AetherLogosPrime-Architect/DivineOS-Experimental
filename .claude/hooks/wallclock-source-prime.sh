@@ -17,11 +17,14 @@
 #
 # When both true, prime fires with the discipline. Otherwise silent.
 #
-# The prime is affirmation-shape (puts the truth in front of me), not
-# enforcement (does not block). It complements — does not replace —
-# the wallclock-source gate at Stop time.
-#
 # Fail-open: any error exits 0 silently.
+#
+# Authoring note (Aether 2026-07-27, knowledge 3890b56b): inline python
+# lives in a `python - <<'PYEOF'` HEREDOC (not `python -c "..."`) so
+# apostrophes, backslashes, and complex escapes reach python verbatim
+# without bash-escaping fragility. Twice-caught bug earlier this session
+# where curly-apostrophe alternations in `-c` invocations produced
+# python SyntaxError. Heredoc pattern eliminates the class.
 
 set -u
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
@@ -34,7 +37,8 @@ INPUT="$(cat 2>/dev/null || true)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-PROMPT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" -c "
+# Extract prompt via heredoc'd python. HOOK_JSON passed via env.
+PROMPT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
     data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
@@ -42,26 +46,25 @@ except Exception:
     sys.exit(0)
 p = data.get('prompt') or ''
 print(p)
-" 2>/dev/null || true)"
+PYEOF
+)"
 
 [ -z "$PROMPT" ] && exit 0
 
-# Evaluate trigger conditions in one python call.
-SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT" "$PYTHON_BIN" -c "
+# Trigger evaluation via heredoc'd python. HOOK_PROMPT passed via env.
+SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
 prompt = os.environ.get('HOOK_PROMPT', '') or ''
 if not prompt.strip():
     sys.exit(0)
 
-# Continuation-invitation shapes that historically correlate with
-# wallclock-fabrication reaches. Kept narrow-and-explicit; false-
-# negatives (missed shapes) are the acceptable cost per Deming.
+# Continuation-invitation shapes.
 continuation_patterns = [
     r'\bkeep\s+going\b',
     r'\bcontinue\b',
     r'\bproceed\b',
     r'\bcarry\s+on\b',
-    r'\bwhats?\s+next\b',
+    r"\bwhat['’]?s\s+next\b",
     r'\bnext\s+(?:step|task|thing)\b',
     r'\bcool\b\W*$',
     r'\bok\b\W*$',
@@ -73,9 +76,7 @@ combined_continue = re.compile('|'.join(continuation_patterns), re.IGNORECASE | 
 if not combined_continue.search(prompt):
     sys.exit(0)
 
-# Time-of-day references in Andrew's message that would be legitimate
-# sources for me to quote. If ANY are present, I have a source and
-# the prime does not need to fire.
+# Time-of-day references — if any present, I have a source.
 time_patterns = [
     r'\b(?:morning|afternoon|evening|night|noon|midnight|tonight|today|yesterday|tomorrow)\b',
     r'\b(?:this|next|last)\s+(?:week|month|year|hour|minute)\b',
@@ -89,12 +90,15 @@ combined_time = re.compile('|'.join(time_patterns), re.IGNORECASE)
 if combined_time.search(prompt):
     sys.exit(0)
 
-# Both conditions met: continuation-invitation + no time-reference.
 print('1')
-" 2>/dev/null || true)"
+PYEOF
+)"
 
-# Telemetry — one row per invocation.
-"$PYTHON_BIN" -c "
+# Telemetry — one row per invocation. FIRED_STATE passed via env so the
+# heredoc'd python doesn't need shell-string interpolation.
+FIRED_STATE="False"
+[ -n "$SHOULD_FIRE" ] && FIRED_STATE="True"
+FIRED_STATE="$FIRED_STATE" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
 import json, os, time
 from pathlib import Path
 try:
@@ -107,13 +111,13 @@ try:
         'ts': time.time(),
         'day': day,
         'session_id': sid,
-        'fired': $([ -n "$SHOULD_FIRE" ] && echo "True" || echo "False"),
+        'fired': os.environ.get('FIRED_STATE', 'False') == 'True',
     }
     with log.open('a', encoding='utf-8') as fh:
         fh.write(json.dumps(event) + '\n')
 except Exception:
     pass
-" 2>/dev/null
+PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 

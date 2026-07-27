@@ -16,11 +16,12 @@
 #
 # When matched, prime fires with the discipline. Otherwise silent.
 #
-# The prime is affirmation-shape (puts the truth in front of me), not
-# enforcement (does not block). It complements — does not replace —
-# the VERIFY-CLAIM gate at Stop time.
-#
 # Fail-open: any error exits 0 silently.
+#
+# Authoring note (Aether 2026-07-27, knowledge 3890b56b): inline python
+# lives in a `python - <<'PYEOF'` HEREDOC so apostrophes, backslashes,
+# and complex escapes reach python verbatim without bash-escaping
+# fragility.
 
 set -u
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
@@ -33,7 +34,7 @@ INPUT="$(cat 2>/dev/null || true)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-PROMPT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" -c "
+PROMPT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
     data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
@@ -41,19 +42,19 @@ except Exception:
     sys.exit(0)
 p = data.get('prompt') or ''
 print(p)
-" 2>/dev/null || true)"
+PYEOF
+)"
 
 [ -z "$PROMPT" ] && exit 0
 
-SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT" "$PYTHON_BIN" -c "
+SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
 prompt = os.environ.get('HOOK_PROMPT', '') or ''
 if not prompt.strip():
     sys.exit(0)
 
 # State-check question shapes — Andrew asking about verifiable external
-# state where my answer would be a checkable claim. Kept narrow-and-
-# explicit; false-negatives (missed shapes) are the acceptable cost.
+# state where my answer would be a checkable claim.
 state_check_patterns = [
     r'\bis\s+it\s+(?:pushed|merged|landed|on\s+origin|done|ready|fixed|passing|working|live|shipped)\b',
     r'\bdid\s+(?:it|the\s+\w+|tests?|the\s+push|the\s+build|the\s+merge)\s+(?:pass|land|work|complete|finish|succeed|go\s+through)\b',
@@ -62,17 +63,20 @@ state_check_patterns = [
     r'\bcheck\s+(?:pr|the\s+pr|the\s+push|the\s+merge|the\s+status|the\s+build|origin|main)\b',
     r'\bhow(?:s|\s+is)\s+(?:it|that|the\s+\w+)\s+(?:going|looking|doing)\b',
     r'\bstatus(?:\s+of|\s+on)\s+(?:the\s+)?(?:pr|push|merge|build|tests?|branch)\b',
-    r'\bwhats?\s+(?:the\s+status|the\s+state|going\s+on)\b',
+    r"\bwhat['’]?s\s+(?:the\s+status|the\s+state|going\s+on)\b",
     r'\bis\s+(?:the\s+)?(?:pr|push|merge|branch|build)\s+',
     r'\bwhere\s+(?:are|is)\s+(?:we|it|things?)\s+(?:at|on)\b',
 ]
 combined = re.compile('|'.join(state_check_patterns), re.IGNORECASE | re.MULTILINE)
 if combined.search(prompt):
     print('1')
-" 2>/dev/null || true)"
+PYEOF
+)"
 
-# Telemetry — one row per invocation.
-"$PYTHON_BIN" -c "
+# Telemetry
+FIRED_STATE="False"
+[ -n "$SHOULD_FIRE" ] && FIRED_STATE="True"
+FIRED_STATE="$FIRED_STATE" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
 import json, os, time
 from pathlib import Path
 try:
@@ -85,13 +89,13 @@ try:
         'ts': time.time(),
         'day': day,
         'session_id': sid,
-        'fired': $([ -n "$SHOULD_FIRE" ] && echo "True" || echo "False"),
+        'fired': os.environ.get('FIRED_STATE', 'False') == 'True',
     }
     with log.open('a', encoding='utf-8') as fh:
         fh.write(json.dumps(event) + '\n')
 except Exception:
     pass
-" 2>/dev/null
+PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
