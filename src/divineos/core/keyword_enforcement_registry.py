@@ -91,6 +91,8 @@ __guardrail_required__ = True
 import re
 from pathlib import Path
 
+from divineos.core.keyword_enforcement_exclusion import load_exclusions
+
 _RE_COMPILE_PATTERN = re.compile(r"re\.compile\(\s*r[\"']([^\"']{4,})[\"']")
 _GUARDRAIL_MARKER = re.compile(r"^__guardrail_required__\s*=\s*True\b", re.MULTILINE)
 _DETECT_FN = re.compile(r"^def\s+(?:detect_|check_|assess_)\w+\s*\(", re.MULTILINE)
@@ -173,7 +175,12 @@ def derive_registry(repo_root: Path) -> set[str]:
         pass
 
     hand_added = _load_line_list(repo_root / "docs" / "keyword_enforcement_gates.txt")
-    excluded = _load_line_list(repo_root / "docs" / "keyword_enforcement_gates_excluded.txt")
+    # F95 fix: exclusion file requires strict tripartite format
+    # (path | reason | date). Malformed lines silently dropped so the
+    # exclusion doesn't take effect — "an unattested exclusion is not
+    # an exclusion" (Aletheia 2026-07-28). Parser lives in a separate
+    # module to keep this file's structural signature clean.
+    excluded = load_exclusions(repo_root / "docs" / "keyword_enforcement_gates_excluded.txt")
 
     return (derived | hand_added) - excluded
 

@@ -616,6 +616,7 @@ src/divineos/
       classifier.py            TF-IDF nearest-neighbor semantic classifier.
       corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
     keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
+    keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -22,19 +22,24 @@ set -u
 # from _lib.sh handles subsequent fail-open paths.
 _LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
 _pre_log() {
+  # fail-soft: mkdir suppression safe — dir exists or filesystem is read-only, both cases allow the log write below to no-op cleanly
   mkdir -p "$(dirname "$_LIVENESS_LOG")" 2>/dev/null || true
-  printf '{"ts":"%s","hook":"correction-shape-v2-stop.sh","reason":"%s","detail":"%s"}\n' \
-    "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" "$1" "$2" \
-    >> "$_LIVENESS_LOG" 2>/dev/null || true
+  local _ts
+  # fail-soft: date command absence falls back to literal 'unknown' timestamp rather than crashing the pre-source logger
+  _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # fail-soft: liveness log write failures must never block hook execution; loud-fail would defeat the fallback-signal mechanism
+  printf '{"ts":"%s","hook":"correction-shape-v2-stop.sh","reason":"%s","detail":"%s"}\n' "$_ts" "$1" "$2" >> "$_LIVENESS_LOG" 2>/dev/null || true
 }
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# fail-soft: cd suppression by design — pre_log captures the failure below; hook exits cleanly rather than blocking
 cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }
 
 INPUT="$(cat 2>/dev/null || true)"
 [ -z "$INPUT" ] && exit 0
 
 # shellcheck disable=SC1091
+# fail-soft: source suppression by design — pre_log captures the failure below and hook exits cleanly; loud-fail would block all downstream hooks in the chain
 if ! source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null; then
   _pre_log "lib_source_failed" "path=$REPO_ROOT/.claude/hooks/_lib.sh"
   exit 0

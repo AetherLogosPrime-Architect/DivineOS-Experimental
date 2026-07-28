@@ -142,6 +142,9 @@ _lib_hook_timing_end() {
 _lib_hook_timing_start
 trap _lib_hook_timing_end EXIT
 
+# F90 heartbeat is invoked at the END of this file — after
+# _lib_log_liveness itself is defined. See end-of-file marker.
+
 # F90 fix (Aletheia 2026-07-28): liveness-recording preamble as shared
 # function so hooks stop silently going dark when their setup steps
 # fail. Aletheia's finding: "every hook shipped from here carries [the
@@ -166,14 +169,15 @@ _lib_log_liveness() {
   local _detail="${2:-}"
   local _hook_name
   _hook_name="${BASH_SOURCE[1]:-unknown}"
+  # fail-soft: basename utility absence or malformed path falls back to literal 'unknown' string rather than breaking the log call
   _hook_name="$(basename "$_hook_name" 2>/dev/null || echo unknown)"
+  # fail-soft: mkdir suppression is safe — either the dir exists (fine) or filesystem permissions block us (log write will also fail-soft below and hook proceeds)
   mkdir -p "$(dirname "$_LIB_LIVENESS_LOG")" 2>/dev/null || true
-  printf '{"ts":"%s","hook":"%s","reason":"%s","detail":"%s"}\n' \
-    "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" \
-    "$_hook_name" \
-    "$_reason" \
-    "$_detail" \
-    >> "$_LIB_LIVENESS_LOG" 2>/dev/null || true
+  local _ts
+  # fail-soft: date command absence falls back to literal 'unknown' timestamp string rather than crashing the liveness logger
+  _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # fail-soft: liveness log write failures are informational only and must never block hook execution; loud-fail would defeat the purpose of a fallback-signal mechanism
+  printf '{"ts":"%s","hook":"%s","reason":"%s","detail":"%s"}\n' "$_ts" "$_hook_name" "$_reason" "$_detail" >> "$_LIB_LIVENESS_LOG" 2>/dev/null || true
 }
 
 find_divineos_python() {
@@ -313,3 +317,10 @@ except Exception:
     pass
 " 2>/dev/null
 }
+
+# F90 heartbeat call (must be at end-of-file — after _lib_log_liveness
+# is defined). Aletheia 2026-07-28: "the liveness mechanism cannot
+# report its own absence." Logging on SUCCESS means an empty log is
+# diagnostic (broken) rather than ambiguous. Runs on every successful
+# source of _lib.sh, so per-hook heartbeats propagate automatically.
+_lib_log_liveness "healthy_source" "hook sourced _lib.sh cleanly"
