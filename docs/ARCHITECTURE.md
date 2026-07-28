@@ -610,6 +610,11 @@ src/divineos/
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
     mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
     mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
+    correction_shape_v2/       Layer 2 self-admission detector — scans MY assistant output for self-correction shape (companion to Layer 1 correction_shape.py which scans Andrew's prompts).
+      self_admission_detector.py Layer A of correction-shape v2 — rule-based self-admission detector with MENTION suppressor.
+    semantic_classifier/       TF-IDF + KNN scaffolding for gate-fire discrimination. Corpus loader is reusable for future embedding-based classifiers.
+      classifier.py            TF-IDF nearest-neighbor semantic classifier.
+      corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
 
   analysis/
     _session_types.py          Session analysis type definitions

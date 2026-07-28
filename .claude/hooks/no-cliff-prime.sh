@@ -40,6 +40,7 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 # "doorway"), not just in Andrew's prompts. Andrew 2026-07-27:
 # "before you continue it cant just be my prompts that trigger it but
 # also your own outputs."
+# fail-soft: python parse or transcript read errors return empty string; hook then exits silently rather than blocking UserPromptSubmit
 COMBINED_TEXT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
@@ -76,6 +77,7 @@ PYEOF
 
 [ -z "$COMBINED_TEXT" ] && exit 0
 
+# fail-soft: python regex or classification error results in silence rather than firing the prime; safer default is not-fire on internal error
 SHOULD_FIRE="$(HOOK_PROMPT="$COMBINED_TEXT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
 prompt = os.environ.get('HOOK_PROMPT', '') or ''
