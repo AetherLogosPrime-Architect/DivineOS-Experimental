@@ -19,18 +19,34 @@
 # is a preventive layer; the deeper defense is the audit sweep at the
 # ledger level (Layer 2, designed but not yet built).
 
+# F90 fix (Aletheia 2026-07-28): pre-source liveness so cd/source-lib
+# failures don't silently exit. After source succeeds, _lib_log_liveness
+# from _lib.sh handles subsequent fail-open paths.
+_LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
+_pre_log() {
+  mkdir -p "$(dirname "$_LIVENESS_LOG")" 2>/dev/null || true
+  printf '{"ts":"%s","hook":"keyword-enforcement-doorman.sh","reason":"%s","detail":"%s"}\n' \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" "$1" "$2" \
+    >> "$_LIVENESS_LOG" 2>/dev/null || true
+}
+
 INPUT=$(cat)
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$REPO_ROOT" || exit 0
+cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }
 
-REGISTRY_FILE="$REPO_ROOT/docs/keyword_enforcement_gates.txt"
-if [ ! -f "$REGISTRY_FILE" ]; then
-    exit 0
-fi
+# Registry: derived from structure by
+# divineos.core.keyword_enforcement_registry (F94 fix 2026-07-28).
+# The Python module reads docs/keyword_enforcement_gates.txt as an
+# opt-in additions list internally; no shell-side path needed.
 
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PYTHON_BIN="$(find_divineos_python)" || exit 0
+if ! source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null; then
+  _pre_log "lib_source_failed" "path=$REPO_ROOT/.claude/hooks/_lib.sh"
+  exit 0
+fi
+if ! PYTHON_BIN="$(find_divineos_python)"; then
+  exit 0
+fi
 
 # Force UTF-8 stdout on Windows Python — the block message may contain
 # non-ASCII glyphs and the default cp1252 codec crashes on them.

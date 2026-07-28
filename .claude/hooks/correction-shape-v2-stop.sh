@@ -16,15 +16,33 @@
 # and every other Stop-time gate keeps working independently.
 
 set -u
+
+# F90 fix (Aletheia 2026-07-28): pre-source liveness so cd/source-lib
+# failures don't silently exit. After source succeeds, _lib_log_liveness
+# from _lib.sh handles subsequent fail-open paths.
+_LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
+_pre_log() {
+  mkdir -p "$(dirname "$_LIVENESS_LOG")" 2>/dev/null || true
+  printf '{"ts":"%s","hook":"correction-shape-v2-stop.sh","reason":"%s","detail":"%s"}\n' \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" "$1" "$2" \
+    >> "$_LIVENESS_LOG" 2>/dev/null || true
+}
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$REPO_ROOT" || exit 0
+cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }
 
 INPUT="$(cat 2>/dev/null || true)"
 [ -z "$INPUT" ] && exit 0
 
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PYTHON_BIN="$(find_divineos_python)" || exit 0
+if ! source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null; then
+  _pre_log "lib_source_failed" "path=$REPO_ROOT/.claude/hooks/_lib.sh"
+  exit 0
+fi
+if ! PYTHON_BIN="$(find_divineos_python)"; then
+  # find_divineos_python already logs its own liveness via _lib_log_liveness
+  exit 0
+fi
 
 export PYTHONIOENCODING=utf-8
 
