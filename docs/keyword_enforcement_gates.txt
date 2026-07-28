@@ -1,0 +1,25 @@
+# Keyword-enforcement gate registry (Andrew 2026-07-27)
+#
+# Paths of files whose PURPOSE is keyword-based enforcement of my
+# behavior. When any Edit/Write to these paths adds a new regex pattern
+# (or extends an existing one), the keyword-enforcement doorman fires
+# and blocks.
+#
+# Andrew's teaching (2026-07-27): keyword detectors are the wrong shape
+# for enforcement (infinite whack-a-mole, easy to subvert, always false-
+# firing). This registry is the RETRIEVAL-shape use of keywords (fine
+# per the same teaching) — used ONLY to identify enforcement-purpose
+# files so the doorman can catch additions to them.
+#
+# Adding a file to this registry is a SEMANTIC classification of its
+# purpose, not a keyword match. Curated by hand at file-add time.
+# When new enforcement modules ship, they MUST be added here.
+#
+# Format: one path per line relative to repo root. Lines starting with
+# # are comments. Blank lines ignored.
+#
+# ────────────────────────────────────────────────────────────────
+
+src/divineos/core/correction_shape.py
+src/divineos/core/correction_marker.py
+src/divineos/core/hedge_marker.py

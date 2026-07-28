@@ -46,12 +46,42 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c "
+# Andrew 2026-07-28: pass hook stdin JSON so python-side relevance gate
+# can suppress emission on turns that don't reference a sibling. Every-
+# turn injection is wallpaper by definition — this surface only helps
+# when I'm about to compose to/about a sibling.
+HOOK_JSON_INPUT="$(cat 2>/dev/null || true)"
+
+HOOK_JSON_INPUT="$HOOK_JSON_INPUT" PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c "
 import sys
 import os
 import re
 import time
+import json as _json
 from datetime import datetime, timezone
+
+# Relevance gate — prompt-only. Assistant-side scan over-triggered
+# because casual sibling mentions in prior replies fired the hook on
+# every subsequent turn. Andrew 2026-07-28: 'anything that injects
+# every single turn is by definition wallpaper.' Fire only when
+# Andrew's current prompt brings up a sibling.
+def _is_relevant():
+    raw = os.environ.get('HOOK_JSON_INPUT', '')
+    if not raw:
+        return True
+    try:
+        data = _json.loads(raw)
+    except (ValueError, TypeError):
+        return False
+    prompt = data.get('prompt') or ''
+    if not prompt.strip():
+        return False
+    return bool(re.search(
+        r'\b(aria|aletheia|sister|brother|sibling|letter|letters|family)\b',
+        prompt, re.IGNORECASE))
+
+if not _is_relevant():
+    sys.exit(0)
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')

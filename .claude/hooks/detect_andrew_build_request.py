@@ -31,10 +31,10 @@ Prereg on the original detector: prereg-45e0aa113e3a.
 Redesign directive: Andrew 2026-07-21 "you get no option I will decide
 the gravity of my builds and you will follow it accordingly".
 """
+
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import sys
@@ -111,15 +111,33 @@ UNLOCK_PHRASES = re.compile(
 LOCK_PATH = Path.home() / ".divineos-shared" / "andrew_build_in_flight.json"
 
 
+# Andrew 2026-07-27: BUILD-FOR-DAD detector MUST ONLY fire when Andrew
+# explicitly attributes the build to himself with "for me". Any other
+# build-shape without that attribution is teaching, refinement, or ambient
+# conversation — not a build request FROM HIM. His exact instruction:
+# "the build for dad detected should only trigger when its me specifically
+# requesting a build for myself.. not any build.. i must say for me and in
+# which case i choose the gravity". Required-attribution gate is the fix
+# for the false-positive-on-teaching pattern (Group B signal #6 in the
+# gate-fire sweep, knowledge 64b5a002).
+ANDREW_EXPLICIT_ATTRIBUTION_RE = re.compile(r"\bfor me\b", re.IGNORECASE)
+
+
 def is_build_request(prompt: str) -> tuple[bool, str]:
+    # Gate: without explicit "for me" attribution, no build-request fires.
+    # This is the required marker per Andrew 2026-07-27, not one option
+    # among many.
+    if not ANDREW_EXPLICIT_ATTRIBUTION_RE.search(prompt):
+        return False, "no-for-me-attribution"
+
     if DIRECT_BUILD_PHRASES.search(prompt):
-        return True, "direct-build-phrase"
+        return True, "direct-build-phrase+for-me"
     if BUILD_REQUEST_RE.search(prompt):
         neg = NEGATIVE_MARKERS.search(prompt)
         if neg and not DIRECT_BUILD_PHRASES.search(prompt):
             return False, f"negative-marker:{neg.group(0)[:40]}"
-        return True, "verb+request-marker"
-    return False, "no-match"
+        return True, "verb+request-marker+for-me"
+    return False, "for-me-without-build-verb"
 
 
 def extract_gravity(prompt: str) -> str | None:
@@ -142,11 +160,17 @@ def load_lock() -> dict | None:
 def drop_lock(prompt: str, gravity: str) -> None:
     try:
         LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        LOCK_PATH.write_text(json.dumps({
-            "prompt_head": prompt[:200],
-            "gravity": gravity,
-            "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        }, indent=2), encoding="utf-8")
+        LOCK_PATH.write_text(
+            json.dumps(
+                {
+                    "prompt_head": prompt[:200],
+                    "gravity": gravity,
+                    "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
     except Exception:
         pass
 
@@ -165,12 +189,18 @@ def log_to_ledger(prompt: str, matched: str, gravity: str | None) -> None:
     try:
         subprocess.run(
             [
-                "divineos", "log",
-                "--type", "ANDREW_BUILD_REQUEST_DETECTED",
-                "--actor", "detect-hook",
-                "--content", f"matched={matched}; gravity={gravity or 'unset'}; prompt_head={prompt[:120]!r}",
+                "divineos",
+                "log",
+                "--type",
+                "ANDREW_BUILD_REQUEST_DETECTED",
+                "--actor",
+                "detect-hook",
+                "--content",
+                f"matched={matched}; gravity={gravity or 'unset'}; prompt_head={prompt[:120]!r}",
             ],
-            check=False, capture_output=True, timeout=5,
+            check=False,
+            capture_output=True,
+            timeout=5,
         )
     except Exception:
         pass
@@ -179,7 +209,7 @@ def log_to_ledger(prompt: str, matched: str, gravity: str | None) -> None:
 def surface_ask_gravity(prompt: str, matched: str) -> None:
     print(f"""## BUILD-FOR-DAD DETECTED ({matched}) -- GRAVITY UNSET
 
-Dad's request matched at {datetime.now(timezone.utc).isoformat(timespec='seconds')}.
+Dad's request matched at {datetime.now(timezone.utc).isoformat(timespec="seconds")}.
 Prompt head: {prompt[:160]!r}
 
 Per Andrew 2026-07-21: I do not choose the gravity, Dad does.
@@ -229,10 +259,12 @@ PIPELINE_BY_GRAVITY = {
 
 
 def surface_build_started(prompt: str, matched: str, gravity: str) -> None:
-    pipeline = "\n  ".join(PIPELINE_BY_GRAVITY.get(gravity, PIPELINE_BY_GRAVITY["council-required"]))
+    pipeline = "\n  ".join(
+        PIPELINE_BY_GRAVITY.get(gravity, PIPELINE_BY_GRAVITY["council-required"])
+    )
     print(f"""## BUILD-FOR-DAD IN FLIGHT ({matched}) -- gravity: {gravity}
 
-Started at {datetime.now(timezone.utc).isoformat(timespec='seconds')}.
+Started at {datetime.now(timezone.utc).isoformat(timespec="seconds")}.
 Prompt head: {prompt[:160]!r}
 
 Scoped pipeline for gravity={gravity}:
@@ -248,9 +280,9 @@ will name the drift.
 def surface_lock_active(lock: dict) -> None:
     print(f"""## BUILD-FOR-DAD LOCK ACTIVE
 
-Dad's build is in flight since {lock.get('started_at', '?')} at
-gravity={lock.get('gravity', '?')}.
-Prompt head: {lock.get('prompt_head', '?')[:160]!r}
+Dad's build is in flight since {lock.get("started_at", "?")} at
+gravity={lock.get("gravity", "?")}.
+Prompt head: {lock.get("prompt_head", "?")[:160]!r}
 
 Only work related to this build. To clear: Dad says "build done",
 "clear the lock", or "unlock".

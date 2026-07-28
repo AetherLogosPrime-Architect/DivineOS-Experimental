@@ -170,11 +170,52 @@ def test_pick_primary_path_from_file_paths():
 
 
 def test_pick_primary_path_from_bash():
-    assert _pick_primary_path((), "git add src/foo.py") == "src/foo.py"
+    # 2026-07-27: uses a path that ACTUALLY exists in the repo — the
+    # new implementation validates via os.path.exists to distinguish
+    # real paths from tokens-that-happen-to-contain-a-slash (git
+    # branches, refspecs, URLs).
+    assert _pick_primary_path((), "git add src/divineos") == "src/divineos"
 
 
 def test_pick_primary_path_empty():
     assert _pick_primary_path((), "") == ""
+
+
+def test_pick_primary_path_git_push_branch_name_returns_empty():
+    """2026-07-27 fix: `git push -u origin feat/gate-automation-sweep-...`
+    was returning `feat/gate-automation-sweep-...` as if it were a file
+    path, then downstream class_dir_for extracted `feat` as the class-dir
+    and the gate demanded consultation of that non-existent directory.
+    Non-existent slash-tokens must return empty (no path)."""
+    result = _pick_primary_path((), "git push -u origin feat/gate-automation-sweep-2026-07-27")
+    assert result == ""
+
+
+def test_pick_primary_path_url_returns_empty():
+    """URLs contain slashes but are not filesystem paths."""
+    result = _pick_primary_path((), "curl https://example.com/api/foo")
+    assert result == ""
+
+
+def test_pick_primary_path_refspec_colon_returns_empty():
+    """Git refspec like `origin +feat:refs/heads/feat` — contains slashes,
+    is not a path."""
+    result = _pick_primary_path((), "git push origin refs/heads/feat/some-branch")
+    assert result == ""
+
+
+def test_check_should_block_fails_open_when_no_class_dir():
+    """2026-07-27 fix: git push / git commit -m 'x' have no derivable
+    filesystem class_dir. Gate has no substrate to enforce consultation
+    on — fail-open. Individual file touches (Edit/Write) already fire
+    the gate independently with real class_dirs."""
+    result = check_should_block(
+        tool_name="Bash",
+        file_paths=(),
+        bash_command="git push -u origin feat/gate-automation-sweep-2026-07-27",
+        now=time.time(),
+    )
+    assert result is None
 
 
 # ─── Window computation ─────────────────────────────────────────────
@@ -469,4 +510,116 @@ def test_F92_regression_last_write_timestamp_reads_tool_logbook_writer(tmp_path,
         "not see a Write emitted through emit_tool_call. Same wrong-store "
         "root cause as _has_doc_consult_within. If this test fails, either "
         "the fix has been reverted or the reader has been repointed."
+    )
+
+
+# ────────────────────────────────────────────────────────────────
+# Pattern 2 (Andrew 2026-07-27): prior Edit/Write to the same
+# class_dir counts as consult. Prevents the sequential-edit false-
+# fire pattern where consecutive Edits on the same file within the
+# window get blocked because only Read/Grep/Glob previously counted.
+# ────────────────────────────────────────────────────────────────
+
+
+def test_prior_edit_to_same_class_dir_counts_as_consult():
+    """A prior Edit within the window on a file in class_dir should
+    satisfy `_has_doc_consult_within`. Without this, sequential edits
+    on the same file false-fire the gate 5+ times per session."""
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    unique_id = f"test-p2-edit-{_uuid.uuid4().hex[:8]}"
+    now = _time.time()
+    window_start = now - 60
+    class_dir = "src/divineos/core"
+    file_in_class = f"{class_dir}/some_module_p2.py"
+
+    emit_tool_call(
+        tool_name="Edit",
+        tool_input={
+            "file_path": file_in_class,
+            "old_string": "x",
+            "new_string": "y",
+        },
+        tool_use_id=unique_id,
+    )
+
+    result = _has_doc_consult_within(
+        class_dir=class_dir,
+        window_start_ts=window_start,
+        now=_time.time() + 1,
+    )
+    assert result is True, (
+        "Pattern 2 (Andrew 2026-07-27): prior Edit to the same class_dir "
+        "should count as consult. If this fails, the sequential-edit "
+        "false-fire pattern will return."
+    )
+
+
+def test_prior_write_to_same_class_dir_counts_as_consult():
+    """Symmetric to the Edit test — Write on a file in class_dir also
+    counts as consult."""
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    unique_id = f"test-p2-write-{_uuid.uuid4().hex[:8]}"
+    now = _time.time()
+    window_start = now - 60
+    class_dir = "src/divineos/core"
+    file_in_class = f"{class_dir}/some_new_module_p2.py"
+
+    emit_tool_call(
+        tool_name="Write",
+        tool_input={"file_path": file_in_class, "content": "# new"},
+        tool_use_id=unique_id,
+    )
+
+    result = _has_doc_consult_within(
+        class_dir=class_dir,
+        window_start_ts=window_start,
+        now=_time.time() + 1,
+    )
+    assert result is True, "Pattern 2: prior Write to same class_dir should count as consult."
+
+
+def test_prior_edit_to_docs_md_does_NOT_count_for_unrelated_class_dir():
+    """An Edit/Write to a docs/*.md file should NOT count as consult on
+    an unrelated class_dir. docs-consult is Read/Grep/Glob only —
+    otherwise a doc-edit to any md file would satisfy the gate on any
+    subsequent code change, which is not the intent."""
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    unique_id = f"test-p2-doc-edit-{_uuid.uuid4().hex[:8]}"
+    now = _time.time()
+    window_start = now - 60
+
+    emit_tool_call(
+        tool_name="Edit",
+        tool_input={
+            "file_path": "docs/some_unrelated_doc.md",
+            "old_string": "a",
+            "new_string": "b",
+        },
+        tool_use_id=unique_id,
+    )
+
+    # class_dir is somewhere else entirely — a doc-edit should not
+    # satisfy consult on an unrelated code directory.
+    result = _has_doc_consult_within(
+        class_dir="src/divineos/completely/other/place",
+        window_start_ts=window_start,
+        now=_time.time() + 1,
+    )
+    assert result is False, (
+        "Pattern 2 negative case: Edit/Write to a docs/*.md file should "
+        "NOT satisfy consult on an unrelated class_dir. The docs/*.md "
+        "shortcut is Read/Grep/Glob-only; write-shape to a doc is not "
+        "evidence of consult on unrelated code."
     )

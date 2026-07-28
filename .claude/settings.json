@@ -150,6 +150,31 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/wallclock-source-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-claim-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-cliff-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/closure-word-summary-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/hedge-suppression-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/continuity-anchor-surface.sh",
             "timeout": 5
           },
@@ -305,6 +330,17 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/verify-before-build-signal.sh",
+            "timeout": 10
+          }
+        ]
+      },
+
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/keyword-enforcement-doorman.sh",
             "timeout": 10
           }
         ]
@@ -481,6 +517,11 @@
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/correction-shape-v2-stop.sh",
+            "timeout": 10
           },
           {
             "type": "command",

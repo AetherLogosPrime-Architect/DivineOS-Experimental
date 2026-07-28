@@ -36,6 +36,7 @@ src/divineos/
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
@@ -610,6 +611,14 @@ src/divineos/
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
     mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
     mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
+    correction_shape_v2/       Layer 2 self-admission detector — scans MY assistant output for self-correction shape (companion to Layer 1 correction_shape.py which scans Andrew's prompts).
+      self_admission_detector.py Layer A of correction-shape v2 — rule-based self-admission detector with MENTION suppressor.
+    semantic_classifier/       TF-IDF + KNN scaffolding for gate-fire discrimination. Corpus loader is reusable for future embedding-based classifiers.
+      classifier.py            TF-IDF nearest-neighbor semantic classifier.
+      corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
+    keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
+    keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
+    push_ready.py              push_ready — automate the External-Review trailer ceremony.
 
   analysis/
     _session_types.py          Session analysis type definitions
