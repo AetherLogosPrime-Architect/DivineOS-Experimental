@@ -78,6 +78,16 @@ blocks incorrectly.
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aether 2026-07-28. This module IS the
+# derivation source for the keyword-enforcement doorman's watch-list.
+# Weakening _looks_like_enforcement_gate (loosening the structural
+# signature, removing marker classes, tightening the AND back into a
+# tight-plus-opt-in) silently unregisters real enforcement gates and
+# recreates the F94 gap Aletheia flagged. Listed in
+# scripts/guardrail_files.txt; multi-party review required at merge-
+# to-main per CLAUDE.md rule #8.
+__guardrail_required__ = True
+
 import re
 from pathlib import Path
 

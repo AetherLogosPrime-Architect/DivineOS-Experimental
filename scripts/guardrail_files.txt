@@ -422,3 +422,4 @@ src/divineos/core/operating_loop/close_reach_detector.py
 src/divineos/core/operating_loop/compaction_reach_detector.py
 src/divineos/core/operating_loop/promise_reach_detector.py
 src/divineos/core/operating_loop/continuity_frame_detector.py
+src/divineos/core/keyword_enforcement_registry.py
