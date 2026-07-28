@@ -29,9 +29,7 @@ from pathlib import Path
 __guardrail_required__ = True
 
 
-_TRAILER_PATTERN = re.compile(
-    r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE
-)
+_TRAILER_PATTERN = re.compile(r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 @dataclass
@@ -78,8 +76,7 @@ def _run_git(args: list[str], cwd: Path | None = None) -> str:
     )
     if result.returncode != 0:
         raise PushReadyError(
-            f"git {' '.join(args)} failed (exit {result.returncode}): "
-            f"{result.stderr.strip()}"
+            f"git {' '.join(args)} failed (exit {result.returncode}): {result.stderr.strip()}"
         )
     return result.stdout
 
@@ -125,9 +122,7 @@ def detect_commits(
         guardrail_set = load_guardrail_set(repo)
 
     base = _resolve_base(repo, branch)
-    log_out = _run_git(
-        ["log", "--format=%H%x00%h%x00%s", f"{base}..{branch}"], cwd=repo
-    )
+    log_out = _run_git(["log", "--format=%H%x00%h%x00%s", f"{base}..{branch}"], cwd=repo)
     commits: list[CommitInfo] = []
     for line in log_out.splitlines():
         line = line.strip()
@@ -139,14 +134,8 @@ def detect_commits(
         sha, short_sha, subject = parts[0], parts[1], parts[2]
 
         # Files touched by this commit.
-        files_out = _run_git(
-            ["show", "--name-only", "--format=", sha], cwd=repo
-        )
-        touched = {
-            f.strip().replace("\\", "/")
-            for f in files_out.splitlines()
-            if f.strip()
-        }
+        files_out = _run_git(["show", "--name-only", "--format=", sha], cwd=repo)
+        touched = {f.strip().replace("\\", "/") for f in files_out.splitlines() if f.strip()}
         guarded = sorted(touched & guardrail_set)
 
         # Full commit message for trailer detection.
@@ -175,9 +164,7 @@ def _commits_needing_trailer(commits: list[CommitInfo]) -> list[CommitInfo]:
     return [c for c in commits if c.touches_guardrail and not c.has_trailer]
 
 
-def open_audit_round(
-    branch: str, commits_needing: list[CommitInfo]
-) -> str:
+def open_audit_round(branch: str, commits_needing: list[CommitInfo]) -> str:
     """Call ``divineos audit submit-round`` and return the round-id."""
     focus = (
         f"auto-opened by push-ready for branch {branch}: "
@@ -200,14 +187,11 @@ def open_audit_round(
         check=False,
     )
     if result.returncode != 0:
-        raise PushReadyError(
-            "divineos audit submit-round failed: " + result.stderr.strip()
-        )
+        raise PushReadyError("divineos audit submit-round failed: " + result.stderr.strip())
     match = re.search(r"(round-[0-9a-f]+)", result.stdout + result.stderr)
     if not match:
         raise PushReadyError(
-            "Could not extract round-id from submit-round output: "
-            + result.stdout
+            "Could not extract round-id from submit-round output: " + result.stdout
         )
     return match.group(1)
 
@@ -241,11 +225,11 @@ def amend_trailers(
     # to suppress the deprecation warning (filter-branch remains functional
     # and is the most portable in-tree message rewriter).
     msg_filter = (
-        'sha=$(git rev-parse --short=8 $GIT_COMMIT); '
+        "sha=$(git rev-parse --short=8 $GIT_COMMIT); "
         f'if echo "{short_shas}" | tr " " "\\n" | grep -qw "$sha"; then '
         'cat; echo ""; '
         f'echo "{trailer_line}"; '
-        'else cat; fi'
+        "else cat; fi"
     )
 
     env = {"FILTER_BRANCH_SQUELCH_WARNING": "1"}
@@ -271,9 +255,7 @@ def amend_trailers(
         env=full_env,
     )
     if result.returncode != 0:
-        raise PushReadyError(
-            "git filter-branch failed: " + (result.stderr or result.stdout)
-        )
+        raise PushReadyError("git filter-branch failed: " + (result.stderr or result.stdout))
     return [c.sha for c in needing]
 
 
@@ -354,9 +336,7 @@ def run_push_ready(
     )
 
     if not needing:
-        result.message = (
-            "No guardrail-touching commits without a trailer. Nothing to do."
-        )
+        result.message = "No guardrail-touching commits without a trailer. Nothing to do."
         return result
 
     if dry_run:
@@ -379,8 +359,7 @@ def run_push_ready(
     result.push_stderr = stderr
     if pushed:
         result.message = (
-            f"Amended {len(amended)} commit(s), opened {round_id}, "
-            f"force-pushed {branch}."
+            f"Amended {len(amended)} commit(s), opened {round_id}, force-pushed {branch}."
         )
     else:
         result.message = (

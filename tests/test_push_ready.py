@@ -40,9 +40,7 @@ def _init_repo(tmp_path: Path) -> Path:
         capture_output=True,
         check=True,
     )
-    subprocess.run(
-        ["git", "init", "-b", "main", str(repo)], capture_output=True, check=True
-    )
+    subprocess.run(["git", "init", "-b", "main", str(repo)], capture_output=True, check=True)
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
     _git(repo, "remote", "add", "origin", str(origin))
@@ -112,9 +110,7 @@ def test_no_guardrail_commits_returns_noop(tmp_path: Path) -> None:
     assert "Nothing to do" in result.message
 
 
-def test_dry_run_does_not_modify_state(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_dry_run_does_not_modify_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = _init_repo(tmp_path)
     sha = _commit(repo, "src/guarded.py", "# v2\n", "touch guardrail")
 
