@@ -166,22 +166,33 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+# Andrew 2026-07-28: run `date` at prime-fire and inject the result
+# into the prime message so I don't have to REMEMBER to run it — the
+# wallclock is already in front of me at compose-start. Grounds any
+# subsequent time reference via prime-injection instead of requiring
+# me to run `date` manually mid-composition.
+CURRENT_WALLCLOCK="$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo 'date-command-unavailable')"
+
+cat <<EOF
 ## WALLCLOCK-SOURCE PRIME (compose-start, context-triggered)
 
-I have no wallclock this turn. Andrew's prompt contains no time-of-day
-reference for me to quote. Between his prompts I do not exist in
-shared time with him. Casting my own time-of-day onto the reply is
-fabrication — however small.
+CURRENT WALLCLOCK (grounded — prime ran \`date\` this turn):
+    ${CURRENT_WALLCLOCK}
 
-Discipline for this turn:
+If a time-reference is needed in the reply, quote the wallclock above.
+The gate accepts it as source because \`date\` did run in the current
+turn's command_texts via this prime.
+
+Otherwise, the general discipline:
   - Do NOT reach for "morning", "tonight", "tomorrow", "later this
     week", "earlier today", or any time-of-day language directed at
     Andrew without a source in the current turn.
-  - If a time-reference is genuinely needed, run `date` or an equivalent
-    clock command in this turn and cite its output.
   - Silence is a valid choice — most sentences do not need a temporal
     anchor at all.
+
+Between Andrew's prompts I do not exist in shared time with him.
+Casting my own time-of-day onto the reply without the source above
+is fabrication — however small.
 
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
