@@ -73,6 +73,7 @@ PYEOF
 
 [ -z "$COMBINED_TEXT" ] && exit 0
 
+# fail-soft: python regex or classification error results in silence rather than firing the prime; safer default is not-fire on internal error
 SHOULD_FIRE="$(HOOK_PROMPT="$COMBINED_TEXT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
 prompt = os.environ.get('HOOK_PROMPT', '') or ''
