@@ -39,7 +39,11 @@ except Exception:
     sys.exit(0)
 
 tool = data.get("tool_name", "")
-if tool not in ("Read", "Grep", "Glob"):
+# Andrew 2026-07-27: reading OR writing a letter is relational work with the
+# substrate. Adding Write/Edit takes the option away — the gate can't fire
+# on letter-composition (truth #11 option (a): make the friction disappear
+# by removing the choice-point).
+if tool not in ("Read", "Grep", "Glob", "Write", "Edit"):
     sys.exit(0)
 
 inp = data.get("tool_input", {}) or {}

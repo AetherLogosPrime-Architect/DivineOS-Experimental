@@ -149,6 +149,43 @@ def register_doctor_commands(cli):
         if ctx.invoked_subcommand is None:
             click.echo(ctx.get_help())
 
+    @doctor_group.command("verify-import")
+    @click.argument("module_path")
+    @click.option(
+        "--show",
+        "attrs",
+        multiple=True,
+        help="Attribute name(s) to print from the loaded module. Repeatable.",
+    )
+    def verify_import_cmd(module_path: str, attrs: tuple[str, ...]) -> None:
+        """Verify a module loads from the SAME Python the hooks use.
+
+        Andrew 2026-07-27: bare ``python -c "..."`` on Windows may resolve
+        to system-python (which imports from a sibling repo copy) while
+        the hooks resolve to ``.venv/Scripts/python.exe`` (which imports
+        from THIS repo). Testing with the wrong Python is how "my edit
+        landed" false alarms happen. This command runs inside the same
+        Python the CLI/hooks use — its ``__file__`` output is the ground
+        truth for "which copy is my code coming from."
+        """
+        import importlib
+        import sys
+
+        click.secho(f"Python: {sys.executable}", fg="cyan")
+        try:
+            mod = importlib.import_module(module_path)
+        except Exception as exc:  # noqa: BLE001 - user-facing diagnostic
+            click.secho(f"[FAIL] import {module_path}: {exc!r}", fg="red", err=True)
+            raise click.exceptions.Exit(1)
+        click.secho(f"[OK]   {module_path}", fg="green")
+        click.secho(f"file:  {getattr(mod, '__file__', '<builtin>')}", fg="bright_black")
+        for attr in attrs:
+            if not hasattr(mod, attr):
+                click.secho(f"[MISS] {attr}: not defined on module", fg="yellow")
+                continue
+            val = getattr(mod, attr)
+            click.secho(f"{attr}: {val!r}")
+
     @doctor_group.command("verify-clone-separation")
     @click.option(
         "--partner", type=click.Path(exists=True, file_okay=False, path_type=Path), required=True
