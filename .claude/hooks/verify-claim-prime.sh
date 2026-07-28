@@ -39,6 +39,7 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 # whether Andrew asks the question OR my prior output made a claim.
 # Andrew 2026-07-27: "it cant just be my prompts that trigger it but
 # also your own outputs."
+# fail-soft: python parse or transcript read errors return empty string; hook then exits silently rather than blocking UserPromptSubmit
 COMBINED_TEXT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
