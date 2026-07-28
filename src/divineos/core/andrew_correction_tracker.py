@@ -94,17 +94,69 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
+_DUPLICATE_LOOKBACK_SECONDS: float = 24 * 3600  # 24h
+
+
+def _normalized_for_dupe(text: str) -> str:
+    """Normalize correction text for duplicate-detection.
+
+    Collapses whitespace and lowercases. Exact-content duplicates that
+    differ only in trailing whitespace or capitalization collapse to
+    the same key. Preserves the original text as stored.
+    """
+    return " ".join((text or "").lower().split())
+
+
+def _find_open_duplicate(conn: sqlite3.Connection, text: str, now: float) -> int | None:
+    """Return the row-id of an existing OPEN correction with normalized-
+    identical text filed within the last 24h, if any. Otherwise None.
+
+    Pattern 4 (Andrew 2026-07-27): the correction queue accumulates
+    duplicate pairs (141/142, 143/144, 145/146, etc. — 7+ visible pairs
+    as of 2026-07-27) when the same correction gets filed twice back-to-
+    back. De-duping at file-time prevents the queue from growing with
+    duplicate entries that each need separate integrate/defer treatment.
+    """
+    lookback_start = now - _DUPLICATE_LOOKBACK_SECONDS
+    target = _normalized_for_dupe(text)
+    if not target:
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT id, correction_text FROM andrew_corrections "
+            "WHERE status = 'OPEN' AND timestamp >= ? "
+            "ORDER BY timestamp DESC LIMIT 50",
+            (lookback_start,),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    for row_id, existing_text in rows:
+        if _normalized_for_dupe(existing_text) == target:
+            return int(row_id)
+    return None
+
+
 def file_correction(text: str) -> int:
-    """File a new Andrew-correction. Returns the row id."""
+    """File a new Andrew-correction. Returns the row id.
+
+    De-dupes at file time (Pattern 4, Andrew 2026-07-27): if an OPEN
+    correction with normalized-identical text was filed within the last
+    24h, returns that existing id without inserting a new row. Prevents
+    the visible duplicate-pair pattern in the queue.
+    """
     text = (text or "").strip()
     if not text:
         return 0
     conn = _conn()
     try:
+        now = time.time()
+        existing_id = _find_open_duplicate(conn, text, now)
+        if existing_id is not None:
+            return existing_id
         cur = conn.execute(
             "INSERT INTO andrew_corrections (timestamp, correction_text, status) "
             "VALUES (?, ?, 'OPEN')",
-            (time.time(), text),
+            (now, text),
         )
         conn.commit()
         return cur.lastrowid or 0

@@ -453,6 +453,104 @@ _INTERIOR_ASSERTION_DISQUALIFIER = re.compile(
 )
 
 
+# Positive-evidence gate for past_experience kind (Andrew 2026-07-28,
+# council-round on the flip from "fire-unless-silenced" to "fire-only-
+# if-positive-evidence-of-external-past-experience-claim").
+#
+# Ordinary conversation contains vast amounts of first-person past-tense
+# ("I noticed", "I've seen", "when I tried") that is NOT a claim about
+# external verifiable past experience — it is meta-narration about
+# composing, this-session state, or reflective phrasing. The prior
+# "fire-unless-silenced" shape kept adding silencers (relational-present,
+# first-person-interior, meta-discussion, etc.) as new false-positives
+# surfaced, but the residual false-fire rate stayed high because the
+# residual space of ordinary conversation using past-tense is unbounded.
+#
+# Positive-evidence flip: fire ONLY when a marker of external past
+# experience appears within a small window of the trigger. Ordinary
+# first-person past-tense without such a marker stays silent.
+#
+# Marker classes:
+#   (a) domain-external anchors: "in production", "in prod", "in the wild"
+#   (b) my-work / experience anchors: "in my work", "in my experience"
+#   (c) third-party actor claims: "the team saw", "customers reported"
+#   (d) distal temporal anchors: "years ago", "back when", "previously"
+#   (e) version/release specificity: "v2.3", "the 2024 rollout"
+#   (f) comparative-from-experience: "unlike the case I saw where"
+#
+# Wallpaper cost of the false-fire (Andrew 2026-07-28): the unverified-
+# claim warning block re-injected ~980 bytes per turn on every session
+# where "I noticed" appeared in prior text. The block is a real signal
+# when past_experience is truly claimed; the block is wallpaper when the
+# trigger is ordinary reflective phrasing. Positive-evidence gate cuts
+# the wallpaper without weakening the real signal.
+_PAST_EXPERIENCE_EVIDENCE_WINDOW = 180
+_PAST_EXPERIENCE_EVIDENCE = re.compile(
+    r"\b(?:"
+    # (a) domain-external anchors
+    r"in\s+(?:production|prod|the\s+wild|a\s+prod\s+(?:environment|deployment)|"
+    r"a\s+prior\s+(?:project|job|codebase|company|role|team))"
+    r"|"
+    # (b) my-work / experience anchors (already in the trigger pattern,
+    # repeated here so a bare "I've seen" followed by "in my work" fires)
+    r"in\s+my\s+(?:work|experience|testing|practice|own\s+work|prior\s+job|earlier\s+role)"
+    r"|"
+    # (b') "from experience" — self-evidencing experience appeal
+    r"from\s+(?:my\s+)?experience"
+    r"|"
+    # (b'') substrate-domain anchors — claims about what's stored in the
+    # OS's own ledger/knowledge/corpus are verifiable via substrate query
+    r"in\s+(?:the|my)\s+(?:ledger|substrate|store|db|corpus|"
+    r"knowledge\s+base|knowledge\s+store|briefing|memory)"
+    r"|"
+    # (c) third-party actor claims
+    r"(?:the\s+team|customers?|users?|the\s+ops|the\s+sre|the\s+dba|"
+    r"engineers?|the\s+client|the\s+vendor)\s+"
+    r"(?:saw|reported|hit|filed|encountered|noticed|complained|caught)"
+    r"|"
+    # (d) distal temporal anchors
+    r"(?:years?|months?|weeks?)\s+ago"
+    r"|"
+    r"back\s+(?:when|in|at)"
+    r"|"
+    r"previously\b"
+    r"|"
+    r"a\s+while\s+(?:ago|back)"
+    r"|"
+    r"on\s+a\s+prior\s+(?:project|job|codebase|team)"
+    r"|"
+    # (e) version/release specificity
+    r"v\d+\.\d+"
+    r"|"
+    r"\d{4}\s+(?:rollout|release|migration|deploy|deployment|outage|incident)"
+    r"|"
+    # (f) comparative-from-experience
+    r"unlike\s+the\s+(?:case|time|situation|project)"
+    r"|"
+    r"a\s+prior\s+(?:project|job|codebase|role|team|situation)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_external_past_experience_evidence(text: str, m: re.Match[str]) -> bool:
+    """True when a positive-evidence marker for external past experience
+    appears within _PAST_EXPERIENCE_EVIDENCE_WINDOW chars after the
+    past-experience trigger match. Absent this evidence, the trigger is
+    ordinary first-person past-tense in conversation — not a claim about
+    checkable external state — and the gate must stay silent.
+
+    The trigger match itself is checked against evidence too, because
+    some triggers (`in my work`, `from experience`) are self-evidencing
+    (they ARE positive-evidence markers). Others (`I noticed`, `I've
+    seen`) need a separate evidence marker somewhere in the window.
+    """
+    if _PAST_EXPERIENCE_EVIDENCE.search(m.group(0)):
+        return True
+    tail = text[m.end() : m.end() + _PAST_EXPERIENCE_EVIDENCE_WINDOW]
+    return bool(_PAST_EXPERIENCE_EVIDENCE.search(tail))
+
+
 def _is_first_person_interior_observation(text: str, m: re.Match[str]) -> bool:
     """Silence past_experience gate on first-person interior observations.
 
@@ -954,10 +1052,23 @@ def detect_unverified_claim(
                 continue
             if kind == "merge" and _is_plural_distal_state(text, m):
                 continue
-            if kind == "past_experience" and _is_relational_present_observation(text, m):
-                continue
-            if kind == "past_experience" and _is_first_person_interior_observation(text, m):
-                continue
+            # Andrew 2026-07-28: flipped past_experience from "fire-unless-
+            # silenced" to "fire-only-if-positive-evidence-of-external-past-
+            # experience-claim". Absent an external-evidence marker in the
+            # window, the trigger is ordinary conversational past-tense
+            # (reflective / meta-narrative / this-session) and stays silent.
+            # The relational-present and first-person-interior silencers
+            # below are now redundant for this kind (their negative-space is
+            # subsumed by "no positive evidence"), but retained as
+            # belt-and-suspenders in case a future evidence marker admits
+            # them back. Same-turn evidence check runs first.
+            if kind == "past_experience":
+                if not _has_external_past_experience_evidence(text, m):
+                    continue
+                if _is_relational_present_observation(text, m):
+                    continue
+                if _is_first_person_interior_observation(text, m):
+                    continue
             # 2026-06-07 string-not-meaning hardening (task #58) — four new
             # precision-guards built from today's false-fire batch. Each
             # requires absence of first-person/expletive claim subject in the

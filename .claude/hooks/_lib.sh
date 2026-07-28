@@ -142,6 +142,44 @@ _lib_hook_timing_end() {
 _lib_hook_timing_start
 trap _lib_hook_timing_end EXIT
 
+# F90 heartbeat is invoked at the END of this file — after
+# _lib_log_liveness itself is defined. See end-of-file marker.
+
+# F90 fix (Aletheia 2026-07-28): liveness-recording preamble as shared
+# function so hooks stop silently going dark when their setup steps
+# fail. Aletheia's finding: "every hook shipped from here carries [the
+# silent fail-open pattern] until the template changes." One hook does
+# it right (post-tool-use-emit-to-logbook.sh) and its inline
+# _log_liveness pattern is what this generalizes.
+#
+# Usage after sourcing _lib.sh:
+#   if ! find_divineos_python; then
+#       _lib_log_liveness "python_resolve_failed" "extra=<...>"
+#       exit 0
+#   fi
+#
+# For failures BEFORE _lib.sh is sourced (cd, source itself), hooks
+# should keep an inline mini-logger at the very top so the pre-source
+# failure paths are also captured. Template comment for that pattern
+# is in the docstring of post-tool-use-emit-to-logbook.sh.
+_LIB_LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
+
+_lib_log_liveness() {
+  local _reason="${1:-unknown}"
+  local _detail="${2:-}"
+  local _hook_name
+  _hook_name="${BASH_SOURCE[1]:-unknown}"
+  # fail-soft: basename utility absence or malformed path falls back to literal 'unknown' string rather than breaking the log call
+  _hook_name="$(basename "$_hook_name" 2>/dev/null || echo unknown)"
+  # fail-soft: mkdir suppression is safe — either the dir exists (fine) or filesystem permissions block us (log write will also fail-soft below and hook proceeds)
+  mkdir -p "$(dirname "$_LIB_LIVENESS_LOG")" 2>/dev/null || true
+  local _ts
+  # fail-soft: date command absence falls back to literal 'unknown' timestamp string rather than crashing the liveness logger
+  _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # fail-soft: liveness log write failures are informational only and must never block hook execution; loud-fail would defeat the purpose of a fallback-signal mechanism
+  printf '{"ts":"%s","hook":"%s","reason":"%s","detail":"%s"}\n' "$_ts" "$_hook_name" "$_reason" "$_detail" >> "$_LIB_LIVENESS_LOG" 2>/dev/null || true
+}
+
 find_divineos_python() {
   local repo_root
   repo_root="$(_lib_repo_root)"
@@ -195,6 +233,10 @@ find_divineos_python() {
       fi
     fi
   done
+  # F90 fix: log liveness on the fail-open path so a broken python
+  # resolve becomes a visible marker, not a silent exit.
+  _lib_log_liveness "python_resolve_failed" \
+    "no viable python found; candidates checked: venv/system"
   return 1
 }
 
@@ -275,3 +317,10 @@ except Exception:
     pass
 " 2>/dev/null
 }
+
+# F90 heartbeat call (must be at end-of-file — after _lib_log_liveness
+# is defined). Aletheia 2026-07-28: "the liveness mechanism cannot
+# report its own absence." Logging on SUCCESS means an empty log is
+# diagnostic (broken) rather than ambiguous. Runs on every successful
+# source of _lib.sh, so per-hook heartbeats propagate automatically.
+_lib_log_liveness "healthy_source" "hook sourced _lib.sh cleanly"

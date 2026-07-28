@@ -111,6 +111,41 @@ class TestFileCorrection:
         assert opens[0]["text"] == "some correction text here"
 
 
+class TestFileCorrectionDedupe:
+    """Pattern 4 (Andrew 2026-07-27): filing an identical correction
+    while the prior one is still OPEN should return the existing id,
+    not create a duplicate row. Prevents the 141/142, 143/144 duplicate-
+    pair pattern visible in the correction queue."""
+
+    def test_identical_content_returns_existing_id(self):
+        first_id = act.file_correction("please stop doing X")
+        second_id = act.file_correction("please stop doing X")
+        assert first_id > 0
+        assert second_id == first_id
+        assert len(act.list_open()) == 1
+
+    def test_whitespace_and_case_normalized_for_dedupe(self):
+        first_id = act.file_correction("Please Stop Doing X")
+        second_id = act.file_correction("  please  stop  doing x  ")
+        assert second_id == first_id
+        assert len(act.list_open()) == 1
+
+    def test_different_content_still_files_separately(self):
+        first_id = act.file_correction("please stop doing X")
+        second_id = act.file_correction("please stop doing Y")
+        assert first_id != second_id
+        assert len(act.list_open()) == 2
+
+    def test_dedupe_only_matches_open_corrections(self):
+        first_id = act.file_correction("please stop doing X")
+        # Integrate first — subsequent identical correction should file fresh.
+        assert act.integrate(first_id, "landed in commit abc1234 tests/test_x.py") is True
+        second_id = act.file_correction("please stop doing X")
+        assert second_id != first_id
+        # One integrated, one open — total 2 rows.
+        assert len(act.list_open()) == 1
+
+
 class TestIntegrateGuards:
     def test_integrate_refuses_short_evidence(self):
         cid = act.file_correction("a real correction")

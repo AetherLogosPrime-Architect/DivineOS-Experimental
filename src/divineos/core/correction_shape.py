@@ -319,6 +319,24 @@ _HYPOTHETICAL_START_RE = re.compile(
     re.IGNORECASE,
 )
 
+# 2026-07-27: keyword-detector patch attempted here (adding
+# _TEACHING_MARKER_RE + _ADJECTIVAL_NEG_EVAL_RE + _GENERAL_SUBJECT_NEG_RE
+# as inversion checks) and immediately rolled back per Andrew's teaching
+# same night: "keyword detectors are the ultimate shoggoth slop system..
+# infinite whack a mole.. easy to subvert and exploit.. always false
+# firing.. NEVER to be used as enforcement." This detector is enforcement
+# (gates the correction-unlogged marker). Adding more regex to patch
+# regex-false-fires is the exact anti-pattern. Known limitation held
+# open: teaching-shape false-fires (like "it doesnt work like that lol",
+# "the wrong shape", "practicing X is not Y") will fire the detector
+# until a semantic layer replaces the keyword enforcement. The right fix
+# is semantic classification (LLM call, embedding similarity, or a
+# genuine parse of Andrew-teaching-vs-correcting), not more regex. Task
+# #20 semantic rebuild owns this. Test cases for the false-fire class
+# preserved in tests/test_correction_shape.py TestTeachingShapeInversion
+# as documentation of the target behavior (marked xfail until semantic
+# layer ships).
+
 # Positive presence: I claimed something is done in the prior turn.
 _COMPLETION_CLAIM_RE = re.compile(
     r"\b(?:done|fixed|complete(?:d)?|landed|merged|pushed|works|working|"
