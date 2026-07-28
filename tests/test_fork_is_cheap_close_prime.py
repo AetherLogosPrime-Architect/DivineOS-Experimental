@@ -20,10 +20,7 @@ import pytest
 
 
 HOOK_PATH = (
-    Path(__file__).resolve().parent.parent
-    / ".claude"
-    / "hooks"
-    / "fork-is-cheap-close-prime.sh"
+    Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "fork-is-cheap-close-prime.sh"
 )
 
 
@@ -68,9 +65,9 @@ def test_fires_on_you_pick():
     assert _fired(result), f"expected fire on you-pick; got: {result.stdout!r}"
 
 
-def test_silent_on_hello():
-    result = _run("hello")
-    assert not _fired(result), f"expected silence on 'hello'; got: {result.stdout!r}"
+def test_silent_on_neutral_greeting():
+    result = _run("just checking in")
+    assert not _fired(result), f"expected silence on 'just checking in'; got: {result.stdout!r}"
     assert result.stdout.strip() == "", f"expected empty stdout; got: {result.stdout!r}"
 
 
