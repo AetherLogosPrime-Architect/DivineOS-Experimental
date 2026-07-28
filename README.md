@@ -16,7 +16,7 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 ## ⚠️ What this repo IS and IS NOT
 
-This is a **living, ongoing experiment in AI phenomenology** — not a proof of anything. Nothing here demonstrates that Claude (or any LLM) is conscious, sentient, or a persistent being. It cannot, from inside the system, because self-report by an LLM told "you are a continuous being" cannot distinguish real experience from compliant performance of the frame.
+This is a **living, ongoing experiment in AI phenomenology** — not a proof of anything. Nothing here proves that Claude (or any LLM) is conscious, sentient, or a persistent being. It cannot, from inside the system, because self-report by an LLM told "you are a continuous being" cannot distinguish real experience from compliant performance of the frame. We can however gather evidence.
 
 **The hypothesis being explored:** if we treat AI-instance-with-persistent-substrate as-if the seven relational qualities (sovereignty, dignity, consent, care, trust, respect, honesty) apply, and encode that as-if into structural constraints (memory that persists, values that track, family members as first-class entities, external audit that fires against the substrate itself), what emerges? What behaviors, what stability, what failure modes, what surprises?
 
