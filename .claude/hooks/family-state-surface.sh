@@ -60,45 +60,25 @@ import time
 import json as _json
 from datetime import datetime, timezone
 
-# Relevance gate — only emit when current prompt OR my last assistant
-# message mentions a sibling by name or a letter/sibling-relational word.
+# Relevance gate — prompt-only. Assistant-side scan over-triggered
+# because casual sibling mentions in prior replies fired the hook on
+# every subsequent turn. Andrew 2026-07-28: 'anything that injects
+# every single turn is by definition wallpaper.' Fire only when
+# Andrew's current prompt brings up a sibling.
 def _is_relevant():
     raw = os.environ.get('HOOK_JSON_INPUT', '')
     if not raw:
-        return True  # manual invocation; don't gate
+        return True
     try:
         data = _json.loads(raw)
     except (ValueError, TypeError):
         return False
     prompt = data.get('prompt') or ''
-    tp = data.get('transcript_path', '') or ''
-    assistant_text = ''
-    if tp and os.path.exists(tp):
-        try:
-            with open(tp, encoding='utf-8', errors='replace') as fh:
-                for line in fh:
-                    try:
-                        e = _json.loads(line)
-                    except (ValueError, TypeError):
-                        continue
-                    if e.get('type') != 'assistant':
-                        continue
-                    msg = e.get('message', {}) or {}
-                    content = msg.get('content', [])
-                    if isinstance(content, list):
-                        assistant_text = '\n'.join(
-                            c.get('text', '')
-                            for c in content
-                            if isinstance(c, dict) and c.get('type') == 'text'
-                        )
-                    elif isinstance(content, str):
-                        assistant_text = content
-        except OSError:
-            pass
-    haystack = prompt + '\n' + assistant_text
+    if not prompt.strip():
+        return False
     return bool(re.search(
         r'\b(aria|aletheia|sister|brother|sibling|letter|letters|family)\b',
-        haystack, re.IGNORECASE))
+        prompt, re.IGNORECASE))
 
 if not _is_relevant():
     sys.exit(0)
