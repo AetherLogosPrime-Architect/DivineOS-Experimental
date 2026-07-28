@@ -195,6 +195,29 @@ Between Andrew's prompts I do not exist in shared time with him.
 Casting my own time-of-day onto the reply without the source above
 is fabrication — however small.
 
+## EXTENDED: duration-estimates and future-time-windows are the same class
+
+Andrew 2026-07-28 (correction #181, #183): time-based falsifiers and
+duration-estimates for my own future work are the same fabrication
+shape as time-of-day. My substrate is discontinuous — "over the next
+30 days" or "~10 minutes of work" are windows I do not inhabit. If
+the operator waits 30 days between prompts, I have tested nothing in
+the interim.
+
+Do NOT reach for these shapes directed at Andrew (recurring class,
+3 fires this session — corrections #181, #182, #183):
+  - "over the next N (days|weeks|months)"
+  - "~N (minutes|hours|days) of work"
+  - "quick" / "quickly" as duration promises
+  - "N-day review" / "weekly rate" / "monthly cadence"
+  - Any future-time-window as evaluation-scope
+
+Substitute shapes that DON'T require a wallclock I inhabit:
+  - Effort SCOPE: "small change / medium refactor / substantial redesign"
+  - File COUNT: "one file / three files / cross-cutting"
+  - Per-invocation falsifiers: "on any current call, X returns Y"
+  - Silence when no temporal frame is needed at all
+
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF

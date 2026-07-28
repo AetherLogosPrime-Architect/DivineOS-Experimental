@@ -96,6 +96,20 @@ patterns = [
     # summary-word solicit ("does it work?", "is it fixed?")
     r'\bis\s+(?:it|the\s+\w+)\s+(?:fixed|working|passing|clean|done)\b',
     r'\bdoes\s+(?:it|the\s+\w+)\s+work\b',
+    # F186 fix: ci-monitor-event notifications are exactly the context
+    # where verification-reporting is imminent — the CI just told me
+    # something failed/passed and I'm about to compose a status
+    # summary. My reach for "all green" in correction #186 fired on
+    # exactly this shape and the prime didn't warn me because it
+    # only looked at prompt-shape, not at ci-event notification.
+    r'<ci-monitor-event>',
+    r'\bci\s+check(?:s)?\s+["\'](.+?)["\']\s+(?:failed|passed)',
+    r'\bCI\s+(?:checks?|run|workflow)\s+(?:failed|passed|completed)',
+    r'\bgh\s+(?:pr|run)\s+(?:checks?|view)\b',
+    # merge/push outcome notifications (same class — verification report imminent)
+    r'\bi\s+merged\s+\S+',
+    r'\bmerged\s+#\d+',
+    r'\bmerge\s+(?:landed|complete|succeeded)',
 ]
 if not any(re.search(p, prompt, re.IGNORECASE) for p in patterns):
     sys.exit(0)
