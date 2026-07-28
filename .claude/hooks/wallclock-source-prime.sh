@@ -47,6 +47,7 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 #     words silence the prime; mine reinforce it).
 # Andrew 2026-07-27: "it cant just be my prompts that trigger it but
 # also your own outputs."
+# fail-soft: python parse or transcript read errors return empty string; hook then exits silently rather than blocking UserPromptSubmit
 PROMPT_AND_ASSISTANT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, sys
 try:
@@ -82,6 +83,7 @@ PYEOF
 
 [ -z "$PROMPT_AND_ASSISTANT" ] && exit 0
 
+# fail-soft: python regex or classification error results in silence rather than firing the prime; safer default is not-fire on internal error
 SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT_AND_ASSISTANT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import os, re, sys
 raw = os.environ.get('HOOK_PROMPT', '') or ''
