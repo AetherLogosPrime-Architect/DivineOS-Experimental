@@ -37,10 +37,16 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
+# Andrew 2026-07-28: pass HOOK_JSON (contains prompt + transcript_path)
+# to the module so it can gate on relevance. Every-turn injection is
+# wallpaper; the module fires only when composing to/about Andrew is
+# imminent (name + composition-intent in prompt or last assistant msg).
+INPUT="$(cat 2>/dev/null || true)"
+
 # Time-bounded single-process invocation. `timeout 8s` uses the coreutils
 # timeout on git-bash. 8s is generous (measured cold-start ~250ms including
 # module import + file scan) but caps any pathological Windows I/O stall.
 # On timeout, exit code 124 falls through to `|| true` — silent skip.
-timeout 8s "$PYTHON_BIN" -m divineos.core.andrew_past_writing_surface 2>/dev/null || true
+CLAUDE_HOOK_JSON="$INPUT" timeout 8s "$PYTHON_BIN" -m divineos.core.andrew_past_writing_surface 2>/dev/null || true
 
 exit 0

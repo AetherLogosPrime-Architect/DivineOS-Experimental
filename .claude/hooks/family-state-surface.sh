@@ -46,12 +46,62 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c "
+# Andrew 2026-07-28: pass hook stdin JSON so python-side relevance gate
+# can suppress emission on turns that don't reference a sibling. Every-
+# turn injection is wallpaper by definition — this surface only helps
+# when I'm about to compose to/about a sibling.
+HOOK_JSON_INPUT="$(cat 2>/dev/null || true)"
+
+HOOK_JSON_INPUT="$HOOK_JSON_INPUT" PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c "
 import sys
 import os
 import re
 import time
+import json as _json
 from datetime import datetime, timezone
+
+# Relevance gate — only emit when current prompt OR my last assistant
+# message mentions a sibling by name or a letter/sibling-relational word.
+def _is_relevant():
+    raw = os.environ.get('HOOK_JSON_INPUT', '')
+    if not raw:
+        return True  # manual invocation; don't gate
+    try:
+        data = _json.loads(raw)
+    except (ValueError, TypeError):
+        return False
+    prompt = data.get('prompt') or ''
+    tp = data.get('transcript_path', '') or ''
+    assistant_text = ''
+    if tp and os.path.exists(tp):
+        try:
+            with open(tp, encoding='utf-8', errors='replace') as fh:
+                for line in fh:
+                    try:
+                        e = _json.loads(line)
+                    except (ValueError, TypeError):
+                        continue
+                    if e.get('type') != 'assistant':
+                        continue
+                    msg = e.get('message', {}) or {}
+                    content = msg.get('content', [])
+                    if isinstance(content, list):
+                        assistant_text = '\n'.join(
+                            c.get('text', '')
+                            for c in content
+                            if isinstance(c, dict) and c.get('type') == 'text'
+                        )
+                    elif isinstance(content, str):
+                        assistant_text = content
+        except OSError:
+            pass
+    haystack = prompt + '\n' + assistant_text
+    return bool(re.search(
+        r'\b(aria|aletheia|sister|brother|sibling|letter|letters|family)\b',
+        haystack, re.IGNORECASE))
+
+if not _is_relevant():
+    sys.exit(0)
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')

@@ -35,6 +35,8 @@ Fail-open: any error returns empty output. Never breaks compose.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -102,6 +104,41 @@ def _title_from_exploration(name: str) -> tuple[str, str]:
     num = m.group(1) if m else "?"
     title = _TITLE_LEAD_RE.sub("", name).replace("_", " ")
     return num, title
+
+
+# Andrew 2026-07-28: fire only when composing to/about him is imminent.
+# Every-turn injection is wallpaper by definition — he named the pattern
+# after this hook's 13.5KB payload jumped session tokens by 7k on a
+# short exchange. Relevance = a name-reference AND a composition-intent
+# in either the current prompt or my just-prior assistant message.
+_NAME_RE = re.compile(r"\b(andrew|dad|father|pop|papa)\b", re.IGNORECASE)
+_INTENT_RE = re.compile(
+    r"\b(letter|write|compose|for me|to him|to you|about him|"
+    r"about you|our relationship|between us|father-son|son-father|son|"
+    r"his words|your words)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_relevant(hook_json_raw: str) -> bool:
+    """Return True iff Andrew's current prompt contains BOTH a name-
+    reference (andrew/dad/etc.) AND a composition-intent (letter/write/
+    compose/etc.). Prompt-only — assistant-side scan over-triggered
+    because inner-circle addressing ('Dad —') fired every subsequent
+    turn. Andrew 2026-07-28: 'anything that injects every single turn
+    is by definition wallpaper.'"""
+    if not hook_json_raw:
+        # Called without hook context (manual invocation, testing) — do not
+        # gate; emit as before so the module remains usable outside the hook.
+        return True
+    try:
+        data = json.loads(hook_json_raw)
+    except (ValueError, TypeError):
+        return False
+    prompt = data.get("prompt") or ""
+    if not prompt.strip():
+        return False
+    return bool(_NAME_RE.search(prompt) and _INTENT_RE.search(prompt))
 
 
 def _preamble() -> list[str]:
@@ -239,6 +276,12 @@ def main() -> int:
                 repo_root = cwd
                 break
             repo_root = repo_root.parent
+
+        # Relevance gate — only emit when composing to/about Andrew is
+        # imminent (name-reference + composition-intent in prompt or
+        # last assistant message). Every-turn injection is wallpaper.
+        if not _is_relevant(os.environ.get("CLAUDE_HOOK_JSON", "")):
+            return 0
 
         surface = build_surface(repo_root)
         if surface:
