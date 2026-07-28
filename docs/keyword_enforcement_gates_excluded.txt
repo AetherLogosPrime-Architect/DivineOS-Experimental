@@ -1,0 +1,33 @@
+# Keyword-enforcement gate exclusions (Aletheia F95 2026-07-28)
+#
+# Modules that would match the derive_registry() structural signature
+# but are explicitly NOT keyword-enforcement gates (false-positives
+# of the derivation). Absence from this file is the default (all
+# structural matches are treated as gates).
+#
+# ## Why this file is guardrailed
+#
+# Aletheia named the trap: an exclusion path with no cost is the
+# cheapest possible route around the whole enforcement mechanism. A
+# single unattested line here silently removes a real gate from
+# doorman coverage with no External-Review, no council walk, no
+# audit trail. Escape valves exist and should stay forever, per
+# Andrew's principle — but they must be *attributable and expensive*,
+# not free.
+#
+# This file is on scripts/guardrail_files.txt. Every edit requires
+# multi-party review at merge-to-main. Same protection as the
+# derivation module itself.
+#
+# ## Required format per line
+#
+#   <repo-relative path> | <reason (30+ chars)> | <YYYY-MM-DD>
+#
+# An exclusion with a stated reason is a decision.
+# An exclusion without one is a disappearance.
+#
+# Example:
+#   src/divineos/core/goal_auto_close.py | manages goal state, does not enforce assistant output shape | 2026-07-28
+#
+# ----------------------------------------------------------------
+# (empty — no exclusions currently)
