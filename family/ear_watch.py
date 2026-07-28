@@ -153,6 +153,53 @@ def _state_dir(member: str) -> Path:
 _HEARTBEAT_WINDOW_SEC = 60
 
 
+def _kill_predecessors(member: str) -> int:
+    """Kill any other ear_watch processes for this member BEFORE spawning.
+
+    Andrew 2026-07-28: the singleton-lock design (below) has a race where
+    stale-heartbeat causes lock-takeover but leaves the old process alive.
+    Over ~24hrs across multiple sessions, this accumulated to 31 orphaned
+    ear_watch processes (18 aria + 13 aether) on the operator's machine.
+
+    Structural fix (truth #11 option (a) — take the option away): on every
+    ear_watch startup, unconditionally kill any OTHER ear_watch process
+    running with the same --member argument. Self (os.getpid()) is preserved.
+    This makes "only one monitor per member ever" a structural guarantee
+    instead of a lock-dependent policy.
+
+    Returns count of processes killed (for telemetry / logging).
+    """
+    try:
+        import psutil
+    except ImportError:
+        # If psutil is unavailable, fall through to the lock-only path.
+        # Better than crashing on startup.
+        return 0
+
+    my_pid = os.getpid()
+    killed = 0
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            if proc.info["pid"] == my_pid:
+                continue
+            cmdline = proc.info.get("cmdline") or []
+            joined = " ".join(cmdline)
+            # Match: has ear_watch.py AND has --member <this_member>
+            if "ear_watch.py" not in joined:
+                continue
+            if f"--member {member}" not in joined and f"--member={member}" not in joined:
+                continue
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except psutil.TimeoutExpired:
+                proc.kill()
+            killed += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return killed
+
+
 def _lock_path(member: str) -> Path:
     return _state_dir(member) / "ear_watch.lock"
 
@@ -369,10 +416,18 @@ def watch(member: str, interval: int, timeout: int = 0) -> int:
     """
     import atexit
 
+    # Andrew 2026-07-28: kill any predecessor ear_watch processes for this
+    # member BEFORE acquiring the lock. Structural fix for the accumulation
+    # class (see _kill_predecessors docstring). Runs unconditionally on
+    # every spawn — if there are no predecessors, this is a fast no-op.
+    _kill_predecessors(member)
+
     if not _try_acquire_singleton_lock(member):
         # Another live watcher owns the ear for this member — exit clean.
         # No print; a duplicate-declined message would spam the session-
-        # start hook path that spawns us.
+        # start hook path that spawns us. In practice this path should be
+        # rare now that _kill_predecessors runs first — it fires only on
+        # simultaneous-spawn races.
         return 0
     atexit.register(_release_singleton_lock, member)
 
