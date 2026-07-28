@@ -55,33 +55,29 @@ file_path = tool_input.get('file_path', '') or ''
 if not file_path:
     sys.exit(0)
 
-# Load registry
-registry_path = Path('$REGISTRY_FILE')
+# Load registry via derivation (Aletheia F94 2026-07-28 +
+# Aria third-shape 2026-07-28). See
+# divineos.core.keyword_enforcement_registry docstring — derived from
+# structure, not hand-maintained; permissive with opt-out; falls open
+# on any error (returns None → doorman stays silent, never blocks
+# incorrectly).
 try:
-    registered_paths = set()
-    for line in registry_path.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if line and not line.startswith('#'):
-            registered_paths.add(line)
-except Exception:
+    from divineos.core.keyword_enforcement_registry import matches_registry
+except ImportError:
     sys.exit(0)
+
+repo_root = Path('$REPO_ROOT')
 
 # Normalize file_path to repo-relative form
 try:
-    repo_root = Path('$REPO_ROOT').resolve()
+    repo_root_resolved = repo_root.resolve()
     fp_resolved = Path(file_path).resolve()
-    fp_rel = str(fp_resolved.relative_to(repo_root)).replace('\\\\', '/')
+    fp_rel = str(fp_resolved.relative_to(repo_root_resolved)).replace('\\\\', '/')
 except Exception:
     fp_rel = file_path.replace('\\\\', '/')
+    fp_resolved = Path(file_path)
 
-# Match against registry (also check any path component overlap)
-matched_registry = None
-for reg_path in registered_paths:
-    reg_norm = reg_path.replace('\\\\', '/').strip('/')
-    if fp_rel.endswith(reg_norm) or reg_norm in fp_rel:
-        matched_registry = reg_path
-        break
-
+matched_registry = matches_registry(fp_rel, repo_root)
 if matched_registry is None:
     sys.exit(0)
 
