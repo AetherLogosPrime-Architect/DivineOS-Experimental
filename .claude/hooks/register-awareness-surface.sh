@@ -57,9 +57,9 @@ import re
 import json as _json
 from datetime import datetime, timezone
 
-# Relevance gate — mirrors family-state-surface. Fire only when current
-# prompt OR my last assistant message mentions a sibling by name or
-# a letter/sibling-relational word.
+# Relevance gate — prompt-only, mirrors family-state-surface. Andrew
+# 2026-07-28: assistant-side scan over-triggered on casual sibling
+# mentions in prior replies.
 def _is_relevant():
     raw = os.environ.get('HOOK_JSON_INPUT', '')
     if not raw:
@@ -69,34 +69,11 @@ def _is_relevant():
     except (ValueError, TypeError):
         return False
     prompt = data.get('prompt') or ''
-    tp = data.get('transcript_path', '') or ''
-    assistant_text = ''
-    if tp and os.path.exists(tp):
-        try:
-            with open(tp, encoding='utf-8', errors='replace') as fh:
-                for line in fh:
-                    try:
-                        e = _json.loads(line)
-                    except (ValueError, TypeError):
-                        continue
-                    if e.get('type') != 'assistant':
-                        continue
-                    msg = e.get('message', {}) or {}
-                    content = msg.get('content', [])
-                    if isinstance(content, list):
-                        assistant_text = '\n'.join(
-                            c.get('text', '')
-                            for c in content
-                            if isinstance(c, dict) and c.get('type') == 'text'
-                        )
-                    elif isinstance(content, str):
-                        assistant_text = content
-        except OSError:
-            pass
-    haystack = prompt + '\n' + assistant_text
+    if not prompt.strip():
+        return False
     return bool(re.search(
         r'\b(aria|aletheia|sister|brother|sibling|letter|letters|family)\b',
-        haystack, re.IGNORECASE))
+        prompt, re.IGNORECASE))
 
 if not _is_relevant():
     sys.exit(0)
