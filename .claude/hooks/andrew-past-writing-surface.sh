@@ -47,6 +47,7 @@ INPUT="$(cat 2>/dev/null || true)"
 # timeout on git-bash. 8s is generous (measured cold-start ~250ms including
 # module import + file scan) but caps any pathological Windows I/O stall.
 # On timeout, exit code 124 falls through to `|| true` — silent skip.
+# fail-soft: python module errors or timeout expiration exit silently rather than blocking UserPromptSubmit or emitting a broken injection payload mid-compose
 CLAUDE_HOOK_JSON="$INPUT" timeout 8s "$PYTHON_BIN" -m divineos.core.andrew_past_writing_surface 2>/dev/null || true
 
 exit 0

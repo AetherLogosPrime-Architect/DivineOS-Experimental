@@ -171,6 +171,7 @@ PYEOF
 # wallclock is already in front of me at compose-start. Grounds any
 # subsequent time reference via prime-injection instead of requiring
 # me to run `date` manually mid-composition.
+# fail-soft: date command absence or stderr noise falls through to the literal 'date-command-unavailable' string rather than crashing the prime; the fallback string is itself informative in the injected prime
 CURRENT_WALLCLOCK="$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo 'date-command-unavailable')"
 
 cat <<EOF
