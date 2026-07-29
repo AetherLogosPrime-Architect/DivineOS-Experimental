@@ -143,7 +143,13 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+# F96 pair (Aletheia audit 2026-07-29, find-cb124977dd85): capture the
+# emitted content into a variable, echo it (satisfies the hook contract),
+# and also write it to a per-hook marker file so the Stop-side audit
+# can call record_consumption() and score whether the primed content
+# was actually used in the response. Mirrors the wallclock-source-prime
+# + check_wallclock_semantic_source pattern.
+_PRIME_CONTENT=$(cat <<'EOF'
 ## CLOSURE-WORD SUMMARY PRIME (compose-start, context-triggered)
 
 A verification-outcome report is likely this turn. When I've just done
@@ -170,5 +176,12 @@ than any of the summary words above.
 Complement to VERIFY-CLAIM gate at Stop time. This prime removes the
 reach; the gate catches it after. Two layers, one discipline.
 EOF
+)
+printf '%s\n' "$_PRIME_CONTENT"
+
+# fail-soft: marker write must never block hook execution
+_MARKER_DIR="${HOME:-/tmp}/.divineos"
+mkdir -p "$_MARKER_DIR" 2>/dev/null || true
+printf '%s' "$_PRIME_CONTENT" > "$_MARKER_DIR/closure_word_summary_prime_surface_last.txt" 2>/dev/null || true
 
 exit 0

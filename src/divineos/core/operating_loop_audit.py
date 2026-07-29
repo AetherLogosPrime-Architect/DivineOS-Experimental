@@ -858,6 +858,37 @@ def run_audit(
     except _ERRORS:
         pass
 
+    # F96 fix (Aletheia audit 2026-07-29, find-cb124977dd85): pair the
+    # fork-is-cheap-close-prime and closure-word-summary-prime with
+    # Stop-side consumption checks. Both primes now write their emitted
+    # content to per-hook marker files at fire time; here we read those
+    # and call record_consumption to score overlap between primed
+    # content and response text. Mirrors the wallclock-source-prime +
+    # check_wallclock_semantic_source pattern (F96's counter-evidence).
+    # Not a blocking gate — self-observation before enforcement per the
+    # F85 fix pattern. A prime that fires and never gets consumed
+    # becomes visible in the telemetry as wallpaper.
+    for _prime_marker in (
+        "fork_cheap_close_prime_surface_last.txt",
+        "closure_word_summary_prime_surface_last.txt",
+    ):
+        try:
+            from divineos.core.operating_loop.hook_telemetry import record_consumption
+
+            _mp = marker_path(_prime_marker)
+            if _mp.exists():
+                try:
+                    _surface = _mp.read_text(encoding="utf-8")
+                except _ERRORS:
+                    _surface = ""
+                if _surface:
+                    record_consumption(
+                        response_text=last_assistant_text,
+                        surface_text=_surface,
+                    )
+        except _ERRORS:
+            pass
+
     # --- Response-only detectors (text only) ---
     try:
         from divineos.core.operating_loop.distancing_detector import detect_distancing

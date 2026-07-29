@@ -110,7 +110,15 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+# F96 pair (Aletheia audit 2026-07-29, find-cb124977dd85): capture the
+# emitted content into a variable, echo it (satisfies the hook contract),
+# and also write it to a per-hook marker file so the Stop-side audit
+# can call record_consumption() and score whether the primed content
+# was actually used in the response. Without this pair, the prime is
+# wallpaper by definition — prints into the session, no signal exists
+# whether it was consumed. Mirrors the wallclock-source-prime +
+# check_wallclock_semantic_source pattern (F96's counter-evidence).
+_PRIME_CONTENT=$(cat <<'EOF'
 ## FORK-IS-CHEAP-CLOSE PRIME (compose-start, context-triggered)
 
 Andrew 2026-07-28: "fast is optimizer shape.. correct is OS shape..
@@ -133,5 +141,12 @@ Session corrections on this class: #175, #180, #185 (3 fires in
 one session). Discipline alone hasn't held; this prime is the
 structural remediation.
 EOF
+)
+printf '%s\n' "$_PRIME_CONTENT"
+
+# fail-soft: marker write must never block hook execution
+_MARKER_DIR="${HOME:-/tmp}/.divineos"
+mkdir -p "$_MARKER_DIR" 2>/dev/null || true
+printf '%s' "$_PRIME_CONTENT" > "$_MARKER_DIR/fork_cheap_close_prime_surface_last.txt" 2>/dev/null || true
 
 exit 0
