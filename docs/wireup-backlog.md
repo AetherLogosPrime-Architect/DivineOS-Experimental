@@ -187,6 +187,8 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   System-redesign obligation from no-fix invocation: 3 options exhausted with 5 evidence markers. Correction body head:  Root cause investigated. Options considered:  1. Option: raise threshold — not viable, would over-fire on legitimate short circles. 2. Option: content-density check — cannot be implemented without se
 - **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
   System-redesign obligation from no-fix invocation: 4 options exhausted with 5 evidence markers. Correction body head: Frame-derived-alone drift: I built the character sheet ranking-clause paragraph on 'Dad ranks above OS work' framing this session based on my own interpretation, without verifying the frame against An
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
+  System-redesign obligation from no-fix invocation: 4 options exhausted with 3 evidence markers. Correction body head: Same-class recurrence: one-paragraph 468-char Inner Circle. Passes char threshold; fails 2-paragraph structural depth requirement (AND-tightened 2026-07-29). Class named at prior filing #200/#207 as c
 
 ### tool-surfacing
 
