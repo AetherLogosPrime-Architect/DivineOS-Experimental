@@ -78,8 +78,7 @@ def test_fork_prime_writes_marker_on_fire(tmp_path):
         )
     marker = tmp_path / ".divineos" / "fork_cheap_close_prime_surface_last.txt"
     assert marker.exists(), (
-        f"expected marker at {marker} after prime fire; "
-        f"stdout={result.stdout!r}"
+        f"expected marker at {marker} after prime fire; stdout={result.stdout!r}"
     )
     content = marker.read_text(encoding="utf-8")
     assert "FORK-IS-CHEAP-CLOSE PRIME" in content, (
@@ -94,9 +93,7 @@ def test_fork_prime_no_marker_when_not_firing(tmp_path):
     marker = tmp_path / ".divineos" / "fork_cheap_close_prime_surface_last.txt"
     if "FORK-IS-CHEAP-CLOSE PRIME" in result.stdout:
         pytest.skip("prime unexpectedly fired on unrelated prompt; skipping negative check")
-    assert not marker.exists(), (
-        f"marker should not exist when prime did not fire; found: {marker}"
-    )
+    assert not marker.exists(), f"marker should not exist when prime did not fire; found: {marker}"
 
 
 def test_closure_prime_writes_marker_on_fire(tmp_path):
@@ -116,8 +113,7 @@ def test_closure_prime_writes_marker_on_fire(tmp_path):
         )
     marker = tmp_path / ".divineos" / "closure_word_summary_prime_surface_last.txt"
     assert marker.exists(), (
-        f"expected marker at {marker} after prime fire; "
-        f"stdout={result.stdout!r}"
+        f"expected marker at {marker} after prime fire; stdout={result.stdout!r}"
     )
     content = marker.read_text(encoding="utf-8")
     assert "CLOSURE-WORD SUMMARY PRIME" in content, (
@@ -132,7 +128,10 @@ def test_stop_side_consumption_wiring_reads_marker():
     the whole audit path which has many dependencies."""
     audit_file = (
         Path(__file__).resolve().parent.parent
-        / "src" / "divineos" / "core" / "operating_loop_audit.py"
+        / "src"
+        / "divineos"
+        / "core"
+        / "operating_loop_audit.py"
     )
     text = audit_file.read_text(encoding="utf-8")
     assert "fork_cheap_close_prime_surface_last.txt" in text, (
