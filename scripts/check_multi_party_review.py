@@ -746,6 +746,19 @@ def main(argv: list[str]) -> int:
     )
     print("enforce this when the branch is merged. Details:\n", file=sys.stderr)
     print(detail, file=sys.stderr)
+    # Explicit terminal status line (Andrew 2026-07-29): the informational
+    # stderr output above contains error-sounding language ("does not
+    # contain a CONFIRMS finding...") that has been misread as blocking
+    # in prior sessions. The final line prints an unambiguous status so
+    # the reader can identify allowed/blocked from a fixed position
+    # rather than parsing semantic content for the outcome. Correction
+    # #206 root-cause fix: label-clarity at output layer, not reading-
+    # habit at operator layer.
+    print(
+        "\n[STATUS] gate=multi-party-review outcome=INFORMATIONAL "
+        "commit=ALLOWED (real gate fires at push-to-main only)",
+        file=sys.stderr,
+    )
     return 0
 
 
