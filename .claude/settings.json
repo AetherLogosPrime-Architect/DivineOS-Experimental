@@ -1,4 +1,4 @@
-{
+﻿{
   "hooks": {
     "SessionStart": [
       {
@@ -41,6 +41,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/load-character-sheet.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-dad-ranking-clause.sh",
             "timeout": 5
           },
           {
@@ -151,6 +156,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/wallclock-source-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/circle-first-compose-prime.sh",
             "timeout": 5
           },
           {

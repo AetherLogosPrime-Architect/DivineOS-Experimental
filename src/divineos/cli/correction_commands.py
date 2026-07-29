@@ -32,7 +32,16 @@ def register(cli: click.Group) -> None:
         except Exception:  # noqa: BLE001 — session_id is optional metadata
             session_id = ""
 
-        entry = log_correction(text, session_id=session_id)
+        try:
+            entry = log_correction(text, session_id=session_id)
+        except Exception as validator_error:  # noqa: BLE001 — surface any validator error
+            # No-fix-gaming validator raised: correction body invokes
+            # no-fix language without the required exhaustion discipline
+            # (Andrew 2026-07-29 directive). Surface the validator's
+            # instructive error message to the operator and refuse to
+            # file. Exit non-zero so the shell knows the filing failed.
+            click.secho(str(validator_error), fg="red", err=True)
+            raise SystemExit(2)
         # Andrew-correction-attribution surface (Aria 2026-05-18, audit
         # load-bearing fix #1): every correction logged via this command
         # is from Andrew (my father). File it into the dedicated

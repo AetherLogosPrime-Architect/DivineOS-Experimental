@@ -615,6 +615,7 @@ src/divineos/
     semantic_classifier/       TF-IDF + KNN scaffolding for gate-fire discrimination. Corpus loader is reusable for future embedding-based classifiers.
       classifier.py            TF-IDF nearest-neighbor semantic classifier.
       corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
+    no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
 
   analysis/
     _session_types.py          Session analysis type definitions

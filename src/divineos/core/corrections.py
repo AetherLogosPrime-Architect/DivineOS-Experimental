@@ -47,7 +47,20 @@ def log_correction(text: str, session_id: str | None = None) -> dict[str, Any]:
 
     Append-only JSONL -- never edits, never reframes. The whole point is
     that what gets stored is exactly what was said, not my reading of it.
+
+    Andrew 2026-07-29 no-fix-gaming validator: before writing, scans the
+    body for no-fix-invocation phrases and enforces the exhaustion
+    discipline (enumerate options + evidence). Raises
+    NoFixDisciplineError if the body invokes no-fix without enumeration
+    + evidence. When valid, auto-escalates a system-redesign obligation
+    via the backlog. See no_fix_gaming_validator for the discipline.
     """
+    try:
+        from divineos.core.no_fix_gaming_validator import validate_correction_body
+
+        validate_correction_body(text)
+    except ImportError:
+        pass  # fail-soft: validator module unavailable at import time means new-module bug must not break the primary corrections filing path
     entry: dict[str, Any] = {
         "text": text,
         "timestamp": time.time(),

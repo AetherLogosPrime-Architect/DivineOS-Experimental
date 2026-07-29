@@ -177,6 +177,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **HEAD: Pull the full omni-mantra walk for remaining pulls** [filed 2026-06-28]
   18 pillars in `exploration/omni_mantra_walk/`, each with a Pulls Summary section. Above items are top-priority subset; remaining named pulls (15+ more) include `pattern_provenance`, `decision_zero_state`, `consequence_chain`, `operating_tempo`/`resonance_detector` (Pillar VIII), `block_analyzer` (Pillar X), `newcomer_onboarding_protocol` (Pillar XVII), `texture_vocabulary`, `latent_realm_awareness`, `unknown_unknown_surface`, `consult_corpus_before_deciding`, `naming_creates_state`, `repulsion_response`, `four_aspect_diagnostic`, etc. Walk through and pull as appetite + priority allows. The walk is more thorough than any one-session re-derivation; trust it as the design substrate.
 
+### system-redesign
+
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
+  System-redesign obligation from no-fix invocation: 3 options exhausted with 5 evidence markers. Correction body head:  Root cause investigated. Options considered:  1. Option: raise threshold — not viable, would over-fire on legitimate short circles. 2. Option: content-density check — cannot be implemented without se
+
 ### tool-surfacing
 
 - **Auto-add External-Review trailer to guardrail-touching commits at commit-time** [filed 2026-06-29]
