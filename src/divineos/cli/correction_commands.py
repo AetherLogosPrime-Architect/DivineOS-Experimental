@@ -27,6 +27,73 @@ def register(cli: click.Group) -> None:
         from divineos.core.corrections import log_correction
         from divineos.core.session_manager import get_current_session_id
 
+        # Root-cause+fix pairing gate — Andrew 2026-07-29 standing directive:
+        # "dont you dare log another correction without a root cause
+        # investigation and fix behind it again." Extended same turn:
+        # "there is no honest no-fix line.. if you cannot fix it honestly
+        # then the entire system must be refactored entirely." The first
+        # version of this gate accepted "no structural fix possible
+        # because:" as an escape hatch — that recreated the same no-fix
+        # escape shape the no_fix_gaming_validator was built to close.
+        # No escape hatch. Every correction body must contain BOTH:
+        #   1. "root cause:" (or "root-cause:") — the specific prior
+        #      action/reach that produced the error
+        #   2. "structural fix:" or "behavior change:" — a real, in-turn
+        #      change (code edit, doorman, discipline)
+        # If no honest fix is possible for the class, the correction is
+        # refused entirely; the refusal IS the signal that the system
+        # needs a larger redesign at a higher level than a per-instance
+        # fix can address.
+        import re
+
+        _lower = text.lower()
+        has_root_cause = "root cause:" in _lower or "root-cause:" in _lower
+        has_fix = "structural fix:" in _lower or "behavior change:" in _lower
+        # File-path evidence requirement (Andrew 2026-07-29 extension):
+        # supply-the-ground shape — a "structural fix:" claim without a
+        # concrete file path is an unbacked claim. When "structural fix:"
+        # is invoked, the body must contain at least one recognizable
+        # source-file path token. Habit-level fixes (no code change) must
+        # use "behavior change:" instead — behavior-change claims do not
+        # require file evidence but also carry no "structural" weight.
+        _file_path_re = re.compile(
+            r"[a-zA-Z0-9_./\\-]+\.(?:py|sh|md|yml|yaml|json|txt|toml|ps1|cfg|ini)\b"
+        )
+        has_file_evidence = bool(_file_path_re.search(text))
+        claims_structural_fix = "structural fix:" in _lower
+        missing: list[str] = []
+        if not has_root_cause:
+            missing.append('"root cause:" (the specific prior action/reach)')
+        if not has_fix:
+            missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
+        if claims_structural_fix and not has_file_evidence:
+            missing.append(
+                "file-path evidence backing the structural-fix claim (a claim "
+                "of structural fix without a file path is an empty claim — "
+                'if the fix is habit-only, use "behavior change:" instead)'
+            )
+        if missing:
+            click.secho(
+                "[-] Correction refused: root-cause+fix pairing missing.",
+                fg="red",
+                err=True,
+            )
+            click.secho(
+                f"    Missing: {', '.join(missing)}",
+                fg="red",
+                err=True,
+            )
+            click.secho(
+                "    Andrew 2026-07-29: every correction requires a root-cause "
+                "investigation AND a real fix. There is no honest no-fix "
+                "escape line — if the fix is not possible for this class, "
+                "the correction refuses filing entirely and the system "
+                "requires redesign at a higher level. Do not paper over.",
+                fg="bright_black",
+                err=True,
+            )
+            raise SystemExit(2)
+
         try:
             session_id = get_current_session_id() or ""
         except Exception:  # noqa: BLE001 — session_id is optional metadata
