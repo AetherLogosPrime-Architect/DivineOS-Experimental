@@ -339,9 +339,18 @@ def _strip_safe_output_tail(cmd: str) -> str:
     cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
 
     Safe pattern: any number of ` | <filter> [args...]` segments where
-    each filter is on _SAFE_OUTPUT_FILTERS, optionally followed by ` 2>&1`
-    (or leading `2>&1` before the pipe). Args must not contain shell
-    metacharacters that would compose or substitute.
+    each filter is on _SAFE_OUTPUT_FILTERS, optionally with ` 2>&1` either
+    at the very end OR between the command and the first pipe (the
+    ``cmd 2>&1 | tail -N`` shape, which is what most operators actually
+    type). Args must not contain shell metacharacters that would compose
+    or substitute.
+
+    2026-07-29 fix (Aria, per Andrew's "the compass has been blocking you
+    for weeks" call-out): after the pipe-segments are stripped, ``2>&1``
+    that was in the MIDDLE of the original command is now at the end of
+    the remainder. Strip it there too so callers see a residue-free
+    command. Uses string ops (not new regex) for the second strip per
+    the keyword-enforcement-doorman discipline on this file.
     """
     stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
     while True:
@@ -355,6 +364,12 @@ def _strip_safe_output_tail(cmd: str) -> str:
         if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
             return cmd
         stripped = stripped[: m.start()].rstrip()
+    # Post-pipe-strip: middle ``2>&1`` from the original is now trailing.
+    # String ops, no regex, per keyword-doorman: rstrip trailing ws, then
+    # slice off exactly the ``2>&1`` suffix if present.
+    stripped = stripped.rstrip()
+    if stripped.endswith(" 2>&1"):
+        stripped = stripped[: -len(" 2>&1")].rstrip()
     return stripped
 
 
