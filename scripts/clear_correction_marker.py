@@ -57,10 +57,16 @@ from divineos.core.correction_marker import clear_marker, marker_path, read_mark
 from divineos.core.paths import divineos_home
 
 _MIN_REASON_LEN = 30
+_MIN_MISREAD_LEN = 40
 _ESCAPE_LOG = "cli_broken_escapes.jsonl"
 
 
-def _append_escape_log(reason: str, original_trigger: str | None) -> Path:
+def _append_escape_log(
+    reason: str,
+    original_trigger: str | None,
+    misread_clauses: str | None = None,
+    mode: str = "cli-broken",
+) -> Path:
     """Append a JSON line recording the escape — what was cleared and why.
 
     The log lives under the divineos home directory (same place the marker
@@ -70,11 +76,19 @@ def _append_escape_log(reason: str, original_trigger: str | None) -> Path:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "ts": time.time(),
+        "mode": mode,
         "reason": reason,
+        "misread_clauses": misread_clauses,
         "original_trigger": original_trigger,
         "remediation_owed": (
             'Log the original correction via `divineos correction "..."` '
             "once the CLI is working again."
+            if mode == "cli-broken"
+            else (
+                "Quoted clauses are on-record for audit. If those clauses "
+                "are actually USE-shape (not MENTION), this clear was a "
+                "bypass and a real correction was dodged."
+            )
         ),
     }
     with open(log_path, "a", encoding="utf-8") as f:
@@ -85,16 +99,36 @@ def _append_escape_log(reason: str, original_trigger: str | None) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Offline clear the correction-unlogged marker when the divineos "
-            "CLI itself is broken (escape hatch for the locked-box trap)."
+            "Clear the correction-unlogged marker. Two supported modes: "
+            "(a) --reason only = CLI-broken escape hatch (locked-box trap); "
+            "(b) --reason + --misread-clauses = false-positive attribution "
+            "(operator must quote the specific reply-clauses claimed to be "
+            "MENTION-not-USE, so blind-clear cannot happen). Andrew 2026-07-29 "
+            "correction #194: the false-positive path had no discriminator, "
+            "allowing real self-admissions to be dodged as 'false positive' "
+            "with a plausible 30-char reason. --misread-clauses closes that."
         )
     )
     parser.add_argument(
         "--reason",
         required=True,
         help=(
-            "Why is the CLI unreachable, and what is the plan to log the "
-            f"original correction afterward? Must be >= {_MIN_REASON_LEN} chars."
+            "Why is the marker being cleared? For CLI-broken mode: why the "
+            "CLI is unreachable and the plan to log the correction afterward. "
+            "For false-positive mode: what class of MENTION was misread as "
+            f"USE. Must be >= {_MIN_REASON_LEN} chars."
+        ),
+    )
+    parser.add_argument(
+        "--misread-clauses",
+        default=None,
+        help=(
+            "REQUIRED for false-positive attribution (not for CLI-broken "
+            "escape). Quote the specific reply-clauses that were misread as "
+            "USE-shape self-admission. Must be >= "
+            f"{_MIN_MISREAD_LEN} chars. Forces the operator to actually read "
+            "their own text before clearing. If the quoted clauses are "
+            "obviously USE-shape, the clear is a bypass on record."
         ),
     )
     args = parser.parse_args(argv)
@@ -106,6 +140,18 @@ def main(argv: list[str] | None = None) -> int:
             f"(got {len(reason)}). A short reason is a stub-reason; the "
             "escape hatch is for real CLI-broken situations, not for "
             "routinely bypassing the discipline.",
+            file=sys.stderr,
+        )
+        return 2
+
+    misread_clauses = (args.misread_clauses or "").strip() or None
+    mode = "false-positive" if misread_clauses is not None else "cli-broken"
+    if misread_clauses is not None and len(misread_clauses) < _MIN_MISREAD_LEN:
+        print(
+            f"REFUSED: --misread-clauses must be >= {_MIN_MISREAD_LEN} "
+            f"characters (got {len(misread_clauses)}). To attribute a "
+            "false-positive you must quote the specific reply-text you "
+            "claim was misread. Stub-length clauses are stub-attribution.",
             file=sys.stderr,
         )
         return 2
@@ -123,15 +169,24 @@ def main(argv: list[str] | None = None) -> int:
     marker = read_marker()
     original_trigger = marker.get("trigger") if isinstance(marker, dict) else None
     clear_marker()
-    log_path = _append_escape_log(reason, original_trigger)
-    print(
-        f"Cleared correction marker at {path}.\n"
-        f"Escape recorded to {log_path}.\n"
-        "REMEDIATION OWED: once the CLI is working, run "
-        '`divineos correction "..."` to log the original correction. '
-        "The marker is cleared but the underlying correction is not yet "
-        "recorded in the substrate."
-    )
+    log_path = _append_escape_log(reason, original_trigger, misread_clauses, mode)
+    if mode == "false-positive":
+        print(
+            f"Cleared correction marker at {path} (false-positive attribution).\n"
+            f"Escape recorded to {log_path} with quoted clauses.\n"
+            "The quoted clauses are ON RECORD. If those clauses are actually "
+            "USE-shape rather than MENTION-shape, this clear was a bypass and "
+            "the audit will show it."
+        )
+    else:
+        print(
+            f"Cleared correction marker at {path} (CLI-broken escape).\n"
+            f"Escape recorded to {log_path}.\n"
+            "REMEDIATION OWED: once the CLI is working, run "
+            '`divineos correction "..."` to log the original correction. '
+            "The marker is cleared but the underlying correction is not yet "
+            "recorded in the substrate."
+        )
     return 0
 
 

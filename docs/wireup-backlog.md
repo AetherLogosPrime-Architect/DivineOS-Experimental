@@ -125,6 +125,13 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **Branch-freshness gate fires on every push regardless of merge-shape risk** [filed 2026-06-28]
   Aria 2026-06-28: 'fires on EVERY push regardless of whether the merge-shape would actually create the silent-revert it's protecting against. Same gate-input-vs-purpose misalignment — fires on the input is-branch-behind when the purpose is would-this-push-cause-a-silent-revert-on-merge.' Fourth item in the gate-scope cluster (lint whole-repo, correction-detector raw-text, forgot-git-add no-check, freshness-check on-every-push). All same fix-pattern: align gate input to gate purpose. Pop's root-cause-diagnostic-first principle applied: the four are one architectural family, refactor as cluster not individually.
 
+### gates
+
+- **in-instance over-correction reflex catch (post-correction integration prime)** [filed 2026-07-29]
+  After an Andrew correction lands, the reach for the safe-opposite fires before the calibrated-middle can be considered. Active-needs surface warns pattern-class at compose-start but does NOT intercept the just-got-corrected → about-to-flip-to-opposite instance. Fired 3x in one session (correction #193). Options: (a) post-correction integration prime firing on the NEXT compose asking 'what is the flip-to-opposite here, and what is the harder middle?'; (b) doorman scanning reply-in-composition for opposite-of-recent-correction language; (c) accept class-warning is the ceiling. Needs walk before build.
+- **Gate 1.4 (compass-staleness) missing safe-remedy exemption** [filed 2026-07-29]
+  src/divineos/hooks/pre_tool_use_gate.py Gate 1.4 (compass-staleness ~line 1042) blocks all substrate-write Bash commands including the compass-ops observe remedy it names. Gate 1.47 has the exemption via _is_safe_remedy_invocation with ('divineos compass-ops observe', 'divineos compass-ops dismiss'). Gate 1.4 does not. Third chicken-and-egg lockdown of this session (M3 doorman on-itself; correction-marker-clear; now compass-staleness). Fix: add the same _is_safe_remedy_invocation check to Gate 1.4 before the _make_deny return, using the same allowed_heads tuple. Guardrail-listed file — needs External-Review trailer at push time. Andrew 2026-06-08 principle: gate-remedies-must-execute.
+
 ### handoff-discipline
 
 - **Automate audit-handoff discipline: block 'ready for Aletheia' language without visible auditable object** [filed 2026-06-28]

@@ -98,8 +98,14 @@ else:
 andrew_prompt = andrew_prompt.strip()
 my_assistant = my_assistant.strip()
 
-# Continuation-invitation shapes. MATCH on EITHER — both signal
-# composing continues into a wallclock-drift zone.
+# Trigger: fire when EITHER (a) continuation-invitation shape appears
+# in prompt OR my prior assistant text, OR (b) my prior assistant text
+# already contains temporal-scope tokens (empirical signal I've been
+# reaching for wallclock this session — keep priming me forward).
+# Andrew 2026-07-28: continuation-invitation-only was too narrow;
+# emotional/relational Andrew-prompts never triggered it, so I walked
+# into the Stop-time gate three times in one session. Broaden trigger
+# to catch the empirical reach-pattern regardless of prompt shape.
 continuation_patterns = [
     r'\bkeep\s+going\b',
     r'\bcontinue\b',
@@ -113,9 +119,25 @@ continuation_patterns = [
     r'\bgo\s+for\s+it\b',
     r'\bgo\s+ahead\b',
 ]
+# Temporal-scope tokens: if my last message contained ANY of these
+# directed at Andrew, the reach-pattern is live this session and the
+# prime should fire on the next compose regardless of prompt shape.
+my_reach_patterns = [
+    r'\ball\s+(?:night|day|week|month|year|morning|afternoon|evening)\b',
+    r'\b(?:this|last|next)\s+(?:week|month|year|hour|morning|afternoon|evening|night)\b',
+    r'\b(?:tonight|tomorrow|yesterday|today)\b',
+    r'\b(?:hours?|days?|weeks?|months?|years?)\s+(?:ago|of|from|since)\b',
+    r'\bfour\s+months?\b',
+    r'\bmoments?\s+ago\b',
+    r'\bearlier\s+(?:today|this)\b',
+    r'\blater\s+(?:today|this|tonight)\b',
+]
 combined_continue = re.compile('|'.join(continuation_patterns), re.IGNORECASE | re.MULTILINE)
+combined_reach = re.compile('|'.join(my_reach_patterns), re.IGNORECASE | re.MULTILINE)
 both_texts = andrew_prompt + '\n' + my_assistant
-if not combined_continue.search(both_texts):
+continuation_hit = combined_continue.search(both_texts)
+reach_hit = combined_reach.search(my_assistant)  # only my prior text, not Andrew's
+if not (continuation_hit or reach_hit):
     sys.exit(0)
 
 # Time-of-day references — MATCH on Andrew's prompt ONLY. His time-of-

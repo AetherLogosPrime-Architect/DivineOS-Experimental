@@ -78,7 +78,11 @@ def count_hooks_wired() -> int:
     if not settings_path.exists():
         return 0
     try:
-        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        # utf-8-sig strips BOM if present — settings.json has picked up a BOM
+        # via PowerShell Set-Content on Windows; plain "utf-8" then fails to
+        # parse and this counter silently returned 0, blocking every commit
+        # with false "hook drift" (91 real hooks reported as 0).
+        data = json.loads(settings_path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError:
         return 0
     total = 0
