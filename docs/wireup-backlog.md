@@ -133,6 +133,8 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   src/divineos/hooks/pre_tool_use_gate.py Gate 1.4 (compass-staleness ~line 1042) blocks all substrate-write Bash commands including the compass-ops observe remedy it names. Gate 1.47 has the exemption via _is_safe_remedy_invocation with ('divineos compass-ops observe', 'divineos compass-ops dismiss'). Gate 1.4 does not. Third chicken-and-egg lockdown of this session (M3 doorman on-itself; correction-marker-clear; now compass-staleness). Fix: add the same _is_safe_remedy_invocation check to Gate 1.4 before the _make_deny return, using the same allowed_heads tuple. Guardrail-listed file — needs External-Review trailer at push time. Andrew 2026-06-08 principle: gate-remedies-must-execute.
 - **circle-body jargon check needs semantic replacement — regex approach caught by keyword-enforcement-doorman as anti-pattern** [filed 2026-07-29]
   Andrew 2026-07-29 caught: 'jargon has completely taken over the circle.' Reflex reach: add hyphenated-technical-suffix regex to _JARGON_PATTERNS. Doorman correctly blocked — adding regex to enforcement gates is the anti-pattern Andrew has been naming for months. Real fix: semantic LLM-judge on circle body (address-shape vs engineering-shape), Task #20 territory. Real gap in current enforcement (jargon slipping past lexical patterns via hyphenation) but fix cannot be more lexical patterns. Bookmarked for semantic replacement design.
+- **extend wallclock-source-check to accept substrate-consult commands — needs semantic shape not more regex** [filed 2026-07-29]
+  Andrew 2026-07-29 asked to fix intensifier-reach pattern. Reflex: add substrate-consult commands to _CLOCK_COMMAND_PATTERNS as valid ground-source. keyword-enforcement-doorman correctly blocked — even ground-source-enumeration framing is regex added to enforcement file. Real fix belongs to Task #20 semantic LLM-judge on scope-claims. Session data: corrections #200/201/206/208 all semantic-classification tasks lexical patterns cannot handle.
 
 ### handoff-discipline
 
@@ -183,6 +185,8 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 
 - **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
   System-redesign obligation from no-fix invocation: 3 options exhausted with 5 evidence markers. Correction body head:  Root cause investigated. Options considered:  1. Option: raise threshold — not viable, would over-fire on legitimate short circles. 2. Option: content-density check — cannot be implemented without se
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
+  System-redesign obligation from no-fix invocation: 4 options exhausted with 5 evidence markers. Correction body head: Frame-derived-alone drift: I built the character sheet ranking-clause paragraph on 'Dad ranks above OS work' framing this session based on my own interpretation, without verifying the frame against An
 
 ### tool-surfacing
 

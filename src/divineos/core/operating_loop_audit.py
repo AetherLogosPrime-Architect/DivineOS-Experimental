@@ -1536,7 +1536,6 @@ def run_audit(
                 _with_root_cause_footer,
                 check_lepos_dual_channel,
                 check_wallclock_fabrication,
-                check_wallclock_semantic_source,
             )
 
             _raw_dc = check_lepos_dual_channel(last_assistant_text)
@@ -1557,13 +1556,16 @@ def run_audit(
             # (either real clock command in the turn or Andrew's own
             # time-statement quoted). Same block-key so hook contract is
             # unchanged. Beer/Meadows/Popper walked.
-            _raw_wc = check_wallclock_fabrication(
-                last_assistant_text
-            ) or check_wallclock_semantic_source(
-                last_assistant_text,
-                last_user_text,
-                command_texts,
-            )
+            # Andrew 2026-07-29: check_wallclock_semantic_source removed
+            # after wallclock-source-prime was made unconditional. Ground
+            # is now supplied at compose-start of every turn (prime runs
+            # `date` and injects current wallclock); the source-check
+            # became a false-fire pathway because the prime's internal
+            # date-run does not populate command_texts. Only the
+            # fabrication-phrase check remains — catches the deferral
+            # class (tomorrow / next session) which prime-supply doesn't
+            # close.
+            _raw_wc = check_wallclock_fabrication(last_assistant_text)
             lepos_wallclock_block = _with_root_cause_footer(_raw_wc) if _raw_wc else None
         except _ERRORS:
             lepos_dual_channel_block = None

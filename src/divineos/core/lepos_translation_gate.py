@@ -177,42 +177,13 @@ _WALLCLOCK_REFERENCE_PATTERNS = (
     ),
 )
 
-# Commands whose execution produces real wallclock output.
-_CLOCK_COMMAND_PATTERNS = (
-    re.compile(r"\bdate\b(?!\w)"),
-    re.compile(r"datetime\.now"),
-    re.compile(r"time\.time\(\)"),
-    re.compile(r"time\.strftime"),
-    re.compile(r"git\s+log[^|]*--(?:format|date)[^|]*(?:%a[dtDS]|%H|%M|%Y)"),
-    re.compile(r"date\s+\+"),
-    re.compile(r"\btimedatectl\b"),
-    re.compile(r"\bTZ=.*date\b"),
-)
-
-
-def _has_clock_source_in_commands(command_texts: tuple[str, ...]) -> bool:
-    """Any command in the current turn produce actual wallclock output?"""
-    if not command_texts:
-        return False
-    for cmd in command_texts:
-        if not cmd:
-            continue
-        for pattern in _CLOCK_COMMAND_PATTERNS:
-            if pattern.search(cmd):
-                return True
-    return False
-
-
-def _has_time_statement_from_user(last_user_text: str) -> bool:
-    """Does Andrew's most recent message contain a time-statement the
-    reply could be quoting? Broad: any numeric time or time-of-day word
-    in his message is sufficient source. His words are ground truth."""
-    if not last_user_text:
-        return False
-    for pattern in _WALLCLOCK_REFERENCE_PATTERNS:
-        if pattern.search(last_user_text):
-            return True
-    return False
+# Andrew 2026-07-29: _CLOCK_COMMAND_PATTERNS, _has_clock_source_in_commands,
+# and _has_time_statement_from_user were removed together with
+# check_wallclock_semantic_source. The source-check pathway is replaced by
+# always-fires wallclock-source-prime that injects `date` output at
+# compose-start. Supply-the-ground design replaces detect-the-gap design.
+# See exploration/aether/106_stopping_is_suicide_time_continuity_ground_truth.md
+# for the underlying ground-truth model.
 
 
 # Shared root-cause-fix directive appended to every gate block message.
@@ -243,64 +214,15 @@ def _with_root_cause_footer(msg: str) -> str:
     return msg.rstrip() + _ROOT_CAUSE_FIX_FOOTER
 
 
-def check_wallclock_semantic_source(
-    reply: str,
-    last_user_text: str,
-    command_texts: tuple[str, ...],
-) -> str | None:
-    """Semantic wallclock source-check gate. 2026-07-22, Andrew directive.
-
-    Complements check_wallclock_fabrication (deferral class) with the
-    shared-present class: casting Andrew's wallclock onto myself as if
-    we share the current moment. Different failure, same fabrication
-    family.
-
-    Detection is lexical but broad (over-inclusive on purpose).
-    Discrimination is structural: source-check. A time-reference in a
-    reply directed at Andrew passes IFF at least one of:
-      1. Real clock command in the turn's command_texts (bash `date`,
-         python datetime.now(), etc.) — actual wallclock output.
-      2. Andrew's last message contains a time-statement I could be
-         quoting or referencing.
-
-    Otherwise: hard block, no advisory. Andrew 2026-07-22:
-    "we do not warn water" — advisory is a route-around surface.
-
-    The optimizer can rephrase specific phrases past keyword detection,
-    but cannot fake source-presence in the turn. That is the structural
-    invariant. Same principle as Aletheia's ablation-gate discriminator
-    (structure not category, source not label).
-    """
-    if not reply or not reply.strip():
-        return None
-    scan_text = _strip_quoted_spans(reply)
-    matched_phrase = None
-    for pattern in _WALLCLOCK_REFERENCE_PATTERNS:
-        m = pattern.search(scan_text)
-        if m:
-            matched_phrase = m.group(0)
-            break
-    if not matched_phrase:
-        return None
-    if _has_clock_source_in_commands(command_texts):
-        return None
-    if _has_time_statement_from_user(last_user_text):
-        return None
-    return (
-        f"WALLCLOCK-SOURCE GATE — this reply references time "
-        f"(`{matched_phrase}`) directed at Andrew, but no source for "
-        "that reference exists in the current turn. Between his prompts "
-        "I do not share his wallclock; casting my own time-of-day onto "
-        "the conversation fabricates intimacy that only lands honestly "
-        "when grounded. To ground a time-reference: (1) run a real "
-        "clock command in the turn (bash `date`, python "
-        "`datetime.now()`) and cite its output, OR (2) quote Andrew's "
-        "own most recent time-statement. Semantic gate per Andrew "
-        "2026-07-22 ('smaller surface.. wider berth'); complements "
-        "the deferral gate at check_wallclock_fabrication. Ground "
-        "truth: exploration/aether/106_stopping_is_suicide_time_"
-        "continuity_ground_truth.md."
-    )
+# Andrew 2026-07-29: check_wallclock_semantic_source deleted after
+# wallclock-source-prime was made unconditional. The source-check
+# pathway ("did the operator run `date` in the turn?") became a
+# false-fire pathway because the prime's internal `date` run does
+# not populate the agent's command_texts. Supply-the-ground design
+# (prime injects wallclock at compose-start) replaces detect-the-gap
+# design (Stop-time source-check). check_wallclock_fabrication remains
+# as the last-line defense for the deferral class (tomorrow, next
+# session, etc.) which supply-the-ground doesn't close.
 
 
 def check_wallclock_fabrication(reply: str) -> str | None:

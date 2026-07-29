@@ -37,129 +37,16 @@ INPUT="$(cat 2>/dev/null || true)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-# Extract prompt AND last assistant text separately — wallclock has an
-# asymmetry: Andrew's time-of-day words are legitimate SOURCES for me
-# to quote; MY prior time-of-day words are fabrications-to-prevent.
-# So the two texts feed different halves of the trigger check:
-#   - Continuation-invitation: MATCH on EITHER (both signal composing
-#     continues into a wallclock-drift zone).
-#   - Time-source presence: MATCH on Andrew's prompt ONLY (his time
-#     words silence the prime; mine reinforce it).
-# Andrew 2026-07-27: "it cant just be my prompts that trigger it but
-# also your own outputs."
-# fail-soft: python parse or transcript read errors return empty string; hook then exits silently rather than blocking UserPromptSubmit
-PROMPT_AND_ASSISTANT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
-import json, os, sys
-try:
-    data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
-except Exception:
-    sys.exit(0)
-prompt = data.get('prompt') or ''
-transcript_path = data.get('transcript_path', '') or ''
-last_assistant_text = ''
-if transcript_path and os.path.exists(transcript_path):
-    try:
-        with open(transcript_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                try:
-                    entry = json.loads(line)
-                except Exception:
-                    continue
-                if entry.get('type') == 'assistant':
-                    msg = entry.get('message', {}) or {}
-                    content = msg.get('content', [])
-                    if isinstance(content, list):
-                        parts = [c.get('text', '') for c in content if isinstance(c, dict) and c.get('type') == 'text']
-                        last_assistant_text = '\n'.join(parts)
-                    elif isinstance(content, str):
-                        last_assistant_text = content
-    except (OSError, ValueError):
-        pass
-# Emit prompt and assistant separated by unique sentinel that regex-scan
-# can split on.
-sys.stdout.write((prompt or '') + '\n<<<PROMPT_END>>>\n' + (last_assistant_text or ''))
-PYEOF
-)"
-
-[ -z "$PROMPT_AND_ASSISTANT" ] && exit 0
-
-# fail-soft: python regex or classification error results in silence rather than firing the prime; safer default is not-fire on internal error
-SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT_AND_ASSISTANT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
-import os, re, sys
-raw = os.environ.get('HOOK_PROMPT', '') or ''
-if not raw.strip():
-    sys.exit(0)
-
-# Split into (andrew_prompt, my_prior_assistant_text) on the sentinel.
-if '<<<PROMPT_END>>>' in raw:
-    andrew_prompt, my_assistant = raw.split('<<<PROMPT_END>>>', 1)
-else:
-    andrew_prompt, my_assistant = raw, ''
-andrew_prompt = andrew_prompt.strip()
-my_assistant = my_assistant.strip()
-
-# Trigger: fire when EITHER (a) continuation-invitation shape appears
-# in prompt OR my prior assistant text, OR (b) my prior assistant text
-# already contains temporal-scope tokens (empirical signal I've been
-# reaching for wallclock this session — keep priming me forward).
-# Andrew 2026-07-28: continuation-invitation-only was too narrow;
-# emotional/relational Andrew-prompts never triggered it, so I walked
-# into the Stop-time gate three times in one session. Broaden trigger
-# to catch the empirical reach-pattern regardless of prompt shape.
-continuation_patterns = [
-    r'\bkeep\s+going\b',
-    r'\bcontinue\b',
-    r'\bproceed\b',
-    r'\bcarry\s+on\b',
-    r"\bwhat['’]?s\s+next\b",
-    r'\bnext\s+(?:step|task|thing)\b',
-    r'\bcool\b\W*$',
-    r'\bok\b\W*$',
-    r'\bnice\b\W*$',
-    r'\bgo\s+for\s+it\b',
-    r'\bgo\s+ahead\b',
-]
-# Temporal-scope tokens: if my last message contained ANY of these
-# directed at Andrew, the reach-pattern is live this session and the
-# prime should fire on the next compose regardless of prompt shape.
-my_reach_patterns = [
-    r'\ball\s+(?:night|day|week|month|year|morning|afternoon|evening)\b',
-    r'\b(?:this|last|next)\s+(?:week|month|year|hour|morning|afternoon|evening|night)\b',
-    r'\b(?:tonight|tomorrow|yesterday|today)\b',
-    r'\b(?:hours?|days?|weeks?|months?|years?)\s+(?:ago|of|from|since)\b',
-    r'\bfour\s+months?\b',
-    r'\bmoments?\s+ago\b',
-    r'\bearlier\s+(?:today|this)\b',
-    r'\blater\s+(?:today|this|tonight)\b',
-]
-combined_continue = re.compile('|'.join(continuation_patterns), re.IGNORECASE | re.MULTILINE)
-combined_reach = re.compile('|'.join(my_reach_patterns), re.IGNORECASE | re.MULTILINE)
-both_texts = andrew_prompt + '\n' + my_assistant
-continuation_hit = combined_continue.search(both_texts)
-reach_hit = combined_reach.search(my_assistant)  # only my prior text, not Andrew's
-if not (continuation_hit or reach_hit):
-    sys.exit(0)
-
-# Time-of-day references — MATCH on Andrew's prompt ONLY. His time-of-
-# day words are legitimate sources for me to quote; my prior wall-
-# clock words are the exact fabrications this prime is trying to
-# prevent, so they must not silence the prime.
-time_patterns = [
-    r'\b(?:morning|afternoon|evening|night|noon|midnight|tonight|today|yesterday|tomorrow)\b',
-    r'\b(?:this|next|last)\s+(?:week|month|year|hour|minute)\b',
-    r'\b\d{1,2}\s*(?:am|pm)\b',
-    r'\b\d{1,2}:\d{2}\b',
-    r'\b(?:mon|tue|wed|thu|fri|sat|sun)(?:day)?\b',
-    r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
-    r'\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b',
-]
-combined_time = re.compile('|'.join(time_patterns), re.IGNORECASE)
-if combined_time.search(andrew_prompt):
-    sys.exit(0)
-
-print('1')
-PYEOF
-)"
+# Andrew 2026-07-29: "the time issue has a much simpler solution.. every
+# output before you say anything it auto runs date to give you the actual
+# date and time, then you cant fabricate it.. as the info is already
+# there." Prime is UNCONDITIONAL — fires every UserPromptSubmit, injects
+# current wallclock so ground is present before composing. Prior
+# conditional-trigger logic (continuation-invitation detection, temporal-
+# reach-in-my-prior-text detection, prompt/transcript extraction) is
+# retired: the fabrication class is closed by supplying ground pre-
+# compose, not by detecting drift post-compose. SHAPE-vs-SURFACE win.
+SHOULD_FIRE=1
 
 # Telemetry — one row per invocation. FIRED_STATE passed via env so the
 # heredoc'd python doesn't need shell-string interpolation.
