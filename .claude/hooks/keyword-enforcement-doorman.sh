@@ -19,18 +19,39 @@
 # is a preventive layer; the deeper defense is the audit sweep at the
 # ledger level (Layer 2, designed but not yet built).
 
+# F90 fix (Aletheia 2026-07-28): pre-source liveness so cd/source-lib
+# failures don't silently exit. After source succeeds, _lib_log_liveness
+# from _lib.sh handles subsequent fail-open paths.
+_LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
+_pre_log() {
+  # fail-soft: mkdir suppression safe — dir exists or filesystem is read-only, both cases allow the log write below to no-op cleanly
+  mkdir -p "$(dirname "$_LIVENESS_LOG")" 2>/dev/null || true
+  local _ts
+  # fail-soft: date command absence falls back to literal 'unknown' timestamp rather than crashing the pre-source logger
+  _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # fail-soft: liveness log write failures must never block hook execution; loud-fail would defeat the fallback-signal mechanism
+  printf '{"ts":"%s","hook":"keyword-enforcement-doorman.sh","reason":"%s","detail":"%s"}\n' "$_ts" "$1" "$2" >> "$_LIVENESS_LOG" 2>/dev/null || true
+}
+
 INPUT=$(cat)
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
-cd "$REPO_ROOT" || exit 0
+# fail-soft: cd suppression by design — pre_log captures the failure below; hook exits cleanly rather than blocking
+cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }
 
-REGISTRY_FILE="$REPO_ROOT/docs/keyword_enforcement_gates.txt"
-if [ ! -f "$REGISTRY_FILE" ]; then
-    exit 0
-fi
+# Registry: derived from structure by
+# divineos.core.keyword_enforcement_registry (F94 fix 2026-07-28).
+# The Python module reads docs/keyword_enforcement_gates.txt as an
+# opt-in additions list internally; no shell-side path needed.
 
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PYTHON_BIN="$(find_divineos_python)" || exit 0
+# fail-soft: source suppression by design — pre_log captures the failure below and hook exits cleanly; loud-fail would block all downstream hooks in the chain
+if ! source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null; then
+  _pre_log "lib_source_failed" "path=$REPO_ROOT/.claude/hooks/_lib.sh"
+  exit 0
+fi
+if ! PYTHON_BIN="$(find_divineos_python)"; then
+  exit 0
+fi
 
 # Force UTF-8 stdout on Windows Python — the block message may contain
 # non-ASCII glyphs and the default cp1252 codec crashes on them.
@@ -55,33 +76,29 @@ file_path = tool_input.get('file_path', '') or ''
 if not file_path:
     sys.exit(0)
 
-# Load registry
-registry_path = Path('$REGISTRY_FILE')
+# Load registry via derivation (Aletheia F94 2026-07-28 +
+# Aria third-shape 2026-07-28). See
+# divineos.core.keyword_enforcement_registry docstring — derived from
+# structure, not hand-maintained; permissive with opt-out; falls open
+# on any error (returns None → doorman stays silent, never blocks
+# incorrectly).
 try:
-    registered_paths = set()
-    for line in registry_path.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if line and not line.startswith('#'):
-            registered_paths.add(line)
-except Exception:
+    from divineos.core.keyword_enforcement_registry import matches_registry
+except ImportError:
     sys.exit(0)
+
+repo_root = Path('$REPO_ROOT')
 
 # Normalize file_path to repo-relative form
 try:
-    repo_root = Path('$REPO_ROOT').resolve()
+    repo_root_resolved = repo_root.resolve()
     fp_resolved = Path(file_path).resolve()
-    fp_rel = str(fp_resolved.relative_to(repo_root)).replace('\\\\', '/')
+    fp_rel = str(fp_resolved.relative_to(repo_root_resolved)).replace('\\\\', '/')
 except Exception:
     fp_rel = file_path.replace('\\\\', '/')
+    fp_resolved = Path(file_path)
 
-# Match against registry (also check any path component overlap)
-matched_registry = None
-for reg_path in registered_paths:
-    reg_norm = reg_path.replace('\\\\', '/').strip('/')
-    if fp_rel.endswith(reg_norm) or reg_norm in fp_rel:
-        matched_registry = reg_path
-        break
-
+matched_registry = matches_registry(fp_rel, repo_root)
 if matched_registry is None:
     sys.exit(0)
 
