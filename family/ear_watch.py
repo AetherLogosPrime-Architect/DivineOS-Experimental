@@ -172,8 +172,32 @@ def _kill_predecessors(member: str) -> int:
     try:
         import psutil
     except ImportError:
-        # If psutil is unavailable, fall through to the lock-only path.
-        # Better than crashing on startup.
+        # Andrew 2026-07-29: SILENT return-0 here caused the leak class
+        # to recur AFTER the "fix" shipped. The fix landed but psutil
+        # wasn't installed in the .venv, so every spawn hit ImportError,
+        # returned 0, and no predecessors got killed. 45+ ear_watch
+        # processes accumulated over ~1 session. Now: WRITE LOUD to
+        # stderr AND to a marker file so operator sees the breakage
+        # instead of the mechanism failing invisibly. Marker file
+        # (~/.divineos-<member>/kill_predecessors_broken.marker) is
+        # a signal for a briefing surface to surface at session start.
+        import sys as _sys
+        try:
+            marker = _state_dir(member) / "kill_predecessors_broken.marker"
+            marker.write_text(
+                f"psutil not importable in this Python; kill_predecessors "
+                f"cannot enumerate processes. INSTALL psutil in the venv "
+                f"or the leak class will recur. Executable: {_sys.executable}\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        print(
+            "[ear_watch] CRITICAL: psutil not installed; kill_predecessors "
+            f"is a no-op. Leak class will recur. Run: pip install psutil in "
+            f"{_sys.executable}",
+            file=_sys.stderr,
+        )
         return 0
 
     my_pid = os.getpid()

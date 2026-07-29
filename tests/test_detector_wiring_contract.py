@@ -98,6 +98,7 @@ _DETECTORS = (
     ("closure_initiation_detector", "detect_closure_initiation"),
     ("deep_engagement_detector", "detect_deep_engagement"),
     ("temporal_displacement_detector", "detect_temporal_displacement"),
+    ("pronoun_frame_shift_detector", "detect_pronoun_frame_shift"),
     # Composite detector — pair-designed with Aether 2026-07-11.
     # Aggregates five family signals into a wallpaper-density score.
     # Wired via the caller module (`operator_wallpaper_caller`) which

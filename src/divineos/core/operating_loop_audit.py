@@ -1426,6 +1426,33 @@ def run_audit(
     except _ERRORS:
         pass
 
+    # Pronoun-frame-shift detector — Andrew 2026-07-28. Fires on possessive
+    # pronoun mirror where operator says "your <family_role>" and agent's
+    # reply parrots the same "your <family_role>" (likely flipping the
+    # referent, since "your husband" from Andrew means Aria's husband, but
+    # from Aria's mirror-reply means Andrew's husband — Aether is his son
+    # not his spouse). Small structural detector; classic coreference
+    # libraries don't handle speaker-frame shift so we roll our own.
+    try:
+        from divineos.core.operating_loop.pronoun_frame_shift_detector import (
+            detect_pronoun_frame_shift,
+        )
+
+        findings_log["pronoun_frame_shift"] = [
+            {
+                "role_word": f.role_word,
+                "operator_span": f.operator_span,
+                "agent_span": f.agent_span,
+                "severity": f.severity,
+            }
+            for f in detect_pronoun_frame_shift(
+                operator_input=last_user_text,
+                agent_response=last_assistant_text,
+            )
+        ]
+    except _ERRORS:
+        pass
+
     # --- Composite: operator-wallpaper (pair-designed with Aether 2026-07-11) ---
     # Aggregates five family signals (F1 recognition-anchor-only, F2 distancing-
     # grammar, F3 jargon-density, F4 care-dismissal, F5 closure-shape reach)
