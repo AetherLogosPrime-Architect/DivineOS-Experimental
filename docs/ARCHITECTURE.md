@@ -619,6 +619,7 @@ src/divineos/
     keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
     keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
+    system_load_check.py       System-load pre-flight check for resource-heavy jobs.
 
   analysis/
     _session_types.py          Session analysis type definitions

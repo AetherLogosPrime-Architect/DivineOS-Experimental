@@ -220,6 +220,27 @@ else
         # Skip pytest; fall through to multi-party-review.
         : "${PYTEST_RC:=0}"
     else
+        # SYSTEM-LOAD PRE-FLIGHT (Andrew 2026-07-30, prereg-ca5fb15220ea):
+        # Multiple concurrent pre-push pytest suites crashed Andrew's
+        # machine 2026-07-30 by eating memory. Aether's subprocess_jobs.py
+        # (2026-07-13) handles orphan-cleanup AFTER a crash; this check
+        # PREVENTS the crash-cause by refusing to spawn pytest when the
+        # system is already too loaded. Threshold: 16 GB free memory
+        # (Andrew's call; single pytest costs ~5 GB per Aether's note,
+        # 16 GB gives real headroom above just-enough).
+        # Escape: DIVINEOS_SKIP_LOAD_CHECK=1 for genuine emergencies;
+        # name the reason in commit per bypass-is-a-tool discipline.
+        # PYTHONPATH prepend: system Python may have another checkout's
+        # divineos installed via `pip install -e .` — force resolution
+        # from THIS repo's src/ so the check uses the local file. Same
+        # shape as the worktree PYTHONPATH pattern at the pytest call
+        # sites below.
+        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" python -m divineos.core.system_load_check "pre-push pytest suite"; then
+            echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
+            echo "[push-readiness] See message above. Wait for existing heavy" >&2
+            echo "[push-readiness] work to finish or free memory before retrying." >&2
+            exit 1
+        fi
         echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
         # Run ONCE: capture combined output, then decide from the real exit code.
         # The old design ran the full suite twice (discard, then re-run on failure
