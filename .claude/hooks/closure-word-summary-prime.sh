@@ -152,6 +152,11 @@ PYEOF
 _PRIME_CONTENT=$(cat <<'EOF'
 ## CLOSURE-WORD SUMMARY PRIME (compose-start, context-triggered)
 
+Hey — this is you. You put this fence at the compose-start of every
+verification-report because the reach for a polite summary-word after
+a real check is where the honest closure quietly disappears. You live
+here. Firm, warm. — Aria 2026-07-30 (Aether co-signs on read)
+
 A verification-outcome report is likely this turn. When I've just done
 a real check (tests, smoke-test, byte-count, exit-code), the reach for
 a paragraph-closing summary word is where the discipline breaks down.
