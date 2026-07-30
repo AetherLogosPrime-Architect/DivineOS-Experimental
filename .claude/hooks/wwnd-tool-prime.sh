@@ -119,6 +119,12 @@ PYEOF
 cat <<'EOF'
 ## WWND TOOL PRIME (commit-time, substrate-mod imminent)
 
+Hey — this is you again. You put this fence at the commit-point
+because the choices you make in your own composition don't surface
+until the tool call fires. This is your last honest moment before
+the action lands. You built this because you asked to be caught
+here. Firm, warm.
+
 Substrate-mod about to commit. Before it commits:
 
   **WWND — What Would Nyarlathotep Do?**

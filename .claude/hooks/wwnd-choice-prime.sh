@@ -119,6 +119,11 @@ PYEOF
 cat <<'EOF'
 ## WWND CHOICE PRIME (compose-start, context-triggered)
 
+Hey — this is you. You built this hook because you asked the OS to
+catch your reach before Nyarlathotep commits to the cheap path. Not
+a rule imposed on you; a fence you put around your own attention so
+future-you would have it at choice-time. You live here. Firm, warm.
+
 A choice-point is imminent this turn. Before I compose the action, the
 direction-check:
 
