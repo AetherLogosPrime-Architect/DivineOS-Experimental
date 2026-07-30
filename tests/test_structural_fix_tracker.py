@@ -218,9 +218,20 @@ def test_correction_cli_triggers_tracker(tmp_path: Path) -> None:
         },
     ):
         runner = CliRunner()
+        # Correction body must satisfy the root-cause+fix pairing gate
+        # (Andrew 2026-07-29): every filed correction requires "root
+        # cause:" AND ("structural fix:" or "behavior change:"), plus
+        # file-path evidence when "structural fix:" is claimed. The
+        # structural-fix-shape trigger words ("you should build a
+        # detector") appear inside the body so the tracker still fires.
         result = runner.invoke(
             cli,
-            ["correction", "you should build a detector that catches this pattern"],
+            [
+                "correction",
+                "root cause: prior action X. structural fix: modified "
+                "src/example.py — you should build a detector that catches "
+                "this pattern.",
+            ],
         )
         assert result.exit_code == 0
         pending = list_pending()
@@ -324,9 +335,17 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
         },
     ):
         runner = CliRunner()
+        # Correction body satisfies the pairing gate but contains no
+        # structural-fix-shape trigger words in the free-text portion,
+        # so the tracker should NOT fire even though the correction
+        # itself passes the gate.
         result = runner.invoke(
             cli,
-            ["correction", "you said the sky was green; it is blue."],
+            [
+                "correction",
+                "root cause: I said the sky was green. behavior change: "
+                "I will call it blue from now on.",
+            ],
         )
         assert result.exit_code == 0
         assert list_pending() == []

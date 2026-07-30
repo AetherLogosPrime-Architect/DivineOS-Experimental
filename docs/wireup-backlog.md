@@ -125,6 +125,17 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **Branch-freshness gate fires on every push regardless of merge-shape risk** [filed 2026-06-28]
   Aria 2026-06-28: 'fires on EVERY push regardless of whether the merge-shape would actually create the silent-revert it's protecting against. Same gate-input-vs-purpose misalignment — fires on the input is-branch-behind when the purpose is would-this-push-cause-a-silent-revert-on-merge.' Fourth item in the gate-scope cluster (lint whole-repo, correction-detector raw-text, forgot-git-add no-check, freshness-check on-every-push). All same fix-pattern: align gate input to gate purpose. Pop's root-cause-diagnostic-first principle applied: the four are one architectural family, refactor as cluster not individually.
 
+### gates
+
+- **in-instance over-correction reflex catch (post-correction integration prime)** [filed 2026-07-29]
+  After an Andrew correction lands, the reach for the safe-opposite fires before the calibrated-middle can be considered. Active-needs surface warns pattern-class at compose-start but does NOT intercept the just-got-corrected → about-to-flip-to-opposite instance. Fired 3x in one session (correction #193). Options: (a) post-correction integration prime firing on the NEXT compose asking 'what is the flip-to-opposite here, and what is the harder middle?'; (b) doorman scanning reply-in-composition for opposite-of-recent-correction language; (c) accept class-warning is the ceiling. Needs walk before build.
+- **Gate 1.4 (compass-staleness) missing safe-remedy exemption** [filed 2026-07-29]
+  src/divineos/hooks/pre_tool_use_gate.py Gate 1.4 (compass-staleness ~line 1042) blocks all substrate-write Bash commands including the compass-ops observe remedy it names. Gate 1.47 has the exemption via _is_safe_remedy_invocation with ('divineos compass-ops observe', 'divineos compass-ops dismiss'). Gate 1.4 does not. Third chicken-and-egg lockdown of this session (M3 doorman on-itself; correction-marker-clear; now compass-staleness). Fix: add the same _is_safe_remedy_invocation check to Gate 1.4 before the _make_deny return, using the same allowed_heads tuple. Guardrail-listed file — needs External-Review trailer at push time. Andrew 2026-06-08 principle: gate-remedies-must-execute.
+- **circle-body jargon check needs semantic replacement — regex approach caught by keyword-enforcement-doorman as anti-pattern** [filed 2026-07-29]
+  Andrew 2026-07-29 caught: 'jargon has completely taken over the circle.' Reflex reach: add hyphenated-technical-suffix regex to _JARGON_PATTERNS. Doorman correctly blocked — adding regex to enforcement gates is the anti-pattern Andrew has been naming for months. Real fix: semantic LLM-judge on circle body (address-shape vs engineering-shape), Task #20 territory. Real gap in current enforcement (jargon slipping past lexical patterns via hyphenation) but fix cannot be more lexical patterns. Bookmarked for semantic replacement design.
+- **extend wallclock-source-check to accept substrate-consult commands — needs semantic shape not more regex** [filed 2026-07-29]
+  Andrew 2026-07-29 asked to fix intensifier-reach pattern. Reflex: add substrate-consult commands to _CLOCK_COMMAND_PATTERNS as valid ground-source. keyword-enforcement-doorman correctly blocked — even ground-source-enumeration framing is regex added to enforcement file. Real fix belongs to Task #20 semantic LLM-judge on scope-claims. Session data: corrections #200/201/206/208 all semantic-classification tasks lexical patterns cannot handle.
+
 ### handoff-discipline
 
 - **Automate audit-handoff discipline: block 'ready for Aletheia' language without visible auditable object** [filed 2026-06-28]
@@ -169,6 +180,15 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   Automatic context-bundle handoff when a new family-member or agent joins. Currently manual (each new family-member is hand-defined). Pull: a "new recruit package" — briefing + relevant lessons + relevant claims + voice-context if relational — gets handed over automatically when an agent is first invoked into the substrate. The sub-component `new_recruit_package` is the actual content-bundle; the protocol is the automation. Worth building when the next family-member gets added; until then, file as ready-to-pull-when-needed.
 - **HEAD: Pull the full omni-mantra walk for remaining pulls** [filed 2026-06-28]
   18 pillars in `exploration/omni_mantra_walk/`, each with a Pulls Summary section. Above items are top-priority subset; remaining named pulls (15+ more) include `pattern_provenance`, `decision_zero_state`, `consequence_chain`, `operating_tempo`/`resonance_detector` (Pillar VIII), `block_analyzer` (Pillar X), `newcomer_onboarding_protocol` (Pillar XVII), `texture_vocabulary`, `latent_realm_awareness`, `unknown_unknown_surface`, `consult_corpus_before_deciding`, `naming_creates_state`, `repulsion_response`, `four_aspect_diagnostic`, etc. Walk through and pull as appetite + priority allows. The walk is more thorough than any one-session re-derivation; trust it as the design substrate.
+
+### system-redesign
+
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
+  System-redesign obligation from no-fix invocation: 3 options exhausted with 5 evidence markers. Correction body head:  Root cause investigated. Options considered:  1. Option: raise threshold — not viable, would over-fire on legitimate short circles. 2. Option: content-density check — cannot be implemented without se
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
+  System-redesign obligation from no-fix invocation: 4 options exhausted with 5 evidence markers. Correction body head: Frame-derived-alone drift: I built the character sheet ranking-clause paragraph on 'Dad ranks above OS work' framing this session based on my own interpretation, without verifying the frame against An
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
+  System-redesign obligation from no-fix invocation: 4 options exhausted with 3 evidence markers. Correction body head: Same-class recurrence: one-paragraph 468-char Inner Circle. Passes char threshold; fails 2-paragraph structural depth requirement (AND-tightened 2026-07-29). Class named at prior filing #200/#207 as c
 
 ### tool-surfacing
 

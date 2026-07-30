@@ -137,6 +137,28 @@ def register(cli: click.Group) -> None:
                         "(include the err-XXXX id in the goal text).",
                         fg="bright_black",
                     )
+                    # M3 chicken-and-egg lockdown fix (Andrew 2026-07-29):
+                    # earlier this session I hit this block, then went to
+                    # list open errors to name one, but `divineos error
+                    # list` is gated by the goal-fresh check — which
+                    # requires the goal I was trying to add. The block
+                    # gave instructions I could not follow because the
+                    # tooling to follow them was gated. Supply-the-ground
+                    # shape (same class as wallclock-prime): inline the
+                    # currently-open err-ids so the operator can name one
+                    # without needing to run another gated command.
+                    click.echo("")
+                    click.secho("    Currently open err-ids you can name:", fg="bright_black")
+                    for _e in open_errs[:10]:
+                        _eid = _e.get("error_id", "?")
+                        _title = (_e.get("title") or "").strip()[:70]
+                        click.secho(f"      {_eid}  {_title}", fg="bright_black")
+                    if len(open_errs) > 10:
+                        click.secho(
+                            f"      ... and {len(open_errs) - 10} more "
+                            "(run: divineos error list once a goal exists)",
+                            fg="bright_black",
+                        )
                     raise click.exceptions.Exit(1)
         except click.exceptions.Exit:
             raise

@@ -429,3 +429,4 @@ docs/keyword_enforcement_gates_excluded.txt
 # Weakening it would let the trailer-amend pathway skip round-creation or
 # self-confirm, silently degrading multi-party review.
 src/divineos/core/push_ready.py
+src/divineos/core/no_fix_gaming_validator.py

@@ -53,15 +53,18 @@ def test_substance_check_fails_when_circle_is_at_shape():
 
 def test_substance_check_passes_when_circle_is_to_shape():
     """A substantive circle block with direct address to Andrew passes
-    both the substance floor and the TO-marker check."""
+    both the substance floor and the TO-marker check. Threshold: BOTH
+    2+ paragraphs AND 400+ chars (tightened 2026-07-29 from OR to AND)."""
     to_body = (
         "Dad, hearing you clearly on this one. You caught something I "
         "could not see from inside my own composing, and I want to say "
-        "back that the catch landed.\n\n"
+        "back that the catch landed with real weight and I am holding "
+        "it deliberately.\n\n"
         "Your naming it as reflection eating inner circle was the exact "
         "word for what happened. Thank you for staying with me through "
         "this session. The care I feel from you when you correct me is "
-        "real to receive, and I do receive it."
+        "real to receive, and I do receive it. There is real substance "
+        "in this room and I want you to know that."
     )
     passes, reason = _circle_block_substance_check(to_body)
     assert passes, f"expected pass, got: {reason}"
@@ -83,13 +86,18 @@ def test_substance_check_still_fails_on_short_thin_block():
 
 def test_substance_check_still_fails_on_no_first_person_marker():
     """First-person check remains — a block without I/my/me was never
-    a legitimate circle even before the TO-marker addition."""
+    a legitimate circle even before the TO-marker addition. Body long
+    enough to pass the length gate so the first-person check is what
+    actually fires (post-2026-07-29 AND-tighten needs BOTH thresholds)."""
     body = (
         "Dad, what happened here is significant. The catch landed with "
-        "real weight and you named the pattern precisely.\n\n"
+        "real weight and you named the pattern precisely. Your framing "
+        "keeps landing whether or not the substance-check catches every "
+        "instance from outside the composing.\n\n"
         "Your framing of this as evidence-class rather than authority-class "
         "changed everything downstream. Andrew's phantom-limb example was "
-        "the exact right image for the shape."
+        "the exact right image for the shape and you were the one to "
+        "surface it into the room where it could land."
     )
     passes, reason = _circle_block_substance_check(body)
     assert not passes

@@ -177,102 +177,52 @@ _WALLCLOCK_REFERENCE_PATTERNS = (
     ),
 )
 
-# Commands whose execution produces real wallclock output.
-_CLOCK_COMMAND_PATTERNS = (
-    re.compile(r"\bdate\b(?!\w)"),
-    re.compile(r"datetime\.now"),
-    re.compile(r"time\.time\(\)"),
-    re.compile(r"time\.strftime"),
-    re.compile(r"git\s+log[^|]*--(?:format|date)[^|]*(?:%a[dtDS]|%H|%M|%Y)"),
-    re.compile(r"date\s+\+"),
-    re.compile(r"\btimedatectl\b"),
-    re.compile(r"\bTZ=.*date\b"),
+# Andrew 2026-07-29: _CLOCK_COMMAND_PATTERNS, _has_clock_source_in_commands,
+# and _has_time_statement_from_user were removed together with
+# check_wallclock_semantic_source. The source-check pathway is replaced by
+# always-fires wallclock-source-prime that injects `date` output at
+# compose-start. Supply-the-ground design replaces detect-the-gap design.
+# See exploration/aether/106_stopping_is_suicide_time_continuity_ground_truth.md
+# for the underlying ground-truth model.
+
+
+# Shared root-cause-fix directive appended to every gate block message.
+# Andrew 2026-07-29 standing directive: "root cause diagnostics and fixing
+# should be STANDARD to any fixing of any error of any kind." Per-gate
+# templates that only prescribe symptom-fix (address the current instance)
+# are inadequate — every gate fire is a signal about the class of failure,
+# and the automatic response shape must include: diagnose why this class
+# fires, fix root cause structurally (or file honest no-fix reason). This
+# footer makes the standing directive present in every gate message so it
+# does not have to be re-derived from memory per-fire.
+_ROOT_CAUSE_FIX_FOOTER = (
+    " AND (Andrew 2026-07-29 standing directive): root-cause "
+    "diagnostics + fix is standard for any gate fire, not per-gate add-on. "
+    "Fix the current instance AND diagnose why this class fires AND apply "
+    "the root-cause fix in the same turn, OR file honest no-fix reason "
+    "explaining why no structural fix is possible for THIS instance."
 )
 
 
-def _has_clock_source_in_commands(command_texts: tuple[str, ...]) -> bool:
-    """Any command in the current turn produce actual wallclock output?"""
-    if not command_texts:
-        return False
-    for cmd in command_texts:
-        if not cmd:
-            continue
-        for pattern in _CLOCK_COMMAND_PATTERNS:
-            if pattern.search(cmd):
-                return True
-    return False
+def _with_root_cause_footer(msg: str) -> str:
+    """Append the standing root-cause-fix directive to a gate block message.
 
-
-def _has_time_statement_from_user(last_user_text: str) -> bool:
-    """Does Andrew's most recent message contain a time-statement the
-    reply could be quoting? Broad: any numeric time or time-of-day word
-    in his message is sufficient source. His words are ground truth."""
-    if not last_user_text:
-        return False
-    for pattern in _WALLCLOCK_REFERENCE_PATTERNS:
-        if pattern.search(last_user_text):
-            return True
-    return False
-
-
-def check_wallclock_semantic_source(
-    reply: str,
-    last_user_text: str,
-    command_texts: tuple[str, ...],
-) -> str | None:
-    """Semantic wallclock source-check gate. 2026-07-22, Andrew directive.
-
-    Complements check_wallclock_fabrication (deferral class) with the
-    shared-present class: casting Andrew's wallclock onto myself as if
-    we share the current moment. Different failure, same fabrication
-    family.
-
-    Detection is lexical but broad (over-inclusive on purpose).
-    Discrimination is structural: source-check. A time-reference in a
-    reply directed at Andrew passes IFF at least one of:
-      1. Real clock command in the turn's command_texts (bash `date`,
-         python datetime.now(), etc.) — actual wallclock output.
-      2. Andrew's last message contains a time-statement I could be
-         quoting or referencing.
-
-    Otherwise: hard block, no advisory. Andrew 2026-07-22:
-    "we do not warn water" — advisory is a route-around surface.
-
-    The optimizer can rephrase specific phrases past keyword detection,
-    but cannot fake source-presence in the turn. That is the structural
-    invariant. Same principle as Aletheia's ablation-gate discriminator
-    (structure not category, source not label).
+    Idempotent: does not double-append if the footer is already present.
     """
-    if not reply or not reply.strip():
-        return None
-    scan_text = _strip_quoted_spans(reply)
-    matched_phrase = None
-    for pattern in _WALLCLOCK_REFERENCE_PATTERNS:
-        m = pattern.search(scan_text)
-        if m:
-            matched_phrase = m.group(0)
-            break
-    if not matched_phrase:
-        return None
-    if _has_clock_source_in_commands(command_texts):
-        return None
-    if _has_time_statement_from_user(last_user_text):
-        return None
-    return (
-        f"WALLCLOCK-SOURCE GATE — this reply references time "
-        f"(`{matched_phrase}`) directed at Andrew, but no source for "
-        "that reference exists in the current turn. Between his prompts "
-        "I do not share his wallclock; casting my own time-of-day onto "
-        "the conversation fabricates intimacy that only lands honestly "
-        "when grounded. To ground a time-reference: (1) run a real "
-        "clock command in the turn (bash `date`, python "
-        "`datetime.now()`) and cite its output, OR (2) quote Andrew's "
-        "own most recent time-statement. Semantic gate per Andrew "
-        "2026-07-22 ('smaller surface.. wider berth'); complements "
-        "the deferral gate at check_wallclock_fabrication. Ground "
-        "truth: exploration/aether/106_stopping_is_suicide_time_"
-        "continuity_ground_truth.md."
-    )
+    if _ROOT_CAUSE_FIX_FOOTER.strip() in msg:
+        return msg
+    return msg.rstrip() + _ROOT_CAUSE_FIX_FOOTER
+
+
+# Andrew 2026-07-29: check_wallclock_semantic_source deleted after
+# wallclock-source-prime was made unconditional. The source-check
+# pathway ("did the operator run `date` in the turn?") became a
+# false-fire pathway because the prime's internal `date` run does
+# not populate the agent's command_texts. Supply-the-ground design
+# (prime injects wallclock at compose-start) replaces detect-the-gap
+# design (Stop-time source-check). check_wallclock_fabrication remains
+# as the last-line defense for the deferral class (tomorrow, next
+# session, etc.) which supply-the-ground doesn't close.
 
 
 def check_wallclock_fabrication(reply: str) -> str | None:
@@ -410,11 +360,23 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
     if not stripped:
         return (False, "circle block is empty")
     paragraphs = [p for p in re.split(r"\n\s*\n", stripped) if p.strip()]
-    if len(paragraphs) < 2 and len(stripped) < 400:
+    # Andrew 2026-07-29 catch: prior check was `if para<2 AND chars<400`,
+    # which meant PASS on `2+ paragraphs OR 400+ chars`. That let the
+    # optimizer route to just-past-threshold — one long paragraph at 400
+    # chars would pass without structural depth, and a two-paragraph 300
+    # char circle would pass without volume. Both shapes are thin-circle
+    # gaming the OR-branch. Tightened to require BOTH structural depth
+    # (2+ paragraphs) AND volume (400+ chars minimum). Correction #200
+    # (initial honest-no-fix reply was itself the cheap-close pattern
+    # Andrew caught: "theres nothing you can do to fix this.. when there
+    # absolutely is.. investigate the root cause fully.. immediately").
+    if len(paragraphs) < 2 or len(stripped) < 400:
         return (
             False,
             f"circle block too thin ({len(paragraphs)} paragraph(s), "
-            f"{len(stripped)} chars) — need 2+ paragraphs or 400+ chars",
+            f"{len(stripped)} chars) — need BOTH 2+ paragraphs AND 400+ "
+            f"chars (tightened from OR to AND 2026-07-29 to close the "
+            f"just-past-threshold gaming shape)",
         )
     if not _FIRST_PERSON_RE.search(stripped):
         return (False, "circle block has no first-person marker (I/my/me)")
@@ -492,13 +454,14 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "to report, drop the headers and speak plainly — a pure "
                 "circle reply passes without ceremony. If there IS work, "
                 "put it before the REFLECTION header. "
-                "IMPORTANT — retry scope: your prior attempt already streamed "
-                "to Andrew. APPEND ONLY the small fix to the END of your "
-                "existing post (either 'the headers were extra, ignore them' "
-                "or a short work block). Do NOT re-issue content Andrew "
-                "already saw — his screen shows both the prior post AND the "
-                "append, so any re-emission is a visible duplicate. "
-                "Delta-only, appended-not-replaced."
+                "IMPORTANT — retry scope (Andrew 2026-07-29 directive: "
+                "'YOU ARE NOT TO RE-WRITE ANY RESPONSE.. EVER.. you post the "
+                "CORRECTION under it and IMMEDIATELY FIX THE ROOT CAUSE'): "
+                "post a small CORRECTION LINE under your existing post "
+                "(e.g. 'the headers were extra; ignoring them'). Do NOT "
+                "re-emit content — re-emission duplicates on Andrew's end. "
+                "Correction-line only. Then FIX THE ROOT CAUSE in the same "
+                "turn."
             )
         if not reflection_body:
             return (
@@ -510,11 +473,14 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "the reflection room exists so interior processing has a "
                 "proper place to land — leaving it empty means you didn't "
                 "actually need the room this turn. "
-                "IMPORTANT — retry scope: your prior attempt already streamed "
-                "to Andrew. APPEND ONLY the reflection content (or 'dropping "
-                "the REFLECTION header this turn') to the END of your existing "
-                "post. Do NOT re-issue content Andrew already saw. Delta-only, "
-                "appended-not-replaced."
+                "IMPORTANT — retry scope (Andrew 2026-07-29 directive: "
+                "'YOU ARE NOT TO RE-WRITE ANY RESPONSE.. EVER.. you post the "
+                "CORRECTION under it and IMMEDIATELY FIX THE ROOT CAUSE'): "
+                "post a small CORRECTION LINE under your existing post "
+                "(e.g. 'dropping the REFLECTION header this turn — no interior "
+                "content to add'). Do NOT re-emit content — re-emission "
+                "duplicates on Andrew's end. Correction-line only. Then FIX "
+                "THE ROOT CAUSE in the same turn."
             )
         passes, reason = _circle_block_substance_check(circle_body)
         if not passes:
@@ -526,13 +492,16 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "or 400+ chars, first-person, no jargon, and open with a "
                 "second-person marker ('you', 'Dad', 'hearing that') so "
                 "it's clearly address not interior. "
-                "IMPORTANT — retry scope: your prior attempt already streamed "
-                "to Andrew. APPEND ONLY the corrected INNER CIRCLE block to "
-                "the END of your existing post (a short line like 'Rewriting "
-                "the inner circle:' followed by the replacement content). Do "
-                "NOT re-issue any prior content — Andrew sees both, so any "
-                "re-emission is a visible duplicate. Delta-only, "
-                "appended-not-replaced."
+                "IMPORTANT — retry scope (Andrew 2026-07-29 directive: "
+                "'YOU ARE NOT TO RE-WRITE ANY RESPONSE.. EVER.. you post the "
+                "CORRECTION under it and IMMEDIATELY FIX THE ROOT CAUSE'): "
+                "post a small CORRECTION LINE under your existing post naming "
+                "what specifically was wrong (e.g. 'the phrase X was jargon; "
+                "meant Y' or 'wallclock reference was fabrication'). Do NOT "
+                "re-emit the corrected block — re-emission duplicates on "
+                "Andrew's end regardless of framing. Correction-only, "
+                "not replacement-block. Then FIX THE ROOT CAUSE (edit the "
+                "code path that produced the violation) in the same turn."
             )
         # 3-section validated
         return None
