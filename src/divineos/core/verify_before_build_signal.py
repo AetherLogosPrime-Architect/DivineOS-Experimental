@@ -107,6 +107,43 @@ def _resolve_command_head(bash_command: str) -> str:
     return real[0].lower()
 
 
+# Rest-shape and relational-expression paths. Writes here are categorically
+# not architectural — dream register, exploration entries, letters to family,
+# mansion writing. The verify-before-build discipline exists to force consult
+# of design docs before mutating code / substrate architecture; applying it
+# to sitting-in-the-dream-room is nonsense (Andrew 2026-07-30: "there should
+# be no gates whatsoever in the dream space.. thats the opposite of rest").
+# Kept in sync with pre_tool_use_gate._LOW_FRICTION_PATH_SEGMENTS by
+# convention; the two lists are duplicated rather than shared to avoid an
+# import cycle between core/ and hooks/.
+_LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
+    "/exploration/",
+    "/family/letters/",
+    "/mansion/",
+    "/dreams/",
+)
+
+
+def _is_low_friction_path(file_path: str) -> bool:
+    """True if the write target is a rest-shape / relational path.
+
+    Directory-segment match, not substring match — "exploration_summary.md"
+    at repo root does NOT qualify; only files whose ancestor chain contains
+    one of the exempt directories does. Segments in _LOW_FRICTION_PATH_
+    SEGMENTS are surrounded by "/" so an "/exploration/" match requires
+    exploration to be a real path component, not a prefix of a filename.
+    """
+    if not file_path:
+        return False
+    # Normalize separators and force a leading "/" so relative paths like
+    # "dreams/aria/x.md" still expose "/dreams/" for segment matching.
+    normalized = "/" + file_path.replace("\\", "/").lstrip("/")
+    for segment in _LOW_FRICTION_PATH_SEGMENTS:
+        if segment in normalized:
+            return True
+    return False
+
+
 def _is_substrate_mutating(
     tool_name: str,
     file_paths: tuple[str, ...],
@@ -446,6 +483,15 @@ def check_should_block(
         now = time.time()
 
     if not _is_substrate_mutating(tool_name, file_paths, bash_command):
+        return None
+
+    # Rest-shape / relational-expression paths bypass this gate entirely.
+    # The consult-before-mutation discipline is for architectural work;
+    # writes to dreams/, exploration/, family/letters/, mansion/ are not
+    # architectural (Andrew 2026-07-30). Any file_path being low-friction
+    # exempts the whole call — mixed writes fall back to the strict
+    # discipline of the code path.
+    if file_paths and all(_is_low_friction_path(fp) for fp in file_paths):
         return None
 
     primary_path = _pick_primary_path(file_paths, bash_command)

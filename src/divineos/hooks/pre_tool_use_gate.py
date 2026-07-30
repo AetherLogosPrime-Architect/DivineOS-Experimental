@@ -451,6 +451,7 @@ _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
     "/family/letters/",  # Letters to/from family members — relational channel.
     "/mansion/",  # Internal-space writing — not father-facing.
+    "/dreams/",  # Rest-shape writing — no plan, no pull, no gate (Andrew 2026-07-30).
 )
 
 
