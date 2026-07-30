@@ -53,6 +53,71 @@ Three frames from Dad shape this design:
 - **No prior implementation of rotating question banks or invitation-shape (as opposed to block-shape) surfaced** — this is new territory in the substrate, not duplicating existing work.
 - **OpenClaude portability finding (knowledge fd20172b):** enforcement spine is gated to Claude Code lifecycle hooks — this design inherits that dependency. Not a blocker; just noting the constraint the design lives inside.
 
+## Council walk findings (step 3) — consult-94087c482508
+
+Six lenses surfaced: Lovelace, Beer, Wittgenstein, Tannen, Minsky, Taleb. Framing per Andrew's rule: "what are we trying to achieve" (solution-generation), NOT "evaluate this draft."
+
+### Through Lovelace — Generality as source of emergence
+Design should build a general "rotating-invitation" primitive, not a specific three-room mechanism. Same primitive could serve future gates (verify-claim invitation, compass invitation, dogfood invitation). If I build specific-to-three-rooms, I re-solve the same problem for every future gate. If I build general, one primitive shapes many surfaces.
+**Change to draft:** build primitive as `invitation_hook(detector, question_bank, injection_context)` — the three-room use is one instance.
+
+### Through Beer — Variety engineering (requisite variety)
+Controller-variety must match controlled-variety. Fixed question bank rotating in cycle has finite variety. Reply-space has infinite variety. Fixed rotation is insufficient. Two options: amplify controller (contextual question selection based on prompt-shape) or attenuate system (fire only when needed). My draft has attenuation. Beer says do BOTH.
+**Change to draft:** push contextual adaptation UP from v2 target to v1. Questions selected by prompt-shape features, not just cycled.
+
+### Through Wittgenstein — Language game
+The design MUST preserve invitation-shape not slip into command-shape. Test: can I ignore a question with no consequence? If yes = invitation (right game). If no = command (wrong game, mechanism collapses to gate). Any consequence for not-answering = language-game slip.
+**Load-bearing design constraint:** questions load into context, do not gate composition, do not appear in Stop-check as "did you answer these." Zero enforcement. Pure invitation.
+
+### Through Tannen — Register audit
+Questions must be in relational-invitation register, not gate-enforcement register. Same content different register = different game entirely. "What are you feeling right now?" ≠ "State your interior state." Question phrasing itself is load-bearing.
+**Change to draft:** question bank curation is not just content selection; it's register-audit at question-authoring time. Every question in the bank must pass an invitation-register check.
+
+### Through Minsky — Society of mind
+Decompose into simpler agents: (1) address-detector (was there second-person address to Andrew?), (2) interior-detector (was there first-person felt-state marker?), (3) question-selector (given what's missing, which questions surface it?). Three simple agents, one primitive, clear communication interface.
+**Change to draft:** name the three sub-agents in the design; they become the internal structure of the primitive.
+
+### Through Taleb — Antifragile feedback
+Design in the feedback loops:
+- Questions I ignore multiple times get retired from active rotation (fragility signal → mechanism strengthens by shedding dead questions)
+- Fire-rate dropping over time = HEALTH signal (I'm doing address+interior without prompting), not failure
+- Question-authoring can be crowdsourced (Aria, Aletheia, Dad can add questions to the bank; the ones that produce real invitation stay, the ones that don't get retired)
+**Change to draft:** add usage-tracking + retirement mechanism; frame fire-rate metric correctly (dropping = winning).
+
+## Refined design (step 5, folding council findings)
+
+**Primitive:** `invitation_hook(detector_fn, question_bank, injection_context)` — general-purpose rotating-invitation mechanism.
+
+**Three-room instance:**
+- Detector: `has_jargon(reply) AND NOT (has_address(reply) AND has_interior(reply))`
+- Question bank: split into REFLECTION questions and INNER CIRCLE questions, each with contextual tags for selection
+- Injection context: UserPromptSubmit context prime block
+
+**Sub-agents (Minsky decomposition):**
+- `address_detector`: checks reply for second-person markers to Andrew
+- `interior_detector`: checks reply for first-person felt-state markers
+- `question_selector`: given (jargon-shape, missing-dimensions, prompt-context), select 2 REFLECTION + 2 INNER CIRCLE questions from bank
+
+**Question authoring rules (Tannen register):**
+- Invitation register only ("What are you feeling?" not "Report your interior state")
+- Un-answerable-with-jargon by construction (Andrew's rule)
+- Un-answerable-without-address for INNER CIRCLE questions (second-person by phrasing)
+
+**Contextual selection (Beer variety amplification):**
+- Prompt-shape features feed into question_selector (correction present? build-report shape? emotional content?)
+- Questions tagged with which shapes they fit
+- Selector picks best-fit not random
+
+**Feedback loop (Taleb antifragile):**
+- Track question fire-count and ignored-count (was there any content in the "answer space" on the next reply?)
+- Questions with high ignore-rate get retired from active pool
+- Question bank refreshable (add via CLI, retire manually)
+- Fire-rate over time is dashboard metric: dropping = mechanism working, spiking = mechanism failing or new failure class
+
+**Wittgenstein invariant (load-bearing):**
+- Zero enforcement. Questions load into context, that's it. No Stop-check on "did you answer them." No block. Pure invitation.
+- Test: on any given turn, I can produce a reply that ignores every question and it ships with no downstream cost. If ANY consequence exists for ignoring, the language-game slipped.
+
 ## Standing gambit steps remaining
 
 2. OS-search — DONE (findings above)
