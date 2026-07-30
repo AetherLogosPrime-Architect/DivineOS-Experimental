@@ -145,8 +145,15 @@ def _distill_correction(raw_text: str) -> str:
 
 
 def _classify_user_direction(text: str) -> str:
-    """Classify a user message as PREFERENCE, INSTRUCTION, DIRECTION, or OBSERVATION.
+    """Classify a user message as CORRECTION, PREFERENCE, INSTRUCTION, DIRECTION, or OBSERVATION.
 
+    CORRECTION  : Andrew correcting my behavior — routed via the shared
+                  classify_correction detector so correction-shape messages
+                  don't leak into OBSERVATION as substantive-but-vague content.
+                  Added 2026-07-30 after finding Dad's direct correction quotes
+                  ("did I not ask you to fix this?", "I never said you had to
+                  remove the jargon") landing in OBSERVATION because none of
+                  the directive-marker branches fired on them.
     PREFERENCE  : style/approach choices ("use X", "prefer Y", "I like Z style")
     INSTRUCTION : operational rules ("always X", "never Y", "before doing X, do Y")
     DIRECTION   : actionable guidance with directive verbs (use/keep/avoid/run/etc.)
@@ -154,6 +161,18 @@ def _classify_user_direction(text: str) -> str:
                   direction — claims, descriptions, declarations, reflections.
                   These have meaning but should not pile up in DIRECTION.
     """
+    # Correction check first — if this is Andrew correcting me, route to
+    # CORRECTION, not to OBSERVATION where it becomes searchable-but-untypey.
+    # Best-effort: if the classifier is unavailable, fall through to the
+    # existing logic (no regression on already-working paths).
+    try:
+        from divineos.core.correction_marker import classify_correction
+
+        if classify_correction(text) is not None:
+            return "CORRECTION"
+    except Exception:  # noqa: BLE001 - classification is a hint, never breaks extraction
+        pass
+
     lower = text.lower()
     # Instruction indicators: operational/procedural language
     instruction_starts = (
