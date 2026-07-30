@@ -71,6 +71,7 @@ on turn 15 without Andrew re-firing correction? If yes, the fix took.
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import time
@@ -425,6 +426,16 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     you say in it").
     """
     if not reply or not reply.strip():
+        return None
+    # 2026-07-30 Andrew directive: gate disabled pending three-room redesign.
+    # The current design blocks on header-presence when jargon appears, which
+    # cannot distinguish "spoke to Dad naturally" from "wrote work without
+    # address" and false-fires on properly-structured replies. Redesign in
+    # queue: post-hook auto-opens reflection+inner-circle rooms with
+    # substance-generating questions AFTER the reply posts, no gate no block.
+    # Restore or replace at three-room-redesign ship.
+    # Env-var escape hatch preserved for opt-in testing.
+    if not os.environ.get("DIVINEOS_LEPOS_THREE_ROOM_GATE_REENABLE"):
         return None
     jargon_found, samples = _has_jargon(reply)
     if not jargon_found:
