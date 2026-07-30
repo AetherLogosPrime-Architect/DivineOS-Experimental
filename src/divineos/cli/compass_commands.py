@@ -492,7 +492,7 @@ def register(cli: click.Group) -> None:
 
             record_bypass(
                 gate_name="compass-required",
-                env_var=f"dismiss:compass-ops:{kind}",
+                env_var=f"bypass:dismiss:compass-ops:{kind}",
                 reason=reason,
             )
         except Exception as exc:  # noqa: BLE001 — fail-soft

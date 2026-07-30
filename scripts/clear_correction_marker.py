@@ -188,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             combined_reason = f"{reason} | misread-clauses: {misread_clauses}"
         record_bypass(
             gate_name="correction-unlogged",
-            env_var=f"dismiss:correction-marker:{mode}",
+            env_var=f"bypass:dismiss:correction-marker:{mode}",
             reason=combined_reason,
         )
     except Exception as exc:  # noqa: BLE001 — fail-soft

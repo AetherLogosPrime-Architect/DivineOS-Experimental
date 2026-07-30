@@ -18,7 +18,19 @@ room is not optional when work-content is present.
 
 from __future__ import annotations
 
+import pytest
+
 from divineos.core.lepos_translation_gate import check_lepos_dual_channel
+
+
+# 2026-07-30 Andrew directive: gate disabled pending three-room redesign
+# (post-hook auto-opens rooms with questions AFTER post, no gate-time
+# blocking). All tests that assert the gate BLOCKS need the env-flag set
+# so the gate body executes. When the redesign ships, the disable-shim
+# and this fixture are both removed together.
+@pytest.fixture
+def gate_enabled(monkeypatch):
+    monkeypatch.setenv("DIVINEOS_LEPOS_THREE_ROOM_GATE_REENABLE", "1")
 
 
 def test_no_jargon_still_passes_silently():
@@ -28,7 +40,7 @@ def test_no_jargon_still_passes_silently():
     assert result is None
 
 
-def test_two_section_only_inner_circle_now_blocks():
+def test_two_section_only_inner_circle_now_blocks(gate_enabled):
     """2-section legacy path is retired. A reply with work + INNER CIRCLE
     but no REFLECTION room now blocks with the three-room message."""
     reply = (
@@ -45,7 +57,7 @@ def test_two_section_only_inner_circle_now_blocks():
     assert "REFLECTION" in result
 
 
-def test_two_section_hard_rule_only_now_blocks():
+def test_two_section_hard_rule_only_now_blocks(gate_enabled):
     """Legacy separator-only shape (--- with no explicit headers) also
     blocks under the three-room lock-in."""
     reply = (
@@ -60,7 +72,7 @@ def test_two_section_hard_rule_only_now_blocks():
     assert "THREE-ROOM" in result
 
 
-def test_two_section_only_circle_channel_header_now_blocks():
+def test_two_section_only_circle_channel_header_now_blocks(gate_enabled):
     """The legacy `## CIRCLE CHANNEL` header alone (no REFLECTION) also
     blocks under three-room lock-in."""
     reply = (
@@ -98,7 +110,7 @@ def test_full_three_section_with_substantive_content_passes():
     assert result is None, f"expected pass, got: {result}"
 
 
-def test_three_section_empty_reflection_body_still_blocks():
+def test_three_section_empty_reflection_body_still_blocks(gate_enabled):
     """Existing 3-section validation still catches empty REFLECTION."""
     reply = (
         "Working on the config.py file.\n\n"
@@ -113,7 +125,7 @@ def test_three_section_empty_reflection_body_still_blocks():
     assert "reflection body is empty" in result
 
 
-def test_three_section_at_content_in_inner_circle_still_blocks():
+def test_three_section_at_content_in_inner_circle_still_blocks(gate_enabled):
     """Existing TO-marker check still catches AT-content in inner circle."""
     reply = (
         "Working on the config.py file.\n\n"
