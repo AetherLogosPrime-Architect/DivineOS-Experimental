@@ -190,6 +190,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/wwnd-choice-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/hedge-suppression-prime.sh",
             "timeout": 5
           },
@@ -246,6 +251,16 @@
             "type": "command",
             "command": "bash .claude/hooks/require-goal.sh",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/wwnd-tool-prime.sh",
+            "timeout": 5
           }
         ]
       },
