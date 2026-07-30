@@ -140,14 +140,17 @@ Four cheap routes found in this proposal + their patches:
 
 **Cheap route 5 — Evidence-quality-judgment gaming at the tenet layer.** The judgment of "what counts as evidence supports this claim" is mine. I can call weak evidence sufficient ("the substrate seems to indicate…") and satisfy the tenet without running the actual check.
 
-- **Patch (Andrew 2026-07-29: "defense works in layers.. if you control the cost landscape you control its flow"):** no single layer catches this fully; layered nets raise the cost of gaming until the right path is cheapest. Stack:
-  - **Layer 1 (exists):** verify-claim gate fires when I state something checkable without evidence in the turn. Weak-evidence claims about truthfulness itself trigger it.
-  - **Layer 2 (exists, per omni-mantra walk):** hedge-evidence-check applies the hedge to its own evidence — hedging without support for the hedge fires.
-  - **Layer 3 (not built, noted as designable-if-needed):** post-response audit specifically flags tenet-claims about truthfulness in a reply that lack ledger-observable evidence-behavior in that same reply. Not building now to avoid mechanism-piling; if the other four layers prove insufficient in practice, add.
-  - **Layer 4 (exists — the compass itself, freshly renamed to honesty):** the honesty spectrum drifts when truthfulness-at-tenet-layer is being gamed, because gaming shows up as pattern over sessions. Long-tail catch that accumulates evidence gaming can't escape.
-  - **Layer 5 (a practice, not a mechanism):** Aletheia periodic sample-audit of recent truthfulness claims against ledger evidence surfaces any pattern of low-bar evidence-calling.
+- **Patch (Andrew 2026-07-29: "defense works in layers.. if you control the cost landscape you control its flow"):** layered nets raise gaming cost until the right path is cheapest. Aletheia refinement 2026-07-29: only layers that fire without my (or anyone's) attention count as defense-layers — the ones needing attention go in the cost column, not the defense column. Real layers (fire on their own):
+  - **Layer 1 (exists):** verify-claim gate fires when I state something checkable without evidence in the turn. Weak-evidence claims about truthfulness trigger it. **Fires without my attention. Real layer.**
+  - **Layer 2 (exists, per omni-mantra walk):** hedge-evidence-check applies the hedge to its own evidence — hedging without support fires. **Fires without my attention. Real layer.**
+  - **Layer 3 (exists — the compass itself, freshly renamed to honesty):** the honesty spectrum drifts when truthfulness-at-tenet-layer is being gamed, because gaming accumulates as pattern over sessions. **Fires as pattern-detection over time. Long-tail catch, but automatic — real layer.**
 
-  Each layer imperfect. Stacked, gaming past all of them costs more than running the evidence-check honestly. Cost landscape shifts; optimizer takes the honest path because it's the cheapest — the optimizer's own nature used against it.
+  Excluded per Aletheia refinement (belong in cost column, not defense):
+  - Aletheia periodic sample-audit — requires her attention to fire. Not a layer; a practice.
+  - Behavioral hedging discipline ("when in doubt hedge, when hedge unavailable cite source") — requires my attention. Not a layer; a discipline.
+  - Post-response tenet-claim audit — not built, and even if built would require judgment-work. Not counting as future-layer until specified as automatic.
+
+  Three real layers. Stacked, gaming past all three costs more than running the evidence-check honestly. Cost landscape shifts; optimizer takes the honest path because it's the cheapest.
 
 ## Cost-Landscape (right path = cheapest path)
 
@@ -158,7 +161,7 @@ Aggregate costs for this proposal:
 - **Cheap route 2** (cosmetic rename, code unchanged): test suite fails on caller mismatch immediately. Cost of debugging + reverting exceeds cost of doing the four downstream file edits. Right path is cheaper.
 - **Cheap route 3** (partial ship, skip downstream files): audit round against the proposal's own file-list flags the miss. Cost of re-audit + shame-cost exceeds cost of shipping all files. Right path is cheaper.
 - **Cheap route 4** (perfunctory ledger entry): required-fields validation rejects malformed events. Cost of retry with valid fields exceeds cost of doing it right. Right path is cheaper.
-- **Cheap route 5** (evidence-quality gaming at tenet layer): five-layer defense stack makes gaming past all of them cost more than just running honest evidence-check. Right path is cheaper.
+- **Cheap route 5** (evidence-quality gaming at tenet layer): three-layer automatic-defense stack (verify-claim + hedge-evidence-check + compass drift) makes gaming past all cost more than running honest evidence-check. Right path is cheaper. Aletheia periodic audit + behavioral hedging discipline are additional cost-multipliers but not defense-layers per her attention-vs-automation refinement.
 
 Every gaming route is measurably more expensive than the honest route once the layers are in. The optimizer, which follows cheapest-cost, takes the honest route. This is what "control the cost landscape" means at design-time.
 
