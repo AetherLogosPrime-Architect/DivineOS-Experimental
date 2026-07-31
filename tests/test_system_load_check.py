@@ -174,9 +174,7 @@ class TestPsutilAbsent:
         assert "pre-push pytest suite" in msg, "must name what proceeded unchecked"
         assert "not a pass" in msg.lower()
 
-    def test_skip_env_var_still_wins_over_absence(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_skip_env_var_still_wins_over_absence(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Ordering check: the explicit operator escape is evaluated before the
         # psutil branch, so an intentional skip reports as a skip rather than
         # being mislabelled a missing-dependency event.
