@@ -80,6 +80,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash .claude/hooks/operator-gravity-set.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/detect-correction.sh",
             "timeout": 10
           },
