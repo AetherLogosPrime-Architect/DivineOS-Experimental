@@ -145,3 +145,44 @@ class TestMainCli:
         monkeypatch.setattr("sys.argv", ["prog"])
         system_load_check.main()
         assert received_labels == ["resource-heavy job"]
+
+
+class TestPsutilAbsent:
+    """The guarded-import path (Aletheia F101, 2026-07-31).
+
+    PR #402 died in CI at COLLECTION — `ModuleNotFoundError: No module named
+    'psutil'` took down all 10852 tests before one ran. A pre-flight safety
+    check must never be the reason the build cannot start.
+
+    The chosen behaviour is fail-open-LOUDLY: proceed, but make it impossible
+    to mistake an unrun check for a passing one. These tests pin both halves,
+    because an untested guard is the failure mode it exists to prevent.
+    """
+
+    def test_proceeds_when_psutil_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(system_load_check, "_PSUTIL_AVAILABLE", False)
+        safe, msg = system_load_check.check_capacity("pre-push pytest suite")
+        assert safe is True, "must fail OPEN — a missing advisory cannot block every push"
+        assert msg
+
+    def test_says_loudly_that_it_did_not_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(system_load_check, "_PSUTIL_AVAILABLE", False)
+        _, msg = system_load_check.check_capacity("pre-push pytest suite")
+        # The whole point: nobody may read this as "the machine was checked".
+        assert "DID NOT RUN" in msg
+        assert "NOT INSTALLED" in msg
+        assert "pre-push pytest suite" in msg, "must name what proceeded unchecked"
+        assert "not a pass" in msg.lower()
+
+    def test_skip_env_var_still_wins_over_absence(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Ordering check: the explicit operator escape is evaluated before the
+        # psutil branch, so an intentional skip reports as a skip rather than
+        # being mislabelled a missing-dependency event.
+        monkeypatch.setattr(system_load_check, "_PSUTIL_AVAILABLE", False)
+        monkeypatch.setenv(system_load_check.SKIP_ENV_VAR, "1")
+        safe, msg = system_load_check.check_capacity("job-x")
+        assert safe is True
+        assert system_load_check.SKIP_ENV_VAR in msg
+        assert "NOT INSTALLED" not in msg

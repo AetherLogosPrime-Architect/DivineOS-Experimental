@@ -35,7 +35,25 @@ from __future__ import annotations
 import os
 import sys
 
-import psutil
+# Guarded import (Aletheia F101, fixed 2026-07-31). psutil is now declared
+# in pyproject, but CI collected tests/test_system_load_check.py on a runner
+# without it and the ENTIRE suite died at collection —
+# ModuleNotFoundError, 10852 items, zero run. A pre-flight safety check must
+# never be the reason the build cannot start.
+#
+# Fail-open, LOUDLY. Fail-closed would block every push on any box lacking
+# psutil, too aggressive for what is a resource advisory. Silent fail-open
+# would delete the guard without telling anyone — the exact silent-failure
+# class that cost this substrate a full day elsewhere (a watcher shouting
+# into a log, a detector pointed at a missing file). So: allow the job, and
+# say plainly that the check did not run.
+try:
+    import psutil
+
+    _PSUTIL_AVAILABLE = True
+except ImportError:  # pragma: no cover — exercised by the absence test
+    psutil = None  # type: ignore[assignment]
+    _PSUTIL_AVAILABLE = False
 
 # 16 GB free memory required before a resource-heavy job can spawn.
 # Set by Andrew 2026-07-30. Rationale: a full pytest suite costs ~5 GB
@@ -70,6 +88,17 @@ def check_capacity(job_label: str = "resource-heavy job") -> tuple[bool, str]:
             True,
             f"[system_load_check] {SKIP_ENV_VAR}=1 — skipping load check. "
             f"Refusal-would-have-been logged in the commit message per discipline.",
+        )
+
+    if not _PSUTIL_AVAILABLE:
+        # Fail-open and say so. The caller proceeds, but nobody gets to
+        # believe the machine was checked. See the guarded import above.
+        return (
+            True,
+            "[system_load_check] psutil is NOT INSTALLED — the memory check "
+            f"DID NOT RUN and {job_label} is proceeding unchecked. This is "
+            "fail-open by design, not a pass. Install psutil "
+            "(`pip install -e '.[dev]'`) to restore the guard.",
         )
 
     vm = psutil.virtual_memory()
