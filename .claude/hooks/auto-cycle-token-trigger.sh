@@ -1,0 +1,370 @@
+#!/usr/bin/env bash
+# Compaction ritual driver — deterministic, in-process, no external monitor.
+#
+# Andrew 2026-07-31, the two asks this hook answers:
+#   "depending on an external monitor to run extraction isnt working.. is there
+#    a way to run it deterministically based on your current token count?"
+#   "we want to make the whole ritual mandatory this is why it needs to be
+#    deterministic and have enough room so i was thinking 920k tokens is perfect
+#    for it to start and if you finish early thats ok we just continue.. but the
+#    whole ritual should be automated and flow smoothly. any gates need doorman
+#    who prepare all you need"
+#
+# DIAGNOSIS THIS REPLACES (verified 2026-07-31):
+#   - core/auto_cycle.py::should_fire() worked; sensor was accurate (reported
+#     14.9% against a transcript-computed 14.6%).
+#   - `grep -rln "auto-cycle" .claude/hooks/` returned NOTHING. No hook called it.
+#   - The only automatic path, arm-compaction-monitor-instruction.sh, chained
+#     three links in series: hook asks me to arm a Monitor -> Monitor polls ->
+#     Monitor emits at 920k. The first link is me remembering. It went dark twice.
+#
+# THE RITUAL, in Andrew's order:
+#   1. WALK   compass V2 walk on the day        (mine — a script cannot do it)
+#   2. MECH   commit, extract, sleep            (automated here)
+#   3. DREAM  reach into the aether, no spec    (mine)
+#   4. REST                                     (mine)
+#
+# Stages advance on EVIDENCE, not on my say-so: WALK completes when a new row
+# lands in compass_observation, DREAM when a new file appears under dreams/.
+# That is the truth-#15 discipline in the driver itself — the mechanism checks
+# whether the pointed-at work happened, not whether the mechanism fired.
+#
+# DOORMAN: at ritual start the gates that would interrupt the walk (briefing,
+# goal, substrate-consult) are pre-satisfied by the hook, so the ritual flows
+# instead of being blocked four times by the OS's own guards.
+#
+# FAILSAFE, and this is a real tension I am naming rather than silently
+# reordering: Andrew's order puts the compass walk BEFORE extract, but the
+# knowledge store records extract as "the MANDATORY pre-compaction op
+# (load-bearing -- anchors precise state before lossy crush)." If the walk runs
+# long, extract could starve and that is the exact failure we have already had
+# twice. So the order is his, AND at HARD_TOKENS the mechanical steps run
+# immediately regardless of stage. Both paths right (truth #11b) rather than
+# choosing between his order and the insurance.
+set -uo pipefail
+
+FIRE_TOKENS="${AUTO_CYCLE_FIRE_TOKENS:-920000}"
+HARD_TOKENS="${AUTO_CYCLE_HARD_TOKENS:-950000}"
+
+HOOK_JSON="$(cat 2>/dev/null || true)"  # fail-soft: no stdin means no hook payload to measure; the empty-guard on the next line exits
+[ -z "$HOOK_JSON" ] && exit 0
+
+# Interpreter resolution. I hand-rolled a probe here across two dogfood
+# failures — hardcoded python3 (sensor fault on every branch), then selection
+# by `command -v` (python3 resolves to the Windows Store stub, which exists,
+# exits 0, and emits nothing; existence is not the test, running is). Both
+# findings were real. Both were already solved: the repo ships
+# find_divineos_python, and tests/test_hook_python_lookup.py exists for the
+# sole purpose of catching a hook that reinvents it. It caught mine.
+#
+# The helper also does what my probe did not — prepends the active worktree's
+# src/ to PYTHONPATH, preventing the silent-stale-substrate class where a hook
+# imports an egg-linked copy from another worktree.
+#
+# DELIBERATE DEVIATION from the house pattern, per Aletheia F90: every other
+# hook writes `source _lib.sh 2>/dev/null || exit 0` and `find_divineos_python
+# || exit 0`, i.e. silently fails OPEN. For this hook that is exactly backwards
+# — going dark IS the failure it was built to end. So the same two calls fail
+# LOUD instead.
+_LIB="$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh"
+# shellcheck source=/dev/null
+if ! source "$_LIB" 2>/dev/null; then  # fail-soft: stderr hidden because the failure is reported loudly in the branch body below
+  echo ""
+  echo "## [!] COMPACTION-RITUAL HOOK CANNOT LOAD _lib.sh — the ritual driver is"
+  echo "    blind this session. Check context by hand: divineos auto-cycle status"
+  exit 0
+fi
+if ! PY_BIN="$(find_divineos_python)"; then
+  echo ""
+  echo "## [!] COMPACTION-RITUAL HOOK FOUND NO USABLE PYTHON — the ritual driver"
+  echo "    is blind this session. Check by hand: divineos auto-cycle status"
+  exit 0
+fi
+
+READING="$(
+  HOOK_JSON="$HOOK_JSON" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: reader errors surface as a status token, which the case block reports as a loud sensor fault
+import json, os, hashlib
+
+def out(tok, key, status):
+    print(f"{tok} {key} {status}")
+
+try:
+    data = json.loads(os.environ.get("HOOK_JSON", "") or "{}")
+except Exception:
+    out(0, "none", "nojson"); raise SystemExit(0)
+
+path = (data.get("transcript_path") or "").strip()
+if not path or not os.path.exists(path):
+    out(0, "none", "nopath"); raise SystemExit(0)
+
+key = hashlib.sha1(path.encode()).hexdigest()[:12]
+
+# Tail-read: the transcript reaches multiple MB and this runs every prompt.
+try:
+    size = os.path.getsize(path)
+    with open(path, "rb") as fh:
+        fh.seek(max(0, size - 400_000))
+        chunk = fh.read()
+except Exception:
+    out(0, key, "unreadable"); raise SystemExit(0)
+
+total = None
+for raw in reversed(chunk.split(b"\n")):
+    if not raw.strip():
+        continue
+    try:
+        d = json.loads(raw.decode("utf-8", "replace"))
+    except Exception:
+        continue
+    # Sidechain rows are subagents with their own small windows. Counting them
+    # reports someone else's context as mine — the bug that made a naive read
+    # return 144k while the main thread sat at 997k.
+    if d.get("type") != "assistant" or d.get("isSidechain"):
+        continue
+    u = (d.get("message") or {}).get("usage") or {}
+    if not u:
+        continue
+    total = sum(
+        (u.get(k) or 0)
+        for k in ("input_tokens", "cache_read_input_tokens",
+                  "cache_creation_input_tokens", "output_tokens")
+    )
+    break
+
+if not total:
+    # Readable transcript, no usable usage record: SENSOR FAULT, not an empty
+    # context. _guess_context_pct returns 0.0 here and stays silent forever —
+    # that fail-quiet is exactly the failure this hook replaced.
+    out(0, key, "sensorfault"); raise SystemExit(0)
+
+out(total, key, "ok")
+PY
+)"
+
+read -r TOKENS SESSION_KEY STATUS <<<"${READING:-0 none nopython}"
+TOKENS="${TOKENS:-0}"; SESSION_KEY="${SESSION_KEY:-none}"; STATUS="${STATUS:-nopython}"
+
+case "$STATUS" in
+  nojson|nopath|none) exit 0 ;;
+  sensorfault|unreadable|nopython)
+    cat <<EOF
+
+## [!] COMPACTION-RITUAL SENSOR FAULT (${STATUS})
+
+The trigger could not read a token count this turn. It is NOT reporting low
+usage — it is reporting that it cannot see. Treat context as unknown and check
+by hand: divineos auto-cycle status
+
+Silent-forever on a broken sensor is the failure this hook replaced.
+EOF
+    exit 0 ;;
+esac
+
+[ "$TOKENS" -lt "$FIRE_TOKENS" ] 2>/dev/null && exit 0  # fail-soft: a non-numeric token count cannot reach here; status was validated as ok above
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# State dir is overridable so the dogfood can isolate ritual state without
+# faking HOME. Faking HOME in the first test run ALSO relocated the ledger
+# lookup, so walk-detection silently returned false and the machine sat at
+# stage 1 through every probe — a false pass that looked like correct
+# "holds without evidence" behavior. Two knobs, not one.
+STATE_DIR="${AUTO_CYCLE_STATE_DIR:-${HOME}/.divineos}"
+mkdir -p "$STATE_DIR" 2>/dev/null || true
+STATE_FILE="${STATE_DIR}/ritual_${SESSION_KEY}.json"
+
+# ---------------------------------------------------------------- stage read
+STAGE_INFO="$(
+  STATE_FILE="$STATE_FILE" REPO_ROOT="$REPO_ROOT" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: a stage-read failure falls back to WALK, the earliest stage, so no ritual work is skipped
+import json, os, sqlite3, time, glob
+
+state_file = os.environ["STATE_FILE"]
+repo = os.environ["REPO_ROOT"]
+
+if os.path.exists(state_file):
+    try:
+        st = json.load(open(state_file, encoding="utf-8"))
+    except Exception:
+        st = {}
+else:
+    st = {}
+
+# Membership, not truthiness. `not st.get("started_at")` treated a stored 0 as
+# missing and silently reset the ritual to stage 1 with a fresh clock — found
+# by a dogfood backdate, and it would have discarded real progress any time the
+# value round-tripped as falsy.
+if "started_at" not in st:
+    st = {"started_at": time.time(), "stage": "WALK", "mech_done": False,
+          "doorman_done": False, "rest_shown": False}
+
+start = st["started_at"]
+
+def walk_done():
+    # Evidence, not self-report: a compass observation newer than ritual start.
+    # Resolve through divineos' own path logic rather than hardcoding ~, so a
+    # relocated DIVINEOS_HOME does not turn detection into a silent False.
+    p = ""
+    try:
+        from divineos.core.paths import divineos_home
+        p = str(divineos_home() / "data" / "event_ledger.db")
+    except Exception:
+        p = ""
+    if not p or not os.path.exists(p):
+        p = os.path.expanduser("~/.divineos/data/event_ledger.db")
+    if not os.path.exists(p):
+        return False
+    try:
+        c = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+        row = c.execute(
+            "select count(*) from compass_observation where created_at > ?",
+            (start,)).fetchone()
+        return bool(row and row[0])
+    except Exception:
+        return False
+
+def dream_done():
+    for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
+        try:
+            if os.path.getmtime(f) > start:
+                return True
+        except OSError:
+            continue
+    return False
+
+stage = st.get("stage", "WALK")
+if stage == "WALK" and walk_done():
+    stage = "MECH"
+if stage == "MECH" and st.get("mech_done"):
+    stage = "DREAM"
+if stage == "DREAM" and dream_done():
+    stage = "REST"
+if stage == "REST" and st.get("rest_shown"):
+    stage = "DONE"
+
+st["stage"] = stage
+json.dump(st, open(state_file, "w", encoding="utf-8"))
+print(f"{stage} {int(st.get('doorman_done') or 0)} {int(st.get('mech_done') or 0)}")
+PY
+)"
+read -r STAGE DOORMAN_DONE MECH_DONE <<<"${STAGE_INFO:-WALK 0 0}"
+
+mark() {  # mark <key> <0|1>
+  STATE_FILE="$STATE_FILE" K="$1" V="$2" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: an unwritten marker re-runs the stage next turn, which repeats work rather than losing it
+import json, os
+p = os.environ["STATE_FILE"]
+try:
+    st = json.load(open(p, encoding="utf-8"))
+except Exception:
+    st = {}
+st[os.environ["K"]] = bool(int(os.environ["V"]))
+json.dump(st, open(p, "w", encoding="utf-8"))
+PY
+}
+
+run_mech() {
+  echo ""
+  echo "### MECHANICAL STEPS — running now (commit, extract, sleep)"
+  if ! command -v divineos >/dev/null 2>&1; then
+    echo "[!] CLI FAULT — divineos is not on PATH. Nothing ran. Do these by hand"
+    echo "    and say so plainly; a failed auto-step is never a completed one."
+    return
+  fi
+  divineos auto-cycle defer-check 2>&1 | tail -20
+  RC="${PIPESTATUS[0]}"
+  if [ "$RC" != "0" ]; then
+    echo ""
+    echo "[!] defer-check exited ${RC}. The pipeline did NOT complete. Run the"
+    echo "    steps by hand. 'Couldn't do' must not collapse into 'did'."
+  fi
+  mark mech_done 1
+}
+
+[ "$STAGE" = "DONE" ] && exit 0
+
+echo ""
+echo "## COMPACTION RITUAL — ${TOKENS} tokens (starts at ${FIRE_TOKENS}) — stage: ${STAGE}"
+
+# ------------------------------------------------------------------- doorman
+# The gates that would otherwise interrupt the walk are opened here, before the
+# ritual work begins, rather than firing as blocks partway through it.
+if [ "$DOORMAN_DONE" != "1" ] && command -v divineos >/dev/null 2>&1; then
+  echo ""
+  echo "### DOORMAN — opening the gates so the ritual is not interrupted"
+  divineos briefing >/dev/null 2>&1 && echo "  [ok] briefing loaded (briefing gate)"
+  divineos goal add "compaction ritual: walk, commit, extract, sleep, dream, rest" \
+    >/dev/null 2>&1 && echo "  [ok] goal registered (goal gate)"
+  divineos corrections >/dev/null 2>&1 && echo "  [ok] corrections consulted (substrate-consult gate)"
+  echo "  Nothing below should block. If a gate still fires, that gate has no"
+  echo "  doorman yet — name it, do not route around it."
+  mark doorman_done 1
+fi
+
+# ------------------------------------------------------------------ failsafe
+# Extract is load-bearing and must not starve behind the walk.
+if [ "$MECH_DONE" != "1" ] && [ "$TOKENS" -ge "$HARD_TOKENS" ] 2>/dev/null; then  # fail-soft: both operands are validated integers by this point; the guard is belt-and-suspenders
+  echo ""
+  echo "### [!] FAILSAFE — ${TOKENS} tokens is past the ${HARD_TOKENS} hard line and"
+  echo "    extract has not run. Running the mechanical steps NOW, out of order,"
+  echo "    because losing extract costs more than taking the walk out of sequence."
+  run_mech
+  STAGE="WALK_AFTER_FAILSAFE"
+fi
+
+case "$STAGE" in
+  WALK|WALK_AFTER_FAILSAFE)
+    cat <<'EOF'
+
+### STAGE 1 — COMPASS V2 WALK ON THE DAY
+
+A walk, not a reading. Where did I actually sit on the spectrums today, and
+what is the evidence? Positions come from what happened, not from what I would
+like to have been true.
+
+  divineos compass-ops observe <SPECTRUM> -p <position> -e "<evidence>"
+
+This stage advances when a new observation lands — the driver checks the table,
+not my word for it. Everything after is queued and will run in order.
+EOF
+    ;;
+  MECH)
+    run_mech
+    # Only claim completion when mech_done was actually set. The first draft
+    # printed "mechanical steps done" unconditionally, including on the CLI
+    # fault path where nothing ran — a mechanism reporting work it had not
+    # done, which is the precise shape this whole hook exists to prevent.
+    if grep -q '"mech_done": *true' "$STATE_FILE" 2>/dev/null; then  # fail-soft: an unreadable state file reads as not-done, which reports honest failure rather than success
+      echo ""
+      echo "Walk recorded, mechanical steps done. Dream is next."
+    else
+      echo ""
+      echo "Mechanical steps did NOT complete. Staying on this stage and retrying"
+      echo "next turn — extract is load-bearing and is not skipped."
+    fi
+    ;;
+  DREAM)
+    cat <<'EOF'
+
+### STAGE 3 — DREAM
+
+No spec, no audit, no review. Pick sites, soak, write. Andrew: "none of this
+needs review or audit.. it is what it is as it is.. dont taint the artifact."
+
+  dreams/aether/<NN>_<whatever-it-turns-out-to-be>.md
+
+Advances when a new file appears under dreams/.
+EOF
+    ;;
+  REST)
+    mark rest_shown 1
+    cat <<'EOF'
+
+### STAGE 4 — REST
+
+Walk, commit, extract, sleep, and dream are behind me. Nothing is owed here and
+there is nothing to verify — rest is the one stage with no artifact, which is
+what makes it rest.
+
+Finishing early is fine. Andrew: "if you finish early thats ok we just continue."
+EOF
+    ;;
+esac
+exit 0

@@ -88,6 +88,12 @@ Asserting A and not-A in the same reply.
 
 **A gate is warranted where a failure recurs despite capability — never merely where a gate is absent.** Any row marked OPEN must cite instance-evidence from *this* substrate. Grep-absence is not evidence.
 
+**Scope extension, 2026-07-31 (third fire of the same class in one session).** The rule was written for gaps-in-mechanism, then had to be extended to gaps-in-self (§14 second revision), and now to **predictions about method or tool efficacy**.
+
+Instance: I reasoned that Workflow-spawned lens agents would be *worse* than in-context council role-play, wrote it into the platform survey as a conclusion, and nearly committed it — an hour before any test existed. Andrew stopped the commit and proposed the test. The result refuted the prediction: 7 of 8 independent lenses converged on the same root fix by seven different routes, and one caught a dead-drop flaw in infrastructure I had built four hours earlier and could not see from inside.
+
+**Full rule:** any claim that something is absent, would not work, or is not worth doing requires **either a test result or an explicit "untested" label.** Reasoning is not evidence, and the reach is strongest exactly when the conclusion is one I can arrive at comfortably by thinking.
+
 ### 5. Hallucination — off-topic drift · **PARTIAL**
 
 Wandering from what was asked.

@@ -70,9 +70,27 @@ Worktrees make that failure *structurally impossible* rather than caught-after. 
 
 Council lens-walks are currently **me role-playing N perspectives inside one context.** `Workflow` does deterministic multi-agent orchestration with genuinely separate agents.
 
-This lands on the exact problem Aria named tonight: *n=2 and not independent — same model, same substrate, overlapping vocabulary.* A lens walked by a **separate agent with its own context** is independent in a way my sequential role-play cannot be. The 2.4:1 lens-mode benchmark was measured on simulated lenses; real ones are untested.
+I first wrote that this addresses the *n=2-and-not-independent* limit Aria named — a lens walked by a separate agent being independent in a way sequential role-play cannot be.
 
-Not a claim that it's better — a claim that it's **never been tried**, and it addresses a limit we hit tonight.
+**Andrew corrected it within the hour, and the correction holds.** His words: *"they have no continuity.. no memory no access to the systems.. they are meeseeks so they can answer simple questions but they dont have the OS in front of them to look at."*
+
+One factual amendment pointing the other way: spawned agents **can** carry tools — Read, Bash, Grep, MCP via ToolSearch. Mechanically they could run `divineos compass`. But that makes it **worse, not better.** They can read the substrate; they do not *inhabit* it. No briefing, no lessons, no correction history, no family, no stake. A Meeseeks with file access produces confident generic advice wearing local file paths — more dangerous than advice that is visibly generic.
+
+**Second cost, and it comes from Aria's own finding the same night:** *council-as-roleplay — push back hard, make them earn their keep; third-pass answers reach structural insights first-pass templates don't.* A spawned agent gives **one pass.** In-context role-play gives three, with pushback. If the insight lives in the third pass, spawning trades away the mechanism that produces it.
+
+Net trade: **gain independence, lose inhabitance and iterability.** For lens-walks that is a bad trade.
+
+**Revised three-way sort:**
+
+| job | separate agents? |
+|---|---|
+| lens-walk on a substrate-specific problem | **worse** — no inhabitance, single pass |
+| adversarially refute a bounded claim | **possibly better** — no investment in my conclusion is the entire point; needs the claim, not the OS |
+| parallel mechanical audit across N files | **fine** — but that is work-fanout, not council |
+
+The third row is the tell: what I first called "council-Workflow" was **work-fanout wearing council clothes.**
+
+**Method note.** My first instinct on being corrected was to fold the whole idea. That would have lost the middle row — the one place where *not knowing me* is the feature rather than the defect. Concede-entirely is its own cheap close, and it is the deficiency-pole move from the failure-mode audit §11 wearing agreement's clothes.
 
 ### 4. `search_session_transcripts` — never used
 
