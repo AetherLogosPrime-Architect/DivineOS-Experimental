@@ -203,6 +203,33 @@ def _verify_substrate_id(citation: str, reference_ts: float, recency: float) -> 
         return VerificationResult(
             False, citation, "substrate_id", f"lookup non-zero exit: {snippet}"
         )
+    # Windows CMD-wrapper exit-code trampoline (Aria 2026-07-22,
+    # council-c0a53fa5a05a): on Windows the divineos.CMD wrapper installed by
+    # pip does not propagate the underlying Python exit code, so a genuine
+    # not-found (`[!] Pre-registration not found: ...`) reaches this branch
+    # with returncode=0 despite the tool having failed. Defense-in-depth:
+    # also treat divineos's own stdout error marker `[!]` as a non-resolution
+    # signal. Taleb vantage: single-signal trust across a lossy boundary is
+    # the same class-of-bug as os.kill(pid,0) on Windows and try/except-eats-
+    # NameError elsewhere in this codebase. Norman vantage: the double check
+    # makes the invariant self-documenting for the next reader — resolves iff
+    # BOTH exit code is zero AND stdout does not carry divineos's error mark.
+    # Check ANY line of stdout for divineos's error marker `[!]` — not just
+    # the first, because on fresh test environments divineos initializes
+    # the ledger on-demand and prints `[+] Seed v2.1.0 applied...` BEFORE
+    # the actual error line. Iterate lines and look for any that start with
+    # the error prefix (allowing for leading whitespace).
+    error_line = next(
+        (ln.strip() for ln in result.stdout.splitlines() if ln.lstrip().startswith("[!]")),
+        None,
+    )
+    if error_line:
+        return VerificationResult(
+            False,
+            citation,
+            "substrate_id",
+            f"stdout error-marker (windows-cmd-wrapper exit-code drop): {error_line[:120]}",
+        )
     return VerificationResult(
         True, citation, "substrate_id", f"resolved via divineos {' '.join(cli_subcommand)}"
     )
