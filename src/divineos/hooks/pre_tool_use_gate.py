@@ -1039,19 +1039,38 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # not enforced). After N code actions without a compass observation,
     # the gate blocks non-bypass tools until `divineos compass-ops observe`
     # is run. Reset is structural — the observe command clears the counter.
+    #
+    # Safe-remedy exemption (Andrew 2026-07-29, added same session as M3
+    # lockdown fix): Gate 1.47 has an exemption via _is_safe_remedy_invocation
+    # that lets the named remedy (`divineos compass-ops observe/dismiss`)
+    # execute even while the gate is firing. Gate 1.4 had no such exemption,
+    # so it blocked ALL substrate-write Bash including the compass-ops
+    # observe remedy IT NAMED. Third chicken-and-egg lockdown of this
+    # session (M3 doorman-on-itself; correction-marker-clear; now this).
+    # Gate-remedies-must-execute (Andrew 2026-06-08 principle).
     try:
         from divineos.core.hud_handoff import compass_staleness_status
 
         cs = compass_staleness_status()
         if cs.get("stale"):
-            return _make_deny(
-                f"BLOCKED: {cs.get('actions_since', '?')} code actions since "
-                f"the last compass observation (threshold "
-                f"{cs.get('threshold', '?')}). Run: divineos compass-ops "
-                f'observe <spectrum> -p <position> -e "<evidence>" — '
-                f"virtue drift is not tracked by the system if you never "
-                f"observe your own position."
+            _cmd_text = ""
+            if input_data is not None:
+                _tn = input_data.get("tool_name", "") or ""
+                if _tn in ("Bash", "PowerShell"):
+                    _cmd_text = (input_data.get("tool_input", {}) or {}).get("command", "") or ""
+            _compass_remedy_heads = (
+                "divineos compass-ops observe",
+                "divineos compass-ops dismiss",
             )
+            if not _is_safe_remedy_invocation(_cmd_text, _compass_remedy_heads):
+                return _make_deny(
+                    f"BLOCKED: {cs.get('actions_since', '?')} code actions since "
+                    f"the last compass observation (threshold "
+                    f"{cs.get('threshold', '?')}). Run: divineos compass-ops "
+                    f'observe <spectrum> -p <position> -e "<evidence>" — '
+                    f"virtue drift is not tracked by the system if you never "
+                    f"observe your own position."
+                )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_4_compass_staleness", _gate_exc)
 

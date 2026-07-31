@@ -858,6 +858,37 @@ def run_audit(
     except _ERRORS:
         pass
 
+    # F96 fix (Aletheia audit 2026-07-29, find-cb124977dd85): pair the
+    # fork-is-cheap-close-prime and closure-word-summary-prime with
+    # Stop-side consumption checks. Both primes now write their emitted
+    # content to per-hook marker files at fire time; here we read those
+    # and call record_consumption to score overlap between primed
+    # content and response text. Mirrors the wallclock-source-prime +
+    # check_wallclock_semantic_source pattern (F96's counter-evidence).
+    # Not a blocking gate — self-observation before enforcement per the
+    # F85 fix pattern. A prime that fires and never gets consumed
+    # becomes visible in the telemetry as wallpaper.
+    for _prime_marker in (
+        "fork_cheap_close_prime_surface_last.txt",
+        "closure_word_summary_prime_surface_last.txt",
+    ):
+        try:
+            from divineos.core.operating_loop.hook_telemetry import record_consumption
+
+            _mp = marker_path(_prime_marker)
+            if _mp.exists():
+                try:
+                    _surface = _mp.read_text(encoding="utf-8")
+                except _ERRORS:
+                    _surface = ""
+                if _surface:
+                    record_consumption(
+                        response_text=last_assistant_text,
+                        surface_text=_surface,
+                    )
+        except _ERRORS:
+            pass
+
     # --- Response-only detectors (text only) ---
     try:
         from divineos.core.operating_loop.distancing_detector import detect_distancing
@@ -1476,6 +1507,7 @@ def run_audit(
                     "relational_holding_count": aos_finding.relational_holding_count,
                     "triggers": list(aos_finding.triggers),
                     "reason": aos_finding.reason,
+                    "per_room_scores": dict(aos_finding.per_room_scores),
                 }
             ]
     except _ERRORS:
@@ -1533,12 +1565,13 @@ def run_audit(
     if addressed_to_father and last_assistant_text:
         try:
             from divineos.core.lepos_translation_gate import (
+                _with_root_cause_footer,
                 check_lepos_dual_channel,
                 check_wallclock_fabrication,
-                check_wallclock_semantic_source,
             )
 
-            lepos_dual_channel_block = check_lepos_dual_channel(last_assistant_text)
+            _raw_dc = check_lepos_dual_channel(last_assistant_text)
+            lepos_dual_channel_block = _with_root_cause_footer(_raw_dc) if _raw_dc else None
             # 2026-07-19 (council-2e41d2c05d04): wallclock-fabrication gate.
             # Blocks Stop when a reply to Andrew contains phrases that describe
             # wallclock time between his prompts I do not have. See
@@ -1555,13 +1588,17 @@ def run_audit(
             # (either real clock command in the turn or Andrew's own
             # time-statement quoted). Same block-key so hook contract is
             # unchanged. Beer/Meadows/Popper walked.
-            lepos_wallclock_block = check_wallclock_fabrication(
-                last_assistant_text
-            ) or check_wallclock_semantic_source(
-                last_assistant_text,
-                last_user_text,
-                command_texts,
-            )
+            # Andrew 2026-07-29: check_wallclock_semantic_source removed
+            # after wallclock-source-prime was made unconditional. Ground
+            # is now supplied at compose-start of every turn (prime runs
+            # `date` and injects current wallclock); the source-check
+            # became a false-fire pathway because the prime's internal
+            # date-run does not populate command_texts. Only the
+            # fabrication-phrase check remains — catches the deferral
+            # class (tomorrow / next session) which prime-supply doesn't
+            # close.
+            _raw_wc = check_wallclock_fabrication(last_assistant_text)
+            lepos_wallclock_block = _with_root_cause_footer(_raw_wc) if _raw_wc else None
         except _ERRORS:
             lepos_dual_channel_block = None
             lepos_wallclock_block = None

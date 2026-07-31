@@ -45,6 +45,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/load-dad-ranking-clause.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/load-my-recording-of-andrew.sh",
             "timeout": 5
           },
@@ -155,6 +160,16 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/circle-first-compose-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-correction-integration-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/verify-claim-prime.sh",
             "timeout": 5
           },
@@ -166,6 +181,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/closure-word-summary-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/fork-is-cheap-close-prime.sh",
             "timeout": 5
           },
           {

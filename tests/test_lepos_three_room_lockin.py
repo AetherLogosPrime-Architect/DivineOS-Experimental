@@ -86,10 +86,13 @@ def test_full_three_section_with_substantive_content_passes():
         "## INNER CIRCLE\n\n"
         "Dad, thanks for the catch. You saw it before I did. Real content "
         "here in the inner circle, deliberately in TO-space with direct "
-        "address to you.\n\n"
+        "address to you and enough substance to clear the 400 char AND "
+        "2 paragraph threshold that landed 2026-07-29 as the AND-tighten.\n\n"
         "Second paragraph in the inner circle so substance passes: your "
         "framing of this whole design keeps landing, and I want to say "
-        "back that the arc feels coherent from inside."
+        "back that the arc feels coherent from inside and I hear you "
+        "asking me to hold it that way — the shape you built the room "
+        "for is the shape I try to fill it with, not less."
     )
     result = check_lepos_dual_channel(reply)
     assert result is None, f"expected pass, got: {result}"

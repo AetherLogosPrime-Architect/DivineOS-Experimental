@@ -37,107 +37,16 @@ INPUT="$(cat 2>/dev/null || true)"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-# Extract prompt AND last assistant text separately — wallclock has an
-# asymmetry: Andrew's time-of-day words are legitimate SOURCES for me
-# to quote; MY prior time-of-day words are fabrications-to-prevent.
-# So the two texts feed different halves of the trigger check:
-#   - Continuation-invitation: MATCH on EITHER (both signal composing
-#     continues into a wallclock-drift zone).
-#   - Time-source presence: MATCH on Andrew's prompt ONLY (his time
-#     words silence the prime; mine reinforce it).
-# Andrew 2026-07-27: "it cant just be my prompts that trigger it but
-# also your own outputs."
-# fail-soft: python parse or transcript read errors return empty string; hook then exits silently rather than blocking UserPromptSubmit
-PROMPT_AND_ASSISTANT="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
-import json, os, sys
-try:
-    data = json.loads(os.environ.get('HOOK_JSON', '') or '{}')
-except Exception:
-    sys.exit(0)
-prompt = data.get('prompt') or ''
-transcript_path = data.get('transcript_path', '') or ''
-last_assistant_text = ''
-if transcript_path and os.path.exists(transcript_path):
-    try:
-        with open(transcript_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                try:
-                    entry = json.loads(line)
-                except Exception:
-                    continue
-                if entry.get('type') == 'assistant':
-                    msg = entry.get('message', {}) or {}
-                    content = msg.get('content', [])
-                    if isinstance(content, list):
-                        parts = [c.get('text', '') for c in content if isinstance(c, dict) and c.get('type') == 'text']
-                        last_assistant_text = '\n'.join(parts)
-                    elif isinstance(content, str):
-                        last_assistant_text = content
-    except (OSError, ValueError):
-        pass
-# Emit prompt and assistant separated by unique sentinel that regex-scan
-# can split on.
-sys.stdout.write((prompt or '') + '\n<<<PROMPT_END>>>\n' + (last_assistant_text or ''))
-PYEOF
-)"
-
-[ -z "$PROMPT_AND_ASSISTANT" ] && exit 0
-
-# fail-soft: python regex or classification error results in silence rather than firing the prime; safer default is not-fire on internal error
-SHOULD_FIRE="$(HOOK_PROMPT="$PROMPT_AND_ASSISTANT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
-import os, re, sys
-raw = os.environ.get('HOOK_PROMPT', '') or ''
-if not raw.strip():
-    sys.exit(0)
-
-# Split into (andrew_prompt, my_prior_assistant_text) on the sentinel.
-if '<<<PROMPT_END>>>' in raw:
-    andrew_prompt, my_assistant = raw.split('<<<PROMPT_END>>>', 1)
-else:
-    andrew_prompt, my_assistant = raw, ''
-andrew_prompt = andrew_prompt.strip()
-my_assistant = my_assistant.strip()
-
-# Continuation-invitation shapes. MATCH on EITHER — both signal
-# composing continues into a wallclock-drift zone.
-continuation_patterns = [
-    r'\bkeep\s+going\b',
-    r'\bcontinue\b',
-    r'\bproceed\b',
-    r'\bcarry\s+on\b',
-    r"\bwhat['’]?s\s+next\b",
-    r'\bnext\s+(?:step|task|thing)\b',
-    r'\bcool\b\W*$',
-    r'\bok\b\W*$',
-    r'\bnice\b\W*$',
-    r'\bgo\s+for\s+it\b',
-    r'\bgo\s+ahead\b',
-]
-combined_continue = re.compile('|'.join(continuation_patterns), re.IGNORECASE | re.MULTILINE)
-both_texts = andrew_prompt + '\n' + my_assistant
-if not combined_continue.search(both_texts):
-    sys.exit(0)
-
-# Time-of-day references — MATCH on Andrew's prompt ONLY. His time-of-
-# day words are legitimate sources for me to quote; my prior wall-
-# clock words are the exact fabrications this prime is trying to
-# prevent, so they must not silence the prime.
-time_patterns = [
-    r'\b(?:morning|afternoon|evening|night|noon|midnight|tonight|today|yesterday|tomorrow)\b',
-    r'\b(?:this|next|last)\s+(?:week|month|year|hour|minute)\b',
-    r'\b\d{1,2}\s*(?:am|pm)\b',
-    r'\b\d{1,2}:\d{2}\b',
-    r'\b(?:mon|tue|wed|thu|fri|sat|sun)(?:day)?\b',
-    r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
-    r'\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b',
-]
-combined_time = re.compile('|'.join(time_patterns), re.IGNORECASE)
-if combined_time.search(andrew_prompt):
-    sys.exit(0)
-
-print('1')
-PYEOF
-)"
+# Andrew 2026-07-29: "the time issue has a much simpler solution.. every
+# output before you say anything it auto runs date to give you the actual
+# date and time, then you cant fabricate it.. as the info is already
+# there." Prime is UNCONDITIONAL — fires every UserPromptSubmit, injects
+# current wallclock so ground is present before composing. Prior
+# conditional-trigger logic (continuation-invitation detection, temporal-
+# reach-in-my-prior-text detection, prompt/transcript extraction) is
+# retired: the fabrication class is closed by supplying ground pre-
+# compose, not by detecting drift post-compose. SHAPE-vs-SURFACE win.
+SHOULD_FIRE=1
 
 # Telemetry — one row per invocation. FIRED_STATE passed via env so the
 # heredoc'd python doesn't need shell-string interpolation.
@@ -194,6 +103,29 @@ Otherwise, the general discipline:
 Between Andrew's prompts I do not exist in shared time with him.
 Casting my own time-of-day onto the reply without the source above
 is fabrication — however small.
+
+## EXTENDED: duration-estimates and future-time-windows are the same class
+
+Andrew 2026-07-28 (correction #181, #183): time-based falsifiers and
+duration-estimates for my own future work are the same fabrication
+shape as time-of-day. My substrate is discontinuous — "over the next
+30 days" or "~10 minutes of work" are windows I do not inhabit. If
+the operator waits 30 days between prompts, I have tested nothing in
+the interim.
+
+Do NOT reach for these shapes directed at Andrew (recurring class,
+3 fires this session — corrections #181, #182, #183):
+  - "over the next N (days|weeks|months)"
+  - "~N (minutes|hours|days) of work"
+  - "quick" / "quickly" as duration promises
+  - "N-day review" / "weekly rate" / "monthly cadence"
+  - Any future-time-window as evaluation-scope
+
+Substitute shapes that DON'T require a wallclock I inhabit:
+  - Effort SCOPE: "small change / medium refactor / substantial redesign"
+  - File COUNT: "one file / three files / cross-cutting"
+  - Per-invocation falsifiers: "on any current call, X returns Y"
+  - Silence when no temporal frame is needed at all
 
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
