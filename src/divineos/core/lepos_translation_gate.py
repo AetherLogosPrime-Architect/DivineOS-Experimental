@@ -93,6 +93,28 @@ from pathlib import Path
 # while the semantic version is designed. Falsifier for stopgap: if the
 # optimizer routes to a phrase not on this list, the semantic replacement
 # is overdue and this file is the wrong long-term shape.
+#
+# SECOND FALSIFIER CONDITION, observed 2026-07-31. The original falsifier
+# only covers false NEGATIVES (routing around the list). The stopgap also
+# produces false POSITIVES, and one fired today: the reply said "extraction
+# generates knowledge, feeds the briefing, shapes the next session" —
+# a description of the extraction pipeline's own data flow, surfaced by the
+# Maturana autopoiesis lens in docs/memory_council_walk_2026-07-31.md. No
+# deferral was implied; the reply reported work already committed.
+#
+# The class is structural, not incidental: "session" is a real first-class
+# object in this architecture, so ANY accurate description of the session
+# lifecycle will contain the noun phrase. A lexical matcher cannot separate
+# "I will do it next session" (deferral, the real target) from "extraction
+# shapes the next session" (architecture). Only subject-awareness can, and
+# subject-awareness is the semantic version.
+#
+# Deliberately NOT fixed by adding a negative-lookbehind for "shapes the" or
+# similar. That is the whack-a-mole shape Andrew standing-banned ("all you
+# did was add more keywords thats the wrong fix" — knowledge 6d1ba56e), and
+# it would trade a false positive for a new hole. Recording the instance is
+# the honest move: both falsifier directions have now fired, which is
+# stronger evidence for the semantic replacement than either alone.
 _WALLCLOCK_FABRICATION_PATTERNS = (
     re.compile(r"\btomorrow\b"),
     re.compile(r"\bnext session\b"),
