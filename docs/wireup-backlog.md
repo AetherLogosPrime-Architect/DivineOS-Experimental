@@ -169,6 +169,8 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 
 - **usage telemetry covers only 9 of 156 commands** [filed 2026-07-31]
   OS_QUERY events carry a tool field, but only 9 distinct commands have ever emitted one. Commands demonstrably used daily (corrections, prereg, audit, goal) emit nothing. So the substrate CANNOT answer which tools are live and which have never been opened — that blindness is why an unused capability can sit unnoticed indefinitely. Surfaced by the 2026-07-31 capability catalog. Not a habit problem, a measurement one.
+- **bypass telemetry may be counting gate-COMPLIANCE as gate-bypass** [filed 2026-07-31]
+  Top logged bypasses are briefing(14) goal(14) ask(12) recall(6) context(8) — every one of which is a command the gates THEMSELVES prescribe as the remedy. When a doorman says 'run divineos ask then retry', running it appears to log a bypass event. If so, the 'elevated bypass rate, gates are being routed-around' warning fires hardest when I am most compliant, and the metric is inverted. Cleared this identical psf class twice on 2026-07-31. NOT verified — needs someone to read the bypass_telemetry emit sites and confirm before acting. Same family as the other alarming-and-wrong measurements found today.
 
 ### omni-mantra
 
