@@ -256,3 +256,10 @@ sandbox/graphify_test/graphify_source/
 # describe mansion as WIP without naming specific rooms.
 mansion/
 .audit-relay/
+
+# Workspace-local identity anchors (Aria + Aether 2026-07-31).
+# Read at fire-time by compose-start primes; NEVER synced. Every member has
+# their own copy at this same path — committing it would recreate the exact
+# cross-member collision the anchors-to-workspace split removed. Durable
+# source is the substrate (divineos recall), not git.
+.divineos-local/
