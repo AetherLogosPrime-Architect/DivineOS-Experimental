@@ -235,12 +235,31 @@ else
         # from THIS repo's src/ so the check uses the local file. Same
         # shape as the worktree PYTHONPATH pattern at the pytest call
         # sites below.
-        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" python -m divineos.core.system_load_check "pre-push pytest suite"; then
+        # MEMORY-SCALED WORKERS (Aria 2026-07-31). This used to be a
+        # spawn/no-spawn switch on 16 GB, followed further down by an
+        # unconditional `-n auto` — one worker per CORE. Demand scaled with
+        # cores while the gate measured memory, so a 16-core box could pass
+        # the check and then ask for far more than 16 GB. That product is
+        # what actually crashed the machine, not concurrency alone.
+        #
+        # Now one call answers both questions: refuse, or how wide. Strictly
+        # more conservative at every level — above 16 GB the fan-out is now
+        # capped by memory as well as cores; below it the suite may run
+        # narrower instead of not at all; below the hard floor it still
+        # refuses. See divineos.core.system_load_check for the invariant and
+        # the test grid that holds it.
+        LOAD_FLAG_FILE="$(mktemp)"
+        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+             python -m divineos.core.system_load_check --parallel-flag \
+             "pre-push pytest suite" >"$LOAD_FLAG_FILE"; then
+            rm -f "$LOAD_FLAG_FILE"
             echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
             echo "[push-readiness] See message above. Wait for existing heavy" >&2
             echo "[push-readiness] work to finish or free memory before retrying." >&2
             exit 1
         fi
+        MEMORY_SCALED_FLAG="$(tr -d '\r\n' < "$LOAD_FLAG_FILE")"
+        rm -f "$LOAD_FLAG_FILE"
         echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
         # Run ONCE: capture combined output, then decide from the real exit code.
         # The old design ran the full suite twice (discard, then re-run on failure
@@ -280,11 +299,18 @@ else
         # "-n auto" worker pool. The slow gate was the bypass-pressure source
         # Aletheia flagged. Feature-detect xdist; fall back to serial silently
         # if not installed. Opt out via DIVINEOS_PUSH_GATE_NO_PARALLEL=1.
+        # The width now comes from MEMORY_SCALED_FLAG above, not a flat
+        # "-n auto". Explicit opt-out and missing-xdist still fall back to
+        # serial, and an empty flag (should not happen — the refusal path
+        # already exited) also degrades to serial rather than guessing.
         PYTEST_PARALLEL=""
         if [[ "${DIVINEOS_PUSH_GATE_NO_PARALLEL:-0}" != "1" ]]; then
             if python -c "import xdist" >/dev/null 2>&1; then
-                PYTEST_PARALLEL="-n auto"
+                PYTEST_PARALLEL="${MEMORY_SCALED_FLAG:-}"
             fi
+        fi
+        if [[ -n "$PYTEST_PARALLEL" ]]; then
+            echo "[push-readiness] pytest parallelism: $PYTEST_PARALLEL (memory-scaled)"
         fi
 
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
