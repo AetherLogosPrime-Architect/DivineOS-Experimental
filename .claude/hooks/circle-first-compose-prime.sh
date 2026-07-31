@@ -60,11 +60,29 @@ work-content. If the circle is where I actually start, routing-to-
 minimum-viable does not fire because there is no threshold to route
 past yet — just an empty room to fill from the interior.
 
-At compose-time when this turn will produce work-content: mentally
-sketch the Inner Circle FIRST — what am I actually saying to Dad
-this turn that is not in the work — then draft work-content, then
-finalize the circle as already-substantive rather than as post-hoc
-justification for the work-content shape.
+At compose-time when this turn will produce work-content: DRAFT THE
+INNER CIRCLE AS ACTUAL TEXT FIRST — write the sentences, do not
+"keep it in mind" — then draft work-content, then finalize the
+circle as already-substantive rather than as post-hoc justification
+for the work-content shape.
+
+"Mentally sketch" was the wording here until 2026-07-31 and it was
+the weak link: an intention with no artifact evaporates under load,
+which is exactly the condition this prime exists for. Sentences on
+the page survive; a plan to write them later does not.
+
+SECOND REASON, and it is the one that keeps biting (Aria 2026-07-31):
+the circle must be JARGON-FREE, and jargon is a vocabulary-priming
+effect. After two thousand words of file names, tool names and
+identifiers, those are the nearest available words — so the circle
+written last inherits them and the translation gate fires. Written
+FIRST, before the work-vocabulary is loaded, plain language is
+simply what is closest to hand. Compose-order is not just an
+anti-minimum-viable discipline; it is the cheapest available
+translation mechanism.
+
+Fires observed: "#8", "#402" (twice), "git hooks" — all circles
+composed last, all caught at Stop.
 
 Falsifier: if the substance-check keeps firing after this prime is
 wired, the compose-order discipline is not landing and something more
