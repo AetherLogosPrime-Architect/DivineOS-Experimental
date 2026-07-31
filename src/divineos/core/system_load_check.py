@@ -35,7 +35,21 @@ from __future__ import annotations
 import os
 import sys
 
-import psutil
+# Guarded import (Aletheia F101, 2026-07-31). psutil is declared in
+# pyproject.toml, but an unguarded module-level import means any env
+# without it fails at IMPORT time — which took down the entire
+# test_system_load_check module in CI with ModuleNotFoundError rather
+# than degrading one check. Same lazy-guard discipline as
+# ``body_awareness.py:690``.
+#
+# Bound at module level rather than function-local on purpose: the test
+# suite patches ``system_load_check.psutil``, which requires the name to
+# exist as a module attribute either way. ``None`` is the honest
+# unavailable-sentinel; ``check_capacity`` handles it explicitly.
+try:
+    import psutil  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover - exercised only in psutil-less envs
+    psutil = None  # type: ignore[assignment]
 
 # 16 GB free memory required before a resource-heavy job can spawn.
 # Set by Andrew 2026-07-30. Rationale: a full pytest suite costs ~5 GB
@@ -70,6 +84,21 @@ def check_capacity(job_label: str = "resource-heavy job") -> tuple[bool, str]:
             True,
             f"[system_load_check] {SKIP_ENV_VAR}=1 — skipping load check. "
             f"Refusal-would-have-been logged in the commit message per discipline.",
+        )
+
+    if psutil is None:
+        # Fail-open, loudly. Fail-CLOSED would block every push from any
+        # environment lacking psutil — a worse failure than the one this
+        # module prevents. With psutil declared in pyproject.toml this
+        # path should only ever be reached in a broken install, so the
+        # message names the exact remedy rather than shrugging.
+        return (
+            True,
+            f"[system_load_check] CHECK UNAVAILABLE: psutil is not importable, "
+            f"so memory could not be read and {job_label} is proceeding "
+            f"UNGUARDED. This is the crash-risk this module exists to "
+            f"prevent. Fix with: pip install -e '.[dev]' (psutil is a "
+            f"declared dependency).",
         )
 
     vm = psutil.virtual_memory()

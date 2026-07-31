@@ -97,6 +97,23 @@ class TestCheckCapacity:
         assert "skipping load check" in msg
         assert "DIVINEOS_SKIP_LOAD_CHECK" in msg
 
+    def test_missing_psutil_fails_open_loudly(self) -> None:
+        """psutil unimportable: proceed, but say so unmissably.
+
+        Aletheia F101 / 2026-07-31. Fail-CLOSED here would block every push
+        from any env lacking psutil — a worse failure than the crash this
+        module prevents. Fail-open is correct; silent fail-open is not.
+        """
+        with mock.patch.object(system_load_check, "psutil", None):
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, msg = system_load_check.check_capacity("pytest suite")
+
+        assert safe is True
+        assert "CHECK UNAVAILABLE" in msg
+        assert "UNGUARDED" in msg
+        assert "psutil" in msg
+        assert "pytest suite" in msg
+
     def test_message_carries_job_label(self) -> None:
         """job_label appears in both proceed and refuse messages."""
         with mock.patch.object(system_load_check, "psutil") as mock_psutil:
