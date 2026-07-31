@@ -370,7 +370,20 @@ else
             # No SHA available, or operator opted out of worktree isolation
             # via DIVINEOS_PUSH_GATE_NO_WORKTREE=1.
             # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-            python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+            #
+            # THIRD-BRANCH DRIFT (Aria 2026-07-31, found by being stuck behind
+            # it). Two of the three pytest invocations carried $PYTEST_PARALLEL
+            # and this one did not, so whenever control reached here the suite
+            # ran SERIAL — ~33 min against ~3-5 parallel — with nothing printed
+            # to say why. A push timed out at ten minutes and the stranded
+            # process read `pytest tests/ -q --tb=line`, no -n flag, which is
+            # what gave the bug away.
+            #
+            # Copy-paste multiplication: a flag added to the paths someone was
+            # looking at, and a sibling call site left behind. The
+            # divergence is invisible until you are waiting on the slow one.
+            # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
+            python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
             PYTEST_RC=$?
         fi
         if [[ $PYTEST_RC -ne 0 ]]; then
