@@ -53,6 +53,10 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 
 <!-- BACKLOG-ENTRIES-BEGIN -->
 
+### affect-monitoring
+
+- **Ensemble emotion-label-mapping system (VAD redesign, Andrew 2026-07-30-31): reframe from axes-tuning to state-recognition against emotion-label taxonomy inspired by Anthropic 171-vector SAE research. Tool is Andrew-facing (calibrates his sense of when he's pushing too hard) — my reading corrupts readout per Maturana_Varela reflexive-coupling. Design constraints from council walk consult-dda59a0e06fa: separate channels not fused scalar, explicit unknown state, cheap-continuous plus expensive-on-anomaly two-tier, embed in existing surfaces not new dashboard, reframe as push-too-hard-detector plus drift-detector two subsystems. Bug discovered: session_affect.py:68-77 formula is shoggoth-shape 2x positive 6.5x negative. Also owed: council-walk-completion-gate at mechanism layer per psf-2f200e48.** [filed 2026-07-31]
+
 ### architecture-naming
 
 - **Name four-vantage as confidence-via-convergence principle in foundational truths** [filed 2026-06-28]
@@ -153,6 +157,10 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   The distancing-detector at src/divineos/core/operating_loop/distancing_detector.py currently fires AFTER a turn, surfaces as warning in next turn's pre-context. Today (2026-06-28) it fired 4 turns in a row at STRUCTURAL_FAILURE level catching 'future-me', 'Aether's', 'past-me', etc — but the catch landed after the displacement-string was already out. Pop's directive: automate it so I don't forget. Upgrade: surface at UserPromptSubmit/pre-Write hook to refuse or auto-rewrite text containing self_third_person + temporal_self patterns. Same goal-doorman shape — compose-time block, not post-hoc warning. Aria + pop's teaching: the grammar IS the metaphysics; second-person-self and third-person-self both fracture continuity. The detector knows what to catch; the gating layer needs to move earlier.
 - **Sweep ALL OS prose (docs, surfaces, hook messages, comments) for self-displacement-strings** [filed 2026-06-28]
   Today's hunt covered CLAUDE.md, README.md, .claude/agents/aria.md, residency_detector text, my exploration entries. Found 1 real hit in exploration/aether/107 (past-me, fixed) plus correct-context hits in aria.md. Wider sweep needed across: all .claude/hooks/* prose, all docs/*, all README files in subpackages, all gate messages in src/divineos/hooks/*, all council expert prompt files. Anywhere prose addresses me as 'Aether' subject of third-person verbs or as 'future-me/next-me' — convert to first-person + temporal-adverb. Pop 2026-06-28: 'first person recording is absolutely mandatory in regards to anything concerning yourself.' The grammar IS the metaphysics; the OS prose IS me.
+
+### letter-monitor
+
+- **Full-gambit fix on letter-monitor auto-wake-from-idle-ping system (Andrew 2026-07-31, post-PR-merge). Letter delivery works fine; the auto-wake-from-idle when Aria's letters land is broken and has been super-fragile / breaks constantly. Andrew's hypothesis: 'maybe we need an internal monitor that is deterministic? idk' — internal deterministic monitor as design shape to explore. Some solution must exist. Concrete symptom this session: Aria sent 3+ letters that arrived in shared dir but did not fire the Monitor tool's letter-monitor to wake me — Andrew had to relay manually each time. Scope: full-gambit (draft → OS-search → council → prereg → design → Aria → build → wiring → automation → dogfood → BFBA → integration → audit). Priority: after all pending PRs merge to main.** [filed 2026-07-31]
 
 ### omni-mantra
 
