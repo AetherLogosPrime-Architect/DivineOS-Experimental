@@ -519,7 +519,26 @@ def fix_hook_counts(actual_hooks: int) -> list[str]:
                 except ValueError:
                     continue
         if actual_hooks <= max_existing:
-            continue  # No-op: existing count is already at or above ours.
+            # No-op: existing count is already at or above ours.
+            #
+            # SAY SO (Aria 2026-07-31). This skip was silent, and silence
+            # here reads as breakage: --fix printed the drift, changed
+            # nothing, exited. I concluded "--fix is broken" and wrote that
+            # into a commit message. It is not broken — it is monotonic on
+            # purpose, and it was refusing to propagate a number I had
+            # hand-counted wrong. The guard did its job; only its silence
+            # was a defect. A deliberate no-op that does not explain itself
+            # is indistinguishable from a failure.
+            print(
+                f"  {doc_file.name}: --fix SKIPPED by monotonic guard "
+                f"(documented {max_existing} > actual {actual_hooks}). "
+                f"Lowering a count is manual by design — a genuine hook "
+                f"removal deserves attention, and auto-lowering causes "
+                f"cross-branch rebase conflicts. If {actual_hooks} is "
+                f"correct, edit by hand; if you derived it yourself rather "
+                f"than from this checker, re-check first."
+            )
+            continue
 
         # Pattern A: "9 Claude Code enforcement hooks" / "9 enforcement hooks"
         updated = re.sub(
