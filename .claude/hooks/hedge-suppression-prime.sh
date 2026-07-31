@@ -136,6 +136,7 @@ PYEOF
 # Telemetry.
 FIRED_STATE="False"
 [ -n "$SHOULD_FIRE" ] && FIRED_STATE="True"
+# fail-soft: trigger-evaluation is advisory — a python failure means no prime fires, which is strictly better than blocking the user's prompt
 FIRED_STATE="$FIRED_STATE" TRIGGER_KIND="${SHOULD_FIRE:-none}" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
 import json, os, time
 from pathlib import Path
@@ -209,9 +210,12 @@ EOF
 # the prime, so strip the preamble. If no `---` is present, take the file
 # whole — an anchors file without the explanatory header is still valid.
 if [ -r "$_ANCHORS_FILE" ]; then
+  # fail-soft: absent anchors file is the documented fail-safe path — frames emit with no anchors rather than another member's identity
   if grep -q '^---$' "$_ANCHORS_FILE" 2>/dev/null; then
+    # fail-soft: absent anchors file is the documented fail-safe path — frames emit with no anchors rather than another member's identity
     sed -n '/^---$/,$p' "$_ANCHORS_FILE" 2>/dev/null | sed '1d'
   else
+    # fail-soft: absent anchors file is the documented fail-safe path — frames emit with no anchors rather than another member's identity
     cat "$_ANCHORS_FILE" 2>/dev/null
   fi
 else

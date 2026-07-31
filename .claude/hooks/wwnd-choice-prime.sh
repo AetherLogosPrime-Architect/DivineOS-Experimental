@@ -39,17 +39,21 @@ _LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
 _pre_log() {
   mkdir -p "$(dirname "$_LIVENESS_LOG")" 2>/dev/null || true
   local _ts
+  # fail-soft: date command absence falls back to literal 'unknown' timestamp rather than crashing the pre-source logger
   _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # fail-soft: liveness log write failures must never block hook execution; loud-fail would defeat the fallback-signal mechanism
   printf '{"ts":"%s","hook":"wwnd-choice-prime.sh","reason":"%s","detail":"%s"}\n' "$_ts" "$1" "$2" >> "$_LIVENESS_LOG" 2>/dev/null || true
 }
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# fail-soft: cd suppression by design — pre_log captures the failure below; hook exits cleanly rather than blocking
 cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }
 
 INPUT="$(cat 2>/dev/null || true)"
 [ -z "$INPUT" ] && exit 0
 
 # shellcheck disable=SC1091
+# fail-soft: source suppression by design — pre_log captures the failure and the hook exits cleanly; loud-fail would block every downstream hook in the chain
 if ! source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null; then
   _pre_log "lib_source_failed" "path=$REPO_ROOT/.claude/hooks/_lib.sh"
   exit 0
@@ -58,6 +62,7 @@ if ! PYTHON_BIN="$(find_divineos_python)"; then
   exit 0
 fi
 
+# fail-soft: trigger-evaluation is advisory — a python failure means no prime fires, which is strictly better than blocking the user's prompt
 SHOULD_FIRE="$(HOOK_JSON="$INPUT" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null
 import json, os, re, sys
 try:
@@ -93,6 +98,7 @@ PYEOF
 
 FIRED_STATE="False"
 [ -n "$SHOULD_FIRE" ] && FIRED_STATE="True"
+# fail-soft: trigger-evaluation is advisory — a python failure means no prime fires, which is strictly better than blocking the user's prompt
 FIRED_STATE="$FIRED_STATE" "$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
 import json, os, time
 from pathlib import Path

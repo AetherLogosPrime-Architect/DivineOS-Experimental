@@ -104,12 +104,14 @@ fi
 # outdated. Signal is the glob loop — hardcoded names mean pre-fix.
 POST_COMMIT_PATH="$REPO_ROOT/.git/hooks/post-commit"
 if [ -f "$POST_COMMIT_PATH" ]; then
+    # fail-soft: unreadable post-commit hook is itself the staleness signal this check reports; grep noise would mask it
     if ! grep -q 'post-commit-\*\.sh' "$POST_COMMIT_PATH" 2>/dev/null; then
         # Glob directly rather than parsing ls (shellcheck SC2012).
         _orphaned=""
         for _h in "$REPO_ROOT"/.claude/hooks/post-commit-*.sh; do
             [ -e "$_h" ] || continue  # unmatched glob stays literal
             _n="$(basename "$_h")"
+            # fail-soft: unreadable post-commit hook is itself the staleness signal this check reports; grep noise would mask it
             if ! grep -q "$_n" "$POST_COMMIT_PATH" 2>/dev/null; then
                 _orphaned="${_orphaned}    - ${_n}"$'\n'
             fi
