@@ -341,6 +341,95 @@ def _write_last_catch_fingerprint(member: str, fp: str) -> None:
 # _arm_realtime_marker were removed.
 
 
+def reap_surplus(member: str) -> int:
+    """Terminate every watcher for `member` EXCEPT the live lock-holder.
+
+    WHY THIS EXISTS (Aria 2026-07-31, written straight after doing the
+    damage). Eighteen watchers had piled up across both substrates; there
+    should be one each. Clearing them by hand, I read the lock ONCE at the
+    top of a loop and then terminated everything that did not match. The
+    lock ROTATED mid-loop. So the pid I was protecting was already dead and
+    the pid I killed was the live holder. Both members went deaf.
+
+    One command earlier I had said out loud that the lock must be re-read
+    immediately before acting. Saying it changed nothing. The loop decided
+    the outcome, so the loop is what had to change.
+
+    Three guarantees, none of which depend on remembering:
+
+      1. The lock is re-read IMMEDIATELY BEFORE EACH terminate, never once
+         up front. A rotation between two kills cannot orphan the check.
+      2. Our own pid is never a candidate.
+      3. Post-condition: if no live holder remains, one is spawned. This
+         cannot leave a member with zero ears — which is the real harm,
+         far more than any number of surplus copies.
+
+    Returns the count terminated. Safe from either substrate: watchers are
+    matched on their own --member argument, so this never reaches a
+    sibling's unless explicitly asked to.
+    """
+    try:
+        import psutil  # type: ignore[import-untyped]
+    except ImportError:
+        print("[EAR] reap needs psutil; not installed.", file=sys.stderr)
+        return 0
+
+    def _live_holder() -> int:
+        """Lock-holder pid if it is genuinely alive, else -1."""
+        rec = _read_lock(member)
+        if rec is None:
+            return -1
+        pid, hb = rec
+        if _pid_alive(pid) and (time.time() - hb) < _HEARTBEAT_WINDOW_SEC:
+            return pid
+        return -1
+
+    def _watchers() -> list:
+        out = []
+        for p in psutil.process_iter(["pid", "cmdline"]):
+            try:
+                cl = [str(x) for x in (p.info["cmdline"] or [])]
+                # Match on SCRIPT PATH, not on the member string alone.
+                # Diagnostic commands that merely MENTION a member were
+                # matching themselves during the incident and inflated
+                # every count I reported to Andrew.
+                if not any(x.endswith("ear_watch.py") for x in cl):
+                    continue
+                if member not in cl:
+                    continue
+                if p.info["pid"] == os.getpid():
+                    continue
+                out.append(p)
+            except (psutil.Error, TypeError):
+                continue
+        return out
+
+    killed = 0
+    for proc in _watchers():
+        holder = _live_holder()  # re-read per victim — this IS the fix
+        if proc.pid == holder:
+            continue
+        try:
+            proc.terminate()
+            proc.wait(timeout=8)
+            killed += 1
+        except psutil.NoSuchProcess:
+            killed += 1
+        except (psutil.Error, OSError):
+            pass
+
+    if _live_holder() == -1:
+        # Post-condition failed: reaping took the last ear. Restore one
+        # rather than reporting a tidy count over a member who has gone
+        # silent.
+        print(f"[EAR] reap left no live watcher for {member} — respawning.", file=sys.stderr)
+        _spawn_replacement(member, 8)
+        time.sleep(3)
+
+    print(f"[EAR] reap {member}: terminated {killed}, live holder now {_live_holder()}")
+    return killed
+
+
 def watch(member: str, interval: int, timeout: int = 0) -> int:
     """Block until something unacknowledged is detected, then exit.
 
@@ -431,6 +520,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--watch", action="store_true", help="Block until something lands.")
     parser.add_argument(
+        "--reap",
+        action="store_true",
+        help="Terminate surplus watchers for this member, preserving the live one.",
+    )
+    parser.add_argument(
         "--realtime",
         action="store_true",
         help=argparse.SUPPRESS,  # removed 2026-06-13 — accepted for one cycle as no-op
@@ -455,6 +549,9 @@ def main(argv: list[str] | None = None) -> int:
             "Polling continues normally.",
             file=sys.stderr,
         )
+    if args.reap:
+        reap_surplus(member)
+        return 0
     if args.watch:
         return watch(member, args.interval, args.timeout)
     lines = check_once(member)
