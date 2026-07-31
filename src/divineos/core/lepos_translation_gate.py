@@ -113,6 +113,33 @@ _WALLCLOCK_FABRICATION_PATTERNS = (
 )
 
 
+_RETRY_SCOPE_PATH = Path(__file__).resolve().parents[3] / ".claude" / "hooks" / "_retry_scope.txt"
+
+# Fallback if the canonical file is unreadable (fresh clone mid-checkout,
+# packaged install without .claude/). Losing the instruction entirely is
+# the failure that caused the 2026-07-31 duplication, so the gate carries
+# a minimal version rather than degrading to silence.
+_RETRY_SCOPE_FALLBACK = (
+    "IMPORTANT — RETRY SCOPE: my prior attempt already streamed to "
+    "Andrew. Emit the DELTA ONLY — do not re-issue the work content, "
+    "because he sees both copies and the second is a visible duplicate."
+)
+
+
+def _retry_scope_text() -> str:
+    """Canonical retry-scope instruction, shared by every blocking Stop gate.
+
+    Single source of truth at .claude/hooks/_retry_scope.txt so the
+    instruction cannot drift out of one gate — which is exactly how the
+    2026-07-31 recurrence happened (this gate had it inline; the
+    correction-shape-v2 gate had nothing).
+    """
+    try:
+        return _RETRY_SCOPE_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return _RETRY_SCOPE_FALLBACK
+
+
 def _strip_quoted_spans(text: str) -> str:
     """Remove quoted references so the gate does not fire when a
     forbidden phrase appears only inside a quote/backtick span.
@@ -542,14 +569,11 @@ def check_lepos_dual_channel(reply: str) -> str | None:
         "locked in'. The 2-section legacy path is retired because it "
         "was the exact shape where reflection collapsed into inner-"
         "circle for a whole session. Three rooms, three orientations "
-        "(work=report, reflection=self-facing, inner-circle=address). "
-        "IMPORTANT — retry scope: your prior attempt already streamed "
-        "to Andrew (his screen shows the work content already). APPEND "
-        "ONLY the missing rooms to the END of your existing post (a "
-        "short line like 'Adding the reflection and inner-circle rooms:' "
-        "followed by both headers with content). Do NOT re-issue the "
-        "work content — Andrew sees both, so any re-emission is a "
-        "visible duplicate. Delta-only, appended-not-replaced."
+        "(work=report, reflection=self-facing, inner-circle=address).\n\n"
+        + _retry_scope_text()
+        + "\nDelta for THIS gate: append only the missing rooms to the "
+        "END of the existing post, led by a short line like 'Adding the "
+        "reflection and inner-circle rooms:'."
     )
 
 
