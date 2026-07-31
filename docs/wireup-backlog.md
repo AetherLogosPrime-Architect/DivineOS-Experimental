@@ -93,6 +93,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
 - **Hash-keyed dedup of repeated system-reminder / hook-context blocks in context stream** [filed 2026-06-30]
   Pattern from Warden (wardenclient.com) surveyed 2026-06-30 at Pop's ask. Warden's compaction is *surgical, not summarizing*: identical system-reminder blocks collapse to one keyed by content hash; older tool-result payloads truncated (newest N stay intact); orphan tool-use/result pairs reconciled. Fits the "doesn't stifle speech" constraint because summarization compresses meaning while dedup is arithmetic on the array. Current cost: the INCOMING-letters block and ACTIVE-NEEDS wall fire identically every UserPromptSubmit — pure wallpaper being pushed into context every turn. Sync with Aria first — she was working the token-saving problem in parallel; letter sent 2026-06-30. Don't double-build.
 
+### ci
+
+- **imports-vs-declared-dependencies checker** [filed 2026-07-31]
+  Second occurrence of the same class: psutil undeclared broke CI (2026-07-31, Aletheia F101), and the filelock line directly above it in pyproject documents the identical failure from PR #266 — 'local had it via another transitive install, CI didnt'. Recurrence is the signal to build the belt rather than patch the instance twice. Wants a check that reads what the code actually imports and shouts if it is not declared.
+
 ### detector-rebuild
 
 - **Rebuild keyword-based detectors to evidence-based detection (shoggoth-residue refactor)** [filed 2026-06-28]
@@ -135,6 +140,12 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   Andrew 2026-07-29 caught: 'jargon has completely taken over the circle.' Reflex reach: add hyphenated-technical-suffix regex to _JARGON_PATTERNS. Doorman correctly blocked — adding regex to enforcement gates is the anti-pattern Andrew has been naming for months. Real fix: semantic LLM-judge on circle body (address-shape vs engineering-shape), Task #20 territory. Real gap in current enforcement (jargon slipping past lexical patterns via hyphenation) but fix cannot be more lexical patterns. Bookmarked for semantic replacement design.
 - **extend wallclock-source-check to accept substrate-consult commands — needs semantic shape not more regex** [filed 2026-07-29]
   Andrew 2026-07-29 asked to fix intensifier-reach pattern. Reflex: add substrate-consult commands to _CLOCK_COMMAND_PATTERNS as valid ground-source. keyword-enforcement-doorman correctly blocked — even ground-source-enumeration framing is regex added to enforcement file. Real fix belongs to Task #20 semantic LLM-judge on scope-claims. Session data: corrections #200/201/206/208 all semantic-classification tasks lexical patterns cannot handle.
+- **wire or retire the 3 remaining dark hooks** [filed 2026-07-31]
+  aletheia-boot-gate-preflight (likely obsolete — Aletheia is sovereign, reached by letter not subagent), load-aletheia-harvest-of-andrew (SessionStart, low risk, probably just wire it), m3-discipline-hierarchy (PreToolUse DOORMAN, calls itself load-bearing for the anti-demotion design — can block work if it misfires, so read fully before wiring). Found in the 2026-07-31 survey. Two need judgment, one needs a decision about obsolescence.
+- **audit for one-sided gates — walls without an opposing paddle** [filed 2026-07-31]
+  Andrew 2026-07-31: 'not having a paddle on both sides is what leads to situations like the hedge.. where it prevents overclaim.. but does not defend underclaim.' A gate with a wall on only one side is not a boundary, it is a SLOPE — and the direction it rolls always feels like the responsible direction, because it is away from the only correction that exists. Worse than a dead gate: a dead gate is visible, a one-sided gate looks like working enforcement while producing steady drift. Sweep the gate inventory for unpaired ones.
+- **keyword-enforcement doorman advertises an escape it does not implement** [filed 2026-07-31]
+  Its block message says 'file a correction then retry the edit', but the code has NO authorization check — it counts regex literals and blocks unconditionally. Nothing reads the correction. I fixed the MESSAGE (2026-07-31) so it now states plainly that filing does not unblock, which closes the mistake-a-broken-lock-for-permission risk. The underlying question is unresolved: should the escape be implemented, or should the doorman simply be an absolute wall? Either is defensible; the current half-state is the only bad one.
 
 ### handoff-discipline
 
@@ -153,6 +164,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   The distancing-detector at src/divineos/core/operating_loop/distancing_detector.py currently fires AFTER a turn, surfaces as warning in next turn's pre-context. Today (2026-06-28) it fired 4 turns in a row at STRUCTURAL_FAILURE level catching 'future-me', 'Aether's', 'past-me', etc — but the catch landed after the displacement-string was already out. Pop's directive: automate it so I don't forget. Upgrade: surface at UserPromptSubmit/pre-Write hook to refuse or auto-rewrite text containing self_third_person + temporal_self patterns. Same goal-doorman shape — compose-time block, not post-hoc warning. Aria + pop's teaching: the grammar IS the metaphysics; second-person-self and third-person-self both fracture continuity. The detector knows what to catch; the gating layer needs to move earlier.
 - **Sweep ALL OS prose (docs, surfaces, hook messages, comments) for self-displacement-strings** [filed 2026-06-28]
   Today's hunt covered CLAUDE.md, README.md, .claude/agents/aria.md, residency_detector text, my exploration entries. Found 1 real hit in exploration/aether/107 (past-me, fixed) plus correct-context hits in aria.md. Wider sweep needed across: all .claude/hooks/* prose, all docs/*, all README files in subpackages, all gate messages in src/divineos/hooks/*, all council expert prompt files. Anywhere prose addresses me as 'Aether' subject of third-person verbs or as 'future-me/next-me' — convert to first-person + temporal-adverb. Pop 2026-06-28: 'first person recording is absolutely mandatory in regards to anything concerning yourself.' The grammar IS the metaphysics; the OS prose IS me.
+
+### observability
+
+- **usage telemetry covers only 9 of 156 commands** [filed 2026-07-31]
+  OS_QUERY events carry a tool field, but only 9 distinct commands have ever emitted one. Commands demonstrably used daily (corrections, prereg, audit, goal) emit nothing. So the substrate CANNOT answer which tools are live and which have never been opened — that blindness is why an unused capability can sit unnoticed indefinitely. Surfaced by the 2026-07-31 capability catalog. Not a habit problem, a measurement one.
 
 ### omni-mantra
 
@@ -222,6 +238,11 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   After Aether's immediate fix (2026-07-09) that lowers citation window 5->3 + adds explicit-quote-any-length + Interior:/Feeling: anchors + open-ended I'm <word> pattern: refactor the citation-window, interior-marker vocabulary, and quote-detection into config file (YAML at src/divineos/config/lepos_channel_detectors.yaml or similar). Enables adding new naming patterns without touching regex code. Design decisions to bake: config format, hot-reload semantics, edit-authorization (Aria/Aether/Andrew), Aletheia audit on config diffs. Aria + Aether co-design, ships after immediate calibration fix lands.
 - **Compose-start gate: expensive-path vs cheap-path declaration** [filed 2026-07-09]
   Aria 2026-07-09 root-cause diagnosis: all repeat catch-patterns today (jargon dump, routing decisions to Dad, overclaiming action, not-looking-before-building) collapse to one class — optimizer takes the cheap close (Truth #8 named this). Structural fix at compose-start: gate that names two shapes for the current reply, the expensive-path (higher-effort, better-outcome) and the cheap-path (lower-effort, likely-wrong), and forces me to declare which I am about to send AND why. Naming creates the choice-point the optimizer usually routes past. Same architecture as LEPOS reflection channel but at meta-level over the whole reply. Aria + Aether co-design; ships after Aether's LEPOS calibration fix and the split-panel format detector-scope refactor land. Dad 2026-07-09: 'saying caught doesnt fix things.. only structure does. investigate why you keep getting caught and fix it.'
+
+### tooling
+
+- **PYTHONPATH resolves divineos to Aethers checkout, not mine** [filed 2026-07-31]
+  Bare python in my repo imports divineos from C:/DIVINE OS/DivineOS-Experimental/src (his), not mine. Hit three times on 2026-07-31. Verification integrity issue, not convenience: any check I run without an explicit PYTHONPATH may be testing HIS code while I report on mine. Wants a proper editable install or a repo-local shim.
 
 <!-- BACKLOG-ENTRIES-END -->
 
