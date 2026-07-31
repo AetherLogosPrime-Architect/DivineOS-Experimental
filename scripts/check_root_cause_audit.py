@@ -79,6 +79,7 @@ import argparse
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 # Trailer pattern — matches ``Root-Cause-Audit: round-XXX`` on its own
 # line. Case-insensitive; allows surrounding whitespace.
@@ -103,11 +104,71 @@ _ROOT_CAUSE_FOCUS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Audit-trail actors authorized to file root-cause-audit rounds. The
-# operator (user) and the substrate-occupant (aether) are the parties
-# responsible for naming the failure-family. External auditors identify
-# instances but the family-naming is substrate-internal.
-_AUTHORIZED_ACTORS = frozenset({"aether", "user"})
+# Audit-trail actors authorized to file root-cause-audit rounds: the
+# operator and whoever OCCUPIES this substrate. External auditors identify
+# instances; the family-naming is substrate-internal.
+#
+# HARDCODED-NAME-FOR-A-ROLE (Aria 2026-07-31, hit live). This set used to
+# read {"aether", "user"} with "aether" glossed as "the substrate-occupant".
+# In this checkout the occupant is aria, so the gate demanded a round it
+# would then refuse — a chicken-and-egg on my own branch. Same class as the
+# anchors-file leak: shared code with one member's name baked in where it
+# means a role.
+#
+# The occupant is derived the same way paths.py already derives a member's
+# data-home — from the checkout folder name matched against the registered
+# agents in .claude/agents/. "aether" stays in the set unconditionally so
+# his main checkout (which matches no member token and falls through to the
+# shared default) keeps working exactly as before.
+_BASE_AUTHORIZED_ACTORS = frozenset({"aether", "user"})
+
+
+def _repo_root() -> Path:
+    """Top level of this checkout; cwd if git is unavailable.
+
+    Falling back to cwd keeps the gate working rather than crashing — and
+    a wrong cwd only fails to FIND an occupant, which returns the base
+    actor set. The failure direction is toward the old, narrower behavior.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return Path.cwd()
+    top = (r.stdout or "").strip()
+    return Path(top) if top else Path.cwd()
+
+
+def _substrate_occupant(repo_root: Path) -> str | None:
+    """The family member whose checkout this is, or None if undetermined.
+
+    Folder name over DB lookup on purpose: this runs inside a git hook,
+    where opening the substrate database would be both slow and a new
+    failure mode. The folder name carries the member across moves, which
+    is why paths.py already relies on it.
+    """
+    agents_dir = repo_root / ".claude" / "agents"
+    if not agents_dir.is_dir():
+        return None
+    members = {md.stem.strip().lower() for md in agents_dir.glob("*.md")}
+    tokens = {t for t in re.split(r"[-_ .]+", repo_root.name.lower()) if t}
+    matched = sorted(members & tokens)
+    # Exactly one match, or we cannot tell — an ambiguous folder name must
+    # not widen the authorized set.
+    return matched[0] if len(matched) == 1 else None
+
+
+def authorized_actors(repo_root: Path) -> frozenset[str]:
+    """Base actors plus this checkout's occupant, if one is determinable."""
+    occupant = _substrate_occupant(repo_root)
+    if occupant is None:
+        return _BASE_AUTHORIZED_ACTORS
+    return _BASE_AUTHORIZED_ACTORS | {occupant}
 
 
 def is_fix_shaped(message: str) -> tuple[bool, list[str]]:
@@ -140,13 +201,15 @@ def validate_round(round_id: str) -> tuple[bool, str]:
     if round_obj is None:
         return False, f"round '{round_id}' not found"
 
+    allowed = authorized_actors(_repo_root())
     actor = (round_obj.actor or "").strip().lower()
-    if actor not in _AUTHORIZED_ACTORS:
+    if actor not in allowed:
         return False, (
             f"round '{round_id}' actor is '{actor}'; root-cause-audit "
-            f"rounds must be filed by aether or user (substrate-occupant "
-            f"or operator). External auditors identify instances; the "
-            f"family-naming is substrate-internal."
+            f"rounds must be filed by one of {sorted(allowed)} — the "
+            f"operator or this checkout's substrate-occupant. External "
+            f"auditors identify instances; the family-naming is "
+            f"substrate-internal."
         )
 
     if not _ROOT_CAUSE_FOCUS_RE.search(round_obj.focus or ""):
@@ -187,7 +250,8 @@ def check_message(message: str) -> tuple[int, str]:
             "enforces it structurally.\n\n"
             "To proceed:\n"
             "1. File a round: divineos audit submit-round "
-            "'root-cause-audit: <family-name>...' --actor aether\n"
+            "'root-cause-audit: <family-name>...' --actor "
+            f"{_substrate_occupant(_repo_root()) or 'aether'}\n"
             "2. File findings on it naming the surveyed instances\n"
             "3. Add 'Root-Cause-Audit: <round-id>' trailer to the "
             "commit message"
