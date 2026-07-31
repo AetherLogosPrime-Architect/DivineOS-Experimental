@@ -71,6 +71,7 @@ on turn 15 without Andrew re-firing correction? If yes, the fix took.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 import time
@@ -331,6 +332,68 @@ _TO_MARKER_RE = re.compile(
 )
 
 
+JARGON_FIRE_LOG = Path.home() / ".divineos" / "lepos_circle_jargon_fires.jsonl"
+
+
+def _record_jargon_fire(samples: list[str]) -> None:
+    """Append the terms that actually leaked into a circle.
+
+    WHY THIS EXISTS (Aria 2026-07-31). The gate named the leaked words in
+    its refusal and then threw them away. The compose-start prime that is
+    supposed to PREVENT the leak carried a HAND-MAINTAINED "Fires observed"
+    list — stale within days, and by construction never containing the term
+    I am about to leak next.
+
+    That is the third stale-hand-list of this session: LOADOUT.md drifted
+    while the house moved, and the post-commit dispatcher hardcoded its
+    hook list and silently orphaned two automations. Same shape each time —
+    a list a human writes about a system the system could report itself.
+
+    So the gate now feeds the prime. Fail-soft throughout: this is
+    telemetry for a priming aid, and a logging failure must never turn a
+    gate refusal into a crash.
+    """
+    try:
+        JARGON_FIRE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "ts": time.time(),
+            "day": time.strftime("%Y-%m-%d"),
+            "terms": [s.strip() for s in samples[:6] if s and s.strip()],
+        }
+        with JARGON_FIRE_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record) + "\n")
+    except (OSError, ValueError, TypeError):
+        # fail-soft: a telemetry write must never convert a gate refusal
+        # into an exception; the refusal itself is the load-bearing part.
+        pass
+
+
+def recent_jargon_terms(limit: int = 12) -> list[str]:
+    """Most-recent distinct leaked terms, newest first. Empty on any error.
+
+    Read by the circle-first compose prime so it shows the words that
+    ACTUALLY leaked rather than a list someone typed once.
+    """
+    try:
+        if not JARGON_FIRE_LOG.exists():
+            return []
+        lines = JARGON_FIRE_LOG.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    seen: list[str] = []
+    for line in reversed(lines):
+        try:
+            terms = json.loads(line).get("terms") or []
+        except (ValueError, TypeError):
+            continue
+        for t in terms:
+            if t not in seen:
+                seen.append(t)
+            if len(seen) >= limit:
+                return seen
+    return seen
+
+
 def _has_jargon(text: str) -> tuple[bool, list[str]]:
     samples: list[str] = []
     for pattern in _JARGON_PATTERNS:
@@ -382,6 +445,7 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
         return (False, "circle block has no first-person marker (I/my/me)")
     jargon_found, samples = _has_jargon(stripped)
     if jargon_found:
+        _record_jargon_fire(samples)
         return (
             False,
             "circle block contains jargon signals ("

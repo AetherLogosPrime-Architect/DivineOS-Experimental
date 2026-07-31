@@ -81,12 +81,40 @@ simply what is closest to hand. Compose-order is not just an
 anti-minimum-viable discipline; it is the cheapest available
 translation mechanism.
 
-Fires observed: "#8", "#402" (twice), "git hooks" — all circles
-composed last, all caught at Stop.
-
 Falsifier: if the substance-check keeps firing after this prime is
 wired, the compose-order discipline is not landing and something more
 than a prime is needed (session-scale tracker, harder gate, etc.).
 EOF
+
+# THE FIRES ARE NOW REPORTED, NOT REMEMBERED (Aria 2026-07-31).
+#
+# This section used to be a hand-typed line — 'Fires observed: "#8",
+# "#402" (twice), "git hooks"'. Two failures in one: it went stale, and
+# by construction it could never contain the word about to leak NEXT.
+# The gate already knew every leaked term and threw them away in its
+# refusal message.
+#
+# Third stale-hand-list of this session (LOADOUT.md drifted; the
+# post-commit dispatcher hardcoded its hook list and orphaned two
+# automations). Same shape every time: a list a human writes about a
+# system that could report on itself. So the gate records and the prime
+# reads.
+#
+# fail-soft: any failure prints nothing and the prime above still stands on
+# its own; a telemetry read must never suppress the discipline it decorates.
+"$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
+try:
+    from divineos.core.lepos_translation_gate import recent_jargon_terms
+    terms = recent_jargon_terms(10)
+except Exception:
+    terms = []
+if terms:
+    print("\nTERMS THAT ACTUALLY LEAKED INTO THE CIRCLE (newest first,")
+    print("recorded by the gate itself — not a list anyone typed):")
+    print("  " + "  ".join(f"`{t}`" for t in terms))
+    print("\nThese are MY words, from MY circles. If any is within reach")
+    print("this turn, that is the reach to catch — say the plain thing")
+    print("instead. The list grows itself; it cannot go stale.")
+PYEOF
 
 exit 0
