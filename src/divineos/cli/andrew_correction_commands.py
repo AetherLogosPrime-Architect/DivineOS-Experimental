@@ -70,9 +70,18 @@ def register(cli: click.Group) -> None:
             click.secho(f"[+] Correction #{correction_id} marked INTEGRATED.", fg="green")
             click.secho(f"    evidence: {evidence.strip()}", fg="bright_black")
         else:
+            # Aria 2026-07-27: was previously "not found, non-OPEN, or too
+            # short" — a generic message that hid the structural-artifact
+            # requirement added 2026-06-13. Composers with prose-only
+            # evidence got refused silently without knowing WHY, then
+            # deferred as a workaround. Now the specific reason lands.
+            from divineos.core.andrew_correction_tracker import (
+                explain_integrate_refusal,
+            )
+
+            reason = explain_integrate_refusal(correction_id, evidence)
             click.secho(
-                f"Refused: correction #{correction_id} not found, "
-                f"already non-OPEN, or evidence too short (< 20 chars).",
+                f"Refused correction #{correction_id}: {reason}",
                 fg="red",
                 err=True,
             )
