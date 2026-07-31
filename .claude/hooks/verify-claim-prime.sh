@@ -100,6 +100,22 @@ state_check_patterns = [
     r'\b(?:pushed|merged|landed|shipped|deployed)\s+(?:to\s+)?(?:origin|main|prod|production)\b',
     r'\btests?\s+(?:pass|passed|passing|green)\b',
     r'\bbuild\s+(?:succeeded|passed|green|complete)\b',
+    # Id-shape references (Aria 2026-07-31): Andrew's prompt or my prior
+    # output containing checkable-id shapes I might assert back from
+    # memory. Structural fix for the verify-claim gate firing 3x in one
+    # session on id-to-id assertions (round-<hex> mapped to PR-<num>,
+    # psf-<hex> reported as filed, etc). Prior recurrence: 5+ correction
+    # entries referenced phantom prereg-89d744b98b35 that didn't exist
+    # in the registry (knowledge 9e3ee6d3). Per Dad's factorio-brain
+    # teaching: build the belt, don't rely on my memory to re-verify
+    # each time.
+    r'\bround-[0-9a-f]{12}\b',
+    r'\bpsf-[0-9a-f]{8}\b',
+    r'\bprereg-[0-9a-f]{12}\b',
+    r'\bfinding-[0-9a-f]{6,}\b',
+    r'\bcommit\s+[0-9a-f]{7,40}\b',
+    r'\bPR\s+#\d+\b',
+    r'\b(?:pull\s+request|pull-request)\s+#?\d+\b',
 ]
 combined = re.compile('|'.join(state_check_patterns), re.IGNORECASE | re.MULTILINE)
 if combined.search(prompt):
