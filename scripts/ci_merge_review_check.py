@@ -134,6 +134,26 @@ def _round_is_logged(round_id: str) -> bool | None:
     """
     if not round_id:
         return False
+
+    # The exported record is checked FIRST, because it is the only one of the
+    # two that exists in CI. `divineos audit export` writes each round to
+    # docs/audit_rounds/<id>.md, and those files are committed, so a bare
+    # checkout finally carries the review with it. This is what turns
+    # round-verification from structurally-unknowable into verifiable.
+    #
+    # It is NOT the keystone and must not be read as one: a committed file is
+    # agent-writable. The unforgeable part remains Andrew's GitHub approval on
+    # the exact head SHA, and multi-party-review independently binds the
+    # trailer to the reviewed tree by hash. What the export adds is that the
+    # review is now READABLE — the findings are on the PR for a human.
+    try:
+        from divineos.core.watchmen.export import exported_round_exists
+
+        if exported_round_exists(round_id):
+            return True
+    except Exception:  # noqa: BLE001 — no export available → try the live store
+        pass
+
     try:
         from divineos.core.watchmen.store import get_round
     except Exception:  # noqa: BLE001 — module unimportable → cannot check
