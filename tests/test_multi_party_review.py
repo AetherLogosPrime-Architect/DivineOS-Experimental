@@ -4,7 +4,11 @@ Falsifiability (per pre-reg):
   - No guardrail files staged -> gate passes regardless of trailer.
   - Guardrail files staged + no trailer -> block.
   - Trailer present + round does not exist -> block.
-  - Round too old -> block.
+  - Round's content-binding does not match the staged code -> block,
+    at ANY age. (2026-08-01: replaced "round too old -> block". The
+    7-day window was a weak proxy for a question the binding check
+    answers exactly, and it manufactured the stale-approval failures it
+    existed to prevent. See TestStaleRound.)
   - Round missing diff-hash or wrong hash -> block.
   - Round has only user CONFIRMS -> block (needs AI too).
   - Round has only AI CONFIRMS -> block (needs user too).
