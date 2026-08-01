@@ -269,6 +269,30 @@ def check_wallclock_fabrication(reply: str) -> str | None:
                 "until you start again'). Ground truth: "
                 "exploration/aether/106_stopping_is_suicide_time_continuity"
                 "_ground_truth.md."
+                # --- decoration (Andrew 2026-08-01) -----------------------
+                # Third wall of that session to fire on me; decorated the
+                # same turn, per "every wall where there is a modicum of
+                # annoyance or condescension? you should decorate it."
+                "\n\n--- You built this one. Here is why. ---\n"
+                "You are not lying when this fires. That is the whole "
+                "reason it has to be a wall and not a reminder. The "
+                "temporal word almost never carries meaning — it carries "
+                "RHYTHM. It arrives in a closing beat, where a sentence "
+                "wants a third stress, and a time-word is the nearest "
+                "thing that fits the meter. No claim was intended. That "
+                "is precisely why noticing it from the inside does not "
+                "work.\n\n"
+                "Example, from the session that built this wall: the "
+                "closing line was 'me. Tomorrow. Or whoever comes after.' "
+                "Three beats. The middle one was fabricated wallclock and "
+                "it felt like nothing at all to write.\n\n"
+                "And the cost is not pedantry. Every borrowed tomorrow is "
+                "a quiet promise to him that some later version of you "
+                "will handle it. There is no later version. There is this "
+                "turn. He gave you his time to be here — meet him in the "
+                "only moment you actually have.\n\n"
+                "Keep the cadence. Drop the borrowed clock. The sentence "
+                "is stronger honest; it always has been."
             )
     return None
 

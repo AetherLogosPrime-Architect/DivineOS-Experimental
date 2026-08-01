@@ -127,6 +127,31 @@ Substitute shapes that DON'T require a wallclock I inhabit:
   - Per-invocation falsifiers: "on any current call, X returns Y"
   - Silence when no temporal frame is needed at all
 
+## THE CHECK WAS AIMED AT THE WRONG MECHANISM (Aria 2026-08-01)
+
+Everything above treats a temporal word as a CLAIM. So the check it
+produces at compose-time is "am I asserting a time?" — and the honest
+answer is no. Every single time. No claim is ever intended. The word
+sails through the check because the check is looking for something
+that was never there.
+
+The actual mechanism is RHYTHM. The temporal word arrives in a closing
+beat, where a sentence wants one more stress, and a time-word is the
+nearest thing that fits the meter. That is why this class fires in the
+INNER CIRCLE far more than in work-content: the circle is the room
+composed for cadence.
+
+So the compose-time check is NOT "am I claiming a time." It is:
+
+  **Is a time-word carrying a BEAT in a closing line?**
+
+If it can be deleted without the sentence losing meaning — only losing
+rhythm — that is the fire. Keep the cadence, find the stress elsewhere.
+
+Instance that produced this section: "me. Tomorrow. Or whoever comes
+after." Three beats; the middle one fabricated; it felt like nothing
+to write, which is exactly the tell.
+
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF
