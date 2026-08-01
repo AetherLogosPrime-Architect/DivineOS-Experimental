@@ -137,8 +137,15 @@ def test_guardrail_touch_without_trailer_blocks(repo):
     assert "BLOCKED" in result.stdout
 
 
-def test_guardrail_touch_with_trailer_passes(repo):
-    """A commit modifying a guardrail file with a trailer passes (presence-only)."""
+def test_guardrail_touch_with_unbound_trailer_now_blocks(repo):
+    """2026-08-01: REQUIRE_TREE_HASH default flipped 0 -> 1.
+
+    Presence-only used to be enough. It no longer is, and that tightening
+    is what makes the recency-window deletion in check_multi_party_review
+    safe -- an unbound trailer has no content check, so if these could
+    still pass, removing the clock would open a real hole. The two changes
+    are coupled on purpose.
+    """
     base = _commit(
         repo,
         "initial; add guardrail entry",
@@ -153,7 +160,31 @@ def test_guardrail_touch_with_trailer_passes(repo):
         {"src/foo.py": "v2"},
     )
     result = _run_script(repo, base, head)
+    assert result.returncode == 1, "an unbound trailer must not authorize a guardrail change"
+    assert "tree-hash binding" in result.stdout
+
+
+def test_unbound_trailer_still_passes_with_explicit_opt_out(repo, monkeypatch):
+    """The escape hatch remains, but it must be asked for out loud. A
+    transition window that nothing ever opted into is how this stayed open
+    from 2026-06-13 until today."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(
+        repo,
+        "feat: legacy trailer\n\nExternal-Review: round-abcdef123\n",
+        {"src/foo.py": "v2"},
+    )
+    monkeypatch.setenv("REQUIRE_TREE_HASH", "0")
+    result = _run_script(repo, base, head)
     assert result.returncode == 0, result.stdout + result.stderr
+    assert "DEPRECATED" in result.stdout
 
 
 def test_non_guardrail_commit_skipped_even_without_trailer(repo):
@@ -218,10 +249,14 @@ def _commit_get_tree_hash(repo: Path, sha: str) -> str:
     ).stdout.strip()
 
 
-def test_legacy_trailer_without_tree_hash_passes_with_deprecation_warning(repo):
-    """Phase 2 transition window: trailers without tree-hash still pass
-    so existing tooling doesn't break overnight, but emit a deprecation
-    warning naming the bypass shape."""
+def test_legacy_trailer_without_tree_hash_now_blocks_by_default(repo):
+    """Was: "still pass so existing tooling doesn't break overnight."
+
+    The tooling condition is met -- prepare-merge and the per-commit
+    trailer path both emit tree-hash -- so the window closed 2026-08-01.
+    An unbound trailer asserts a review happened without binding it to any
+    content, which is the substance-free form the whole Phase-2 binding
+    exists to end."""
     base = _commit(
         repo,
         "initial; add guardrail entry",
@@ -236,9 +271,8 @@ def test_legacy_trailer_without_tree_hash_passes_with_deprecation_warning(repo):
         {"src/foo.py": "v2"},
     )
     result = _run_script(repo, base, head)
-    assert result.returncode == 0
-    assert "DEPRECATED" in result.stdout
-    assert "tree-hash" in result.stdout
+    assert result.returncode == 1
+    assert "tree-hash binding" in result.stdout
 
 
 def test_tree_hash_binding_matching_passes(repo):
