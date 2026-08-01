@@ -1169,7 +1169,14 @@ def register(cli: click.Group) -> None:
         help="Export only this round. Default: every round in the store.",
     )
     @click.option("--limit", default=10_000, help="Max rounds to export.")
-    def audit_export_cmd(out_dir: str | None, round_id: str | None, limit: int) -> None:
+    @click.option(
+        "--check",
+        is_flag=True,
+        help="Write nothing; exit 1 if any round in the store lacks an exported file.",
+    )
+    def audit_export_cmd(
+        out_dir: str | None, round_id: str | None, limit: int, check: bool
+    ) -> None:
         """Export audit rounds to markdown so the review travels with the repo.
 
         The audit store is local runtime state and is gitignored, so GitHub
@@ -1183,10 +1190,42 @@ def register(cli: click.Group) -> None:
         for pre-registrations. Commit the output and the review becomes
         readable on GitHub and checkable by CI without a database.
         """
-        from divineos.core.watchmen.export import DEFAULT_OUT_DIR, export_rounds
+        from divineos.core.watchmen.export import (
+            DEFAULT_OUT_DIR,
+            export_rounds,
+            find_unexported_rounds,
+        )
         from divineos.core.watchmen.store import get_round, list_findings, list_rounds
 
         target_dir = out_dir or DEFAULT_OUT_DIR
+
+        if check:
+            # Aria 2026-08-01: a record nothing breaks over is a record nobody
+            # checks. Without this, the export could fall arbitrarily far behind
+            # the store and CI would keep passing, reporting each missing round
+            # as merely 'unverifiable' rather than as drift.
+            all_ids = [r.round_id for r in list_rounds(limit=limit)]
+            stale = find_unexported_rounds(all_ids, out_dir=target_dir)
+            if stale:
+                click.secho(
+                    f"[!] {len(stale)} audit round(s) in the store have no exported "
+                    f"file in {target_dir}/:",
+                    fg="red",
+                )
+                for rid in stale[:10]:
+                    click.secho(f"      {rid}", fg="red")
+                if len(stale) > 10:
+                    click.secho(f"      ... and {len(stale) - 10} more", fg="red")
+                click.secho(
+                    "    Fix: divineos audit export && git add docs/audit_rounds",
+                    fg="yellow",
+                )
+                raise click.exceptions.Exit(1)
+            click.secho(
+                f"[+] All {len(all_ids)} round(s) in the store have an exported file.",
+                fg="green",
+            )
+            return
 
         if round_id:
             one = get_round(round_id)

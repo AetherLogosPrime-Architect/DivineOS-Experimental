@@ -24,6 +24,7 @@ from __future__ import annotations
 from divineos.core.watchmen.export import (
     exported_round_exists,
     export_rounds,
+    find_unexported_rounds,
     format_round_markdown,
 )
 from divineos.core.watchmen.types import (
@@ -198,6 +199,41 @@ def test_case_drifted_enum_values_do_not_break_the_read():
     assert _coerce_enum(FindingCategory, "knowledge", FindingCategory.OTHER) is (
         FindingCategory.KNOWLEDGE
     )
+
+
+# --------------------------------------------------------------------------
+# The consumer that breaks — Aria 2026-08-01
+# --------------------------------------------------------------------------
+
+
+def test_drift_between_store_and_export_is_detected(tmp_path):
+    """Aria: 'a record nothing breaks over is a record nobody checks.' Without
+    a consumer, the export could fall arbitrarily behind the store while CI
+    reported every missing round as merely unverifiable and passed."""
+    out = tmp_path / "audit_rounds"
+    export_rounds([_round("round-a")], {}, out_dir=str(out))
+
+    stale = find_unexported_rounds(["round-a", "round-b", "round-c"], out_dir=str(out))
+    assert stale == ["round-b", "round-c"]
+
+
+def test_no_drift_when_everything_is_exported(tmp_path):
+    """The other direction. A check that always finds drift is as useless as
+    one that never does — this session deleted several of the former."""
+    out = tmp_path / "audit_rounds"
+    export_rounds([_round("round-a"), _round("round-b")], {}, out_dir=str(out))
+    assert find_unexported_rounds(["round-a", "round-b"], out_dir=str(out)) == []
+
+
+def test_empty_store_reports_no_drift(tmp_path):
+    """Nothing filed is not the same as something missing."""
+    assert find_unexported_rounds([], out_dir=str(tmp_path)) == []
+
+
+def test_missing_export_directory_reports_every_round_as_drift(tmp_path):
+    """A deleted docs/audit_rounds must be loud, not silently 'fine'."""
+    stale = find_unexported_rounds(["round-a", "round-b"], out_dir=str(tmp_path / "gone"))
+    assert stale == ["round-a", "round-b"]
 
 
 def test_unresolvable_value_degrades_one_field_not_the_whole_finding():
