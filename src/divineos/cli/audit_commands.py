@@ -1156,6 +1156,66 @@ def register(cli: click.Group) -> None:
                 fg="yellow",
             )
 
+    @audit_group.command("export")
+    @click.option(
+        "--out-dir",
+        default=None,
+        help="Directory for per-round markdown (default docs/audit_rounds).",
+    )
+    @click.option(
+        "--round",
+        "round_id",
+        default=None,
+        help="Export only this round. Default: every round in the store.",
+    )
+    @click.option("--limit", default=10_000, help="Max rounds to export.")
+    def audit_export_cmd(out_dir: str | None, round_id: str | None, limit: int) -> None:
+        """Export audit rounds to markdown so the review travels with the repo.
+
+        The audit store is local runtime state and is gitignored, so GitHub
+        has only ever seen a POINTER to a review — the
+        ``External-Review: <round-id>`` line — with no way to open what it
+        referenced. That is why server-side checks could not verify any claim
+        about an audit.
+
+        This writes the RECORD (findings, actors, tiers, verdicts) as plain
+        markdown into the repo, exactly as ``prereg export`` has always done
+        for pre-registrations. Commit the output and the review becomes
+        readable on GitHub and checkable by CI without a database.
+        """
+        from divineos.core.watchmen.export import DEFAULT_OUT_DIR, export_rounds
+        from divineos.core.watchmen.store import get_round, list_findings, list_rounds
+
+        target_dir = out_dir or DEFAULT_OUT_DIR
+
+        if round_id:
+            one = get_round(round_id)
+            if one is None:
+                click.secho(f"[!] Round {round_id} is not in the store.", fg="red")
+                raise click.exceptions.Exit(1)
+            rounds = [one]
+        else:
+            rounds = list_rounds(limit=limit)
+
+        if not rounds:
+            click.secho("[~] No audit rounds to export.", fg="bright_black")
+            return
+
+        findings_for = {r.round_id: list_findings(round_id=r.round_id, limit=1000) for r in rounds}
+        written = export_rounds(rounds, findings_for, out_dir=target_dir)
+        total_findings = sum(len(v) for v in findings_for.values())
+
+        click.secho(
+            f"[+] Exported {len(written)} round(s) and {total_findings} finding(s) "
+            f"to {target_dir}/",
+            fg="cyan",
+        )
+        click.secho(
+            "    Commit these files — until they are committed, GitHub still "
+            "cannot see the review.",
+            fg="bright_black",
+        )
+
     @audit_group.command("confirm-holds")
     @click.option(
         "--round", "round_id", required=True, help="Round whose external CONFIRM to re-check."
