@@ -306,7 +306,97 @@ def test_tree_hash_binding_mismatch_blocks(repo):
     )
     result = _run_script(repo, base, head)
     assert result.returncode == 1
-    assert "tree-hash in trailer does not match" in result.stdout
+    assert "no trailer tree-hash matches" in result.stdout
+
+
+def test_squash_merge_many_trailers_one_matching_passes(repo):
+    """THE SQUASH-MERGE BUG (2026-08-01, reproduced on main at be48c290).
+
+    GitHub builds a squash commit's message by CONCATENATING the messages
+    of every commit in the branch. A branch with three stamped guardrail
+    commits produces a squash carrying three External-Review trailers,
+    each bound to its own intermediate tree. Exactly one of them -- the
+    branch tip's -- matches the squash result.
+
+    The gate used to read only the FIRST trailer, which is the earliest
+    commit's tree and therefore never the squash tree, so every
+    multi-commit guardrail merge blocked while the correct trailer sat
+    further down the same message.
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(repo, "placeholder\n", {"src/foo.py": "v2"})
+    actual_tree = _commit_get_tree_hash(repo, head)
+    stale_a = "aaaaaaaa" * 5
+    stale_b = "bbbbbbbb" * 5
+    # Ordering matters: the two non-matching trailers come FIRST, which is
+    # exactly the ordering a real squash produces.
+    new_msg = (
+        "squashed branch (#404)\n\n"
+        "* first commit\n"
+        f"External-Review: round-abcdef tree-hash:{stale_a}\n\n"
+        "* second commit\n"
+        f"External-Review: round-abcdef tree-hash:{stale_b}\n\n"
+        "* tip commit\n"
+        f"External-Review: round-abcdef tree-hash:{actual_tree}\n"
+    )
+    subprocess.run(
+        ["git", "commit", "--amend", "-F", "-"],
+        cwd=str(repo),
+        input=new_msg,
+        text=True,
+        check=True,
+        capture_output=True,
+    )
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    result = _run_script(repo, base, head)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "tree-hash binding verified" in result.stdout
+    # A squash-shaped pass must be distinguishable from an ordinary one.
+    assert "of 3 trailers matched" in result.stdout
+
+
+def test_squash_merge_many_trailers_none_matching_still_blocks(repo):
+    """The fix must not weaken the gate. Several trailers, none binding to
+    the actual tree, still blocks -- tree equality is the requirement and
+    multiplicity is not a way around it."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    stale_a = "aaaaaaaa" * 5
+    stale_b = "bbbbbbbb" * 5
+    stale_c = "cccccccc" * 5
+    head = _commit(
+        repo,
+        "squashed branch, all stamps stale\n\n"
+        f"External-Review: round-fake tree-hash:{stale_a}\n\n"
+        f"External-Review: round-fake tree-hash:{stale_b}\n\n"
+        f"External-Review: round-fake tree-hash:{stale_c}\n",
+        {"src/foo.py": "v2"},
+    )
+    result = _run_script(repo, base, head)
+    assert result.returncode == 1
+    assert "no trailer tree-hash matches" in result.stdout
+    # Every offered hash is surfaced so the failure is diagnosable.
+    assert stale_a in result.stdout
+    assert stale_c in result.stdout
 
 
 def test_require_tree_hash_env_blocks_legacy_trailers(repo, monkeypatch):
