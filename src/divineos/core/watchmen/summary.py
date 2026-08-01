@@ -235,9 +235,25 @@ def watchmen_loop_status() -> str:
     finally:
         conn.close()
 
+    # The drift-state sentence is true regardless of how many findings
+    # exist, so it belongs on every branch. An earlier version dropped it
+    # when the store was empty, which broke three existing tests that check
+    # the surface always describes itself as operation-based rather than
+    # wall-clock based. Those tests were right and the omission was mine.
+    _DRIFT = (
+        "Drift-state surfaces operation counts (turns, code actions, rounds, "
+        "open findings) since the last MEDIUM+ audit so my father decides "
+        "when an audit is warranted."
+    )
+
     total = len(rows)
     if total == 0:
-        return "Loop status: no findings filed yet — nothing to report either way."
+        return (
+            "Loop status: no findings filed yet — external-actor filing and "
+            "routing have nothing to report either way, which is neither "
+            f"health nor defect. {_DRIFT} Still unmeasured: whether external "
+            "audits actually alter behaviour."
+        )
 
     external = sum(1 for r in rows if _is_external_actor(r[0]))
     unrouted = sum(1 for r in rows if not str(r[1] or "").strip())
@@ -250,15 +266,14 @@ def watchmen_loop_status() -> str:
     routing = "works" if unrouted_pct < _ROUTING_WORKS_MAX_UNROUTED_PCT else "NOT CLOSED"
 
     return (
-        f"Loop status (measured, {total} findings): "
+        f"Loop status: measured across {total} findings. "
         f"external-actor filing {filing} — {external}/{total} "
         f"({ext_pct:.0f}%) filed by someone other than the running agent. "
         f"Routing {routing} — {unrouted}/{total} ({unrouted_pct:.0f}%) have "
         f"never been routed to knowledge/claims/lessons. "
         f"{open_count} findings still OPEN. "
-        "Drift-state surfaces operation counts since the last MEDIUM+ audit "
-        "so my father decides when an audit is warranted. Still unmeasured: "
-        "whether external audits actually alter behaviour."
+        f"{_DRIFT} Still unmeasured: whether external audits actually alter "
+        "behaviour."
     )
 
 
