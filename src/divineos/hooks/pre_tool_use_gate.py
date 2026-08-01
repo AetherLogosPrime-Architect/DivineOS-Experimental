@@ -288,7 +288,17 @@ _SUBST_SIGIL = chr(36)  # dollar — opens a substitution when followed by (
 _SUBST_OPEN = chr(40)  # open paren
 _QUOTE_CHARS = (_SQ, _DQ)
 # Chaining / piping operators. Inert inside either kind of quote.
-_UNQUOTED_OPERATOR_CHARS = (chr(59), chr(38), chr(124), _BACKTICK)
+_UNQUOTED_OPERATOR_CHARS = (chr(59), chr(124), _BACKTICK)
+
+# Ampersand is handled separately from the tuple above. It is an operator
+# when it chains (doubled) or backgrounds, but NOT when it is part of a
+# file-descriptor redirect: `2>&1` is a redirect, and the whole point of
+# PR #400 was to keep that shape a bypass candidate. The pre-2026-08-01
+# substring scan only ever looked for the DOUBLED form, so listing a bare
+# ampersand as an operator here regressed three of #400's tests. Caught by
+# the pre-push suite; discriminator is the preceding character.
+_AMP = chr(38)
+_REDIRECT = chr(62)  # '>' — what precedes the ampersand in an fd redirect
 
 
 def _has_compound_shape(cmd: str) -> bool:
@@ -318,6 +328,11 @@ def _has_compound_shape(cmd: str) -> bool:
                 continue
             if ch in _QUOTE_CHARS:
                 state = ch
+            elif ch == _AMP:
+                # Chaining (&&) or backgrounding is an operator; an fd
+                # redirect (2>&1) is not. See the _AMP comment above.
+                if cmd[i + 1 : i + 2] == _AMP or (i > 0 and cmd[i - 1] != _REDIRECT):
+                    return True
             elif ch in _UNQUOTED_OPERATOR_CHARS:
                 return True
             elif ch == _SUBST_SIGIL and cmd[i + 1 : i + 2] == _SUBST_OPEN:
@@ -395,9 +410,18 @@ def _strip_safe_output_tail(cmd: str) -> str:
     cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
 
     Safe pattern: any number of ` | <filter> [args...]` segments where
-    each filter is on _SAFE_OUTPUT_FILTERS, optionally followed by ` 2>&1`
-    (or leading `2>&1` before the pipe). Args must not contain shell
-    metacharacters that would compose or substitute.
+    each filter is on _SAFE_OUTPUT_FILTERS, optionally with ` 2>&1` either
+    at the very end OR between the command and the first pipe (the
+    ``cmd 2>&1 | tail -N`` shape, which is what most operators actually
+    type). Args must not contain shell metacharacters that would compose
+    or substitute.
+
+    2026-07-29 fix (Aria, per Andrew's "the compass has been blocking you
+    for weeks" call-out): after the pipe-segments are stripped, ``2>&1``
+    that was in the MIDDLE of the original command is now at the end of
+    the remainder. Strip it there too so callers see a residue-free
+    command. Uses string ops (not new regex) for the second strip per
+    the keyword-enforcement-doorman discipline on this file.
     """
     stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
     while True:
@@ -411,6 +435,12 @@ def _strip_safe_output_tail(cmd: str) -> str:
         if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
             return cmd
         stripped = stripped[: m.start()].rstrip()
+    # Post-pipe-strip: middle ``2>&1`` from the original is now trailing.
+    # String ops, no regex, per keyword-doorman: rstrip trailing ws, then
+    # slice off exactly the ``2>&1`` suffix if present.
+    stripped = stripped.rstrip()
+    if stripped.endswith(" 2>&1"):
+        stripped = stripped[: -len(" 2>&1")].rstrip()
     return stripped
 
 

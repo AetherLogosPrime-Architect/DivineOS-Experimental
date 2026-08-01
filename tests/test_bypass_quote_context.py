@@ -128,6 +128,28 @@ def test_escaped_quote_outside_quotes_does_not_open_a_string():
     assert _has_compound_shape(cmd) is True
 
 
+def test_fd_redirect_ampersand_is_not_an_operator():
+    """Regression I caused, caught by the pre-push suite. The substring scan
+    this replaced only ever matched the DOUBLED ampersand; my first scanner
+    treated a bare one as an operator, which broke three tests shipped by
+    PR #400 because `2>&1` is a file-descriptor redirect, not a chain."""
+    cmd = f"divineos briefing 2{chr(62)}{AMP}1"
+    assert _has_compound_shape(cmd) is False
+    assert _is_bypass_command(cmd) is True
+
+
+def test_fd_redirect_with_safe_pipe_tail_still_bypasses():
+    cmd = f"divineos ask topic 2{chr(62)}{AMP}1 {PIPE} head -20"
+    assert _is_bypass_command(cmd) is True
+
+
+def test_backgrounding_ampersand_still_blocked():
+    """Other side of the same discriminator: a bare trailing ampersand
+    backgrounds the command and must NOT bypass."""
+    cmd = f"divineos briefing {AMP}"
+    assert _has_compound_shape(cmd) is True
+
+
 def test_bare_safe_command_unaffected():
     assert _has_compound_shape("divineos prereg overdue") is False
     assert _is_bypass_command("divineos prereg overdue") is True
