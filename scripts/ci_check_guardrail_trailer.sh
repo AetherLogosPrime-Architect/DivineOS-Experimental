@@ -35,10 +35,26 @@
 #   ci_check_guardrail_trailer.sh <pr-base-sha> <pr-head-sha>
 #
 # Env:
-#   REQUIRE_TREE_HASH=1 — fail when a trailer is missing the tree-hash
-#     field. Off by default so existing trailers stay valid during the
-#     transition window. Tooling-rollout flips this on once the
-#     trailer-generating helpers default to including tree-hash.
+#   REQUIRE_TREE_HASH=0 — allow legacy trailers with no tree-hash field.
+#     ESCAPE HATCH ONLY. See the default flip below.
+#
+# 2026-08-01: DEFAULT FLIPPED 0 -> 1.
+#
+# The transition window opened 2026-06-13 "until tooling emits tree-hash"
+# and then stayed open. Nothing ever set the variable — measured: it
+# appears nowhere outside this script's own default and one test
+# monkeypatch. So the entire Phase-2 substance binding was opt-in with
+# no opt-in, and a stale round-id laminated onto unrelated guardrail
+# code passed CI green.
+#
+# Two things made now the moment. The tooling condition is met:
+# `divineos audit prepare-merge` and the per-commit trailer path both
+# emit tree-hash, and PR #404's three guardrail commits reported
+# "Phase 2 substance-bound: 3; legacy trailers: 0". And the companion
+# change in check_multi_party_review.py deletes the 7-day recency window
+# on the grounds that content-binding answers the same question exactly
+# — which is only true if every trailer HAS a binding. Flipping this
+# default is what makes that deletion safe rather than a hole.
 #
 # Exit code: 0 on pass, 1 on any blocked commit.
 
@@ -46,7 +62,7 @@ set -eu
 
 PR_BASE="${1:-}"
 PR_HEAD="${2:-}"
-REQUIRE_TREE_HASH="${REQUIRE_TREE_HASH:-0}"
+REQUIRE_TREE_HASH="${REQUIRE_TREE_HASH:-1}"
 
 if [ -z "$PR_BASE" ] || [ -z "$PR_HEAD" ]; then
     echo "usage: $0 <pr-base-sha> <pr-head-sha>" >&2
