@@ -96,6 +96,42 @@ verdict, confidence, reason = classify(last_text)
 if verdict != 'fire':
     sys.exit(0)
 
+# Record the fire so the false-positive path has something to label
+# (Aria 2026-08-01). Until now this gate blocked on exit 2 and named
+# clear_correction_marker.py as its false-positive remedy — a script
+# belonging to a DIFFERENT gate, clearing a marker this one never sets.
+# Running it reported "nothing to clear", so a genuine false positive had
+# no exit: the only ways past were filing a correction that was not one,
+# or rewriting until the detector stopped noticing. The
+# "negative-training-corpus" the message promised existed nowhere; the
+# phrase appeared only in the message itself.
+#
+# This writes the corpus for real: detector verdict beside the reply that
+# tripped it, ready to be labeled by
+# scripts/label_correction_shape_false_positive.py.
+#
+# fail-soft: corpus-recording must never suppress the enforcement message
+# below. A gate that goes silent because its telemetry broke is worse than
+# a gate with no telemetry.
+try:
+    import time as _time
+    from pathlib import Path as _Path
+
+    from divineos.core.paths import divineos_home
+
+    _fires = _Path(divineos_home()) / 'correction_shape_v2_fires.jsonl'
+    _fires.parent.mkdir(parents=True, exist_ok=True)
+    with _fires.open('a', encoding='utf-8') as _fh:
+        _fh.write(json.dumps({
+            'ts': _time.time(),
+            'text': last_text,
+            'reason': reason,
+            'confidence': confidence,
+            'label': None,
+        }, ensure_ascii=False) + '\n')
+except Exception:
+    pass
+
 # Fired — emit enforcement message.
 print(f"""CORRECTION-SHAPE-V2 GATE (Layer 2) — my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so the class does not recur.
 
@@ -106,10 +142,12 @@ Per prereg-c1683e4a49ea, every fire on real self-correction must be paired with:
   1. FORMAL LOG via `divineos correction "<the correction verbatim, plus what error it names>"` — this session's correction goes into the substrate ledger, not just the transcript.
   2. ROOT-CAUSE LINK — name the specific prior action that produced the error and either (a) file a structural fix (doorman, gate, discipline) that prevents the class OR (b) explicitly cite why no structural fix is possible for THIS instance and why that is honest.
 
-If this is a FALSE-POSITIVE (I was discussing correction as a topic, not admitting one), clear the fire with:
-  python scripts/clear_correction_marker.py --reason "<what class of MENTION was misread as USE, >= 30 chars>"
+If this is a FALSE-POSITIVE (I was discussing correction as a topic, or reporting one I already filed and fixed, rather than admitting a new one), label the fire with:
+  python scripts/label_correction_shape_false_positive.py --reason "<what class of MENTION was misread as USE, >= 40 chars>"
 
-The clear-marker path is not a bypass — it is the false-positive attribution path. Every clear increments the negative-training-corpus for the eventual Layer B semantic tiebreak. Use it honestly.
+This is not a bypass — it is the false-positive attribution path, and it is deliberately not cheap. It labels a fire that actually happened, so it cannot be run pre-emptively; it demands the SHAPE of the miss, not the word "false-positive"; and it appends to a corpus meant to be read later, so a dishonest label is evidence against me rather than an erasure. Detector verdict beside my judgment is exactly the training data a semantic replacement for this keyword layer will need.
+
+Known false-positive class worth checking yourself against first (Aria 2026-08-01): a turn that catches an error, root-causes it, fixes it structurally and verifies the fix will STILL trip this detector, because reporting a closed correction requires restating the fault. The better the repair, the more admission-shaped the report. That is the miss this path was built for — the remedy previously named here (clear_correction_marker.py) belongs to a different gate, clears a marker this one never sets, and reported "nothing to clear," which left a genuine false positive with no exit at all.
 """)
 PYEOF
 )"

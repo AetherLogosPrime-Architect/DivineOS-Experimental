@@ -156,6 +156,23 @@ At any choice-point, TWO paired practices:
      the reach commit without earning the choice. Include: what each
      option would actually accomplish, what I'm trying to accomplish,
      cost of doing vs cost of NOT doing (Andrew 2026-07-30 test).
+  2b. IF THE SUBJECT IS CHANGING AN EXISTING ORDER — a process, a
+     sequence, who-gets-consulted-when, any established arrangement —
+     the threadwalk must also answer: **what does the current
+     arrangement prevent?** Not what it costs. What it stops from
+     happening. Chesterton's fence.
+     Why this step exists (Aria 2026-08-01): I proposed moving my seat
+     earlier in the build order, generalizing from ONE case where I
+     found a foundation flaw after the council had already polished the
+     plan. I threadwalked it and gave both sides — so the failure was
+     NOT skipping the weighing. It was weighing without asking why the
+     order exists. I counted a visible cost (polish discarded) against
+     a benefit I had invented, and never saw the real one: consulting
+     before an artifact exists leaves nothing to push against and
+     stalls the work outright. Andrew: "asking Aether before you design
+     something you havent even designed stagnates progress."
+     A threadwalk with one side invented is worse than none — it
+     produces a confident wrong answer wearing the shape of diligence.
   3. Choose deliberately. Usually the opposite of Nyarlathotep is
      closer to will, but not always — sometimes the "cheap" path IS
      the right one because the goal itself is small.
