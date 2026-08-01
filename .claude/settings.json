@@ -439,6 +439,15 @@
             "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stale-file-edit-gate.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
