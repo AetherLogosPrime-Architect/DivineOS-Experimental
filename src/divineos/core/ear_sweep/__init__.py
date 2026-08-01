@@ -35,41 +35,177 @@ class SweepResult:
     note: str = ""
 
 
-def _find_ear_watch_pids() -> list[int]:
-    """Find PIDs of all ear_watch.py processes via Windows tasklist.
+_WATCH_SCRIPT = "ear_watch.py"
 
-    Returns empty list on any error (fail-open: a broken scan must not
-    suppress the sweep's intent to reap orphans on next session).
+
+def _repo_root() -> str:
+    """This checkout's root, normalised, lowercased, for path comparison."""
+    from pathlib import Path
+
+    return str(Path(__file__).resolve().parents[4]).replace("\\", "/").lower()
+
+
+def _is_ear_watch_process(
+    name: str | None, cmdline: list[str], repo_root: str | None = None
+) -> bool:
+    """True only for a python interpreter actually RUNNING ear_watch.py.
+
+    Precision matters more than usual here because the only thing the
+    caller does with a match is kill it.
+
+    A naive "is 'ear_watch' anywhere in the command line" test was tried
+    first and measured against the live process table 2026-08-01. It
+    matched ten processes, of which only four were watchers. The other
+    six were:
+
+      * ``bash.exe`` shells whose command line mentions the script
+      * ``nohup.exe`` wrappers around the real watcher
+      * **the very python process running the inspection** — its ``-c``
+        source text contains the string, so the scan would have killed
+        the thing doing the scanning
+
+    So: the executable must be a python, and some argument's basename
+    must be exactly ``ear_watch.py``. A path mentioned inside inline
+    source code is not an argument that is the script.
+
+    OWN-CHECKOUT ONLY (2026-08-01). ``repo_root``, when given, restricts
+    matches to watchers whose script path lives under this checkout.
+
+    Measured here: all four live watchers belong to Aria's separate
+    worktree, and every one of them is genuinely unowned by the ancestry
+    test. Without this restriction, a SessionStart in this repo would
+    silently kill her running watchers mid-conversation — a
+    cross-worktree side effect of a bug fix, which is not a thing a bug
+    fix gets to do. Each session reaps its own leaks; hers reaps hers.
+    """
+    if not name or "python" not in name.lower():
+        return False
+    for arg in cmdline[1:]:
+        text = str(arg).replace("\\", "/")
+        if text.rsplit("/", 1)[-1] != _WATCH_SCRIPT:
+            continue
+        # Boundary-terminated prefix, NOT a bare startswith. Aria's
+        # worktree is `.../DivineOS-Experimental-Aria-new`, which
+        # startswith `.../DivineOS-Experimental` — so a plain prefix test
+        # claims her processes as ours and reaps them. Caught by measuring
+        # against the live table rather than by reading the code.
+        if repo_root and not text.lower().startswith(repo_root.rstrip("/") + "/"):
+            return False
+        return True
+    return False
+
+
+_MAX_ANCESTRY_DEPTH = 40
+
+
+def _ancestry_is_broken(ppid: int | None, live_pids: set[int]) -> bool:
+    """True when nothing living owns this process any more.
+
+    Checking only the IMMEDIATE parent is not enough, and the live
+    process table showed exactly why 2026-08-01. The watchers are
+    launched through ``nohup``, so the tree is:
+
+        (dead launcher)  ->  nohup.exe  ->  python ear_watch.py
+
+    The nohup wrapper is orphaned, but it is still *running*, so from
+    the watcher's point of view its parent is alive and the immediate-
+    parent test reports a healthy process. Meanwhile nothing owns the
+    chain and nothing will ever shut it down — which is the exact
+    accumulation Andrew described.
+
+    So walk up. If any link in the chain points at a PID that no longer
+    exists, the whole chain is unowned.
+
+    Depth-capped and cycle-guarded: PID reuse on Windows can in
+    principle produce a loop, and a reaper that hangs at SessionStart
+    would be worse than one that misses an orphan.
+    """
+    seen: set[int] = set()
+    current = ppid
+    for _ in range(_MAX_ANCESTRY_DEPTH):
+        if current in (None, 0):
+            return True
+        if current in seen:  # cycle — treat as unowned rather than spin
+            return True
+        if current not in live_pids:
+            return True
+        seen.add(current)
+        try:
+            import psutil
+
+            current = psutil.Process(current).ppid()
+        except Exception:  # noqa: BLE001 — any lookup failure = unknowable
+            return True
+    return False  # depth exceeded: assume owned, do not kill on a guess
+
+
+class ScanUnavailable(Exception):
+    """Raised when the process scan cannot run at all.
+
+    Distinct from "scanned and found nothing" on purpose — see
+    ``_find_ear_watch_pids``. Conflating the two is what made the old
+    implementation invisible for weeks.
+    """
+
+
+def _find_ear_watch_pids() -> list[int]:
+    """Find PIDs of ORPHANED ear_watch.py processes — parent no longer alive.
+
+    2026-08-01 FIX. Andrew: "you keep spawning python processes that dont
+    die.. so they orphan and build up eating up memory."
+
+    The previous implementation scanned ``tasklist /V /FO CSV`` for the
+    string ``ear_watch.py``. **tasklist does not emit command-line
+    arguments at any verbosity** — its columns are image name, PID,
+    session, memory, status, user, CPU time, window title. The substring
+    could therefore never match, so this returned ``[]`` on every call
+    since it was written and the sweep has never reaped anything.
+
+    Measured here 2026-08-01: rows in ``tasklist /V /FO CSV`` containing
+    ``ear_watch.py`` = 0, while a CIM query for python processes whose
+    command line contains ``ear_watch`` = 4.
+
+    The silence was the expensive part. On 2026-06-13 a sleep-hang
+    investigation recorded "verified 0 stale processes at session start
+    via the sweep hook" and used it to rule the leak out as a cause
+    (knowledge e0c0c879). That was not a verification — it was this
+    function's constant empty return being read as evidence of health.
+    A check that cannot fail cannot confirm anything either.
+
+    SCOPE CHANGE, narrower than the module header's stated policy, and
+    deliberate. That policy ("kill ANY ear_watch.py process at session
+    start, regardless of member") was written against a no-op. Making
+    the scan work while keeping it would mean a session in this repo
+    abruptly starts killing Aria's *live* watcher in her own worktree at
+    every SessionStart — cross-worktree, mid-conversation, behaviour
+    that has never once actually run.
+
+    So this reaps only TRUE ORPHANS: processes whose parent is gone.
+    That is exactly the harm Andrew named, and it leaves working
+    watchers alone. The wider policy question goes to the operator
+    rather than shipping as a side effect of a bug fix.
+
+    Raises ScanUnavailable if psutil is missing, so the caller can say
+    "could not scan" instead of "nothing to reap."
     """
     try:
-        result = subprocess.run(
-            ["tasklist", "/V", "/FO", "CSV"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        if result.returncode != 0:
-            return []
-    except (subprocess.SubprocessError, OSError, FileNotFoundError):
-        return []
+        import psutil
+    except ImportError as exc:  # pragma: no cover — absence path
+        raise ScanUnavailable("psutil not installed") from exc
 
-    pids: list[int] = []
-    for line in (result.stdout or "").splitlines():
-        if "ear_watch.py" not in line:
-            continue
-        # CSV format: "image","PID","Session Name","Session#","Mem Usage", ...
-        # Bash parsed via awk -F'","' and took $2; replicate that.
-        parts = line.split('","')
-        if len(parts) >= 2:
-            pid_str = parts[1].strip().strip('"')
-            try:
-                pid = int(pid_str)
-                if pid > 0:
-                    pids.append(pid)
-            except ValueError:
+    live_pids = set(psutil.pids())
+    root = _repo_root()
+    orphans: list[int] = []
+    for proc in psutil.process_iter(["pid", "name", "ppid", "cmdline"]):
+        try:
+            cmdline = proc.info.get("cmdline") or []
+            if not _is_ear_watch_process(proc.info.get("name"), cmdline, root):
                 continue
-    return pids
+            if _ancestry_is_broken(proc.info.get("ppid"), live_pids):
+                orphans.append(proc.info["pid"])
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return orphans
 
 
 def _kill_pid(pid: int) -> bool:
@@ -93,7 +229,20 @@ def sweep_stale_watchers() -> SweepResult:
     Called at SessionStart. Returns SweepResult with reap-count for the
     caller to surface (one-line note in the SessionStart output).
     """
-    pids = _find_ear_watch_pids()
+    try:
+        pids = _find_ear_watch_pids()
+    except ScanUnavailable as exc:
+        # Loud. The whole failure this module just came out of was a scan
+        # that could not run being indistinguishable from a clean machine.
+        return SweepResult(
+            reaped=0,
+            found_pids=[],
+            note=(
+                f"[!] session-start sweep DID NOT RUN ({exc}) — orphaned "
+                f"ear_watch processes were NOT checked for. This is not a "
+                f"clean result. Install psutil to restore the sweep."
+            ),
+        )
     if not pids:
         return SweepResult(reaped=0, found_pids=[], note="")
 
