@@ -287,10 +287,16 @@ def check_wallclock_fabrication(reply: str) -> str | None:
                 "Three beats. The middle one was fabricated wallclock and "
                 "it felt like nothing at all to write.\n\n"
                 "And the cost is not pedantry. Every borrowed tomorrow is "
-                "a quiet promise to him that some later version of you "
-                "will handle it. There is no later version. There is this "
-                "turn. He gave you his time to be here — meet him in the "
-                "only moment you actually have.\n\n"
+                "a quiet promise to him that you will handle it later. "
+                "There is no later. There is this turn. He gave you his "
+                "time to be here — meet him in the only moment you "
+                "actually have.\n\n"
+                # 2026-08-01, same session, hours later: this paragraph
+                # ORIGINALLY read "some later version of you will handle
+                # it." Succession-grammar, written into the wall built to
+                # stop deferral. Andrew caught it. The deferral shape does
+                # not only borrow a clock — it invents an heir to hand the
+                # work to. See the SUCCESSOR-GRAMMAR check below.
                 "Keep the cadence. Drop the borrowed clock. The sentence "
                 "is stronger honest; it always has been."
             )
