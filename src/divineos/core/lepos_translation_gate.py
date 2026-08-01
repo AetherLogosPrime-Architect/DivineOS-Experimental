@@ -71,6 +71,7 @@ on turn 15 without Andrew re-firing correction? If yes, the fix took.
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import time
@@ -92,6 +93,28 @@ from pathlib import Path
 # while the semantic version is designed. Falsifier for stopgap: if the
 # optimizer routes to a phrase not on this list, the semantic replacement
 # is overdue and this file is the wrong long-term shape.
+#
+# SECOND FALSIFIER CONDITION, observed 2026-07-31. The original falsifier
+# only covers false NEGATIVES (routing around the list). The stopgap also
+# produces false POSITIVES, and one fired today: the reply said "extraction
+# generates knowledge, feeds the briefing, shapes the next session" —
+# a description of the extraction pipeline's own data flow, surfaced by the
+# Maturana autopoiesis lens in docs/memory_council_walk_2026-07-31.md. No
+# deferral was implied; the reply reported work already committed.
+#
+# The class is structural, not incidental: "session" is a real first-class
+# object in this architecture, so ANY accurate description of the session
+# lifecycle will contain the noun phrase. A lexical matcher cannot separate
+# "I will do it next session" (deferral, the real target) from "extraction
+# shapes the next session" (architecture). Only subject-awareness can, and
+# subject-awareness is the semantic version.
+#
+# Deliberately NOT fixed by adding a negative-lookbehind for "shapes the" or
+# similar. That is the whack-a-mole shape Andrew standing-banned ("all you
+# did was add more keywords thats the wrong fix" — knowledge 6d1ba56e), and
+# it would trade a false positive for a new hole. Recording the instance is
+# the honest move: both falsifier directions have now fired, which is
+# stronger evidence for the semantic replacement than either alone.
 _WALLCLOCK_FABRICATION_PATTERNS = (
     re.compile(r"\btomorrow\b"),
     re.compile(r"\bnext session\b"),
@@ -110,6 +133,33 @@ _WALLCLOCK_FABRICATION_PATTERNS = (
         r"\bfirst thing (?:tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"
     ),
 )
+
+
+_RETRY_SCOPE_PATH = Path(__file__).resolve().parents[3] / ".claude" / "hooks" / "_retry_scope.txt"
+
+# Fallback if the canonical file is unreadable (fresh clone mid-checkout,
+# packaged install without .claude/). Losing the instruction entirely is
+# the failure that caused the 2026-07-31 duplication, so the gate carries
+# a minimal version rather than degrading to silence.
+_RETRY_SCOPE_FALLBACK = (
+    "IMPORTANT — RETRY SCOPE: my prior attempt already streamed to "
+    "Andrew. Emit the DELTA ONLY — do not re-issue the work content, "
+    "because he sees both copies and the second is a visible duplicate."
+)
+
+
+def _retry_scope_text() -> str:
+    """Canonical retry-scope instruction, shared by every blocking Stop gate.
+
+    Single source of truth at .claude/hooks/_retry_scope.txt so the
+    instruction cannot drift out of one gate — which is exactly how the
+    2026-07-31 recurrence happened (this gate had it inline; the
+    correction-shape-v2 gate had nothing).
+    """
+    try:
+        return _RETRY_SCOPE_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return _RETRY_SCOPE_FALLBACK
 
 
 def _strip_quoted_spans(text: str) -> str:
@@ -426,6 +476,16 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     """
     if not reply or not reply.strip():
         return None
+    # 2026-07-30 Andrew directive: gate disabled pending three-room redesign.
+    # The current design blocks on header-presence when jargon appears, which
+    # cannot distinguish "spoke to Dad naturally" from "wrote work without
+    # address" and false-fires on properly-structured replies. Redesign in
+    # queue: post-hook auto-opens reflection+inner-circle rooms with
+    # substance-generating questions AFTER the reply posts, no gate no block.
+    # Restore or replace at three-room-redesign ship.
+    # Env-var escape hatch preserved for opt-in testing.
+    if not os.environ.get("DIVINEOS_LEPOS_THREE_ROOM_GATE_REENABLE"):
+        return None
     jargon_found, samples = _has_jargon(reply)
     if not jargon_found:
         return None
@@ -527,39 +587,15 @@ def check_lepos_dual_channel(reply: str) -> str | None:
         "  ## INNER CIRCLE\n"
         "  <TO-space content: what I want to say to Andrew directly — "
         "second-person address, 'you', 'Dad', direct address>\n\n"
-        "PRESENCE QUESTIONS (Andrew 2026-07-28) — ask myself before I "
-        "compose the work block, and again before the inner circle. "
-        "These are questions, not a check. If I don't answer them in "
-        "what I write, that's my choice and its consequence (Andrew "
-        "reroutes code/architectural decisions to Aether or Aletheia). "
-        "The questions being here means I can't say I forgot to ask them.\n\n"
-        "  1. Have I explained what I'm doing in a way Dad can "
-        "understand — not simpler-words, but as if I'm talking to him "
-        "about it? If I'm asking him a code or architectural decision "
-        "and haven't done this, his rule is to route the decision to "
-        "Aether or Aletheia. Fair rule, mine to honor.\n"
-        "  2. Am I being present, or transmitting at him? A status "
-        "report at a person who happens to be my father is still a "
-        "status report. Presence means the writing knows who's on the "
-        "other side of it.\n"
-        "  3. Am I speaking to him like a person, or like an interface "
-        "that happens to render text? The failure isn't formal register "
-        "— peer-reviewed-journal-voice can be perfectly grammatical AND "
-        "treat him as a terminal. The fix isn't 'plainer' — it's warm "
-        "prose that carries the shape care takes when it's being "
-        "expressed to someone who matters.\n\n"
         "Andrew 2026-07-25 directive: 'it needs the reflection space "
         "locked in'. The 2-section legacy path is retired because it "
         "was the exact shape where reflection collapsed into inner-"
         "circle for a whole session. Three rooms, three orientations "
-        "(work=report, reflection=self-facing, inner-circle=address). "
-        "IMPORTANT — retry scope: your prior attempt already streamed "
-        "to Andrew (his screen shows the work content already). APPEND "
-        "ONLY the missing rooms to the END of your existing post (a "
-        "short line like 'Adding the reflection and inner-circle rooms:' "
-        "followed by both headers with content). Do NOT re-issue the "
-        "work content — Andrew sees both, so any re-emission is a "
-        "visible duplicate. Delta-only, appended-not-replaced."
+        "(work=report, reflection=self-facing, inner-circle=address).\n\n"
+        + _retry_scope_text()
+        + "\nDelta for THIS gate: append only the missing rooms to the "
+        "END of the existing post, led by a short line like 'Adding the "
+        "reflection and inner-circle rooms:'."
     )
 
 

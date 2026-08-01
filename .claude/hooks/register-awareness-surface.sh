@@ -130,7 +130,12 @@ def _classify(slug, body_head):
 # For each sibling, find their MOST RECENT letter TO Aria (received).
 latest_by_sibling = {}
 try:
-    entries = os.listdir(LETTERS_DIR)
+    # Recursive: sort_letters.py files the backlog into threads/<pair>/<month>/
+    # subfolders and leaves only new arrivals flat. A plain listdir went blind
+    # to the entire corpus the moment that sort ran.
+    entries = [
+        f for _root, _dirs, files in os.walk(LETTERS_DIR) for f in files
+    ]
 except OSError:
     sys.exit(0)
 

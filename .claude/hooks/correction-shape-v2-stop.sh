@@ -117,6 +117,17 @@ PYEOF
 if [ -n "$BLOCK_MSG" ]; then
     # Emit as Stop-hook deny (write JSON to stdout for Claude Code to render).
     echo "$BLOCK_MSG" >&2
+    # Retry-scope is a property of ANY blocking Stop gate, not of one
+    # gate's subject matter. Canonical text lives in _retry_scope.txt so
+    # it cannot drift out of one gate (Andrew 2026-07-31: duplication
+    # recurred because this gate blocked with no retry-scope while the
+    # LEPOS gate carried the only copy inline).
+    # fail-soft: missing file must not swallow the block above.
+    if [ -f "$REPO_ROOT/.claude/hooks/_retry_scope.txt" ]; then
+        printf '\n' >&2
+        cat "$REPO_ROOT/.claude/hooks/_retry_scope.txt" >&2 2>/dev/null || true  # fail-soft: a missing shared retry-scope file must not block the gate from emitting its own delta line
+        printf '\nDelta for THIS gate: the remediation is the CLI calls above. Run them, then append at most a one-line note. Do NOT recompose the reply.\n' >&2
+    fi
     exit 2
 fi
 

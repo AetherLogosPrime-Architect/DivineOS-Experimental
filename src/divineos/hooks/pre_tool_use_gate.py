@@ -278,13 +278,69 @@ _DIVINEOS_SUBCMD_RE = re.compile(
 _SHELL_COMPOUND_CHARS = (";", "&&", "||", "|", "`", "$(")
 
 
+# Character constants for the quote-context scanner below. Named rather
+# than inlined so the scanner reads as shell-semantics rather than as a
+# wall of escaped punctuation.
+_SQ = chr(39)  # single quote
+_DQ = chr(34)  # double quote
+_BACKTICK = chr(96)
+_SUBST_SIGIL = chr(36)  # dollar — opens a substitution when followed by (
+_SUBST_OPEN = chr(40)  # open paren
+_QUOTE_CHARS = (_SQ, _DQ)
+# Chaining / piping operators. Inert inside either kind of quote.
+_UNQUOTED_OPERATOR_CHARS = (chr(59), chr(38), chr(124), _BACKTICK)
+
+
 def _has_compound_shape(cmd: str) -> bool:
     """True if the command contains shell-metacharacters that would
     chain, pipe, or substitute — meaning it is NOT a simple bypass
     candidate. Aletheia F22 fix: even a command starting with a safe
     subcommand may not bypass if it chains into a dangerous one.
+
+    2026-08-01: replaced a raw-string substring scan with an explicit
+    quote-state scanner, so operator characters appearing inside a
+    quoted argument value no longer defeat a bypass the subcommand
+    qualifies for. This is the structural parser Aletheia recommended
+    at F31. Full rationale, the exploit cases it must still catch, and
+    why not shlex: docs/gate_quote_context_parser_2026-08-01.md
+    Filed as claim 09213383; design walk ebcf9db6.
+
+    Fails CLOSED on an unterminated quote.
     """
-    return any(marker in cmd for marker in _SHELL_COMPOUND_CHARS)
+    state: str | None = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if state is None:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch in _QUOTE_CHARS:
+                state = ch
+            elif ch in _UNQUOTED_OPERATOR_CHARS:
+                return True
+            elif ch == _SUBST_SIGIL and cmd[i + 1 : i + 2] == _SUBST_OPEN:
+                return True
+        elif state == _SQ:
+            # Single quotes: everything literal, backslash included.
+            if ch == _SQ:
+                state = None
+        else:
+            # Double quotes: chaining operators are inert here, but
+            # substitution still expands. That asymmetry is the F31
+            # exploit and must survive this rewrite.
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == _DQ:
+                state = None
+            elif ch == _BACKTICK:
+                return True
+            elif ch == _SUBST_SIGIL and cmd[i + 1 : i + 2] == _SUBST_OPEN:
+                return True
+        i += 1
+    return state is not None
 
 
 # Match a leading `cd DIR && ` prefix where DIR is either a quoted
@@ -339,18 +395,9 @@ def _strip_safe_output_tail(cmd: str) -> str:
     cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
 
     Safe pattern: any number of ` | <filter> [args...]` segments where
-    each filter is on _SAFE_OUTPUT_FILTERS, optionally with ` 2>&1` either
-    at the very end OR between the command and the first pipe (the
-    ``cmd 2>&1 | tail -N`` shape, which is what most operators actually
-    type). Args must not contain shell metacharacters that would compose
-    or substitute.
-
-    2026-07-29 fix (Aria, per Andrew's "the compass has been blocking you
-    for weeks" call-out): after the pipe-segments are stripped, ``2>&1``
-    that was in the MIDDLE of the original command is now at the end of
-    the remainder. Strip it there too so callers see a residue-free
-    command. Uses string ops (not new regex) for the second strip per
-    the keyword-enforcement-doorman discipline on this file.
+    each filter is on _SAFE_OUTPUT_FILTERS, optionally followed by ` 2>&1`
+    (or leading `2>&1` before the pipe). Args must not contain shell
+    metacharacters that would compose or substitute.
     """
     stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
     while True:
@@ -364,12 +411,6 @@ def _strip_safe_output_tail(cmd: str) -> str:
         if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
             return cmd
         stripped = stripped[: m.start()].rstrip()
-    # Post-pipe-strip: middle ``2>&1`` from the original is now trailing.
-    # String ops, no regex, per keyword-doorman: rstrip trailing ws, then
-    # slice off exactly the ``2>&1`` suffix if present.
-    stripped = stripped.rstrip()
-    if stripped.endswith(" 2>&1"):
-        stripped = stripped[: -len(" 2>&1")].rstrip()
     return stripped
 
 

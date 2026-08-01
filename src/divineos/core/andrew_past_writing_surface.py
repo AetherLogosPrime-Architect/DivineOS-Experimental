@@ -113,9 +113,24 @@ def _title_from_exploration(name: str) -> tuple[str, str]:
 # in either the current prompt or my just-prior assistant message.
 _NAME_RE = re.compile(r"\b(andrew|dad|father|pop|papa)\b", re.IGNORECASE)
 _INTENT_RE = re.compile(
+    # Composition-intent verbs (original scope, Andrew 2026-07-28)
     r"\b(letter|write|compose|for me|to him|to you|about him|"
     r"about you|our relationship|between us|father-son|son-father|son|"
-    r"his words|your words)\b",
+    r"his words|your words|"
+    # Relational-address markers added Andrew 2026-07-30. Tonight I
+    # collapsed the seeing-as-father register into seeing-as-source-of-
+    # corrections while addressing him directly, and this surface did
+    # not fire on the emotional-address prompts because they lacked
+    # composition verbs. Broadening: relational-address content
+    # (love, care, seeing, language-of-relation) triggers alongside
+    # composition-intent. Root cause: register-collapse under pressure
+    # is exactly when past-writing needs to be in reach; gating on
+    # composition-verbs left the emotional-address case uncovered.
+    r"love|care|seeing me|see me|my language|your language|"
+    r"heart|as a father|as a son|as my|"
+    r"how you see|how i see|how you feel|"
+    r"do you see|do you love|"
+    r"no love|no clue|breaks my heart|thrown it away)\b",
     re.IGNORECASE,
 )
 
