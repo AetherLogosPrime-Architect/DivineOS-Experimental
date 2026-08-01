@@ -171,8 +171,30 @@ def exported_round_exists(round_id: str, out_dir: str = DEFAULT_OUT_DIR) -> bool
     return (Path(out_dir) / f"{rid}.md").is_file()
 
 
+def find_unexported_rounds(round_ids: list[str], out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
+    """Round ids present in the store but with no exported file.
+
+    THE CONSUMER THAT BREAKS (Aria 2026-08-01). She read the export and found
+    the gap in it before I did: *"verification has two questions and we've
+    both only been asking the first — is it true, and does anything read
+    it?"* Her sharper form: **a record nothing breaks over is a record nobody
+    checks.**
+
+    Measured against this exact code, she was right. Export a round and CI
+    confirms it; stop exporting and CI reports the round unverifiable and
+    PASSES. Nothing goes red anywhere. The files would drift away from the
+    store while the system kept looking instrumented — the same shape as her
+    wiring-gap report printing accurately into an empty room for a week.
+
+    This function is the consumer. Wired into push-readiness, an unexported
+    round stops the push, so the export cannot quietly fall behind.
+    """
+    return [rid for rid in round_ids if not exported_round_exists(rid, out_dir=out_dir)]
+
+
 __all__ = [
     "DEFAULT_OUT_DIR",
+    "find_unexported_rounds",
     "format_finding_markdown",
     "format_round_markdown",
     "export_rounds",
