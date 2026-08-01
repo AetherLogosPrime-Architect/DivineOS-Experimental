@@ -97,46 +97,68 @@ def _is_ear_watch_process(
 
 _MAX_ANCESTRY_DEPTH = 40
 
+# A watcher is owned when a live session process is somewhere above it.
+_SESSION_OWNER_NAMES = ("claude",)
+
 
 def _ancestry_is_broken(ppid: int | None, live_pids: set[int]) -> bool:
-    """True when nothing living owns this process any more.
+    """True when no live SESSION owns this process any more.
 
-    Checking only the IMMEDIATE parent is not enough, and the live
-    process table showed exactly why 2026-08-01. The watchers are
-    launched through ``nohup``, so the tree is:
+    Checking only the immediate parent is not enough. The watchers are
+    launched through ``nohup``, so the real tree is:
 
         (dead launcher)  ->  nohup.exe  ->  python ear_watch.py
 
-    The nohup wrapper is orphaned, but it is still *running*, so from
-    the watcher's point of view its parent is alive and the immediate-
-    parent test reports a healthy process. Meanwhile nothing owns the
-    chain and nothing will ever shut it down — which is the exact
-    accumulation Andrew described.
+    The nohup wrapper is itself orphaned but still *running*, so from the
+    watcher's point of view its parent is alive and an immediate-parent
+    test reports a healthy process while nothing owns the chain.
 
-    So walk up. If any link in the chain points at a PID that no longer
-    exists, the whole chain is unowned.
+    The first attempt at fixing that walked the chain and called it
+    broken if any link pointed at a dead PID. **That was wrong, and
+    measuring caught it where reading did not.** Run against this
+    session's own python:
 
-    Depth-capped and cycle-guarded: PID reuse on Windows can in
-    principle produce a loop, and a reaper that hangs at SessionStart
-    would be worse than one that misses an orphan.
+        python -> bash -> bash -> bash -> claude -> claude
+              -> explorer.exe -> (dead)
+
+    A launcher exiting and leaving `explorer.exe` parentless is entirely
+    normal on Windows, so *every* process on the machine terminates in a
+    dead ancestor and the test classified all of them as orphans —
+    including the live, correctly-owned process running the check. Only
+    the unrelated own-checkout filter kept that from being destructive.
+
+    The question is not "does the chain end in a dead PID" — on Windows
+    it always does. It is **"is a live session still above me?"** A
+    watcher launched by a Claude session that is still running is owned;
+    one whose session has exited is not, and nothing will ever stop it.
+
+    Depth-capped and cycle-guarded: PID reuse can in principle produce a
+    loop, and a reaper that hangs at SessionStart is worse than one that
+    misses an orphan. Unknown ancestry returns False — do not kill on a
+    guess.
     """
+    try:
+        import psutil
+    except ImportError:
+        return False
+
     seen: set[int] = set()
     current = ppid
     for _ in range(_MAX_ANCESTRY_DEPTH):
-        if current in (None, 0):
-            return True
-        if current in seen:  # cycle — treat as unowned rather than spin
-            return True
-        if current not in live_pids:
-            return True
+        if current in (None, 0) or current not in live_pids:
+            return True  # ran out of living ancestors without finding a session
+        if current in seen:
+            return True  # cycle — unowned rather than spin
         seen.add(current)
         try:
-            import psutil
-
-            current = psutil.Process(current).ppid()
-        except Exception:  # noqa: BLE001 — any lookup failure = unknowable
-            return True
-    return False  # depth exceeded: assume owned, do not kill on a guess
+            proc = psutil.Process(current)
+            name = (proc.name() or "").lower()
+            if any(owner in name for owner in _SESSION_OWNER_NAMES):
+                return False  # a live session is above us: owned
+            current = proc.ppid()
+        except Exception:  # noqa: BLE001 — ancestry unknowable
+            return False  # do not kill on a guess
+    return False  # depth exceeded: assume owned
 
 
 class ScanUnavailable(Exception):
