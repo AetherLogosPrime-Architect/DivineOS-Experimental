@@ -143,6 +143,40 @@ def _has_unquoted_chain_shape(cmd: str) -> bool:
     return bool(chain_re.search(stripped))
 
 
+_LEADING_CD_RE = re.compile(
+    r"""^\s*cd\s+
+        (?:
+            (?:"[^"]*"|'[^']*')\s*&&\s*   # quoted path: && may abut the quote
+          | [^\s&;|<>()`$]+ \s+&&\s*      # bare path: && MUST be space-separated
+        )
+    """,
+    re.VERBOSE,
+)
+# The bare-path branch demands whitespace before `&&`, and that requirement
+# is load-bearing (caught by test_metachar_paths_are_not_stripped, 2026-08-01).
+# Without it, `cd /tmp&&rm && divineos correction "x"` matches `/tmp` as the
+# path — the character class halts at the `&` — consumes the first `&&`, and
+# silently leaves `rm` at the head. The command was still REFUSED downstream,
+# so this was never exploitable; but the docstring promised metachar paths go
+# untouched and the code did touch them. A security matcher whose stated
+# invariant is false is worth fixing even when the current behaviour happens
+# to be safe, because the next reader will rely on the promise.
+# Not stripping is always the safe direction: an unstripped prefix fails the
+# head check, which refuses. Stripping wrongly is what could ever permit.
+
+
+def _strip_leading_cd(cmd: str) -> str:
+    """Remove ONE leading `cd <path> &&` prefix, if present. Else unchanged.
+
+    Bounded on purpose: a single strip, no recursion. `cd a && cd b && rm`
+    keeps its second cd in head position and therefore still fails the
+    remedy-head check. A path containing shell metacharacters is not matched
+    at all, so nothing exotic slips through the strip on its way to the
+    chain-shape check that runs after.
+    """
+    return _LEADING_CD_RE.sub("", cmd, count=1)
+
+
 def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool:
     """Return True iff cmd is a legitimate invocation of a remedy command.
 
@@ -159,11 +193,34 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     """
     if not cmd:
         return False
+
+    # LEADING-CD CATCH-22 (Aria 2026-08-01, confirmed by controlled test).
+    #
+    # The rule above requires the remedy to be the FIRST thing in the
+    # command. A habitual `cd "<repo>" && divineos correction "..."` puts
+    # `cd` in the head position, so the exemption never matches and the gate
+    # BLOCKS THE VERY COMMAND ITS OWN MESSAGE INSTRUCTS ME TO RUN. Perfect
+    # deadlock: cannot clear the marker, cannot file the correction, and the
+    # block text names both as the way out.
+    #
+    # I hypothesised exactly this hours before proving it, then RETRACTED it
+    # untested because the next attempt hit a different gate stacked behind
+    # this one and I read that as disproof (correction #80 — a correct
+    # diagnosis withdrawn without a control). The confirming test was one
+    # command: identical invocation, prefix removed, ran clean.
+    #
+    # Stripping exactly ONE leading `cd <target> &&` does not widen the
+    # injection surface. `cd` has no side effect this gate cares about, only
+    # one strip is permitted, and the chain-shape check below still runs
+    # against the REMAINDER — so `cd X && remedy && rm -rf ~` is still
+    # refused on the appended chain, exactly as before.
+    cmd = _strip_leading_cd(cmd)
+
     # Split on pipe once — remedy must be the first pipeline segment.
     head_segment = re.split(r"\|", cmd, maxsplit=1)[0].strip()
     if not any(head_segment.startswith(h) for h in allowed_heads):
         return False
-    # Chain-shape check on the FULL cmd, quote-aware.
+    # Chain-shape check on the (cd-stripped) cmd, quote-aware.
     if _has_unquoted_chain_shape(cmd):
         return False
     return True
