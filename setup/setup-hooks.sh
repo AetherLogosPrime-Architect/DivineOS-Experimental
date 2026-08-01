@@ -520,17 +520,42 @@ for rid, focus in rows:
 # Count non-empty lines starting with round-
 ROUND_COUNT=$(echo "$RECENT_ROUNDS" | grep -cE '^round-' || true)
 
-if [[ -z "$RESOLVED_ROUND_ID" && "$ROUND_COUNT" == "1" ]]; then
-    ROUND_ID=$(echo "$RECENT_ROUNDS" | grep -oE 'round-[a-f0-9]+' | head -1)
-    {
-        echo ""
-        echo "External-Review: ${ROUND_ID}"
-    } >> "$COMMIT_MSG_FILE"
-    echo "prepare-commit-msg: trailer auto-attached from sole recent open round: ${ROUND_ID}"
-    echo "  (filed within the last 4 hours — if this isn't the right round, abort and re-commit"
-    echo "   with DIVINEOS_AUDIT_ROUND=round-<correct-id> git commit ...)"
-    RESOLVED_ROUND_ID="$ROUND_ID"
-fi
+# 2026-08-01 REMOVED: auto-attach from "the one recent open round".
+#
+# The block that sat here stamped a trailer whenever EXACTLY ONE audit
+# round happened to fall inside a rolling 4-hour window at the instant
+# of commit. Andrew described the symptom as "the trailer gets attached
+# and between then and the push the trailer is corrupted or something".
+# It was never corruption. It was a guess, and the clock decided it.
+#
+# Reproduced against three real commits on feat/403-rebuild-2026-08-01:
+#
+#   becdc689  01:23:26Z   4 rounds in window  -> no trailer
+#   2471a7e5  01:46:19Z   1 round  in window  -> trailer attached
+#   45c29b4d  03:23:23Z   0 rounds in window  -> no trailer
+#
+# Twenty-three minutes separate the first two. Nothing about them
+# differed except that three older rounds aged past four hours in
+# between. Worse than the inconsistency: the round it did attach
+# (round-3a0fcc40ccd2, "Trailer-grammar reconciliation") had nothing to
+# do with the commit it stamped, which restored two reverted files and
+# fixed ampersand handling, and its tree-hash points at a different
+# tree. So the trailer did not merely vary — it asserted that work had
+# been reviewed which had never been looked at.
+#
+# That is ceremony without substance, the same class the round-1 and
+# round-2 external audits already killed elsewhere in this hook. A
+# trailer is a CLAIM that a specific review covered specific work.
+# Nothing can infer that from a timestamp; only the author knows.
+#
+# Trailers now come from intent alone: one already in the message, or
+# DIVINEOS_AUDIT_ROUND set deliberately. Otherwise the commit proceeds
+# untrailed with the warning below, and the real gate stays where Andrew
+# put it — at merge-to-main. Commit freely, iterate freely, attach the
+# trailer when the review actually exists.
+#
+# RECENT_ROUNDS is still queried, but only to LIST candidates in that
+# warning. Offering options is help; silently picking one was the bug.
 
 # Andrew 2026-07-24 design correction: WARN not BLOCK at commit-time.
 # Commits and pushes-to-origin require no external review; only merge-to-main

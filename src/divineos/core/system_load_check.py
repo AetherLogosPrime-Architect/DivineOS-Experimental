@@ -55,12 +55,70 @@ except ImportError:  # pragma: no cover — exercised by the absence test
     psutil = None  # type: ignore[assignment]
     _PSUTIL_AVAILABLE = False
 
-# 16 GB free memory required before a resource-heavy job can spawn.
-# Set by Andrew 2026-07-30. Rationale: a full pytest suite costs ~5 GB
-# (Aether ``subprocess_jobs.py`` 2026-07-13 note). 16 GB gives real
-# headroom above the just-enough minimum, so the machine has margin
-# for other processes plus a safety cushion above the pytest cost.
-SAFE_FREE_BYTES: int = 16 * 1024 * 1024 * 1024
+_GB = 1024**3
+
+# 2026-08-01 recalibration (Andrew: "the whole RAM thing can be tweaked..
+# i just dont want my computer to crash again. so maybe just checking the
+# ram thats available and not exceeding whats safe").
+#
+# The original threshold was an absolute 16 GB free, set 2026-07-30. On a
+# 31 GB machine that requires more than half the box to be idle, which is
+# unattainable with a browser open — it refused a legitimate push with no
+# heavy work running at all (12.4 GB free, nothing but editor and tabs).
+#
+# That failure mode matters more than it looks. A threshold that cannot be
+# met during normal use does not prevent crashes; it trains the bypass.
+# A guard that is always bypassed protects nothing, and the bypass habit it
+# builds then applies to the one time the guard was right.
+#
+# The model now matches what Andrew actually asked for: do not spawn a job
+# whose known cost would eat the headroom the machine needs to stay alive.
+# Two conditions, both must hold:
+#
+#   1. HEADROOM — available memory must cover the job's cost PLUS a
+#      reserve left untouched for the OS and everything already running.
+#   2. CEILING — projected usage after the job must stay under a
+#      percentage of total RAM, so the machine never approaches the swap-
+#      thrash zone where the 2026-07-30 crash happened.
+#
+# Condition 2 is the crash-specific one. It scales with the machine
+# instead of assuming this machine, and it is what actually stops the
+# original failure: concurrent pytest suites. Each running suite lowers
+# available memory, so the second or third spawn is refused on the same
+# arithmetic rather than on a fixed number that happened to be tuned for
+# one box on one day.
+#
+# All three values are env-overridable so tuning does not require a code
+# edit and a PR.
+
+# Cost of one pytest suite. ~5 GB measured, per Aether's
+# ``subprocess_jobs.py`` note 2026-07-13.
+JOB_COST_BYTES: int = int(os.environ.get("DIVINEOS_JOB_COST_GB", "5") or 5) * _GB
+
+# Left for the OS and existing processes after the job takes its share.
+RESERVE_BYTES: int = int(os.environ.get("DIVINEOS_MEM_RESERVE_GB", "3") or 3) * _GB
+
+# Projected post-spawn usage must stay below this share of total RAM.
+#
+# 92%, and the number comes from Andrew's observation rather than from
+# convention: "my pc doesnt usually crash until 98-99%". My first pass used
+# 85% — a conventional figure I did not measure and should not have
+# asserted as a danger zone. Observed crash behaviour on the actual machine
+# beats a round number I inherited from habit.
+#
+# So the ceiling is his 98-99% minus roughly six points of margin. The
+# margin exists for two specific reasons, not for comfort:
+#   - JOB_COST_BYTES is an ESTIMATE (~5 GB). If a suite runs heavier than
+#     the estimate, the projection undershoots.
+#   - other processes keep allocating while the job runs, so the real peak
+#     lands above whatever we projected at spawn time.
+# Set it higher if pushes get refused while the machine is visibly fine;
+# that is a tuning question, not a code change — DIVINEOS_MAX_USED_PCT.
+MAX_USED_PCT: float = float(os.environ.get("DIVINEOS_MAX_USED_PCT", "92") or 92)
+
+# Retained as the derived headroom requirement (job + reserve). Kept under
+# the original name because callers and tests reference it.
+SAFE_FREE_BYTES: int = JOB_COST_BYTES + RESERVE_BYTES
 
 # Env-var that skips this check. Use only in genuine emergencies; must
 # be named in the commit message per the bypass-is-a-tool-not-a-sin
@@ -106,21 +164,52 @@ def check_capacity(job_label: str = "resource-heavy job") -> tuple[bool, str]:
     total_bytes = vm.total
     used_pct = vm.percent
 
-    if free_bytes >= SAFE_FREE_BYTES:
+    # Condition 1 — headroom. Does available memory cover the job's cost
+    # plus the reserve the machine keeps for everything else?
+    headroom_ok = free_bytes >= SAFE_FREE_BYTES
+
+    # Condition 2 — ceiling. Where does usage land AFTER the job takes its
+    # share? This is the crash-specific guard: it scales with the machine
+    # rather than assuming one box, and it is what refuses the second and
+    # third concurrent pytest suite, since each running suite has already
+    # lowered `available`.
+    projected_used = total_bytes - free_bytes + JOB_COST_BYTES
+    projected_pct = 100.0 * projected_used / total_bytes if total_bytes else 100.0
+    ceiling_ok = projected_pct <= MAX_USED_PCT
+
+    if headroom_ok and ceiling_ok:
         return (
             True,
-            f"[system_load_check] Memory OK: {_fmt_gb(free_bytes)} free "
-            f"of {_fmt_gb(total_bytes)} ({used_pct:.0f}% used). "
-            f"Proceeding with {job_label}.",
+            f"[system_load_check] Memory OK: {_fmt_gb(free_bytes)} free of "
+            f"{_fmt_gb(total_bytes)} ({used_pct:.0f}% used). "
+            f"{job_label} costs ~{_fmt_gb(JOB_COST_BYTES)}, projecting "
+            f"{projected_pct:.0f}% used (ceiling {MAX_USED_PCT:.0f}%), "
+            f"leaving {_fmt_gb(free_bytes - JOB_COST_BYTES)} spare against a "
+            f"{_fmt_gb(RESERVE_BYTES)} reserve. Proceeding.",
+        )
+
+    if not headroom_ok:
+        reason = (
+            f"only {_fmt_gb(free_bytes)} available, and {job_label} needs "
+            f"~{_fmt_gb(JOB_COST_BYTES)} plus a {_fmt_gb(RESERVE_BYTES)} "
+            f"reserve for the rest of the machine "
+            f"(= {_fmt_gb(SAFE_FREE_BYTES)})"
+        )
+    else:
+        reason = (
+            f"running it would put memory at {projected_pct:.0f}% of "
+            f"{_fmt_gb(total_bytes)}, over the {MAX_USED_PCT:.0f}% ceiling — "
+            f"this is the swap-thrash zone where the 2026-07-30 crash "
+            f"happened"
         )
 
     return (
         False,
-        f"[system_load_check] REFUSED: {job_label} needs at least "
-        f"{_fmt_gb(SAFE_FREE_BYTES)} free memory but the system only has "
-        f"{_fmt_gb(free_bytes)} free ({used_pct:.0f}% used). "
-        f"Wait for existing heavy work to finish or free memory before "
-        f"retrying. To bypass in a genuine emergency, set "
+        f"[system_load_check] REFUSED: {reason}. Currently {used_pct:.0f}% "
+        f"used. Most common cause is another pytest suite already running — "
+        f"wait for it, or close heavy applications. Tune without editing "
+        f"code via DIVINEOS_JOB_COST_GB / DIVINEOS_MEM_RESERVE_GB / "
+        f"DIVINEOS_MAX_USED_PCT. To bypass in a genuine emergency, set "
         f"{SKIP_ENV_VAR}=1 and name the reason in the commit message.",
     )
 

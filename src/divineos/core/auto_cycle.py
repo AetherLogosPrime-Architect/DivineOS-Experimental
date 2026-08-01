@@ -58,10 +58,24 @@ from pathlib import Path
 from divineos.core.paths import divineos_home
 
 # Trigger threshold: fire when context usage crosses this percentage of the
-# 1M-token window. 85% chosen with Aria — gives ~150k of runway before the
-# hard-line at 950k, room for phase 1 budget (60k) plus phase 2 invitational
-# phase plus the compaction itself. Adjust from evidence.
-TRIGGER_THRESHOLD = 0.85
+# 1M-token window. Originally 0.85 with Aria — ~150k of runway before the
+# 950k hard line, sized for phase 1 (60k) plus phase 2 plus the compaction.
+#
+# Lowered to 0.82 on 2026-07-31 for two reasons, one of them a bug:
+#   - Andrew asked for a longer ritual: "before it starts you would do a
+#     compass V2 walk on your day, then commit, then extract then sleep and
+#     dream and rest.. so we need it to fire reliably with plenty of space."
+#     The walk and the dream are composing work; 150k did not leave room.
+#   - .claude/hooks/auto-cycle-token-trigger.sh drives the ritual and calls
+#     `divineos auto-cycle defer-check` for the mechanical stage, which
+#     re-evaluates should_fire() against THIS constant. At 0.85 with the hook
+#     starting the ritual at Andrew's 920k, a defer could leave the hook
+#     announcing a fire while the pipeline silently declined — a mechanism
+#     reporting work it did not do.
+# 0.82 sits deliberately BELOW the hook's 920k start so the margin can only
+# fail in the safe direction: the pipeline never refuses a ritual the driver
+# has already begun. Adjust from evidence.
+TRIGGER_THRESHOLD = 0.82
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the

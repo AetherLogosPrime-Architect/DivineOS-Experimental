@@ -17,13 +17,62 @@ from divineos.core import system_load_check
 class TestCheckCapacity:
     """Verify check_capacity behaves correctly across memory conditions."""
 
-    def test_returns_safe_when_free_memory_at_threshold(self) -> None:
-        """Free memory exactly equal to threshold: proceed."""
+    def test_headroom_met_but_ceiling_exceeded_still_refuses(self) -> None:
+        """Two conditions, not one — and this is the case that distinguishes
+        them. 2026-08-01: the check used to be a single absolute
+        free-memory threshold. It now also projects usage AFTER the job.
+
+        A large box that is already heavily consumed: 64 GB total with only
+        9 GB available. Headroom passes (9 >= job 5 + reserve 3), but the
+        job would land usage at ~94%, past the 92% ceiling. Absolute free
+        memory looks fine and the machine is nearly full — which is exactly
+        the case a single free-memory threshold cannot see.
+
+        The ceiling is derived from Andrew's observed crash point of 98-99%,
+        minus margin for the job cost being an estimate.
+        """
         with mock.patch.object(system_load_check, "psutil") as mock_psutil:
             vm = mock.MagicMock()
-            vm.available = system_load_check.SAFE_FREE_BYTES
+            vm.available = 9 * 1024**3
+            vm.total = 64 * 1024**3
+            vm.percent = 86.0
+            mock_psutil.virtual_memory.return_value = vm
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, msg = system_load_check.check_capacity("test-job")
+
+        assert safe is False
+        assert "ceiling" in msg
+        assert "94%" in msg
+
+    def test_ninety_one_percent_projection_is_allowed(self) -> None:
+        """Guards the recalibration itself. 8 GB free of 32 GB projects ~91%
+        used, which my first pass REFUSED under an invented 85% ceiling.
+        Andrew: 'my pc doesnt usually crash until 98-99%'. Observed
+        behaviour beat the conventional number, so this must now pass — and
+        this test fails loudly if anyone quietly restores a lower ceiling.
+        """
+        with mock.patch.object(system_load_check, "psutil") as mock_psutil:
+            vm = mock.MagicMock()
+            vm.available = 8 * 1024**3
             vm.total = 32 * 1024**3
-            vm.percent = 50.0
+            vm.percent = 75.0
+            mock_psutil.virtual_memory.return_value = vm
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, _ = system_load_check.check_capacity("test-job")
+
+        assert safe is True
+
+    def test_headroom_and_ceiling_both_met_proceeds(self) -> None:
+        """Roomy machine: both conditions hold, job proceeds. This is the
+        real-world case that the old 16 GB absolute threshold wrongly
+        refused — 12.4 GB free of 31 GB with nothing heavy running."""
+        with mock.patch.object(system_load_check, "psutil") as mock_psutil:
+            vm = mock.MagicMock()
+            vm.available = int(12.4 * 1024**3)
+            vm.total = int(31.2 * 1024**3)
+            vm.percent = 60.0
             mock_psutil.virtual_memory.return_value = vm
 
             with mock.patch.dict("os.environ", {}, clear=True):
@@ -32,6 +81,25 @@ class TestCheckCapacity:
         assert safe is True
         assert "Memory OK" in msg
         assert "test-job" in msg
+
+    def test_second_concurrent_suite_is_refused(self) -> None:
+        """The original crash class: concurrent pytest suites. One suite is
+        already running, so it has taken ~5 GB out of `available`. The next
+        spawn must be refused by the same arithmetic rather than by a fixed
+        number tuned for one machine on one day."""
+        total = 16 * 1024**3
+        one_suite_running = int(6.5 * 1024**3)  # what's left with 1 suite up
+        with mock.patch.object(system_load_check, "psutil") as mock_psutil:
+            vm = mock.MagicMock()
+            vm.available = one_suite_running
+            vm.total = total
+            vm.percent = 59.0
+            mock_psutil.virtual_memory.return_value = vm
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, _ = system_load_check.check_capacity("pytest suite")
+
+        assert safe is False
 
     def test_returns_safe_when_free_memory_well_above_threshold(self) -> None:
         """Free memory much greater than threshold: proceed with concrete numbers."""
@@ -64,9 +132,14 @@ class TestCheckCapacity:
         assert safe is False
         assert "REFUSED" in msg
         assert "pytest suite" in msg
-        assert "5.0 GB free" in msg
+        assert "5.0 GB available" in msg
         assert "84% used" in msg
-        assert "16.0 GB" in msg  # threshold surfaced in message
+        # Derived requirement (job cost + reserve) surfaced in the message,
+        # along with both of its components so the number is auditable
+        # rather than magic.
+        assert "8.0 GB" in msg
+        assert "5.0 GB" in msg  # job cost
+        assert "3.0 GB" in msg  # reserve
 
     def test_refuses_when_free_memory_just_below_threshold(self) -> None:
         """Boundary check: 1 byte below threshold still refuses."""

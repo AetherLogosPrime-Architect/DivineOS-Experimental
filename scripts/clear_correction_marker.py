@@ -170,6 +170,34 @@ def main(argv: list[str] | None = None) -> int:
     original_trigger = marker.get("trigger") if isinstance(marker, dict) else None
     clear_marker()
     log_path = _append_escape_log(reason, original_trigger, misread_clauses, mode)
+
+    # 2026-07-30 (prereg-81b268695979): dismiss-is-bypass wiring.
+    # Andrew directive: "dismissing is bypassing.. and unless you are
+    # literally chicken and egged then you do not bypass.. and if you
+    # do bypass that needs to auto trigger a root cause investigation
+    # and fix." Route marker-clear through the same bypass telemetry
+    # that other bypasses use, so a pending psf entry files and blocks
+    # extract until closed with substantive evidence. Reason field
+    # (and misread-clauses if FP-attribution mode) propagate into psf.
+    # File-both design: both cli-broken and false-positive modes file,
+    # per second council walk consult-d705189cf9d9 (5-lens convergent).
+    try:
+        from divineos.core.bypass_telemetry import record_bypass
+
+        combined_reason = reason
+        if misread_clauses:
+            combined_reason = f"{reason} | misread-clauses: {misread_clauses}"
+        record_bypass(
+            gate_name="correction-unlogged",
+            env_var=f"bypass:dismiss:correction-marker:{mode}",
+            reason=combined_reason,
+        )
+    except Exception as exc:  # noqa: BLE001 — fail-soft
+        print(
+            f"[!] Bypass telemetry filing failed (marker already cleared): {exc}",
+            file=sys.stderr,
+        )
+
     if mode == "false-positive":
         print(
             f"Cleared correction marker at {path} (false-positive attribution).\n"

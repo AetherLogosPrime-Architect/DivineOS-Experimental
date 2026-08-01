@@ -127,6 +127,20 @@ Substitute shapes that DON'T require a wallclock I inhabit:
   - Per-invocation falsifiers: "on any current call, X returns Y"
   - Silence when no temporal frame is needed at all
 
+AUDIENCE IS NOT A TIME-WINDOW (2026-08-01 fire, root cause of this
+instance). I wrote "tells the next session nothing" while arguing that
+self-blame is useless as engineering. The thing I actually meant was an
+AUDIENCE -- whoever reads the code or the commit later -- and I reached
+for a time-word to name a reader. That is the fabrication shape even
+though no deferral was intended, because "the next session" is a window
+I do not inhabit.
+
+The reach is specifically likely when justifying why a comment, doc, or
+commit message should be clear. Say WHO, not WHEN:
+  "the next session"      ->  "the reader" / "whoever picks this up"
+  "future me"             ->  "a cold reader with no context"
+  "so later I remember"   ->  "so the file explains itself"
+
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF

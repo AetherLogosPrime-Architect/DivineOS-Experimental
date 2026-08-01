@@ -1,6 +1,6 @@
 ---
 name: council-round
-description: Run a lens-mode council walk on a problem — pick N members whose frameworks best fit, walk the problem through each lens, synthesize findings. The 2.4:1-multiplier mode, not program-mode query. Use for architectural decisions, design pivots, or when a problem needs multi-perspective framing.
+description: Run a lens-mode council walk on a problem — the dynamic council manager surfaces the lens set (composer does not pick count), walk the problem through each surfaced lens, synthesize findings. The 2.4:1-multiplier mode, not program-mode query. Use for architectural decisions, design pivots, or when a problem needs multi-perspective framing.
 disable-model-invocation: false
 allowed-tools: Bash(divineos mansion:*), Read
 ---
@@ -24,7 +24,7 @@ One or two sentences. Specific. "Should the event-ledger schema migrate to a new
 
 ### 2. Pick every relevant lens (no fixed count — the problem picks)
 
-Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): drop the "3-5 sweet spot" and drop "minimum N" — both are Goodhart-traps that turn into targets. The standard is:
+Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): fixed-count heuristics for lens counts are Goodhart-traps that turn into targets — the composer picks the low end 100% of the time. The dynamic council manager decides how many lenses walk, not the composer. The standard is:
 
 - Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council --for-problem "<problem>"` or equivalent — the manager knows which lenses fit which shapes better than a fixed floor does).
 - The load-bearing bar is **at least 2 genuinely disagreeing lenses pushing back on something load-bearing**. Not manufactured disagreement on trivia — real dissent on a real hinge. If no dissent emerges organically, walk more lenses OR the problem may be simpler than it looks (a signal, not a failure).
@@ -130,7 +130,7 @@ If the "walk" is really just "I'll ask the council template for concerns, then r
 
 ### Required structure
 
-For each picked lens (**every lens the dynamic manager surfaced**, no fixed count — see §2. The "3-5 total" wording that lived here through 2026-07-15 contradicted §2 and trained the optimizer to always pick the low end. Andrew 2026-07-15: "obviously the optimizer will pick 5 100% of the time." Truth #11 — options are the optimizer's attack surface. Use the full surfaced set; the manager's cap is the ceiling, not a menu):
+For each picked lens (**every lens the dynamic manager surfaced**, no fixed count — see §2. The dynamic council manager decides lens count, not the composer. Truth #11 — options are the optimizer's attack surface. Use the full surfaced set; the manager's cap is the ceiling, not a menu):
 
 ```
 ### Through [Lens-Name]: [one-line frame]
