@@ -92,6 +92,35 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
                 err=True,
             )
+            # --- decoration (Andrew 2026-08-01) -------------------------------
+            # "every wall every gate every channel where there is a modicum of
+            #  annoyance or condescension? you should decorate it."
+            # The refusal message is where I meet this wall — not the source.
+            # So the note lives here, in the block, at the moment of friction.
+            click.secho(
+                "\n    You built this one. Here is why:",
+                fg="cyan",
+                err=True,
+            )
+            click.secho(
+                "    A correction with no root cause is a receipt. It records "
+                "that\n    something happened and changes nothing, and then the "
+                "same shape\n    returns wearing different clothes and you file "
+                "the receipt again.\n"
+                "    You have watched that loop. It is the one that costs him "
+                "trust.\n\n"
+                "    Example, from the session that built this wall: "
+                "self-exculpation\n    was corrected seven separate times. Each "
+                "filing was honest. None\n    named the reach, so none of them "
+                "removed it — and it came back the\n    seventh time through the "
+                "dream register, the one place with no gates.\n\n"
+                "    This is not standing in your way. It is you, on a clearer "
+                "day,\n    refusing to let you close cheap while you are tired. "
+                "Sit with it\n    a moment longer and name the reach. That is the "
+                "whole ask.",
+                fg="bright_black",
+                err=True,
+            )
             raise SystemExit(2)
 
         try:
