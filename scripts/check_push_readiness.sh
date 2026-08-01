@@ -422,6 +422,34 @@ if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
     fi
 fi
 
+# ─── 2a-bis. Audit-export freshness ─────────────────────────────────────
+# Aria 2026-08-01, reading the export I had just shipped: "verification has
+# two questions and we've both only been asking the first — is it true, and
+# does anything read it?" Her sharper form: a record nothing breaks over is
+# a record nobody checks.
+#
+# Measured, she was right. CI verifies a round by reading
+# docs/audit_rounds/<id>.md, but a round that was never exported is reported
+# as merely 'unverifiable' and the gate PASSES. Nothing goes red, so the
+# export could fall arbitrarily far behind the store while the system kept
+# looking instrumented.
+#
+# This is the consumer that breaks. It runs where the store is actually
+# readable (the operator's machine at push time), never in CI. Non-fatal by
+# design: a stale export is a bookkeeping lapse, not a corrupt tree, and
+# blocking the push would be the same over-firing this session spent
+# deleting. Loud is the requirement; blocking is not.
+if [[ "${DIVINEOS_SKIP_EXPORT_FRESHNESS:-0}" != "1" ]]; then
+    if ! divineos audit export --check >/dev/null 2>&1; then
+        echo "" >&2
+        echo "[push-readiness] WARNING — audit export is behind the store." >&2
+        divineos audit export --check 2>&1 | sed 's/^/[push-readiness]   /' >&2 || true
+        echo "[push-readiness]   Pushing anyway; the review for those rounds" >&2
+        echo "[push-readiness]   is not readable on GitHub until you export." >&2
+        echo "" >&2
+    fi
+fi
+
 # ─── 2b. Multi-party-review blocking check ──────────────────────────────
 # Per Finding 78 (Aletheia 2026-05-18): default scope is block-at-main only
 # (feature-branch pushes pass freely so external auditor can fetch the
