@@ -335,13 +335,91 @@ _DIVINEOS_SUBCMD_RE = re.compile(
 _SHELL_COMPOUND_CHARS = (";", "&&", "||", "|", "`", "$(")
 
 
+_SINGLE_Q = chr(39)
+_DOUBLE_Q = chr(34)
+_BACKTICK = chr(96)
+
+
+def _strip_inert_quoted_spans(cmd: str) -> str:
+    """Remove quoted spans whose contents cannot execute anything.
+
+    The principle is already stated in the _CD_PREFIX_RE comment below,
+    where it is applied to the cd argument and nowhere else: semicolons
+    and ampersands inside quotes are inert; only substitution is
+    dangerous. This applies that same rule to the whole command.
+
+    Rules:
+
+    * Single-quoted spans are dropped unconditionally. The shell expands
+      nothing inside them.
+    * Double-quoted spans are dropped only when they contain neither a
+      dollar sign nor a backtick. Both expand inside double quotes, so
+      such a span is kept and will still trip the compound check.
+    * An unterminated quote keeps its remainder, so a malformed command
+      can never strip its way into looking safe.
+    * Text outside quotes is untouched. A chained destructive command
+      after a quoted argument still fails the bypass, because its
+      separator is not inside a quote.
+
+    Written as a character walk rather than a pattern on purpose. Shell
+    quoting is a state machine, and tracking the state directly is both
+    easier to audit by eye and less able to over-match than a pattern
+    pretending to parse it. It is also what the keyword-enforcement
+    doorman asks for when it blocks pattern-additions to this file, and
+    it was right to block twice while this fix was being written.
+    """
+    out: list[str] = []
+    i, n = 0, len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if ch != _SINGLE_Q and ch != _DOUBLE_Q:
+            out.append(ch)
+            i += 1
+            continue
+        close = cmd.find(ch, i + 1)
+        if close == -1:
+            # Unterminated quote: keep the remainder verbatim so a
+            # malformed command cannot strip itself into looking simple.
+            out.append(cmd[i:])
+            break
+        span = cmd[i + 1 : close]
+        if ch == _DOUBLE_Q and ("$" in span or _BACKTICK in span):
+            out.append(cmd[i : close + 1])  # expands; keep it visible
+        i = close + 1
+    return "".join(out)
+
+
 def _has_compound_shape(cmd: str) -> bool:
     """True if the command contains shell-metacharacters that would
     chain, pipe, or substitute — meaning it is NOT a simple bypass
     candidate. Aletheia F22 fix: even a command starting with a safe
     subcommand may not bypass if it chains into a dangerous one.
+
+    2026-08-01 (Aria): quoted argument payloads no longer count.
+
+    This scanned the raw string, so a shell-metacharacter inside a
+    QUOTED PROSE ARGUMENT defeated the bypass. Every gate's named remedy
+    takes prose: correction, learn, claim, decide, delete-justify with
+    its why flag, prereg assess with its notes flag. A remedy whose
+    prose held a parenthesis or a vertical bar was silently disqualified
+    from bypassing.
+
+    Latent almost always. With no hard-block gate up, other paths still
+    let the command through. It bites precisely when a hard gate IS up,
+    which is exactly when the remedy is needed. Found live: an overdue
+    pre-registration blocked all substantive tool use, and the assess
+    command that clears it was denied because its notes contained a
+    parenthesis. That command sits on the bypass list and is documented
+    as exempt in the _check_overdue_prereg_block docstring. A second
+    pre-registration aged into overdue during the deadlock. Deleting the
+    parentheses and changing nothing else let it through.
+
+    The perverse gradient is the point: the more careful the prose in a
+    remedy, the likelier it holds a parenthesis or a bar, and so the
+    likelier the remedy was refused. The refusal named an unrelated
+    gate, which kept the cause invisible.
     """
-    return any(marker in cmd for marker in _SHELL_COMPOUND_CHARS)
+    return any(marker in _strip_inert_quoted_spans(cmd) for marker in _SHELL_COMPOUND_CHARS)
 
 
 # Match a leading `cd DIR && ` prefix where DIR is either a quoted
