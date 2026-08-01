@@ -97,10 +97,23 @@ class TestRoundNotFound:
 
 
 class TestStaleRound:
-    def test_round_older_than_window_blocks(self) -> None:
+    """Staleness is decided by CONTENT, not by the clock (2026-08-01).
+
+    The 7-day recency window was removed. Andrew's rule is that day-windows
+    are the wrong metric class — an untested week yields almost no data —
+    and following it here showed the window was a weak proxy for a question
+    the gate already answers exactly: does this review cover THIS code.
+
+    Content-addressing IS that answer. So a round's age is now irrelevant
+    in both directions, and these two tests pin both.
+    """
+
+    def test_old_round_passes_when_content_still_matches(self) -> None:
+        """A 30-day-old round whose diff-hash matches reviewed precisely
+        this content. It used to be rejected for the crime of being old,
+        which is what manufactured the stale-approval jams."""
         guardrail = "src/divineos/core/compliance_audit.py"
         now = 1_700_000_000.0
-        # Round created 30 days ago, window is 7 days.
         old_ts = now - 30 * 86400
         diff_hash = "a" * 64
         rnd = _FakeRound(focus=f"test round  diff-hash: {diff_hash}", created_at=old_ts)
@@ -111,9 +124,28 @@ class TestStaleRound:
                     with patch.object(
                         mpr, "_fetch_round_and_findings", return_value=(rnd, findings)
                     ):
-                        ok, msg = mpr.validate("commit\n\nExternal-Review: round-stale", now=now)
+                        ok, msg = mpr.validate("commit\n\nExternal-Review: round-old", now=now)
+        assert ok is True, msg
+        assert "days old" not in msg, "age must no longer appear in the verdict"
+
+    def test_fresh_round_blocks_when_content_does_not_match(self) -> None:
+        """The direction that actually protects anything. A round filed ten
+        minutes ago reviewed something else, and is blocked — which is why
+        deleting the clock costs no safety."""
+        guardrail = "src/divineos/core/compliance_audit.py"
+        now = 1_700_000_000.0
+        fresh_ts = now - 600
+        rnd = _FakeRound(focus="fresh round  diff-hash: " + ("b" * 64), created_at=fresh_ts)
+        findings = [_FakeFinding("user"), _FakeFinding("grok")]
+        with patch.object(mpr, "_staged_files", return_value=[guardrail]):
+            with patch.object(mpr, "_load_guardrail_set", return_value={guardrail}):
+                with patch.object(mpr, "_staged_diff_hash", return_value="a" * 64):
+                    with patch.object(
+                        mpr, "_fetch_round_and_findings", return_value=(rnd, findings)
+                    ):
+                        ok, msg = mpr.validate("commit\n\nExternal-Review: round-fresh", now=now)
         assert ok is False
-        assert "days old" in msg
+        assert "does not reference the" in msg
 
 
 class TestDiffHashBinding:
