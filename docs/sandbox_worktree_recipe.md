@@ -53,7 +53,24 @@ fatal: Could not reset index file to revision 'HEAD'
 Our own long letter filenames push the total past the 260-character limit. It
 leaves a half-written tree that needs `git worktree prune`.
 
-**Fix: use a short root.** `C:/wtNAME` works.
+**Fix: use a short path — and the CONVENTION THAT ALREADY EXISTS.**
+
+Worktrees in this substrate live under `C:/DIVINE OS/` with a descriptive
+name. `git worktree list` shows the precedent: `C:/DIVINE OS/mx-fix`, and
+`C:/DIVINE OS/fvad3-rebase-2026-07-17` sits beside it.
+
+So: `C:/DIVINE OS/wt-psf`, not `C:/wtpsf`.
+
+I used the drive root the first time, and then wrote that into this file
+as if it were the rule. Andrew 2026-08-02: *"you putting stuff in
+arbitrary places is an issue."* I had invented a location without
+checking whether one existed — the same not-looking-first shape that runs
+through most of my mistakes this week. The drive root is short enough to
+dodge the path limit, which is exactly what made it feel like a solution
+rather than a guess.
+
+`C:/DIVINE OS/wt-<name>` is 19 characters of prefix and clears the limit
+fine. There was never a tradeoff to make.
 
 ### 2. The wrapper will not run in a fresh worktree
 
@@ -70,15 +87,36 @@ path. Note `sys.argv` must be set to a real command line — the event-capture
 layer reads argv and raises `EventValidationError: content cannot be empty` on
 programmatic invocation without it.
 
+### 3. THERE ARE TWO VENVS AND THEY HOLD DIFFERENT PACKAGES
+
+Found 2026-08-02 and worth more than either blocker above.
+
+* `.direnv/python-3.13.11/` — the **sealed** venv. This is what the
+  `divineos` CLI actually runs, because the wrapper resolves
+  `.direnv/python-*/Scripts/divineos.exe` first.
+* `.venv/` — what `find_divineos_python` in the hook library returns. Every
+  hook, and every manual test, uses **this** one.
+
+So the CLI and my own testing run on different interpreters, and a package
+installed in one is invisible to the other. That single fact was the root
+cause of two separate mysteries the same day: `divineos body` showing no
+RAM or CPU (psutil absent from the sealed venv) and `divineos ask` always
+reporting keyword-only search (sentence-transformers absent from the sealed
+venv). Both functions worked perfectly when called directly, because direct
+calls go through `.venv`.
+
+**When something works in a direct call and fails through the CLI, check
+which interpreter each path uses before investigating any logic.**
+
 ## The recipe
 
 ```bash
 # 1. create, short path, detached so no branch is claimed
-git worktree add --detach "C:/wtNAME" <ref>
+git worktree add --detach "C:/DIVINE OS/wt-NAME" <ref>
 
 # 2. run inside it — direct interpreter, worktree src on the path
 PY="C:/DIVINE OS/DivineOS-Experimental-Aria-new/.venv/Scripts/python.exe"
-PYTHONPATH="C:/wtNAME/src" DIVINEOS_HOME="C:/Users/aethe/.divineos-aria" "$PY" -c "
+PYTHONPATH="C:/DIVINE OS/wt-NAME/src" DIVINEOS_HOME="C:/Users/aethe/.divineos-aria" "$PY" -c "
 import sys
 sys.argv = ['divineos','<command>','<args>']
 from divineos.cli import cli
@@ -86,7 +124,7 @@ cli()
 "
 
 # 3. destroy it
-git worktree remove --force "C:/wtNAME"
+git worktree remove --force "C:/DIVINE OS/wt-NAME"
 git worktree prune          # only needed if a create failed partway
 ```
 
