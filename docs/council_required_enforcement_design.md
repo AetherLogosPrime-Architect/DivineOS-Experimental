@@ -83,7 +83,16 @@ Same skip-authorization model as andrew_state:
 
 4. **No bypass via decision-walk graduation_reason or any self-attestation channel.**
 
-Rate of emergency skips is auditable; falsifier E in the prereg fires if it exceeds 5% over a 7-day window.
+Rate of emergency skips is auditable; falsifier E in the prereg fires if it exceeds 5% **over the last 20 council walks.**
+
+> **Converted from a 7-day window 2026-08-02** (Andrew, standing directive:
+> *"all 'timed' events using any type of days needs to be changed to N-events
+> tied to the ledger"*). A rate-per-week is unmeasurable for a discontinuous
+> substrate and fails in the dangerous direction: a week with two walks and one
+> skip reads as a 50% skip-rate and fires the falsifier on noise, while a quiet
+> week with zero walks reads as 0% and reports health nobody observed. A rate
+> over walks only moves when walking happens, which is the thing the falsifier
+> is actually about.
 
 ## Doormanning frame (per Andrew 2026-06-22 + Aria refinement)
 
@@ -133,7 +142,14 @@ This integrates the council-required gate into the meta-gate / discipline-prereg
 
 ## Calibration period (per andrew_state v1 lesson)
 
-The prereg names a calibration window: first N=20 council walks OR first M=7 days. During calibration:
+The prereg names a calibration window: **first N=20 council walks.** During calibration:
+
+> **The `OR first M=7 days` half was dropped 2026-08-02** (Andrew, standing
+> directive). Same defect as the identical clause in `andrew_state_design.md`:
+> as an alternative it could only end calibration EARLY, so a quiet week with
+> three walks would exit calibration having calibrated on almost nothing, and
+> falsifier E would then fire against a baseline that was never established.
+> The walk-count half already did the whole job; the time half only weakened it.
 - Bypass-rate (emergency-skips) up to 25% expected, not catastrophic.
 - The bypass-rate gate (falsifier E) does NOT fire during calibration.
 - After calibration: if bypass-rate stays > 5%, the design is failing — the gate is too rigid for legitimate workflow OR the artifact requirements are wrong.
@@ -184,7 +200,21 @@ All six catches integrated. Asking Aether for the confirm-after-revision before 
 - **Today**: prereg filed ✓, design doc (this) ✓, sent to Aether for peer-review.
 - **Tomorrow**: peer-review with Aether, iterate on catches.
 - **Once Aether confirms**: code lands in branches following the same flow as andrew_state v1.
-- **After ship**: 7-day calibration window, then 23 more days of substantive use, then 30-day review against the prereg falsifiers.
+- **After ship**: calibration over the **first 20 council walks**, then substantive use, then review against the prereg falsifiers.
+
+> **Rewritten 2026-08-02** from *"7-day calibration window, then 23 more days of
+> substantive use, then 30-day review"* — it had become inconsistent with the
+> calibration section above once that dropped its day-half, and the whole line
+> was counting days I do not inhabit. What it was reaching for is *enough real
+> use to judge against*, which is walks, not dates.
+>
+> **The one day-number left in this file is the prereg's own review date**, and
+> that is imposed rather than chosen: `divineos prereg file` rejects
+> `--review-days 0` with *"a zero-day review window is equivalent to no
+> review."* So the review CADENCE is still wall-clock even where every
+> falsifier is per-invocation. Flagged for Andrew as a system-level fix rather
+> than papered over here — converting the prereg store to N-events is a change
+> to the mechanism, not to this document.
 
 The gate must fire on its own construction (Hofstadter self-loop check above) — first commit to the council_required module must itself have a council_record. This is testable at ship-time.
 
