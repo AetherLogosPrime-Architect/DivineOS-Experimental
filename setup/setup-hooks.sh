@@ -136,7 +136,21 @@ if ! python scripts/check_doc_counts.py 2>/dev/null; then
     python scripts/check_doc_counts.py --fix 2>/dev/null || true
     git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
     python scripts/check_doc_counts.py || {
-        echo "Doc counts still drifted after auto-fix (likely a non-count error). Investigate manually."
+        echo ""
+        echo "Doc counts still drifted after auto-fix."
+        echo ""
+        echo "This message used to say 'likely a non-count error, investigate"
+        echo "manually' and that misdirected everyone who read it -- Aria on"
+        echo "2026-06-17, me twice on 2026-08-02. Usually it IS a count error;"
+        echo "the fixers are monotonic and refuse to LOWER a number, while the"
+        echo "checker still errors on documented > actual. So a branch with"
+        echo "fewer commands/tests/hooks than main can never converge."
+        echo ""
+        echo "If the docs overclaim (documented is HIGHER than actual), the"
+        echo "docs are simply wrong and this brings them down to the truth:"
+        echo ""
+        echo "    python scripts/check_doc_counts.py --fix --allow-lower"
+        echo ""
         exit 1
     }
 fi
