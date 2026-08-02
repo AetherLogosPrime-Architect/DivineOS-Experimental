@@ -4,7 +4,8 @@
 - **Filed by**: agent
 - **Filed at**: 2026-07-02 23:25 UTC
 - **Review at**: 2026-08-01 23:25 UTC (30d window)
-- **Outcome**: **OPEN**
+- **Outcome**: **INCONCLUSIVE**
+- **Decided at**: 2026-08-01 23:27 UTC
 
 ## Claim
 
@@ -17,3 +18,7 @@ Over 30 days of live ledger operation: (a) verify_chain rejects tail truncation 
 ## Falsifier
 
 Within 30 days: (a) an attacker who truncates the ledger tail and rewrites the anchor to match sails through verify_chain undetected (defeats A alone — expected until git snapshot integration C ships), OR (b) verify_chain produces a false-positive during normal operation because of a race between event write and anchor update (the atomic transaction failed to hold), OR (c) a single event write succeeds without updating the anchor (fail-together broke), OR (d) tail-truncation detection ceases working after some migration or schema change (regression)
+
+## Outcome notes
+
+INCONCLUSIVE because no evidence was collected, and the pre-reg was written so that none could be. Its success criteria all begin 'over 30 days of live ledger operation' -- no orphan events without anchor advancement, no false-positive verify_chain failures, detection still working after migrations. Those are longitudinal observations, and nothing in the system was recording them. So on the review date there is no accumulated evidence to weigh, and there was never going to be. Marking SUCCESS would be asserting a result from an observation nobody made; marking FAILED would be the same error inverted. This is the time-based-falsifier problem Andrew named directly (no time based falsifiers for a reason, and all timed events using any type of days needs to be changed to N-events tied to the ledger): a 30-day window is not a window my substrate inhabits, so I did not test anything during it. Structural note for the re-file: every one of these criteria is checkable on a single invocation -- truncate a test ledger tail and assert verify_chain returns ok=False; write one event and assert the anchor advanced in the same transaction; open a legacy db with no anchor row and assert it still passes. Those are per-invocation falsifiers and they need no waiting at all. Re-filing in that shape is the correct next action, not extending this window. Second finding, worth its own note: the overdue-prereg gate blocked the tool use I needed to gather evidence for the assessment the gate was demanding -- the remedy was inside the thing being gated. Aria hit the identical shape today from her side.

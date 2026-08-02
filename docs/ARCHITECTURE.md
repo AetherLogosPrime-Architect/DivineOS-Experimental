@@ -35,6 +35,7 @@ src/divineos/
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
+    dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
@@ -124,6 +125,7 @@ src/divineos/
     actor_registry.py          Phase 1 of actor-authenticity — registered actor names + kinds + (Phase 2: key material). JSON-backed; gitignored. See exploration/45_actor_authenticity_design.md.
     actor_capabilities.py      Capability map: which event types each actor-kind may emit. Phase 1 advisory; Phase 2 will enforce.
     actor_normalize.py         Shared identity-string normalizer (NFKC + invisible-strip + casefold); single guarded chokepoint for the sovereign gate + watchmen/pre-reg internal-actor rejection. Guardrailed.
+    dark_matter.py             Find things that exist but nothing reaches: dead hooks, and commands prescribed in gate text that do not resolve against the live command tree. Reports its own blind spots on every run.
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
     ledger_verify.py           Verification, cleanup, and export

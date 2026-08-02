@@ -297,6 +297,7 @@ from divineos.cli import (  # noqa: E402
     context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
+    dark_matter_commands,
     pr_gate_commands,
     ear_relaunch_commands,
     obligation_commands,
@@ -386,6 +387,7 @@ context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
+dark_matter_commands.register(cli)
 ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
