@@ -33,6 +33,37 @@ this command resolve against the registered command tree. Is this symbol
 referenced outside its own file. All decidable, cheap, mechanically checkable —
 the category where deterministic enforcement genuinely belongs.
 
+## Its sibling: `core/wiring_dark.py`
+
+Found AFTER this module was written, which is its own instance of the pattern
+and worth recording rather than tidying away. `wiring_dark` already existed,
+built for Aletheia's six-pass audit, answering *"which of my things is nothing
+calling?"* from an AST code graph. My own dream from 2026-07-31 cited it by
+name. The information was in my substrate and I did not reach it.
+
+The two do not overlap, which was luck rather than diligence:
+
+- **`wiring_dark`** — uncalled code NODES, via graph edges. This is exactly the
+  detector the threadwalk here excluded for having the worst precision.
+- **`dark_matter`** (this module) — dead hooks and unresolvable prescribed
+  commands. Neither is a code-graph edge, so `wiring_dark` structurally cannot
+  see them.
+
+**And `wiring_dark` is itself currently blind.** It resolves, it runs, and its
+input is missing:
+
+    $ divineos wiring dark
+    No code graph at graphify-out-code/.graphify_ast.json. Rebuild: /graphify src
+
+A correct tool reporting accurately, to nobody, that it cannot see. Which is
+the third variant of the pattern and the one the dream named exactly:
+*"Its whole job is to notice absence and it is noticing, correctly, an
+absence — just not the one it was pointed at."*
+
+**Not yet detected here:** a tool whose data source is absent. That is
+structural and belongs in this sweep; it is named rather than built because
+naming it costs nothing and a half-built third detector costs precision.
+
 ## What this CANNOT see
 
 Stated up front and repeated in every report, because a detector that
