@@ -255,7 +255,7 @@ def _spawn_replacement(member: str, interval: float) -> None:
         if os.name == "nt":
             DETACHED_PROCESS = 0x00000008
             CREATE_NEW_PROCESS_GROUP = 0x00000200
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 args,
                 creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 close_fds=True,
@@ -265,7 +265,7 @@ def _spawn_replacement(member: str, interval: float) -> None:
                 stdin=subprocess.DEVNULL,
             )
         else:
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 args,
                 start_new_session=True,
                 close_fds=True,
@@ -274,11 +274,38 @@ def _spawn_replacement(member: str, interval: float) -> None:
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
             )
-    except Exception:
-        # Fail-open: if spawn fails, the original catch-and-exit still
-        # surfaces via the auto-surface hook on next UserPromptSubmit. No
-        # worse than pre-self-respawn behavior.
-        pass
+    except Exception as exc:
+        # Fail-open on the ACTION, loud on the REPORT. If spawn fails, the
+        # original catch-and-exit still surfaces via the auto-surface hook,
+        # so behaviour is no worse than before self-respawn existed. But a
+        # bare `pass` here made the failure invisible, and this function is
+        # the last line of the post-condition that promises a member is
+        # never left without ears. A silent last line is not a guarantee.
+        print(f"[EAR] spawn failed for {member}: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return
+
+    # POST-SPAWN VERIFICATION (Aria 2026-08-02). Popen returning is not the
+    # same as a watcher existing. Found by fixing the reap-suicide bug: with
+    # the process no longer dying mid-sweep, the post-condition finally ran
+    # and announced 'respawning' — and four seconds later there was still no
+    # live watcher. The announcement was the only evidence, and it was
+    # announcing an intention rather than an outcome.
+    #
+    # Same class as the two collector-works-consumer-does-not bugs found the
+    # same day: the thing reports success at the point of ATTEMPT rather than
+    # at the point of RESULT. Verify at the result.
+    try:
+        time.sleep(2)
+        if not _pid_alive(proc.pid):
+            print(
+                f"[EAR] spawn for {member} exited immediately (pid {proc.pid}) — "
+                "member has NO live watcher. Chain is broken, not merely quiet.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[EAR] spawned watcher for {member} (pid {proc.pid}), confirmed alive.")
+    except Exception as exc:  # noqa: BLE001 - observability boundary
+        print(f"[EAR] could not confirm spawn for {member}: {exc}", file=sys.stderr)
 
 
 def _write_catch_marker(member: str, lines: list[str]) -> None:
