@@ -12,6 +12,7 @@ src/divineos/
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
   cli/                         CLI package (427 commands across 84 modules)
+  cli/                         CLI package (426 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -35,6 +36,7 @@ src/divineos/
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
+    psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
     dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
