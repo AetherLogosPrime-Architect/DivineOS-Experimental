@@ -31,7 +31,18 @@ from divineos.core import sleep as sleep_mod
 
 @pytest.fixture
 def affect_db(tmp_path, monkeypatch):
-    """Isolated affect_log so these tests never touch the real substrate."""
+    """Isolated affect_log so these tests never touch the real substrate.
+
+    The table mirrors production column-for-column even though the decay path
+    reads only a handful of them. test_schema_sync flagged the shortfall and
+    is right to: a fixture simpler than production lets a test pass against a
+    schema that does not exist, so the decay code could start touching one of
+    the other columns and this file would stay green while production broke.
+
+    No SQL comments inside the CREATE TABLE below — the schema-sync parser
+    reads each line as a column definition and turned a comment's first word
+    into a phantom column named ``but``.
+    """
     import sqlite3
 
     db = tmp_path / "affect_test.db"
@@ -48,7 +59,18 @@ def affect_db(tmp_path, monkeypatch):
                 description         TEXT NOT NULL DEFAULT '',
                 valence_raw         REAL DEFAULT NULL,
                 arousal_raw         REAL DEFAULT NULL,
-                decay_generation    INTEGER NOT NULL DEFAULT 0
+                decay_generation    INTEGER NOT NULL DEFAULT 0,
+                session_id          TEXT DEFAULT '',
+                source              TEXT DEFAULT '',
+                trigger             TEXT DEFAULT '',
+                tags                TEXT DEFAULT '',
+                clarity             REAL DEFAULT NULL,
+                presence            REAL DEFAULT NULL,
+                pull                REAL DEFAULT NULL,
+                resonance           REAL DEFAULT NULL,
+                linked_claim_id     TEXT DEFAULT '',
+                linked_decision_id  TEXT DEFAULT '',
+                linked_knowledge_id TEXT DEFAULT ''
             )
         """)
         c.commit()
