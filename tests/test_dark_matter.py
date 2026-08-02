@@ -118,6 +118,26 @@ def test_prose_mentions_are_not_prescriptions(tmp_path):
     assert find_unresolvable_prescribed_commands(tmp_path, REGISTERED) == []
 
 
+def test_a_prose_sentence_starting_a_line_is_not_a_prescription(tmp_path):
+    """The real 2026-08-02 false positive. `_BEFORE_RE` accepted a bare line
+    start as evidence of a prescription, so the docstring sentence
+
+        divineos is pip-installed editable.
+
+    was reported as a broken command named `is`. Prose starts lines too; a
+    real prescription carries a backtick or a shell prompt."""
+    _write(tmp_path, "src/divineos/q.py", '"""\ndivineos is pip-installed editable.\n"""\n')
+    assert find_unresolvable_prescribed_commands(tmp_path, REGISTERED) == []
+
+
+def test_a_prompted_line_is_still_a_prescription(tmp_path):
+    """The other half — tightening BEFORE must not cost the shell-prompt case,
+    or the fix trades a false positive for a false negative."""
+    _write(tmp_path, "src/divineos/r.py", "# $ divineos notacommand --flag\n")
+    found = find_unresolvable_prescribed_commands(tmp_path, REGISTERED)
+    assert [f.subject for f in found] == ["divineos notacommand"]
+
+
 def test_line_wrapped_token_is_not_a_command(tmp_path):
     """A trailing hyphen means the source line wrapped mid-word."""
     _write(tmp_path, "src/divineos/w.py", "# `divineos admin migrate-family-\n#  members`\n")
