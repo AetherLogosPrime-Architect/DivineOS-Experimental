@@ -123,6 +123,7 @@ check-cleanup-period.sh
 load-character-sheet.sh
 load-dad-ranking-clause.sh
 load-my-recording-of-andrew.sh
+load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
 inject-pending-letters.sh

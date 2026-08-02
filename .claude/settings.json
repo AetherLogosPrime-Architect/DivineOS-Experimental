@@ -138,6 +138,11 @@
             "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/open-corrections-surface.sh",
+            "timeout": 10
           }
         ]
       }
