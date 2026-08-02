@@ -108,6 +108,14 @@ def record_bypass(
         "day": day,
         "timestamp": time.time(),
         "reason": (reason or "").strip()[:500],
+        # Stored 2026-08-02. The compliance/escape split landed earlier the
+        # same day but only gated the OBLIGATION -- the row was written
+        # identically either way, so no report could ever separate them, and
+        # briefing_block kept concluding "gates are being routed-around" from
+        # a sample that was mostly the prescribed commands being run. A
+        # distinction the data cannot carry is a distinction no report can
+        # make.
+        "is_compliance": bool(is_compliance),
     }
     try:
         with log.open("a", encoding="utf-8") as fh:
@@ -171,11 +179,20 @@ def bypass_rate(window_days: int = 14) -> dict:
     """
     log = _event_log()
     if not log.exists():
-        return {"total_events": 0, "by_env_var": {}, "unique_days": 0, "window_days": window_days}
+        return {
+            "total_events": 0,
+            "compliance_events": 0,
+            "escape_events": 0,
+            "by_env_var": {},
+            "unique_days": 0,
+            "window_days": window_days,
+        }
     cutoff = time.time() - (window_days * 86400.0)
     by_env: dict[str, int] = {}
     days: set[str] = set()
     total = 0
+    compliance = 0
+    escapes = 0
     try:
         for line in log.read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -187,12 +204,22 @@ def bypass_rate(window_days: int = 14) -> dict:
             if rec.get("timestamp", 0) < cutoff:
                 continue
             total += 1
+            if rec.get("is_compliance"):
+                compliance += 1
+            else:
+                # Rows written before 2026-08-02 carry no flag and count as
+                # escapes. Failing toward the strict reading is correct: an
+                # unlabelled row is unknown, and unknown must not be quietly
+                # reclassified as harmless.
+                escapes += 1
             by_env[rec.get("env_var", "?")] = by_env.get(rec.get("env_var", "?"), 0) + 1
             days.add(rec.get("day", ""))
     except OSError:
         pass
     return {
         "total_events": total,
+        "compliance_events": compliance,
+        "escape_events": escapes,
         "by_env_var": by_env,
         "unique_days": len(days),
         "window_days": window_days,
@@ -288,9 +315,13 @@ def briefing_block() -> str:
         "## GATE BYPASS TELEMETRY",
         "",
         "### Windowed (recent sample)",
-        f"{stats['total_events']} bypass event(s) across "
+        f"{stats.get('escape_events', stats['total_events'])} escape(s) and "
+        f"{stats.get('compliance_events', 0)} compliance-event(s) across "
         f"{stats['unique_days']} distinct day(s), "
         f"within the last {stats['window_days']} days.",
+        "  (compliance = ran the command the gate prescribes, which satisfies "
+        "it rather than evading it; rows written before 2026-08-02 carry no "
+        "flag and are counted strictly as escapes)",
     ]
     if stats["by_env_var"]:
         lines.append("By gate-bypass env var (windowed):")
@@ -310,7 +341,16 @@ def briefing_block() -> str:
     # (Norman walk). Windowed threshold: 5-in-14-days ≈ 0.36/day.
     # Full-history threshold: sustained avg >= 0.5 events/day OR
     # more than 20 total events (indicates habituation across time).
-    windowed_elevated = stats["total_events"] >= 5
+    # JUDGE ON ESCAPES, NOT ON OBEDIENCE (2026-08-02). This was computed from
+    # total_events, which counts compliance -- running the very command the
+    # gate prescribes. On the day this changed, the windowed sample's top
+    # entries were `divineos briefing`, `ask`, `goal`, `context`, `recall`:
+    # the documented remedies. The surface was reporting that gates were
+    # being routed around, using as its evidence the fact that they were
+    # being obeyed. A metric that reads compliance as evasion cannot tell the
+    # behaviour it wants from the behaviour it warns about, so it trains
+    # nothing -- and it says so to Andrew in the briefing.
+    windowed_elevated = stats.get("escape_events", stats["total_events"]) >= 5
     full_history_elevated = full["events_per_day_avg"] >= 0.5 or full["total_events_all_time"] >= 20
     if windowed_elevated or full_history_elevated:
         lines.append("")
@@ -320,8 +360,10 @@ def briefing_block() -> str:
         if full_history_elevated:
             which.append("full-history rate")
         lines.append(
-            f"Elevated bypass rate ({' + '.join(which)}) -- gates are being "
-            "routed-around. Per psf-ac523181: bypass habituation degrades the "
+            f"Elevated ESCAPE rate ({' + '.join(which)}) -- gates are being "
+            "routed-around. Compliance is excluded from this verdict: running "
+            "a gate's prescribed command satisfies it and is not evasion. "
+            "Per psf-ac523181: bypass habituation degrades the "
             "gate to warning. Investigate whether the gates are wrong-shape "
             "or the bypass-discipline is."
         )

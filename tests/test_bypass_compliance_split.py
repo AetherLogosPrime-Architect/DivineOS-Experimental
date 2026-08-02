@@ -38,7 +38,7 @@ import time
 
 import pytest
 
-from divineos.core.bypass_telemetry import record_bypass
+from divineos.core.bypass_telemetry import bypass_rate, record_bypass
 from divineos.core.structural_fix_tracker import list_pending
 
 
@@ -90,6 +90,72 @@ def test_compliance_is_still_recorded_in_telemetry():
     rate = bypass_rate(window_days=1)
     blob = str(rate)
     assert marker in blob, "compliance event vanished from telemetry — file-everything broken"
+
+
+def test_the_row_records_which_kind_it_was():
+    """The split originally gated only the OBLIGATION. The stored row was
+    written identically for compliance and escape, so no report could ever
+    separate them — a distinction the data cannot carry is one no report can
+    make."""
+    before = bypass_rate(window_days=1)
+    record_bypass("briefing", f"cmd:probe-{time.time_ns()}", "probe", is_compliance=True)
+    after = bypass_rate(window_days=1)
+    assert after["compliance_events"] == before["compliance_events"] + 1
+    assert after["escape_events"] == before["escape_events"]
+
+
+def test_a_real_escape_counts_as_an_escape():
+    before = bypass_rate(window_days=1)
+    record_bypass("somegate", f"DIVINEOS_SKIP_COUNT_{time.time_ns()}", "probe escape")
+    after = bypass_rate(window_days=1)
+    assert after["escape_events"] == before["escape_events"] + 1
+    assert after["compliance_events"] == before["compliance_events"]
+
+
+def test_the_verdict_judges_escapes_not_obedience():
+    """THE regression. briefing_block computed 'gates are being routed-around'
+    from TOTAL events, which counts compliance. On 2026-08-02 the windowed
+    sample's top entries were `divineos briefing`, `ask`, `goal`, `context` —
+    the gates' own prescribed remedies. The surface was reporting evasion and
+    citing obedience as the evidence. A metric that cannot tell the behaviour
+    it wants from the behaviour it warns about trains nothing."""
+    from divineos.core.bypass_telemetry import briefing_block
+
+    for _ in range(6):
+        record_bypass("briefing", f"cmd:probe-{time.time_ns()}", "probe", is_compliance=True)
+    block = briefing_block()
+    assert "compliance-event(s)" in block, "the report must show the two counts separately"
+    assert "Elevated bypass rate" not in block, (
+        "the old wording judged total events; compliance must not be able to "
+        "trip the routed-around verdict on its own"
+    )
+
+
+def test_an_unflagged_legacy_row_counts_as_an_escape():
+    """Fail toward the strict reading. Rows written before the flag existed
+    carry no marker, and unknown must not be quietly reclassified as
+    harmless — that would retro-launder real escapes into compliance."""
+    import json
+
+    from divineos.core.bypass_telemetry import _event_log
+
+    before = bypass_rate(window_days=1)
+    with _event_log().open("a", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "gate_name": "legacy",
+                    "env_var": f"LEGACY_{time.time_ns()}",
+                    "session_id": "legacy",
+                    "day": time.strftime("%Y-%m-%d"),
+                    "timestamp": time.time(),
+                    "reason": "written before is_compliance existed",
+                }
+            )
+            + "\n"
+        )
+    after = bypass_rate(window_days=1)
+    assert after["escape_events"] == before["escape_events"] + 1
 
 
 def test_the_briefing_gate_marks_its_commands_as_compliance():
