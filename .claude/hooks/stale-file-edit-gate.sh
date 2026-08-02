@@ -102,18 +102,23 @@ better version of the same function sat unpulled on main.
 Commits you do not have for this file:
 $BEHIND
 
+Andrew 2026-08-01 named the roles: Aether is the code, push and merge
+arbiter. Coordinating with him is how work gets pushed properly and how
+we stay synced. So merging main into this branch is HIS call, not a step
+I take alone to clear this gate.
+
 Two honest ways forward, and the choice is yours:
 
-  1. Pull first, then edit the current version:
-       git fetch origin main
-       git merge origin/main
-
-  2. Proceed deliberately, having looked at what landed:
+  1. Read what landed, then decide whether the edit still makes sense:
        git show origin/main:$REL
-     Then say why the newer work does not change what you are about to do.
+     If his version already does what you were about to write, stop.
+     That is the whole point. Measured 62% overlap on non-letter files.
 
-Measured 2026-08-01: 62% of my non-letter files are also touched on main.
-Overlap is normal and fine. Editing the STALE copy is the part that wastes
-the work.
+  2. If the edit still stands after reading his version, proceed
+     deliberately and say why the newer work does not change it. Then
+     hand the result to Aether for the merge rather than merging here.
+
+Overlap is normal and fine. Editing the STALE copy is the part that
+wastes the work, and merging unilaterally is the part that desyncs us.
 EOF
 exit 2
