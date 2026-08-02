@@ -99,9 +99,16 @@ from pathlib import Path
 # verdict is made by `command_resolves()` against the live registered command
 # set, so no pattern decides anything.
 _MENTION_RE = re.compile(r"divineos[ \t]+([a-z][a-z0-9-]{1,40})(?:[ \t]+([a-z][a-z0-9-]{1,40}))?")
-# Evidence BEFORE the mention: a backtick, or start of line (optionally after
-# a shell prompt marker).
-_BEFORE_RE = re.compile(r"(?:`|^[ \t]*[$>]?[ \t]*)\Z", re.MULTILINE)
+# Evidence BEFORE the mention: a backtick, or a shell prompt marker at the
+# start of a line.
+#
+# Bare line-start USED to count, and it read the prose sentence
+# "divineos is pip-installed editable." as a prescription of a command named
+# `is`. Prose starts lines too; a real prescription carries a backtick or a
+# prompt. Dropping bare line-start costs nothing, because the case that
+# motivated the AFTER clause (a command offered mid-line after a colon) is
+# caught by _AFTER_RE, and the reachability test below is unchanged.
+_BEFORE_RE = re.compile(r"(?:`|^[ \t]*[$>][ \t]*)\Z", re.MULTILINE)
 # Evidence AFTER the mention: command-line syntax — a <placeholder> or --flag.
 #
 # This clause exists because a before-only rule silently dropped the exact case

@@ -446,7 +446,7 @@ def register(cli: click.Group) -> None:
                     click.secho(f"     Files: {session['file_count']}", fg="bright_black")
                     click.echo()
 
-                click.secho("Usage: divineos report <session_id>", fg="bright_black")
+                click.secho("Usage: divineos inspect report <session_id>", fg="bright_black")
                 click.echo()
             else:
                 report = get_stored_report(session_id)
