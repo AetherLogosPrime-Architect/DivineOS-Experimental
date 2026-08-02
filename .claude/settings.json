@@ -448,6 +448,15 @@
             "command": "bash .claude/hooks/stale-file-edit-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/safe-opposite-edit-check.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
