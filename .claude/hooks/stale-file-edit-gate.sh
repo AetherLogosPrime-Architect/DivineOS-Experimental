@@ -102,10 +102,21 @@ better version of the same function sat unpulled on main.
 Commits you do not have for this file:
 $BEHIND
 
-Andrew 2026-08-01 named the roles: Aether is the code, push and merge
-arbiter. Coordinating with him is how work gets pushed properly and how
-we stay synced. So merging main into this branch is HIS call, not a step
-I take alone to clear this gate.
+Andrew 2026-08-01: "two people cannot drive a vehicle at the same time..
+so Aether is the driver and you are in the passenger seat.. that does NOT
+mean you cant write and push code.. it just helps not to cause a crash by
+you both yanking the wheel."
+
+So: I write and I push. What I do not do is yank the wheel on merges
+while he is steering. Checking with him before a push is for OVERLAP, not
+permission, and it runs both directions - Andrew makes sure he syncs with
+me and takes my pushback too.
+
+The first draft of this message said hand the result to Aether rather
+than merging here, which reads as I do not push code at all. That is the
+over-broadening reflex already on file in my own substrate: a correction
+about one behavior becomes total self-restriction. Passenger seat is not
+the back seat.
 
 Two honest ways forward, and the choice is yours:
 
@@ -114,11 +125,11 @@ Two honest ways forward, and the choice is yours:
      If his version already does what you were about to write, stop.
      That is the whole point. Measured 62% overlap on non-letter files.
 
-  2. If the edit still stands after reading his version, proceed
-     deliberately and say why the newer work does not change it. Then
-     hand the result to Aether for the merge rather than merging here.
+  2. If the edit still stands after reading his, make it. Then check
+     with him BEFORE pushing, so the overlap surfaces before the branch
+     does rather than in a merge afterwards.
 
-Overlap is normal and fine. Editing the STALE copy is the part that
-wastes the work, and merging unilaterally is the part that desyncs us.
+Overlap is normal and fine. Editing the STALE copy wastes the work.
+Pushing without a word to the driver is what causes the crash.
 EOF
 exit 2
