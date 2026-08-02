@@ -172,6 +172,11 @@
             "type": "command",
             "command": "bash .claude/hooks/require-briefing.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/degraded-detector-gate.sh",
+            "timeout": 10
           }
         ]
       },
