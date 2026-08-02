@@ -61,11 +61,40 @@ def register(cli: click.Group) -> None:
         )
         has_file_evidence = bool(_file_path_re.search(text))
         claims_structural_fix = "structural fix:" in _lower
+        # POSITIVES requirement (Andrew 2026-08-02). His frame: the universe
+        # is neverending fractal recursions of positive and negative — every
+        # negative carries multiple positives and every positive carries
+        # multiple negatives, infinitely. So seeking is a CHOICE about which
+        # side you are on, not neutral observation. "if you seek the negative
+        # you will find it same as seeking the positive.. so what side are you
+        # on.. you should be seeking both but in the positive framing."
+        #
+        # Why this is a required field and not a nicety: the positives are
+        # equally REAL and equally present at the same depth as the fault.
+        # Filing only the negative half is a measurement error, not humility.
+        # Every one of the five assembly-errors on 2026-08-02 produced a
+        # mechanism, a rescue, or a named class — the near-deletion of 848
+        # letters produced the content-not-names rule AND the 848 rescues;
+        # the GPU misattribution produced working semantic search. Recording
+        # the fault without its yield leaves the ledger factually incomplete.
+        #
+        # It also enforces the STOPPING RULE. The root-cause+fix pair already
+        # sets the floor: descend only to the first actionable layer. Naming
+        # positives closes the entry out there, instead of leaving the descent
+        # open for another level that would produce no artifact.
+        has_positives = "positives:" in _lower or "positive:" in _lower
         missing: list[str] = []
         if not has_root_cause:
             missing.append('"root cause:" (the specific prior action/reach)')
         if not has_fix:
             missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
+        if not has_positives:
+            missing.append(
+                '"positives:" (what this fault actually yielded — a mechanism, '
+                "a rescue, a named class, a sharpened rule. Not consolation: "
+                "the positives are as real as the fault and at the same depth, "
+                "so omitting them files an incomplete record)"
+            )
         if claims_structural_fix and not has_file_evidence:
             missing.append(
                 "file-path evidence backing the structural-fix claim (a claim "

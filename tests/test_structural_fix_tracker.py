@@ -228,7 +228,7 @@ def test_correction_cli_triggers_tracker(tmp_path: Path) -> None:
             cli,
             [
                 "correction",
-                "root cause: prior action X. structural fix: modified "
+                "root cause: prior action X. positives: named the class. structural fix: modified "
                 "src/example.py — you should build a detector that catches "
                 "this pattern.",
             ],
@@ -343,7 +343,7 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
             cli,
             [
                 "correction",
-                "root cause: I said the sky was green. behavior change: "
+                "root cause: I said the sky was green. positives: caught before shipping. behavior change: "
                 "I will call it blue from now on.",
             ],
         )
