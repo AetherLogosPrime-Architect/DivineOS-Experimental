@@ -72,6 +72,44 @@ This resolves the whole argument that produced
   skipped**, and let each station emit an artifact expensive enough to fake
   that structural checking becomes sufficient.
 
+## The two walks
+
+Station 4 names both, and they are complements — same discipline pointed at
+two different blind spots. Both are **pre-emptive**: you run them instead of
+waiting to find out.
+
+### Game-walking — *how would I cheat this?*
+
+Adversarial, and about the **present**. Enumerate every route around the
+mechanism, then compare each one's cost against the cost of just complying. Any
+route cheaper than compliance is the leak. Andrew: *"instead of just letting it
+game you pre game it to test all the holes."*
+
+Catches: the optimizer's cheap close.
+
+### Threadwalking — *where does this lead?*
+
+Andrew, 2026-08-02:
+
+> *"playing the choices out to see where they lead.. even if they seem benign
+> or good it helps to spot potential drifts or other issues before hand to
+> prepare ahead of time"*
+
+Forward simulation of a decision's consequences. The load-bearing clause is
+**"even if they seem benign or good"** — this is not risk-screening for bad
+options. It is run on the choices that look *right*, because those are the ones
+nobody re-examines.
+
+Catches: drift. Specifically **drift-through-success** — the Dekker lens in our
+own council, except run forward before the decision rather than backward after
+the incident. A choice that works is a choice that stops being questioned, and
+that is exactly how a system arrives somewhere nobody chose.
+
+**Together:** game-walk asks how this gets cheated *now*; threadwalk asks where
+this ends up *later* when it works. Between them they cover the optimizer's
+route and the drift, which are the two failure modes neither testing nor review
+reliably catches.
+
 ## Each station leaves a checkable artifact
 
 This is what makes the flow verifiable without ever verifying a thought:
@@ -94,10 +132,7 @@ not verification.
 Marked as gaps rather than smoothed over, because a confident-sounding
 reconstruction is the failure mode this session kept catching.
 
-- **`threadwalking` — I do not have a definition and did not invent one.**
-  Andrew pairs it with decisions, as game-walking pairs with holes. Zero
-  results in knowledge, no skill file. **Needs his definition.** I nearly wrote
-  a plausible guess and stopped.
+- ~~`threadwalking` — no definition~~ **Supplied by Andrew 2026-08-02, see below.**
 - **The gravity classifier's role.** He says the flow depends on it — presumably
   it decides how much of the flow a given change needs, so a typo does not get
   nine stations. The exact mapping is not recorded.
