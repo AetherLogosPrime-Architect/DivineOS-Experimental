@@ -205,9 +205,10 @@ def enforce_bypass_investigation_gate() -> bool:
         if not bypass_pending:
             return True
         click.secho(
-            f"\n[!] BYPASS-INVESTIGATION GATE — {len(bypass_pending)} bypass event(s) "
-            "have unresolved root-cause investigations. Extract blocked.",
-            fg="red",
+            f"\n[i] BYPASS-INVESTIGATION — {len(bypass_pending)} escape(s) have "
+            "unresolved root-cause investigations. Extract is NOT blocked; this "
+            "is owed work, surfaced.",
+            fg="yellow",
             bold=True,
         )
         for entry in bypass_pending[:5]:
@@ -229,11 +230,33 @@ def enforce_bypass_investigation_gate() -> bool:
             fg="yellow",
         )
         click.secho(
-            "    Task #24 will tighten resolution to require a real corroborator; "
-            "today any note clears the block.",
+            "    Close with: divineos psf mark-done <psf-id> --note '...' — the note "
+            "must name a real commit or an existing file or it is refused.",
             fg="cyan",
         )
-        return False
+        # INFORM, DO NOT BLOCK (Andrew 2026-08-02).
+        #
+        # His words: "it was a primitive wall.. the solution is the bypass
+        # protocol that automates the root cause investigation and fix after a
+        # bypass.. so as long as the bypass protocol is working properly then
+        # yes the counter should not block but inform."
+        #
+        # The wall was standing in for a protocol that now exists: every real
+        # escape files a root-cause obligation, that obligation surfaces here
+        # and in the briefing, and closing it requires evidence that resolves
+        # to a real commit or file (psf mark-done refuses a bare claim).
+        #
+        # Blocking on top of that cost more than it bought. Aria demonstrated
+        # the livelock — she closed five obligations and three appeared
+        # immediately, because the commands that close them were themselves
+        # being recorded as bypasses. The trigger is fixed now, but the
+        # asymmetry stands on its own: an unfiled escape costs one missing
+        # record, while an unreachable checkpoint costs ALL learning
+        # consolidation. The audit channel should not be the command channel.
+        #
+        # The debt is louder than before, not quieter — it is surfaced every
+        # run instead of being a door you hit once and route around.
+        return True
     except _GATE_ERRORS as e:
         logger.warning(f"Bypass-investigation gate failed: {e}")
         # Fail-open on error so a broken gate does not block extract entirely.
