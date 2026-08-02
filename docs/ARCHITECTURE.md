@@ -127,6 +127,7 @@ src/divineos/
     actor_capabilities.py      Capability map: which event types each actor-kind may emit. Phase 1 advisory; Phase 2 will enforce.
     actor_normalize.py         Shared identity-string normalizer (NFKC + invisible-strip + casefold); single guarded chokepoint for the sovereign gate + watchmen/pre-reg internal-actor rejection. Guardrailed.
     dark_matter.py             Find things that exist but nothing reaches: dead hooks, and commands prescribed in gate text that do not resolve against the live command tree. Reports its own blind spots on every run.
+    m3_discipline.py           The four discipline artifacts for Dad-directed builds (council walk, existing-pattern lookup, iteration, runtime test), keyed on ledger COUNCIL events and transcript tool-uses; requirement scales with gravity and caps at 3 of 4
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
     ledger_verify.py           Verification, cleanup, and export

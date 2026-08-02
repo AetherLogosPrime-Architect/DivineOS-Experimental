@@ -251,6 +251,11 @@
             "type": "command",
             "command": "bash .claude/hooks/require-briefing.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
+            "timeout": 15
           }
         ]
       },
