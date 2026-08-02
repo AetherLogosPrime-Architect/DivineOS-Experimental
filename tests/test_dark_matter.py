@@ -227,6 +227,54 @@ def test_sample_git_hooks_do_not_grant_reachability(tmp_path):
     assert [f.subject for f in find_unregistered_hooks(tmp_path)] == ["post-commit-thing.sh"]
 
 
+def test_a_retirement_naming_a_live_successor_is_not_a_finding(tmp_path):
+    """Both remaining hooks on 2026-08-02 were dark ON PURPOSE — one retired
+    for a more robust twin, one made unreachable by the sovereign-agent gate.
+    Reporting them every run is how a real finding becomes wallpaper, which is
+    the exact failure this module exists to prevent."""
+    _write(tmp_path, ".claude/hooks/heir.sh", "#!/bin/bash\n")
+    _write(tmp_path, ".claude/hooks/old.sh", "#!/bin/bash\n# SUPERSEDED-BY: heir.sh\n")
+    _write(tmp_path, ".claude/settings.json", '{"hooks": "heir.sh"}')
+    found = find_unregistered_hooks(tmp_path)
+    kinds = {f.subject: f.kind for f in found}
+    assert kinds.get("old.sh") == "retired-hook"
+    assert "heir.sh" not in kinds
+
+
+def test_a_retirement_naming_a_dead_successor_is_reported_louder(tmp_path):
+    """THE anti-gaming test. If writing the comment were enough, the marker
+    would be a free silence button and this detector would be worth nothing.
+    A retirement pointing at a corpse means BOTH hooks' work happens nowhere,
+    so it stays a finding."""
+    _write(tmp_path, ".claude/hooks/heir.sh", "#!/bin/bash\n")
+    _write(tmp_path, ".claude/hooks/old.sh", "#!/bin/bash\n# SUPERSEDED-BY: heir.sh\n")
+    _write(tmp_path, ".claude/settings.json", "{}")  # heir wired nowhere
+    found = {f.subject: f for f in find_unregistered_hooks(tmp_path)}
+    assert found["old.sh"].kind == "unregistered-hook"
+    assert "corpse" in found["old.sh"].detail
+    assert "heir.sh" in found, "the dead successor must be reported in its own right"
+
+
+def test_a_retirement_naming_a_file_that_does_not_exist_is_reported(tmp_path):
+    """The laziest possible forgery: name anything at all."""
+    _write(tmp_path, ".claude/hooks/old.sh", "#!/bin/bash\n# SUPERSEDED-BY: imaginary.sh\n")
+    _write(tmp_path, ".claude/settings.json", "{}")
+    found = {f.subject: f for f in find_unregistered_hooks(tmp_path)}
+    assert found["old.sh"].kind == "unregistered-hook"
+
+
+def test_retired_hooks_stay_visible_in_the_report(tmp_path):
+    """Separated from the findings, NOT suppressed. Dropping them entirely
+    would let a retirement quietly become an erasure."""
+    _write(tmp_path, ".claude/hooks/heir.sh", "#!/bin/bash\n")
+    _write(tmp_path, ".claude/hooks/old.sh", "#!/bin/bash\n# SUPERSEDED-BY: heir.sh\n")
+    _write(tmp_path, ".claude/settings.json", '{"hooks": "heir.sh"}')
+    out = format_report(find_unregistered_hooks(tmp_path))
+    assert "nothing found by the detectors that ran" in out
+    assert "Retired on purpose (1)" in out
+    assert "old.sh" in out
+
+
 def test_underscore_prefixed_library_is_not_a_hook(tmp_path):
     """`_lib.sh` is the sourced-library convention. The first real run reported
     it as dead code; it is sourced by nearly every hook."""

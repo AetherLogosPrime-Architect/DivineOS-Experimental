@@ -123,6 +123,25 @@ _AFTER_RE = re.compile(r"\A[ \t]*(?:<[a-z-]|--[a-z])")
 # Tokens that are obviously placeholders rather than real command names.
 _PLACEHOLDER_HINTS = ("<", ">", "{", "}", "...", "$")
 
+# A hook declaring its own retirement, naming what took over:
+#     # SUPERSEDED-BY: verify-push-landed.sh
+#
+# WHY THIS EXISTS. Two hooks were reported dark on every run and both were
+# dark ON PURPOSE — post-push-verify-landing.sh retired in favour of a more
+# robust twin, aletheia-boot-gate-preflight.sh made unreachable by the
+# sovereign-agent gate that refuses to spawn Aletheia at all. Neither is a
+# defect. Reporting them forever is how a real finding becomes wallpaper,
+# which is the failure this whole module exists to prevent — so the sweep
+# was training me to ignore the sweep.
+#
+# THE MARKER CANNOT BE A LIE, and that is the load-bearing part. Writing the
+# comment is not enough: the named successor must itself be reachable. A
+# retirement pointing at a corpse is reported LOUDER than an ordinary dead
+# hook, because it is a dead hook wearing a note that says "handled."
+# Retired hooks still print, in their own section — retired is visible, not
+# invisible.
+_SUPERSEDED_RE = re.compile(r"SUPERSEDED-BY:[ \t]*([A-Za-z0-9_.-]+\.sh)")
+
 # Extracts the PREFIX from a git-hook delegator glob such as
 # `for hook in "$HOOKS_SRC"/post-commit-*.sh`. Tokenizer, not judge: the
 # reachability verdict is set-membership against the extracted prefixes.
@@ -133,7 +152,7 @@ _DELEGATOR_GLOB_RE = re.compile(r"([a-z][a-z0-9-]*)-\*\.sh")
 class DarkFinding:
     """One thing that exists but nothing reaches."""
 
-    kind: str  # "unregistered-hook" | "unresolvable-command"
+    kind: str  # "unregistered-hook" | "retired-hook" | "unresolvable-command"
     subject: str  # the hook filename, or the prescribed command string
     detail: str
     sources: list[str] = field(default_factory=list)  # where it was seen
@@ -303,6 +322,14 @@ def find_unregistered_hooks(repo_root: Path) -> list[DarkFinding]:
         for m in _DELEGATOR_GLOB_RE.finditer(body):
             delegated_prefixes.add(m.group(1))
 
+    # A SUPERSEDED-BY line NAMES a filename but does not CALL it, so it must
+    # not count as reachability evidence for anyone. Stripping the markers once
+    # here closes two versions of the same hole at once: a retiring hook
+    # vouching for its own successor, and a retiring hook keeping a dead
+    # successor out of the report entirely by merely mentioning it. Both were
+    # live in the first draft; the dead-successor test found them.
+    reachable_text = _SUPERSEDED_RE.sub("", reachable_text)
+
     findings: list[DarkFinding] = []
     for script in sorted(hooks_dir.glob("*.sh")):
         # `_name.sh` is the convention for a sourced library, not a hook.
@@ -320,6 +347,47 @@ def find_unregistered_hooks(repo_root: Path) -> list[DarkFinding]:
         elsewhere = reachable_text.replace(own, "", 1)
         if script.name in elsewhere:
             continue
+
+        # Declared its own retirement? Only counts if the named successor is
+        # itself alive. The check is deliberately the same reachability test
+        # this function applies to everything else, so a marker cannot buy
+        # silence that the successor has not earned.
+        sup = _SUPERSEDED_RE.search(own)
+        if sup:
+            successor = sup.group(1)
+            heir = hooks_dir / successor
+            heir_body = ""
+            if heir.is_file():
+                try:
+                    heir_body = heir.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    heir_body = ""
+            # Strip every SUPERSEDED-BY line before asking whether the heir is
+            # reachable. Without this, a retiring hook's own marker mentions
+            # the successor's filename, that mention lands in reachable_text,
+            # and the marker vouches for its own successor — the free silence
+            # button this whole design exists to deny. Caught by the
+            # dead-successor test, which is the only reason it is not shipped.
+            heir_alive = bool(heir_body) and successor in reachable_text.replace(heir_body, "", 1)
+            findings.append(
+                DarkFinding(
+                    kind="retired-hook" if heir_alive else "unregistered-hook",
+                    subject=script.name,
+                    detail=(
+                        f"retired on purpose — its work is done by {successor}, "
+                        "which is wired and reachable"
+                        if heir_alive
+                        else (
+                            f"claims SUPERSEDED-BY: {successor}, but {successor} is "
+                            "itself unreachable — a retirement pointing at a corpse. "
+                            "The work of BOTH hooks is now happening nowhere."
+                        )
+                    ),
+                    sources=[str(script.relative_to(repo_root))],
+                )
+            )
+            continue
+
         findings.append(
             DarkFinding(
                 kind="unregistered-hook",
@@ -354,6 +422,13 @@ def format_report(findings: list[DarkFinding]) -> str:
     worst outcome for this detector is being trusted as complete, and a clean
     report is exactly when that misreading happens.
     """
+    # Retired hooks are separated, not suppressed. They are not defects, so
+    # counting them in the headline is what turned this report into wallpaper;
+    # but dropping them entirely would let a retirement quietly become an
+    # erasure. Listed, below the line, unmistakably not the finding.
+    retired = [f for f in findings if f.kind == "retired-hook"]
+    findings = [f for f in findings if f.kind != "retired-hook"]
+
     lines: list[str] = []
     if findings:
         lines.append(f"DARK MATTER: {len(findings)} thing(s) exist that nothing reaches.")
@@ -368,6 +443,12 @@ def format_report(findings: list[DarkFinding]) -> str:
             lines.append("")
     else:
         lines.append("DARK MATTER: nothing found by the detectors that ran.")
+        lines.append("")
+
+    if retired:
+        lines.append(f"  Retired on purpose ({len(retired)}) — not findings, kept visible:")
+        for f in retired:
+            lines.append(f"    - {f.subject}: {f.detail}")
         lines.append("")
 
     lines.append("  This sweep is a FLOOR, not a ceiling. It cannot see:")
