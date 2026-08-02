@@ -211,6 +211,32 @@ if [[ "$DELETION_ONLY" == "1" ]]; then
     echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
 elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
     echo "[push-readiness] DIVINEOS_SKIP_TESTS=1 — skipping pytest." >&2
+    # Record it. This is an ESCAPE, not compliance: it SUPPRESSES the check
+    # rather than satisfying it, so it files an obligation like any other.
+    #
+    # It did not, until 2026-08-02. The loudest documented bypass in this
+    # repo — printed by this very script in its own failure message — had
+    # never once appeared in bypass telemetry. Every quieter escape was
+    # counted while the advertised one stayed invisible, which made the
+    # bypass rate an undercount of precisely the wrong thing.
+    #
+    # Found by using it. I skipped tests on a letter-only push, went looking
+    # for my own obligation, and there was none. What made me look was that
+    # the skip had been UNNECESSARY: family/*.md is already covered by the
+    # low-impact fast path below, so the front door was open and I went
+    # through the window anyway.
+    #
+    # Fail-soft on purpose (|| true): a telemetry outage must never turn
+    # into a push failure. Recording the escape is not worth becoming one.
+    python - <<'PYEOF' 2>/dev/null || true
+from divineos.core.bypass_telemetry import record_bypass
+
+record_bypass(
+    gate_name="push-readiness-tests",
+    env_var="DIVINEOS_SKIP_TESTS",
+    reason="pytest suppressed at push time via the documented emergency bypass",
+)
+PYEOF
 else
     CHANGED_FILES="$(_collect_changed_files)"
     if _all_changed_low_impact "$CHANGED_FILES"; then
