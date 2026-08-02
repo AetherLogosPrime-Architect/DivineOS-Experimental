@@ -101,6 +101,7 @@ src/divineos/
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
+    emergency_completion_commands.py  emergency-completion status / arm / resolve. Added 2026-08-02 after the dark-matter sweep found `core/emergency_completion.py` complete but command-less: `arm()` refuses while a debt stands and `resolve_debt()` was the only thing that could clear one, so the first use of the lane would have bricked it permanently.
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
