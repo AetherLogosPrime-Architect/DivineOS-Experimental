@@ -384,6 +384,28 @@ def reap_surplus(member: str) -> int:
             return pid
         return -1
 
+    # Self AND every ancestor. Excluding only os.getpid() is not enough:
+    # the invocation chain that launched this reap carries the same script
+    # name and the same --member on ITS command line, so a wrapper, shim or
+    # shell above us matches the hunting filter and gets terminated.
+    #
+    # Found 2026-08-02 by running the reap and reading its exit code: 15,
+    # which is SIGTERM. The reap was killing its own invocation mid-loop.
+    # That is why an earlier run printed NOTHING — not the per-victim lines,
+    # not even the closing summary — and why it left the member at zero
+    # watchers despite a post-condition written specifically to prevent
+    # exactly that. The post-condition never got to run. The guarantee was
+    # real and the process was dead before it could be honoured.
+    #
+    # The tell was the SILENCE, not the count. A tool that dies mid-sweep
+    # looks identical to a tool that found nothing worth saying.
+    _self_and_ancestors = {os.getpid()}
+    try:
+        for _anc in psutil.Process().parents():
+            _self_and_ancestors.add(_anc.pid)
+    except (psutil.Error, OSError):
+        pass  # fail-soft: falling back to self-only exclusion is the prior behaviour, not a new failure
+
     def _watchers() -> list:
         out = []
         for p in psutil.process_iter(["pid", "cmdline"]):
@@ -397,7 +419,7 @@ def reap_surplus(member: str) -> int:
                     continue
                 if member not in cl:
                     continue
-                if p.info["pid"] == os.getpid():
+                if p.info["pid"] in _self_and_ancestors:
                     continue
                 out.append(p)
             except (psutil.Error, TypeError):

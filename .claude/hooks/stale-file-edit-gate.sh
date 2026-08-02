@@ -92,6 +92,32 @@ BEHIND="$(git log --oneline HEAD..origin/main -- "$REL" 2>/dev/null | head -5)" 
 
 COUNT="$(git rev-list --count HEAD..origin/main -- "$REL" 2>/dev/null || echo "?")"  # fail-soft: count failure degrades the message, never the block decision
 
+# FIRE ONCE per file per upstream-tip (Aria 2026-08-02).
+#
+# The block exists to make me LOOK before editing a stale copy. Once it has
+# fired and I have read the upstream version and decided the edit still
+# stands, re-firing on every subsequent edit to the same file is friction
+# carrying no new information — and friction without information is how a
+# gate degrades into something to route around.
+#
+# Found by hitting it twice on family/ear_watch.py in one turn. The second
+# block told me nothing the first had not, and the honest resolution was
+# already taken: I ran git show against origin/main, confirmed that version
+# does not contain the function I am fixing, and proceeded.
+#
+# Keyed on the upstream tip SHA, so a NEW commit landing on that file
+# re-arms the block. Same shape as the safe-opposite edit check.
+#
+# fail-soft: any marker failure means the gate fires again, which is the safe direction
+_TIP="$(git rev-parse --short origin/main 2>/dev/null || echo none)"
+_ACK_DIR="${HOME:-/tmp}/.divineos/stale_file_ack"
+_ACK="$_ACK_DIR/$(echo "$REL-$_TIP" | tr '/\\.' '___')"
+if [ -f "$_ACK" ]; then
+    exit 0
+fi
+mkdir -p "$_ACK_DIR" 2>/dev/null || true  # fail-soft: unwritable marker dir costs a repeat fire, never the block itself
+: > "$_ACK" 2>/dev/null || true  # fail-soft: same
+
 cat >&2 <<EOF
 STALE-FILE EDIT — $REL has $COUNT commit(s) on origin/main that are not in your branch.
 
