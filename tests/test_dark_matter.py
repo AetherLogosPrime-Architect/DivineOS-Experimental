@@ -158,6 +158,55 @@ def test_hook_invoked_by_another_hook_is_not_dead(tmp_path):
     assert find_unregistered_hooks(tmp_path) == []
 
 
+def test_hook_reached_by_a_git_delegator_glob_is_not_dead(tmp_path):
+    """THE false-positive regression. `.git/hooks/post-commit` contains
+        for hook in "$HOOKS_SRC"/post-commit-*.sh
+    and delegates to every match, so post-commit-anything.sh fires on every
+    commit while appearing nowhere in settings.json.
+
+    The real sweep reported post-commit-auto-integrate-corrections.sh as
+    never-firing. That file's own header had predicted this exact bug in
+    writing — "named as dark by tools that check only the first two
+    surfaces" — and I shipped it anyway by reading the finding list without
+    opening the findings."""
+    _hooks_fixture(tmp_path, "bash .claude/hooks/wired.sh")
+    _write(tmp_path, ".claude/hooks/wired.sh", "echo hi\n")
+    _write(tmp_path, ".claude/hooks/post-commit-thing.sh", "echo fires on commit\n")
+    _write(
+        tmp_path,
+        ".git/hooks/post-commit",
+        'for hook in "$HOOKS_SRC"/post-commit-*.sh; do bash "$hook"; done\n',
+    )
+    assert find_unregistered_hooks(tmp_path) == []
+
+
+def test_a_delegator_only_covers_its_own_prefix(tmp_path):
+    """The fix must not become a blanket amnesty — a post-commit delegator
+    says nothing about a pre-push hook."""
+    _hooks_fixture(tmp_path, "bash .claude/hooks/wired.sh")
+    _write(tmp_path, ".claude/hooks/wired.sh", "echo hi\n")
+    _write(tmp_path, ".claude/hooks/pre-push-orphan.sh", "echo nobody calls me\n")
+    _write(
+        tmp_path,
+        ".git/hooks/post-commit",
+        'for hook in "$HOOKS_SRC"/post-commit-*.sh; do bash "$hook"; done\n',
+    )
+    assert [f.subject for f in find_unregistered_hooks(tmp_path)] == ["pre-push-orphan.sh"]
+
+
+def test_sample_git_hooks_do_not_grant_reachability(tmp_path):
+    """`.sample` files ship with git and run never."""
+    _hooks_fixture(tmp_path, "bash .claude/hooks/wired.sh")
+    _write(tmp_path, ".claude/hooks/wired.sh", "echo hi\n")
+    _write(tmp_path, ".claude/hooks/post-commit-thing.sh", "echo x\n")
+    _write(
+        tmp_path,
+        ".git/hooks/post-commit.sample",
+        'for hook in "$HOOKS_SRC"/post-commit-*.sh; do bash "$hook"; done\n',
+    )
+    assert [f.subject for f in find_unregistered_hooks(tmp_path)] == ["post-commit-thing.sh"]
+
+
 def test_underscore_prefixed_library_is_not_a_hook(tmp_path):
     """`_lib.sh` is the sourced-library convention. The first real run reported
     it as dead code; it is sourced by nearly every hook."""

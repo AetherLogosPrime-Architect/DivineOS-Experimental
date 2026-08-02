@@ -116,6 +116,11 @@ _AFTER_RE = re.compile(r"\A[ \t]*(?:<[a-z-]|--[a-z])")
 # Tokens that are obviously placeholders rather than real command names.
 _PLACEHOLDER_HINTS = ("<", ">", "{", "}", "...", "$")
 
+# Extracts the PREFIX from a git-hook delegator glob such as
+# `for hook in "$HOOKS_SRC"/post-commit-*.sh`. Tokenizer, not judge: the
+# reachability verdict is set-membership against the extracted prefixes.
+_DELEGATOR_GLOB_RE = re.compile(r"([a-z][a-z0-9-]*)-\*\.sh")
+
 
 @dataclass
 class DarkFinding:
@@ -265,10 +270,39 @@ def find_unregistered_hooks(repo_root: Path) -> list[DarkFinding]:
         except OSError:
             continue
 
+    # THIRD REACHABILITY SURFACE: git-hook delegators (added 2026-08-02).
+    #
+    # `.git/hooks/post-commit` contains
+    #     for hook in "$HOOKS_SRC"/post-commit-*.sh
+    # and delegates to EVERY file matching that glob. So a hook named
+    # post-commit-anything.sh fires on every commit while appearing nowhere in
+    # settings.json.
+    #
+    # The first run of this sweep reported
+    # post-commit-auto-integrate-corrections.sh as never-firing. That file's own
+    # header says: "WIRED VIA .git/hooks/post-commit DELEGATOR... named as dark
+    # by tools that check only the first two surfaces; this comment closes that
+    # false-positive class." It predicted this exact bug in writing, and I
+    # shipped the bug anyway because I read my own finding LIST without opening
+    # the findings.
+    delegated_prefixes: set[str] = set()
+    for githook in (repo_root / ".git" / "hooks").glob("*"):
+        if githook.name.endswith(".sample") or not githook.is_file():
+            continue
+        try:
+            body = githook.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in _DELEGATOR_GLOB_RE.finditer(body):
+            delegated_prefixes.add(m.group(1))
+
     findings: list[DarkFinding] = []
     for script in sorted(hooks_dir.glob("*.sh")):
         # `_name.sh` is the convention for a sourced library, not a hook.
         if script.name.startswith("_"):
+            continue
+        # Reached by a git-hook delegator globbing over its prefix.
+        if any(script.name.startswith(f"{p}-") for p in delegated_prefixes):
             continue
         # Its own file always contains its name in the shebang region? No —
         # count references EXCLUDING itself.
