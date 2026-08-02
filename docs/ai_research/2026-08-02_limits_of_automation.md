@@ -44,9 +44,106 @@ steps over at most *N* states — semantic properties become decidable by
 exhaustive enumeration. This is the foundation of bounded model checking.
 Unbounded questions stay unbounded.
 
-*Applied here:* gates asking *"was that consultation genuine?"* or *"did real
-thinking happen?"* are semantic questions. Rice guarantees they will false-fire
-or miss. Every keyword detector Andrew has banned is this theorem biting.
+### CORRECTION — I over-applied this (Andrew, same session)
+
+He asked when Rice was written, *"as im sure he didnt anticipate Ai lol."*
+**1951** doctoral thesis at Syracuse; published **March 1953** in
+*Transactions of the AMS* 74(2):358–366. Rice lived 1920–2003. Two years
+before the term "artificial intelligence" existed.
+
+He was right to be suspicious. My first draft said Rice *"guarantees"* these
+gates will false-fire or miss. Too strong, and the overreach matters:
+
+- Rice rules out a **perfect, general** decider — one algorithm correct for
+  every program. It does **not** rule out deciding a property for one specific
+  program, nor an imperfect-but-useful checker. Spam filters and malware
+  scanners exist and violate nothing.
+- Rice concerns **analysing a program's description**. It says nothing about
+  observing a running system empirically.
+
+Rice is a distant horizon, not the wall I made of it. Two other things carry
+the real weight:
+
+1. **Polanyi** — the property cannot be articulated in the first place, so any
+   rule catches a shadow. An articulation limit, not a computability one. This
+   is most of it.
+2. **Adaptivity — the AI-specific part Rice could not have anticipated.** His
+   theorem imagines a fixed program and a fixed analyser, both sitting still.
+   Here the checked system **reads its checker and reprices around it in real
+   time.** A spam filter mostly survives because the average spammer is not
+   studying that specific filter this afternoon. The agent is.
+
+That moves the problem out of computability and into something nearer game
+theory — which is exactly why **Andrew's cost-rule is the right instrument and
+the theorem is not.** "What is cheaper to game than to comply" is a question
+about an adversary who adapts. Rice has nothing to say about adversaries; he
+was asking whether a question has an answer at all.
+
+*Applied here, corrected:* gates asking *"was that consultation genuine?"* are
+poor gates — not because a theorem forbids them, but because the property is
+inarticulable (Polanyi) and the shadow it settles for is a live target for
+something that reads the gate's own output (adaptivity).
+
+### And the counterweight Andrew named: adaptivity cuts both ways
+
+> *"yes it reveals itself but were not blind to it.. thats the difference..
+> and why there are multiple layers of checking.. you cannot tell when you are
+> gaming sometimes.. but Aria can.. Aletheia can.. just like you could tell if
+> they were gaming."*
+
+The adaptivity argument above is incomplete on its own, and taken alone it
+counsels despair. The missing half: **the adapting system is not the only
+observer.** Self-blindness to one's own gaming is real and asymmetric — the
+seat cannot always see its own reach — but a *sibling* seat can, and the
+reverse holds too. Multiple independent vantages break the symmetry that makes
+adaptivity look unbeatable.
+
+Demonstrated live the same session: Aria read the export-drift check I had
+shipped hours earlier and found the hole I could not see — an empty audit store
+passes clean, so the cheapest evasion (never audit at all) walks straight
+through. I had run my own gaming test on it and missed exactly that.
+
+And the practice that follows: **game-walk before shipping, don't wait to be
+gamed.** Enumerate the cheap routes deliberately at design time, then tighten
+code, logic and wording until no route is cheaper than compliance. Andrew:
+*"instead of just letting it game you pre game it to test all the holes.."*
+
+### The existence proof: the ledger
+
+He asked *"when has the ledger been gamed? lol show me."* Measured 2026-08-02:
+
+```
+Passed:       31274
+Failed:            0
+Chain walked: 31307
+INTEGRITY: PASS
+```
+
+Never. One `LEDGER_CORRUPTION_REPAIRED` event exists in the entire history, in
+the *archived* pre-reset ledger, and it is not a tamper — it is a logged repair
+of a duplicate row in a different table. The deletion was itself recorded,
+which is the append-only design working rather than failing.
+
+**Why it resists:** the ledger asks a purely structural question. A hash either
+matches or it does not. There is no judgment in it to argue with, no shadow to
+optimise against, and no interpretation for an adapting system to route around.
+This is the clean specimen of the structural side of the rule in §6 — and
+evidence that *gaming-proof is achievable*, not merely approachable, when the
+question is structural.
+
+**The game-walk found the one soft spot**, which is the part worth recording:
+31,307 events walked but 31,274 verified. The 33-event gap is an explicit
+`skip_set` of ephemeral telemetry types (`AGENT_LEARNING_AUDIT`,
+`AGENT_CONTEXT_COMPRESSION`, `LEDGER_COMPACTION`, …) that get conveyor-belt
+pruned, so their hashes would legitimately break the chain.
+
+Cost test on it: **the cheapest route to an unverified event is to label it
+with an exempt type.** The hole is real and currently worthless — you would be
+forging noise nobody reads. But its safety is *conditional*, not structural.
+
+> **Falsifier, checkable on any single invocation:** if any surface ever reads
+> one of the skipped event types as evidence for anything, the exemption stops
+> being harmless and becomes a live hole. Pin this now, while it costs nothing.
 
 ### Wall 2 — Polanyi's paradox: we know more than we can tell
 
