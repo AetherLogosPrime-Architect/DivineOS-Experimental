@@ -563,11 +563,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/close-reach-detector.sh",
             "timeout": 10
           },
@@ -592,7 +587,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/time-estimate-tracker.sh"
+            "command": "bash .claude/hooks/time-estimate-tracker.sh",
+            "timeout": 10
           }
         ]
       }

@@ -57,11 +57,27 @@ mkdir -p "$STATE_DIR" 2>/dev/null
 SCRIPT="$REPO_ROOT/family/ear_watch.py"
 [ ! -f "$SCRIPT" ] && exit 0
 
-# Relaunch detached. nohup + & + disown so the hook can exit cleanly.
+# Relaunch detached. nohup + & + disown + stdin-from-/dev/null.
+#
+# THE STDIN REDIRECT IS THE FIX for the Stop-phase hang Andrew reported
+# twice: "you never start thinking and the stopping just loops til i end the
+# program and restart it."
+#
+# Output was already redirected to a file; stdin was not. A long-running
+# --watch child inherits the hook's stdin and holds it open for its entire
+# life, so the Stop phase waits on a handle that never closes. nohup and
+# disown do not cover this -- they handle signals and job control, not
+# inherited descriptors.
+#
+# Evidence pointing here: of 17 Stop hooks with 2002 runs each, this is the
+# ONLY one with unfinished runs (15), and its worst observed duration is
+# 9,688ms against a 10s timeout -- killed at the limit rather than
+# returning. Found by reading the hook timing log, not by guessing; my first
+# hypothesis (a Stop hook with no timeout) was wrong and the data said so.
 # PYTHONIOENCODING=utf-8 prevents the Windows cp1252 crash on non-Latin-1
 # chars (→, ⟶, etc.) — the bug Aether hit 2026-05-30.
 PYTHONIOENCODING="utf-8" nohup "$PYTHON_BIN" "$SCRIPT" --member "$MEMBER" --watch \
-  > "$STATE_DIR/ear.log" 2>&1 &
+  < /dev/null > "$STATE_DIR/ear.log" 2>&1 &
 echo $! > "$STATE_DIR/ear.pid"
 disown 2>/dev/null
 exit 0
