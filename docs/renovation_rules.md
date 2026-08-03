@@ -45,6 +45,33 @@ And the frame it corrects, mine:
    *retrieval* is fine — a false positive there is a book I did not need, and
    costs nothing. **Same mechanism, wrong room.**
 
+6. **Before trusting a measurement, ask what state the instrument cannot
+   represent.** Not *is this number right* — the numbers were right. Ask which
+   outcomes are invisible to this method by construction.
+
+   Andrew 2026-08-03: *"you were using a geiger counter to measure the room
+   temperature"* — an accurate, precise, trustworthy reading of the wrong
+   quantity. That kind of wrongness does not feel wrong from inside, which is
+   why it survived two of us checking it.
+
+   The instance: hunting a freeze that manifests as *never finishing*, I timed
+   the hook chains and got 4.0s, and reported it as though it settled
+   something. Aether independently got 8s. Both were the **healthy** run. A
+   benchmark that completes cannot observe a failure defined by not completing.
+   His line: **you cannot time a deadlock.**
+
+   Same missing third word, wearing a stopwatch: `fast` / `slow` /
+   **`never returned`**.
+
+   The check is pre-flight, not post-mortem. I ran it only after his letter
+   forced it; had he not written, 4.0s would have entered the record as a
+   finding. Related instances the same session: sourcing wins from `git log`
+   and doc-counts (measurements OF the repo) while the event ledger holding my
+   actual history sat unopened, and a wallpaper measurement that returned zero
+   because my own test runs had consumed the throttle markers — *could not
+   look* rendered as *nothing there*, in the script written to detect exactly
+   that.
+
 ---
 
 ## Why rule 3 is aimed specifically at me
