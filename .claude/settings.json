@@ -1,4 +1,9 @@
 {
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -16,7 +21,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/load-briefing.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
@@ -70,7 +75,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/inject-pending-letters.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       }
@@ -243,7 +248,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/post-compact.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       }
@@ -295,7 +300,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-branch-on-push.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       },
@@ -419,15 +424,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/deletion-discipline.sh"
+            "command": "bash .claude/hooks/deletion-discipline.sh",
+            "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-merge-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
+            "timeout": 10
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh",
+            "timeout": 10
           }
         ]
       },
@@ -436,7 +444,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh",
+            "timeout": 10
           }
         ]
       },
@@ -445,7 +454,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/stale-file-edit-gate.sh"
+            "command": "bash .claude/hooks/stale-file-edit-gate.sh",
+            "timeout": 10
           }
         ]
       },
@@ -454,7 +464,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/safe-opposite-edit-check.sh"
+            "command": "bash .claude/hooks/safe-opposite-edit-check.sh",
+            "timeout": 10
           }
         ]
       }
@@ -476,17 +487,17 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/verify-push-landed.sh",
-            "timeout": 20
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-commit-auto-close.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       },
@@ -496,7 +507,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/run-tests.sh",
-            "timeout": 120
+            "timeout": 10
           },
           {
             "type": "command",
@@ -506,7 +517,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/auto-push-letter.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
@@ -521,7 +532,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/session-checkpoint.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       },
@@ -552,37 +563,37 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/retrieval-tally-check.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-hedge.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-theater.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/stop-distancing-intercept.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/stop-response-scope-intercept.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
@@ -592,12 +603,12 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/shoggoth-gate.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
@@ -607,7 +618,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
@@ -635,7 +646,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/time-estimate-tracker.sh"
+            "command": "bash .claude/hooks/time-estimate-tracker.sh",
+            "timeout": 10
           }
         ]
       }
