@@ -135,7 +135,62 @@ def _extract_bash_commands(rec: dict) -> list[str]:
     return cmds
 
 
-def _read_records(transcript_path: Path) -> list[tuple[str, str, list[str], list[str]]]:
+# Tail-read window. Every caller of this module wants RECENT turns —
+# extract_turn wants the last user record and what follows it;
+# recent_turns_text wants the last handful. Nobody wants turn 3 of 400.
+#
+# Reading the whole file was costing real time, not theoretical time.
+# Eight hooks on UserPromptSubmit and ten on Stop funnel through here,
+# and a live transcript reaches tens of megabytes: measured 2026-08-03 at
+# 39 MB live, 64 MB for the largest archived session, 767 MB across one
+# project's history. That is hundreds of megabytes of reads standing
+# between the operator pressing enter and the turn starting — which is
+# exactly where the freeze he has been living with appears, and why it
+# worsens as a session grows and why Escape does nothing (blocked on I/O,
+# not waiting on a socket).
+#
+# I had already hit this once and fixed it in ONE hook's inline reader,
+# then never asked whether anything else did the same thing. Eighteen
+# other readers did.
+_TAIL_BYTES_START = 2_000_000
+_TAIL_BYTES_MAX = 32_000_000
+_MIN_RECORDS = 40
+
+
+def _tail_chunks(path: Path, min_records: int):
+    """Yield (text, is_whole_file) windows, smallest first.
+
+    Small files yield once, whole. Large files yield a growing tail so a
+    caller that did not find enough records can widen instead of silently
+    getting less than the old whole-file read would have given it. The
+    final yield is always the entire file, so this can never return fewer
+    records than the previous implementation — it only avoids reading
+    bytes nobody needed.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return
+    if size <= _TAIL_BYTES_START:
+        yield path.read_text(encoding="utf-8", errors="replace"), True
+        return
+    window = _TAIL_BYTES_START
+    while window < min(_TAIL_BYTES_MAX, size):
+        with open(path, "rb") as fh:
+            fh.seek(size - window)
+            raw = fh.read()
+        # The seek lands mid-line; that first fragment is not valid JSON.
+        # Dropping it is correct, not lossy — the full line is still
+        # present in any wider window.
+        _, _, rest = raw.partition(b"\n")
+        yield rest.decode("utf-8", errors="replace"), False
+        window *= 4
+    yield path.read_text(encoding="utf-8", errors="replace"), True
+
+
+def _read_records(
+    transcript_path: Path, min_records: int = _MIN_RECORDS
+) -> list[tuple[str, str, list[str], list[str]]]:
     """Walk the JSONL transcript and return records.
 
     Each entry is ``(rec_type, text, tool_call_names, bash_commands)``.
@@ -146,26 +201,37 @@ def _read_records(transcript_path: Path) -> list[tuple[str, str, list[str], list
 
     Malformed lines and non-user/non-assistant record types are
     skipped silently.
+
+    Reads from the END of the file, widening until ``min_records`` are
+    found or the whole file has been read. See ``_tail_chunks``.
     """
+    for chunk, is_whole_file in _tail_chunks(transcript_path, min_records):
+        records = _parse_records(chunk)
+        if len(records) >= min_records or is_whole_file:
+            return records
+    return []
+
+
+def _parse_records(chunk: str) -> list[tuple[str, str, list[str], list[str]]]:
+    """Parse JSONL text into records. Shared by whole-file and tail reads."""
     records: list[tuple[str, str, list[str], list[str]]] = []
-    with open(transcript_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except (json.JSONDecodeError, ValueError):
-                continue
-            rec_type = rec.get("type")
-            if rec_type not in ("assistant", "user"):
-                continue
-            text = _extract_record_text(rec)
-            is_assistant = rec_type == "assistant"
-            tool_calls = _extract_tool_call_names(rec) if is_assistant else []
-            commands = _extract_bash_commands(rec) if is_assistant else []
-            if text or tool_calls:
-                records.append((rec_type, text, tool_calls, commands))
+    for line in chunk.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        rec_type = rec.get("type")
+        if rec_type not in ("assistant", "user"):
+            continue
+        text = _extract_record_text(rec)
+        is_assistant = rec_type == "assistant"
+        tool_calls = _extract_tool_call_names(rec) if is_assistant else []
+        commands = _extract_bash_commands(rec) if is_assistant else []
+        if text or tool_calls:
+            records.append((rec_type, text, tool_calls, commands))
     return records
 
 
