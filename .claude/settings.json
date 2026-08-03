@@ -206,7 +206,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
-            "timeout": 120
+            "timeout": 20
           }
         ]
       }
