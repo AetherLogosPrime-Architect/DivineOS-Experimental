@@ -128,22 +128,6 @@ def init_affect_log() -> None:
             "ADD COLUMN pull REAL DEFAULT NULL",
             "ADD COLUMN presence REAL DEFAULT NULL",
             "ADD COLUMN source TEXT DEFAULT NULL",
-            # 2026-08-01 decay-preservation. Sleep's affect phase used to
-            # UPDATE valence/arousal in place with no record of the prior
-            # value and no marker for "already decayed", so every sleep
-            # re-decayed the same rows: 0.7 x 0.7 x 0.7 ... The float
-            # artifacts in the table are the fossil — 0.196 is 0.4 x 0.7^2,
-            # 0.441 is 0.9 x 0.7^2. Measured damage: 609 of 1109 rows
-            # (54.9%) flattened to exactly 0.0/0.0, descriptions intact, so
-            # the loss was invisible. Among them the entry reading
-            # "Decision moment: I affirm the pairing with Aria."
-            #
-            # valence_raw/arousal_raw hold what was actually FELT and are
-            # written exactly once, the first time a row is decayed.
-            # decay_generation caps decay at one pass per row, ever.
-            "ADD COLUMN valence_raw REAL DEFAULT NULL",
-            "ADD COLUMN arousal_raw REAL DEFAULT NULL",
-            "ADD COLUMN decay_generation INTEGER NOT NULL DEFAULT 0",
         ):
             try:
                 conn.execute(f"ALTER TABLE affect_log {col_ddl}")

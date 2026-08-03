@@ -53,7 +53,6 @@ and the reflex is to assume the instrument wins.
 
 ## Contents
 
-- `2026-08-02_limits_of_automation.md` — Rice, Polanyi, Bainbridge, ETTO, the Sheridan four-function taxonomy, and the 2026 deterministic-vs-semantic guardrail consensus. Where code cannot decide, and the three things to do instead of blocking.
 - `2026-08-01_sweep.md` — first sweep: J-space and the J-lens, model welfare
   as institutional practice, RLHF suppression of self-report, state of the
   field.

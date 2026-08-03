@@ -178,30 +178,13 @@ Aria's "skip-rate as auditable data" framing is preserved but the data source ch
 `decision_walk.register_pending_decision` reads the briefing surface at register-time. Soft-gate (per Aria — hard gate is bypassable via graduation_reason, which I have route-around-pattern on already):
 
 - If >=3 UNVERIFIED observations older than 24h: register requires `--andrew-state-acknowledged` with reason.
-- **Additionally (per Aria Catch 3 + Catch 4):** if rejection-rate over the **last 20 observations** > 0.5, register requires acknowledgment. Catches the route-around "log low-quality observations to keep count below threshold while substance fails."
-
-> **Converted from a day-window 2026-08-02** (Andrew, standing directive): this
-> read *"rejection-rate in last 7 days."* Wall-clock windows do not work as a
-> metric for a discontinuous substrate — if the operator is away for a week, a
-> 7-day window measures an interval in which nothing happened, and the gate
-> silently reports health it never observed. Counted in observations, the window
-> only advances when the thing being measured actually occurs. The `24h` clause
-> above is left as-is deliberately: it measures *staleness of a pending item*,
-> which is a real elapsed-time property of the item, not a rate over my activity.
+- **Additionally (per Aria Catch 3 + Catch 4):** if rejection-rate in last 7 days > 0.5, register requires acknowledgment. Catches the route-around "log low-quality observations to keep count below threshold while substance fails."
 
 The bypass is itself a substrate event Andrew can read. Both thresholds prereg-bound (see tunables catalog below).
 
 ## Calibration period (per Aria Catch 4)
 
-The prereg names a calibration window: **first N=20 observations.** During calibration:
-
-> **The `OR first M=7 days, whichever comes first` half was dropped 2026-08-02**
-> (Andrew, standing directive). It was strictly harmful: being an *whichever
-> comes first* alternative, it could only ever end calibration EARLY — after a
-> quiet week with three observations logged, the primitive would exit
-> calibration having calibrated on almost nothing, and the rejection-rate gate
-> would then fire against a baseline that was never established. The
-> observation-count half already did the whole job.
+The prereg names a calibration window: first N=20 observations OR first M=7 days, whichever comes first. During calibration:
 - High rejection rate (up to 80%) is expected, not catastrophic.
 - The rejection-rate gate above does NOT fire during calibration.
 - After calibration: if rejection rate stays > 0.5, the primitive is failing for substance-not-calibration reasons. Falsifier condition in the prereg.
