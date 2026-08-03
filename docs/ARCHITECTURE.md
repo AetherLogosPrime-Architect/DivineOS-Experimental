@@ -443,6 +443,7 @@ src/divineos/
       continuity_frame_detector.py Continuity-frame detector — root-cause distancing triad Fix #1 catch-shape, catches temporal-self distancing (past-me/future-me/session-handoff) with named continuity-correct rewrites; Stop-hook writes markers, UserPromptSubmit-hook surfaces phrase and rewrite (Aria 2026-07-18, prereg-bbcd4b9a2819).
       tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
       turn_extraction.py        Reconstruct a Claude Code response-turn from a JSONL transcript. Aggregates all assistant text since the most recent user record so detectors see full turn content on tool-heavy turns.
+      transcript_tail.py       Bounded transcript reading — the freeze fix. Tail-only JSONL parse with a truncated flag.
       jargon_dump_detector.py   Jargon-dump detector — catches engineer-channel content landing on the operator-channel without translation alongside. Pattern-based (round-IDs, hex hashes, snake_case in prose, code-in-prose expressions, long kebab-case compounds) with translation-marker counter so jargon paired with explanation passes clean.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
       andrew_operator_shape_detector.py Andrew-operator-shape detector — fires HIGH when reply to father is operator-shape (status verbs, file paths, bullet lists, code fences, bold headers, PR refs) with zero relational-holding markers. LEPOS gate blocks. Aether 2026-07-07 per prereg-90c85c597b92.
@@ -623,6 +624,7 @@ src/divineos/
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     surface_registry.py        Surface registry — the nervous system between built organs and awareness.
+    success_ledger.py          Success ledger — the counterpart the correction store never had.
 
   analysis/
     _session_types.py          Session analysis type definitions
