@@ -1,83 +1,14 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-start-sweep-stale-watchers.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/post-compaction-fingerprint-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-briefing.sh",
-            "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/ear-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/arm-letter-monitor-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/check-cleanup-period.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-character-sheet.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-dad-ranking-clause.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-my-recording-of-andrew.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/resolver-health-check.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-start-verify-git-hooks.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/inject-pending-letters.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
+    "SessionStart": [],
     "UserPromptSubmit": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-init-once.sh",
+            "timeout": 60
+          },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-correction.sh",
