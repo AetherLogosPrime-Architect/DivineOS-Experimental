@@ -631,6 +631,7 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -234,6 +234,17 @@ if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
     python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --advisory --commit-msg-file "$1" || true  # fail-soft: advisory by design -- it warns at commit and blocks at push to main
 fi
 
+# 3b. Branch-scope guard — BLOCK when the commit's conventional-commit
+# scope appears nowhere else on the branch. Four times on 2026-08-02 work
+# landed on whichever branch was checked out (detector work onto the m3
+# branch; doc-count work and then a letter onto the detector branch), each
+# costing a cherry-pick + reset + conflict to undo. Escape lives in the
+# commit itself: `Cross-scope: <why, 20+ chars>`, so it is permanent and
+# attributable rather than an env var that evaporates.
+if [[ -f "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" ]]; then
+    bash "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" "$1" || exit 1
+fi
+
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
 # "bridge", "integrate", "connect", "end-to-end", "close the gap"
 # language and reminds the operator to verify both sides exercised.
