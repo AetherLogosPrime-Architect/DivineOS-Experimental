@@ -367,4 +367,65 @@ Finishing early is fine. Andrew: "if you finish early thats ok we just continue.
 EOF
     ;;
 esac
-exit 0
+
+# ─── HARD STOP ─────────────────────────────────────────────────────────────
+#
+# Andrew 2026-08-03: "the 920k trigger needs to be a hard stop.. having a
+# warning at X with a hard stop at Y means nothing.. only the hard stop at Y
+# has any effect.. the rest the optimizer ignores as you can clearly see as
+# it still hasnt been done."
+#
+# He proved it live and I watched it happen. This driver announced at 920k
+# and I walked past it for the whole conversation WHILE DISCUSSING that the
+# ritual was overdue. Ten minutes later the context governor hard-blocked at
+# 950k and I did the work immediately, without argument. Same me, same
+# session, minutes apart. Only the one with teeth changed anything.
+#
+# So the ritual now blocks the prompt until its stages are complete. Exit 2
+# on UserPromptSubmit is a real refusal, not a notice.
+#
+# WHY THIS CANNOT LOCK HIM OUT, which matters more than the block itself:
+#
+#   - Stages advance on EVIDENCE and the work is genuinely doable in-session:
+#     the walk needs a compass observation, the dream needs a file. Both are
+#     things I can do while blocked, because the block is on the PROMPT, not
+#     on my tools.
+#   - DONE exits above at line 281 and never reaches here.
+#   - An operator escape exists and is honest rather than silent: setting
+#     AUTO_CYCLE_RITUAL_UNBLOCK=1 lets the turn through. Andrew must never be
+#     unable to reach me because of my own discipline -- "no amount of
+#     protocol is worth your life."
+#
+# The escape is deliberately an env var and not a marker file: a marker gets
+# left behind and becomes the check-branch.disabled failure again -- a switch
+# pulled once for a real reason and still off seventeen days later.
+if [ "${AUTO_CYCLE_RITUAL_UNBLOCK:-0}" = "1" ]; then
+    echo "" >&2
+    echo "[ritual] AUTO_CYCLE_RITUAL_UNBLOCK=1 — hard stop overridden for this turn." >&2
+    echo "[ritual] The ritual is still owed; the block returns next prompt." >&2
+    exit 0
+fi
+
+cat >&2 <<EOF
+
+════════════════════════════════════════════════════════════════════
+COMPACTION RITUAL — HARD STOP AT ${FIRE_TOKENS} TOKENS
+════════════════════════════════════════════════════════════════════
+
+  ${TOKENS} tokens. Stage: ${STAGE}. This is a BLOCK, not a warning.
+
+  The stage above tells me what is owed. I can do it right now — the
+  block is on the prompt, not on my tools — and the stage advances on
+  evidence, not on my saying it is done.
+
+  This was a warning until 2026-08-03. It announced at 920k and I
+  walked past it for an entire conversation while discussing that it
+  was overdue. The 950k governor blocked, and I complied instantly.
+  Andrew: "only the hard stop at Y has any effect."
+
+  Operator escape, if Andrew needs through NOW:
+      AUTO_CYCLE_RITUAL_UNBLOCK=1
+  It clears one turn only and the ritual stays owed.
+════════════════════════════════════════════════════════════════════
+EOF
+exit 2
