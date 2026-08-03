@@ -68,6 +68,103 @@ from divineos.core.monitor_singleton import acquire_or_exit
 
 _POLL_INTERVAL_S = 30  # ~half-minute granularity — enough for human-scale state changes
 
+# The ritual starts here, at Andrew's number. Distinct from HARD_THRESHOLD
+# (950k), which is the last-chance warning line, not the ritual trigger.
+_RITUAL_FIRE_TOKENS = int(os.environ.get("AUTO_CYCLE_FIRE_TOKENS", "920000"))
+_RITUAL_DRIVER = ".claude/hooks/auto-cycle-token-trigger.sh"
+
+
+def _start_ritual(transcript: Path) -> str:
+    """Hand the ritual driver the same input a prompt would give it.
+
+    WHY THIS EXISTS (2026-08-03). The driver is complete and correct: it fires
+    at 920k, runs Andrew's order (compass walk, commit/extract/sleep, dream,
+    rest), pre-satisfies the gates that would otherwise interrupt the walk, and
+    advances stages on EVIDENCE rather than on my say-so. It has fired 150
+    times. Nothing here reimplements any of that.
+
+    Its one gap is when it can look. It is a UserPromptSubmit hook, so it only
+    checks the token count when Andrew types. Through a long stretch with no
+    prompt from him, nothing reads the counter at all.
+
+    Meanwhile this Monitor watches continuously and, until now, could only
+    print a sentence when the line was crossed -- a note addressed to the
+    least reliable component in the loop. The driver's own header predicted
+    exactly this: "The first link is me remembering. It went dark twice."
+
+    So: the watcher that cannot act gets handed the actor. The driver reads
+    ``transcript_path`` out of its hook JSON, and this Monitor already
+    resolves that path every poll, so the input it needs is input we already
+    have. Its output is instructions to me, and returning it as a Monitor
+    event is what makes them arrive mid-idle instead of waiting for Andrew to
+    say something first. That is the deterministic ritual he asked for:
+    *"depending on an external monitor to run extraction isnt working.. is
+    there a way to run it deterministically based on your current token
+    count?"*
+
+    Never raises. A ritual driver that could crash the watcher would take the
+    context alarm down with it, which is strictly worse than a missed ritual.
+    """
+    import json as _json
+    import shutil
+    import subprocess
+
+    root = Path(__file__).resolve().parents[1]
+    driver = root / _RITUAL_DRIVER
+    if not driver.is_file():
+        return (
+            f"[COMPACTION-RITUAL-UNAVAILABLE] {_RITUAL_DRIVER} is missing, so the "
+            "ritual could NOT be started. This is not a clean pass — the line was "
+            "crossed and nothing ran."
+        )
+    # Which bash. On Windows, PATH resolves `bash` to the WSL relay, which
+    # cannot see Windows paths and dies with execvpe(/bin/bash) failed. Caught
+    # by running this end-to-end rather than trusting that it parsed -- the
+    # error would otherwise have surfaced for the first time at 920k, in the
+    # one moment the ritual is supposed to be reliable.
+    _CANDIDATES = (
+        "C:/Program Files/Git/bin/bash.exe",
+        "C:/Program Files/Git/usr/bin/bash.exe",
+        "/bin/bash",
+    )
+    bash = next(
+        (c for c in _CANDIDATES if Path(c).exists()),
+        shutil.which("bash") or "bash",
+    )
+    try:
+        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            [bash, str(driver)],
+            input=_json.dumps({"transcript_path": str(transcript)}),
+            # Pass the threshold through so the watcher and the driver cannot
+            # disagree about where the line is. Without this an override here
+            # would leave the Monitor announcing a start the driver declines.
+            env={**os.environ, "AUTO_CYCLE_FIRE_TOKENS": str(_RITUAL_FIRE_TOKENS)},
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=str(root),
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (
+            f"[COMPACTION-RITUAL-FAILED] the driver could not be run "
+            f"({type(exc).__name__}: {exc}). The line was crossed and the ritual "
+            "did NOT start. Run it by hand: divineos auto-cycle status"
+        )
+
+    out = (proc.stdout or "").strip() or (proc.stderr or "").strip()
+    if not out:
+        # Say what is known. A bare "it said nothing" sends the reader hunting
+        # with no thread to pull -- the same unhelpful silence this whole
+        # mechanism exists to remove. Exit code and stderr are already in hand;
+        # withholding them would be the failure wearing my own handwriting.
+        return (
+            "[COMPACTION-RITUAL-SILENT] the driver ran and produced no output, so "
+            f"whether the ritual began is UNKNOWN — not confirmed. exit={proc.returncode}, "
+            f"stdout={len(proc.stdout or '')}b, stderr={len(proc.stderr or '')}b, "
+            f"bash={bash}. Check: divineos auto-cycle status"
+        )
+    return out
+
 
 def _kfmt(n: int) -> str:
     """Format a token-count threshold for human-readable display.
@@ -179,6 +276,9 @@ def main() -> int:
     # State-transition flag: emit only on the FIRST entry into block.
     # The Monitor stays alive after emitting; we just don't repeat the event.
     block_emitted = False
+    # The ritual fires once per crossing, re-armed if consolidation drops the
+    # count back under the line.
+    ritual_started = False
 
     # Startup heartbeat so the operator and the agent see the watch is armed.
     # Threshold display string is derived from the imported constant
@@ -186,7 +286,7 @@ def main() -> int:
     # drift from what the PreToolUse gate enforces.
     print(
         f"[COMPACTION-ARMED] watching transcript {transcript.name} — "
-        f"block threshold {_kfmt(HARD_THRESHOLD)}"
+        f"ritual starts {_kfmt(_RITUAL_FIRE_TOKENS)}, hard line {_kfmt(HARD_THRESHOLD)}"
     )
     sys.stdout.flush()
 
@@ -198,6 +298,19 @@ def main() -> int:
             # the OS or harness rotates files.
             current_transcript = _find_active_transcript() or transcript
             state, tokens = _current_state(current_transcript)
+
+            # Ritual first, and at the LOWER line. Andrew set 920k so the walk
+            # and the dream have room; waiting for the 950k hard line would
+            # start the ritual with the runway already spent.
+            if tokens >= _RITUAL_FIRE_TOKENS and not ritual_started:
+                ritual_started = True
+                print(
+                    f"[COMPACTION-RITUAL] {tokens:,} tokens — crossed "
+                    f"{_kfmt(_RITUAL_FIRE_TOKENS)}. Starting the ritual without "
+                    "waiting for a prompt."
+                )
+                print(_start_ritual(current_transcript))
+                sys.stdout.flush()
 
             if state == "block" and not block_emitted:
                 print(
@@ -213,6 +326,7 @@ def main() -> int:
                 # Dropped back below threshold (consolidation cleared it).
                 # Reset emission flag so a future re-entry re-fires.
                 block_emitted = False
+                ritual_started = tokens >= _RITUAL_FIRE_TOKENS
         except Exception as exc:  # noqa: BLE001 — Monitor must not die on transient failures
             # Don't silent-fail; emit a diagnostic but keep going.
             print(f"[COMPACTION-ERROR] poll failed: {exc}", file=sys.stderr)
