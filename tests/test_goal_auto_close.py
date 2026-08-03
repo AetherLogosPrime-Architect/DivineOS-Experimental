@@ -196,3 +196,57 @@ class TestHasCompletionSignal:
         assert not has_completion_signal("looking at the detector")
         assert not has_completion_signal("")
         assert not has_completion_signal("some random text")
+
+
+class TestCommitCannotCloseGoalsItPredates:
+    """The time-travel defect, and the livelock it caused.
+
+    ``divineos goal auto-close`` with no --message reads ``git log -1``, and
+    every CLI command is a lifecycle checkpoint that can fire it. So one
+    stale HEAD was re-matched against every open goal forever, including
+    goals created long after that commit existed.
+
+    On 2026-08-02 that produced a livelock: the goal doorman refuses
+    substrate edits without a session-fresh goal; I set one; the next command
+    re-ran auto-close against a stale HEAD sharing its vocabulary; the goal
+    was marked done seconds later; the doorman refused again. Six goals died
+    in 26 minutes, the last within 98 seconds of being set, none finished.
+    The gate demanding a goal was fed by the mechanism destroying it — the
+    same shape as the bypass livelock Aria demonstrated the same day.
+
+    A commit cannot complete work that did not exist when it was written.
+    That is causality, not a heuristic, so it is checked rather than tuned.
+    """
+
+    MSG = "feat(x): verify the widget ships. Verified and complete, all tests pass."
+
+    def _goal(self, added_at):
+        return [{"text": "verify the widget ships", "added_at": added_at, "status": "active"}]
+
+    def test_a_goal_created_after_the_commit_is_not_considered(self):
+        import time
+
+        now = time.time()
+        r = auto_close_from_message(self.MSG, goals=self._goal(now - 60), commit_time=now - 600)
+        assert r.closed == []
+        assert r.skipped and r.skipped[0][1] == -1.0, (
+            "must be skipped on causality, distinctly from a low-overlap skip"
+        )
+
+    def test_a_goal_created_before_the_commit_is_still_considered(self):
+        """The filter must not become a blanket refusal — otherwise nothing
+        ever auto-closes and the discipline it automates dies quietly."""
+        import time
+
+        now = time.time()
+        r = auto_close_from_message(self.MSG, goals=self._goal(now - 900), commit_time=now - 600)
+        assert r.skipped == [], "an older goal must reach the overlap check"
+
+    def test_unknown_commit_time_does_not_filter(self):
+        """None means UNKNOWN, not 'everything is eligible' — but it must not
+        silently change behaviour for callers that cannot supply a time."""
+        import time
+
+        now = time.time()
+        r = auto_close_from_message(self.MSG, goals=self._goal(now - 60), commit_time=None)
+        assert not any(s[1] == -1.0 for s in r.skipped)

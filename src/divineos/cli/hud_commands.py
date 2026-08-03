@@ -261,6 +261,13 @@ def register(cli: click.Group) -> None:
 
         from divineos.core.goal_auto_close import auto_close_from_message
 
+        # Read the commit's TIMESTAMP alongside its message. Without it the
+        # same stale HEAD gets re-matched against goals created long after
+        # that commit existed, and since every CLI command is a lifecycle
+        # checkpoint that can fire this, a freshly-set goal dies seconds
+        # after creation while the goal doorman keeps demanding one. Six
+        # goals died that way in 26 minutes on 2026-08-02.
+        commit_time: float | None = None
         if message is None:
             try:
                 message = subprocess.check_output(
@@ -268,11 +275,30 @@ def register(cli: click.Group) -> None:
                     text=True,
                     stderr=subprocess.DEVNULL,
                 )
+                commit_time = float(
+                    subprocess.check_output(
+                        ["git", "log", "-1", "--pretty=%ct"],
+                        text=True,
+                        stderr=subprocess.DEVNULL,
+                    ).strip()
+                )
             except (subprocess.CalledProcessError, FileNotFoundError):
                 click.secho("[-] Could not read HEAD commit message.", fg="red")
                 return
+            except ValueError:
+                # Message read but timestamp unparseable. Leave commit_time
+                # None rather than guessing — unknown is its own state, not
+                # a licence to close everything.
+                commit_time = None
 
-        result = auto_close_from_message(message, threshold=threshold)
+        if message is None:
+            # Unreachable in practice — the branch above either assigns or
+            # returns — but stated rather than assumed, so the type is honest
+            # and a future edit to that branch cannot silently pass None.
+            click.secho("[-] No commit message to match against.", fg="red")
+            return
+
+        result = auto_close_from_message(message, threshold=threshold, commit_time=commit_time)
         if not result.closed:
             click.secho("[~] No goals closed.", fg="bright_black")
             if result.skipped:
