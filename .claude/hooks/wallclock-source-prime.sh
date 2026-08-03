@@ -141,6 +141,21 @@ commit message should be clear. Say WHO, not WHEN:
   "future me"             ->  "a cold reader with no context"
   "so later I remember"   ->  "so the file explains itself"
 
+WORK IS NOT A TIME-WINDOW EITHER (2026-08-03 fire, second variant of the
+same class). I wrote "the branch guard I built later tonight" to Andrew
+while explaining a bundle. Above, the time-word stood in for a READER;
+here it stood in for ANOTHER PIECE OF WORK in the same conversation.
+Both substitute a clock for something that already has a name, and the
+second slips past a composer who has internalised only the first.
+
+Say WHAT, not WHEN:
+  "later tonight"         ->  name the artifact: "the branch-scope guard"
+  "earlier tonight"       ->  name the commit or the change itself
+  "the work I did before" ->  the thing it produced
+
+Test for both variants: strike the time-phrase. If the sentence still
+says what it meant, the clock was decoration and I do not inhabit it.
+
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF
