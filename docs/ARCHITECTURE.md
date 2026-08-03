@@ -622,6 +622,7 @@ src/divineos/
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
+    surface_registry.py        Surface registry — the nervous system between built organs and awareness.
 
   analysis/
     _session_types.py          Session analysis type definitions
