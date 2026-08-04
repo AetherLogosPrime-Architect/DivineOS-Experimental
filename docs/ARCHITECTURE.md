@@ -48,6 +48,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
@@ -177,7 +178,7 @@ src/divineos/
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 43 expert wisdom profiles
+      experts/                 45 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
@@ -190,12 +191,14 @@ src/divineos/
         dijkstra.py            Formal methods, correctness, structured programming
         dillahunty.py          Epistemic discipline, burden of proof, patient public dialogue
         einstein.py            Theoretical physics, thought experiments, frame-invariance, spacetime
+        feathers.py            Legacy code, seams, characterization tests
         feynman.py             First principles, clarity, epistemology
         foucault.py            Discipline, power-knowledge coupling, the self that structure produces
         godel.py               Incompleteness, self-reference, formal limits
         bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
         hawking.py             Cosmology, black holes, quantum gravity, information paradox
         hinton.py              Learning, representation, intellectual honesty
+        hoare.py               Type design, invariants, absence is not a value
         hofstadter.py          Self-reference, analogy, strange loops
         holmes.py              Deduction, observation, elimination (fictional)
         jacobs.py              Emergence, bottom-up observation, diversity
@@ -623,6 +626,7 @@ src/divineos/
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
+    build_flow.py              Build-flow station status for open PRs.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -250,6 +250,7 @@ from divineos.cli import (  # noqa: E402
     bio_commands,
     body_commands,
     branch_health_commands,
+    build_flow_commands,
     overclaim_commands,
     closure_shape_commands,
     performing_caution_commands,
@@ -411,6 +412,7 @@ complete_commands.register(cli)
 void_commands.register(cli)
 voids_commands.register(cli)
 branch_health_commands.register(cli)
+build_flow_commands.register(cli)
 overclaim_commands.register(cli)
 closure_shape_commands.register(cli)
 performing_caution_commands.register(cli)
