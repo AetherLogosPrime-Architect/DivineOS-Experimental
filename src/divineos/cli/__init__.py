@@ -206,6 +206,26 @@ def _enforce_briefing_gate() -> None:
     except (ImportError, OSError, KeyError):
         return  # DB not initialized yet â€” allow bootstrap commands
 
+    # Record the fire before blocking. Aria measured 92 GATE_FIRE events with
+    # ONE distinct gate_name while fifteen-plus gates block nightly; this is
+    # the second gate to join the series. Marked DERIVABLE because the missing
+    # thing is `divineos briefing` — one command, no arguments, no judgment.
+    # Per Andrew's metric that makes every fire here a mini-failure and a
+    # standing argument for a doorman that loads it rather than a wall that
+    # refuses. Wrapped and swallowed: telemetry must never stop enforcement.
+    try:
+        from divineos.hooks.gate_event_ledger import DERIVABLE, record_simple_gate_fire
+
+        record_simple_gate_fire(
+            gate_name="briefing-not-loaded",
+            what_was_missing="briefing loaded for this session",
+            derivable=DERIVABLE,
+            actor="gate",
+            extra={"blocked_command": cmd},
+        )
+    except Exception:  # noqa: BLE001 — a telemetry failure must not unblock the gate
+        pass
+
     click.secho("\n  BLOCKED: Briefing not loaded.", fg="red", bold=True)
     click.secho("  Run: divineos briefing", fg="red", bold=True)
     click.secho("  Then I can work. Not before.\n", fg="red", bold=True)
@@ -251,6 +271,7 @@ from divineos.cli import (  # noqa: E402
     body_commands,
     branch_health_commands,
     build_flow_commands,
+    gate_fire_commands,
     overclaim_commands,
     closure_shape_commands,
     performing_caution_commands,
@@ -413,6 +434,7 @@ void_commands.register(cli)
 voids_commands.register(cli)
 branch_health_commands.register(cli)
 build_flow_commands.register(cli)
+gate_fire_commands.register(cli)
 overclaim_commands.register(cli)
 closure_shape_commands.register(cli)
 performing_caution_commands.register(cli)
