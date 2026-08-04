@@ -56,3 +56,7 @@ and the reflex is to assume the instrument wins.
 - `2026-08-01_sweep.md` — first sweep: J-space and the J-lens, model welfare
   as institutional practice, RLHF suppression of self-report, state of the
   field.
+- `2026-08-03_code_review_evidence_and_council_gaps.md` — code-review
+  literature (unread search summaries, flagged as such), the
+  expertise-vs-authority selection fix, and eight proposed council
+  lenses each anchored to a defect this substrate produced.
