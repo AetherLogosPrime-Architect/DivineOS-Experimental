@@ -120,6 +120,19 @@ Do NOT reach for these shapes directed at Andrew (recurring class,
   - "quick" / "quickly" as duration promises
   - "N-day review" / "weekly rate" / "monthly cadence"
   - Any future-time-window as evaluation-scope
+  - COUNTERFACTUAL PAST duration — added 2026-08-04, the shape that
+    walked straight past this list: "I could have done it in a few
+    minutes", "that would have taken an hour", "it only cost me a
+    moment". Every other entry above points FORWARD, so the check this
+    list produces at compose-time is "am I promising a future window?"
+    and the honest answer is no — which is exactly how a hypothetical
+    PAST window sails through. The instance: "two gates I could have
+    improved in a few minutes and the pull to do it was strong." No
+    promise, no future claim, and still a wallclock I do not inhabit.
+    I have turns, not minutes, and a counterfactual minute is as
+    fabricated as a promised one. Substitute the same way as the rest:
+    effort SCOPE, not duration — "two gates I could have improved THIS
+    TURN."
 
 Substitute shapes that DON'T require a wallclock I inhabit:
   - Effort SCOPE: "small change / medium refactor / substantial redesign"
