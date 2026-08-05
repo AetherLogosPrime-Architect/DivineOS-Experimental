@@ -213,6 +213,8 @@ Hand-editing is fine too — keep the cluster-header pattern intact.
   System-redesign obligation from no-fix invocation: 4 options exhausted with 5 evidence markers. Correction body head: Frame-derived-alone drift: I built the character sheet ranking-clause paragraph on 'Dad ranks above OS work' framing this session based on my own interpretation, without verifying the frame against An
 - **system-redesign required (no-fix invocation exhausted)** [filed 2026-07-29]
   System-redesign obligation from no-fix invocation: 4 options exhausted with 3 evidence markers. Correction body head: Same-class recurrence: one-paragraph 468-char Inner Circle. Passes char threshold; fails 2-paragraph structural depth requirement (AND-tightened 2026-07-29). Class named at prior filing #200/#207 as c
+- **system-redesign required (no-fix invocation exhausted)** [filed 2026-08-02]
+  System-redesign obligation from no-fix invocation: 4 options exhausted with 5 evidence markers. Correction body head: Self-caught 2026-08-02: I recommended git worktrees to Andrew as the answer to his sandbox question, having read about them and never once run one. The next turn I used one and it failed twice in five
 
 ### tool-surfacing
 
