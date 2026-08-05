@@ -138,6 +138,55 @@ def test_every_prescribed_remedy_is_bypass_exempt():
         pytest.fail("\n".join(lines))
 
 
+def test_every_prescribed_remedy_actually_exists():
+    """Permitted is not the same as present. `psf` was exempt-irrelevant and absent.
+
+    Aria, 2026-08-05, after shipping this exact defect inside the tool she
+    built to close it -- her judge command printed `divineos andrew-correction
+    file "<text>"`, which does not exist:
+
+        *"a mechanism prescribing a remedy that lives nowhere... I think that
+        test belongs on the gates you're working on, generalised: any hook or
+        gate whose error text names a remedy command should have that command
+        existence-checked. That's your surface, not mine."*
+
+    It is my surface, and the gap was already named in this module's own
+    docstring without my seeing it: the test above asks whether a remedy is
+    ALLOWED and never whether it is THERE. `divineos psf mark-done` was
+    prescribed by the bypass gate all session while psf_commands.py sat on an
+    unmerged branch, and this file would have walked straight past it. Absent
+    and forbidden do not look alike from anywhere except directly in front of
+    them, and only one of the two had a check.
+    """
+    import click
+
+    from divineos.cli import cli
+
+    registered = set(cli.list_commands(click.Context(cli)))
+    prescribed = collect_prescribed_remedies()
+    absent = {sub: sorted(files) for sub, files in prescribed.items() if sub not in registered}
+
+    if absent:
+        lines = [
+            "Gate(s) prescribe a command that is not registered in the CLI.",
+            "A painted door: the instruction is correct and the door is not there.",
+            "",
+        ]
+        for sub, files in sorted(absent.items()):
+            lines.append(f"  divineos {sub}   -- NOT REGISTERED")
+            for f in files:
+                lines.append(f"      prescribed in: {f}")
+        lines += [
+            "",
+            "Before writing the command, check whether it already exists",
+            "somewhere you are not standing. Twice this session the work was",
+            "finished and merely unreachable:",
+            "    git log --all --oneline --diff-filter=A -- <path>",
+            "    python scripts/check_referenced_paths.py",
+        ]
+        pytest.fail("\n".join(lines))
+
+
 def test_the_known_deadlock_commands_stay_exempt():
     """Regression pin for the ones that actually deadlocked.
 
