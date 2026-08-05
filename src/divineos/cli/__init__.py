@@ -343,6 +343,7 @@ from divineos.cli import (  # noqa: E402
     gravity_commands,
     memory_commands,
     motivation_commands,
+    prior_art_commands,
     psf_commands,
     prereg_commands,
     admin_reset_template,
@@ -452,6 +453,7 @@ rt_commands.register(cli)
 savor_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
+prior_art_commands.register(cli)
 psf_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)

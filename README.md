@@ -285,7 +285,7 @@ pytest tests/ -q --tb=short   # real-DB suite, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (426 commands)
+## CLI Surface (427 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -481,7 +481,7 @@ DivineOS is structured as a CLI surface over a core library (see `scripts/check_
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 426 commands across 83 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/cli/`** — 427 commands across 84 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (45 expert lenses), self-model, corrigibility, body awareness, andrew_state (mutual-catch observation channel for Andrew's state with substance-binding gate; per `docs/andrew_state_design.md`), state_markers (substrate-persisted upstream→downstream signal contract; peer-designed with Aria 2026-07-16; supports the ForcedWorkGate primitive's dark instances; per `docs/primitives/forced_work_gate_design.md`). Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, `andrew_state/`, `correction_shape_v2/` (Layer-2 self-admission detector scanning MY assistant output for self-correction shape), `semantic_classifier/` (TF-IDF/KNN classifier scaffolding for gate-fire discrimination), `keyword_enforcement_registry`/`_exclusion` (F94/F95 derivation of guardrail-listed detector files), `push_ready` (automation of trailer + audit-round ceremony for PR ready-for-review), etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests, `evidence_bearing_stop_gate.py` — abstract Stop-gate primitive with IntraTurnIntercept and CrossTurnScan variants, prototyped by the LEPOS-channel gate 2026-07-15).
