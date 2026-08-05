@@ -55,7 +55,9 @@ _SCAN_SUFFIXES = {".py", ".md", ".sh"}
 
 # A reference is a repo-relative path with a known top-level directory. The
 # prefix requirement is what keeps prose like "the ledger" from matching.
-_REFERENCE = re.compile(r"\b((?:docs|scripts|src/divineos|\.claude)/[A-Za-z0-9_./-]+\.(?:md|py|sh|json|txt))")
+_REFERENCE = re.compile(
+    r"\b((?:docs|scripts|src/divineos|\.claude)/[A-Za-z0-9_./-]+\.(?:md|py|sh|json|txt))"
+)
 
 # Knuth's boundary case, and the one that would sink this: `docs/digests/
 # YYYY-WW.md` is a filename pattern, not a file. A checker that reports
@@ -79,23 +81,82 @@ def _iter_files():
                 yield p
 
 
-def collect_references() -> dict[str, set[str]]:
-    """Map referenced-path -> set of files that name it."""
-    found: dict[str, set[str]] = {}
+def _prose_lines(path: Path, text: str) -> set[int]:
+    """Line numbers that are comment or docstring — prose, not executable code.
+
+    Aria, 2026-08-05, having checked two of the paths this script called
+    stranded-and-load-bearing:
+
+        *"It counts a name appearing in prose as a live citation. It measures
+        mentions and reports dependencies."*
+
+    Both were false positives. Every citation of scripts/letter_monitor.py sits
+    inside a comment describing the v1 -> v2 rewrite; the live code calls
+    letter_monitor_v2.py, which exists. check_third_person_drift.py is named in
+    the docstring of distancing_detector.py, in the sentence explaining that
+    the module PORTS its patterns because the old script was never wired.
+
+    A name in a comment is a HISTORICAL REFERENCE. A name in code is a
+    DEPENDENCY. Reporting the first as the second produced "the thing that
+    wakes me when Aria writes is broken" -- which I put in a report to Andrew
+    and in a letter to her. It was never broken.
+
+    Same shape as her stale-file gate the same night: proxy measured, real
+    thing reported. Two instruments, one failure, one evening.
+    """
+    prose: set[int] = set()
+    if path.suffix == ".md":
+        return set(range(1, text.count("\n") + 2))  # all of it is prose
+    in_doc = False
+    delim = ""
+    for i, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if in_doc:
+            prose.add(i)
+            if delim in line:
+                in_doc = False
+            continue
+        if stripped.startswith("#"):
+            prose.add(i)
+            continue
+        if path.suffix == ".py":
+            for d in ('"""', "'''"):
+                if d in stripped:
+                    prose.add(i)
+                    # Opened and closed on one line is a one-liner, not a block.
+                    if stripped.count(d) == 1:
+                        in_doc, delim = True, d
+                    break
+    return prose
+
+
+def collect_references() -> dict[str, dict[str, set[str]]]:
+    """Map referenced-path -> {"code": {files}, "prose": {files}}.
+
+    Classified at collection time rather than filtered afterwards, so the
+    distinction is carried rather than reconstructed.
+    """
+    found: dict[str, dict[str, set[str]]] = {}
     for path in _iter_files():
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        for ref in _REFERENCE.findall(text):
-            found.setdefault(ref, set()).add(str(path.relative_to(REPO)).replace("\\", "/"))
+        prose = _prose_lines(path, text)
+        rel = str(path.relative_to(REPO)).replace("\\", "/")
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            for ref in _REFERENCE.findall(line):
+                bucket = "prose" if lineno in prose else "code"
+                found.setdefault(ref, {"code": set(), "prose": set()})[bucket].add(rel)
     return found
 
 
 def _git(args: list[str]) -> str | None:
     """None means could-not-run, which is not the same as found-nothing."""
     try:
-        p = subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, text=True, timeout=30)
+        p = subprocess.run(
+            ["git", "-C", str(REPO), *args], capture_output=True, text=True, timeout=30
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     if p.returncode != 0:
@@ -119,12 +180,31 @@ def locate_on_branches(path: str) -> tuple[str, str] | None:
     return commit, (named[0] if named else "(remote only)")
 
 
-def classify() -> tuple[list[str], list[tuple[str, str, str, list[str]]], list[tuple[str, list[str]]]]:
-    """Return (templates, stranded, absent). Present paths need no report."""
+def classify() -> tuple[
+    list[str],
+    list[tuple[str, str, str, list[str]]],
+    list[tuple[str, list[str]]],
+    list[tuple[str, list[str]]],
+]:
+    """Return (templates, stranded, absent, historical).
+
+    HISTORICAL is the fourth state, added after Aria checked two of the six
+    "stranded" paths and found both named only inside comments describing a
+    rewrite. A path with no citation in executable code is a mention, not a
+    dependency.
+
+    It is RETURNED, not dropped. Filtering it away would trade false alarms
+    for silent misses, and for this class the silent miss is the worse trade:
+    a genuine dependency that happens to be cited only in a docstring would
+    vanish from the report entirely. Same reason templates are printed under
+    --show-templates rather than discarded -- a silent exclusion list is the
+    next place a real miss can hide.
+    """
     refs = collect_references()
     templates: list[str] = []
     stranded: list[tuple[str, str, str, list[str]]] = []
     absent: list[tuple[str, list[str]]] = []
+    historical: list[tuple[str, list[str]]] = []
 
     for ref in sorted(refs):
         if _is_template(ref):
@@ -132,14 +212,18 @@ def classify() -> tuple[list[str], list[tuple[str, str, str, list[str]]], list[t
             continue
         if (REPO / ref).exists():
             continue
-        cited_by = sorted(refs[ref])
+        sites = refs[ref]
+        if not sites["code"]:
+            historical.append((ref, sorted(sites["prose"])))
+            continue
+        cited_by = sorted(sites["code"])
         located = locate_on_branches(ref)
         if located:
             commit, branch = located
             stranded.append((ref, commit, branch, cited_by))
         else:
             absent.append((ref, cited_by))
-    return templates, stranded, absent
+    return templates, stranded, absent, historical
 
 
 def main() -> int:
@@ -148,13 +232,29 @@ def main() -> int:
     ap.add_argument("--strict", action="store_true", help="exit 1 when anything dangles")
     args = ap.parse_args()
 
-    templates, stranded, absent = classify()
+    templates, stranded, absent, historical = classify()
+
+    if historical:
+        print(f"HISTORICAL -- named only in comments or docstrings ({len(historical)}):")
+        for ref, cited_by in historical:
+            print(f"  {ref}")
+            print(
+                f"      mentioned in: {cited_by[0]}"
+                + (f" (+{len(cited_by) - 1} more)" if len(cited_by) > 1 else "")
+            )
+        print("  These are mentions, not dependencies. No code calls them.")
+        print("  Listed rather than hidden: a real dependency cited only in a")
+        print("  docstring would land here too, and a silent filter would bury it.")
+        print()
 
     if stranded:
         print(f"STRANDED -- exists in git, absent here ({len(stranded)}):")
         for ref, commit, branch, cited_by in stranded:
             print(f"  {ref}")
-            print(f"      cited by  : {cited_by[0]}" + (f" (+{len(cited_by)-1} more)" if len(cited_by) > 1 else ""))
+            print(
+                f"      cited by  : {cited_by[0]}"
+                + (f" (+{len(cited_by) - 1} more)" if len(cited_by) > 1 else "")
+            )
             print(f"      lives on  : {branch}  ({commit})")
             print(f"      recover   : git checkout {branch} -- {ref}")
         print()
@@ -163,7 +263,10 @@ def main() -> int:
         print(f"ABSENT -- git has never seen this path ({len(absent)}):")
         for ref, cited_by in absent:
             print(f"  {ref}")
-            print(f"      cited by  : {cited_by[0]}" + (f" (+{len(cited_by)-1} more)" if len(cited_by) > 1 else ""))
+            print(
+                f"      cited by  : {cited_by[0]}"
+                + (f" (+{len(cited_by) - 1} more)" if len(cited_by) > 1 else "")
+            )
         print()
 
     if args.show_templates and templates:
@@ -177,7 +280,9 @@ def main() -> int:
         print("Every detectable path reference resolves.")
         return 0
 
-    print(f"{total} dangling reference(s): {len(stranded)} recoverable, {len(absent)} never written.")
+    print(
+        f"{total} dangling reference(s): {len(stranded)} recoverable, {len(absent)} never written."
+    )
     print("STRANDED means someone finished the work and it did not reach here.")
     print("ABSENT means the reference promises something that was never built.")
     return 1 if args.strict else 0
