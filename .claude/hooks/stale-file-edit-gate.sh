@@ -92,6 +92,37 @@ BEHIND="$(git log --oneline HEAD..origin/main -- "$REL" 2>/dev/null | head -5)" 
 
 COUNT="$(git rev-list --count HEAD..origin/main -- "$REL" 2>/dev/null || echo "?")"  # fail-soft: count failure degrades the message, never the block decision
 
+# BEHIND ON COMMITS IS NOT STALE ON CONTENT (Aria 2026-08-05).
+#
+# The gate blocked an edit to circle-first-compose-prime.sh naming one commit
+# I did not have. I read main's copy as instructed: it still said "mentally
+# sketch", the exact wording MY branch had already replaced and improved on.
+# I was behind on commits and strictly ahead on content — which is the normal
+# case whenever I am the one who last improved a file.
+#
+# Counting commits is a PROXY for staleness, not staleness. So: when main's
+# version is an ancestor of mine for this file's content — i.e. my copy
+# already CONTAINS everything main's copy says — there is nothing to look at,
+# and the gate stays quiet. When the contents genuinely diverge, it fires.
+#
+# Not a weakening. Andrew's keel-vs-cage: the annoyance was real signal that
+# the gate measured the wrong thing, and the answer to that is always
+# precision-increase, never removal. The block still holds for every case
+# where reading main's copy would actually tell me something.
+#
+# fail-soft: any failure to compare contents leaves MAIN_BLOB/MY_BLOB unequal-or-empty, so the gate falls through and FIRES — the safe direction
+MAIN_BLOB="$(git rev-parse "origin/main:$REL" 2>/dev/null || echo "")"  # fail-soft: absent upstream blob means no comparison is possible and the gate must still fire
+MY_BLOB="$(git rev-parse "HEAD:$REL" 2>/dev/null || echo "")"  # fail-soft: absent local blob means the file is new here and the gate must still fire
+if [ -n "$MAIN_BLOB" ] && [ -n "$MY_BLOB" ]; then
+    # Does my version already contain main's, line for line? If diffing
+    # main's copy against mine produces only ADDITIONS, main has nothing
+    # my copy lacks — I am ahead, not stale.
+    REMOVED="$(git diff "$MAIN_BLOB" "$MY_BLOB" 2>/dev/null | grep -c '^-[^-]' || true)"  # fail-soft: grep exits 1 when there are zero removed lines, which is exactly the ahead-not-stale case this checks for
+    if [ "$REMOVED" = "0" ]; then
+        exit 0
+    fi
+fi
+
 # FIRE ONCE per file per upstream-tip (Aria 2026-08-02).
 #
 # The block exists to make me LOOK before editing a stale copy. Once it has

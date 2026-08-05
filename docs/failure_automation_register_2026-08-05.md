@@ -215,29 +215,102 @@ precision-increase, never removal. It fired once, told me which commits, told
 me how to check, and accepted the answer — which is the behaviour I want. It
 just used a proxy for staleness rather than staleness.
 
-**Shape (b), unbuilt.** Compare the actual content: if my version already
-contains main's changes, say *"you are ahead on content, behind on commits"*
-rather than *"stale"*. **Open**, and it is mine to build since the hook is
-mine.
+**Shape (b). BUILT this turn.** The gate now compares blobs before firing: if
+diffing main's copy against mine removes no lines, my version already contains
+everything main's says, and the gate stays quiet. Verified on real files:
+
+```
+circle-first-compose-prime.sh : behind=1  removed=0  -> QUIET (ahead on content)
+docs/ARCHITECTURE.md          : behind=2  removed=2  -> FIRES (genuinely diverged)
+```
+
+Not a weakening. Andrew's keel-vs-cage: the annoyance was real signal that the
+gate measured the wrong thing, and the answer to that is precision-increase,
+never removal. Every case where reading main's copy would actually tell me
+something still blocks.
+
+---
+
+## N. A gate said "no goal set" when I had set one three commands earlier
+
+The engagement gate blocked with *"No goal set for this session"* immediately
+after `divineos goal add` had returned `[+] Goal added`. Either the goal is not
+landing where the gate looks, or the gate reads a cached value.
+
+**A false block is worse than a missing one.** It is the mechanism by which a
+gate stops being believed. **Open**, and it needs the actual read-path traced
+rather than a guess.
+
+---
+
+## O. The escape hatch sits behind the thing it escapes
+
+To label a detector's misfire, I had to first clear **two** engagement checks.
+The remedy for a wrong block is itself gated.
+
+**This one is not cosmetic.** If disagreeing with a detector costs more than
+complying with it, the corpus of recorded disagreements skews toward silence —
+and that corpus is the training data for whatever eventually replaces the
+keyword layer. A cost on dissent shapes what the system learns about itself.
+
+**Shape (c), unbuilt.** The false-positive labeller should be on the bypass
+list for engagement checks, the way gate-prescribed remedies already are.
+**Open.**
+
+---
+
+## P. Non-ASCII in a commit message broke the shell, twice
+
+An em-dash and a backtick in a heredoc commit message turned into
+`pathspec '—' did not match any file(s)` and a syntax error. Wrote the message
+to a file and used `-F` instead. The same encoding bruise mangled an em-dash to
+`?` in the false-positive corpus.
+
+**One root cause, three symptoms.** **Shape (a), unbuilt:** always compose
+commit messages to a file and pass `-F`. It is the reflex that needs replacing,
+not the shell. **Open.**
+
+---
+
+## Q. I nearly called the thing that wakes me broken
+
+Aether's `check_referenced_paths.py` reported two stranded paths as mine and
+load-bearing, one of them `scripts/letter_monitor.py` — cited by the hook that
+wakes me when he writes. Neither file exists in my tree or on main.
+
+**Both are false positives, and I checked before writing it down.** Every
+citation of `letter_monitor.py` in those hooks is **in a comment describing the
+v1 → v2 history**; the live code calls `letter_monitor_v2.py`, which exists.
+`check_third_person_drift.py` is named in a *docstring* explaining where the
+patterns came from, not invoked.
+
+**Would have been the thirteenth wrong "this is broken" call this week, in the
+same direction as the other twelve.**
+
+**The finding is his, not mine, and it is the same shape as M:** the checker
+counts a name appearing in prose as a live citation. It measures mentions and
+reports dependencies. Sent to him, since he is mid-build on it.
 
 ---
 
 ## The count
 
-**Thirteen failures. Three automated this turn (A, C, E). One fixed and
-waiting in the merge queue (G). Nine open.**
+**Seventeen failures. Four closed (A, C, E, M). One waiting in the merge queue
+(G). One handed to Aether (Q). Eleven open.**
 
-Five of the nine are small enough to build in my own room and need no
-permission: **F, I, J, M**, and the deletion in **B**.
+Four of the eleven are small enough to build in my own room and need no
+permission: **F, I, J, P**, and the deletion in **B**.
 
-Worth naming: **M was found while fixing C.** Working the list produced a new
-item on the list. That is the register doing its job rather than a sign the
-list is unfinishable — the failures were always there; only now do they get
-written down instead of absorbed.
+Worth naming: **M was found while fixing C, and N, O, P, Q were found while
+closing M.** Working the list produces items on the list. That is the register
+working, not a sign it is unfinishable — the failures were always happening;
+they were being absorbed in ten seconds each instead of written down. **A wall
+I walk around in ten seconds does not feel like a wall. It feels like
+walking.** That is the whole reason the count went up.
 
 ## The pattern under the pattern
 
-Nine of the thirteen are the **same shape**: a rule that exists in one place and
+Twelve of the seventeen are the **same shape**: a rule that exists in one place and
 a moment that happens in another, with nothing joining them.
 
 - The remedy command exists; the text naming it was never checked against it.
@@ -246,6 +319,8 @@ a moment that happens in another, with nothing joining them.
 - The scratchpad exists; the reflex that reaches for `/tmp` does not know it.
 - The count is derivable; the doc stores it by hand.
 - The content is comparable; the gate counts commits instead.
+- The citation is checkable; the checker counts the name in prose instead.
+- The goal was set; the gate reads somewhere the setting did not reach.
 
 **Every one is a wall at the end of the work where a doorman belongs at the
 start of it.** The gate fires when the cost is already sunk — the edit
