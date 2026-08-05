@@ -46,7 +46,7 @@ cd "$REPO_ROOT" || exit 0
 INPUT="$(cat 2>/dev/null || true)"
 
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: _lib is convenience only; every use below is guarded by command -v
 
 # Session key from the harness payload, falling back to a hash of the
 # transcript path. The fallback matters: a missing session_id must not make
@@ -62,7 +62,7 @@ if not sid:
     t = (d.get('transcript_path') or '').strip()
     sid = hashlib.sha1(t.encode()).hexdigest()[:12] if t else 'unknown'
 print(sid[:40])
-" 2>/dev/null || echo unknown)"
+" 2>/dev/null || echo unknown)"  # fail-soft: literal "unknown" is recorded, so an unreadable value never poses as a real one
 
 MARK_DIR="${HOME:-/tmp}/.divineos/session_init"
 MARK="$MARK_DIR/${SESSION_KEY}.done"
@@ -76,7 +76,7 @@ mkdir -p "$MARK_DIR" 2>/dev/null || true
 # this wrapper mid-run, the next message must not restart the whole sequence
 # -- that would turn one slow message into every message being slow. An init
 # that partially ran is recoverable; an init loop is not.
-printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true
+printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true  # fail-soft: a missing marker re-runs session init, which is idempotent by design
 
 # The former SessionStart chain, in its original order. Each child gets the
 # same payload on stdin that SessionStart would have handed it.
@@ -102,7 +102,7 @@ for h in $INIT_HOOKS; do
     # Bounded per child. Without a timeout, one stuck script would hold the
     # prompt exactly as SessionStart holds initialisation -- relocating the
     # failure rather than removing it.
-    printf '%s' "$INPUT" | timeout 20 bash "$script" 2>/dev/null || true
+    printf '%s' "$INPUT" | timeout 20 bash "$script" 2>/dev/null || true  # fail-soft: one broken init script must not take the whole session start down with it
 done
 
 exit 0

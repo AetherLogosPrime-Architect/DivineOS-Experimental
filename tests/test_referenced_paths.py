@@ -28,7 +28,17 @@ from check_referenced_paths import classify  # noqa: E402
 
 # Measured 2026-08-05, the session that found docs/build_flow.md stranded on a
 # branch with no PR after I had concluded it was never written.
-_BASELINE_STRANDED = 6
+#
+# 6 -> 4 the same session: docs/build_flow.md and
+# docs/ai_research/2026-08-02_limits_of_automation.md recovered from
+# split/docs-research-buildflow. The ratchet caught the drop and refused to
+# pass until the number was lowered here -- which is the point. An unmoved
+# baseline after a real improvement is how a pin becomes a ceiling.
+#
+# The remaining 4 include scripts/letter_monitor.py and
+# scripts/check_third_person_drift.py, both live on Aria's branch. Not
+# recovered: her branch, her call.
+_BASELINE_STRANDED = 4
 _BASELINE_ABSENT = 19
 
 

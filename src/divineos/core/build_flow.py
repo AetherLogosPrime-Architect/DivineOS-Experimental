@@ -196,10 +196,13 @@ def fingerprint(statuses: list[PrFlowStatus]) -> str:
     """
     import hashlib
 
+    # usedforsecurity=False: this digest answers "did the picture change since
+    # last turn" so the pause can fire on novelty instead of on standing state.
+    # Nothing authenticates against it and nothing is defended by it.
     parts: list[str] = []
     for s in sorted(statuses, key=lambda x: x.number):
         stations = ",".join(
             f"{r.station}={r.status.value}" for r in sorted(s.stations, key=lambda r: r.station)
         )
         parts.append(f"{s.number}:{s.branch}:{stations}")
-    return hashlib.sha1("|".join(parts).encode()).hexdigest()[:16]
+    return hashlib.sha1("|".join(parts).encode(), usedforsecurity=False).hexdigest()[:16]

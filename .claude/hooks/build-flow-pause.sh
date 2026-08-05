@@ -52,7 +52,7 @@ import json,sys
 try: d=json.load(sys.stdin)
 except Exception: print(''); raise SystemExit
 print(((d.get('tool_input') or {}).get('command') or ''))
-" 2>/dev/null || echo "")"
+" 2>/dev/null || echo "")"  # fail-soft: malformed hook stdin must not block the tool call this hook observes
 case "$CMD" in
   *"git push"*|*"gh pr create"*|*"gh pr ready"*|*"gh pr edit"*) ;;
   *) exit 0 ;;
@@ -61,29 +61,29 @@ esac
 command -v divineos >/dev/null 2>&1 || exit 0
 
 STATE_DIR="${AUTO_CYCLE_STATE_DIR:-${HOME}/.divineos}"
-mkdir -p "$STATE_DIR" 2>/dev/null || true
+mkdir -p "$STATE_DIR" 2>/dev/null || true  # fail-soft: without state the hook pauses every turn, which is loud not silent
 SEEN="$STATE_DIR/build_flow_seen.fp"
 
-FP="$(divineos build-flow status --print-fingerprint 2>/dev/null | tail -1)"
+FP="$(divineos build-flow status --print-fingerprint 2>/dev/null | tail -1)"  # fail-soft: empty FP is handled below as could-not-run, never as unchanged
 # Empty fingerprint means the report could not run. Do NOT treat that as
 # unchanged -- an unreadable picture is not a clean one. But do not pause on
 # it either; a pause with no content to read is pure friction.
 [ -z "$FP" ] && exit 0
 
-LAST="$(cat "$SEEN" 2>/dev/null || echo "")"
+LAST="$(cat "$SEEN" 2>/dev/null || echo "")"  # fail-soft: no seen-file on first run is normal; empty differs from FP so the pause fires
 [ "$FP" = "$LAST" ] && exit 0
 
 # Written BEFORE emitting. If this pause is interrupted, the next action must
 # not re-pause on the same picture -- that turns one pause into a loop, which
 # is the failure mode of every retry-capable hook in this repo.
-printf '%s\n' "$FP" > "$SEEN" 2>/dev/null || true
+printf '%s\n' "$FP" > "$SEEN" 2>/dev/null || true  # fail-soft: an unwritable state dir costs a repeated pause, never a blocked action
 
 {
   echo ""
   echo "════════════════════════════════════════════════════════════"
   echo "BUILD-FLOW PAUSE — the picture changed. Read it."
   echo "════════════════════════════════════════════════════════════"
-  divineos build-flow status 2>/dev/null
+  divineos build-flow status 2>/dev/null  # fail-soft: FP was non-empty above, so the report ran; stderr here is noise not signal
   echo "  docs/build_flow.md — station 8 (Aletheia) is LAST, not first."
   echo "  Nothing merges until its stations are proven. This is a pause,"
   echo "  not a wall: there is nothing to satisfy here, only to read."
