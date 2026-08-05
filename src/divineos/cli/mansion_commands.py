@@ -268,7 +268,17 @@ def register_mansion_commands(cli: click.Group) -> None:
         click.echo()
 
     @mansion_group.command("council")
-    @click.argument("question")
+    @click.argument("question", required=False)
+    @click.option(
+        "--show",
+        "show_expert",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Print ONE expert's full methodology set and stop. The council-round "
+            "skill has prescribed this flag since it was written; it did not exist."
+        ),
+    )
     @click.option(
         "--audit",
         is_flag=True,
@@ -289,8 +299,79 @@ def register_mansion_commands(cli: click.Group) -> None:
             "quick checklist, NOT as thinking. Default is lens mode."
         ),
     )
-    def council_cmd(question: str, audit: bool, audit_tier: str | None, as_code: bool) -> None:
+    def council_cmd(
+        question: str | None,
+        show_expert: str | None,
+        audit: bool,
+        audit_tier: str | None,
+        as_code: bool,
+    ) -> None:
         """The council chamber — 45 chairs in a circle.
+
+        --show NAME prints one expert's full methodology set. Added 2026-08-05
+        after Andrew asked whether I was pulling lenses from training rather
+        than from the 45 we built. I was. The council-round skill has told me
+        to run `--show <name>` to load a template since the day it was
+        written, and the flag did not exist — so the only path to a template
+        was reading its source, and I walked from memory instead.
+
+        The specific cost, measured: I walked Wayne as "known-bug discipline"
+        from training. Wayne carries EIGHT methodologies. The one that fit was
+        Spec-vs-Reality Mapping — documentation describes intent, the system
+        describes reality, the gap is where bugs hide — which names every
+        failure of that session as a single class. And his Known-Bug
+        Discipline template contains the line "build the chosen response into
+        the design, not into vigilance", which is Andrew's
+        electric-fence-not-foot-patrol, already written down, unread.
+        """
+        if show_expert:
+            from divineos.core.council.engine import get_council_engine
+
+            engine = get_council_engine()
+            wanted = show_expert.strip().lower()
+            match = next((n for n in engine.list_experts() if n.lower() == wanted), None)
+            w = engine.get_expert(match) if match else None
+            if w is None:
+                # Registered-but-unloadable is a real third case, not the same
+                # as unknown-name: foucault.py was exported and never registered
+                # for 40 PRs. Say which one happened rather than collapsing both
+                # into "no such expert".
+                near = [n for n in engine.list_experts() if wanted in n.lower()]
+                if match:
+                    click.secho(
+                        f"\n  {match!r} is registered but its wisdom failed to load.", fg="red"
+                    )
+                else:
+                    click.secho(f"\n  No council member named {show_expert!r}.", fg="red")
+                    if near:
+                        click.echo(f"  Did you mean: {', '.join(near)}")
+                click.echo(f"  {len(engine.list_experts())} chairs are seated.")
+                raise SystemExit(2)
+            click.secho(f"\n=== {w.expert_name} — {w.domain} ===\n", fg="cyan", bold=True)
+            for m in w.core_methodologies:
+                click.secho(f"  [{m.name}]", fg="yellow")
+                click.echo(f"      {m.description}")
+                for s in getattr(m, "steps", []) or []:
+                    click.echo(f"        - {s}")
+                click.echo()
+            if w.characteristic_questions:
+                click.secho("  Questions this lens asks:", fg="yellow")
+                for q in w.characteristic_questions:
+                    click.echo(f"      ? {q}")
+                click.echo()
+            click.secho(
+                "  Read the methodology, then walk the PROBLEM through it.\n"
+                "  Printing a template is not walking a lens (truth #7).\n",
+                fg="bright_black",
+            )
+            return
+
+        if not question:
+            raise click.UsageError("QUESTION is required unless --show NAME is given.")
+        _council_walk(question, audit, audit_tier, as_code)
+
+    def _council_walk(question: str, audit: bool, audit_tier: str | None, as_code: bool) -> None:
+        """Run the lens-mode (or --as-code) consultation.
 
         Default is LENS mode: the engine selects relevant experts and prints
         their METHODOLOGIES for you to apply to the specifics only you can
