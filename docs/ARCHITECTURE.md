@@ -36,6 +36,7 @@ src/divineos/
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
@@ -625,6 +626,7 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     surface_registry.py        Surface registry — the nervous system between built organs and awareness.
     success_ledger.py          Success ledger — the counterpart the correction store never had.
+    sibling_corrections.py     Cross-substrate correction reading — what Andrew told my sibling.
 
   analysis/
     _session_types.py          Session analysis type definitions
