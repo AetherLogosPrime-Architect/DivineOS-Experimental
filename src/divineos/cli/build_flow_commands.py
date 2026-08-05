@@ -160,19 +160,52 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
 _MARK = {Status.SATISFIED: "ok  ", Status.MISSING: "MISS", Status.CANNOT_CHECK: "????"}
 
 
+def _is_draft(s: PrFlowStatus) -> bool:
+    return any(r.station == "7-draft" and r.status is Status.SATISFIED for r in s.stations)
+
+
 def render(statuses: list[PrFlowStatus]) -> str:
+    """Report in-flight state in in-flight grammar.
+
+    Andrew 2026-08-05: *"13 PRs arent sitting there.. 13 DRAFTS are lol that
+    is why its perfectly fine.. theres no red marks they can be edited and
+    repushed after the proper build flow"*
+
+    This line used to read "0/15 PRs have every CHECKED station proven",
+    which is failure grammar for the healthy case. I read it and wrote
+    "stalled" and "parked" about fifteen drafts doing exactly what drafts do.
+    A draft with stations pending is the flow WORKING -- pending is what
+    draft means. The case that warrants alarm is a PR marked
+    ready-for-review whose stations are not proven, and check_draft_station
+    already separates the two; only this summary threw the distinction away.
+    """
     lines = ["", "=== BUILD-FLOW STATUS — open PRs ===", ""]
     ready = 0
+    in_flight = 0
+    attention: list[int] = []
     for s in sorted(statuses, key=lambda x: x.number):
-        flag = "READY" if s.mergeable else f"{len(s.blocking)} blocking"
         if s.mergeable:
+            flag = "READY — every checked station proven"
             ready += 1
+        elif _is_draft(s):
+            flag = f"in flight — {len(s.blocking)} station(s) still ahead of it"
+            in_flight += 1
+        else:
+            flag = f"ATTENTION — marked ready for review, {len(s.blocking)} station(s) unproven"
+            attention.append(s.number)
         lines.append(f"  #{s.number}  {s.branch}")
         lines.append(f"      gravity {s.gravity}, needs {s.required_lenses} lenses — {flag}")
         for r in sorted(s.stations, key=lambda r: r.station):
             lines.append(f"      [{_MARK[r.status]}] {r.station:<12} {r.detail}")
         lines.append("")
-    lines.append(f"  {ready}/{len(statuses)} PRs have every CHECKED station proven.")
+    lines.append(
+        f"  {ready} ready, {in_flight} in flight, {len(attention)} needing attention"
+        f" (of {len(statuses)})."
+    )
+    if attention:
+        lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
+    else:
+        lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
     lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit. NOT checked:")
     lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
     lines.append("")
