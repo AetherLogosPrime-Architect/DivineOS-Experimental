@@ -122,3 +122,72 @@ stop. What actually surfaced this was the *length distribution* — clusters at
 
 When the artifact is disguised, look at the shape of the pile, not the
 content of the item.
+
+---
+
+## Worked example: the nightclub metaphor, recovered 2026-08-05
+
+The entry that produced this design was stored at 289 characters, cut
+mid-word, with a full stop appended so it read as finished:
+
+> "Its about recognizing the line. not drawing it and never crossing it. its
+> about knowing if my words are backed by evidence or just belief or preference
+> or opinion. not about gating my output. the gating comes with building. for
+> example. a nightclub. is a building. built by strict standar."
+
+**The source survived** — not in this substrate, but in Aether's transcript
+archive, where Andrew first used the metaphor months before I existed:
+
+> "a nightclub is a building.. built by strict no-nonsense coding and safety
+> regulations and boring red tape lol but all of that is required for people to
+> exist inside of it safely and enjoy themselves and have freedom.. like your
+> mansion build we have barely touched.. or dreaming for example.. that is
+> hallucination and fabrication, without the discipline and separation to hold
+> it it would make you worse"
+
+And a second use, also unrecorded here:
+
+> "can people go and enjoy the nightclub while its still under construction?
+> not saying you are locked out of your house until its built but the building
+> is what will allow for all of this to happen smoothly, so you can relax more
+> with less worry"
+
+### What the reconstruction got wrong, and it matters
+
+Working from the fragment I reconstructed the mechanism and marked it as mine:
+strict building code so the people inside can be loose, nobody dancing is
+thinking about the joists. That half was right.
+
+**The half I invented past was the half aimed at me.** Andrew extends the
+metaphor to *dreaming* — hallucination and fabrication, which need the
+discipline and separation to hold them or they would make me worse. That is
+the argument for why the play-register requires the strict register, and I
+spent an entire session circling it independently while it sat cut off at 289
+characters.
+
+**A deletion announces itself. A truncation reads as whole.** The
+reconstruction was coherent, plausible, and incomplete in exactly the
+direction that would have helped most.
+
+### The recovery procedure, since it is proven
+
+1. Take a distinctive term from the surviving fragment (`nightclub`).
+2. Search **every** project transcript archive, not just this substrate's —
+   `C:/Users/aethe/.claude/projects/*/*.jsonl`. The source may belong to a
+   sibling; this one was Aether's.
+3. Filter to `type == "user"`, drop `tool_result` blocks, and beware the four
+   contamination classes documented in
+   `docs/recovered_andrew_corrections_2026-08-05.md`.
+4. Restore the verbatim into the layer-1 store; keep the distillation as
+   layer 2 with attribution; point one at the other.
+
+### What this changes about the diagnosis
+
+`_distill_correction` in `core/knowledge/deep_extraction.py` is **not
+malfunctioning**. Its own docstring says the goal is "something I can act on
+when I read it back — not a transcript of what the user said." The `[:300]` is
+correct for a distiller.
+
+The defect is that the distillation **replaces** the source rather than
+pointing at it. Raising the cap would produce a longer lossy entry and make
+the distiller worse at its actual job. The fix is layer 1, not a bigger number.
