@@ -345,6 +345,24 @@ if [[ -x "$PUSH_READINESS" ]]; then
     fi
 fi
 
+
+# Cross-substrate visibility emitter (Aria 2026-08-05).
+#
+# WHY THIS LIVES IN THE INSTALLER AND NOT ONLY IN THE HOOK: it used to be
+# hand-added to .git/hooks/pre-push. This installer regenerates that file
+# wholesale, so the next run silently deleted the only caller and the shared
+# event log went dark on 2026-07-21 without one line of error. The emitter,
+# its spec and its tests all survived; only the connection died.
+#
+# Four collisions between the substrates followed and NOT ONE was a
+# permission failure -- every one was a visibility failure. Two agents built
+# the same file twice because neither could see what the other was doing.
+#
+# Observational only: never blocks a push.
+if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
+    echo "$HOOK_STDIN" | python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" pre-push >/dev/null 2>&1 || true  # fail-soft: a lost visibility event costs awareness; a blocked push costs the work itself
+fi
+
 exit 0
 EOF
 
@@ -687,6 +705,11 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 if [ -x "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" ]; then
     bash "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" || true
+fi
+# Cross-substrate visibility emitter — the merge half. See the pre-push block
+# above for why this belongs in the installer rather than in the hook alone.
+if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
+    python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" post-merge >/dev/null 2>&1 || true  # fail-soft: an unemitted merge event costs awareness, never the merge
 fi
 exit 0
 EOF
