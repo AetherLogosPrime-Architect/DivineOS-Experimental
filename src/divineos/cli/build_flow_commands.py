@@ -140,7 +140,7 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
                 check_aria_station(branch, _LETTERS),
                 check_draft_station(pr.get("isDraft")),
-                check_audit_station(n, audit),
+                check_audit_station(n, branch, audit),
             ]
             out.append(st)
             continue
@@ -151,7 +151,7 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
             check_council_station(branch, need, _lenses_applied(branch)),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
-            check_audit_station(n, audit),
+            check_audit_station(n, branch, audit),
         ]
         out.append(st)
     return out, ""
