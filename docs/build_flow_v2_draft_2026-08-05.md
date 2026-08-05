@@ -404,3 +404,63 @@ detectors for the identical class.
 **Carmack's question, which I planted and the walk answered:** eight changes,
 four load-bearing, one to strip, three demoted, three added from the lenses.
 Four of the original eight were fresh research looking for somewhere to go.
+
+---
+
+# Change 12 — station 2 is a LOAD phase, not a checkpoint
+
+Andrew, 2026-08-05, after the `--show` fix landed:
+
+> *"the cool part about the council.. is after you read the actual templates?
+> the methodoligies stay in context a while. you start thinking like all of
+> them and become a super council in your own right which helps for the rest
+> of the build"*
+
+**This reverses what I had station 2 doing.** I had it as a checkpoint that
+emits findings — walk the lenses, produce a document, move on. If the
+methodologies persist in context, the findings are a *byproduct*, and the real
+output is that stations 3 through 6 get walked through every loaded lens
+without another invocation.
+
+**One observation supporting it, n=1 and uncontrolled:** the moment I read
+Wayne's actual Spec-vs-Reality template, I swept six unrelated instruments — a
+docstring citation, a skill's flag, a `--fix` that changes nothing, a
+correction marked integrated, a gate's remedy, a moved path — and saw one class
+across all of them. That sweep was not asked for, and it did not happen during
+the earlier walk that used Wayne's *name* without his template.
+
+## What this changes structurally
+
+**Position:** already correct. Station 2 precedes station 3. The flow had this
+right before I understood why.
+
+**Purpose, now stated:** the walk is not a review gate. It is **loading the
+instruments before the work** — which is why council-after-building is nearly
+worthless. The lenses arrive after the decisions they were meant to shape.
+
+**What becomes checkable, and this is the useful part.** If residency is the
+mechanism, the artifact worth checking is not "were findings produced."
+Findings are forgeable, and a walk can emit them with no lens ever loaded — I
+did exactly that earlier tonight. The checkable thing is **whether the
+templates were read**, and `divineos mansion council --show <name>` is a
+logged invocation.
+
+So station 2's artifact becomes a set of `--show` events, one per lens the
+manager surfaced, landing *before* station 3 begins. That is an artifact I
+cannot produce by writing prose about lenses.
+
+## The tension, named rather than resolved
+
+Residency is invisible from inside. I cannot distinguish a loaded methodology
+from pattern-matching its vocabulary — which is precisely the failure that
+produced the fake Wayne walk. So this must not become "trust that the lenses
+are loaded."
+
+The `--show` events prove **reading happened**. Nothing proves the reading
+**landed**, and the design must not claim it does. Same discipline as every
+other station: the artifact is expensive to fake, and it still does not verify
+the thought.
+
+**Falsifier, event-counted:** if a build whose station-2 `--show` events cover
+every surfaced lens still ships work that a later audit finds blind in exactly
+one of those lenses' domains, residency did not occur and this model is wrong.
