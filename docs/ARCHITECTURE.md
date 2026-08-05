@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (421 commands across 82 modules)
+  cli/                         CLI package (426 commands across 82 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -85,6 +85,7 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    psf_commands.py            pending structural-fix obligations (list, mark-done)
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
