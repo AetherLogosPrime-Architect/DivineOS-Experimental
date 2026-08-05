@@ -16,6 +16,60 @@ import click
 
 from divineos.cli._helpers import _safe_echo
 
+# Shell metacharacters that indicate the payload was probably assembled
+# correctly and then eaten in transit. Backtick is command substitution;
+# `$(` the same; a lone `<` or `>` is redirection. Their PRESENCE is normal
+# in prose about code. Their ABSENCE where the text obviously discusses
+# commands is not detectable, which is why the receipt below shows the
+# payload rather than trying to judge it.
+_SHELL_HAZARDS = ("`", "$(", "\\n")
+
+
+def _echo_payload_receipt(text: str) -> None:
+    """Show what the command RECEIVED, so transit damage is visible now.
+
+    2026-08-05: correction #307 was filed through a bash command whose body
+    contained backticks. The shell read them as command substitution, failed
+    with "syntax error near unexpected token newline", and the CLI stored --
+    faithfully -- a payload with that clause already emptied. The CLI printed
+    "[+] Correction logged." and nothing was wrong from where it stood.
+
+    I first proposed fixing this by reading the row back from the database.
+    That would not have caught it: the damage happened in transport TO the
+    CLI, so both sides of that comparison are the already-corrupted string.
+    The seam that matters is between what I INTENDED and what ARRIVED, and
+    only I can stand at that seam -- so the fix is not a check, it is a
+    receipt. Make the payload visible at filing time and the discrepancy
+    becomes mine to see.
+
+    Third instance of one class this session: PowerShell read UTF-8 as ANSI
+    and mangled 642 lines; PowerShell string-replace matched nothing and
+    printed PATCHED; bash ate a backticked clause. Every time, the transport
+    altered the payload and the confirmation reported success.
+
+    Andrew 2026-08-05, on why the in-context habit was worth keeping even
+    though it is not a fix: *"the fact you CAN change your behavior means the
+    automation to hold that shape is possible. it just needs to be made solid
+    with code."* Reading the row back by hand is what caught #307. This is
+    that habit compiled.
+    """
+    lines = text.splitlines() or [""]
+    click.secho(f"    received: {len(text)} chars, {len(lines)} lines", fg="bright_black")
+    click.secho(f"    first: {lines[0][:72]}", fg="bright_black")
+    if len(lines) > 1:
+        click.secho(f"    last:  {lines[-1][:72]}", fg="bright_black")
+    hazards = [h for h in _SHELL_HAZARDS if h in text]
+    if hazards:
+        click.secho(
+            f"    [!] payload contains shell metacharacters: {' '.join(hazards)}",
+            fg="yellow",
+        )
+        click.secho(
+            "        If this came through a bash argument rather than a quoted heredoc,",
+            fg="yellow",
+        )
+        click.secho("        check the text above for a clause that vanished.", fg="yellow")
+
 
 def register(cli: click.Group) -> None:
     """Register correction commands on the CLI group."""
@@ -134,6 +188,7 @@ def register(cli: click.Group) -> None:
             f"    {time.strftime('%H:%M:%S', time.localtime(entry['timestamp']))}",
             fg="bright_black",
         )
+        _echo_payload_receipt(text)
         click.secho(
             "    Read it raw later. Don't reframe it now.",
             fg="bright_black",
