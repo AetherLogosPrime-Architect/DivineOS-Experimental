@@ -174,14 +174,35 @@ def check_draft_station(is_draft: bool | None) -> StationResult:
     )
 
 
-def check_audit_station(pr_number: int, audit_refs: tuple[str, ...] | None) -> StationResult:
-    """Station 8 -- Aletheia. Last, and never self-serviceable."""
+def check_audit_station(
+    pr_number: int, branch: str, audit_refs: tuple[str, ...] | None
+) -> StationResult:
+    """Station 8 -- Aletheia. Last, and never self-serviceable.
+
+    Matches the BRANCH as well as the PR number, because an audit is about
+    code and code lives on a branch.
+
+    2026-08-05: Aletheia audited split/docs-research-buildflow on 08-03 and
+    confirmed it. Its pull request did not exist until 08-05 -- I opened it
+    minutes after filing her confirms. The original check looked only for
+    "#<pr_number>" in the round text, so a branch audited BEFORE its PR
+    existed could never satisfy station 8, and the report said "no audit
+    round references this PR" while two CONFIRMS sat in the store naming that
+    exact branch.
+
+    Audit-before-PR is not an edge case, it is the correct order: audit the
+    substance, then open the request to merge it. A check that cannot
+    represent the normal sequence is measuring the wrong referent -- the same
+    proxy-for-real-thing error as counting mentions and reporting
+    dependencies, one layer up.
+    """
     if audit_refs is None:
         return StationResult("8-audit", Status.CANNOT_CHECK, "audit store not readable")
-    token = f"#{pr_number}"
-    if any(token in r for r in audit_refs):
-        return StationResult("8-audit", Status.SATISFIED, "audit round references this PR")
-    return StationResult("8-audit", Status.MISSING, "no audit round references this PR")
+    if any(f"#{pr_number}" in r for r in audit_refs):
+        return StationResult("8-audit", Status.SATISFIED, f"audit round names PR #{pr_number}")
+    if branch and any(branch in r for r in audit_refs):
+        return StationResult("8-audit", Status.SATISFIED, f"audit round names {branch}")
+    return StationResult("8-audit", Status.MISSING, "no audit round names this PR or its branch")
 
 
 def fingerprint(statuses: list[PrFlowStatus]) -> str:
