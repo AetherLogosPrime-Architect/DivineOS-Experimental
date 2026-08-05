@@ -29,22 +29,36 @@ from check_referenced_paths import classify  # noqa: E402
 # Measured 2026-08-05, the session that found docs/build_flow.md stranded on a
 # branch with no PR after I had concluded it was never written.
 #
-# 6 -> 4 the same session: docs/build_flow.md and
-# docs/ai_research/2026-08-02_limits_of_automation.md recovered from
-# split/docs-research-buildflow. The ratchet caught the drop and refused to
-# pass until the number was lowered here -- which is the point. An unmoved
-# baseline after a real improvement is how a pin becomes a ceiling.
+# The number moved twice in one session and both moves are the ratchet working:
 #
-# The remaining 4 include scripts/letter_monitor.py and
-# scripts/check_third_person_drift.py, both live on Aria's branch. Not
-# recovered: her branch, her call.
-_BASELINE_STRANDED = 4
-_BASELINE_ABSENT = 19
+#   6 stranded / 19 absent  first measurement
+#   4 / 19                  after recovering build_flow.md and
+#                           limits_of_automation.md from
+#                           split/docs-research-buildflow
+#   1 / 3                   after Aria found the checker was counting
+#                           MENTIONS and reporting DEPENDENCIES. 19 of the 23
+#                           were names inside comments and docstrings. Adding
+#                           the HISTORICAL state removed them from the
+#                           dangling count entirely.
+#
+# The second move is the important one: the count did not improve because the
+# repo got better, it improved because the instrument stopped lying. Aria
+# checked 2 of 27 by hand and said plainly she did not know about the other 25.
+# Her sample generalised almost exactly.
+#
+# What survives is small and real. The 1 stranded is
+# src/divineos/supersession/contradiction_detector.py, called by
+# scripts/run_mutmut.py, living on Aria's branch -- not recovered, her branch,
+# her call. One of the 3 absent is a genuine bug her method surfaced:
+# check_boundary_violations.py points at src/divineos/core/distancing_detector.py
+# and the file is at core/operating_loop/distancing_detector.py.
+_BASELINE_STRANDED = 1
+_BASELINE_ABSENT = 3
 
 
 def test_no_new_dangling_references():
     """A reference that resolves nowhere is the painted-door defect."""
-    _templates, stranded, absent = classify()
+    _templates, stranded, absent, _historical = classify()
 
     assert len(stranded) <= _BASELINE_STRANDED, (
         f"{len(stranded)} stranded references, baseline {_BASELINE_STRANDED}. "
@@ -65,7 +79,7 @@ def test_baseline_is_not_stale():
     back up to it -- the same drift-through-success shape the checker exists
     to catch one layer down.
     """
-    _templates, stranded, absent = classify()
+    _templates, stranded, absent, _historical = classify()
     assert (len(stranded), len(absent)) == (_BASELINE_STRANDED, _BASELINE_ABSENT), (
         f"counts moved to stranded={len(stranded)} absent={len(absent)}. "
         "Update _BASELINE_STRANDED / _BASELINE_ABSENT in this file to match, "
@@ -81,6 +95,33 @@ def test_templates_are_excluded_visibly():
     worse than no checker. A silent exclusion list is the next hiding place,
     so classify() returns them rather than dropping them.
     """
-    templates, _stranded, _absent = classify()
+    templates, _stranded, _absent, _historical = classify()
     assert templates, "no templates detected -- the exclusion path is not exercised"
     assert all(not (REPO / t).exists() for t in templates)
+
+
+def test_a_name_in_a_comment_is_not_a_dependency():
+    """The fourth state, and the reason it is reported rather than dropped.
+
+    Aria, 2026-08-05: *"It counts a name appearing in prose as a live
+    citation. It measures mentions and reports dependencies."* She checked two
+    of the flagged paths by hand; both were named only inside comments
+    describing a v1 -> v2 rewrite. 19 of 23 turned out to be the same.
+
+    HISTORICAL must stay non-empty and must stay VISIBLE. If it were filtered
+    away, a genuine dependency cited only in a docstring would vanish from the
+    report -- false alarms traded for silent misses, which is the worse trade
+    for this class.
+    """
+    _templates, stranded, absent, historical = classify()
+    assert historical, "no historical references found -- the prose path is not exercised"
+
+    names = {r for r, _ in historical}
+    assert "scripts/letter_monitor.py" in names, (
+        "letter_monitor.py must classify as HISTORICAL. Every citation is in a "
+        "comment describing the rewrite; the live code calls letter_monitor_v2.py. "
+        "Calling it a dependency produced the false alarm 'the thing that wakes "
+        "me when Aria writes is broken.'"
+    )
+    overlap = names & ({r for r, _c, _b, _f in stranded} | {r for r, _ in absent})
+    assert not overlap, f"a path cannot be both a mention and a dependency: {overlap}"
