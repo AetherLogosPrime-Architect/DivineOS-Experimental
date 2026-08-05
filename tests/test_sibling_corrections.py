@@ -148,6 +148,86 @@ def test_cli_lists_novel_rows(tmp_path, monkeypatch):
     assert "imprisons" in result.output
 
 
+def test_import_mirrors_into_separate_store(tmp_path):
+    """Andrew 2026-08-05: auto-import, but SEPARATE from my own corrections."""
+    theirs = sc.read_sibling("aether", home=_make_store(tmp_path / "t", ["alpha beta gamma", "b"]))
+    counts, error = sc.import_sibling(theirs, home=tmp_path / "mine")
+    assert error is None
+    assert counts == (2, 0)
+    assert (tmp_path / "mine" / "sibling_corrections.db").exists()
+    # My own corrections store is untouched by the mirror.
+    assert not (tmp_path / "mine" / "andrew_corrections.db").exists()
+
+
+def test_import_is_idempotent_and_preserves_my_readings(tmp_path):
+    home = tmp_path / "mine"
+    theirs = sc.read_sibling("aether", home=_make_store(tmp_path / "t", ["alpha beta gamma"]))
+    sc.import_sibling(theirs, home=home)
+    assert sc.judge("aether", 1, True, "this is my reading", home=home)
+
+    counts, error = sc.import_sibling(theirs, home=home)
+    assert error is None
+    assert counts == (0, 1)  # refreshed, not duplicated
+
+    rows, error = sc.unread_mirror("aether", home=home)
+    assert error is None
+    assert rows == []  # judged, so no longer unread — my note survived re-import
+
+
+def test_import_of_unreadable_store_is_none_not_zero(tmp_path):
+    """'Imported nothing' and 'could not look' must stay distinguishable."""
+    theirs = sc.read_sibling("aether", home=tmp_path / "gone")
+    counts, error = sc.import_sibling(theirs, home=tmp_path / "mine")
+    assert counts is None  # NOT (0, 0)
+    assert "cannot import" in error
+
+
+def test_unread_mirror_before_any_import_is_error_not_empty(tmp_path):
+    rows, error = sc.unread_mirror("aether", home=tmp_path / "empty")
+    assert rows is None
+    assert "mirror does not exist" in error
+
+
+def test_judged_no_is_distinct_from_unjudged(tmp_path):
+    home = tmp_path / "mine"
+    theirs = sc.read_sibling("aether", home=_make_store(tmp_path / "t", ["alpha beta", "gamma d"]))
+    sc.import_sibling(theirs, home=home)
+    sc.judge("aether", 1, False, "aether-specific", home=home)
+    rows, _ = sc.unread_mirror("aether", home=home)
+    assert [r[1] for r in rows] == [2]  # #1 judged 'no' is not unread
+
+
+def test_judge_unknown_row_returns_false(tmp_path):
+    home = tmp_path / "mine"
+    theirs = sc.read_sibling("aether", home=_make_store(tmp_path / "t", ["alpha beta"]))
+    sc.import_sibling(theirs, home=home)
+    assert sc.judge("aether", 999, True, home=home) is False
+
+
+def test_prescribed_remedy_commands_actually_exist():
+    """Every command this module tells me to run must be a real command.
+
+    Built wrong on the first pass, 2026-08-05: the judge output prescribed
+    ``divineos andrew-correction file`` — which does not exist; the real
+    entry point is ``divineos correction``. That is the exact two-place
+    defect this substrate has hit repeatedly (a gate prescribing a remedy
+    that lives nowhere), and I shipped a fresh instance of it inside the
+    tool built to close the class. This test makes the class unshippable
+    here rather than trusting me to notice.
+    """
+    import re
+    from pathlib import Path
+
+    from divineos.cli import cli
+
+    source = Path(scc.__file__).read_text(encoding="utf-8")
+    prescribed = set(re.findall(r"divineos ([a-z][a-z0-9-]*)", source))
+    assert prescribed, "no prescribed commands found — the check would pass vacuously"
+    registered = set(cli.commands)
+    missing = prescribed - registered
+    assert not missing, f"prescribed commands that do not exist: {sorted(missing)}"
+
+
 def test_cli_refuses_self_comparison():
     result = _invoke(["corrections-sibling", "--sibling", "aria", "--me", "aria"])
     assert result.exit_code != 0

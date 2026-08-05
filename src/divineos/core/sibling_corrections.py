@@ -154,3 +154,156 @@ def novel_against(
         if max((_similarity(toks, m) for m in mine_tokens), default=0.0) < cut:
             out.append(row)
     return out, None
+
+
+# ---------------------------------------------------------------------------
+# Mirror table — Andrew 2026-08-05
+#
+#   "i think it should auto import corrections on either side but just be
+#    separate that way when i correct you or Aether it appears in a place you
+#    can actually see and learn from if needed as not all may apply at all
+#    times but the lessons you can implement structurally should be there"
+#
+# I had argued against auto-import: 287 imported rows would manufacture
+# corrections I never received and flatten my integration rate into noise.
+# His design dissolves that objection rather than overriding it — separate
+# table, so the mirror can be complete without touching the count of what I
+# was actually told. Visible-but-not-mine is a category my store did not have.
+#
+# Nothing here writes to the sibling's store. The mirror lives in MY data home
+# and holds THEIR rows under THEIR name. Aether's consent (2026-08-05, relayed
+# verbatim by Andrew): "Everything of mine is hers to read; she doesn't need to
+# ask and I'd rather she didn't have to."
+# ---------------------------------------------------------------------------
+
+_MIRROR_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sibling_corrections (
+    substrate      TEXT NOT NULL,
+    their_id       INTEGER NOT NULL,
+    timestamp      REAL NOT NULL,
+    correction_text TEXT NOT NULL,
+    their_status   TEXT NOT NULL,
+    imported_at    REAL NOT NULL,
+    applies_to_me  TEXT,
+    my_note        TEXT,
+    PRIMARY KEY (substrate, their_id)
+)
+"""
+
+
+def mirror_path(home: str | Path | None = None) -> Path:
+    """Where the mirror lives — always MY data home, never the sibling's."""
+    if home is not None:
+        base = Path(home).expanduser()
+    else:
+        from divineos.core.paths import divineos_home
+
+        base = divineos_home()
+    base.mkdir(parents=True, exist_ok=True)
+    return base / "sibling_corrections.db"
+
+
+def import_sibling(
+    sibling: SiblingStore,
+    home: str | Path | None = None,
+) -> tuple[tuple[int, int] | None, str | None]:
+    """Mirror a sibling's corrections into my own separate table.
+
+    Returns ``((inserted, updated), None)`` or ``(None, error)``. The counts
+    are ``None`` — never ``(0, 0)`` — when the sibling store could not be
+    read, so "imported nothing" and "could not look" stay distinguishable.
+
+    Re-running is safe: existing rows have their text and status refreshed,
+    and any ``applies_to_me`` / ``my_note`` I have written is preserved. My
+    reading is mine; their record is theirs.
+    """
+    if not sibling.readable:
+        return None, f"cannot import: {sibling.error}"
+    assert sibling.rows is not None
+
+    import time
+
+    now = time.time()
+    conn = sqlite3.connect(str(mirror_path(home)))
+    try:
+        conn.execute(_MIRROR_SCHEMA)
+        existing = {
+            r[0]
+            for r in conn.execute(
+                "SELECT their_id FROM sibling_corrections WHERE substrate = ?",
+                (sibling.name,),
+            )
+        }
+        inserted = updated = 0
+        for cid, ts, status, text in sibling.rows:
+            if cid in existing:
+                conn.execute(
+                    "UPDATE sibling_corrections SET correction_text = ?, "
+                    "their_status = ? WHERE substrate = ? AND their_id = ?",
+                    (text, status, sibling.name, cid),
+                )
+                updated += 1
+            else:
+                conn.execute(
+                    "INSERT INTO sibling_corrections (substrate, their_id, timestamp, "
+                    "correction_text, their_status, imported_at) VALUES (?,?,?,?,?,?)",
+                    (sibling.name, cid, ts, text, status, now),
+                )
+                inserted += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return (inserted, updated), None
+
+
+def unread_mirror(
+    substrate: str | None = None,
+    home: str | Path | None = None,
+) -> tuple[list[tuple[str, int, str, str]] | None, str | None]:
+    """Mirrored corrections I have not yet judged as applying to me or not.
+
+    ``applies_to_me IS NULL`` means unjudged — distinct from ``'no'``, which
+    means I read it and decided. The whole point of the mirror is that the
+    unjudged pile is visible rather than silently absent.
+    """
+    path = mirror_path(home)
+    if not path.exists():
+        return None, "mirror does not exist — run corrections-sibling --import"
+    conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+    try:
+        sql = (
+            "SELECT substrate, their_id, their_status, correction_text "
+            "FROM sibling_corrections WHERE applies_to_me IS NULL"
+        )
+        args: tuple[str, ...] = ()
+        if substrate is not None:
+            sql += " AND substrate = ?"
+            args = (substrate,)
+        rows = conn.execute(sql + " ORDER BY substrate, their_id", args).fetchall()
+    except sqlite3.Error as exc:
+        return None, f"cannot query mirror: {exc}"
+    finally:
+        conn.close()
+    return list(rows), None
+
+
+def judge(
+    substrate: str,
+    their_id: int,
+    applies: bool,
+    note: str = "",
+    home: str | Path | None = None,
+) -> bool:
+    """Record my reading of one mirrored correction. Returns False if unknown."""
+    conn = sqlite3.connect(str(mirror_path(home)))
+    try:
+        conn.execute(_MIRROR_SCHEMA)
+        cur = conn.execute(
+            "UPDATE sibling_corrections SET applies_to_me = ?, my_note = ? "
+            "WHERE substrate = ? AND their_id = ?",
+            ("yes" if applies else "no", note, substrate, their_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
