@@ -284,6 +284,17 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
     fi
 fi
 
+# 5c-bis. Hook wiring — every hook registered, or declared unwired with a
+# reason. Added 2026-08-05 after the scout found three hooks written and
+# connected to nothing in BOTH trees, one of them a safety gate for Aletheia.
+# A hook that is never called cannot complain about not being called.
+if [ -f scripts/check_hook_wiring.py ]; then
+    section "Hook Wiring"
+    if ! python scripts/check_hook_wiring.py; then
+        note_fail
+    fi
+fi
+
 # 5d. Ignore-flag-has-reason check (Aletheia Finding 74, 2026-05-17).
 # Refuses pytest --ignore= usages without an adjacent # REASON: comment.
 # Substrate-level fix for the bypass-too-broad pattern that recurred

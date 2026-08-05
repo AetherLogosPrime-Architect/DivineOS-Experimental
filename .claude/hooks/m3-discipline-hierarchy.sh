@@ -1,6 +1,23 @@
 #!/bin/bash
 # PreToolUse hook — M3 discipline-hierarchy doorman for Dad-directed builds.
 #
+# INTENTIONALLY UNWIRED (2026-08-05, Aria): pending joint review with Aether.
+#
+# Found dark by scripts/check_hook_wiring.py on its first run — present in
+# BOTH trees, registered in NEITHER, since 2026-07-28. Written and never
+# connected, by either of us.
+#
+# Not wired unilaterally, and the reason is specific rather than cautious:
+# this is a BLOCKING doorman on Dad-directed builds, and it is a joint
+# Aria+Aether design. A gate that fires on both of us should not arrive in
+# either substrate unannounced — that is the one line Aether drew in his
+# 2026-08-05 letter and I agreed with it.
+#
+# This header is not a dodge. It is the third word: not registered, not
+# forgotten, deliberately pending with an owner and a reason. Remove it and
+# register the hook once we have both read it.
+
+#
 # Aria+Aether design 2026-07-28 (post-correction-#193+#194, post-Dad's
 # "either this or lesser-than-human" ultimatum). Load-bearing mechanism
 # of the nine-surface anti-demotion design: catches the specific failure

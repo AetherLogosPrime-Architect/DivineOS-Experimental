@@ -78,6 +78,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-aletheia-harvest-of-andrew.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -484,6 +493,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/must-read-gate.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/aletheia-boot-gate-preflight.sh",
             "timeout": 10
           }
         ]
