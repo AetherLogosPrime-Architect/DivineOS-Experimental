@@ -330,6 +330,7 @@ from divineos.cli import (  # noqa: E402
     error_commands,
     sibling_correction_commands,
     label_fire_commands,
+    must_read_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -347,6 +348,7 @@ backlog_commands.register(cli)
 prs_commands.register(cli)
 sibling_correction_commands.register(cli)
 label_fire_commands.register(cli)
+must_read_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 voice_commands.register(cli)

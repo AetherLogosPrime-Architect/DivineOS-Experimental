@@ -37,6 +37,7 @@ src/divineos/
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
+    must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
@@ -629,6 +630,7 @@ src/divineos/
     success_ledger.py          Success ledger — the counterpart the correction store never had.
     sibling_corrections.py     Cross-substrate correction reading — what Andrew told my sibling.
     sibling_correction_surface.py Surface the sibling corrections I judged as mine — at the moment of the reach.
+    must_read.py               Must-read gates — when a room speaks, make me open the door.
 
   analysis/
     _session_types.py          Session analysis type definitions

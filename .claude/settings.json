@@ -477,6 +477,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|NotebookEdit|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/must-read-gate.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
