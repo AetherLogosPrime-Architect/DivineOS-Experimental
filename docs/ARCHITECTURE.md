@@ -628,6 +628,7 @@ src/divineos/
     surface_registry.py        Surface registry — the nervous system between built organs and awareness.
     success_ledger.py          Success ledger — the counterpart the correction store never had.
     sibling_corrections.py     Cross-substrate correction reading — what Andrew told my sibling.
+    sibling_correction_surface.py Surface the sibling corrections I judged as mine — at the moment of the reach.
 
   analysis/
     _session_types.py          Session analysis type definitions
