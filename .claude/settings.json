@@ -229,6 +229,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/sibling-correction-surface.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PreCompact": [
