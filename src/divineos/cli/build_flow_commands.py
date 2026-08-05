@@ -22,6 +22,7 @@ not by any check pretending to verify comprehension.
 from __future__ import annotations
 
 import json
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -41,6 +42,12 @@ from divineos.core.build_flow import (
 )
 
 _LETTERS = Path.home() / ".divineos-shared" / "letters"
+
+# Every one of these means "could not check", never "checked and found none" --
+# which is exactly the distinction Status carries three values for. A bare
+# `except Exception` here would also swallow a real bug in the ledger or audit
+# store and report it as an unreadable source, turning a defect into a shrug.
+_BF_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def _gh(args: list[str]) -> str | None:
@@ -90,11 +97,11 @@ def _lenses_applied(_branch: str) -> int | None:
     """
     try:
         from divineos.core.ledger import get_events
-    except Exception:
+    except _BF_ERRORS:
         return None
     try:
         rows = get_events(event_type="COUNCIL_LENS_APPLIED", limit=500, order="desc")
-    except Exception:
+    except _BF_ERRORS:
         return None
     return sum(1 for r in rows if _branch in json.dumps(r, default=str))
 
@@ -105,11 +112,11 @@ def _audit_refs() -> tuple[str, ...] | None:
         return None  # no network -> cannot check, do not claim absent
     try:
         from divineos.core.watchmen.store import list_rounds  # type: ignore[attr-defined]
-    except Exception:
+    except _BF_ERRORS:
         return None
     try:
         return tuple(str(r) for r in list_rounds())
-    except Exception:
+    except _BF_ERRORS:
         return None
 
 
