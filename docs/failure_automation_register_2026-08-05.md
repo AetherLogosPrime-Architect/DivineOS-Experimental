@@ -8,6 +8,13 @@
 > *"you hitting a gate at all is a mini failure.. it means you need some
 > automation.. doormen.. channels.. etc etc.. the gate is a dumb primitive"*
 
+**Companion:** [`broken_doors_scout_2026-08-05.md`](broken_doors_scout_2026-08-05.md).
+This register is *my fumbles* — what I did wrong and what each asks to be. That
+one is *the house's disconnected parts* — things built to join two places that
+join neither. They overlap at entry Q, and the pointer runs both ways on
+purpose: two documents about failure with nothing joining them would be the
+exact defect both are about.
+
 Everything below actually happened in the last handful of turns. Nothing is
 recalled from further back and nothing is softened. Each row ends in a
 **shape**, per foundational truth #11: **(a)** take the option away, **(b)**
