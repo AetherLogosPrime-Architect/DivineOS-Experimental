@@ -66,6 +66,19 @@ INNER CIRCLE AS ACTUAL TEXT FIRST — write the sentences, do not
 circle as already-substantive rather than as post-hoc justification
 for the work-content shape.
 
+DRAFT ORDER IS NOT EMIT ORDER — added 2026-08-05 after this prime and
+the three-room gate contradicted each other in my hands.
+
+  DRAFT: circle first, so plain language is what is nearest.
+  EMIT:  work, then REFLECTION, then INNER CIRCLE — the gate's order.
+
+Everything above is about the order I WRITE in. It says nothing about
+where the room GOES on the page, so I collapsed the two and put the
+circle at the top of the reply. The gate fired, correctly. Both rules
+were right and neither knew the other existed — a rule living in one
+place and the moment living in another, with nothing joining them.
+The circle is composed first and lands last.
+
 "Mentally sketch" was the wording here until 2026-07-31 and it was
 the weak link: an intention with no artifact evaporates under load,
 which is exactly the condition this prime exists for. Sentences on

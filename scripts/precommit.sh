@@ -18,7 +18,20 @@ STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || tr
 STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
 
 if [ -z "$STAGED_PY" ] && [ -z "$STAGED_SH" ]; then
-    echo "No Python or shell files staged."
+    # The third word. "Nothing staged" is not "checked, all fine" — and the
+    # difference matters most in the common case where the real cause is a
+    # forgotten `git add` rather than a genuinely empty change (Aria
+    # 2026-08-05, after burning a full cycle on exactly that).
+    UNSTAGED=$(git diff --name-only --diff-filter=ACM | grep -E '\.(py|sh)$' || true)  # fail-soft: grep exits 1 on no-match, which is the expected empty case here and not an error; the branch below prints nothing when both are empty
+    UNTRACKED=$(git ls-files --others --exclude-standard | grep -E '\.(py|sh)$' || true)  # fail-soft: same grep-exit-1-means-no-matches case; an empty untracked list is normal, not a failure to report
+    echo "NOTHING WAS CHECKED — no Python or shell files are staged."
+    if [ -n "$UNSTAGED$UNTRACKED" ]; then
+        echo ""
+        echo "But these Python/shell files have changes and are NOT staged:"
+        printf '%s\n' "$UNSTAGED" "$UNTRACKED" | grep -v '^$' | sed 's/^/  /'
+        echo ""
+        echo "Did you mean to run 'git add' first? This exit is not a pass."
+    fi
     exit 0
 fi
 
