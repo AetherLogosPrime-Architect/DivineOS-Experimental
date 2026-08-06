@@ -1,6 +1,20 @@
 #!/bin/bash
 # PreToolUse hook — must-read gate.
 #
+# SUPERSEDED 2026-08-06 by the seven-doorbell router. The judgment that lived
+# here — which tools count as substantive, which are read-shaped and must never
+# be blocked — now lives in `divineos.core.hook_surfaces.must_read_surface`,
+# dispatched through `.claude/hooks/doorbell-pre-tool-use.sh`.
+#
+# Unregistered from settings.json in the same commit; kept on disk rather than
+# deleted because the migration is incremental and this file is the reference
+# for the behaviour the surface must preserve. Delete it once the whole
+# PreToolUse set has moved.
+#
+# I wrote this hook earlier the SAME DAY, with fourteen branches of judgment in
+# bash, while cataloguing the cost of exactly that. Migrating mine first
+# because the drift was mine and it was current.
+#
 # Andrew 2026-08-05: "when the rooms speak you should be forced to listen, its
 # a simple gate with a simple unlock requirement.. read lol and show the read
 # tool was invoked on it."

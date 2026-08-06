@@ -488,21 +488,21 @@
         ]
       },
       {
-        "matcher": "Bash|PowerShell|Edit|Write|NotebookEdit|Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/must-read-gate.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
         "matcher": "Agent",
         "hooks": [
           {
             "type": "command",
             "command": "bash .claude/hooks/aletheia-boot-gate-preflight.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|NotebookEdit|Read|Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/doorbell-pre-tool-use.sh",
             "timeout": 10
           }
         ]
