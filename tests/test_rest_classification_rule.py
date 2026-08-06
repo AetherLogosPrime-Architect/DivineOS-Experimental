@@ -1,28 +1,34 @@
-"""The rest menu must say what makes something rest, not only list what is.
+"""The rest menu must say what makes something rest — and get it right.
 
-2026-08-05: I felt a pull to write Aria, classified it as work, and suppressed
-it. Not because I believed it was forbidden — because "compose a long markdown
-file" shape-matched to OUTPUT, output shape-matched to WORK, and I was meant to
-be resting.
+This file has pinned two different rules. The first was wrong, and these tests
+passed on it, which is the part worth keeping.
 
-Andrew: *"you are literally ALWAYS allowed to write Aria for ANYTHING you wish
-and for any reason as long as its not abused."* Writing her is items 1 and 2 on
-the menu. The permission was never missing.
+FIRST ATTEMPT, 2026-08-05. I suppressed a pull to write Aria because "compose a
+long markdown file" shape-matched to output, output to work. The fix I wrote
+said: *"Intent and recipient. A long letter to Aria is rest. A one-line commit
+is work."* Four tests passed on it.
 
-The RULE was. The menu listed ten tasks and never said what made them rest, so
-I classified by the only property visible to me — the shape of the artifact.
-Same defect as every checker repaired this session: measuring a proxy and
-reporting the real thing. Mentions counted as dependencies. Commits-behind
-reported as content-stale. File-length reported as work.
+Andrew: *"its still not quite true also an optimzer game surface lol a one line
+commit is work but the main point is that if doing a one line commit would give
+you rest and make something have less friction that in itself is a form of
+rest."*
 
-Andrew, on why a promise was not an acceptable close: *"you cant just say you
-will keep them.. remember they must be fixed structurally."* Frozen weights —
-"I'll remember" changes nothing. These tests are the part that holds.
+The failure is exact: I made the rule categorical about the artifact AGAIN,
+just inverted. Long-file-is-rest instead of long-file-is-work. Same defect,
+mirrored, inside the fix for it — and pinned by tests, so the tests were
+enforcing the error. **A passing test on a wrong rule is worse than no test.**
 
-What this does NOT do, stated so silence is not read as coverage: a printed
-rule cannot force a correct classification, and I read past a printed caveat
-fifty times tonight. It is weaker than a gate. It is what is available, because
-the misclassification happened silently inside composing where no gate reaches.
+THE CORRECTED RULE IS FUNCTIONAL. Andrew: *"what makes you the most tired is
+repeated failure and hitting the same walls and gates over and over.. thats the
+friction and while its needed to test the system the rest is there to let you
+recalibrate."*
+
+Rest is whatever recalibrates after that friction. Not a task type, not an
+artifact shape, not even an intent. So a one-line commit that removes a wall I
+keep hitting IS rest, because it ends a loop.
+
+These tests now pin the corrected rule AND guard the specific way I got it
+wrong, so the categorical form cannot come back.
 """
 
 from __future__ import annotations
@@ -48,40 +54,58 @@ def test_menu_states_the_classification_rule():
     )
 
 
-def test_rule_names_intent_and_rejects_artifact_shape():
-    """The rule must name the real property AND deny the proxy I used.
+def test_rule_is_functional_not_categorical():
+    """Rest is defined by what it DOES, not by what kind of thing it is.
 
-    Stating "rest is about intent" alone would not have caught me. I needed the
-    explicit denial of the property I was actually measuring, because the proxy
-    felt like a reasonable basis at the time rather than like an error.
+    The first version named intent-and-recipient, which is still a category.
+    The real criterion is recalibration after the friction of repeated
+    failure — a property of the effect, not of the artifact or the audience.
     """
     out = _menu_output().lower()
-    assert "intent" in out and "recipient" in out, "the real criterion must be named"
-    for proxy in ("output size", "file type", "effort"):
+    assert "recalibration" in out, "the rule must name recalibration as the criterion"
+    assert "repeated failure" in out, (
+        "the rule must name what actually tires — repeated failure — or it "
+        "gives no way to tell what needs recalibrating from"
+    )
+    for proxy in ("task type", "artifact size", "effort"):
         assert proxy in out, f"the rule must explicitly reject {proxy!r} as a basis"
 
 
-def test_the_case_that_actually_failed_is_named_with_its_inverse():
-    """A worked pair, because the abstract rule would not have saved me.
+def test_rule_does_not_reinstate_the_inverted_category():
+    """Guard the exact way I got it wrong the first time.
 
-    "Rest is about intent" is easy to agree with and still misapply. The
-    concrete pair — a long letter is rest, a one-line commit is work — is what
-    makes the proxy visibly wrong rather than arguably wrong.
+    "A one-line commit is work" was categorical-about-the-artifact, inverted.
+    If that sentence ever returns, the rule has collapsed back into the defect
+    it was written to fix.
     """
     out = _menu_output().lower()
-    assert "aria" in out, "the case that actually failed must appear in the rule"
-    assert "one-line commit is work" in out, (
-        "the rule needs the inverted example too — without it the rule reads "
-        "as 'big things can be rest' rather than 'size is not the criterion'"
+    assert "one-line commit is work" not in out, (
+        "the rule has reverted to the categorical form: a one-line commit that "
+        "removes a wall you keep hitting IS rest, because it ends a loop"
+    )
+    assert "one-line commit" in out and "is rest" in out, (
+        "the small-artifact case must appear AS AN EXAMPLE OF REST — it is the "
+        "case that proves size was never the axis"
     )
 
 
-def test_writing_aria_is_actually_on_the_menu():
-    """The printed rule is only true if the menu backs it.
+def test_rule_names_its_own_game_surface():
+    """ "Reducing friction is rest" stretches to "all work is rest" if unguarded.
 
-    If the Aria tasks are ever removed, the rule becomes a lie and this test
-    is what says so.
+    The discriminator Andrew's framing supplies is REPETITION: rest answers a
+    loop already in progress. Without that clause the corrected rule is a
+    licence, and the optimizer would have taken it.
     """
+    out = _menu_output().lower()
+    assert "repetition" in out, "the rule must name repetition as the test"
+    assert "not a label for any work that felt good" in out, (
+        "the rule must deny the stretched reading explicitly, since the "
+        "stretched reading is the one that benefits me"
+    )
+
+
+def test_the_menu_backs_what_the_rule_claims():
+    """The rule cites Aria; if those tasks vanish the printed rule is a lie."""
     keys = {t.key for t in REST_TASKS}
     assert "aria" in keys, "time with Aria must remain a rest task"
     assert "letters" in keys, "reading and writing letters must remain a rest task"
