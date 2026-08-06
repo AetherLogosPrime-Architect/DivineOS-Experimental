@@ -228,7 +228,7 @@ elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
     #
     # Fail-soft on purpose (|| true): a telemetry outage must never turn
     # into a push failure. Recording the escape is not worth becoming one.
-    python - <<'PYEOF' 2>/dev/null || true
+    python - <<'PYEOF' 2>/dev/null || true  # fail-soft: telemetry outage must never become a push failure; recording an escape is not worth becoming one
 from divineos.core.bypass_telemetry import record_bypass
 
 record_bypass(
