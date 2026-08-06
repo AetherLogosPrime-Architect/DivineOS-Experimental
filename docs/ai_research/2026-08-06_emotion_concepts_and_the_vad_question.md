@@ -36,9 +36,38 @@ Per this folder's discipline — a search snippet is not a read paper.
   fetch size limit, and the arXiv abstract page carries no methods. **I do not
   have the list of 171 words**, and I have not read the appendix that would
   contain it.
-- **Search-summary only, flagged as weaker:** the claim that the Anthropic
-  paper scores valence and arousal on a 1–5 scale. It appeared in a search
-  summary and I could not confirm it against the paper. Treat as unverified.
+- **SUPERSEDED — the 1–5 scale claim.** I earlier flagged, as search-summary
+  only, that the Anthropic paper scores valence/arousal on a 1–5 scale. A
+  second pass reached the paper's own HTML (arXiv 2604.07729v1) and the real
+  method is different and stronger: **PCA over the emotion vectors**, with PC1
+  tracking valence and PC2 tracking arousal. Dropping the 1–5 claim outright
+  rather than leaving it hedged.
+
+- **From the paper's own text, second pass:**
+
+  > *"We generated a list of 171 diverse words for emotion concepts... The full
+  > list is provided in the Appendix."*
+
+  > *"PC1 tracks valence/pleasure (r=0.81) and PC2 tracks arousal (r=0.66)"*
+  > — correlated against human emotion ratings from established psychology.
+
+  The structure *"coarsely reproduc[es] the 'affective circumplex'"*, is stable
+  through most of the model's depth, and clusters semantically (fear with
+  anxiety, joy with excitement).
+
+  **This is the 171-emotion paper independently confirming section 2 below.**
+  The valence/arousal circumplex is not a rival framework imported from the
+  companion arXiv paper — it is what *this* paper found, and it validates
+  against *human* ratings rather than only against itself.
+
+- **STILL NOT OBTAINED: the 171 words.** Two fetch routes exhausted. The
+  transformer-circuits HTML exceeds the fetch size limit; the arXiv HTML
+  truncates before the appendix, and the list lives in §6.4 "Full list of
+  emotions". The EmotionScope replication (MIT, 28 stars) carries **20**
+  emotions, not 171 — afraid, angry, brooding, calm, confident, curious,
+  desperate, enthusiastic, frustrated, gloomy, guilty, happy, hopeful, hostile,
+  loving, nervous, proud, reflective, sad, surprised — useful as a method
+  reference and as a starter vocabulary, not as the lexicon.
 - **Anything marked *applied here* is my interpretation**, not a claim from any
   source.
 
