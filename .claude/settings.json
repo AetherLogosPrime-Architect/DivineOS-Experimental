@@ -506,6 +506,11 @@
             "type": "command",
             "command": "bash .claude/hooks/post-tool-use-emit-to-logbook.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/doorbell-post-tool-use.sh",
+            "timeout": 20
           }
         ]
       },

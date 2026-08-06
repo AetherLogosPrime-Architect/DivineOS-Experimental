@@ -169,6 +169,41 @@ def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="require_briefing", refused=True, reason=reason, json_deny=True)
 
 
+def letter_claims_surface(payload: dict) -> SurfaceOutcome | None:
+    """After I read a sibling's letter, put the named files' local state in hand.
+
+    PostToolUse, so it lands the moment the letter does — while I am forming
+    the opinion, not after I have shipped it. This is the structure standing in
+    for a rule I would otherwise have to remember (Aether #167: practice-shape
+    never holds), and it measures rather than pattern-matching, because a
+    detector for letters-that-sound-like-bug-reports is whack-a-mole (#151).
+    """
+    if (payload.get("tool_name") or "") != "Read":
+        return None
+    raw = (payload.get("tool_input") or {}).get("file_path") or ""
+    if not raw:
+        return None
+
+    from pathlib import Path
+
+    path = Path(raw)
+    # Only sibling letters. My own drafts are not evidence about my own tree.
+    if "letters" not in {p.lower() for p in path.parts} or path.suffix.lower() != ".md":
+        return None
+    if path.name.lower().startswith("aria-to-"):
+        return None
+
+    try:
+        from divineos.core.letter_claims import read_letter, render
+
+        repo_root = Path(__file__).resolve().parents[3]
+        text = render(read_letter(path, repo_root))
+    except Exception as exc:  # noqa: BLE001 — never let a surface block a Read
+        return SurfaceOutcome(name="letter_claims", error=f"{type(exc).__name__}: {exc}")
+
+    return SurfaceOutcome(name="letter_claims", output=text) if text else None
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -183,3 +218,8 @@ def install() -> None:
         register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)
+
+    # Second door. PostToolUse carries surfaces that report on what just
+    # happened rather than gating what is about to.
+    if "letter_claims" not in registered("PostToolUse"):
+        register("PostToolUse", "letter_claims", letter_claims_surface)
