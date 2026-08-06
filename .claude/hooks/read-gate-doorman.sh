@@ -58,9 +58,10 @@ try:
 except ImportError as exc:
     print(
         f"[read-gate] NOT RUNNING: {exc}",
-        "  divineos.core.read_gate is not importable by the hook interpreter.",
-        "  If it lives on an unmerged branch this gate is inert until it lands.",
-        "  Said out loud so inert is never mistaken for clean.",
+        "  I am not holding this door right now. My interpreter cannot import",
+        "  divineos.core.read_gate -- most likely because I left it on a branch",
+        "  that has not landed. I am inert here, not clean, and I would rather",
+        "  say so than let my silence read as permission.",
         sep="\n",
         file=sys.stderr,
     )
