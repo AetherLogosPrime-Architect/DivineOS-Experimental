@@ -93,7 +93,7 @@ class TestBriefingBlock:
         for i in range(5):
             bypass_telemetry.record_bypass(f"gate-{i}", f"ENV_{i}", "r")
         block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
+        assert "Elevated ESCAPE rate" in block
 
 
 # ---------------------------------------------------------------------------
@@ -243,5 +243,5 @@ class TestBriefingBlockFullHistoryShape:
                 }
                 fh.write(json.dumps(rec) + "\n")
         block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
+        assert "Elevated ESCAPE rate" in block
         assert "full-history rate" in block
