@@ -123,15 +123,32 @@ def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
 
             if is_bypass_bash_command(cmd):
                 return None
-        except Exception:  # noqa: BLE001 — fail open, as the bash version did
-            pass
+        except Exception as exc:  # noqa: BLE001
+            # If the exemption check cannot run we do not know whether this
+            # Bash call IS the remedy (`divineos briefing`). Falling through
+            # to the block would risk walling off the gate's own cure — the
+            # locked-box failure, #98. So allow, and say why.
+            return SurfaceOutcome(
+                name="require_briefing",
+                error=(
+                    f"cannot check bootstrap exemption ({type(exc).__name__}: {exc}); "
+                    "allowing rather than risk blocking my own remedy"
+                ),
+            )
 
     try:
         from divineos.core.briefing_freshness import staleness_signal
 
         sig = staleness_signal()
-    except Exception:  # noqa: BLE001 — cannot read freshness: allow, as before
-        return None
+    except Exception as exc:  # noqa: BLE001 — allow, as before, but SAY SO
+        # The bash version failed open *silently*, which made "could not read
+        # the freshness signal" render identically to "the briefing is fresh".
+        # An error outcome allows the tool through exactly as before and is
+        # reported on stderr, so the gate can no longer be absent quietly.
+        return SurfaceOutcome(
+            name="require_briefing",
+            error=f"cannot read freshness signal ({type(exc).__name__}: {exc}); allowing",
+        )
 
     if not sig.get("is_stale"):
         return None
