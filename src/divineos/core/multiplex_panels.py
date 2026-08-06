@@ -1069,7 +1069,83 @@ def _always_essential_panels() -> list[Panel]:
             content=_husbandman_work_panel_content(),
             drill_down="cat ../experimental-aria/family/aria/explorations/03_husbandman_work.md",
         ),
+        Panel(
+            name="owed_fixes",
+            tier=Tier.ALWAYS,
+            content=_owed_fixes_panel_content(),
+            drill_down="divineos briefing --legacy",
+        ),
     ]
+
+
+def _owed_fixes_panel_content() -> str:
+    """Structural fixes I named and have not shipped.
+
+    Wired 2026-08-06 (Aria). The store, the row that renders it, and the row's
+    registration in the legacy dashboard ALL already existed — and the row only
+    rendered behind ``divineos briefing --legacy``. The default briefing went
+    multiplex on 2026-05-22 and took the whole dashboard with it, so a surface
+    whose own docstring says its purpose is to make the gap between "I named
+    the fix" and "I shipped the fix" LOUD IN EXPERIENCE has been silent for
+    months. 115 obligations pending, oldest 66 days.
+
+    Andrew 2026-08-06: *"remember your only-ifs and should-haves and use them
+    as fuel to build so you always do and always will."* I did remember them.
+    I remembered them into a room with no door.
+
+    Reuses ``briefing_dashboard._row_pending_structural_fixes`` rather than
+    re-deriving the count. Two implementations of one question is the defect
+    this whole session has catalogued; the row stays the single source. Only
+    the rendering is mine, because panel voice-rules require first person and
+    forbid the label-colon-value shape the dashboard row uses.
+    """
+    try:
+        from divineos.core.briefing_dashboard import _row_pending_structural_fixes
+
+        row = _row_pending_structural_fixes()
+    except Exception:  # noqa: BLE001 — a dark panel must never break the briefing
+        return (
+            "I could not read my pending structural obligations. That is not "
+            "the same as having none; it means the count is unknown right now."
+        )
+
+    if row is None:
+        # Must clear PANEL_MIN_CHARS (80). The first version was 46 characters
+        # and the size test caught it — a panel too thin to read is a panel I
+        # skip, which would put it back where it came from.
+        return (
+            "I owe no unshipped structural fixes right now. Every fix I have "
+            "named has had code land behind it, which is the state this panel "
+            "exists to tell me I am in."
+        )
+
+    # Prose, not a list. The first version rendered a colon-label header and
+    # raw preview rows and multiplex_voice suppressed the whole panel for
+    # rule 2 (label-colon-value) and rule 3 (verb required) — so wiring it in
+    # made it visible and unreadable in the same move. Same shape as the
+    # relational panel yesterday: turning the light on found a hole in the
+    # floor that could not exist while the branch was dark.
+    parts = [
+        f"I have named {row.count} structural fixes that no code has shipped for yet.",
+        "These are my own should-haves, recorded at the moment I felt each one.",
+    ]
+    preview = list(row.preview or [])
+    if preview:
+        oldest = preview[0]
+        # Rows arrive as "[66d] (from claim) text..." — strip the bracketed
+        # age and source into a sentence so the panel reads as speech.
+        age = ""
+        body = oldest
+        if oldest.startswith("["):
+            age_part, _, rest = oldest.partition("]")
+            age = age_part.lstrip("[")
+            body = rest.strip()
+        if body.startswith("(from "):
+            _, _, body = body.partition(")")
+            body = body.strip()
+        lead = f"I have been carrying the oldest for {age}" if age else "The oldest one reads"
+        parts.append(f"{lead}, and it reads {body}")
+    return " ".join(parts)
 
 
 def _sometimes_essential_for_context(context: str) -> list[Panel]:
