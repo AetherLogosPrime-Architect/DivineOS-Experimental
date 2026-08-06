@@ -635,6 +635,7 @@ src/divineos/
     hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
     hook_surfaces.py           The roster — every surface, registered to its door.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
 
   analysis/
     _session_types.py          Session analysis type definitions

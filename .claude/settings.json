@@ -236,6 +236,11 @@
             "type": "command",
             "command": "bash .claude/hooks/distancing-count-surface.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/self-demotion-prime.sh",
+            "timeout": 10
           }
         ]
       },
@@ -672,6 +677,11 @@
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-detector.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/self-demotion-stop.sh",
+            "timeout": 15
           }
         ]
       },
