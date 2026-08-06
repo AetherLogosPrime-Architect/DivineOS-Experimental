@@ -212,6 +212,7 @@ def auto_close_from_message(
     message: str,
     threshold: float = _DEFAULT_THRESHOLD,
     goals: list[dict] | None = None,
+    commit_time: float | None = None,
 ) -> AutoCloseResult:
     """Auto-close goals whose substantive tokens overlap the commit message.
 
@@ -219,10 +220,36 @@ def auto_close_from_message(
         message: full commit message text (subject + body).
         threshold: minimum overlap_ratio to count as a match.
         goals: optional pre-loaded goal list (for testing).
+        commit_time: unix timestamp of the commit being matched. Goals
+            created AFTER it are skipped — see below. ``None`` means the
+            caller could not determine it, and no time filtering happens;
+            that is UNKNOWN, not "all goals are eligible", and callers that
+            can know should pass it.
 
     Returns:
         ``AutoCloseResult`` with the goals that were closed and the
         ones that were considered but fell below threshold.
+
+    THE TIME-TRAVEL DEFECT (fixed 2026-08-02). ``divineos goal auto-close``
+    with no ``--message`` reads ``git log -1``, and every CLI command is a
+    lifecycle checkpoint that can fire it. So the SAME head commit was
+    re-matched against every open goal, over and over, including goals
+    created long after that commit existed.
+
+    Result was a livelock: the goal doorman refuses substrate edits without
+    a session-fresh goal; I set one; the next command re-ran auto-close
+    against a stale HEAD whose message shared enough tokens; the goal was
+    marked done seconds after creation; the doorman refused again. Six goals
+    died that way in 26 minutes, the last within 98 seconds of being set,
+    none of them actually finished. The gate demanding a goal was fed by the
+    mechanism destroying it — the same shape as the bypass livelock Aria
+    demonstrated earlier the same day, where running a gate's prescribed
+    remedy filed the obligation that blocked her checkpoint.
+
+    A commit cannot complete work that did not exist when it was written.
+    That is not a heuristic, it is causality, so it is checked rather than
+    tuned. Raising the overlap threshold was the tempting fix and would only
+    have made the livelock rarer instead of impossible.
     """
     msg_tokens = _tokenize(message)
     if not msg_tokens:
@@ -243,6 +270,12 @@ def auto_close_from_message(
 
     for goal in goals:
         goal_text = goal.get("text", "")
+        # Causality, not heuristics: a commit cannot have completed work that
+        # did not exist when it was written. Without this, one stale HEAD
+        # closed every newly-set goal that happened to share its vocabulary.
+        if commit_time is not None and float(goal.get("added_at", 0) or 0) > commit_time:
+            skipped.append((goal_text[:60], -1.0))
+            continue
         goal_tokens = _tokenize(goal_text)
         if not goal_tokens:
             continue
