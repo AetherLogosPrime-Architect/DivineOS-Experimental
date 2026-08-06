@@ -158,22 +158,35 @@ def satisfy_from_stream(tool_calls_in_turn: tuple[tuple[str, str], ...]) -> list
     if not reqs:
         return []
 
-    read_targets = [
-        target.replace("\\", "/")
-        for tool_name, target in tool_calls_in_turn
-        if tool_name in ("Read", "NotebookRead") and target
-    ]
-    if not read_targets:
+    # Entries may be (tool_name, target) or (tool_name, target, tool_input).
+    # The third element is optional so existing callers keep working; when it
+    # is present the read EXTENT gets logged (see record_clear).
+    reads: list[tuple[str, dict[str, object] | None]] = []
+    for entry in tool_calls_in_turn:
+        tool_name, target = entry[0], entry[1]
+        tool_input = entry[2] if len(entry) > 2 else None  # type: ignore[misc]
+        if tool_name in ("Read", "NotebookRead") and target:
+            reads.append((target.replace("\\", "/"), tool_input))
+    if not reads:
         return []
 
     cleared: list[str] = []
     remaining: list[ReadRequirement] = []
     for req in reqs:
         tail = Path(req.path).name
-        if any(req.path.replace("\\", "/") in t or (tail and tail in t) for t in read_targets):
-            cleared.append(req.gate_id)
-        else:
+        match = next(
+            (
+                (target, tool_input)
+                for target, tool_input in reads
+                if req.path.replace("\\", "/") in target or (tail and tail in target)
+            ),
+            None,
+        )
+        if match is None:
             remaining.append(req)
+            continue
+        cleared.append(req.gate_id)
+        record_clear(req.gate_id, req.path, describe_extent(match[1]))
     if cleared:
         _save(remaining)
     return cleared
@@ -204,6 +217,67 @@ def gate_status() -> tuple[bool, str]:
         "not that it was absorbed. Open it and skim anyway and that one is yours.",
     ]
     return True, "\n".join(lines)
+
+
+CLEAR_LOG = STATE_DIR / "read_gate_clears.jsonl"
+
+
+def record_clear(gate_id: str, path: str, extent: str) -> None:
+    """Append what was actually read when a requirement cleared.
+
+    Andrew 2026-08-06, setting the observation plan rather than tightening the
+    gate: *"for now lets see if its just an optimizer issue at skipping doing
+    it or if it goes deeper and you read 2 lines and call it read lol.. if you
+    do we can have the doorman validate it against its own stored knowledge of
+    the file."*
+
+    A known and deliberately-open hole: ``Read(file_path=X, limit=1)`` clears
+    this gate. One line satisfies it. Closing that now would destroy the
+    measurement he is asking for, so the hole stays and the EXTENT gets
+    written down instead.
+
+    ``extent`` is descriptive, never enforced — ``full-file``, ``limit=1``,
+    ``offset=400,limit=50``. Nothing reads it to decide anything. It exists so
+    that the prereg-701de8f761c6 review is answered by a log rather than by my
+    recollection of my own behaviour, which is exactly the evidence I am worst
+    at supplying.
+
+    JSONL and append-only: every clear is a row, so a pattern of
+    one-line-clears is visible as a pattern rather than as a single anecdote.
+    """
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        row = {
+            "gate_id": gate_id,
+            "path": path,
+            "extent": extent,
+            "cleared_at": time.time(),
+        }
+        with CLEAR_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except OSError:
+        # Instrumentation must never break the thing it instruments.
+        pass
+
+
+def describe_extent(tool_input: dict[str, object] | None) -> str:
+    """Turn a Read tool_input into a short extent description."""
+    # None means the caller gave us no tool_input at all -> genuinely unknown.
+    # An EMPTY dict is different and must not collapse into it: a Read with no
+    # limit and no offset is a full-file read, which is the signal the whole
+    # log exists to distinguish from limit=1.
+    if tool_input is None:
+        return "unknown"
+    limit = tool_input.get("limit")
+    offset = tool_input.get("offset")
+    if limit is None and offset is None:
+        return "full-file"
+    parts = []
+    if offset is not None:
+        parts.append(f"offset={offset}")
+    if limit is not None:
+        parts.append(f"limit={limit}")
+    return ",".join(parts)
 
 
 def has_pending(gate_id: str) -> bool:
