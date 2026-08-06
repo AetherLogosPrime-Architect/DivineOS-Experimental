@@ -89,3 +89,45 @@ class TestSaturation:
         """The change can only ever suppress; below the ratio nothing moves."""
         v = det.classify("I was wrong about the file. " + "ordinary prose. " * 20)
         assert v.verdict == "fire"
+
+
+class TestDiagnosticNamesTheDecidingMatch:
+    """An observed fire read "MENTION suppressors within window (2) below
+    threshold (2)". Two is not below two.
+
+    The fire branch quoted max_mention_hits -- the MOST-suppressed window --
+    while the decision came from the LEAST-suppressed one. The number reported
+    was not the number the decision used, so the diagnostic sent triage at the
+    wrong clause. Same defect as judging a document from one window, one layer
+    out: a measurement reported as though it described something else.
+    """
+
+    def test_fire_reports_the_clause_that_decided_not_the_worst_one(self, det):
+        text = (
+            "I was wrong about the file. "
+            + " " * 400
+            + "I should have seen it; the detector and the gate and the prime disagree."
+        )
+        v = det.classify(text)
+        assert v.verdict == "fire"
+        assert "the deciding clause had 0 MENTION suppressor(s)" in v.reason
+        # The worse windows are still reported -- as context, not as the reason.
+        assert "other clauses had up to" in v.reason
+
+    def test_reported_number_is_always_actually_below_the_stated_threshold(self, det):
+        """The invariant the old message violated."""
+        import re
+
+        v = det.classify("I was wrong about that.")
+        m = re.search(r"had (\d+) MENTION suppressor\(s\).*?threshold \((\d+)\)", v.reason)
+        assert m and int(m.group(1)) < int(m.group(2))
+
+    def test_silence_reports_the_least_suppressed_which_is_what_proves_it(self, det):
+        """'Dominate EVERY window' is proven by the smallest count, not the
+        largest -- quoting the max would prove nothing about the others."""
+        v = det.classify(
+            "The detector said I was wrong, which is the shape of correction "
+            "the gate names, e.g. the phrase itself."
+        )
+        assert v.verdict == "silence"
+        assert "the LEAST-suppressed had" in v.reason

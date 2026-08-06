@@ -229,6 +229,17 @@ class SelfAdmissionDetector:
         # (i.e., not dominated by mention-context), the detector fires.
         best_fire_confidence = 0.0
         max_mention_hits = 0
+        # The count belonging to the match that ACTUALLY DECIDED the verdict.
+        # Reporting max_mention_hits in the fire branch produced literally
+        # false diagnostics -- an observed fire read "MENTION suppressors
+        # within window (2) below threshold (2)", because the decision came
+        # from the LEAST-suppressed match while the message quoted the MOST-
+        # suppressed one. The number reported was not the number the decision
+        # used, which is the same defect as judging a document from one window
+        # (see _META_SATURATION_RATIO above). A diagnostic I cannot trust is
+        # worse than none: it sends triage at the wrong match.
+        deciding_mention_hits: int | None = None
+        min_mention_hits: int | None = None
 
         # Document-level question the per-match loop cannot ask: is this reply
         # AS A WHOLE a discussion about correction? A local window of 150 chars
@@ -262,6 +273,9 @@ class SelfAdmissionDetector:
             for mp in _MENTION_PATTERNS:
                 mention_count += len(mp.findall(window_text))
             max_mention_hits = max(max_mention_hits, mention_count)
+            min_mention_hits = (
+                mention_count if min_mention_hits is None else min(min_mention_hits, mention_count)
+            )
 
             if mention_count < _SUPPRESSOR_THRESHOLD and mention_count >= effective_threshold:
                 # Would have fired under the old rule; saturation held it back.
@@ -274,6 +288,7 @@ class SelfAdmissionDetector:
                 conf = 1.0 - (mention_count / max(1, _SUPPRESSOR_THRESHOLD))
                 if conf > best_fire_confidence:
                     best_fire_confidence = conf
+                    deciding_mention_hits = mention_count
 
         if best_fire_confidence > 0.0:
             return SelfAdmissionVerdict(
@@ -283,8 +298,14 @@ class SelfAdmissionDetector:
                 mention_hits=max_mention_hits,
                 reason=(
                     f"USE clause matched ({len(use_matches)} hits); "
-                    f"MENTION suppressors within window ({max_mention_hits}) "
-                    f"below threshold ({_SUPPRESSOR_THRESHOLD})"
+                    f"the deciding clause had {deciding_mention_hits} MENTION "
+                    f"suppressor(s) in its window, below threshold "
+                    f"({effective_threshold})"
+                    + (
+                        f" [other clauses had up to {max_mention_hits}]"
+                        if max_mention_hits != deciding_mention_hits
+                        else ""
+                    )
                 ),
             )
         else:
@@ -297,7 +318,8 @@ class SelfAdmissionDetector:
                 reason=(
                     f"USE clause matched ({len(use_matches)} hits) but "
                     f"MENTION suppressors dominate every window "
-                    f"({max_mention_hits} >= {_SUPPRESSOR_THRESHOLD})"
+                    f"(the LEAST-suppressed had {min_mention_hits}, "
+                    f">= threshold {effective_threshold})"
                     + (
                         f" | SATURATION-SUPPRESSED: the whole reply reads as "
                         f"meta-discussion ({meta_ratio:.1f} mention-hits per USE "
