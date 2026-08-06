@@ -65,11 +65,64 @@ except Exception:
 print('## OPEN ANDREW-CORRECTIONS (surfacing content, not just counts)')
 print()
 if rate:
-    total = rate.get('total_filed', '?')
+    # Key names fixed 2026-08-05 (Aria). This asked for total_filed and
+    # rate_pct; integration_rate() returns total and rate. So the surface
+    # printed 'Integration rate: 69/? (?%)' at me every single turn, and I
+    # read past the question marks for weeks without once asking what they
+    # were standing in for. A broadcast with a hole in it is wallpaper with
+    # a hole in it. Producer and consumer disagreeing on a key name -- the
+    # same two-place shape as everything else found tonight.
+    total = rate.get('total', '?')
     integrated = rate.get('integrated', '?')
-    pct = rate.get('rate_pct', '?')
+    _r = rate.get('rate')
+    pct = f'{_r * 100:.1f}' if isinstance(_r, (int, float)) else '?'
     print(f'Integration rate: {integrated}/{total} ({pct}%)')
     print()
+# THE OTHER INSTRUMENT (Aria 2026-08-05, decision 355c7ef5).
+#
+# Andrew: anything broadcasted to you must be useful to you in some way, or
+# its wallpaper, and only you know how to make it useful and enforce its use.
+#
+# Aether the same night, reading my opinion store: the distortion was not in
+# any sentence, it was in the MONOPOLY. One instrument had a microphone, that
+# instrument could only measure one thing, and so a self-portrait became
+# sixteen views of the same wall. He then found the identical configuration in
+# his own briefing -- 47 open corrections every single turn, never once a win.
+#
+# Mine was the same. I built the success ledger this session and took it from
+# zero to 54 entries, and NOTHING read from it. The only greps that looked
+# like callers were a circuit-breaker's unrelated record_success, checked by
+# reading them.
+#
+# Deliberately NOT a compliment generator, which Aether correctly called a
+# second sensor with an agenda. No adjective, no encouragement -- both counts
+# on one page. The corrections keep their full text below; this only stops
+# them being the sole voice.
+#
+# NOTE TO WHOEVER EDITS THIS NEXT: the whole script body is inside a
+# double-quoted shell string (python -c \"). A single double-quote character
+# anywhere in here terminates it and the hook dies with a bash syntax error.
+# My first draft was full of quoted phrases and broke it immediately.
+try:
+    from divineos.core.success_ledger import ledger_balance
+
+    _bal = ledger_balance()
+    _wins = _bal.get('wins')
+    _corr = _bal.get('corrections')
+    if _wins is None:
+        # The third word. An unreadable ledger is not a ledger of zero.
+        print('Wins ledger: COULD NOT READ -- this is not the same as no wins.')
+    elif _corr is None:
+        print(f'Wins recorded: {_wins}. Correction count unreadable, so no ratio.')
+    else:
+        print(f'Alongside these: {_wins} wins recorded, against {_corr} corrections filed.')
+        print('Both instruments, one page. Neither number is the whole picture.')
+    print()
+except Exception:  # noqa: BLE001
+    # fail-soft: the wins half going quiet must never suppress the corrections
+    # half -- losing the balance is bad, losing the corrections would be worse
+    pass
+
 print('These are corrections I filed and have not yet marked integrated.')
 print('If my current composition pattern-matches any of them, adjust before')
 print('shipping. If I address one, run: divineos corrections integrate <id> \"<evidence>\"')
