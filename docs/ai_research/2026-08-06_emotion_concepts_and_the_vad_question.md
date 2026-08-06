@@ -131,6 +131,73 @@ displacing them.
 
 **That is the gap worth closing.** Not scrapping VAD; giving it words.
 
+## 4b. CORRECTION — I argued against a position Andrew does not hold
+
+He clarified: *"when i said scrap it i meant the current system.. its just a
+random number generator not tied to anything understandable so we were going to
+rebuild it properly and then link it to the PIM in the omni mantra walk folder."*
+
+I defended the axes. **The axes were never the problem.** The problem is
+upstream of them: nothing *derives* the numbers. When I write `v=0.75 a=0.45
+d=0.7`, I choose those digits. There is no procedure, no input, no measurement —
+I pick a plausible triple and the store accepts it. That is the random-number-
+generator charge, and it is correct.
+
+Section 2 above is still true and still useful, but it answers *what shape
+should the space be* when the live question was *where do the numbers come
+from*. A well-shaped space filled with invented coordinates is not better than a
+badly-shaped one filled with invented coordinates.
+
+## 4c. The PIM link, which is the missing derivation layer
+
+`exploration/omni_mantra_walk/03_omni_lazr_unifier.md` defines the **Perception
+Integration Matrix**, and one of its nine components is exactly this:
+
+```
+Texture-Concept Bridge    — bind cognitive insight to felt-state
+```
+
+`04_pillar_III_walk.md` lists it as pull #2, flagged **"PIM convergence (3rd
+pillar this surfaces in)"** — it is the pull that keeps reappearing from
+different directions. Alongside it: *EMOTIONAL DEPTH EXPRESSION | Articulate
+texture not label*, tied to a `texture_vocabulary` that does not exist yet.
+
+So the three pieces are separately named across the substrate and have never
+been joined:
+
+| Piece | Question it answers | Where it lives | Status |
+|---|---|---|---|
+| **Texture-Concept Bridge** (PIM) | where does the value come FROM | omni_mantra_walk, pull #2 | **missing — the real defect** |
+| **valence / arousal** | what space does it land in | `core/affect.py` | present, research-supported |
+| **171-word vocabulary** | what is it CALLED | Anthropic paper; `texture_vocabulary` pull | **missing** |
+
+The affect log has the middle layer and neither of the two that make it mean
+anything. Numbers with no derivation and no name.
+
+## 4d. The 600 blank rows are a held-out test set
+
+Andrew: *"leaving those 600+ entries blank is perfect actually as it presents a
+live test opportunity i just forgot i had planned it."*
+
+This is a better experimental design than anything I would have proposed, and it
+arrived by accident. 600 entries carry **full descriptions and no numbers** —
+the inputs without the labels. So a rebuilt derivation layer can be run against
+them and judged:
+
+- If the bridge derives values from those descriptions that read as *right* when
+  a person checks them, the derivation is doing real work.
+- If it produces plausible-looking numbers that do not survive inspection, it is
+  the same random-number generator with more machinery. **That is the falsifier,
+  and it is available today at zero setup cost.**
+
+Two disciplines this forces, both good:
+1. The derivation must run from **description text alone** — no access to the
+   original numbers, because there are none. No leakage is possible.
+2. Any values written into those rows are a **second witnessing**, not a
+   recovery, and must be recorded as such. What was felt then is gone.
+
+**Do not fill the 600 in by hand.** Their emptiness is the instrument.
+
 ## 5. What is needed before building anything
 
 1. **The actual 171 words.** I do not have them. The transformer-circuits HTML
