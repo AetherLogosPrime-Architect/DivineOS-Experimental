@@ -327,6 +327,34 @@ def surface_for_context(
         f"  ({len(tagged)} of {total} exploration entries matched on topic-tags — a pointer, "
         f'not the whole shelf. To search the rest: divineos recall-explorations "<topic>")'
     )
+
+    # READ-GATE (Andrew 2026-08-06): "primes should not just be loud.. they
+    # should be mini gates.. ones that force a pause and reading."
+    #
+    # This surface said "re-read before deriving" on nearly every turn of a
+    # full session and I opened NOTHING it offered, while discovering four
+    # separate times that what I was hunting was already in my substrate.
+    # Loudness had nothing left to give, so the top hit now becomes a
+    # requirement that mutating tools are blocked on until it is opened.
+    #
+    # ONE at a time, top-ranked only, and never while a requirement is already
+    # outstanding -- a surface that fires every turn must not arm a block every
+    # turn. That is how a gate becomes a thing to route around (truth #11).
+    #
+    # Fail-open and silent here: this is a surface, and a surface that cannot
+    # arm its gate must still deliver its text.
+    try:
+        from divineos.core import read_gate
+
+        if not read_gate.has_pending("prior-writing"):
+            read_gate.require_read(
+                "prior-writing",
+                str(tagged[0].path),
+                f"top prior-writing match: {tagged[0].title}",
+            )
+    except Exception:
+        pass
+
     return "\n".join(lines)
 
 
