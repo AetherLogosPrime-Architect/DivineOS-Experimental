@@ -84,9 +84,10 @@ except ImportError as exc:
     # not wrong; it is early.
     print(
         f"[reach-check-doorman] NOT RUNNING: {exc}",
-        "  The hook interpreter cannot see divineos.core.reach_check. If that",
-        "  module is on an unmerged branch, this gate is inert until it lands.",
-        "  This message exists so inert is never mistaken for clean.",
+        "  I cannot see divineos.core.reach_check from here, so I am not asking",
+        "  you what already exists. I probably left the module on a branch that",
+        "  has not landed. I am absent, not satisfied -- and I say it out loud",
+        "  because my quiet is the exact thing I built this to stop trusting.",
         sep="\n",
         file=sys.stderr,
     )
