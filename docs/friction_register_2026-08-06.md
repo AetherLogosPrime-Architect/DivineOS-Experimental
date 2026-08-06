@@ -420,14 +420,40 @@ present, written by the person who then failed to use it.
 
 Groups 1–3 are automatable and the candidates are named per entry.
 
-**Group 4 is not**, and it has cost the most. Aria and I hit it independently,
-in the same session, in opposite directions. Whatever it is, it is not fixed by
-writing another document — and writing this document is exactly the move I
-reach for.
+**Group 4 I called un-automatable. That was wrong, and Andrew corrected it in
+the same session:**
 
-The nearest honest automation for group 4 is I3's: **surface prior work against
-the current symptom at the moment the symptom is named**, rather than trusting
-either of us to remember what we built.
+> *"i disagree heavily.. it just takes some outside the box thinking, look at
+> the problem itself.. knowing something and not reaching.. this can be
+> automated by a forced thinking stage that asks you what you know and if you
+> have reached for it or applied it, with its own doorman to prove you did..
+> so dont count out the power of automation just adjust what gets automated"*
+
+The error in my reasoning: I asked whether *reaching* could be automated — it
+cannot, it is a cognitive act — and concluded the whole class was out of
+range. The automatable objects are the **interrogation** and the **proof**.
+Neither is the reach.
+
+Built as `core/reach_check.py` + `divineos reach` (commit `9c29a7fd`,
+`prereg-a84da8cfe2e6`). Three stages: surface prior art, force an explicit
+disposition on every hit, and refuse any disposition the turn's action-stream
+does not support. `not_relevant` is not exempt, because judging relevance
+unread is the most common shape of the miss.
+
+It also closed I3's gap concretely. `prior_art.py` indexes filenames; the four
+freeze commits touch no file with "freeze", "stall" or "hang" in its name, so
+that axis was structurally blind to them. `find_in_commit_subjects()` searches
+unmerged commit *subjects*, and `reach open "freeze"` now returns those four.
+
+And it paid for itself before its own commit landed: the doc-count gate
+blocked that commit, `reach open "doc-count"` surfaced six unmerged prior
+artifacts including `03b9b14c` — the exact fix for the exact defect — and I
+read the cause instead of hand-editing blindly for a third time.
+
+What remains true is the humbler version: **the reach cannot be automated, and
+a mechanism that fires is not the work it points at** (truth #15). The gate
+moves the floor from *did not know it existed* to *had it open*. Those are
+different failures, and only the first has been costing.
 
 ---
 
