@@ -373,6 +373,12 @@ fi
 if [ $ERRORS -eq 0 ]; then
     section "Wiring-gap (informational)"
     python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+
+    # The repo copy of the shim is not the copy that runs. Same bug was found
+    # in both, six weeks apart, because nothing compared them (2026-08-06).
+    # Informational: a stale file on someone's PATH must not block a commit.
+    section "Installed-shim drift (informational)"
+    python scripts/check_installed_shim.py || true  # fail-soft: informational only; a stale copy of the shim on someone's PATH is a real finding but is not grounds to block their commit, and stderr is left un-silenced so a crash in the checker is still visible
 fi
 
 echo ""
