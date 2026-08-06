@@ -81,6 +81,13 @@ class SurfaceOutcome:
     refused: bool = False
     reason: str = ""
     error: str | None = None
+    # Some PreToolUse hooks refuse via the harness JSON permission-decision
+    # rather than exit 2. Both work — they are different WIRE PROTOCOLS, and
+    # the protocol is behaviour. A migration that silently swaps one for the
+    # other has changed how the refusal lands even though the decision is
+    # identical. Found migrating require-briefing.sh, which denies via JSON
+    # while must-read-gate.sh denies via exit 2 (Aria 2026-08-06).
+    json_deny: bool = False
 
 
 @dataclass
@@ -208,6 +215,41 @@ def main(event: str, payload: dict) -> int:
     out = result.stdout()
     if out:
         print(out)
+
+    # A refusal from a surface that used the JSON permission-decision protocol
+    # must still speak JSON. Migrating a hook changes WHERE the decision is
+    # made, never HOW it lands — the wire protocol is part of the behaviour
+    # the migration promises to preserve.
+    #
+    # If several surfaces refuse and any of them wants JSON, the JSON carries
+    # every reason. Losing the exit-2 reasons here would be the short-circuit
+    # this router exists to avoid, moved one layer out.
+    json_refusals = [o for o in result.refusals if o.json_deny]
+    if json_refusals:
+        import json as _json
+
+        reasons = "\n\n".join(f"{o.name}: {o.reason}" for o in result.refusals)
+        print(
+            _json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": event,
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": reasons,
+                    }
+                }
+            )
+        )
+        # Errors still reported; they never block.
+        errs = "\n".join(
+            f"[router] surface {o.name} COULD NOT RUN: {o.error} "
+            "— this is not the same as it passing."
+            for o in result.errored
+        )
+        if errs:
+            print(errs, file=sys.stderr)
+        return 0
+
     err = result.stderr()
     if err:
         print(err, file=sys.stderr)

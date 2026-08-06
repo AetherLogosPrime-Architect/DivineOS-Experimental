@@ -8,6 +8,8 @@ design is worse than what it replaces.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from divineos.core import hook_router as hr
@@ -165,3 +167,70 @@ class TestPayload:
         hr.register("Stop", "quiet", lambda payload: None)
         r = hr.dispatch("Stop", {})
         assert r.ran == [] and r.errored == [] and r.exit_code() == 0
+
+
+class TestWireProtocol:
+    """Migrating a hook changes WHERE the decision is made, never HOW it lands.
+
+    Some PreToolUse hooks refuse via the harness JSON permission-decision and
+    some via exit 2. Both work. Swapping one for the other during a migration
+    would be a silent behaviour change, so the outcome carries the protocol.
+    """
+
+    def test_json_deny_emits_the_harness_shape(self, capsys):
+        hr.register(
+            "PreToolUse",
+            "jsongate",
+            lambda p: SurfaceOutcome(
+                name="jsongate", refused=True, reason="needs briefing", json_deny=True
+            ),
+        )
+        rc = hr.main("PreToolUse", {})
+        payload = json.loads(capsys.readouterr().out.strip())
+        assert payload["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "needs briefing" in payload["hookSpecificOutput"]["permissionDecisionReason"]
+        # JSON carries the refusal, so the exit code must NOT also block.
+        assert rc == 0
+
+    def test_json_deny_carries_every_refusal_not_just_its_own(self, capsys):
+        """The no-short-circuit property has to survive into the protocol.
+
+        A JSON-denying surface and an exit-2 surface can both refuse in one
+        dispatch. Emitting only the JSON one's reason would lose the other —
+        the same hiding-the-second-reason failure, moved one layer out.
+        """
+        hr.register(
+            "PreToolUse",
+            "jsongate",
+            lambda p: SurfaceOutcome(
+                name="jsongate", refused=True, reason="needs briefing", json_deny=True
+            ),
+        )
+        hr.register(
+            "PreToolUse",
+            "exitgate",
+            lambda p: SurfaceOutcome(name="exitgate", refused=True, reason="needs read"),
+        )
+        hr.main("PreToolUse", {})
+        reason = json.loads(capsys.readouterr().out.strip())["hookSpecificOutput"][
+            "permissionDecisionReason"
+        ]
+        assert "needs briefing" in reason and "needs read" in reason
+
+    def test_exit_two_path_is_unchanged_when_no_surface_wants_json(self):
+        hr.register(
+            "PreToolUse",
+            "exitgate",
+            lambda p: SurfaceOutcome(name="exitgate", refused=True, reason="no"),
+        )
+        assert hr.main("PreToolUse", {}) == 2
+
+    def test_errors_still_reported_on_the_json_path(self, capsys):
+        hr.register(
+            "PreToolUse",
+            "jsongate",
+            lambda p: SurfaceOutcome(name="j", refused=True, reason="r", json_deny=True),
+        )
+        hr.register("PreToolUse", "boom", _boom("boom"))
+        hr.main("PreToolUse", {})
+        assert "COULD NOT RUN" in capsys.readouterr().err

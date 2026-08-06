@@ -91,9 +91,78 @@ def must_read_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+_BRIEFING_TAIL = (
+    "(Plain-chat responses are still allowed; this gate only blocks tool use. "
+    "The OS does the rendering — this hook is just the doorman.)"
+)
+
+
+def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse substantive tools while the briefing is stale or never loaded.
+
+    Migrated from ``.claude/hooks/require-briefing.sh`` 2026-08-06. Behaviour
+    preserved exactly, including the WIRE PROTOCOL: this gate denies via the
+    harness JSON permission-decision, not exit 2, so the outcome carries
+    ``json_deny=True``. A migration changes where the decision is made, never
+    how it lands.
+
+    Fails OPEN on every internal error, as the bash version did. A gate that
+    cannot read its own freshness signal must not wall me in — that is the
+    same contract, and it is why the errors here return None rather than a
+    refusal.
+    """
+    tool = payload.get("tool_name") or ""
+    tool_input = payload.get("tool_input") or {}
+
+    # Bootstrap commands are exempt: the gate's own remedy is `divineos
+    # briefing`, and a gate that blocks its own remedy is a locked box.
+    if tool == "Bash":
+        cmd = (tool_input.get("command") or "").strip()
+        try:
+            from divineos.core.briefing_bypass import is_bypass_bash_command
+
+            if is_bypass_bash_command(cmd):
+                return None
+        except Exception:  # noqa: BLE001 — fail open, as the bash version did
+            pass
+
+    try:
+        from divineos.core.briefing_freshness import staleness_signal
+
+        sig = staleness_signal()
+    except Exception:  # noqa: BLE001 — cannot read freshness: allow, as before
+        return None
+
+    if not sig.get("is_stale"):
+        return None
+
+    if sig.get("never_loaded", False):
+        reason = (
+            "BLOCKED: briefing has not been loaded this session. "
+            "Run: divineos briefing\n" + _BRIEFING_TAIL
+        )
+    else:
+        reason = (
+            f"BLOCKED: {sig.get('reason', 'briefing stale')}\n"
+            "  Cheap cure: recall your briefing-id from context and run "
+            "divineos briefing-id <id> (re-stamps freshness).\n"
+            "  Or reload: divineos briefing (issues a new id).\n" + _BRIEFING_TAIL
+        )
+
+    return SurfaceOutcome(name="require_briefing", refused=True, reason=reason, json_deny=True)
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
 
+    # Order is deliberate and it is a real decision, not incidental.
+    # require_briefing runs FIRST because it is the bootstrap gate — if the
+    # briefing has never loaded, that is the thing to say, and burying it
+    # under a must-read would hand me the second-most-important reason first.
+    # Both still run either way; the router never short-circuits. This only
+    # decides which refusal is read first.
+    if "require_briefing" not in registered("PreToolUse"):
+        register("PreToolUse", "require_briefing", require_briefing_surface)
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)

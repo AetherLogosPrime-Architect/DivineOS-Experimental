@@ -273,16 +273,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-briefing.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
         "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
           {
