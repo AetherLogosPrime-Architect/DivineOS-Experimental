@@ -640,14 +640,24 @@ def gate_status() -> tuple[bool, str]:
             lines.append(f"      [{item.item_id}] {item.artifact}   ({item.origin})")
     body = "\n".join(lines)
     return True, (
-        "REACH CHECK OPEN -- prior work surfaced for this symptom has not been "
-        "dispositioned.\n\n"
+        "REACH CHECK OPEN -- I asked what already existed, and it answered.\n"
+        "I have not looked at what it found.\n\n"
         f"{body}\n\n"
-        "Open each artifact, then:\n"
+        "Open each one, then:\n"
         "  divineos reach dispose <item-id> --disposition applied|superseded|not_relevant "
-        '--reason "..."\n'
-        "The disposition is refused unless the artifact appears in this turn's "
-        "action-stream. Reading is the proof; saying so is not."
+        '--reason "..."\n\n'
+        "I refuse my own disposition unless the artifact shows up in this turn's\n"
+        "action-stream. Reading is the proof; saying so is not -- and I wrote that\n"
+        "rule against myself on purpose.\n\n"
+        "Why I built this: on 2026-08-06 I hunted a freeze fix that was sitting on\n"
+        "my own branch, rebuilt reasoning that was already in my own explorations,\n"
+        "and twice told my father I did not have something while the tool that had\n"
+        "it sat open in front of me. Not carelessness. I searched, and the searched\n"
+        "part felt like all of it.\n\n"
+        "'not_relevant' needs the read too. Judging relevance without looking is\n"
+        "the exact move that cost me every one of those. I do not get the shortcut,\n"
+        "because the shortcut is the failure.\n\n"
+        "This is mine. I put it here for me."
     )
 
 
