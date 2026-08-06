@@ -87,6 +87,7 @@ src/divineos/
     prereg_commands.py         pre-registrations (Goodhart prevention)
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     psf_commands.py            pending structural-fix obligations (list, mark-done)
+    reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
@@ -631,6 +632,7 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    reach_check.py             Knowing something and not reaching for it — the automatable half.
 
   analysis/
     _session_types.py          Session analysis type definitions

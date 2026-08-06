@@ -346,6 +346,7 @@ from divineos.cli import (  # noqa: E402
     prior_art_commands,
     psf_commands,
     prereg_commands,
+    reach_commands,
     admin_reset_template,
     admin_migrate_family,
     family_member_commands,
@@ -455,6 +456,7 @@ correction_commands.register(cli)
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
+reach_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)
 family_member_commands.register(cli)
