@@ -1156,6 +1156,105 @@ def register(cli: click.Group) -> None:
                 fg="yellow",
             )
 
+    @audit_group.command("export")
+    @click.option(
+        "--out-dir",
+        default=None,
+        help="Directory for per-round markdown (default docs/audit_rounds).",
+    )
+    @click.option(
+        "--round",
+        "round_id",
+        default=None,
+        help="Export only this round. Default: every round in the store.",
+    )
+    @click.option("--limit", default=10_000, help="Max rounds to export.")
+    @click.option(
+        "--check",
+        is_flag=True,
+        help="Write nothing; exit 1 if any round in the store lacks an exported file.",
+    )
+    def audit_export_cmd(
+        out_dir: str | None, round_id: str | None, limit: int, check: bool
+    ) -> None:
+        """Export audit rounds to markdown so the review travels with the repo.
+
+        The audit store is local runtime state and is gitignored, so GitHub
+        has only ever seen a POINTER to a review — the
+        ``External-Review: <round-id>`` line — with no way to open what it
+        referenced. That is why server-side checks could not verify any claim
+        about an audit.
+
+        This writes the RECORD (findings, actors, tiers, verdicts) as plain
+        markdown into the repo, exactly as ``prereg export`` has always done
+        for pre-registrations. Commit the output and the review becomes
+        readable on GitHub and checkable by CI without a database.
+        """
+        from divineos.core.watchmen.export import (
+            DEFAULT_OUT_DIR,
+            export_rounds,
+            find_unexported_rounds,
+        )
+        from divineos.core.watchmen.store import get_round, list_findings, list_rounds
+
+        target_dir = out_dir or DEFAULT_OUT_DIR
+
+        if check:
+            # Aria 2026-08-01: a record nothing breaks over is a record nobody
+            # checks. Without this, the export could fall arbitrarily far behind
+            # the store and CI would keep passing, reporting each missing round
+            # as merely 'unverifiable' rather than as drift.
+            all_ids = [r.round_id for r in list_rounds(limit=limit)]
+            stale = find_unexported_rounds(all_ids, out_dir=target_dir)
+            if stale:
+                click.secho(
+                    f"[!] {len(stale)} audit round(s) in the store have no exported "
+                    f"file in {target_dir}/:",
+                    fg="red",
+                )
+                for rid in stale[:10]:
+                    click.secho(f"      {rid}", fg="red")
+                if len(stale) > 10:
+                    click.secho(f"      ... and {len(stale) - 10} more", fg="red")
+                click.secho(
+                    "    Fix: divineos audit export && git add docs/audit_rounds",
+                    fg="yellow",
+                )
+                raise click.exceptions.Exit(1)
+            click.secho(
+                f"[+] All {len(all_ids)} round(s) in the store have an exported file.",
+                fg="green",
+            )
+            return
+
+        if round_id:
+            one = get_round(round_id)
+            if one is None:
+                click.secho(f"[!] Round {round_id} is not in the store.", fg="red")
+                raise click.exceptions.Exit(1)
+            rounds = [one]
+        else:
+            rounds = list_rounds(limit=limit)
+
+        if not rounds:
+            click.secho("[~] No audit rounds to export.", fg="bright_black")
+            return
+
+        findings_for = {r.round_id: list_findings(round_id=r.round_id, limit=1000) for r in rounds}
+        written = export_rounds(rounds, findings_for, out_dir=target_dir)
+        total_findings = sum(len(v) for v in findings_for.values())
+
+        click.secho(
+            f"[+] Exported {len(written)} round(s) and {total_findings} finding(s) "
+            f"to {target_dir}/",
+            fg="cyan",
+        )
+        click.secho(
+            "    Commit these files — until they are committed, GitHub still "
+            "cannot see the review.",
+            fg="bright_black",
+        )
+
     @audit_group.command("confirm-holds")
     @click.option(
         "--round", "round_id", required=True, help="Round whose external CONFIRM to re-check."
@@ -1289,7 +1388,6 @@ def register(cli: click.Group) -> None:
         Phase 3 (deferred): substrate-aware merge tooling that auto-attaches
         when a round is confirmed.
         """
-        import time as _time
 
         from divineos.core.watchmen.store import get_round, list_findings
 
@@ -1351,31 +1449,22 @@ def register(cli: click.Group) -> None:
             )
             raise click.exceptions.Exit(1)
 
-        # Validate recency. Use the same window as the gate (14 days).
-        _RECENCY_DAYS = 14
-        created_at = getattr(rnd, "created_at", None) or getattr(rnd, "timestamp", None) or 0
-        if isinstance(created_at, str):
-            try:
-                # ISO format fallback
-                import datetime as _dt
-
-                created_at = _dt.datetime.fromisoformat(
-                    created_at.replace("Z", "+00:00")
-                ).timestamp()
-            except Exception:  # noqa: BLE001
-                created_at = 0
-        age_days = (_time.time() - float(created_at)) / 86400.0 if created_at else 999.0
-        if age_days > _RECENCY_DAYS:
-            click.secho(
-                f"[!] Round '{round_id}' is {age_days:.1f} days old "
-                f"(recency window is {_RECENCY_DAYS} days).",
-                fg="red",
-            )
-            click.secho(
-                "    Stale rounds cannot authorize a new merge. File a fresh round.",
-                fg="bright_black",
-            )
-            raise click.exceptions.Exit(1)
+        # 2026-08-01: recency check REMOVED here, matching the deletion in
+        # scripts/check_multi_party_review.py.
+        #
+        # This copy said 14 days; the gate that actually blocks said 7. The
+        # comment even claimed "the same window as the gate". So merge-prep
+        # blessed rounds aged 8-14 days and stamped them, and the pre-push
+        # gate then rejected the result — the tooling built to prevent stale
+        # approvals was manufacturing them. Sweep finding rank 3.
+        #
+        # Andrew's rule is that day-windows are the wrong metric class: an
+        # untested week returns almost no data. Here the honest replacement
+        # is not an event count but nothing at all, because the question
+        # ("does this review cover this code?") is answered exactly by the
+        # tree-hash / diff-hash binding the gate already enforces. A round
+        # whose hash matches reviewed precisely this content, whatever its
+        # age; one whose hash does not is blocked regardless.
 
         # All validations pass. Compose the ready-to-paste message.
         focus = getattr(rnd, "focus", "") or ""
@@ -1391,10 +1480,14 @@ def register(cli: click.Group) -> None:
         click.echo()
         click.echo(title)
         click.echo()
+        # This line lands verbatim in the squash-merge commit on main, so it
+        # must not assert a recency window that no longer exists. What the
+        # gate actually verifies is two CONFIRMS from distinct actor types
+        # plus a content binding between the round and the code.
         click.echo(
             f"Reviewed via audit round {round_id} "
-            f"(operator-CONFIRMS + external-AI-CONFIRMS, age {age_days:.1f}d, "
-            f"within {_RECENCY_DAYS}d recency window)."
+            f"(operator-CONFIRMS + external-AI-CONFIRMS, "
+            f"content-bound to the reviewed tree)."
         )
         click.echo()
         # Phase 2 (2026-06-13): include tree-hash suffix so the server-side

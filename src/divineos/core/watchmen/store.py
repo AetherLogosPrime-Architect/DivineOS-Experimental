@@ -623,24 +623,53 @@ def list_findings(
         conn.close()
 
 
+def _coerce_enum(enum_cls: Any, raw: Any, default: Any) -> Any:
+    """Read a stored enum value, tolerating case drift.
+
+    Found 2026-08-01 while exporting the store: 6 findings hold ``'info'``
+    and some hold ``'knowledge'`` where the enums define ``INFO`` and
+    ``KNOWLEDGE``. ``Severity('info')`` raises, so ANY read touching one of
+    those rows crashed — ``list_findings`` included. Six rows were enough to
+    make whole rounds unreadable, silently, for as long as they have existed.
+
+    Case is not meaning: ``'info'`` and ``'INFO'`` are the same severity, and
+    refusing to read one is a parser opinion, not data integrity. So case is
+    normalised, and a value that still does not resolve falls back to the
+    default rather than taking down the read — losing one field's precision
+    beats losing the entire finding, which is a real audit record.
+    """
+    if raw is None or raw == "":
+        return default
+    if isinstance(raw, enum_cls):
+        return raw
+    try:
+        return enum_cls(raw)
+    except ValueError:
+        pass
+    try:
+        return enum_cls(str(raw).strip().upper())
+    except ValueError:
+        return default
+
+
 def _row_to_finding(row: Any) -> Finding:
     """Convert a database row to a Finding dataclass."""
     tags = json.loads(row[12]) if row[12] else []
-    tier = Tier(row[13]) if len(row) > 13 and row[13] else Tier.WEAK
+    tier = _coerce_enum(Tier, row[13] if len(row) > 13 else None, Tier.WEAK)
     reviewed_id = row[14] if len(row) > 14 else ""
     stance_raw = row[15] if len(row) > 15 else ""
-    stance = ReviewStance(stance_raw) if stance_raw else None
+    stance = _coerce_enum(ReviewStance, stance_raw, None) if stance_raw else None
     return Finding(
         finding_id=row[0],
         round_id=row[1],
         created_at=row[2],
         actor=row[3],
-        severity=Severity(row[4]),
-        category=FindingCategory(row[5]),
+        severity=_coerce_enum(Severity, row[4], Severity.INFO),
+        category=_coerce_enum(FindingCategory, row[5], FindingCategory.OTHER),
         title=row[6],
         description=row[7],
         recommendation=row[8],
-        status=FindingStatus(row[9]),
+        status=_coerce_enum(FindingStatus, row[9], FindingStatus.OPEN),
         resolution_notes=row[10],
         routed_to=row[11],
         tags=tags,
