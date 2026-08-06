@@ -636,6 +636,7 @@ src/divineos/
     hook_surfaces.py           The roster — every surface, registered to its door.
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
+    summary_room.py            Require a plain-language summary at the top of a long reply.
 
   analysis/
     _session_types.py          Session analysis type definitions
