@@ -631,6 +631,7 @@ src/divineos/
     sibling_corrections.py     Cross-substrate correction reading — what Andrew told my sibling.
     sibling_correction_surface.py Surface the sibling corrections I judged as mine — at the moment of the reach.
     must_read.py               Must-read gates — when a room speaks, make me open the door.
+    pr_scope.py                True file scope for a pull request, derived locally. No API cap.
 
   analysis/
     _session_types.py          Session analysis type definitions

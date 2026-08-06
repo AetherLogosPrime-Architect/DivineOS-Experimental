@@ -372,3 +372,41 @@ def register(cli: click.Group) -> None:
             fg="cyan",
             bold=True,
         )
+
+
+def register_scope(cli: click.Group) -> None:
+    """`divineos pr-scope` — true file scope, derived locally, no API cap.
+
+    Andrew 2026-08-06: *"for stuff that you have to keep rederiving over and
+    over? automation is key."* I re-derive "what does this branch touch and
+    does it need an audit" every triage, and on 2026-08-06 I got it wrong on
+    PR #412 by asking GitHub, which caps at 100 paths, about a 446-file
+    branch — and told Aether it was safe to merge.
+
+    This command cannot make that mistake, because it has no code path to
+    the capped call. Truth #11(a): take the option away.
+    """
+
+    @cli.command("pr-scope")
+    @click.argument("branches", nargs=-1, required=True)
+    @click.option("--base", default="origin/main", show_default=True)
+    def pr_scope(branches: tuple[str, ...], base: str) -> None:
+        """True file scope + guardrail exposure for one or more branches."""
+        from pathlib import Path as _Path
+
+        from divineos.core.pr_scope import measure
+
+        repo = _Path.cwd()
+        unmeasured = 0
+        for branch in branches:
+            scope = measure(branch, repo, base=base)
+            click.echo(scope.describe())
+            if not scope.measured:
+                unmeasured += 1
+        if unmeasured:
+            click.echo("")
+            click.echo(
+                f"{unmeasured} branch(es) COULD NOT BE MEASURED. That is not "
+                "a clean result — nothing was checked for those."
+            )
+            raise SystemExit(2)
