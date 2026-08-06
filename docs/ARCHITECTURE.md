@@ -634,6 +634,7 @@ src/divineos/
     pr_scope.py                True file scope for a pull request, derived locally. No API cap.
     hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
     hook_surfaces.py           The roster — every surface, registered to its door.
+    letter_claims.py           Measure the local state of every file a sibling's letter talks about.
 
   analysis/
     _session_types.py          Session analysis type definitions
