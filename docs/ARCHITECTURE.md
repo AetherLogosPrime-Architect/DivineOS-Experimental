@@ -633,6 +633,7 @@ src/divineos/
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
+    read_gate.py               Primes that are gates — a surface can require proof it was opened.
 
   analysis/
     _session_types.py          Session analysis type definitions
