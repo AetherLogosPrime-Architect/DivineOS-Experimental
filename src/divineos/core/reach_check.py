@@ -171,6 +171,169 @@ def init_reach_tables() -> None:
     conn.commit()
 
 
+LOADOUT_PATH = prior_art.REPO / "LOADOUT.md"
+
+
+def _slug(text: str) -> str:
+    """`build flow`, `build-flow` and `build_flow` must all match each other.
+
+    Same normalisation prior_art uses, kept local so the two matchers cannot
+    silently diverge on one side of an import.
+    """
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def find_in_loadout(term: str, limit: int = 20) -> list[tuple[str, str, str]]:
+    """(label, path, section) for LOADOUT.md entries matching `term`.
+
+    Andrew 2026-08-06: *"the reach needs some tuning and better enforcement and
+    should also be connected to the loadout or something and if stuff is
+    missing from it add it to there."*
+
+    This closes the gap the first version printed at the bottom of every
+    NOT-FOUND report:
+
+        This is not NOT-CHECKED. The prose surfaces were not queried here:
+          divineos ask / find / search / recall-explorations
+
+    Four surfaces named as unsearched, on the reasoning that a fifth
+    prose-searcher was not what was missing. Right about not writing a fifth
+    searcher; wrong to leave the axis uncovered — and the very next use proved
+    it. `reach open "emotion taxonomy"` returned NOT FOUND on the code axis
+    while `exploration/omni_mantra_walk/03_omni_lazr_unifier.md` sat in the
+    substrate holding the exact derivation layer being asked about.
+
+    LOADOUT.md is the index of everything — 2320 entries across 24 sections
+    covering explorations, letters, dreams, docs, skills, hooks, council and
+    mansion. Reading it costs one file open. So reach does not GET a prose
+    searcher; it gets the INDEX, which is what was actually missing.
+
+    Section is carried through because it is the useful part: a hit from
+    ``dreams/`` and a hit from ``docs/`` want to be read differently, and the
+    reader should know which before opening it.
+    """
+    if not LOADOUT_PATH.exists():
+        return []
+    try:
+        text = LOADOUT_PATH.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+
+    needle = _slug(term)
+    if len(needle) < 3:
+        return []
+
+    hits: list[tuple[str, str, str]] = []
+    section = "(no section)"
+    for line in text.splitlines():
+        if line.startswith("## "):
+            section = line[3:].strip()
+            continue
+        match = re.match(r"^- \[(.+?)\]\((.+?)\)\s*$", line)
+        if not match:
+            continue
+        label, path = match.group(1), match.group(2)
+        if needle in _slug(label) or needle in _slug(path):
+            hits.append((label, path, section))
+            if len(hits) >= limit:
+                break
+    return hits
+
+
+def loadout_gaps(artifacts: list[str]) -> list[str]:
+    """Which surfaced artifacts LOADOUT.md does not list.
+
+    The second half of Andrew's instruction — *"if stuff is missing from it add
+    it to there"*. Searching LOADOUT makes reach only as good as LOADOUT, so
+    the loop has to run both ways: an artifact found on disk or in git that the
+    index does not carry is an index defect, reported at the moment it is
+    provable rather than waiting for a drift sweep to notice.
+
+    Commits and CLI commands are skipped — LOADOUT indexes files, and a commit
+    subject absent from it is not a gap.
+    """
+    if not LOADOUT_PATH.exists():
+        return []
+    try:
+        text = LOADOUT_PATH.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return [
+        a
+        for a in artifacts
+        if not a.startswith(("commit:", "cli:", "loadout:")) and Path(a).name not in text
+    ]
+
+
+# Above this many hits from one directory, the directory is surfaced instead of
+# its files. Set from an observed over-fire rather than chosen in the abstract:
+# `reach open "omni mantra"` returned all 19 files of exploration/omni_mantra_walk/,
+# which would demand 19 dispositions to clear one question. A gate that expensive
+# gets bypassed, and a bypassed gate catches nothing (truth #11 — every extra
+# choice-point is somewhere the optimizer can route around).
+_DIRECTORY_COLLAPSE_THRESHOLD = 3
+
+
+def _collapse_by_directory(surfaced: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Fold a directory's worth of file hits into one item, across ALL axes.
+
+    A whole folder matching means the FOLDER is the prior art. Naming it once
+    is cheaper and more accurate than listing every file in it, and the
+    disposition stays honest because the doorman accepts a read of any file
+    whose name appears in the artifact string.
+
+    Collapsing per-axis was not enough and the first run showed why: the
+    loadout axis folded `exploration/omni_mantra_walk/` into one line and the
+    working-tree axis then listed all twenty files underneath it. Same folder,
+    twice, once collapsed and once not. So this runs over the combined list
+    after every axis has contributed.
+
+    Order is preserved by first appearance, which keeps the leading axis
+    (unmerged commits) at the top where it belongs. Directories at or under the
+    threshold keep their individual files — a two-file match is specific enough
+    to act on directly.
+    """
+    order: list[str] = []
+    by_directory: dict[str, list[tuple[str, str]]] = {}
+    passthrough: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    for artifact, origin in surfaced:
+        # Cross-axis duplicates are the norm, not the exception: a file listed
+        # in LOADOUT is usually also in the working tree. First axis wins, and
+        # the axis order above puts the most specific one first.
+        if artifact in seen:
+            continue
+        seen.add(artifact)
+        if artifact.startswith(("commit:", "cli:")):
+            passthrough.append((artifact, origin))
+            order.append(f"\x00{len(passthrough) - 1}")
+            continue
+        directory = str(Path(artifact).parent).replace("\\", "/")
+        if directory not in by_directory:
+            by_directory[directory] = []
+            order.append(directory)
+        by_directory[directory].append((artifact, origin))
+
+    out: list[tuple[str, str]] = []
+    for key in order:
+        if key.startswith("\x00"):
+            out.append(passthrough[int(key[1:])])
+            continue
+        entries = by_directory[key]
+        if len(entries) > _DIRECTORY_COLLAPSE_THRESHOLD:
+            origins = sorted({o.split(":")[0] for _a, o in entries})
+            out.append(
+                (
+                    f"{key}/  ({len(entries)} matching files)",
+                    "+".join(origins),
+                )
+            )
+        else:
+            out.extend(entries)
+    return out
+
+
 def find_in_commit_subjects(term: str, limit: int = 15) -> list[tuple[str, str, str]]:
     """(subject, sha, branch) for unmerged commits whose SUBJECT matches `term`.
 
@@ -287,9 +450,15 @@ def open_check(symptom: str) -> ReachCheck:
         "INSERT INTO reach_checks (check_id, symptom, opened_at) VALUES (?, ?, ?)",
         (check_id, symptom, now),
     )
-    surfaced = [
-        (f"commit:{sha} {subject}", f"unmerged-commit:{branch}") for subject, sha, branch in commits
-    ] + _artifacts_from(art)
+    surfaced = (
+        [
+            (f"commit:{sha} {subject}", f"unmerged-commit:{branch}")
+            for subject, sha, branch in commits
+        ]
+        + [(path, f"loadout:{section}") for _label, path, section in find_in_loadout(symptom)]
+        + _artifacts_from(art)
+    )
+    surfaced = _collapse_by_directory(surfaced)
 
     items: list[ReachItem] = []
     for artifact, origin in surfaced:

@@ -345,6 +345,16 @@
             "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/reach-check-doorman.sh",
+            "timeout": 20
+          }
+        ]
       }
     ],
     "PostToolUse": [
