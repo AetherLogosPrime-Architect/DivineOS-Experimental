@@ -55,6 +55,19 @@ def register(cli: click.Group) -> None:
                 "`divineos reach dispose`."
             )
 
+        # Andrew 2026-08-06: "if stuff is missing from it add it to there."
+        # Searching LOADOUT makes reach only as good as LOADOUT, so the loop
+        # runs both ways — an artifact found on disk or in git that the index
+        # does not carry is an index defect, reported where it is provable
+        # rather than waiting for a drift sweep to notice.
+        gaps = reach_check.loadout_gaps([i.artifact for i in check.items])
+        if gaps:
+            click.echo()
+            click.echo(f"LOADOUT GAP — {len(gaps)} surfaced artifact(s) the index does not list:")
+            for artifact in gaps:
+                click.echo(f"  {artifact}")
+            click.echo("  Fix: divineos loadout refresh")
+
     @reach_group.command("status")
     def reach_status_cmd() -> None:
         """Show checks that still have undisposed artifacts."""

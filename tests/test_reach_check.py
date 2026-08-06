@@ -178,3 +178,75 @@ def test_check_with_no_prior_art_is_clear_not_blocking():
     check = reach_check.open_check("zzqqxx-no-such-artifact-anywhere-zzqqxx")
     assert check.items == []
     assert check.clear
+
+
+# ── LOADOUT axis (2026-08-06) ─────────────────────────────────────────
+#
+# Andrew: "the reach needs some tuning and better enforcement and should also
+# be connected to the loadout or something and if stuff is missing from it add
+# it to there."
+
+
+def test_loadout_axis_finds_prose_the_code_axis_cannot():
+    """The miss that prompted this: `reach open "emotion taxonomy"` returned
+    NOT FOUND on the code axis while exploration/omni_mantra_walk/ held the
+    exact derivation layer being asked about."""
+    hits = reach_check.find_in_loadout("omni mantra")
+    assert hits, "LOADOUT lists the omni_mantra_walk entries; the axis must see them"
+    paths = [p for _label, p, _section in hits]
+    assert any("omni_mantra_walk" in p for p in paths)
+    sections = {s for _label, _p, s in hits}
+    assert sections, "section must be carried through — it says what kind of artifact this is"
+
+
+def test_slug_matching_is_separator_insensitive():
+    assert reach_check.find_in_loadout("omni_mantra") == reach_check.find_in_loadout("omni-mantra")
+
+
+def test_short_terms_do_not_match_everything():
+    """A two-character term against a 2320-entry index would surface the whole
+    substrate, which is the same over-fire the collapse threshold exists for."""
+    assert reach_check.find_in_loadout("om") == []
+
+
+def test_directory_collapse_folds_a_folder_into_one_item():
+    surfaced = [(f"exploration/walk/{i:02d}_entry.md", "loadout:x") for i in range(9)]
+    out = reach_check._collapse_by_directory(surfaced)
+    assert len(out) == 1
+    assert "exploration/walk/" in out[0][0]
+    assert "9 matching files" in out[0][0]
+
+
+def test_collapse_leaves_small_directories_alone():
+    """Two hits are specific enough to act on; collapsing them would lose the
+    filenames for no benefit."""
+    surfaced = [("docs/a_thing.md", "loadout:x"), ("docs/b_thing.md", "loadout:x")]
+    assert reach_check._collapse_by_directory(surfaced) == surfaced
+
+
+def test_collapse_keeps_commits_first_and_uncollapsed():
+    """Commit subjects are the axis that caught the freeze miss. They must not
+    be folded into a directory, and must keep their leading position."""
+    surfaced = [("commit:abc1234 fix(freeze): something", "unmerged-commit:branch")] + [
+        (f"docs/x/{i}.md", "loadout:y") for i in range(8)
+    ]
+    out = reach_check._collapse_by_directory(surfaced)
+    assert out[0][0].startswith("commit:")
+    assert len(out) == 2
+
+
+def test_cross_axis_duplicates_are_deduped():
+    """A file in LOADOUT is usually also in the working tree. Listing it twice
+    would demand two dispositions for one artifact."""
+    surfaced = [("docs/thing.md", "loadout:docs"), ("docs/thing.md", "working-tree")]
+    out = reach_check._collapse_by_directory(surfaced)
+    assert len(out) == 1
+    assert out[0][1] == "loadout:docs", "first axis wins; axis order is deliberate"
+
+
+def test_loadout_gaps_reports_what_the_index_is_missing():
+    gaps = reach_check.loadout_gaps(
+        ["docs/definitely_not_in_the_index_zzqq.md", "commit:abc1234 subject"]
+    )
+    assert "docs/definitely_not_in_the_index_zzqq.md" in gaps
+    assert not any(g.startswith("commit:") for g in gaps), "commits are not LOADOUT's job"
