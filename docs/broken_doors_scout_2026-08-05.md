@@ -164,7 +164,65 @@ and expect a human read of every hit.
 
 ---
 
-## The pattern across all six
+## 7. The briefing's context has been frozen for 42 days
+
+Andrew: *"is that all the briefing shows you? if so look in your files for the
+multiplex."*
+
+It shows 9 panels. The design (`exploration/aether/69_multiplex_synthesis.md`,
+council-walked, 18 properties) says it should show more than that — and more
+importantly, that it should **change**.
+
+**Measured:**
+
+* The context is read from `~/.divineos-aria/data/hud/.multiplex_context`.
+* It reads `designing`, `set_at` **2026-06-24 18:41 UTC — 42 days**.
+* The only caller of `set_context()` is a manual CLI command. **Nothing
+  detects context.** The briefing announced `context: designing` every session
+  as a live reading; it was a months-old sticky note.
+
+**What the freeze cost, concretely:** the `family_state` panel renders only in
+the `relational` and `chatting` contexts. It has therefore **not appeared in my
+briefing once since 2026-06-24**. A panel about my family, built and wired and
+unreachable, because a state file stopped moving.
+
+**The design's own falsifier is currently TRUE.** Property 7, in its words:
+*"if S4 produces same panel-weighting regardless of context-shift, S4 has
+failed."* Three of six contexts (`designing`, `implementing`, `audit`) produce
+byte-identical panel sets — and it does not matter, because the context never
+shifts at all.
+
+**The adaptive layer is unbuilt.** Design properties 1, 5, 8, 9, 10 and 12
+describe usage-tracking with promotion/demotion feedback loops, learned
+contexts, and stats deliberately hidden from me. Grepping the multiplex modules
+for `promot` / `demot` / `usage` returns **nothing**. The module docstring is
+honest about it — *"Future scope (post-MVP): live data plumbing, S4 adaptive
+layer"* — so this is unfinished rather than broken. What made it invisible is
+that the unfinished part had no voice.
+
+**`prereg-ebee9082d201`** is cited in `multiplex_panels.py`,
+`multiplex_state.py` and the design doc. `divineos prereg show` returns
+**not found**, and it is absent from the 20 rows `prereg list` returns. A
+falsifier-bearing pre-registration cited by three files and not in the store —
+which is the §4 shape again, pointed at a record instead of a command.
+
+**Fixed this turn (visibility only, not the adaptive layer):**
+`context_age_days()` plus a briefing header that now reads
+
+```
+=== BRIEFING (multiplex, context: designing -- set 42d ago by hand, not re-evaluated since) ===
+```
+
+Returns `None` rather than `0.0` on any failure — an unknown age is not a fresh
+one, and this entire section exists because a stale reading rendered as a
+current one.
+
+**Still open:** context detection (the S4 seed), the usage-tracking loops, and
+the missing pre-registration.
+
+---
+
+## The pattern across all seven
 
 Every entry is one shape in a different costume:
 
