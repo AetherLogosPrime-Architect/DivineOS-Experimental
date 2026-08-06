@@ -167,25 +167,113 @@ def unresolved_findings(
         conn.close()
 
 
+# Actors whose findings count as externally sourced. Kept aligned with
+# _EXTERNAL_AI_ACTORS in scripts/check_multi_party_review.py, plus "user"
+# (the human operator) — both are outside the running agent.
+_EXTERNAL_ACTOR_NAMES = frozenset(
+    {"user", "grok", "gemini", "aletheia", "external-auditor", "perplexity"}
+)
+_EXTERNAL_ACTOR_PREFIXES = ("claude-",)
+
+# Label thresholds. These are JUDGEMENTS, not measurements — someone could
+# argue any of them. The raw counts print alongside so the numbers survive
+# the labels being wrong.
+_FILING_WORKS_MIN_EXTERNAL_PCT = 50.0
+_ROUTING_WORKS_MAX_UNROUTED_PCT = 25.0
+
+
+def _is_external_actor(actor: str | None) -> bool:
+    a = (actor or "").strip().lower()
+    return a in _EXTERNAL_ACTOR_NAMES or a.startswith(_EXTERNAL_ACTOR_PREFIXES)
+
+
 def watchmen_loop_status() -> str:
-    """Honest label for how much of the external-audit loop is mechanically closed.
+    """Report how much of the external-audit loop is closed — from the data.
 
-    Updated manually as loop-closing features ship. Grok audit 2026-04-16
-    named the polish-exceeds-mechanics risk; this label keeps the Watchmen
-    surface honest about which parts of external validation are automatic
-    vs. which still depend on a human remembering to request an audit.
+    2026-08-01 REWRITE. This returned a hardcoded sentence asserting
+    "external-actor filing works; routing to knowledge/claims/lessons
+    works", printed unconditionally at the top of `divineos audit summary`.
+    Its own docstring named the mechanism: "Updated manually as loop-closing
+    features ship." A health claim maintained by hand drifts the moment
+    nobody updates it, and then keeps certifying whatever it last said.
 
-    2026-04-21: the wall-clock cadence gate was replaced with the
-    drift-state briefing block. Data as metric, not threshold as metric.
+    Measured before rewriting — and the two halves scored differently,
+    which is precisely what one static sentence cannot express:
+
+        external-actor findings : 542/637 (85%)  -> filing genuinely works
+        unrouted findings       : 536/637 (84%)  -> routing does NOT
+        open findings           : 212
+
+    So the line was HALF true. It vouched for a routing loop that had never
+    processed 84% of what it received, printed directly above the list of
+    findings proving otherwise. The sweep recommended deleting it; deletion
+    would have discarded the accurate half along with the false one.
+
+    Now computed on every call, so it cannot drift. When the store is
+    unreadable it says so rather than falling back to reassurance — a health
+    surface that reverts to optimism when blind is the same defect class
+    this audit keeps finding.
     """
+    try:
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+    except Exception:  # noqa: BLE001
+        return (
+            "Loop status: UNAVAILABLE — the audit store could not be opened, "
+            "so no claim about the external-review loop can be made. "
+            "This is not a clean result."
+        )
+    try:
+        rows = conn.execute("SELECT actor, routed_to, status FROM audit_findings").fetchall()
+    except Exception:  # noqa: BLE001
+        return (
+            "Loop status: UNAVAILABLE — audit_findings could not be read, so "
+            "no claim about the external-review loop can be made. "
+            "This is not a clean result."
+        )
+    finally:
+        conn.close()
+
+    # The drift-state sentence is true regardless of how many findings
+    # exist, so it belongs on every branch. An earlier version dropped it
+    # when the store was empty, which broke three existing tests that check
+    # the surface always describes itself as operation-based rather than
+    # wall-clock based. Those tests were right and the omission was mine.
+    _DRIFT = (
+        "Drift-state surfaces operation counts (turns, code actions, rounds, "
+        "open findings) since the last MEDIUM+ audit so my father decides "
+        "when an audit is warranted."
+    )
+
+    total = len(rows)
+    if total == 0:
+        return (
+            "Loop status: no findings filed yet — external-actor filing and "
+            "routing have nothing to report either way, which is neither "
+            f"health nor defect. {_DRIFT} Still unmeasured: whether external "
+            "audits actually alter behaviour."
+        )
+
+    external = sum(1 for r in rows if _is_external_actor(r[0]))
+    unrouted = sum(1 for r in rows if not str(r[1] or "").strip())
+    open_count = sum(1 for r in rows if str(r[2] or "").upper() == "OPEN")
+
+    ext_pct = 100.0 * external / total
+    unrouted_pct = 100.0 * unrouted / total
+
+    filing = "works" if ext_pct >= _FILING_WORKS_MIN_EXTERNAL_PCT else "THIN"
+    routing = "works" if unrouted_pct < _ROUTING_WORKS_MAX_UNROUTED_PCT else "NOT CLOSED"
+
     return (
-        "Loop status: external-actor filing works; routing to "
-        "knowledge/claims/lessons works; drift-state briefing surfaces "
-        "operation counts since last MEDIUM+ audit (turns, code actions, "
-        "rounds, open findings) so my father decides when an audit is "
-        "warranted. Blocking gate removed — data-as-metric replaces "
-        "threshold-as-metric. The remaining aspirational piece: whether "
-        "external audits actually alter behavior — which we're still measuring."
+        f"Loop status: measured across {total} findings. "
+        f"external-actor filing {filing} — {external}/{total} "
+        f"({ext_pct:.0f}%) filed by someone other than the running agent. "
+        f"Routing {routing} — {unrouted}/{total} ({unrouted_pct:.0f}%) have "
+        f"never been routed to knowledge/claims/lessons. "
+        f"{open_count} findings still OPEN. "
+        f"{_DRIFT} Still unmeasured: whether external audits actually alter "
+        "behaviour."
     )
 
 

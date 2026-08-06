@@ -418,7 +418,7 @@ def register(cli: click.Group) -> None:
                 if not sessions:
                     click.secho("\n[-] No analyzed sessions found yet.", fg="yellow")
                     click.secho(
-                        "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
+                        "    Run 'divineos inspect analyze <file.jsonl>' to analyze a session.",
                         fg="bright_black",
                     )
                     click.echo()
@@ -446,7 +446,7 @@ def register(cli: click.Group) -> None:
                     click.secho(f"     Files: {session['file_count']}", fg="bright_black")
                     click.echo()
 
-                click.secho("Usage: divineos report <session_id>", fg="bright_black")
+                click.secho("Usage: divineos inspect report <session_id>", fg="bright_black")
                 click.echo()
             else:
                 report = get_stored_report(session_id)

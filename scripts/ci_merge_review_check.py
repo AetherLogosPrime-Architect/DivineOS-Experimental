@@ -15,10 +15,19 @@ job) AND runnable locally for a dry-run:
         --repo AetherLogosPrime-Architect/DivineOS-Experimental
 
 Exit codes:
-  0 — gate PASSES (operator approval on head + named, logged round), OR the
-      PR touches no guardrail files (gate does not apply).
-  1 — gate FAILS (verdict False). The message explains why.
+  0 — PASS (operator approval on head + named round), PENDING (nobody has
+      approved the current head yet — the normal state of an open PR), OR
+      the PR touches no guardrail files (gate does not apply).
+  1 — FAIL. Someone approved, but the receipt does not hold up: no round
+      named, or a round named that the audit store says does not exist.
   2 — infrastructure error (could not fetch PR data). Fails LOUD, not silent.
+
+PENDING exits 0 deliberately (2026-08-01). This job runs on every push, and
+an approval cannot exist on a head SHA created seconds earlier — so treating
+unapproved as failure made the check unpassable by construction: 17 failures
+and 0 passes across the recent run history. Nothing that was caught before
+stops being caught; the FAIL conditions are unchanged. What changes is that
+a red merge-review now carries information instead of being wallpaper.
 
 ## Bypass (expensive-to-game, not impossible)
 
@@ -41,7 +50,6 @@ import sys
 from divineos.core.merge_review_gate import (
     Review,
     load_config,
-    verify_merge,
 )
 
 _EMERGENCY_ENV = "DIVINEOS_MERGE_REVIEW_EMERGENCY_BYPASS"
@@ -103,20 +111,57 @@ def _fetch_pr_meta(repo: str, pr: int) -> tuple[str, str] | None:
     return head, body + "\n" + commit_text
 
 
-def _round_is_logged(round_id: str) -> bool:
-    """True if the referenced audit round exists in the Watchmen store.
+def _round_is_logged(round_id: str) -> bool | None:
+    """Whether the referenced audit round exists in the Watchmen store.
 
-    Fails toward False (a round we cannot confirm is treated as absent), so a
-    fabricated id cannot pass by making the lookup error out.
+    True  — store was readable and the round is there.
+    False — store was readable and the round genuinely is NOT there.
+    None  — the store could not be read at all, so this is UNKNOWN.
+
+    The None case is the whole point (2026-08-01). The audit store is local
+    runtime state; every ``*.db`` is gitignored, so in CI there is no store
+    to open and there never will be. The previous version collapsed
+    "unreachable" into False and then reported it as "no such round was
+    logged" — asserting that a round is fabricated on the strength of a
+    lookup that never ran. Fail-closed is the right instinct when a check
+    might be evaded; it is the wrong instinct when the condition is not
+    merely likely to be unmet but structurally guaranteed to be, in every
+    CI run, permanently.
+
+    So the three states stay distinct and the caller decides what each one
+    is worth. An empty ``round_id`` is a genuine absence — nothing was
+    named — not an unknown.
     """
     if not round_id:
         return False
+
+    # The exported record is checked FIRST, because it is the only one of the
+    # two that exists in CI. `divineos audit export` writes each round to
+    # docs/audit_rounds/<id>.md, and those files are committed, so a bare
+    # checkout finally carries the review with it. This is what turns
+    # round-verification from structurally-unknowable into verifiable.
+    #
+    # It is NOT the keystone and must not be read as one: a committed file is
+    # agent-writable. The unforgeable part remains Andrew's GitHub approval on
+    # the exact head SHA, and multi-party-review independently binds the
+    # trailer to the reviewed tree by hash. What the export adds is that the
+    # review is now READABLE — the findings are on the PR for a human.
+    try:
+        from divineos.core.watchmen.export import exported_round_exists
+
+        if exported_round_exists(round_id):
+            return True
+    except Exception:  # noqa: BLE001 — no export available → try the live store
+        pass
+
     try:
         from divineos.core.watchmen.store import get_round
-
+    except Exception:  # noqa: BLE001 — module unimportable → cannot check
+        return None
+    try:
         return get_round(round_id) is not None
-    except Exception:  # noqa: BLE001 — unknown/unreachable round → not logged
-        return False
+    except Exception:  # noqa: BLE001 — store unreadable/absent → cannot check
+        return None
 
 
 def _pr_touches_guardrail(repo: str, pr: int) -> bool:
@@ -231,21 +276,24 @@ def main(argv: list[str]) -> int:
         config_raw = ""
     config = load_config(config_raw)
 
-    from divineos.core.merge_review_gate import has_round_reference
+    from divineos.core.merge_review_gate import classify_merge, has_round_reference
 
     round_id = has_round_reference(body_and_commits) or ""
     round_logged = _round_is_logged(round_id)
 
-    ok, msg = verify_merge(
+    verdict, msg = classify_merge(
         reviews=reviews,
         head_sha=head_sha,
         pr_body_and_commits=body_and_commits,
         config=config,
         round_is_logged=round_logged,
     )
-    prefix = "[merge-review] PASS:" if ok else "[merge-review] FAIL:"
-    print(f"{prefix} {msg}")
-    return 0 if ok else 1
+    print(f"[merge-review] {verdict}: {msg}")
+    # PENDING exits 0. An open PR that nobody has approved yet is the normal
+    # state of an open PR, not a defect, and this job runs on every push —
+    # so failing on it made the check permanently red and therefore mute.
+    # Only FAIL is red now, which is what makes red mean something.
+    return 1 if verdict == "FAIL" else 0
 
 
 if __name__ == "__main__":

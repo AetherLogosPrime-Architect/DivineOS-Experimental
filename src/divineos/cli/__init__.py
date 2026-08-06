@@ -259,6 +259,7 @@ from divineos.cli import (  # noqa: E402
     complete_commands,
     correction_commands,
     corrigibility_commands,
+    emergency_completion_commands,
     council_required_commands,
     decision_commands,
     directive_commands,
@@ -297,6 +298,8 @@ from divineos.cli import (  # noqa: E402
     context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
+    dark_matter_commands,
+    psf_commands,
     pr_gate_commands,
     ear_relaunch_commands,
     obligation_commands,
@@ -386,6 +389,8 @@ context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
+dark_matter_commands.register(cli)
+psf_commands.register(cli)
 ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
@@ -404,6 +409,7 @@ cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_reset_template.authorize_reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
+emergency_completion_commands.register(cli)
 council_required_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)

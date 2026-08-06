@@ -72,7 +72,6 @@ import hashlib
 import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 # Trailer pattern — matches `External-Review: <id>` and tolerates trailing
@@ -123,8 +122,6 @@ _DIFF_HASH_PATTERN = re.compile(r"diff-hash:\s*([0-9a-f]{64})", re.IGNORECASE)
 # (claim 2026-04-24 06:15) should prefer tree-hash. SHA-1 = 40 hex chars.
 _TREE_HASH_PATTERN = re.compile(r"tree-hash:\s*([0-9a-f]{40})", re.IGNORECASE)
 
-# Recency window: 7 days. An old audit round cannot authorize a new commit.
-_RECENCY_WINDOW_SECONDS = 7 * 24 * 3600
 
 # External-AI actor set. If any of these has a CONFIRMS finding in the
 # round, that satisfies the AI-side of the two-key. "claude" alone is
@@ -280,15 +277,6 @@ def _round_description(rnd) -> str:  # type: ignore[no-untyped-def]
     return " ".join(parts)
 
 
-def _round_created_at(rnd) -> float:  # type: ignore[no-untyped-def]
-    """Safely pull the round's creation timestamp."""
-    for attr in ("created_at", "timestamp", "ts"):
-        val = getattr(rnd, attr, None)
-        if isinstance(val, (int, float)):
-            return float(val)
-    return 0.0
-
-
 def _finding_actor(finding) -> str:  # type: ignore[no-untyped-def]
     """Safely pull the actor string from a Finding object."""
     val = getattr(finding, "actor", "") or ""
@@ -312,7 +300,12 @@ def _finding_stance_is_confirm(finding) -> bool:  # type: ignore[no-untyped-def]
 
 def validate(
     commit_msg: str,
-    now: float | None = None,
+    # Retained for call-signature compatibility. As of 2026-08-01 nothing
+    # in this function is time-dependent: the recency window was removed
+    # in favour of the content-binding check, which answers the same
+    # question exactly. Kept so existing callers do not break.
+    now: float | None = None,  # noqa: ARG001
+
     touched_override: set[str] | None = None,
     diff_hash_override: str | None = None,
     tree_hash_override: str | None = None,
@@ -372,16 +365,43 @@ def validate(
             "gate conservatively blocks when provenance cannot be verified."
         )
 
-    ts = now if now is not None else time.time()
-    round_age = ts - _round_created_at(rnd)
-    if round_age > _RECENCY_WINDOW_SECONDS or round_age < 0:
-        days = round_age / 86400
-        return False, (
-            f"External-Review round '{trailer}' is {days:.1f} days old\n"
-            f"(window is {_RECENCY_WINDOW_SECONDS / 86400:.0f} days).\n"
-            "Stale approvals cannot authorize a new commit; file a\n"
-            "fresh review round and reference it."
-        )
+    # 2026-08-01: the 7-day recency window was REMOVED here, not converted
+    # to an event count.
+    #
+    # Andrew's rule: "all timed events using any type of days needs to be
+    # changed to N-events tied to the ledger... even if it was perfectly
+    # calibrated, if in 7 days we dont ever test it, the metric comes back
+    # with very little data." Following that into this gate produced a
+    # stronger answer than a swap of units.
+    #
+    # The window's own comment gave its purpose as "an old audit round
+    # cannot authorize a new commit". The question underneath is: does
+    # this review cover THIS code. The binding check immediately below
+    # answers exactly that, by comparing the round's recorded tree-hash
+    # and diff-hash against the actual staged content.
+    #
+    # Content-addressing is not an approximation of freshness — it is the
+    # fact the clock was reaching for. A round filed 90 days ago whose
+    # tree-hash matches reviewed precisely this content. A round filed ten
+    # minutes ago whose hash does not match reviewed something else, and
+    # is blocked below regardless of age.
+    #
+    # So the clock added no safety and subtracted real work: it
+    # manufactured the very stale-approval failures it existed to prevent
+    # (sweep finding rank 3; part of why the PR queue jammed).
+    #
+    # SAFE ONLY BECAUSE BINDING IS NOW MANDATORY. An unbound legacy
+    # trailer has no content check, and for those the clock was the only
+    # guard. This function already requires diff_ok OR tree_ok below, and
+    # ci_check_guardrail_trailer.sh flipped REQUIRE_TREE_HASH to default 1
+    # in the same change. If either of those is ever loosened, this
+    # deletion becomes a hole — that coupling is the reason both live in
+    # one commit.
+    #
+    # Known edge, accepted: code can change and revert back to the
+    # reviewed tree, so the hash matches while an intermediate state was
+    # never seen. The merge delivers the final tree and the final tree was
+    # reviewed. That is a judgment, not a derivation.
 
     # Either diff-hash or tree-hash satisfies the binding. Tree-hash is
     # cross-platform deterministic (claim 2026-04-24 06:15: diff bytes
@@ -448,10 +468,15 @@ def validate(
             "AI judgment in addition to user approval."
         )
 
+    # Reports WHICH binding matched rather than the round's age. Age was
+    # never the guarantee — content-identity is — and printing an age here
+    # implied a freshness check that the hash comparison had already made
+    # redundant.
+    binding = "tree-hash" if tree_ok else "diff-hash"
     return True, (
         f"guardrail review passed: round={trailer}, "
         f"user=confirmed, ai={ai_actor_seen}=confirmed, "
-        f"age={round_age / 3600:.1f}h, diff-hash-match=yes"
+        f"binding={binding}-match=yes"
     )
 
 

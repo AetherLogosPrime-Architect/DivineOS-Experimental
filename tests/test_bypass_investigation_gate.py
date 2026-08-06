@@ -91,20 +91,36 @@ class TestBypassInvestigationGate:
 
         assert enforce_bypass_investigation_gate() is True
 
-    def test_one_pending_blocks(self, isolated_paths):
+    def test_one_pending_informs_but_does_not_block(self, isolated_paths, capsys):
+        """CONTRACT CHANGED 2026-08-02 (Andrew): "the counter should not block
+        but inform." This test previously asserted False. It now asserts the
+        obligation is SURFACED and extract proceeds.
+
+        Why: the wall was a primitive stand-in for a protocol that now exists
+        -- every escape files a root-cause obligation that surfaces here and
+        requires evidence resolving to a real commit or file to close. Aria
+        demonstrated the cost of keeping the block on top of that: she closed
+        five obligations and three appeared immediately, because the commands
+        that close them were themselves recorded as bypasses."""
         from divineos.cli.pipeline_gates import enforce_bypass_investigation_gate
         from divineos.core.bypass_telemetry import record_bypass
 
         record_bypass(gate_name="g", env_var="X", reason="test")
-        assert enforce_bypass_investigation_gate() is False
+        assert enforce_bypass_investigation_gate() is True
+        out = capsys.readouterr().out
+        assert "BYPASS-INVESTIGATION" in out, "the debt must still be surfaced"
+        assert "NOT blocked" in out
 
-    def test_multiple_pending_blocks(self, isolated_paths):
+    def test_multiple_pending_all_surface(self, isolated_paths, capsys):
+        """Informing must scale -- every outstanding escape stays visible, and
+        the count is reported. Quiet is the failure mode now, not blocking."""
         from divineos.cli.pipeline_gates import enforce_bypass_investigation_gate
         from divineos.core.bypass_telemetry import record_bypass
 
         record_bypass(gate_name="g1", env_var="X1", reason="one")
         record_bypass(gate_name="g2", env_var="X2", reason="two")
-        assert enforce_bypass_investigation_gate() is False
+        assert enforce_bypass_investigation_gate() is True
+        assert "2 escape(s)" in capsys.readouterr().out
 
     def test_resolved_pending_no_longer_blocks(self, isolated_paths):
         from divineos.cli.pipeline_gates import enforce_bypass_investigation_gate
@@ -131,15 +147,18 @@ class TestBypassInvestigationGate:
         )
         assert enforce_bypass_investigation_gate() is True
 
-    def test_mixed_kinds_only_bypass_blocks(self, isolated_paths):
+    def test_mixed_kinds_only_bypass_surfaces(self, isolated_paths, capsys):
         from divineos.cli.pipeline_gates import enforce_bypass_investigation_gate
         from divineos.core.bypass_telemetry import record_bypass
         from divineos.core.structural_fix_tracker import record_pending_fix
 
         record_pending_fix(content="a learn fix", source_kind="learn")
         record_bypass(gate_name="g", env_var="X", reason="test")
-        # bypass_use is present → block
-        assert enforce_bypass_investigation_gate() is False
+        # Only bypass_use entries are counted here; a "learn" fix is not an
+        # escape and must never appear in this surface. Contract changed
+        # 2026-08-02: surfaces rather than blocks.
+        assert enforce_bypass_investigation_gate() is True
+        assert "1 escape(s)" in capsys.readouterr().out
 
     def test_gate_fails_open_on_tracker_error(self, isolated_paths, monkeypatch):
         """If structural_fix_tracker.list_pending raises (broken state),

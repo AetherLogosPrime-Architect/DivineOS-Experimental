@@ -115,7 +115,7 @@ def _strip_shell_quoted(cmd: str) -> str:
 
 
 def _has_unquoted_chain_shape(cmd: str) -> bool:
-    """Return True iff cmd contains a chain-shape metachar OUTSIDE quotes.
+    r"""Return True iff cmd contains a chain-shape metachar OUTSIDE quotes.
 
     Strips the content of quoted regions first (leaving a placeholder),
     then runs the chain-shape regex on the outside-quotes structure.
