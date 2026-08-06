@@ -1623,7 +1623,7 @@ def register(cli: click.Group) -> None:
         if not lessons:
             click.secho("[-] No lessons tracked yet.", fg="yellow")
             click.secho(
-                "    Run 'divineos report <session.jsonl> --store' to start learning.",
+                "    Run 'divineos inspect analyze <session.jsonl> --store' to start learning.",
                 fg="bright_black",
             )
             return

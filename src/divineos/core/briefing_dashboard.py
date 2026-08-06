@@ -700,7 +700,7 @@ def _row_holding() -> DashboardRow | None:
             area="Holding room",
             count=len(items),
             stale_count=stale,
-            drill_down="divineos holding list",
+            drill_down="divineos hold list",
             preview=preview,
         )
     except _ERRORS:

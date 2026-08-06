@@ -30,4 +30,4 @@
 #   src/divineos/core/goal_auto_close.py | manages goal state, does not enforce assistant output shape | 2026-07-28
 #
 # ----------------------------------------------------------------
-# (empty — no exclusions currently)
+src/divineos/core/dark_matter.py | read-only reporting tool, not a gate: sweep() returns a list and format_report() returns a string, and no caller anywhere branches on the result. It blocks nothing, refuses nothing, and changes no behavior. Its regexes are a TOKENIZER producing candidates; every verdict is set-membership against the live Click command tree and the settings/hook/git-delegator reachability surfaces, so no pattern decides anything. Derivation matched it structurally because it lives under core/ and holds regexes next to find_* functions. Filed as an exclusion rather than a third per-edit authorization: the doorman has now fired on this one file three times (Andrew-corrections #274, #275, and again 2026-08-02 while adding a SUPERSEDED-BY marker), and an exception granted three times is a misclassification, not an exception. Andrew's own rule permits retrieval-shape keyword use; this is that shape. | 2026-08-02

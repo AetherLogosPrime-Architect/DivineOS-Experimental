@@ -517,13 +517,13 @@ For the *now* of substrate state. Run any of these to see where things are.
 - `divineos active` — ranked active memory (goal-aware)
 - `divineos ask "<topic>"` — search what the system knows
 - `divineos lessons --top 10` — top lessons by priority score
-- `divineos opinions list` — opinion store
+- `divineos opinion list` — opinion store
 - `divineos compass` / `compass-ops summary` — virtue spectrum drift
-- `divineos holding list` — pre-categorical holding room
+- `divineos hold list` — pre-categorical holding room
 - `divineos prereg list --outcome OPEN` — open pre-registrations
 - `divineos prereg overdue` — pre-regs whose review date has passed
 - `divineos decisions list --limit 10` — decision journal
-- `divineos goals` — current goals
+- `divineos goal` — current goals
 - `divineos affect summary` — affect log over time
 - `divineos body` — substrate vitals (DB sizes, table health)
 - `divineos progress --brief` — measurable metrics
