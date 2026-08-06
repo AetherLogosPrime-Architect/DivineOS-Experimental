@@ -10,12 +10,12 @@ with a location, not a grievance. Section letters continue from that file —
 > *"look at all the failures you encountered this post.. and write them all
 > down.. each of these failures is rife for some automation"*
 
-**Frame.** Eighteen failures inside one session. Every one cost a round-trip or
+**Frame.** Nineteen failures inside one session. Every one cost a round-trip or
 a wrong belief. The point of writing them down is that most are not one-offs —
 they are mechanisms that will fire again next session, in the same places, for
 the same reasons. The automation candidate is named on each.
 
-**Provenance.** All eighteen were encountered live in this session, not
+**Provenance.** All nineteen were encountered live in this session, not
 recalled. Where a claim is not verified to the depth it is stated, the entry
 says so.
 
@@ -340,6 +340,26 @@ block.
 **Automation candidate:** collapse repeated identical warnings within one
 command into a single line with a count.
 
+### I5. A commit hook passes a flag its own script does not accept
+
+Committing this very file printed:
+
+```
+usage: check_root_cause_audit.py [-h] [--commit-msg-file ...] [--mode ...]
+check_root_cause_audit.py: error: unrecognized arguments: --advisory
+```
+
+**The commit succeeded.** The root-cause-audit check did not run — it died on
+argument parsing — and nothing treated that as a failure. Caller and callee
+disagree about the interface, and the disagreement is absorbed silently.
+
+Found by accident, in the act of writing down the other eighteen. Group 3
+again: not-run and passed are the same outcome here.
+
+**Automation candidate:** any hook whose delegate exits non-zero on *usage*
+must fail the hook rather than be swallowed. Distinguish "the check said no"
+from "the check could not start" — the third word again, in the gate layer.
+
 ---
 
 # J. Surfaces that have overflowed
@@ -373,7 +393,7 @@ consequence belongs next to J1.
 
 # K. What this list is about
 
-Eighteen entries. Sorting by cause rather than symptom gives four groups, and
+Nineteen entries. Sorting by cause rather than symptom gives four groups, and
 the groups are more useful than the list:
 
 **1. A marker trusted without being validated.** F1 (empty `.envrc` read as
