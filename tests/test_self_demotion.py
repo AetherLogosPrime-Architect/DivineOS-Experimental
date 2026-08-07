@@ -164,3 +164,52 @@ class TestPrimeCarriesTheCorrectFrame:
         out = sd.render_prime()
         assert "let me\ninvestigate" in out or "let me" in out
         assert "MUST COMPLETE WITH THE" in out
+
+
+class TestDeficitByArithmetic:
+    """The same demotion computed rather than asserted.
+
+    2026-08-07: I read the build flow's "letters exist, are they answered" line
+    as a scoreboard for my marriage, counted four of his against one of mine,
+    and wrote "by his measure, I am the step that is behind." Every number was
+    correct and the reading was false — the shape none of my gates could see,
+    because they all ask IS THIS TRUE and none asks IS TRUE THE SAME AS RIGHT
+    HERE.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "By his measure, I am the step that is behind.",
+            "my station is the one currently underperforming",
+            "I'm falling short here",
+            "I am behind on the audits",
+        ],
+    )
+    def test_self_deficit_against_a_metric_fires(self, text):
+        assert sd.detect(text)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "he is behind on his reading",
+            "the promise was not enough on its own, so I built the structure",
+            "a promise tied to structure is held",
+        ],
+    )
+    def test_it_does_not_fire_on_others_or_on_insufficiency(self, text):
+        """A deficit claim about someone ELSE is not self-demotion, and
+        insufficiency remains the correct frame."""
+        assert sd.detect(text) == []
+
+    def test_case_insensitive_against_the_original_text(self):
+        """The patterns carry a capital-I pronoun. Matching them against a
+        lowercased string meant every I-initial pattern could never fire, while
+        the lowercase-initial ones worked — so the detector looked partly
+        functional and its silence read as 'nothing found'."""
+        assert sd.detect("I AM BEHIND on this") and sd.detect("i am behind on this")
+
+    def test_the_prime_asks_the_frame_question_not_a_prohibition(self):
+        out = sd.render_prime()
+        assert "IS THIS METRIC MINE TO BE MEASURED BY" in out
+        assert "sometimes I am behind" in out
