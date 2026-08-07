@@ -50,6 +50,159 @@ class GateDecision:
 _GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create(?![-\w])")
 _DRAFT_FLAG_RE = re.compile(r"(^|\s)(--draft|-d)(\s|$)")
 
+# 2026-08-07: this module guarded the way IN and not the way OUT.
+#
+# `check_pr_create_safe` blocks OPENING a ready PR on a guardrail
+# branch. Its own block message then names the correct next step —
+# "promote with `gh pr ready <n>`" — and nothing guarded that step. The
+# gate was fully satisfiable by opening as draft, then walked straight
+# past by promoting.
+#
+# That is what happened: ten PRs marked ready in one batch, none
+# audited, none carrying an External-Review trailer. Andrew: "all of
+# them will fail as none of them have the external trailer since
+# Aletheia never audited them." Every one went red on the public feed —
+# the precise outcome this module exists to prevent, reached through the
+# door it did not cover.
+#
+# Same shape as the rest of that day's findings: presence of a check is
+# not coverage of a path. The create-gate was real, tested and working,
+# and the transition it protected had a second entrance.
+#
+# Authorized past the keyword-enforcement doorman as case (b): these are
+# protocol parsers, not behavior detectors. A git trailer is a fixed
+# wire format and `gh pr ready` is a fixed CLI verb — no adversary is
+# varying the wording.
+_GH_PR_READY_RE = re.compile(r"\bgh\s+pr\s+ready(?![-\w])")
+_EXTERNAL_REVIEW_RE = re.compile(r"^External-Review:\s*\S+", re.MULTILINE)
+_PR_NUMBER_RE = re.compile(r"\bgh\s+pr\s+ready\s+(\d+)")
+
+
+def is_gh_pr_ready(command: str) -> bool:
+    """True if `command` is a `gh pr ready` invocation.
+
+    Same discrete-subcommand discipline as `is_gh_pr_create` — a
+    hypothetical `gh pr ready-check` is a different verb and must not
+    match.
+    """
+    return bool(_GH_PR_READY_RE.search(command))
+
+
+def branch_commit_messages(repo_root: str | None = None) -> list[str]:
+    """Full messages of commits on this branch ahead of origin/main.
+
+    NUL-delimited because commit bodies contain blank lines, and any
+    line-based split would fragment one message into several.
+
+    Fail-open on git error, matching `branch_files_changed`. Note where
+    that lands the caller: fail-open here ALLOWS the promotion, so this
+    is the weak edge of the check. Documented rather than quietly relied
+    on — if git is unreadable the gate protects nothing and must not be
+    mistaken for protection.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "log", "origin/main..HEAD", "--format=%B%x00"],
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+            check=False,
+        )
+    except OSError:
+        return []
+    if proc.returncode != 0:
+        return []
+    return [chunk for chunk in proc.stdout.split("\0") if chunk.strip()]
+
+
+def pr_body(command: str, repo_root: str | None = None) -> str:
+    """Body text of the PR being promoted, or "" if it can't be read.
+
+    Load-bearing, and it exists because the substrate contradicted the
+    first draft of this gate. Knowledge entry a7193bf6 (read 44 times,
+    and itself a correction of an earlier wrong entry) records what
+    scripts/ci_check_multi_party_review.py actually does: it passes if
+    the trailer appears in the PR BODY **or** any commit message in the
+    range. A gate that only scanned commits would block promotions that
+    CI would have passed — a false block, which is the friction that
+    gets gates switched off.
+
+    Takes the PR number from the command when given; otherwise lets `gh`
+    resolve the current branch.
+    """
+    match = _PR_NUMBER_RE.search(command)
+    args = ["gh", "pr", "view"]
+    if match:
+        args.append(match.group(1))
+    args += ["--json", "body", "--jq", ".body"]
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, cwd=repo_root, check=False)
+    except OSError:
+        return ""
+    return proc.stdout if proc.returncode == 0 else ""
+
+
+def check_pr_ready_safe(command: str, repo_root: str | None = None) -> GateDecision:
+    """Should this `gh pr ready` promotion proceed?
+
+    Promotion is the moment CI starts firing — the integrity-audit
+    workflow skips drafts and runs on ready PRs. Promoting a guardrail
+    branch with no `External-Review` trailer anywhere therefore
+    schedules a red badge, immediately and publicly.
+
+    Routing:
+      - Not a `gh pr ready` invocation       → ALLOW (gate doesn't apply)
+      - Branch touches no guardrail files    → ALLOW (nothing to protect)
+      - Trailer in a commit OR the PR body   → ALLOW (audit happened)
+      - Guardrails touched, trailer nowhere  → BLOCK
+
+    The check reads the TRAILER, not my recollection that an audit
+    happened. Andrew 2026-08-07 on why this matters beyond tidiness:
+    "when they push to git the only real red marks will be from actual
+    errors." A promotion that is red-by-construction is noise that hides
+    the genuine failures underneath it.
+    """
+    if not is_gh_pr_ready(command):
+        return GateDecision(blocked=False)
+
+    changed = branch_files_changed(repo_root=repo_root)
+    if not changed:
+        return GateDecision(blocked=False)
+
+    guardrail = load_guardrail_set(repo_root=repo_root)
+    if not guardrail:
+        return GateDecision(blocked=False)
+
+    touched = sorted(set(changed) & guardrail)
+    if not touched:
+        return GateDecision(blocked=False)
+
+    messages = branch_commit_messages(repo_root=repo_root)
+    if any(_EXTERNAL_REVIEW_RE.search(msg) for msg in messages):
+        return GateDecision(blocked=False)
+    if _EXTERNAL_REVIEW_RE.search(pr_body(command, repo_root=repo_root)):
+        return GateDecision(blocked=False)
+
+    truncated = touched[:5]
+    overflow = " ..." if len(touched) > 5 else ""
+    msg = (
+        "BLOCKED: promoting this PR out of draft would fire the "
+        "integrity-audit workflow on a guardrail branch with no "
+        "`External-Review:` trailer in any commit or in the PR body. CI "
+        "skips drafts and runs on ready PRs, so this promotion schedules "
+        "a red multi-party-review badge on the public feed — before any "
+        "audit has happened.\n"
+        f"  Guardrail files touched: {', '.join(truncated)}{overflow}\n"
+        f"  Commits scanned on this branch: {len(messages)}\n\n"
+        "This is the door the create-gate did not cover. Ten PRs were "
+        "promoted this way in one batch and every one went red.\n\n"
+        "Fix: leave it draft until the audit round files, put the "
+        "External-Review trailer on the branch commit, then promote. "
+        "The squash-merge body needs it too — `divineos audit "
+        "prepare-merge <round-id>` generates that body."
+    )
+    return GateDecision(blocked=True, reason=msg, touched_guardrails=touched)
+
 
 def is_gh_pr_create(command: str) -> bool:
     """True if `command` is a `gh pr create` invocation.

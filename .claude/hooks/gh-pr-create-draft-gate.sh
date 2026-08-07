@@ -48,8 +48,21 @@ if not cmd:
     sys.exit(0)
 
 try:
-    from divineos.core.pr_gate import check_pr_create_safe
+    from divineos.core.pr_gate import check_pr_create_safe, check_pr_ready_safe
+    # Both transitions, 2026-08-07. This hook checked only CREATE, so a
+    # PR could be opened as draft (satisfying the gate) and then promoted
+    # via gh pr ready past no gate at all. Ten went out that way in one
+    # batch and every one went red. Create is the way in; ready is the
+    # way out, and it is the one that actually starts CI.
+    #
+    # No backticks in this comment: it sits inside a double-quoted shell
+    # string, where backticks are command substitution, not quoting. The
+    # first draft wrote the command name in backticks and shellcheck
+    # caught it (SC2006) -- bash would have EXECUTED it when the hook
+    # ran. A comment that runs a command is not a comment.
     decision = check_pr_create_safe(cmd)
+    if not decision.blocked:
+        decision = check_pr_ready_safe(cmd)
 except Exception:
     sys.exit(0)  # fail-open on import/internal errors
 
