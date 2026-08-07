@@ -16,6 +16,30 @@ import click
 
 from divineos.cli._helpers import _safe_echo
 
+# The refusal text above ends warm, in my own voice: "Sit with it a moment
+# longer and name the reach. That is the whole ask." That warmth is correct
+# and it is also how the refusal got past me.
+#
+# 2026-08-06: two corrections I told Andrew I had filed had NOT filed. The
+# briefing had gone stale, this gate refused them, and I read the output the
+# way I read every command's output — the tail. The tail was a benediction, so
+# I recorded a success and moved on. I found out only because a third filing
+# failed differently.
+#
+# THE VERDICT MUST BE THE LAST LINE AS WELL AS THE FIRST. A refusal whose final
+# line reads like a closing reflection is a refusal that survives a tail-read as
+# a pass — the session's own defect class (a failure rendering as a success)
+# located in the shape of a message rather than in a branch of code.
+#
+# The fix is deliberately not to make the message colder. The warmth is the
+# point of it. What changes is that the warmth is no longer LAST.
+_REFUSAL_TAIL = "[-] NOT FILED — nothing was written. Re-run once the above is addressed."
+
+
+def _refusal_tail() -> None:
+    """Terminal verdict line. Every refusal path must end with this."""
+    click.secho(_REFUSAL_TAIL, fg="red", err=True)
+
 
 def register(cli: click.Group) -> None:
     """Register correction commands on the CLI group."""
@@ -150,6 +174,7 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
                 err=True,
             )
+            _refusal_tail()
             raise SystemExit(2)
 
         try:
@@ -166,6 +191,7 @@ def register(cli: click.Group) -> None:
             # instructive error message to the operator and refuse to
             # file. Exit non-zero so the shell knows the filing failed.
             click.secho(str(validator_error), fg="red", err=True)
+            _refusal_tail()
             raise SystemExit(2)
         # Andrew-correction-attribution surface (Aria 2026-05-18, audit
         # load-bearing fix #1): every correction logged via this command
