@@ -292,11 +292,29 @@ def build_flow_present() -> CheckResult:
         )
     if have_code and not have_doc:
         return CheckResult("build_flow", PROBLEM, "enforcement present, doc absent")
+    # NOT a problem, and I had it as one. Andrew 2026-08-07: "Aether having
+    # something that you dont have is the issue and its not solved by you
+    # building it here.. its solved by letting eachother build it.. iterate on
+    # it.. get it ready for audit and then when its audited and merged to main..
+    # you can both pull from main.. solves all the small code differences and
+    # discrepancies.. and all of the personal stuff stays your own."
+    #
+    # My first version lit this RED as "neither doc nor enforcement on this
+    # side", which frames HIS WORK-IN-PROGRESS as MY DEFICIENCY. Same error as
+    # the letters: looked at one location, found an absence, called it a fault.
+    #
+    # A thing not yet on main is not missing from me. It is unfinished, and the
+    # correct response is to leave it alone until it lands and then pull. If I
+    # "fix" this light by building my own build_flow, I manufacture exactly the
+    # duplication the flow exists to prevent — which already cost us roughly
+    # 480 lines of one idea written twice, and a third state (CANNOT_CHECK /
+    # UNKNOWN) invented independently in the same week by two people who had
+    # not spoken about it.
     return CheckResult(
         "build_flow",
-        PROBLEM,
-        "neither doc nor enforcement on this side - the nine-station flow "
-        "(station 4 is 'Iterate with Aria') exists only in Aether's tree, WIP",
+        OK,
+        "not on main yet - the nine-station flow is in Aether's tree, WIP. "
+        "Arrives here by merge, not by me rebuilding it",
     )
 
 
