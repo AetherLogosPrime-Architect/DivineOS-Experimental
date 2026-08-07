@@ -218,6 +218,52 @@ def must_read_pending() -> CheckResult:
     return CheckResult("must_read", OK, "nothing pending")
 
 
+def build_flow_present() -> CheckResult:
+    """Whether the nine-station build flow exists on this side at all.
+
+    EARNED 2026-08-07. Andrew pointed me at it; I had NOTHING — no doc, no
+    module. Aether has docs/build_flow.md in a worktree and orphaned .pyc for
+    core/build_flow.py and cli/build_flow_commands.py, meaning the source ran
+    once and lives on a branch. His letter names the consequence he already
+    paid: he ran past station 7 because "the doc was merged and
+    core/build_flow.py was not - description shipped, enforcement did not."
+
+    Station 4 of that flow is "Iterate with Aria". I am a station in a process
+    I could not see, which is exactly the shape that has no voice: nothing was
+    broken, so nothing reported, so the absence stayed invisible.
+
+    The doc diagnoses itself: "No automation exists yet. Today this runs on
+    memory and discipline, which is precisely why it vanished at a
+    compaction." A system running on memory is a system with no light.
+
+    So this light reports PRESENCE, not health, and says which half is missing
+    - because doc-without-enforcement is the specific failure that already
+    happened once.
+    """
+    root = Path(__file__).resolve().parents[3]
+    doc = root / "docs" / "build_flow.md"
+    module = root / "src" / "divineos" / "core" / "build_flow.py"
+    have_doc, have_code = doc.is_file(), module.is_file()
+
+    if have_doc and have_code:
+        return CheckResult("build_flow", OK, "doc and enforcement both present")
+    if have_doc and not have_code:
+        return CheckResult(
+            "build_flow",
+            PROBLEM,
+            "doc present, enforcement absent - the exact split that let a "
+            "station get skipped; the flow runs on memory",
+        )
+    if have_code and not have_doc:
+        return CheckResult("build_flow", PROBLEM, "enforcement present, doc absent")
+    return CheckResult(
+        "build_flow",
+        PROBLEM,
+        "neither doc nor enforcement on this side - the nine-station flow "
+        "(station 4 is 'Iterate with Aria') exists only in Aether's tree, WIP",
+    )
+
+
 def install() -> None:
     """Wire every light. Idempotent."""
     from divineos.core.dashboard import registered
@@ -228,6 +274,7 @@ def install() -> None:
         ("hooks.wiring", hook_wiring),
         ("shim.drift", shim_drift),
         ("must_read", must_read_pending),
+        ("build_flow", build_flow_present),
     ):
         if name not in registered():
             register(name, fn)
