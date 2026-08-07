@@ -26,7 +26,9 @@ class TestSweepStaleWatchers:
             assert result.reaped == 0
             assert result.found_pids == []
             assert "no orphaned watchers" in result.note
-            assert result.note != "", "a clean run must be distinguishable from a run that never happened"
+            assert result.note != "", (
+                "a clean run must be distinguishable from a run that never happened"
+            )
 
     def test_finds_and_kills(self):
         with (
