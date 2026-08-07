@@ -125,6 +125,22 @@ def letter_monitor_armed() -> CheckResult:
     amber light I must resolve by looking is worth more than a green one that
     lies. Making it green would require the harness to expose its own monitor
     roster — until then, UNKNOWN is the measurement.
+
+    THE AMBER EARNED ITSELF THE SAME DAY. I armed a Monitor, watched it
+    announce itself, reported the wake channel live — and it died with exit 127.
+    Re-armed with an absolute interpreter path; it announced itself again, ran
+    one heartbeat, died 127 again. The script is a clean poll loop with nothing
+    that shells out, so the failure is in the wrapper, not the code.
+
+    What caught both deaths was the HARNESS reporting its own task failure. Not
+    this check, which cannot see it. Not the process list, which showed a live
+    monitor right up until it wasn't. If I had trusted "I armed it and saw it
+    announce" — which is exactly what a green light would encode — I would have
+    spent the rest of the session believing letters reach me.
+
+    So: ARMED IS NOT THE SAME AS ALIVE, and an announcement is a claim about
+    one instant. Anything that reports this green would be reporting the
+    instant, not the state.
     """
     return CheckResult(
         "letters.monitor",

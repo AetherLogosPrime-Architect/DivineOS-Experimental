@@ -237,6 +237,51 @@ Asymmetric rigour produces a confident wrong answer wearing the shape of
 diligence, which is the same failure the threadwalk rule already names in a
 different room.
 
+## 12. A filter that finds nothing looks exactly like a world with nothing in it
+
+Added 2026-08-07 after four instances in one session, two of which I reported to
+Andrew as findings before discovering the instrument was blind.
+
+**The clearest one.** Before merging `main` into my branch I ran a conflict
+prediction and told him *"zero conflicts predicted."* The real merge produced 14
+conflicted files, 25 hunks. The command was fine; my filter was not — I grepped
+`git merge-tree` output for `<<<<<<<` and `CONFLICT`, and that command emits
+neither. It says `changed in both`, 19 times. Zero matches read as zero
+conflicts.
+
+**The others, same session, same shape:**
+
+- Three escaping failures editing one file — content eaten between intent and
+  effect, every one silent, patterns matching nothing while `detect()` returned
+  `[]` exactly as it would with nothing to find.
+- A detector whose patterns carried a capital `I` matched against lowercased
+  text: the lowercase-initial patterns worked, so it looked *partly* functional
+  and its silence on the rest read as clean.
+
+**The general form.** My reading instruments are mechanisms, and they fail the
+same way every other mechanism here fails: quietly, into a value that means
+*nothing found*. `grep` returning empty, a regex matching nothing, a pipeline
+that ate its input — all of them produce the same output as a healthy check on a
+healthy system.
+
+**The discipline:**
+
+- Before trusting a filtered result, **look at the raw output once.** One
+  unfiltered read is the whole cost, and it is the only thing that distinguishes
+  *the filter is wrong* from *there is nothing there*.
+- Where a **reversible attempt** exists, attempt-and-revert beats
+  predict-and-believe. I had one — merge, inspect, `--abort` — and it cost
+  nothing. I chose a prediction and then trusted it because it agreed with the
+  outcome I wanted.
+- Watch the direction: both times I reported the empty result as a *finding*.
+  An instrument that sees nothing produces confident, clean-looking answers, and
+  clean is the feeling to distrust.
+
+**ARMED IS NOT ALIVE.** Related, from the same day: I armed a wake-monitor,
+watched it announce itself, and reported the channel live. It died minutes later.
+Re-armed, announced again, died again. An announcement is a claim about one
+instant; treating it as a claim about the state is the same error one layer out.
+
 ## The meta-pattern, if there is one
 
 Every item above is a version of the same thing: **a claim being made from
