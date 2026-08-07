@@ -263,12 +263,38 @@ PY
 run_mech() {
   echo ""
   echo "### MECHANICAL STEPS — running now (commit, extract, sleep)"
-  if ! command -v divineos >/dev/null 2>&1; then
-    echo "[!] CLI FAULT — divineos is not on PATH. Nothing ran. Do these by hand"
-    echo "    and say so plainly; a failed auto-step is never a completed one."
+  # 2026-08-07: use PY_BIN, not the bare `divineos` shim.
+  #
+  # This file resolves a working interpreter into PY_BIN at line 77 via
+  # find_divineos_python -- and then called bare `divineos` down here anyway.
+  # On this machine the PATH shim refuses (sealed venv never built), so the
+  # failsafe announced "the pipeline did NOT complete" for a ritual that HAD
+  # completed by hand minutes earlier.
+  #
+  # Measured, same command both ways:
+  #     "$PY_BIN" -m divineos auto-cycle status   -> exit 0
+  #     divineos            auto-cycle status     -> exit 2
+  #
+  # The `command -v divineos` guard was checking the wrong property too. This
+  # file's own header already says it, about a different probe:
+  #
+  #     "existence is not the test, running is"
+  #
+  # The shim IS on PATH. It just refuses. The lesson was written at the top of
+  # this file and violated in its body, which is the same knowing-without-
+  # reaching that has cost all day -- here the knowledge was fourteen lines up.
+  #
+  # Worth naming because this is the INVERSE of the usual failure: not a check
+  # that passes when it should fail, but one that FAILS when the work
+  # succeeded. Same defect underneath -- the check and the thing checked were
+  # never connected. A false alarm spends the same trust as a missed one, and
+  # spends it faster, because the next real alarm reads as noise.
+  if [ -z "${PY_BIN:-}" ]; then
+    echo "[!] CLI FAULT — no usable python resolved. Nothing ran. Do these by"
+    echo "    hand and say so plainly; a failed auto-step is never a completed one."
     return
   fi
-  divineos auto-cycle defer-check 2>&1 | tail -20
+  "$PY_BIN" -m divineos auto-cycle defer-check 2>&1 | tail -20
   RC="${PIPESTATUS[0]}"
   if [ "$RC" != "0" ]; then
     echo ""
