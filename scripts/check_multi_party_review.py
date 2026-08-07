@@ -162,8 +162,37 @@ def _load_guardrail_set() -> set[str]:
     return result
 
 
+class StagedFilesUnavailable(RuntimeError):
+    """git could not be asked which files are staged.
+
+    Exists so that "I could not find out" cannot be returned as "there
+    is nothing there." The two are the same value — an empty list — and
+    only a distinct type keeps them apart.
+    """
+
+
 def _staged_files() -> list[str]:
-    """Return the list of files staged for this commit."""
+    """Return the list of files staged for this commit.
+
+    Raises StagedFilesUnavailable if git cannot be asked.
+
+    Aria's finding, 2026-08-02, carried across 2026-08-07. This used to
+    `return []` when git failed. Follow that downstream: empty staged
+    list -> empty intersection with the guardrail set -> the gate
+    returns True with "no guardrail files staged; gate does not apply".
+    So a git failure did not weaken the gate, it SATISFIED it. The one
+    circumstance where the check cannot see anything is the circumstance
+    in which it reports everything is fine.
+
+    Same shape as the day's other findings: could-not-run rendering as
+    passed. The fix is not a better error message — it is refusing to
+    let the two states share a return value.
+
+    We each fixed this file in the same week without knowing. Her fix is
+    this one; mine widened _TRAILER_PATTERN so the trailer form the
+    other gate instructs you to write actually parses. Neither crossed
+    over, because from inside either tree the file looks fixed.
+    """
     try:
         out = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
@@ -171,8 +200,8 @@ def _staged_files() -> list[str]:
             text=True,
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return []
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
+        raise StagedFilesUnavailable(f"git diff --cached failed: {exc}") from exc
     return [line.strip().replace("\\", "/") for line in out.stdout.splitlines() if line.strip()]
 
 
@@ -336,7 +365,26 @@ def validate(
     preserved as the commit-msg-mode default.
     """
     if touched_override is None:
-        staged = _staged_files()
+        # Fail CLOSED when git cannot be asked (Aria 2026-08-02, carried
+        # across 2026-08-07). Previously _staged_files() swallowed the
+        # error and returned [], which flowed to the `if not touched`
+        # below and returned True — so the one state where this check
+        # can see nothing was the state in which it approved everything.
+        #
+        # Note the docstring above: Aletheia caught the same shape in
+        # this same function in May ("the gate looked like it gated but
+        # didn't"). Third occurrence here. The lesson is not about git
+        # or about staging — it is that "no result" and "could not look"
+        # must never share a representation.
+        try:
+            staged = _staged_files()
+        except StagedFilesUnavailable as exc:
+            return False, (
+                f"BLOCKED: cannot determine staged files, so cannot determine "
+                f"whether this commit touches guardrail files. {exc}\n"
+                "Failing closed on purpose: an unaskable question is not a "
+                "negative answer."
+            )
         guardrails = _load_guardrail_set()
         touched = sorted(set(staged) & guardrails)
     else:
