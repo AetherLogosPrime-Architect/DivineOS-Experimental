@@ -277,6 +277,7 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    psf_commands,
     dashboard_commands,
     lepos_channel_commands,
     lepos_walk_commands,
@@ -338,6 +339,7 @@ actor_registry_commands.register(cli)
 error_commands.register(cli)
 andrew_state_commands.register(cli)
 ledger_commands.register(cli)
+psf_commands.register(cli)
 dashboard_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
