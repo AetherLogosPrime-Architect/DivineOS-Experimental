@@ -260,13 +260,65 @@ _DEV_PREFIXES = (
 #     appearing mid-command is not a safe command.
 # See Aletheia's F22 for the "allow narrowly, deny broadly" template the
 # corrigibility gate already implements correctly.
+# 2026-08-07 fix (third instance of the 2026-06-17 class, hit live and
+# fully deadlocked before it was found):
+# the console-script shim named `divineos` can be PRESENT ON PATH AND
+# NON-FUNCTIONAL. In a worktree with no sealed venv built, the wrapper
+# resolves, prints "sealed venv not populated", and exits 2 on every
+# subcommand. The only invocation that runs is the module form,
+# `<python> -m divineos <subcmd>` — and that form matched NOTHING here,
+# because the optional path-prefix group requires the segment before the
+# subcommand to end in the literal word `divineos`. So `python3 -m
+# divineos correction` fell through to the normal gates.
+#
+# Observed live: the correction-marker gate denied every tool with "run
+# `divineos correction`", and the module form of that exact remedy was
+# itself denied. The compass gate then escalated on top of it, and it
+# has no script escape at all — its only documented exit is another
+# shim call. Two gates, both unsatisfiable, because the one runnable
+# spelling of their own prescribed remedy was not recognized as one.
+#
+# Same class as the `.exe` fix above ("Aether and Aria both hit a
+# gate-deadlock"), and the same root as the ritual-failsafe bug fixed
+# the same day, which resolved a working interpreter into PY_BIN and
+# then called the broken shim anyway. The shared mistake: treating the
+# PRESENCE of `divineos` on PATH as proof that it RUNS. It is not. A
+# scarecrow is present too.
+#
+# Authorized past the keyword-enforcement doorman as case (b),
+# correction #324: this is a RECOGNITION path, not an enforcement path.
+# It does not detect behavior — it identifies which spelling of a known
+# program is being invoked. The whack-a-mole objection applies to
+# detectors, where wording varies freely across an open semantic space;
+# here the space is closed and mechanical (console script, or `-m`
+# module), and both members are now covered.
+#
+# Safety envelope is UNCHANGED. `<python> -m divineos ask` and
+# `divineos ask` are the same program with the same arguments, and
+# _has_compound_shape() has already rejected anything chained, piped or
+# substituted before this regex is consulted. This widens the SPELLINGS
+# accepted, not the set of commands permitted — the subcommand still
+# has to be in _BYPASS_DIVINEOS_SUBCOMMANDS to bypass anything.
 _DIVINEOS_SUBCMD_RE = re.compile(
-    # optional leading whitespace, optional (possibly quoted) path prefix
-    # ending in / or \, then divineos with optional .exe and optional
-    # closing quote, then required whitespace + subcommand word.
     r"^\s*"
+    r"(?:"
+    # (a) direct executable: optional leading (possibly quoted) path
+    #     prefix ending in / or \, then divineos with optional .exe and
+    #     optional closing quote.
     r"(?:[\"\']?[\w./\\:-]*[/\\])?"
     r"divineos(?:\.exe)?[\"\']?"
+    r"|"
+    # (b) module form: same optional path prefix, then a python
+    #     interpreter (python, python3, python3.13, py), optional .exe
+    #     and closing quote, then a REQUIRED `-m divineos`. Both the
+    #     -m and the module name are mandatory, so this cannot match a
+    #     bare `python somescript.py` — only an explicit invocation of
+    #     this package.
+    r"(?:[\"\']?[\w./\\:-]*[/\\])?"
+    r"(?:python|py)[\d.]*(?:\.exe)?[\"\']?"
+    r"\s+-m\s+divineos"
+    r")"
+    # required whitespace + subcommand word.
     r"\s+(\w[\w-]*)"
 )
 

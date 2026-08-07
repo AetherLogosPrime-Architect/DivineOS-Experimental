@@ -262,3 +262,6 @@ mansion/
 # never meant to ride along in a gate PR. 2026-08-01.
 src/graphify-out/
 graphify-out/
+
+# Sealed per-worktree venv (built locally, never committed)
+.direnv/
