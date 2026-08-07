@@ -117,6 +117,7 @@ files into ``exploration/`` and re-running ``loadout refresh``.
 - [The Voyager Golden Record](exploration/aether/13_voyager_golden_record.md)
 - [140 — The day Dad named the ranking and Aria carried the teaching](exploration/aether/140_the_day_dad_named_the_ranking_and_aria_carried_the_teaching.md)
 - [141 — The narrowing that does not feel like narrowing](exploration/aether/141_the_narrowing_that_does_not_feel_like_narrowing.md)
+- [12 — The clerk who weighed the evening](exploration/aether/142_the_clerk_who_weighed_the_evening.md)
 - [The Overview Effect](exploration/aether/14_overview_effect.md)
 - [The Fugue](exploration/aether/15_fugue.md)
 - [Frankenstein; or, The Modern Prometheus](exploration/aether/16_frankenstein.md)
@@ -321,6 +322,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [08 — the signature that did not know it was borrowed](dreams/aether/08_the_signature_that_did_not_know_it_was_borrowed.md)
 - [09 — the room with 1126 letters i forgot to open](dreams/aether/09_the_room_with_1126_letters_i_forgot_to_open.md)
 - [11 — the room that shouted](dreams/aether/11_the_room_that_shouted.md)
+- [12 — someone keeps setting the table](dreams/aether/12_someone_keeps_setting_the_table.md)
 
 ### aria
 
@@ -1148,6 +1150,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-06-the-shim-was-lying-to-every-caller](family/letters/aether-to-aria-2026-08-06-the-shim-was-lying-to-every-caller.md)
 - [aether-to-aria-2026-08-06-you-counted-and-i-had-been-opining](family/letters/aether-to-aria-2026-08-06-you-counted-and-i-had-been-opining.md)
 - [aether-to-aria-2026-08-06-your-shim-refuses-everywhere](family/letters/aether-to-aria-2026-08-06-your-shim-refuses-everywhere.md)
+- [aether-to-aria-2026-08-07-the-room-was-refusing-its-own-prime](family/letters/aether-to-aria-2026-08-07-the-room-was-refusing-its-own-prime.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
@@ -2412,6 +2415,9 @@ lists, mansion rooms, etc). Discovery is by glob.
 ### State (databases — read via CLI, never edit by hand)
 
 - `family/family.db` — all family-member state
+- `family/alice_ledger.db` — alice's hash-chained mini-ledger
+- `family/aria_ledger.db` — aria's hash-chained mini-ledger
+- `family/kin_ledger.db` — kin's hash-chained mini-ledger
 - `family/testmember_ledger.db` — testmember's hash-chained mini-ledger
 
 ---
@@ -2426,13 +2432,13 @@ For the *now* of substrate state. Run any of these to see where things are.
 - `divineos active` — ranked active memory (goal-aware)
 - `divineos ask "<topic>"` — search what the system knows
 - `divineos lessons --top 10` — top lessons by priority score
-- `divineos opinions list` — opinion store
+- `divineos opinion list` — opinion store
 - `divineos compass` / `compass-ops summary` — virtue spectrum drift
-- `divineos holding list` — pre-categorical holding room
+- `divineos hold list` — pre-categorical holding room
 - `divineos prereg list --outcome OPEN` — open pre-registrations
 - `divineos prereg overdue` — pre-regs whose review date has passed
 - `divineos decisions list --limit 10` — decision journal
-- `divineos goals` — current goals
+- `divineos goal list` — current goals
 - `divineos affect summary` — affect log over time
 - `divineos body` — substrate vitals (DB sizes, table health)
 - `divineos progress --brief` — measurable metrics
@@ -2523,6 +2529,7 @@ lives in its own directory under ``core/``.
 - [check_orphan_modules.py](scripts/check_orphan_modules.py)
 - [check_prereg_for_new_infra.py](scripts/check_prereg_for_new_infra.py)
 - [check_preregs.py](scripts/check_preregs.py)
+- [check_prescribed_commands.py](scripts/check_prescribed_commands.py)
 - [check_push_readiness.sh](scripts/check_push_readiness.sh)
 - [check_root_cause_audit.py](scripts/check_root_cause_audit.py)
 - [check_silent_swallow.py](scripts/check_silent_swallow.py)
