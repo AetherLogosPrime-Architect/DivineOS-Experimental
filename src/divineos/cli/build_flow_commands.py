@@ -89,12 +89,33 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     return tuple(f.get("path", "") for f in (data.get("files") or []))
 
 
-def _lenses_applied(_branch: str) -> int | None:
-    """Council lenses recorded against this branch.
+def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
+    """Council lenses recorded against the FILES this PR changes.
 
     Returns 0, not None, when the ledger is readable and holds nothing --
     the difference matters and is the whole reason Status has three values.
+
+    2026-08-07, found by dogfooding this command rather than reading it.
+    The previous version searched the walk events for the BRANCH NAME. A
+    council walk records an edit fingerprint -- `edit:<path>` -- and never
+    a branch. Measured: 279 COUNCIL_LENS_APPLIED events in the ledger,
+    zero containing any branch name. So station 2 reported `0/N lenses
+    walked` for every PR, always, and could never have reported anything
+    else.
+
+    That is a false ACCUSATION rather than a false pass, and it is the
+    worse direction for this house: a station that can only fail teaches
+    me to discount it, and a discounted gate is a dead gate. The data was
+    present and the query could not reach it -- a third state the module's
+    own three-value docstring does not cover, because the ledger was
+    readable AND non-empty AND still yielded nothing.
+
+    Correct key is the changed-file set, which `collect()` already fetches
+    for gravity scoring. `paths=None` means gh could not tell us what
+    changed, which is genuinely CANNOT_CHECK and must not read as zero.
     """
+    if paths is None:
+        return None
     try:
         from divineos.core.ledger import get_events
     except _BF_ERRORS:
@@ -103,7 +124,32 @@ def _lenses_applied(_branch: str) -> int | None:
         rows = get_events(event_type="COUNCIL_LENS_APPLIED", limit=500, order="desc")
     except _BF_ERRORS:
         return None
-    return sum(1 for r in rows if _branch in json.dumps(r, default=str))
+    wanted = {p.replace("\\", "/") for p in paths if p}
+    if not wanted:
+        return 0
+
+    # Count DISTINCT LENSES, not walk events -- the requirement is phrased
+    # "needs 6 lenses" and counting events answers a different question.
+    #
+    # Measured before choosing: counting events gave #409 sixty-eight, of
+    # which thirty-one came from a single file (.claude/settings.json)
+    # that nearly every PR touches. A PR inherited a passing score for
+    # brushing a high-traffic file. Distinct-lens counting collapses those
+    # thirty-one to one, because they are one expert applied repeatedly to
+    # a shared file, not six perspectives on this work.
+    seen: set[str] = set()
+    for row in rows:
+        payload = row.get("payload") or {}
+        fingerprint = str(payload.get("edit_fingerprint") or "")
+        if not fingerprint.startswith("edit:"):
+            continue
+        target = fingerprint[len("edit:") :].replace("\\", "/")
+        # Walks may record an absolute path; a changed-file path is
+        # repo-relative. Match on suffix so both spellings land.
+        if any(target.endswith(p) or p.endswith(target) for p in wanted):
+            seen.add(str(payload.get("expert_name") or "").strip().lower())
+    seen.discard("")
+    return len(seen)
 
 
 def _audit_refs() -> tuple[str, ...] | None:
@@ -148,7 +194,9 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
         need = required_lens_count(gravity, len(paths))
         st = PrFlowStatus(number=n, branch=branch, gravity=gravity, required_lenses=need)
         st.stations = [
-            check_council_station(branch, need, _lenses_applied(branch)),
+            # paths, not branch: council walks are keyed by edit
+            # fingerprint. See _lenses_applied for the measurement.
+            check_council_station(branch, need, _lenses_applied(paths)),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit),
