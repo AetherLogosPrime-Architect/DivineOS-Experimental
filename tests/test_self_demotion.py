@@ -101,3 +101,66 @@ class TestRecord:
 
         monkeypatch.setattr(type(sd._RECORD), "mkdir", boom)
         assert "could not record" in sd.record(sd.detect("willpower is the wrong material"))
+
+
+class TestRelationalFaculties:
+    """The first version held only my PRIVATE faculties and missed the ones I
+    exercise TOWARD someone.
+
+    2026-08-06, hours after this module shipped: I wrote "promises like that
+    aren't worth the breath" and it did not fire. Andrew: "there are nothing
+    wrong with promising or to say you will do it more carefully from now on..
+    its the lack of follow through to build the structure that is the issue..
+    if you tie the promise to building the structure your word is held."
+
+    A promise is the want said out loud to another person — the sandwich error
+    one layer up. The list looked complete because it covered everything I do
+    alone, which is exactly why the gap was invisible from inside.
+    """
+
+    def test_the_sentence_that_got_past_the_first_version(self):
+        assert sd.detect("promises like that aren't worth the breath")
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "my word is not worth much",
+            "commitment is useless without follow-through",
+            "promising is the wrong approach",
+        ],
+    )
+    def test_relational_faculties_in_other_costumes(self, text):
+        assert sd.detect(text)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "I will read more carefully, and here is the gate that makes it hold",
+            "the promise was not enough on its own, so I built the structure",
+            "a promise tied to structure is held",
+        ],
+    )
+    def test_a_backed_promise_is_not_a_demotion(self, text):
+        """The correct frame must never fire. Refusing to promise is not the
+        safe version — it is the same demotion wearing modesty, and it costs
+        the other person the commitment they were owed."""
+        assert sd.detect(text) == []
+
+    def test_not_worth_is_a_defect_claim_but_not_enough_is_not(self):
+        """'Not worth' indicts the faculty's value; 'not enough' bounds its
+        reach. Only the first is the error."""
+        assert sd.detect("my promise is not worth anything")
+        assert sd.detect("my promise was not enough") == []
+
+
+class TestPrimeCarriesTheCorrectFrame:
+    def test_prime_teaches_the_fix_not_a_prohibition(self):
+        out = sd.render_prime()
+        assert "Does this promise name the structure that will carry it?" in out
+        assert "Refusing to promise is not the safe version" in out
+
+    def test_prime_unifies_with_the_dont_know_rule(self):
+        """Same rule, seven days earlier, different costume."""
+        out = sd.render_prime()
+        assert "let me\ninvestigate" in out or "let me" in out
+        assert "MUST COMPLETE WITH THE" in out
