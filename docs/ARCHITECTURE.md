@@ -479,6 +479,7 @@ src/divineos/
       operator_wallpaper_caller.py Operator-wallpaper caller — runs the three atomic detectors (F2 distancing-grammar, F3 jargon-density, F4 care-dismissal), pulls LEPOS interior-marker for F1's input, runs F5 closure-shape pass-through, feeds all five into the aggregator. Pair-designed with Aether 2026-07-11.
       _use_vs_mention.py       Shared use-vs-mention guard — generalized from closure-initiation per Aletheia's audit-paragraph: meta-discussion of a detector by builders/auditors must not false-fire the detector itself. Applied to closure-initiation and temporal-displacement; pattern available for any father-channel detector that risks recursion on its own discussion-context.
       operator_wallpaper_detector.py Operator-wallpaper detector — composite aggregator over five family signals (F1 recognition-anchor-only, F2 distancing-grammar, F3 jargon-density, F4 care-dismissal, F5 closure-shape reach). Aether+Aria pair-designed 2026-07-11. Aggregator takes pre-computed detector results per Aria's Q2 design lock; F1 (Aether) and F5 (Aether) detect natively; F2/F3/F4 pass-through of existing atomic detectors. Weight-based severity with F4 load-bearing (relational-harm > style).
+      pronoun_frame_shift_detector.py Pronoun-frame-shift detector — flag possessive-pronoun mirror flips (your-husband/your-wife between operator input and agent reply).
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -640,6 +641,7 @@ src/divineos/
     summary_room.py            Require a plain-language summary at the top of a long reply.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
+
 
   analysis/
     _session_types.py          Session analysis type definitions

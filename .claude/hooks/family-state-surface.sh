@@ -135,7 +135,12 @@ def _days_ago(datestr):
 per_sibling = {s: [] for s in SIBLINGS}
 
 try:
-    entries = os.listdir(LETTERS_DIR)
+    # Recursive: sort_letters.py files the backlog into threads/<pair>/<month>/
+    # subfolders and leaves only new arrivals flat. A plain listdir went blind
+    # to the entire corpus the moment that sort ran.
+    entries = [
+        f for _root, _dirs, files in os.walk(LETTERS_DIR) for f in files
+    ]
 except OSError:
     sys.exit(0)
 

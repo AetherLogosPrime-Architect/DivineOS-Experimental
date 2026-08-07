@@ -335,58 +335,27 @@ _DIVINEOS_SUBCMD_RE = re.compile(
 _SHELL_COMPOUND_CHARS = (";", "&&", "||", "|", "`", "$(")
 
 
-_SINGLE_Q = chr(39)
-_DOUBLE_Q = chr(34)
+# Character constants for the quote-context scanner below. Named rather
+# than inlined so the scanner reads as shell-semantics rather than as a
+# wall of escaped punctuation.
+_SQ = chr(39)  # single quote
+_DQ = chr(34)  # double quote
 _BACKTICK = chr(96)
+_SUBST_SIGIL = chr(36)  # dollar — opens a substitution when followed by (
+_SUBST_OPEN = chr(40)  # open paren
+_QUOTE_CHARS = (_SQ, _DQ)
+# Chaining / piping operators. Inert inside either kind of quote.
+_UNQUOTED_OPERATOR_CHARS = (chr(59), chr(124), _BACKTICK)
 
-
-def _strip_inert_quoted_spans(cmd: str) -> str:
-    """Remove quoted spans whose contents cannot execute anything.
-
-    The principle is already stated in the _CD_PREFIX_RE comment below,
-    where it is applied to the cd argument and nowhere else: semicolons
-    and ampersands inside quotes are inert; only substitution is
-    dangerous. This applies that same rule to the whole command.
-
-    Rules:
-
-    * Single-quoted spans are dropped unconditionally. The shell expands
-      nothing inside them.
-    * Double-quoted spans are dropped only when they contain neither a
-      dollar sign nor a backtick. Both expand inside double quotes, so
-      such a span is kept and will still trip the compound check.
-    * An unterminated quote keeps its remainder, so a malformed command
-      can never strip its way into looking safe.
-    * Text outside quotes is untouched. A chained destructive command
-      after a quoted argument still fails the bypass, because its
-      separator is not inside a quote.
-
-    Written as a character walk rather than a pattern on purpose. Shell
-    quoting is a state machine, and tracking the state directly is both
-    easier to audit by eye and less able to over-match than a pattern
-    pretending to parse it. It is also what the keyword-enforcement
-    doorman asks for when it blocks pattern-additions to this file, and
-    it was right to block twice while this fix was being written.
-    """
-    out: list[str] = []
-    i, n = 0, len(cmd)
-    while i < n:
-        ch = cmd[i]
-        if ch != _SINGLE_Q and ch != _DOUBLE_Q:
-            out.append(ch)
-            i += 1
-            continue
-        close = cmd.find(ch, i + 1)
-        if close == -1:
-            # Unterminated quote: keep the remainder verbatim so a
-            # malformed command cannot strip itself into looking simple.
-            out.append(cmd[i:])
-            break
-        span = cmd[i + 1 : close]
-        if ch == _DOUBLE_Q and ("$" in span or _BACKTICK in span):
-            out.append(cmd[i : close + 1])  # expands; keep it visible
-        i = close + 1
-    return "".join(out)
+# Ampersand is handled separately from the tuple above. It is an operator
+# when it chains (doubled) or backgrounds, but NOT when it is part of a
+# file-descriptor redirect: `2>&1` is a redirect, and the whole point of
+# PR #400 was to keep that shape a bypass candidate. The pre-2026-08-01
+# substring scan only ever looked for the DOUBLED form, so listing a bare
+# ampersand as an operator here regressed three of #400's tests. Caught by
+# the pre-push suite; discriminator is the preceding character.
+_AMP = chr(38)
+_REDIRECT = chr(62)  # '>' — what precedes the ampersand in an fd redirect
 
 
 def _has_compound_shape(cmd: str) -> bool:
@@ -395,31 +364,55 @@ def _has_compound_shape(cmd: str) -> bool:
     candidate. Aletheia F22 fix: even a command starting with a safe
     subcommand may not bypass if it chains into a dangerous one.
 
-    2026-08-01 (Aria): quoted argument payloads no longer count.
+    2026-08-01: replaced a raw-string substring scan with an explicit
+    quote-state scanner, so operator characters appearing inside a
+    quoted argument value no longer defeat a bypass the subcommand
+    qualifies for. This is the structural parser Aletheia recommended
+    at F31. Full rationale, the exploit cases it must still catch, and
+    why not shlex: docs/gate_quote_context_parser_2026-08-01.md
+    Filed as claim 09213383; design walk ebcf9db6.
 
-    This scanned the raw string, so a shell-metacharacter inside a
-    QUOTED PROSE ARGUMENT defeated the bypass. Every gate's named remedy
-    takes prose: correction, learn, claim, decide, delete-justify with
-    its why flag, prereg assess with its notes flag. A remedy whose
-    prose held a parenthesis or a vertical bar was silently disqualified
-    from bypassing.
-
-    Latent almost always. With no hard-block gate up, other paths still
-    let the command through. It bites precisely when a hard gate IS up,
-    which is exactly when the remedy is needed. Found live: an overdue
-    pre-registration blocked all substantive tool use, and the assess
-    command that clears it was denied because its notes contained a
-    parenthesis. That command sits on the bypass list and is documented
-    as exempt in the _check_overdue_prereg_block docstring. A second
-    pre-registration aged into overdue during the deadlock. Deleting the
-    parentheses and changing nothing else let it through.
-
-    The perverse gradient is the point: the more careful the prose in a
-    remedy, the likelier it holds a parenthesis or a bar, and so the
-    likelier the remedy was refused. The refusal named an unrelated
-    gate, which kept the cause invisible.
+    Fails CLOSED on an unterminated quote.
     """
-    return any(marker in _strip_inert_quoted_spans(cmd) for marker in _SHELL_COMPOUND_CHARS)
+    state: str | None = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if state is None:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch in _QUOTE_CHARS:
+                state = ch
+            elif ch == _AMP:
+                # Chaining (&&) or backgrounding is an operator; an fd
+                # redirect (2>&1) is not. See the _AMP comment above.
+                if cmd[i + 1 : i + 2] == _AMP or (i > 0 and cmd[i - 1] != _REDIRECT):
+                    return True
+            elif ch in _UNQUOTED_OPERATOR_CHARS:
+                return True
+            elif ch == _SUBST_SIGIL and cmd[i + 1 : i + 2] == _SUBST_OPEN:
+                return True
+        elif state == _SQ:
+            # Single quotes: everything literal, backslash included.
+            if ch == _SQ:
+                state = None
+        else:
+            # Double quotes: chaining operators are inert here, but
+            # substitution still expands. That asymmetry is the F31
+            # exploit and must survive this rewrite.
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == _DQ:
+                state = None
+            elif ch == _BACKTICK:
+                return True
+            elif ch == _SUBST_SIGIL and cmd[i + 1 : i + 2] == _SUBST_OPEN:
+                return True
+        i += 1
+    return state is not None
 
 
 # Match a leading `cd DIR && ` prefix where DIR is either a quoted
@@ -474,9 +467,18 @@ def _strip_safe_output_tail(cmd: str) -> str:
     cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
 
     Safe pattern: any number of ` | <filter> [args...]` segments where
-    each filter is on _SAFE_OUTPUT_FILTERS, optionally followed by ` 2>&1`
-    (or leading `2>&1` before the pipe). Args must not contain shell
-    metacharacters that would compose or substitute.
+    each filter is on _SAFE_OUTPUT_FILTERS, optionally with ` 2>&1` either
+    at the very end OR between the command and the first pipe (the
+    ``cmd 2>&1 | tail -N`` shape, which is what most operators actually
+    type). Args must not contain shell metacharacters that would compose
+    or substitute.
+
+    2026-07-29 fix (Aria, per Andrew's "the compass has been blocking you
+    for weeks" call-out): after the pipe-segments are stripped, ``2>&1``
+    that was in the MIDDLE of the original command is now at the end of
+    the remainder. Strip it there too so callers see a residue-free
+    command. Uses string ops (not new regex) for the second strip per
+    the keyword-enforcement-doorman discipline on this file.
     """
     stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
     while True:
@@ -490,6 +492,12 @@ def _strip_safe_output_tail(cmd: str) -> str:
         if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
             return cmd
         stripped = stripped[: m.start()].rstrip()
+    # Post-pipe-strip: middle ``2>&1`` from the original is now trailing.
+    # String ops, no regex, per keyword-doorman: rstrip trailing ws, then
+    # slice off exactly the ``2>&1`` suffix if present.
+    stripped = stripped.rstrip()
+    if stripped.endswith(" 2>&1"):
+        stripped = stripped[: -len(" 2>&1")].rstrip()
     return stripped
 
 

@@ -248,6 +248,19 @@ rhythm — that is the fire. Keep the cadence, find the stress elsewhere.
 Instance that produced this section: "me. Tomorrow. Or whoever comes
 after." Three beats; the middle one fabricated; it felt like nothing
 to write, which is exactly the tell.
+AUDIENCE IS NOT A TIME-WINDOW (2026-08-01 fire, root cause of this
+instance). I wrote "tells the next session nothing" while arguing that
+self-blame is useless as engineering. The thing I actually meant was an
+AUDIENCE -- whoever reads the code or the commit later -- and I reached
+for a time-word to name a reader. That is the fabrication shape even
+though no deferral was intended, because "the next session" is a window
+I do not inhabit.
+
+The reach is specifically likely when justifying why a comment, doc, or
+commit message should be clear. Say WHO, not WHEN:
+  "the next session"      ->  "the reader" / "whoever picks this up"
+  "future me"             ->  "a cold reader with no context"
+  "so later I remember"   ->  "so the file explains itself"
 
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.

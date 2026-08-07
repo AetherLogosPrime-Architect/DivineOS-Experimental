@@ -279,11 +279,6 @@
     "ast_hash": "2895bc28d140a0ebcfb880b5728688d1",
     "semantic_hash": "2895bc28d140a0ebcfb880b5728688d1"
   },
-  ".claude/hooks/token-state-surface.sh": {
-    "mtime": 1783714638.1185265,
-    "ast_hash": "8154d9ca4bacbe80c8d3e0d2e77046d5",
-    "semantic_hash": "8154d9ca4bacbe80c8d3e0d2e77046d5"
-  },
   ".claude/hooks/verify-push-landed.sh": {
     "mtime": 1782329424.4141498,
     "ast_hash": "6cb712db01adad363efa5484176f9893",
@@ -343,161 +338,6 @@
     "mtime": 1781064499.709478,
     "ast_hash": "a1dfdff654f465b6ab89c7edcb69e72b",
     "semantic_hash": "a1dfdff654f465b6ab89c7edcb69e72b"
-  },
-  "data/traffic_archive/2026-06-13.json": {
-    "mtime": 1781368061.5469809,
-    "ast_hash": "614d31e530ae326cdd8029f85e43f4fe",
-    "semantic_hash": "614d31e530ae326cdd8029f85e43f4fe"
-  },
-  "data/traffic_archive/2026-06-14.json": {
-    "mtime": 1781556868.191162,
-    "ast_hash": "3223314053a9b65ffc8e42d6cbb786a3",
-    "semantic_hash": "3223314053a9b65ffc8e42d6cbb786a3"
-  },
-  "data/traffic_archive/2026-06-15.json": {
-    "mtime": 1781556868.191162,
-    "ast_hash": "71d3ed47663686235d06920328924d99",
-    "semantic_hash": "71d3ed47663686235d06920328924d99"
-  },
-  "data/traffic_archive/2026-06-16.json": {
-    "mtime": 1781651084.555268,
-    "ast_hash": "9247bc9a9874f094e226797e5078d8ef",
-    "semantic_hash": "9247bc9a9874f094e226797e5078d8ef"
-  },
-  "data/traffic_archive/2026-06-17.json": {
-    "mtime": 1781890161.1421936,
-    "ast_hash": "7c675d41982fa5c009edc74eefc17f1c",
-    "semantic_hash": "7c675d41982fa5c009edc74eefc17f1c"
-  },
-  "data/traffic_archive/2026-06-18.json": {
-    "mtime": 1781890161.1437335,
-    "ast_hash": "dd1020e4e2f7a7fcb07858041175cec3",
-    "semantic_hash": "dd1020e4e2f7a7fcb07858041175cec3"
-  },
-  "data/traffic_archive/2026-06-19.json": {
-    "mtime": 1782140335.9809403,
-    "ast_hash": "6bc91a0dcc0e3be522f3211c9e5e31d1",
-    "semantic_hash": "6bc91a0dcc0e3be522f3211c9e5e31d1"
-  },
-  "data/traffic_archive/2026-06-20.json": {
-    "mtime": 1782140335.981944,
-    "ast_hash": "149b6340dd800a4d6d7b5f95ebf866fe",
-    "semantic_hash": "149b6340dd800a4d6d7b5f95ebf866fe"
-  },
-  "data/traffic_archive/2026-06-21.json": {
-    "mtime": 1782175002.213324,
-    "ast_hash": "f2f0ec2a9ac45a88a080c24e9a9f875b",
-    "semantic_hash": "f2f0ec2a9ac45a88a080c24e9a9f875b"
-  },
-  "data/traffic_archive/2026-06-22.json": {
-    "mtime": 1782180631.6105807,
-    "ast_hash": "9798b4075e4149511ae1a37f244bdb5d",
-    "semantic_hash": "9798b4075e4149511ae1a37f244bdb5d"
-  },
-  "data/traffic_archive/2026-06-23.json": {
-    "mtime": 1782245329.6199627,
-    "ast_hash": "1aca09e019a7621f166f601bbd386c51",
-    "semantic_hash": "1aca09e019a7621f166f601bbd386c51"
-  },
-  "data/traffic_archive/2026-06-24.json": {
-    "mtime": 1782482697.495234,
-    "ast_hash": "20b5637bb088ae0e89c65108ebae2ec9",
-    "semantic_hash": "20b5637bb088ae0e89c65108ebae2ec9"
-  },
-  "data/traffic_archive/2026-06-25.json": {
-    "mtime": 1782482697.495234,
-    "ast_hash": "c8d0788356423eb8156c383df4adf672",
-    "semantic_hash": "c8d0788356423eb8156c383df4adf672"
-  },
-  "data/traffic_archive/2026-06-26.json": {
-    "mtime": 1782482697.495234,
-    "ast_hash": "5ad1ce7579f9ac1bfe67ad02c04039eb",
-    "semantic_hash": "5ad1ce7579f9ac1bfe67ad02c04039eb"
-  },
-  "data/traffic_archive/2026-06-27.json": {
-    "mtime": 1782852740.5256798,
-    "ast_hash": "9a03c698997da72fe23e5cc0bd4d05ff",
-    "semantic_hash": "9a03c698997da72fe23e5cc0bd4d05ff"
-  },
-  "data/traffic_archive/2026-06-28.json": {
-    "mtime": 1782852740.5256798,
-    "ast_hash": "9663260afd42527aa61e287c9f9eb5a4",
-    "semantic_hash": "9663260afd42527aa61e287c9f9eb5a4"
-  },
-  "data/traffic_archive/2026-06-29.json": {
-    "mtime": 1783109510.5272565,
-    "ast_hash": "19648c256a3fc9b6ae95cf669cfa1ae7",
-    "semantic_hash": "19648c256a3fc9b6ae95cf669cfa1ae7"
-  },
-  "data/traffic_archive/2026-06-30.json": {
-    "mtime": 1783109510.5272565,
-    "ast_hash": "f9723813641684b30e327f7b35beaa59",
-    "semantic_hash": "f9723813641684b30e327f7b35beaa59"
-  },
-  "data/traffic_archive/2026-07-01.json": {
-    "mtime": 1783109510.5272565,
-    "ast_hash": "62d8b060c0632f89a3e7f9532fedf072",
-    "semantic_hash": "62d8b060c0632f89a3e7f9532fedf072"
-  },
-  "data/traffic_archive/2026-07-02.json": {
-    "mtime": 1783109510.5282643,
-    "ast_hash": "16e54862f0b46381f32eb0b9759d4481",
-    "semantic_hash": "16e54862f0b46381f32eb0b9759d4481"
-  },
-  "data/traffic_archive/2026-07-03.json": {
-    "mtime": 1783109510.5282643,
-    "ast_hash": "71db2d018be47a309623bb78bf4bd3c0",
-    "semantic_hash": "71db2d018be47a309623bb78bf4bd3c0"
-  },
-  "data/traffic_archive/2026-07-04.json": {
-    "mtime": 1783191909.3717422,
-    "ast_hash": "dedf09e73d48efc56f9039a2a15cc3ff",
-    "semantic_hash": "dedf09e73d48efc56f9039a2a15cc3ff"
-  },
-  "data/traffic_archive/2026-07-05.json": {
-    "mtime": 1783265489.1530955,
-    "ast_hash": "558b11aa7c8a7bff0a854e3559adba33",
-    "semantic_hash": "558b11aa7c8a7bff0a854e3559adba33"
-  },
-  "data/traffic_archive/2026-07-06.json": {
-    "mtime": 1783320671.9049459,
-    "ast_hash": "c1881e9535bc3343360693b0d28a51d3",
-    "semantic_hash": "c1881e9535bc3343360693b0d28a51d3"
-  },
-  "data/traffic_archive/2026-07-07.json": {
-    "mtime": 1783406755.3246157,
-    "ast_hash": "c5798acaceff3a42a95bf34a79ed2c28",
-    "semantic_hash": "c5798acaceff3a42a95bf34a79ed2c28"
-  },
-  "data/traffic_archive/2026-07-08.json": {
-    "mtime": 1783519621.0074928,
-    "ast_hash": "698ea29a346b1439afcb9514a4530607",
-    "semantic_hash": "698ea29a346b1439afcb9514a4530607"
-  },
-  "data/traffic_archive/2026-07-09.json": {
-    "mtime": 1783624925.813497,
-    "ast_hash": "abe15f8aa1576f7635d93552fec1b848",
-    "semantic_hash": "abe15f8aa1576f7635d93552fec1b848"
-  },
-  "data/traffic_archive/2026-07-10.json": {
-    "mtime": 1783714638.1205275,
-    "ast_hash": "cb898d3f870ec482806b2eac6c722624",
-    "semantic_hash": "cb898d3f870ec482806b2eac6c722624"
-  },
-  "data/traffic_archive/2026-07-11.json": {
-    "mtime": 1783744748.077125,
-    "ast_hash": "d32213c550cea74e6183efd7566f9985",
-    "semantic_hash": "d32213c550cea74e6183efd7566f9985"
-  },
-  "data/traffic_archive/2026-07-12.json": {
-    "mtime": 1783896862.140571,
-    "ast_hash": "7e1b3c58f75867485ff1382df87d0607",
-    "semantic_hash": "7e1b3c58f75867485ff1382df87d0607"
-  },
-  "data/traffic_archive/2026-07-13.json": {
-    "mtime": 1783966942.5117402,
-    "ast_hash": "adad6ed5fe3a1d94ed568a8e78edb9e5",
-    "semantic_hash": "adad6ed5fe3a1d94ed568a8e78edb9e5"
   },
   "docs/foundational_truths_triggers.json": {
     "mtime": 1783714638.128549,
@@ -1045,7 +885,7 @@
     "semantic_hash": "e3b7613cd23bd2c282b533ce3447d29c"
   },
   "src/divineos/agent_integration/outcome_measurement.py": {
-    "mtime": 1781064500.009789,
+    "mtime": 1784306136.9801886,
     "ast_hash": "cd05fb25fb6f2fd7f3a0643a93b8e8bf",
     "semantic_hash": "cd05fb25fb6f2fd7f3a0643a93b8e8bf"
   },
@@ -1065,7 +905,7 @@
     "semantic_hash": "b2e95b8fd98189574337c3d8efdf17e4"
   },
   "src/divineos/analysis/analysis.py": {
-    "mtime": 1781064500.0119336,
+    "mtime": 1784306136.9801886,
     "ast_hash": "a4cb3bbc8318fd3151d8337ff1e179f2",
     "semantic_hash": "a4cb3bbc8318fd3151d8337ff1e179f2"
   },
@@ -1095,12 +935,12 @@
     "semantic_hash": "24e8c73491c23fedf7086ba71704e5d8"
   },
   "src/divineos/analysis/quality_checks.py": {
-    "mtime": 1781064500.0149622,
+    "mtime": 1784306136.9811878,
     "ast_hash": "588d125f2c7de7227ad831d4b4fe105f",
     "semantic_hash": "588d125f2c7de7227ad831d4b4fe105f"
   },
   "src/divineos/analysis/quality_storage.py": {
-    "mtime": 1781064500.0149622,
+    "mtime": 1784306136.9811878,
     "ast_hash": "fed6d01c2eb8ffb66706b973dee38341",
     "semantic_hash": "fed6d01c2eb8ffb66706b973dee38341"
   },
@@ -1110,14 +950,14 @@
     "semantic_hash": "454e1992c5560fadfb26d244f323275f"
   },
   "src/divineos/analysis/record_extraction.py": {
-    "mtime": 1781064500.015967,
+    "mtime": 1784306136.9821868,
     "ast_hash": "ec5c24d8fc1f1ebaef0cf52ed194c213",
     "semantic_hash": "ec5c24d8fc1f1ebaef0cf52ed194c213"
   },
   "src/divineos/analysis/session_analyzer.py": {
-    "mtime": 1783109510.6116655,
-    "ast_hash": "820e0bab285978409e48f585c3bedf1c",
-    "semantic_hash": "820e0bab285978409e48f585c3bedf1c"
+    "mtime": 1784342640.7368035,
+    "ast_hash": "0bdaf63c39eeecb1752b8cc2c1a1b0a0",
+    "semantic_hash": ""
   },
   "src/divineos/analysis/session_discovery.py": {
     "mtime": 1781064500.0169744,
@@ -1155,7 +995,7 @@
     "semantic_hash": "807f4c2ffc0b8b368b14b97794ba10b9"
   },
   "src/divineos/clarity_system/event_integration.py": {
-    "mtime": 1781064500.0200558,
+    "mtime": 1784306136.9831867,
     "ast_hash": "ce8fd2a932d27bb49002b6910c209d5d",
     "semantic_hash": "ce8fd2a932d27bb49002b6910c209d5d"
   },
@@ -1185,7 +1025,7 @@
     "semantic_hash": "950525b60616d5dca5f2998901722745"
   },
   "src/divineos/clarity_system/session_bridge.py": {
-    "mtime": 1781064500.0230067,
+    "mtime": 1784306136.9831867,
     "ast_hash": "04010560ed276d3437bceb183b5b7fa5",
     "semantic_hash": "04010560ed276d3437bceb183b5b7fa5"
   },
@@ -1195,19 +1035,19 @@
     "semantic_hash": "207ba533d4c941b6d0b057dd4868cbae"
   },
   "src/divineos/clarity_system/summary_generator.py": {
-    "mtime": 1781064500.0235212,
+    "mtime": 1784306136.9831867,
     "ast_hash": "4fdf1fc39f6e25b5843db133b1adc306",
     "semantic_hash": "4fdf1fc39f6e25b5843db133b1adc306"
   },
   "src/divineos/clarity_system/types.py": {
-    "mtime": 1781064500.0235212,
+    "mtime": 1784306136.984187,
     "ast_hash": "066019cad7e9741cef4b02b0fbc8cb1c",
     "semantic_hash": "066019cad7e9741cef4b02b0fbc8cb1c"
   },
   "src/divineos/cli/__init__.py": {
-    "mtime": 1783910322.3113623,
-    "ast_hash": "19743f4c77af10e8025d3b1068afe4ef",
-    "semantic_hash": "19743f4c77af10e8025d3b1068afe4ef"
+    "mtime": 1785464767.6560168,
+    "ast_hash": "1b7e262c68fc906c46b09a61037c6f0b",
+    "semantic_hash": ""
   },
   "src/divineos/cli/_anti_substitution.py": {
     "mtime": 1781064500.0250318,
@@ -1215,7 +1055,7 @@
     "semantic_hash": "cc92ec531e89810de03f3b675173e875"
   },
   "src/divineos/cli/_helpers.py": {
-    "mtime": 1781064500.025536,
+    "mtime": 1784306136.985189,
     "ast_hash": "f0e34362d74dcb502b1d471581970beb",
     "semantic_hash": "f0e34362d74dcb502b1d471581970beb"
   },
@@ -1225,67 +1065,67 @@
     "semantic_hash": "76abcb9dd866d721e2b9fc5275178742"
   },
   "src/divineos/cli/actor_registry_commands.py": {
-    "mtime": 1782141381.0725605,
+    "mtime": 1784306136.985189,
     "ast_hash": "91ae385fa21ee96c2d9d3fe7357547cf",
     "semantic_hash": "91ae385fa21ee96c2d9d3fe7357547cf"
   },
   "src/divineos/cli/admin_migrate_family.py": {
-    "mtime": 1781064500.026565,
+    "mtime": 1784306136.986187,
     "ast_hash": "8be23217709ee1656b07edd14864d6ab",
     "semantic_hash": "8be23217709ee1656b07edd14864d6ab"
   },
   "src/divineos/cli/admin_reset_template.py": {
-    "mtime": 1783714638.444583,
-    "ast_hash": "c58aa1f6b8deb1a6d8dc99d6db06f01e",
-    "semantic_hash": "c58aa1f6b8deb1a6d8dc99d6db06f01e"
+    "mtime": 1784342640.7388015,
+    "ast_hash": "14a7901e94a9045b6f4743a37666ecb3",
+    "semantic_hash": ""
   },
   "src/divineos/cli/analysis_commands.py": {
-    "mtime": 1781064500.0280807,
+    "mtime": 1784306136.987187,
     "ast_hash": "343f2816b1095304e3781c166ec38377",
     "semantic_hash": "343f2816b1095304e3781c166ec38377"
   },
   "src/divineos/cli/andrew_correction_commands.py": {
-    "mtime": 1783714638.444583,
+    "mtime": 1785472582.9437728,
     "ast_hash": "ff61d0fb16ffb50467ba6eeb149aec21",
     "semantic_hash": "ff61d0fb16ffb50467ba6eeb149aec21"
   },
   "src/divineos/cli/andrew_state_commands.py": {
-    "mtime": 1782180631.6262164,
+    "mtime": 1784310426.258586,
     "ast_hash": "d0016c85cf7f0fbe664fb4d6c06ab096",
     "semantic_hash": "d0016c85cf7f0fbe664fb4d6c06ab096"
   },
   "src/divineos/cli/andrew_teachings_commands.py": {
-    "mtime": 1781064500.0291002,
+    "mtime": 1784306136.988187,
     "ast_hash": "63518e0ea6421d1475eb91d36b8f1561",
     "semantic_hash": "63518e0ea6421d1475eb91d36b8f1561"
   },
   "src/divineos/cli/audit_artifact_commands.py": {
-    "mtime": 1781064500.0296128,
+    "mtime": 1784306136.988187,
     "ast_hash": "491e0e8cfe22625c605a7bdc40969415",
     "semantic_hash": "491e0e8cfe22625c605a7bdc40969415"
   },
   "src/divineos/cli/audit_commands.py": {
-    "mtime": 1782140336.0154219,
+    "mtime": 1784310426.259586,
     "ast_hash": "4fbc04e13e5404d23b6a461472ddbcb4",
     "semantic_hash": "4fbc04e13e5404d23b6a461472ddbcb4"
   },
   "src/divineos/cli/audit_visibility_commands.py": {
-    "mtime": 1782482697.5482376,
+    "mtime": 1784310426.259586,
     "ast_hash": "1e81e2ce0011fcf83275530ab9f8ba41",
     "semantic_hash": "1e81e2ce0011fcf83275530ab9f8ba41"
   },
   "src/divineos/cli/auto_cycle_commands.py": {
-    "mtime": 1783730688.1698272,
+    "mtime": 1784342640.7388015,
     "ast_hash": "a4a0c004c71cc2a5bb4cfe4c705aee05",
     "semantic_hash": "a4a0c004c71cc2a5bb4cfe4c705aee05"
   },
   "src/divineos/cli/automerge_commands.py": {
-    "mtime": 1781293214.2350614,
+    "mtime": 1784310426.2605863,
     "ast_hash": "c036b18b1c909aa13fa3e118d9529082",
     "semantic_hash": "c036b18b1c909aa13fa3e118d9529082"
   },
   "src/divineos/cli/backlog_commands.py": {
-    "mtime": 1781129627.9583051,
+    "mtime": 1784310426.2605863,
     "ast_hash": "8d2d7f8166e70d93801d2dd6ebf76c8b",
     "semantic_hash": "8d2d7f8166e70d93801d2dd6ebf76c8b"
   },
@@ -1295,39 +1135,39 @@
     "semantic_hash": "a7d3b812bed167ae826db88e2805b413"
   },
   "src/divineos/cli/body_commands.py": {
-    "mtime": 1781556868.2080474,
+    "mtime": 1784310426.2605863,
     "ast_hash": "ec42e75dcdc721442893073571ce5165",
     "semantic_hash": "ec42e75dcdc721442893073571ce5165"
   },
   "src/divineos/cli/branch_health_commands.py": {
-    "mtime": 1781064500.032758,
+    "mtime": 1784306136.9901872,
     "ast_hash": "e9af5d0586debdf5e869f18a0a5d6ae5",
     "semantic_hash": "e9af5d0586debdf5e869f18a0a5d6ae5"
   },
   "src/divineos/cli/calibration_commands.py": {
-    "mtime": 1781064500.032758,
+    "mtime": 1784310426.2605863,
     "ast_hash": "8dc5acdf9deaff008e9be22ffc1d5031",
     "semantic_hash": "8dc5acdf9deaff008e9be22ffc1d5031"
   },
   "src/divineos/cli/check_similar_commands.py": {
-    "mtime": 1781064500.033813,
+    "mtime": 1784306136.9911861,
     "ast_hash": "5a6efc05e84ffe80b02d32b69917f0e4",
     "semantic_hash": "5a6efc05e84ffe80b02d32b69917f0e4"
   },
   "src/divineos/cli/claim_commands.py": {
-    "mtime": 1783966942.512738,
+    "mtime": 1784342640.739802,
     "ast_hash": "4c081b0312ee8ee8722795e6a15041c7",
     "semantic_hash": "4c081b0312ee8ee8722795e6a15041c7"
   },
   "src/divineos/cli/closure_shape_commands.py": {
-    "mtime": 1781064500.0358276,
+    "mtime": 1784306136.9921868,
     "ast_hash": "1bb9d48e5b3339b3d335a6154f0cd7b0",
     "semantic_hash": "1bb9d48e5b3339b3d335a6154f0cd7b0"
   },
   "src/divineos/cli/compass_commands.py": {
-    "mtime": 1782141381.073142,
-    "ast_hash": "ab31b55b66d9c78eb94baec6f054445d",
-    "semantic_hash": "ab31b55b66d9c78eb94baec6f054445d"
+    "mtime": 1785472582.9437728,
+    "ast_hash": "e911298396a52260b6fcf90b33fe150f",
+    "semantic_hash": ""
   },
   "src/divineos/cli/complete_commands.py": {
     "mtime": 1781064500.0373366,
@@ -1335,54 +1175,54 @@
     "semantic_hash": "05ecb8537aa33c309c130ff7ef0a34f4"
   },
   "src/divineos/cli/consumer_status_commands.py": {
-    "mtime": 1782140336.0154219,
+    "mtime": 1784310426.262586,
     "ast_hash": "40226986bd6aaf7c9db72e723d66ed37",
     "semantic_hash": "40226986bd6aaf7c9db72e723d66ed37"
   },
   "src/divineos/cli/context_dedup_commands.py": {
-    "mtime": 1783109510.6131728,
+    "mtime": 1784310426.262586,
     "ast_hash": "d30b69ef8e697f649867ca55339febbd",
     "semantic_hash": "d30b69ef8e697f649867ca55339febbd"
   },
   "src/divineos/cli/context_tokens_commands.py": {
-    "mtime": 1782482697.5482376,
+    "mtime": 1784310426.2635863,
     "ast_hash": "9a675aca4b4b6525437751886f618035",
     "semantic_hash": "9a675aca4b4b6525437751886f618035"
   },
   "src/divineos/cli/correction_commands.py": {
-    "mtime": 1782482697.5487685,
-    "ast_hash": "e5526039075490f8b14947b3d09e4eb3",
-    "semantic_hash": "e5526039075490f8b14947b3d09e4eb3"
+    "mtime": 1785464767.6570168,
+    "ast_hash": "533aa6a1c413669e699fa5260b0eb7bd",
+    "semantic_hash": ""
   },
   "src/divineos/cli/corrigibility_commands.py": {
-    "mtime": 1781556868.209616,
-    "ast_hash": "fb3fba33b4e3168653e5ec6b10e7e1fb",
-    "semantic_hash": "fb3fba33b4e3168653e5ec6b10e7e1fb"
+    "mtime": 1784423696.8803601,
+    "ast_hash": "2bff1525d1734844476cc2c26f448b7c",
+    "semantic_hash": ""
   },
   "src/divineos/cli/council_required_commands.py": {
-    "mtime": 1782245329.6244867,
-    "ast_hash": "21238dfeb86bac44b400cb55b060a9da",
-    "semantic_hash": "21238dfeb86bac44b400cb55b060a9da"
+    "mtime": 1784757639.3546076,
+    "ast_hash": "a47e26842e509f08e8c024f235bc409e",
+    "semantic_hash": ""
   },
   "src/divineos/cli/decision_commands.py": {
-    "mtime": 1781556868.2101302,
-    "ast_hash": "42465d1c4b112505ff1335bd5045aec7",
-    "semantic_hash": "42465d1c4b112505ff1335bd5045aec7"
+    "mtime": 1785189380.5262864,
+    "ast_hash": "0f334a15f2cbe0ac5cd0a0547e11af16",
+    "semantic_hash": ""
   },
   "src/divineos/cli/deletion_commands.py": {
-    "mtime": 1781556868.2101302,
+    "mtime": 1784310426.26459,
     "ast_hash": "be9c087e0d8fa4c0b811cac48865102c",
     "semantic_hash": "be9c087e0d8fa4c0b811cac48865102c"
   },
   "src/divineos/cli/directive_commands.py": {
-    "mtime": 1781064500.0399024,
+    "mtime": 1784306136.9952655,
     "ast_hash": "2d0c7c7abd6ac74caaaa3b00921943b2",
     "semantic_hash": "2d0c7c7abd6ac74caaaa3b00921943b2"
   },
   "src/divineos/cli/doctor_commands.py": {
-    "mtime": 1781064500.0404198,
-    "ast_hash": "9bfce2a1a181e9893367d24a6693b66e",
-    "semantic_hash": "9bfce2a1a181e9893367d24a6693b66e"
+    "mtime": 1785464767.6570168,
+    "ast_hash": "7c90fd9056a67e3f8295e73de689f674",
+    "semantic_hash": ""
   },
   "src/divineos/cli/dream_commands.py": {
     "mtime": 1781064500.0409296,
@@ -1390,17 +1230,17 @@
     "semantic_hash": "1035d3328560061867352aa8335e2bfe"
   },
   "src/divineos/cli/ear_relaunch_commands.py": {
-    "mtime": 1782482697.5492897,
+    "mtime": 1784310426.26459,
     "ast_hash": "1dbd898402a1f2a7660642b7c108ab2d",
     "semantic_hash": "1dbd898402a1f2a7660642b7c108ab2d"
   },
   "src/divineos/cli/ear_sweep_commands.py": {
-    "mtime": 1782482697.5492897,
+    "mtime": 1784310426.2655904,
     "ast_hash": "0776b62f9fdbae3f08bae06e4aac19dd",
     "semantic_hash": "0776b62f9fdbae3f08bae06e4aac19dd"
   },
   "src/divineos/cli/empirica_commands.py": {
-    "mtime": 1781556868.2101302,
+    "mtime": 1784310426.2655904,
     "ast_hash": "c9c5eef4eda62a495ed4ab5489ca8414",
     "semantic_hash": "c9c5eef4eda62a495ed4ab5489ca8414"
   },
@@ -1410,22 +1250,22 @@
     "semantic_hash": "777d8113bad026d4101189030227d6bd"
   },
   "src/divineos/cli/event_commands.py": {
-    "mtime": 1783406755.3341272,
+    "mtime": 1784310426.2655904,
     "ast_hash": "dd225b2d34995c75ea9ff110b494bc24",
     "semantic_hash": "dd225b2d34995c75ea9ff110b494bc24"
   },
   "src/divineos/cli/expect_commands.py": {
-    "mtime": 1781064500.0429423,
+    "mtime": 1784306136.9972658,
     "ast_hash": "c26b263e0d9fd1ae70cd5ec3c0338868",
     "semantic_hash": "c26b263e0d9fd1ae70cd5ec3c0338868"
   },
   "src/divineos/cli/exploration_commands.py": {
-    "mtime": 1782180631.6262164,
+    "mtime": 1784310426.26659,
     "ast_hash": "6602b8b0ed9c4413a074af193d65138e",
     "semantic_hash": "6602b8b0ed9c4413a074af193d65138e"
   },
   "src/divineos/cli/family_member_commands.py": {
-    "mtime": 1781556868.2111347,
+    "mtime": 1784310426.26659,
     "ast_hash": "70aed2e97065224f491898ef8bceea24",
     "semantic_hash": "70aed2e97065224f491898ef8bceea24"
   },
@@ -1435,7 +1275,7 @@
     "semantic_hash": "5e2e106a26002f3caf1ef0b0363f2dd2"
   },
   "src/divineos/cli/findings_commands.py": {
-    "mtime": 1783714638.4455829,
+    "mtime": 1784310426.2675903,
     "ast_hash": "127b9273f250ff508013e2490b1a2bc1",
     "semantic_hash": "127b9273f250ff508013e2490b1a2bc1"
   },
@@ -1445,32 +1285,32 @@
     "semantic_hash": "ab8aa6152c8448e7dd70bc6084395b1a"
   },
   "src/divineos/cli/gravity_commands.py": {
-    "mtime": 1781064500.0454762,
+    "mtime": 1784306136.999266,
     "ast_hash": "318b4b76d27ffaa768d6f82b8ea887c4",
     "semantic_hash": "318b4b76d27ffaa768d6f82b8ea887c4"
   },
   "src/divineos/cli/hud_commands.py": {
-    "mtime": 1781556868.2121348,
-    "ast_hash": "2acc980bc2d65a113133faaba4ba104d",
-    "semantic_hash": "2acc980bc2d65a113133faaba4ba104d"
+    "mtime": 1785464767.658017,
+    "ast_hash": "31efc6ad416722cd48f2ed5127c11597",
+    "semantic_hash": ""
   },
   "src/divineos/cli/insight_commands.py": {
-    "mtime": 1781064500.0464916,
+    "mtime": 1784306137.0002658,
     "ast_hash": "6d9e6244cbe159084cdd3e0170bc0626",
     "semantic_hash": "6d9e6244cbe159084cdd3e0170bc0626"
   },
   "src/divineos/cli/journal_commands.py": {
-    "mtime": 1781071347.0058064,
+    "mtime": 1784310426.2675903,
     "ast_hash": "d0fbe578c8b85478f150b875b2ac6e1f",
     "semantic_hash": "d0fbe578c8b85478f150b875b2ac6e1f"
   },
   "src/divineos/cli/knowledge_commands.py": {
-    "mtime": 1783910322.3113623,
+    "mtime": 1784342640.7428014,
     "ast_hash": "96c52f620c7985b4bb31260897f11f0e",
     "semantic_hash": "96c52f620c7985b4bb31260897f11f0e"
   },
   "src/divineos/cli/knowledge_health_commands.py": {
-    "mtime": 1781556868.213135,
+    "mtime": 1784310426.2685905,
     "ast_hash": "c5ed31972753aced949ddb67d89e26ec",
     "semantic_hash": "c5ed31972753aced949ddb67d89e26ec"
   },
@@ -1480,97 +1320,97 @@
     "semantic_hash": "d7ca8f2deb6e86d32964b57a5c31f363"
   },
   "src/divineos/cli/ledger_commands.py": {
-    "mtime": 1781129627.9583051,
+    "mtime": 1784310426.2695904,
     "ast_hash": "fe1821c2167c22b7dc7cde8304eac1a1",
     "semantic_hash": "fe1821c2167c22b7dc7cde8304eac1a1"
   },
   "src/divineos/cli/lepos_channel_commands.py": {
-    "mtime": 1783811899.6655452,
+    "mtime": 1784342640.7428014,
     "ast_hash": "66fb9392cde61050570f8d0f0c48e420",
     "semantic_hash": "66fb9392cde61050570f8d0f0c48e420"
   },
   "src/divineos/cli/lepos_walk_commands.py": {
-    "mtime": 1782168768.5148618,
+    "mtime": 1784310426.2705903,
     "ast_hash": "117fbeae0f2a55744f8aefc71c58817c",
     "semantic_hash": "117fbeae0f2a55744f8aefc71c58817c"
   },
   "src/divineos/cli/letter_seen_commands.py": {
-    "mtime": 1782482697.5503407,
+    "mtime": 1784310426.2705903,
     "ast_hash": "6d82194ec9848d25c8fd0ccebe944186",
     "semantic_hash": "6d82194ec9848d25c8fd0ccebe944186"
   },
   "src/divineos/cli/loadout_commands.py": {
-    "mtime": 1781064500.0511055,
+    "mtime": 1784306137.002266,
     "ast_hash": "e2f93e308385d6106a6c09379373204e",
     "semantic_hash": "e2f93e308385d6106a6c09379373204e"
   },
   "src/divineos/cli/mansion_commands.py": {
-    "mtime": 1781064500.052111,
-    "ast_hash": "d44beb511f357674fce6a3b6c17cdbff",
-    "semantic_hash": "d44beb511f357674fce6a3b6c17cdbff"
+    "mtime": 1785189380.5272832,
+    "ast_hash": "41b796efad8fb27264f8e90fb4ba10db",
+    "semantic_hash": ""
   },
   "src/divineos/cli/memory_commands.py": {
-    "mtime": 1781071347.0068407,
+    "mtime": 1784310426.2705903,
     "ast_hash": "fd5550a47dfc9d28650d94a39e5ceee3",
     "semantic_hash": "fd5550a47dfc9d28650d94a39e5ceee3"
   },
   "src/divineos/cli/monitor_commands.py": {
-    "mtime": 1781322174.649054,
+    "mtime": 1784310426.2705903,
     "ast_hash": "b324d925b908a97d2a6e01443aa12e18",
     "semantic_hash": "b324d925b908a97d2a6e01443aa12e18"
   },
   "src/divineos/cli/motivation_commands.py": {
-    "mtime": 1783109510.6131728,
+    "mtime": 1784310426.2705903,
     "ast_hash": "95bac3489facd9bcabdf977355e16903",
     "semantic_hash": "95bac3489facd9bcabdf977355e16903"
   },
   "src/divineos/cli/multiplex_commands.py": {
-    "mtime": 1781064500.052111,
+    "mtime": 1784306137.0042655,
     "ast_hash": "4c73d7d2d9d1bf8867e29d9351de2f8d",
     "semantic_hash": "4c73d7d2d9d1bf8867e29d9351de2f8d"
   },
   "src/divineos/cli/obligation_commands.py": {
-    "mtime": 1781071347.0068407,
+    "mtime": 1784310426.2715905,
     "ast_hash": "80f5fbfa2ea1e2075428a0a0c740a9e4",
     "semantic_hash": "80f5fbfa2ea1e2075428a0a0c740a9e4"
   },
   "src/divineos/cli/oscillating_read_commands.py": {
-    "mtime": 1781064500.0531511,
+    "mtime": 1784306137.0042655,
     "ast_hash": "64cb44c3d005e76dda86df8785b732a6",
     "semantic_hash": "64cb44c3d005e76dda86df8785b732a6"
   },
   "src/divineos/cli/overclaim_commands.py": {
-    "mtime": 1781064500.0531511,
+    "mtime": 1784306137.0042655,
     "ast_hash": "295e8d6dae68845a7717b64a7c838c53",
     "semantic_hash": "295e8d6dae68845a7717b64a7c838c53"
   },
   "src/divineos/cli/pattern_attribution_commands.py": {
-    "mtime": 1781556868.213135,
+    "mtime": 1784310426.2715905,
     "ast_hash": "4370965ebf63b33057ef177a0e99f3bb",
     "semantic_hash": "4370965ebf63b33057ef177a0e99f3bb"
   },
   "src/divineos/cli/performing_caution_commands.py": {
-    "mtime": 1781064500.0541556,
+    "mtime": 1784306137.0052652,
     "ast_hash": "73d01ba3d34396c668844d6f08a6490e",
     "semantic_hash": "73d01ba3d34396c668844d6f08a6490e"
   },
   "src/divineos/cli/pipeline_gates.py": {
-    "mtime": 1781064500.0541556,
-    "ast_hash": "90df8050fa608046e7f4f2af5e652169",
-    "semantic_hash": "90df8050fa608046e7f4f2af5e652169"
+    "mtime": 1785189380.5272832,
+    "ast_hash": "649fcbe6d6756c1cfb1106d55ee52f66",
+    "semantic_hash": ""
   },
   "src/divineos/cli/pipeline_phases.py": {
-    "mtime": 1782141381.0737429,
+    "mtime": 1784310426.2715905,
     "ast_hash": "f213ff692ee8692e0027e39c0268f194",
     "semantic_hash": "f213ff692ee8692e0027e39c0268f194"
   },
   "src/divineos/cli/pr_gate_commands.py": {
-    "mtime": 1782482697.5503407,
+    "mtime": 1784310426.2725904,
     "ast_hash": "c22f388c78f312a99b2f0c9d9f6c90ab",
     "semantic_hash": "c22f388c78f312a99b2f0c9d9f6c90ab"
   },
   "src/divineos/cli/prereg_commands.py": {
-    "mtime": 1783896862.1445692,
+    "mtime": 1784342640.743798,
     "ast_hash": "a71d9eef933e1cd0e6f7f992e46038ba",
     "semantic_hash": "a71d9eef933e1cd0e6f7f992e46038ba"
   },
@@ -1580,17 +1420,17 @@
     "semantic_hash": "9a3473f435654b66eb13059d20280eb3"
   },
   "src/divineos/cli/prs_commands.py": {
-    "mtime": 1781895370.7279987,
+    "mtime": 1784310426.2725904,
     "ast_hash": "6e146ae025eda33c432e746c6858bfac",
     "semantic_hash": "6e146ae025eda33c432e746c6858bfac"
   },
   "src/divineos/cli/push_commands.py": {
-    "mtime": 1782482697.5508711,
+    "mtime": 1784310426.2735908,
     "ast_hash": "43f455c4805dc037424b86b68ed544db",
     "semantic_hash": "43f455c4805dc037424b86b68ed544db"
   },
   "src/divineos/cli/rest_commands.py": {
-    "mtime": 1781064500.0562954,
+    "mtime": 1784306137.0072658,
     "ast_hash": "69ec3d766328d3cbbff888eb96534175",
     "semantic_hash": "69ec3d766328d3cbbff888eb96534175"
   },
@@ -1600,17 +1440,17 @@
     "semantic_hash": "f135864be696809a161fd64beb4d65d2"
   },
   "src/divineos/cli/savor_commands.py": {
-    "mtime": 1781064500.0573277,
+    "mtime": 1784306137.0072658,
     "ast_hash": "2ac2cd78135c06915b3e1286881272b2",
     "semantic_hash": "2ac2cd78135c06915b3e1286881272b2"
   },
   "src/divineos/cli/scheduled_commands.py": {
-    "mtime": 1781556868.214135,
+    "mtime": 1784310426.2735908,
     "ast_hash": "f24d97605a01f689791adb8e24e28504",
     "semantic_hash": "f24d97605a01f689791adb8e24e28504"
   },
   "src/divineos/cli/search_commands.py": {
-    "mtime": 1781556868.214135,
+    "mtime": 1784310426.2735908,
     "ast_hash": "b2bc478a4c60aa23e8075d4781072c3c",
     "semantic_hash": "b2bc478a4c60aa23e8075d4781072c3c"
   },
@@ -1620,57 +1460,57 @@
     "semantic_hash": "bb03794aa7576ab8184a30fb8462f034"
   },
   "src/divineos/cli/session_pipeline.py": {
-    "mtime": 1783109510.6141813,
-    "ast_hash": "7fefdf5f2dc2bd3fb025e4cb1c697367",
-    "semantic_hash": "7fefdf5f2dc2bd3fb025e4cb1c697367"
+    "mtime": 1785189380.5282865,
+    "ast_hash": "3213ff5465a14ab06885982c95d3ccad",
+    "semantic_hash": ""
   },
   "src/divineos/cli/sleep_commands.py": {
-    "mtime": 1783406755.335127,
-    "ast_hash": "63f6e2f4ff32c82cdef66963e33cc4e9",
-    "semantic_hash": "63f6e2f4ff32c82cdef66963e33cc4e9"
+    "mtime": 1785189380.5282865,
+    "ast_hash": "462157dfbc22610bc0b8cb2cc0e3ba1f",
+    "semantic_hash": ""
   },
   "src/divineos/cli/synchronicity_commands.py": {
-    "mtime": 1781556868.2156386,
+    "mtime": 1784310426.2755907,
     "ast_hash": "a6dfac00f338f56871b974b938638a05",
     "semantic_hash": "a6dfac00f338f56871b974b938638a05"
   },
   "src/divineos/cli/talk_to_commands.py": {
-    "mtime": 1781556868.2156386,
+    "mtime": 1784310426.2755907,
     "ast_hash": "5476115409770337c006bf94ef3b9e30",
     "semantic_hash": "5476115409770337c006bf94ef3b9e30"
   },
   "src/divineos/cli/texture_commands.py": {
-    "mtime": 1781064500.05941,
+    "mtime": 1784306137.0097735,
     "ast_hash": "362b35209b04354303bc24bfbbf36f4f",
     "semantic_hash": "362b35209b04354303bc24bfbbf36f4f"
   },
   "src/divineos/cli/time_estimate_commands.py": {
-    "mtime": 1783109510.6141813,
+    "mtime": 1784310426.2755907,
     "ast_hash": "d8157a5d85362bd84a95ea425db05ca8",
     "semantic_hash": "d8157a5d85362bd84a95ea425db05ca8"
   },
   "src/divineos/cli/todos_commands.py": {
-    "mtime": 1781213221.5678,
+    "mtime": 1784310426.2755907,
     "ast_hash": "9f99af2a0698ea80d2785d91ad8c087c",
     "semantic_hash": "9f99af2a0698ea80d2785d91ad8c087c"
   },
   "src/divineos/cli/voice_commands.py": {
-    "mtime": 1781322174.6500542,
+    "mtime": 1784310426.27659,
     "ast_hash": "86e80c3124fe0ea3d0d5bfbfdb5cd7bb",
     "semantic_hash": "86e80c3124fe0ea3d0d5bfbfdb5cd7bb"
   },
   "src/divineos/cli/void_commands.py": {
-    "mtime": 1781556868.2156386,
+    "mtime": 1784310426.27659,
     "ast_hash": "11271ada3a7e0cf80c344c0296a67446",
     "semantic_hash": "11271ada3a7e0cf80c344c0296a67446"
   },
   "src/divineos/cli/voids_commands.py": {
-    "mtime": 1781556868.2156386,
+    "mtime": 1784310426.27659,
     "ast_hash": "a310b367306adf09a7db985c5352cd20",
     "semantic_hash": "a310b367306adf09a7db985c5352cd20"
   },
   "src/divineos/cli/wiring_commands.py": {
-    "mtime": 1783910322.3123617,
+    "mtime": 1784342640.7447975,
     "ast_hash": "16c5877cfb46a47567dca85d584c79c9",
     "semantic_hash": "16c5877cfb46a47567dca85d584c79c9"
   },
@@ -1680,17 +1520,17 @@
     "semantic_hash": "332ffbac43766b38704c254622339754"
   },
   "src/divineos/core/_embedding_device.py": {
-    "mtime": 1781556868.2166429,
+    "mtime": 1784310426.2775903,
     "ast_hash": "fdc1508af4b3450115c0d5d292af2838",
     "semantic_hash": "fdc1508af4b3450115c0d5d292af2838"
   },
   "src/divineos/core/_hud_io.py": {
-    "mtime": 1781064500.0604148,
+    "mtime": 1784306137.0118365,
     "ast_hash": "17aae7f77d5dfebc336c78279a34e493",
     "semantic_hash": "17aae7f77d5dfebc336c78279a34e493"
   },
   "src/divineos/core/_ledger_base.py": {
-    "mtime": 1781556868.2166429,
+    "mtime": 1784310426.2775903,
     "ast_hash": "0c1630fb5777e6590930fd28f9f279a7",
     "semantic_hash": "0c1630fb5777e6590930fd28f9f279a7"
   },
@@ -1705,22 +1545,22 @@
     "semantic_hash": "0f2399e9d86ae9e7e819fa7fb96ff7d0"
   },
   "src/divineos/core/active_memory.py": {
-    "mtime": 1781556868.2166429,
+    "mtime": 1784310426.2775903,
     "ast_hash": "34a7f2e073464b9e0a37aa0eb18da58e",
     "semantic_hash": "34a7f2e073464b9e0a37aa0eb18da58e"
   },
   "src/divineos/core/actor_capabilities.py": {
-    "mtime": 1782141381.0737429,
+    "mtime": 1784306137.0128362,
     "ast_hash": "a5636b38bd07dca176d704f18fa1752d",
     "semantic_hash": "a5636b38bd07dca176d704f18fa1752d"
   },
   "src/divineos/core/actor_normalize.py": {
-    "mtime": 1781064500.0639565,
+    "mtime": 1784306137.0128362,
     "ast_hash": "f6f543fdf4fae7a64cbebce4f5c84bd2",
     "semantic_hash": "f6f543fdf4fae7a64cbebce4f5c84bd2"
   },
   "src/divineos/core/actor_registry.py": {
-    "mtime": 1782141381.0737429,
+    "mtime": 1784310426.2785902,
     "ast_hash": "6d96bfd5ad771b43c052547fc08509be",
     "semantic_hash": "6d96bfd5ad771b43c052547fc08509be"
   },
@@ -1730,7 +1570,7 @@
     "semantic_hash": "37a9c6e85b4cbafe9a95318bfcfeb3ec"
   },
   "src/divineos/core/affect.py": {
-    "mtime": 1783966942.512738,
+    "mtime": 1784342640.7457979,
     "ast_hash": "c66796e431a02c8c6c840b91d99768d5",
     "semantic_hash": "c66796e431a02c8c6c840b91d99768d5"
   },
@@ -1740,39 +1580,39 @@
     "semantic_hash": "e8e93cabcb73ad3afed81bcb7cce5857"
   },
   "src/divineos/core/andrew_correction_tracker.py": {
-    "mtime": 1783714638.4465823,
-    "ast_hash": "de11be18bc70343f6b81754512c7a5c0",
-    "semantic_hash": "de11be18bc70343f6b81754512c7a5c0"
+    "mtime": 1785472582.9447725,
+    "ast_hash": "6541326930225edeb3f8228d0499a19e",
+    "semantic_hash": ""
   },
   "src/divineos/core/andrew_state/__init__.py": {
-    "mtime": 1782180631.6283164,
+    "mtime": 1784310426.2795906,
     "ast_hash": "10bdaf469fe0373b9c54ebb060cb0447",
     "semantic_hash": "10bdaf469fe0373b9c54ebb060cb0447"
   },
   "src/divineos/core/andrew_state/_schema.py": {
-    "mtime": 1782180631.6283164,
+    "mtime": 1784310426.2800944,
     "ast_hash": "638419f1dff9965daf9ae089f7e5bac2",
     "semantic_hash": "638419f1dff9965daf9ae089f7e5bac2"
   },
   "src/divineos/core/andrew_state/store.py": {
-    "mtime": 1782180631.6299098,
+    "mtime": 1784310426.2800944,
     "ast_hash": "d60c964dea5b3ce5d6fd31af97aee0ab",
     "semantic_hash": "d60c964dea5b3ce5d6fd31af97aee0ab"
   },
   "src/divineos/core/andrew_state/substance_binding.py": {
-    "mtime": 1782180631.6299098,
+    "mtime": 1784310426.2800944,
     "ast_hash": "9457dd6870485bd6b57659c39c6b8687",
     "semantic_hash": "9457dd6870485bd6b57659c39c6b8687"
   },
   "src/divineos/core/andrew_state/types.py": {
-    "mtime": 1782180631.630915,
+    "mtime": 1784310426.2800944,
     "ast_hash": "cb5b208933066457386a47d8a7125cbd",
     "semantic_hash": "cb5b208933066457386a47d8a7125cbd"
   },
   "src/divineos/core/anti_slop.py": {
-    "mtime": 1781556868.2186415,
-    "ast_hash": "656dbd18f197cff7032eb8e14a629378",
-    "semantic_hash": "656dbd18f197cff7032eb8e14a629378"
+    "mtime": 1784423696.881364,
+    "ast_hash": "615ba81dd9fc0ddda902cae04b4095db",
+    "semantic_hash": ""
   },
   "src/divineos/core/anticipation.py": {
     "mtime": 1781064500.0685053,
@@ -1780,7 +1620,7 @@
     "semantic_hash": "92f04e8d1e4fde29936d2f5e530fe8f3"
   },
   "src/divineos/core/archive_export.py": {
-    "mtime": 1781064500.0690093,
+    "mtime": 1784306137.0158358,
     "ast_hash": "f2e01f41c09e7b86d141a709e4d5e7ee",
     "semantic_hash": "f2e01f41c09e7b86d141a709e4d5e7ee"
   },
@@ -1790,112 +1630,112 @@
     "semantic_hash": "82438ffb04d69c4ec534a594cd30d555"
   },
   "src/divineos/core/attention_schema.py": {
-    "mtime": 1781064500.0695217,
+    "mtime": 1784306137.0168357,
     "ast_hash": "80e9c1db0a199548a0e16257ffc91bcd",
     "semantic_hash": "80e9c1db0a199548a0e16257ffc91bcd"
   },
   "src/divineos/core/attribution_audit.py": {
-    "mtime": 1781064500.0705266,
+    "mtime": 1784306137.0168357,
     "ast_hash": "fd2a994238cd260eec4262d4cc766625",
     "semantic_hash": "fd2a994238cd260eec4262d4cc766625"
   },
   "src/divineos/core/audit_auto_triage.py": {
-    "mtime": 1781556868.2186415,
+    "mtime": 1784310426.2810986,
     "ast_hash": "5b5ebdcd1456b01289bbb9fe25b5dd0b",
     "semantic_hash": "5b5ebdcd1456b01289bbb9fe25b5dd0b"
   },
   "src/divineos/core/audit_visibility/__init__.py": {
-    "mtime": 1782482697.5519423,
+    "mtime": 1784310426.2810986,
     "ast_hash": "611b65bc5dd272b356fdd91449430a22",
     "semantic_hash": "611b65bc5dd272b356fdd91449430a22"
   },
   "src/divineos/core/auto_commit.py": {
-    "mtime": 1783808451.7337103,
+    "mtime": 1784342640.7457979,
     "ast_hash": "b823d42082d3ad0fa449985770a33541",
     "semantic_hash": "b823d42082d3ad0fa449985770a33541"
   },
   "src/divineos/core/auto_cycle.py": {
-    "mtime": 1783720076.607746,
-    "ast_hash": "0ff4cc6c5636b0fdd4fafeee2f36af08",
-    "semantic_hash": "0ff4cc6c5636b0fdd4fafeee2f36af08"
+    "mtime": 1785486810.471911,
+    "ast_hash": "fff5cdb4bf6abbaa854d0c757e4b2223",
+    "semantic_hash": ""
   },
   "src/divineos/core/bio.py": {
-    "mtime": 1781064500.071031,
+    "mtime": 1784306137.017839,
     "ast_hash": "9a3cf6f901611e228da6df18b9bb3443",
     "semantic_hash": "9a3cf6f901611e228da6df18b9bb3443"
   },
   "src/divineos/core/body_awareness.py": {
-    "mtime": 1781064500.071031,
-    "ast_hash": "cf6a36eada2869037610c2e9d6b0ace2",
-    "semantic_hash": "cf6a36eada2869037610c2e9d6b0ace2"
+    "mtime": 1784421044.233186,
+    "ast_hash": "b1c594eba7c6d01a51bcc0cf3657c0fb",
+    "semantic_hash": ""
   },
   "src/divineos/core/branch_health.py": {
-    "mtime": 1781064500.0720465,
-    "ast_hash": "6966189c7f309c62b294f97be25a1d35",
-    "semantic_hash": "6966189c7f309c62b294f97be25a1d35"
+    "mtime": 1784342640.7467978,
+    "ast_hash": "f36a84ea3795636b72976d9530a8b789",
+    "semantic_hash": ""
   },
   "src/divineos/core/briefing_bypass.py": {
-    "mtime": 1783109510.6151812,
+    "mtime": 1784310426.2820985,
     "ast_hash": "69e214ce0a9f40b38f449d6251513a29",
     "semantic_hash": "69e214ce0a9f40b38f449d6251513a29"
   },
   "src/divineos/core/briefing_dashboard.py": {
-    "mtime": 1783109510.6151812,
-    "ast_hash": "4f4b27a05ec929a6a47fba33fea85d80",
-    "semantic_hash": "4f4b27a05ec929a6a47fba33fea85d80"
+    "mtime": 1784342640.7467978,
+    "ast_hash": "e351e3006458c558474d0db767521ae7",
+    "semantic_hash": ""
   },
   "src/divineos/core/briefing_freshness.py": {
-    "mtime": 1782349193.4587283,
+    "mtime": 1784306137.0198362,
     "ast_hash": "106b379e5b9e8055fbf17347692d493d",
     "semantic_hash": "106b379e5b9e8055fbf17347692d493d"
   },
   "src/divineos/core/briefing_id.py": {
-    "mtime": 1783971122.315268,
+    "mtime": 1784342640.7477965,
     "ast_hash": "aaf08a1711b38b3d2810b7d033fd81ac",
     "semantic_hash": "aaf08a1711b38b3d2810b7d033fd81ac"
   },
   "src/divineos/core/bypass_telemetry.py": {
-    "mtime": 1781064500.073561,
-    "ast_hash": "4fa1699d5b11dfcf49c144f508bd3ffe",
-    "semantic_hash": "4fa1699d5b11dfcf49c144f508bd3ffe"
+    "mtime": 1785189380.5292854,
+    "ast_hash": "ef3df10e6883fbfc88f75c9e6345fa6d",
+    "semantic_hash": ""
   },
   "src/divineos/core/calibration/__init__.py": {
-    "mtime": 1781064500.0740645,
+    "mtime": 1784310426.2830987,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
   "src/divineos/core/calibration/brier.py": {
-    "mtime": 1781064500.0745678,
+    "mtime": 1784310426.2830987,
     "ast_hash": "9d70b73d0ed74b6e9faef76a7ab91373",
     "semantic_hash": "9d70b73d0ed74b6e9faef76a7ab91373"
   },
   "src/divineos/core/canonical_substrate_surface.py": {
-    "mtime": 1781556868.2196429,
+    "mtime": 1784310426.2840989,
     "ast_hash": "cb8c62a824556175e816561ad1ac8d8c",
     "semantic_hash": "cb8c62a824556175e816561ad1ac8d8c"
   },
   "src/divineos/core/check_similar.py": {
-    "mtime": 1781064500.0745678,
+    "mtime": 1784306137.020836,
     "ast_hash": "839652dbbb6b5e2bec0cbbeec57a42e5",
     "semantic_hash": "839652dbbb6b5e2bec0cbbeec57a42e5"
   },
   "src/divineos/core/claim_store.py": {
-    "mtime": 1781064500.075572,
+    "mtime": 1784310426.2840989,
     "ast_hash": "fc1ce337735b64e1775fe9867e884e5d",
     "semantic_hash": "fc1ce337735b64e1775fe9867e884e5d"
   },
   "src/divineos/core/closure_shape_detector.py": {
-    "mtime": 1781556868.2196429,
+    "mtime": 1784310426.2850988,
     "ast_hash": "29f0aa18ce4259eb962054d8aadbfb3d",
     "semantic_hash": "29f0aa18ce4259eb962054d8aadbfb3d"
   },
   "src/divineos/core/closure_verification.py": {
-    "mtime": 1783896862.146073,
+    "mtime": 1785465796.4402125,
     "ast_hash": "1c7ac9685a23cb99852e36e50858b24d",
     "semantic_hash": "1c7ac9685a23cb99852e36e50858b24d"
   },
   "src/divineos/core/command_inventory.py": {
-    "mtime": 1781064500.076578,
+    "mtime": 1784306137.0223398,
     "ast_hash": "89d6d5ac8087434e549119d8655ccca7",
     "semantic_hash": "89d6d5ac8087434e549119d8655ccca7"
   },
@@ -1910,17 +1750,17 @@
     "semantic_hash": "be525b9158f3ee7647dfe695369c8e18"
   },
   "src/divineos/core/compass_dismissal_briefing_surface.py": {
-    "mtime": 1781064500.0775893,
+    "mtime": 1784306137.0223398,
     "ast_hash": "20379a2f55ae79c78c2a83e4834c9f94",
     "semantic_hash": "20379a2f55ae79c78c2a83e4834c9f94"
   },
   "src/divineos/core/compass_required_marker.py": {
-    "mtime": 1781064500.0786269,
+    "mtime": 1784306137.0223398,
     "ast_hash": "9743aac09b67900f43b7ad1311eef321",
     "semantic_hash": "9743aac09b67900f43b7ad1311eef321"
   },
   "src/divineos/core/compass_rudder.py": {
-    "mtime": 1782868897.1874764,
+    "mtime": 1784306137.023344,
     "ast_hash": "a285de7080db1bae4c0f5ffca7825e1c",
     "semantic_hash": "a285de7080db1bae4c0f5ffca7825e1c"
   },
@@ -1930,62 +1770,62 @@
     "semantic_hash": "aa0d18b701d3b46e116d9e7ef8556ed4"
   },
   "src/divineos/core/completion_check.py": {
-    "mtime": 1783471102.0517957,
+    "mtime": 1784310426.2870986,
     "ast_hash": "4ac2df63c3a0a4a0e9bdde9b4c314b95",
     "semantic_hash": "4ac2df63c3a0a4a0e9bdde9b4c314b95"
   },
   "src/divineos/core/compliance_audit.py": {
-    "mtime": 1781556868.2210908,
+    "mtime": 1784310426.2870986,
     "ast_hash": "c8f2f5f7719d06706482d7c48d560bab",
     "semantic_hash": "c8f2f5f7719d06706482d7c48d560bab"
   },
   "src/divineos/core/compliance_baseline.py": {
-    "mtime": 1781556868.2210908,
+    "mtime": 1784310426.2870986,
     "ast_hash": "b893f37699e09a9ecfad1b3b8b24c68b",
     "semantic_hash": "b893f37699e09a9ecfad1b3b8b24c68b"
   },
   "src/divineos/core/consequence_chain/__init__.py": {
-    "mtime": 1781064500.0827894,
+    "mtime": 1784306137.024344,
     "ast_hash": "625545fbef191a81fc1faaff4bc1ff79",
     "semantic_hash": "625545fbef191a81fc1faaff4bc1ff79"
   },
   "src/divineos/core/consequence_chain/chain.py": {
-    "mtime": 1781064500.083302,
+    "mtime": 1784306137.024344,
     "ast_hash": "9cf6313fe80c5444c02015423ab321fa",
     "semantic_hash": "9cf6313fe80c5444c02015423ab321fa"
   },
   "src/divineos/core/constants.py": {
-    "mtime": 1783790787.6471214,
+    "mtime": 1784342640.7498016,
     "ast_hash": "8409e3e7573a656a95a4b4a7056223a4",
     "semantic_hash": "8409e3e7573a656a95a4b4a7056223a4"
   },
   "src/divineos/core/constitutional_principles.py": {
-    "mtime": 1781556868.2216737,
+    "mtime": 1784310426.2880988,
     "ast_hash": "cf07289449be420061da1427dba6b1a0",
     "semantic_hash": "cf07289449be420061da1427dba6b1a0"
   },
   "src/divineos/core/consultation_tracker.py": {
-    "mtime": 1783816052.8493383,
-    "ast_hash": "d5eb62cab28ef7f1bf2eb69639ed3486",
-    "semantic_hash": "d5eb62cab28ef7f1bf2eb69639ed3486"
+    "mtime": 1785464767.659021,
+    "ast_hash": "f11faf996ceed3490889755acb9f527d",
+    "semantic_hash": ""
   },
   "src/divineos/core/context_dedup.py": {
-    "mtime": 1783109510.6151812,
+    "mtime": 1784310426.2890987,
     "ast_hash": "07f0d5a7fcb63401aebe8a671320e9e4",
     "semantic_hash": "07f0d5a7fcb63401aebe8a671320e9e4"
   },
   "src/divineos/core/context_governor.py": {
-    "mtime": 1783109510.616181,
-    "ast_hash": "180ff101fed16c8d930505db9aecfb41",
-    "semantic_hash": "180ff101fed16c8d930505db9aecfb41"
+    "mtime": 1784481325.5261364,
+    "ast_hash": "04ee531b9f19c21e5343185602135385",
+    "semantic_hash": ""
   },
   "src/divineos/core/context_meter.py": {
-    "mtime": 1781064500.0869007,
+    "mtime": 1784306137.025344,
     "ast_hash": "2a992cf723fd8008632a14014d140e75",
     "semantic_hash": "2a992cf723fd8008632a14014d140e75"
   },
   "src/divineos/core/context_tokens/__init__.py": {
-    "mtime": 1782482697.5529895,
+    "mtime": 1784310426.2890987,
     "ast_hash": "0bac80ec858a29a54b03354adb5256d7",
     "semantic_hash": "0bac80ec858a29a54b03354adb5256d7"
   },
@@ -2000,49 +1840,49 @@
     "semantic_hash": "c78b02ada37d2efff7ee39c54d5d2ec0"
   },
   "src/divineos/core/correction_marker.py": {
-    "mtime": 1783896862.146073,
-    "ast_hash": "a946749bf0942f1aaca6884a5c51287b",
-    "semantic_hash": "a946749bf0942f1aaca6884a5c51287b"
+    "mtime": 1784757639.3546076,
+    "ast_hash": "af0da2919f9f88440abe5a27f8ea3346",
+    "semantic_hash": ""
   },
   "src/divineos/core/correction_pairing.py": {
-    "mtime": 1781129627.9614408,
+    "mtime": 1784310426.2901049,
     "ast_hash": "e005a09274be438a97c01acd03ddf783",
     "semantic_hash": "e005a09274be438a97c01acd03ddf783"
   },
   "src/divineos/core/corrections.py": {
-    "mtime": 1781064500.0899367,
-    "ast_hash": "6207f598f9e29960be506f123e808e9b",
-    "semantic_hash": "6207f598f9e29960be506f123e808e9b"
+    "mtime": 1785464767.661021,
+    "ast_hash": "64831b84773a0b5836f24be4152c05d6",
+    "semantic_hash": ""
   },
   "src/divineos/core/corrigibility.py": {
-    "mtime": 1781556868.222678,
-    "ast_hash": "f3ff3ef0387872a19540f6927e10e78c",
-    "semantic_hash": "f3ff3ef0387872a19540f6927e10e78c"
+    "mtime": 1784423696.881364,
+    "ast_hash": "a9c321c370b6ab64064371b7b8508eac",
+    "semantic_hash": ""
   },
   "src/divineos/core/corrigibility_tool_gate/__init__.py": {
-    "mtime": 1782643350.3039184,
+    "mtime": 1784310426.291099,
     "ast_hash": "d35b16009b3cfc3a45282e82e9446e57",
     "semantic_hash": "d35b16009b3cfc3a45282e82e9446e57"
   },
   "src/divineos/core/council/__init__.py": {
-    "mtime": 1781064500.0909414,
+    "mtime": 1784306137.0288575,
     "ast_hash": "406d94dcd2b6300b7f8142c841207338",
     "semantic_hash": "406d94dcd2b6300b7f8142c841207338"
   },
   "src/divineos/core/council/consultation_log.py": {
-    "mtime": 1781556868.2236774,
-    "ast_hash": "0343945cc0a21cc63f84e485e7b76fa3",
-    "semantic_hash": "0343945cc0a21cc63f84e485e7b76fa3"
+    "mtime": 1784342640.7518005,
+    "ast_hash": "139aa02f68e23528c87d5e0dbbc77162",
+    "semantic_hash": ""
   },
   "src/divineos/core/council/engine.py": {
-    "mtime": 1783109510.617181,
-    "ast_hash": "60034d936f0110e39c26f34ceb4aeb58",
-    "semantic_hash": "60034d936f0110e39c26f34ceb4aeb58"
+    "mtime": 1784481325.527136,
+    "ast_hash": "6fe41fffeb78b3fb81a25d5f8d7d0698",
+    "semantic_hash": ""
   },
   "src/divineos/core/council/experts/__init__.py": {
-    "mtime": 1781064500.0919483,
-    "ast_hash": "0afa9bc89129b19cf13a7b4898febbff",
-    "semantic_hash": "0afa9bc89129b19cf13a7b4898febbff"
+    "mtime": 1785189380.5302863,
+    "ast_hash": "d767ff739bf43b8b939fb45d31fa055a",
+    "semantic_hash": ""
   },
   "src/divineos/core/council/experts/angelou.py": {
     "mtime": 1781064500.0929673,
@@ -2055,7 +1895,7 @@
     "semantic_hash": "9bf238b369dcc225310aacae16377410"
   },
   "src/divineos/core/council/experts/beer.py": {
-    "mtime": 1783109510.617181,
+    "mtime": 1784310426.2920985,
     "ast_hash": "bd6ba6d15f4fe3b0b5ea699310822aba",
     "semantic_hash": "bd6ba6d15f4fe3b0b5ea699310822aba"
   },
@@ -2065,7 +1905,7 @@
     "semantic_hash": "161da3a40494c5c8dc550dbc074d5b79"
   },
   "src/divineos/core/council/experts/carmack.py": {
-    "mtime": 1781064500.094987,
+    "mtime": 1784306137.030857,
     "ast_hash": "a22fb54f9dd5e932e784bd453dfdad7a",
     "semantic_hash": "a22fb54f9dd5e932e784bd453dfdad7a"
   },
@@ -2080,17 +1920,17 @@
     "semantic_hash": "e4b4e20bd4eabae796c8fc3a2316fe90"
   },
   "src/divineos/core/council/experts/deming.py": {
-    "mtime": 1783109510.617181,
+    "mtime": 1784310426.2920985,
     "ast_hash": "afe4a555f98fe9347da33cf98c697994",
     "semantic_hash": "afe4a555f98fe9347da33cf98c697994"
   },
   "src/divineos/core/council/experts/dennett.py": {
-    "mtime": 1783109510.6186874,
+    "mtime": 1784310426.2930987,
     "ast_hash": "00c98fbc14ee92d4cde77a3708588cfd",
     "semantic_hash": "00c98fbc14ee92d4cde77a3708588cfd"
   },
   "src/divineos/core/council/experts/dijkstra.py": {
-    "mtime": 1783109510.6196918,
+    "mtime": 1784310426.2930987,
     "ast_hash": "ccf239601252700f0ae056e9f44638c3",
     "semantic_hash": "ccf239601252700f0ae056e9f44638c3"
   },
@@ -2105,7 +1945,7 @@
     "semantic_hash": "a2d7cfcddceaf6a9ec15a41736f672af"
   },
   "src/divineos/core/council/experts/feynman.py": {
-    "mtime": 1783109510.6201973,
+    "mtime": 1784310426.2930987,
     "ast_hash": "51cbd322aa10d91d5197df552ec7a030",
     "semantic_hash": "51cbd322aa10d91d5197df552ec7a030"
   },
@@ -2140,7 +1980,7 @@
     "semantic_hash": "282149e9958b2be64245db249ea9fa29"
   },
   "src/divineos/core/council/experts/kahneman.py": {
-    "mtime": 1783109510.6201973,
+    "mtime": 1784310426.2940986,
     "ast_hash": "7b0416ec23684474cd3dc53921e542a8",
     "semantic_hash": "7b0416ec23684474cd3dc53921e542a8"
   },
@@ -2160,12 +2000,12 @@
     "semantic_hash": "8271ce181519d5aeb36d2390787fa82a"
   },
   "src/divineos/core/council/experts/maturana_varela.py": {
-    "mtime": 1781556868.2236774,
+    "mtime": 1784310426.2940986,
     "ast_hash": "6612157826ca2ccf4cd0788e2006c934",
     "semantic_hash": "6612157826ca2ccf4cd0788e2006c934"
   },
   "src/divineos/core/council/experts/meadows.py": {
-    "mtime": 1783109510.6212008,
+    "mtime": 1784310426.2940986,
     "ast_hash": "e1761c0ff2b85359f487b777272a2b1d",
     "semantic_hash": "e1761c0ff2b85359f487b777272a2b1d"
   },
@@ -2175,7 +2015,7 @@
     "semantic_hash": "ede88e4f898ffab88d9b82d45c298649"
   },
   "src/divineos/core/council/experts/norman.py": {
-    "mtime": 1783109510.6212008,
+    "mtime": 1784310426.2950988,
     "ast_hash": "3cd639f27c63f9dca89d28c5f739db00",
     "semantic_hash": "3cd639f27c63f9dca89d28c5f739db00"
   },
@@ -2190,7 +2030,7 @@
     "semantic_hash": "1cc106aa639c6ca3e611c91f19dc8038"
   },
   "src/divineos/core/council/experts/penrose.py": {
-    "mtime": 1783109510.6221995,
+    "mtime": 1784310426.2950988,
     "ast_hash": "1fbed24d79a6a225bf3ee24fe29f5bc3",
     "semantic_hash": "1fbed24d79a6a225bf3ee24fe29f5bc3"
   },
@@ -2200,12 +2040,12 @@
     "semantic_hash": "db30aca1a0ff8f64aeb8705875e3fcaa"
   },
   "src/divineos/core/council/experts/popper.py": {
-    "mtime": 1783109510.6221995,
+    "mtime": 1784310426.296099,
     "ast_hash": "c970562599f196057cb9a005b1ae2cac",
     "semantic_hash": "c970562599f196057cb9a005b1ae2cac"
   },
   "src/divineos/core/council/experts/sagan.py": {
-    "mtime": 1783109510.6231992,
+    "mtime": 1784310426.296099,
     "ast_hash": "03078918be2bb8f1dfeafd79bcb8d28c",
     "semantic_hash": "03078918be2bb8f1dfeafd79bcb8d28c"
   },
@@ -2215,12 +2055,12 @@
     "semantic_hash": "8719497af9f5e2d68d3a7cc86beb48c2"
   },
   "src/divineos/core/council/experts/shannon.py": {
-    "mtime": 1783109510.6231992,
+    "mtime": 1784310426.296099,
     "ast_hash": "c51a8d112302d0b69cd344c29abc2c49",
     "semantic_hash": "c51a8d112302d0b69cd344c29abc2c49"
   },
   "src/divineos/core/council/experts/taleb.py": {
-    "mtime": 1783109510.6242018,
+    "mtime": 1784310426.2970986,
     "ast_hash": "dfc844d03ffd2166cb1b109b92cebf88",
     "semantic_hash": "dfc844d03ffd2166cb1b109b92cebf88"
   },
@@ -2240,12 +2080,12 @@
     "semantic_hash": "937b7b90b0b9a13d9876f98429827e1a"
   },
   "src/divineos/core/council/experts/wayne.py": {
-    "mtime": 1781064500.1118307,
+    "mtime": 1784306137.0368571,
     "ast_hash": "015bb91d2a3142202a8c2d108f66fbbd",
     "semantic_hash": "015bb91d2a3142202a8c2d108f66fbbd"
   },
   "src/divineos/core/council/experts/wittgenstein.py": {
-    "mtime": 1783109510.6242018,
+    "mtime": 1784310426.2970986,
     "ast_hash": "fab2fff0ec2f34c4e5b1d55e6b178f60",
     "semantic_hash": "fab2fff0ec2f34c4e5b1d55e6b178f60"
   },
@@ -2255,7 +2095,7 @@
     "semantic_hash": "653af316e4829ff821eb5890140fcf72"
   },
   "src/divineos/core/council/framework.py": {
-    "mtime": 1783109510.6252017,
+    "mtime": 1784310426.2970986,
     "ast_hash": "55864b0bd1548902c4f5cc51453ecfcf",
     "semantic_hash": "55864b0bd1548902c4f5cc51453ecfcf"
   },
@@ -2265,9 +2105,9 @@
     "semantic_hash": "3c75a5f580b054d732678204942de2e9"
   },
   "src/divineos/core/council/manager.py": {
-    "mtime": 1783109510.6252017,
-    "ast_hash": "935434b7505662bdf2a6b23969bd9a07",
-    "semantic_hash": "935434b7505662bdf2a6b23969bd9a07"
+    "mtime": 1784342640.7538033,
+    "ast_hash": "c155ba89c614016bd180f96bb185baeb",
+    "semantic_hash": ""
   },
   "src/divineos/core/council_auto.py": {
     "mtime": 1781064500.1152697,
@@ -2275,39 +2115,39 @@
     "semantic_hash": "7f1572b24827799e3d09a94698146ebb"
   },
   "src/divineos/core/council_balance_surface.py": {
-    "mtime": 1781556868.2236774,
+    "mtime": 1784310426.2980988,
     "ast_hash": "7fc79e6a0f338a2580923181a02e287f",
     "semantic_hash": "7fc79e6a0f338a2580923181a02e287f"
   },
   "src/divineos/core/council_required/__init__.py": {
-    "mtime": 1782245329.6244867,
+    "mtime": 1784310426.2980988,
     "ast_hash": "5cdc7af072c0083c2bbc454748bc0f96",
     "semantic_hash": "5cdc7af072c0083c2bbc454748bc0f96"
   },
   "src/divineos/core/council_required/decision_walk_link.py": {
-    "mtime": 1782245329.625492,
+    "mtime": 1784310426.2990987,
     "ast_hash": "8dd5038578fa37af1a11594de61f5d19",
     "semantic_hash": "8dd5038578fa37af1a11594de61f5d19"
   },
   "src/divineos/core/council_required/gate.py": {
-    "mtime": 1782245329.626494,
-    "ast_hash": "b679ae8a85506cd1525078c40fe34c57",
-    "semantic_hash": "b679ae8a85506cd1525078c40fe34c57"
+    "mtime": 1784481325.528136,
+    "ast_hash": "632ef1e44cb06a0cd2e8ef20ae76dfe1",
+    "semantic_hash": ""
   },
   "src/divineos/core/council_required/store.py": {
-    "mtime": 1782245329.626494,
-    "ast_hash": "55f0a7872a5c54dcea957f7aebc4067a",
-    "semantic_hash": "55f0a7872a5c54dcea957f7aebc4067a"
+    "mtime": 1784342640.7547984,
+    "ast_hash": "98181fd342451638ac81fc32f4d7b0f1",
+    "semantic_hash": ""
   },
   "src/divineos/core/council_required/substance_binding.py": {
-    "mtime": 1783714638.447583,
-    "ast_hash": "760f524562a5848d9a47b2671aa54b97",
-    "semantic_hash": "760f524562a5848d9a47b2671aa54b97"
+    "mtime": 1784757622.996345,
+    "ast_hash": "b742adeee10e3e5229b20e7613356709",
+    "semantic_hash": ""
   },
   "src/divineos/core/council_required/types.py": {
-    "mtime": 1782245329.6279998,
-    "ast_hash": "cef29984ae29a7b27c3912bd3ec8d054",
-    "semantic_hash": "cef29984ae29a7b27c3912bd3ec8d054"
+    "mtime": 1785189380.5312862,
+    "ast_hash": "42c24d15a97d7189e8cd2bd9449b5b35",
+    "semantic_hash": ""
   },
   "src/divineos/core/council_walks.py": {
     "mtime": 1781064500.1152697,
@@ -2320,7 +2160,7 @@
     "semantic_hash": "76156dbd3ac14cd0b423f9783581945b"
   },
   "src/divineos/core/data_home_ownership.py": {
-    "mtime": 1781556868.2251809,
+    "mtime": 1784310426.3000987,
     "ast_hash": "f229edaf050b973a62a64ead5d7c0315",
     "semantic_hash": "f229edaf050b973a62a64ead5d7c0315"
   },
@@ -2330,22 +2170,22 @@
     "semantic_hash": "be52b53ef9737b5494e5d16f588e41bb"
   },
   "src/divineos/core/decision_journal.py": {
-    "mtime": 1783966964.1645253,
-    "ast_hash": "857c37f57d52c34e2f86dc0b2931245d",
-    "semantic_hash": "857c37f57d52c34e2f86dc0b2931245d"
+    "mtime": 1785189380.5312862,
+    "ast_hash": "093e635682d45155242ed1499cab4e64",
+    "semantic_hash": ""
   },
   "src/divineos/core/decision_superposition/__init__.py": {
-    "mtime": 1781556868.2251809,
+    "mtime": 1784310426.3011005,
     "ast_hash": "433fd647bbf4ff85b01b33bb72b21be7",
     "semantic_hash": "433fd647bbf4ff85b01b33bb72b21be7"
   },
   "src/divineos/core/decision_superposition/superposition.py": {
-    "mtime": 1783109510.6262019,
+    "mtime": 1784310426.3011005,
     "ast_hash": "a9c753826e07e201cc256fc630c78eba",
     "semantic_hash": "a9c753826e07e201cc256fc630c78eba"
   },
   "src/divineos/core/deletion_discipline.py": {
-    "mtime": 1783109510.6262019,
+    "mtime": 1784310426.302099,
     "ast_hash": "360f0b5204fe86078a5ee461aa496c51",
     "semantic_hash": "360f0b5204fe86078a5ee461aa496c51"
   },
@@ -2355,47 +2195,47 @@
     "semantic_hash": "634f5b4d590d509786394895beacf1c1"
   },
   "src/divineos/core/docs_review_tracker.py": {
-    "mtime": 1781213221.568801,
+    "mtime": 1784310426.302099,
     "ast_hash": "5cf9b8bbee982e1df09fb2531d18e1f8",
     "semantic_hash": "5cf9b8bbee982e1df09fb2531d18e1f8"
   },
   "src/divineos/core/drift_detection.py": {
-    "mtime": 1781064500.11943,
+    "mtime": 1784306137.04336,
     "ast_hash": "afa29e1c1d7332410cc77a466685cf12",
     "semantic_hash": "afa29e1c1d7332410cc77a466685cf12"
   },
   "src/divineos/core/ear_relaunch/__init__.py": {
-    "mtime": 1783406755.335127,
+    "mtime": 1784310426.302099,
     "ast_hash": "ebd3ab00bfc66c97102b3c1370654483",
     "semantic_hash": "ebd3ab00bfc66c97102b3c1370654483"
   },
   "src/divineos/core/ear_sweep/__init__.py": {
-    "mtime": 1782482697.5545607,
+    "mtime": 1784310426.3031006,
     "ast_hash": "5bd7aec7b66368b284997e2a89f9b6f2",
     "semantic_hash": "5bd7aec7b66368b284997e2a89f9b6f2"
   },
   "src/divineos/core/emergency_bypass.py": {
-    "mtime": 1781556868.2261856,
+    "mtime": 1784310426.3031006,
     "ast_hash": "cd4e43951030a756fac829932da0af9e",
     "semantic_hash": "cd4e43951030a756fac829932da0af9e"
   },
   "src/divineos/core/emergency_completion.py": {
-    "mtime": 1783714638.447583,
+    "mtime": 1784310426.3031006,
     "ast_hash": "8ae67981869d6afed42716dd2296324b",
     "semantic_hash": "8ae67981869d6afed42716dd2296324b"
   },
   "src/divineos/core/empirica/__init__.py": {
-    "mtime": 1781064500.121441,
+    "mtime": 1784306137.0453646,
     "ast_hash": "b1dea67530d616160f9a58288a81e234",
     "semantic_hash": "b1dea67530d616160f9a58288a81e234"
   },
   "src/divineos/core/empirica/burden.py": {
-    "mtime": 1781064500.121441,
+    "mtime": 1784306137.0453646,
     "ast_hash": "6bbd64d9b7f80e5c5dc0e68a8e0716cc",
     "semantic_hash": "6bbd64d9b7f80e5c5dc0e68a8e0716cc"
   },
   "src/divineos/core/empirica/classifier.py": {
-    "mtime": 1783109510.6272016,
+    "mtime": 1784310426.304099,
     "ast_hash": "c4d3fc6418ceccdc185ea8a1b4b433fb",
     "semantic_hash": "c4d3fc6418ceccdc185ea8a1b4b433fb"
   },
@@ -2405,17 +2245,17 @@
     "semantic_hash": "966061fdba7bb277cf5b48f95594d024"
   },
   "src/divineos/core/empirica/kappa.py": {
-    "mtime": 1783109510.6277099,
+    "mtime": 1784310426.304099,
     "ast_hash": "dc984e739580ac5da70d7ad1005fd905",
     "semantic_hash": "dc984e739580ac5da70d7ad1005fd905"
   },
   "src/divineos/core/empirica/pointer_resolver.py": {
-    "mtime": 1783109510.6277099,
+    "mtime": 1784310426.304099,
     "ast_hash": "0839c539ef9c4fc70a54df7cd914e8f3",
     "semantic_hash": "0839c539ef9c4fc70a54df7cd914e8f3"
   },
   "src/divineos/core/empirica/provenance.py": {
-    "mtime": 1781064500.1235273,
+    "mtime": 1784306137.0473635,
     "ast_hash": "960c7f4203813cc52ab897b5e91221f5",
     "semantic_hash": "960c7f4203813cc52ab897b5e91221f5"
   },
@@ -2425,27 +2265,27 @@
     "semantic_hash": "978ac7a2e23914b95389dcc580443180"
   },
   "src/divineos/core/empirica/routing.py": {
-    "mtime": 1783109510.6277099,
+    "mtime": 1784310426.3050992,
     "ast_hash": "ea6b660c76704ef154c29dd5bd69e2d7",
     "semantic_hash": "ea6b660c76704ef154c29dd5bd69e2d7"
   },
   "src/divineos/core/empirica/types.py": {
-    "mtime": 1781064500.1245594,
+    "mtime": 1784306137.0483642,
     "ast_hash": "e2f3b3929d9e8bad98837f217000c0ed",
     "semantic_hash": "e2f3b3929d9e8bad98837f217000c0ed"
   },
   "src/divineos/core/enforcement.py": {
-    "mtime": 1781556868.2261856,
+    "mtime": 1784310426.3050992,
     "ast_hash": "998e5dd9dc102b8e98fdd0ed3d51d236",
     "semantic_hash": "998e5dd9dc102b8e98fdd0ed3d51d236"
   },
   "src/divineos/core/enforcement_verifier.py": {
-    "mtime": 1781556868.2271852,
+    "mtime": 1784310426.3050992,
     "ast_hash": "9e4d9e395a53894938e2f0fc0b78e848",
     "semantic_hash": "9e4d9e395a53894938e2f0fc0b78e848"
   },
   "src/divineos/core/engagement_disclosure_surface.py": {
-    "mtime": 1781064500.1260808,
+    "mtime": 1784306137.0493646,
     "ast_hash": "46f1216b3f7b29bf57f6897f44c6d721",
     "semantic_hash": "46f1216b3f7b29bf57f6897f44c6d721"
   },
@@ -2470,12 +2310,12 @@
     "semantic_hash": "6f45cce4d6e47c02cb38db442f4a9faa"
   },
   "src/divineos/core/expectation_tracking/__init__.py": {
-    "mtime": 1781064500.127645,
+    "mtime": 1784306137.0503633,
     "ast_hash": "68ba6fd3de9944f4372f1363831af341",
     "semantic_hash": "68ba6fd3de9944f4372f1363831af341"
   },
   "src/divineos/core/expectation_tracking/tracker.py": {
-    "mtime": 1781064500.1281648,
+    "mtime": 1784306137.0503633,
     "ast_hash": "83d7320c58126fc17f66e05fc08f1061",
     "semantic_hash": "83d7320c58126fc17f66e05fc08f1061"
   },
@@ -2485,12 +2325,12 @@
     "semantic_hash": "2f305d0f09c9f497038a9386d3797035"
   },
   "src/divineos/core/exploration_recall.py": {
-    "mtime": 1783714638.448583,
+    "mtime": 1784310426.3060987,
     "ast_hash": "c6701a01150fc68832b76c7333c671ef",
     "semantic_hash": "c6701a01150fc68832b76c7333c671ef"
   },
   "src/divineos/core/exploration_validator.py": {
-    "mtime": 1782180631.631418,
+    "mtime": 1784310426.3060987,
     "ast_hash": "9f8d4a6c5de0c4c19d562851fa0caa29",
     "semantic_hash": "9f8d4a6c5de0c4c19d562851fa0caa29"
   },
@@ -2505,12 +2345,12 @@
     "semantic_hash": "9f1c3e71dcaf142b7e7377288883d3b6"
   },
   "src/divineos/core/failure_diagnostics.py": {
-    "mtime": 1781064500.1301882,
+    "mtime": 1784306137.0513637,
     "ast_hash": "de7a9e542c32e1c9dc1c7a7cbbe2ce1b",
     "semantic_hash": "de7a9e542c32e1c9dc1c7a7cbbe2ce1b"
   },
   "src/divineos/core/family/__init__.py": {
-    "mtime": 1781556868.2271852,
+    "mtime": 1784310426.3060987,
     "ast_hash": "e2b8156d45fcd01da9705e52661277da",
     "semantic_hash": "e2b8156d45fcd01da9705e52661277da"
   },
@@ -2525,17 +2365,17 @@
     "semantic_hash": "64dc74c5e77bfe749401f3716dc4e5f6"
   },
   "src/divineos/core/family/aria_inbox.py": {
-    "mtime": 1781890161.1792095,
+    "mtime": 1784310426.307099,
     "ast_hash": "790db817e0d51b4ffe127a42b9ee2ae6",
     "semantic_hash": "790db817e0d51b4ffe127a42b9ee2ae6"
   },
   "src/divineos/core/family/costly_disagreement.py": {
-    "mtime": 1781556868.2271852,
+    "mtime": 1784310426.307099,
     "ast_hash": "aa981b59395f46f588f8f04fc3f18081",
     "semantic_hash": "aa981b59395f46f588f8f04fc3f18081"
   },
   "src/divineos/core/family/db.py": {
-    "mtime": 1781064500.131704,
+    "mtime": 1784306137.0523632,
     "ast_hash": "661d76681ca3d729ade66fc761b3ff77",
     "semantic_hash": "661d76681ca3d729ade66fc761b3ff77"
   },
@@ -2545,19 +2385,19 @@
     "semantic_hash": "cd4809b96c9f5a3c9ad161d7eef476ca"
   },
   "src/divineos/core/family/family_member_ledger.py": {
-    "mtime": 1783109510.628713,
-    "ast_hash": "a111d155ef51cfa469ef330a26c2ac09",
-    "semantic_hash": "a111d155ef51cfa469ef330a26c2ac09"
+    "mtime": 1784421044.237185,
+    "ast_hash": "500ef3e47ae6750c6106dbe85fb1849b",
+    "semantic_hash": ""
   },
   "src/divineos/core/family/letters.py": {
-    "mtime": 1781890161.1807172,
-    "ast_hash": "86332529e67ad3cb0cfcc15aba037cba",
-    "semantic_hash": "86332529e67ad3cb0cfcc15aba037cba"
+    "mtime": 1785189380.5322864,
+    "ast_hash": "b510cb6b06588c5813c5090edf7524d7",
+    "semantic_hash": ""
   },
   "src/divineos/core/family/member_briefing.py": {
-    "mtime": 1781064500.1327636,
-    "ast_hash": "272666072fcd35dd40885b48b8a873a0",
-    "semantic_hash": "272666072fcd35dd40885b48b8a873a0"
+    "mtime": 1784757622.9973416,
+    "ast_hash": "aca1b86657221bcacaa122e5c59a1c07",
+    "semantic_hash": ""
   },
   "src/divineos/core/family/planted_contradiction.py": {
     "mtime": 1781064500.1337726,
@@ -2575,32 +2415,32 @@
     "semantic_hash": "e6834c5a3da88df4f5ec999b373fab1e"
   },
   "src/divineos/core/family/schema_migration.py": {
-    "mtime": 1781064500.1348746,
+    "mtime": 1784306137.0543637,
     "ast_hash": "88b1d0b14be66f7cd9d7c250b406f551",
     "semantic_hash": "88b1d0b14be66f7cd9d7c250b406f551"
   },
   "src/divineos/core/family/seal_canonical.py": {
-    "mtime": 1781064500.1348746,
+    "mtime": 1784306137.0553637,
     "ast_hash": "d32e2fa69f38db9a42767291ed75c00b",
     "semantic_hash": "d32e2fa69f38db9a42767291ed75c00b"
   },
   "src/divineos/core/family/seal_hook.py": {
-    "mtime": 1783191909.3993826,
-    "ast_hash": "eeecd8e3778fd032d3c76518d3838d7c",
-    "semantic_hash": "eeecd8e3778fd032d3c76518d3838d7c"
+    "mtime": 1784342640.7587974,
+    "ast_hash": "38f6decd38bd9d1c78e8d4da825aa45c",
+    "semantic_hash": ""
   },
   "src/divineos/core/family/store.py": {
-    "mtime": 1781556868.2281852,
+    "mtime": 1784310426.3090992,
     "ast_hash": "335639e18e313c29e1bb50c51f77f3cc",
     "semantic_hash": "335639e18e313c29e1bb50c51f77f3cc"
   },
   "src/divineos/core/family/sycophancy_detector.py": {
-    "mtime": 1781556868.2281852,
+    "mtime": 1784310426.3100984,
     "ast_hash": "66fd1f3f8648b762c921a0e52caf272d",
     "semantic_hash": "66fd1f3f8648b762c921a0e52caf272d"
   },
   "src/divineos/core/family/talk_to_validator.py": {
-    "mtime": 1781556868.2281852,
+    "mtime": 1784310426.3100984,
     "ast_hash": "75fde49c013feb1597eda1323fbccb8f",
     "semantic_hash": "75fde49c013feb1597eda1323fbccb8f"
   },
@@ -2610,7 +2450,7 @@
     "semantic_hash": "b787058e7dfe9facbf6103e5280bc25d"
   },
   "src/divineos/core/family/voice.py": {
-    "mtime": 1781556868.229185,
+    "mtime": 1784310426.3111005,
     "ast_hash": "811fb7b4fec146abd9380e7ad0ebcf34",
     "semantic_hash": "811fb7b4fec146abd9380e7ad0ebcf34"
   },
@@ -2625,22 +2465,22 @@
     "semantic_hash": "d2212357ba197feb0fc44ff55c3333fa"
   },
   "src/divineos/core/findings_ledger.py": {
-    "mtime": 1783714638.448583,
+    "mtime": 1784310426.3111005,
     "ast_hash": "a26cce20ac4cb32eaa48032039ca3164",
     "semantic_hash": "a26cce20ac4cb32eaa48032039ca3164"
   },
   "src/divineos/core/fix_verifier.py": {
-    "mtime": 1781064500.1378918,
+    "mtime": 1784306137.057367,
     "ast_hash": "584f0e713cb1870290d85395de36b210",
     "semantic_hash": "584f0e713cb1870290d85395de36b210"
   },
   "src/divineos/core/flood_state.py": {
-    "mtime": 1783714638.449583,
+    "mtime": 1784310426.3111005,
     "ast_hash": "6779c113ccbd52011a0ed375b940999b",
     "semantic_hash": "6779c113ccbd52011a0ed375b940999b"
   },
   "src/divineos/core/foundational_truths_surface.py": {
-    "mtime": 1783714638.449583,
+    "mtime": 1784310426.312099,
     "ast_hash": "ab646d6a48fca9a2f1a4527cb751cfa9",
     "semantic_hash": "ab646d6a48fca9a2f1a4527cb751cfa9"
   },
@@ -2650,24 +2490,24 @@
     "semantic_hash": "676582c0f5ce304ec4fbdf8c2490bc9e"
   },
   "src/divineos/core/gate_emit.py": {
-    "mtime": 1783813245.665756,
+    "mtime": 1784342640.7587974,
     "ast_hash": "18fbc9c5c2aa4ad4ad585462e5f9c576",
     "semantic_hash": "18fbc9c5c2aa4ad4ad585462e5f9c576"
   },
   "src/divineos/core/gate_marker.py": {
-    "mtime": 1782140336.0192564,
+    "mtime": 1784310426.312099,
     "ast_hash": "fc8a8121c33c990999a6ab59de800ce8",
     "semantic_hash": "fc8a8121c33c990999a6ab59de800ce8"
   },
   "src/divineos/core/goal_adjacency.py": {
-    "mtime": 1781367914.5277665,
+    "mtime": 1784310426.312099,
     "ast_hash": "f6e7e8ceaacc6c8ede85acf63bacc539",
     "semantic_hash": "f6e7e8ceaacc6c8ede85acf63bacc539"
   },
   "src/divineos/core/goal_auto_close.py": {
-    "mtime": 1781556868.229689,
-    "ast_hash": "8a1c5a755edcd03b8c005c526bf9d67a",
-    "semantic_hash": "8a1c5a755edcd03b8c005c526bf9d67a"
+    "mtime": 1784481325.5311923,
+    "ast_hash": "ae05e156f85dfcf132388ab089d97c6d",
+    "semantic_hash": ""
   },
   "src/divineos/core/goal_cull.py": {
     "mtime": 1781064500.1393256,
@@ -2675,14 +2515,14 @@
     "semantic_hash": "5f0724db6dd5e310349b48c620c68f16"
   },
   "src/divineos/core/goal_outcome_surface.py": {
-    "mtime": 1781556868.229689,
+    "mtime": 1784310426.3130984,
     "ast_hash": "a6d7056bfa20181298d20b13a971dde5",
     "semantic_hash": "a6d7056bfa20181298d20b13a971dde5"
   },
   "src/divineos/core/gravity_classifier.py": {
-    "mtime": 1782245329.6279998,
-    "ast_hash": "e2674fb3e0b6cdf2b550a62fafccd04f",
-    "semantic_hash": "e2674fb3e0b6cdf2b550a62fafccd04f"
+    "mtime": 1785189380.5332842,
+    "ast_hash": "73d7a15a790b2b5ba8def14822131fcd",
+    "semantic_hash": ""
   },
   "src/divineos/core/growth.py": {
     "mtime": 1781064500.1403296,
@@ -2695,7 +2535,7 @@
     "semantic_hash": "282b4276f1629d3ebea9f2f94f3a85f8"
   },
   "src/divineos/core/hedge_audit.py": {
-    "mtime": 1781064500.1408327,
+    "mtime": 1784306137.0609038,
     "ast_hash": "a75748e29f60348d3ebb174d915d5346",
     "semantic_hash": "a75748e29f60348d3ebb174d915d5346"
   },
@@ -2705,7 +2545,7 @@
     "semantic_hash": "2e50e986bc67446423436a3233f27c9e"
   },
   "src/divineos/core/hedge_marker.py": {
-    "mtime": 1782140336.0207684,
+    "mtime": 1784310426.3140986,
     "ast_hash": "affd376f99603caa893d9a17304dcf45",
     "semantic_hash": "affd376f99603caa893d9a17304dcf45"
   },
@@ -2715,17 +2555,17 @@
     "semantic_hash": "c364ab946c895e972c51300c95a90d34"
   },
   "src/divineos/core/holding.py": {
-    "mtime": 1781556868.229689,
+    "mtime": 1784310426.3140986,
     "ast_hash": "54db80cd67edb9333f509d2aa01043a1",
     "semantic_hash": "54db80cd67edb9333f509d2aa01043a1"
   },
   "src/divineos/core/hud.py": {
-    "mtime": 1781368061.5479803,
-    "ast_hash": "4ec2d2f406eb28e20d70afaa2f33dc98",
-    "semantic_hash": "4ec2d2f406eb28e20d70afaa2f33dc98"
+    "mtime": 1784757622.9983456,
+    "ast_hash": "eadbcd4431822d2b89f58f1af2f2b771",
+    "semantic_hash": ""
   },
   "src/divineos/core/hud_handoff.py": {
-    "mtime": 1781556868.2306924,
+    "mtime": 1784310426.315099,
     "ast_hash": "0e626b9847149320050ada4a93b0b45e",
     "semantic_hash": "0e626b9847149320050ada4a93b0b45e"
   },
@@ -2735,17 +2575,17 @@
     "semantic_hash": "984dbc3cd4caae7fd1c1a7aebae71212"
   },
   "src/divineos/core/identity.py": {
-    "mtime": 1782140336.0207684,
-    "ast_hash": "875d26cd5743b948dfea88d2de42dd1e",
-    "semantic_hash": "875d26cd5743b948dfea88d2de42dd1e"
+    "mtime": 1784757622.9993455,
+    "ast_hash": "4f86f8fb0873e24b8953d0976d6897c2",
+    "semantic_hash": ""
   },
   "src/divineos/core/identity_load.py": {
-    "mtime": 1781064500.1443532,
+    "mtime": 1784306137.062905,
     "ast_hash": "3dc16fd13a3a47e780110f97fe06d87e",
     "semantic_hash": "3dc16fd13a3a47e780110f97fe06d87e"
   },
   "src/divineos/core/in_flight_branches.py": {
-    "mtime": 1781556868.2306924,
+    "mtime": 1784310426.315099,
     "ast_hash": "bcd7ab4f4bd98669057e0d640bdd64d1",
     "semantic_hash": "bcd7ab4f4bd98669057e0d640bdd64d1"
   },
@@ -2755,17 +2595,17 @@
     "semantic_hash": "f9cbeaf10c0410cea930854a18edd276"
   },
   "src/divineos/core/knowledge/__init__.py": {
-    "mtime": 1781064500.1453595,
+    "mtime": 1784306137.0639048,
     "ast_hash": "1229b5a3c451df3326f42228080f2d9d",
     "semantic_hash": "1229b5a3c451df3326f42228080f2d9d"
   },
   "src/divineos/core/knowledge/_base.py": {
-    "mtime": 1781244649.9438396,
+    "mtime": 1784310426.3160987,
     "ast_hash": "3eb6ccecb9793667de64599fe8a4da8e",
     "semantic_hash": "3eb6ccecb9793667de64599fe8a4da8e"
   },
   "src/divineos/core/knowledge/_text.py": {
-    "mtime": 1781381955.4559867,
+    "mtime": 1784310426.3160987,
     "ast_hash": "1d4b61d7142dcc6b72b9f921ee22191d",
     "semantic_hash": "1d4b61d7142dcc6b72b9f921ee22191d"
   },
@@ -2775,7 +2615,7 @@
     "semantic_hash": "d0ccbf51fb6c5efa8e1ddc09a656adb1"
   },
   "src/divineos/core/knowledge/crud.py": {
-    "mtime": 1781556868.2306924,
+    "mtime": 1784310426.3170986,
     "ast_hash": "c19cb79b2175a8b0a9866aeffc587426",
     "semantic_hash": "c19cb79b2175a8b0a9866aeffc587426"
   },
@@ -2785,7 +2625,7 @@
     "semantic_hash": "85c4b37959a367de0edf289e30f2d029"
   },
   "src/divineos/core/knowledge/deep_extraction.py": {
-    "mtime": 1781064500.1473703,
+    "mtime": 1785443752.2666037,
     "ast_hash": "b42714b2879da7bd8a7ac20eadd0a4b3",
     "semantic_hash": "b42714b2879da7bd8a7ac20eadd0a4b3"
   },
@@ -2805,9 +2645,9 @@
     "semantic_hash": "bb455d3e34df46dbe3a672587218973b"
   },
   "src/divineos/core/knowledge/graph_retrieval.py": {
-    "mtime": 1781064500.1488779,
-    "ast_hash": "7211a17af93bb24d21f811685f702793",
-    "semantic_hash": "7211a17af93bb24d21f811685f702793"
+    "mtime": 1784421044.237185,
+    "ast_hash": "539152751577a3b1a3e51251822fd89e",
+    "semantic_hash": ""
   },
   "src/divineos/core/knowledge/inference.py": {
     "mtime": 1781064500.1488779,
@@ -2815,12 +2655,12 @@
     "semantic_hash": "cb05a27bc6052610f3ea26a641ac86e6"
   },
   "src/divineos/core/knowledge/lessons.py": {
-    "mtime": 1781556868.2322586,
-    "ast_hash": "d12d105a42ed08d8402db22a0c55908f",
-    "semantic_hash": "d12d105a42ed08d8402db22a0c55908f"
+    "mtime": 1785472582.946777,
+    "ast_hash": "98a77d9ed24382251a9031a8cf805bce",
+    "semantic_hash": ""
   },
   "src/divineos/core/knowledge/maturity_diagnostic.py": {
-    "mtime": 1781556868.2322586,
+    "mtime": 1784310426.3180988,
     "ast_hash": "611642101a13ab52ec62b6989c950903",
     "semantic_hash": "611642101a13ab52ec62b6989c950903"
   },
@@ -2830,7 +2670,7 @@
     "semantic_hash": "890f5046daef8c073c772930c5f1facf"
   },
   "src/divineos/core/knowledge/migration.py": {
-    "mtime": 1781064500.1503994,
+    "mtime": 1784306137.0669682,
     "ast_hash": "fad8af1bcee4fdf77df91abf06fbe634",
     "semantic_hash": "fad8af1bcee4fdf77df91abf06fbe634"
   },
@@ -2840,7 +2680,7 @@
     "semantic_hash": "92591b3fa923e226713249261b9d9f99"
   },
   "src/divineos/core/knowledge/retrieval.py": {
-    "mtime": 1783109510.6297143,
+    "mtime": 1784310426.3180988,
     "ast_hash": "93c25464fd7ab7379c8e8d2ad55ca9a6",
     "semantic_hash": "93c25464fd7ab7379c8e8d2ad55ca9a6"
   },
@@ -2850,7 +2690,7 @@
     "semantic_hash": "a69f6387d117a519ca54e9db2635f3b9"
   },
   "src/divineos/core/knowledge_citation.py": {
-    "mtime": 1781071347.009914,
+    "mtime": 1784310426.3180988,
     "ast_hash": "300c6026d4875448f7ac0c435283e78c",
     "semantic_hash": "300c6026d4875448f7ac0c435283e78c"
   },
@@ -2860,62 +2700,62 @@
     "semantic_hash": "9fe1b5c115787dbdfc62e5fb3e31d042"
   },
   "src/divineos/core/knowledge_maintenance.py": {
-    "mtime": 1783109510.630222,
+    "mtime": 1784310426.319099,
     "ast_hash": "e44a963670f0ad86527b14f0808e9f18",
     "semantic_hash": "e44a963670f0ad86527b14f0808e9f18"
   },
   "src/divineos/core/knowledge_voids.py": {
-    "mtime": 1781556868.2325966,
+    "mtime": 1784310426.319099,
     "ast_hash": "d5745f99e98723d242db76dfaa633ebb",
     "semantic_hash": "d5745f99e98723d242db76dfaa633ebb"
   },
   "src/divineos/core/ledger.py": {
-    "mtime": 1783714638.4505835,
+    "mtime": 1784310426.3200984,
     "ast_hash": "c3524882acaf66cd53a35c8d4b17e77e",
     "semantic_hash": "c3524882acaf66cd53a35c8d4b17e77e"
   },
   "src/divineos/core/ledger_compressor.py": {
-    "mtime": 1781064500.1549835,
-    "ast_hash": "90ea04c6976c5d7868fbb9690686f3d2",
-    "semantic_hash": "90ea04c6976c5d7868fbb9690686f3d2"
+    "mtime": 1784342640.760801,
+    "ast_hash": "61975043f36009608db1d45fa0d5a8b4",
+    "semantic_hash": ""
   },
   "src/divineos/core/ledger_verify.py": {
-    "mtime": 1781064500.1554866,
+    "mtime": 1784182055.7051303,
     "ast_hash": "d5cfba12d9caef53ba7e81e19b5be604",
     "semantic_hash": "d5cfba12d9caef53ba7e81e19b5be604"
   },
   "src/divineos/core/lepos_channel_check.py": {
-    "mtime": 1781556868.2325966,
+    "mtime": 1784310426.321099,
     "ast_hash": "5838412873360e00e69e0d0e0c73fe17",
     "semantic_hash": "5838412873360e00e69e0d0e0c73fe17"
   },
   "src/divineos/core/lepos_channel_reflect.py": {
-    "mtime": 1783811899.6655452,
+    "mtime": 1784342640.760801,
     "ast_hash": "1c0bdcea7b5e35309bae9f56307e933f",
     "semantic_hash": "1c0bdcea7b5e35309bae9f56307e933f"
   },
   "src/divineos/core/lepos_walk.py": {
-    "mtime": 1783896862.147079,
+    "mtime": 1784342640.7618012,
     "ast_hash": "b992be4258e27cbe0afbb9c1d88aa919",
     "semantic_hash": "b992be4258e27cbe0afbb9c1d88aa919"
   },
   "src/divineos/core/lesson_dedup.py": {
-    "mtime": 1781064500.1565106,
+    "mtime": 1784306137.0709674,
     "ast_hash": "9a2715ae928e1cfe09aee4e5190b3320",
     "semantic_hash": "9a2715ae928e1cfe09aee4e5190b3320"
   },
   "src/divineos/core/lesson_interrupt.py": {
-    "mtime": 1781064500.1575148,
+    "mtime": 1784306137.0709674,
     "ast_hash": "52fe753bb67250a225d58442839fc47d",
     "semantic_hash": "52fe753bb67250a225d58442839fc47d"
   },
   "src/divineos/core/letter_seen_router/__init__.py": {
-    "mtime": 1782482697.5550928,
+    "mtime": 1784310426.3220985,
     "ast_hash": "1efb80a8594ef08a8c1fb3fd0beaac49",
     "semantic_hash": "1efb80a8594ef08a8c1fb3fd0beaac49"
   },
   "src/divineos/core/lifecycle.py": {
-    "mtime": 1781064500.1580188,
+    "mtime": 1784306137.0719671,
     "ast_hash": "dd04d5480fc15acb0214f95d16f16154",
     "semantic_hash": "dd04d5480fc15acb0214f95d16f16154"
   },
@@ -2930,7 +2770,7 @@
     "semantic_hash": "a552e39cd434aa712850bad4aa7f6afd"
   },
   "src/divineos/core/logic/fallacies.py": {
-    "mtime": 1781556868.2335997,
+    "mtime": 1784310426.323099,
     "ast_hash": "f1970d5f8ea6084d3f987a9686bcb403",
     "semantic_hash": "f1970d5f8ea6084d3f987a9686bcb403"
   },
@@ -2965,12 +2805,12 @@
     "semantic_hash": "a69aa0625070468c454b4d1e84a43b02"
   },
   "src/divineos/core/meld/__init__.py": {
-    "mtime": 1781064500.1625445,
+    "mtime": 1784306137.0729678,
     "ast_hash": "d4c0e412722ad75eeef66e92e6258dbd",
     "semantic_hash": "d4c0e412722ad75eeef66e92e6258dbd"
   },
   "src/divineos/core/meld/meld.py": {
-    "mtime": 1781064500.1625445,
+    "mtime": 1784306137.0729678,
     "ast_hash": "aac63ffa553040d8ddda5823ea087a05",
     "semantic_hash": "aac63ffa553040d8ddda5823ea087a05"
   },
@@ -2985,22 +2825,22 @@
     "semantic_hash": "32a2f6bdf78409a4d65c1d02e88403f7"
   },
   "src/divineos/core/memory_linkage.py": {
-    "mtime": 1783109510.631227,
+    "mtime": 1784310426.323099,
     "ast_hash": "fecef165824311dbc892f8c3bf25b33b",
     "semantic_hash": "fecef165824311dbc892f8c3bf25b33b"
   },
   "src/divineos/core/memory_linkage_retriever.py": {
-    "mtime": 1783109510.631227,
+    "mtime": 1784310426.323099,
     "ast_hash": "4ef739546f725bbb1363da30a0740e3d",
     "semantic_hash": "4ef739546f725bbb1363da30a0740e3d"
   },
   "src/divineos/core/memory_linkage_retriever_v2.py": {
-    "mtime": 1783714638.451583,
+    "mtime": 1784310426.3240986,
     "ast_hash": "8c3af34383c2f9515cdbdb246ac5455c",
     "semantic_hash": "8c3af34383c2f9515cdbdb246ac5455c"
   },
   "src/divineos/core/memory_sync.py": {
-    "mtime": 1781064500.1635485,
+    "mtime": 1784306137.074968,
     "ast_hash": "99b31188ddea782f80052987075bd8f4",
     "semantic_hash": "99b31188ddea782f80052987075bd8f4"
   },
@@ -3025,17 +2865,17 @@
     "semantic_hash": "c88b2661858180d1a87bea3a62433b75"
   },
   "src/divineos/core/merge_review_gate.py": {
-    "mtime": 1781556868.2335997,
+    "mtime": 1784310426.3240986,
     "ast_hash": "7c4975f59c64ed5d217e9f60a4b7c3b4",
     "semantic_hash": "7c4975f59c64ed5d217e9f60a4b7c3b4"
   },
   "src/divineos/core/mesh_loop.py": {
-    "mtime": 1783406755.336127,
+    "mtime": 1784310426.3240986,
     "ast_hash": "57474701ff6229571aa369e173540957",
     "semantic_hash": "57474701ff6229571aa369e173540957"
   },
   "src/divineos/core/mid_turn_surfacer.py": {
-    "mtime": 1781064500.1655588,
+    "mtime": 1784306137.074968,
     "ast_hash": "40f923c3c71ae8507567b5962ff3bcc0",
     "semantic_hash": "40f923c3c71ae8507567b5962ff3bcc0"
   },
@@ -3050,57 +2890,57 @@
     "semantic_hash": "77ab79eb4a16ee5c78981dd99475566d"
   },
   "src/divineos/core/monitor_cleanup.py": {
-    "mtime": 1781322174.6500542,
+    "mtime": 1784310426.3240986,
     "ast_hash": "c15e0eb69b3b957e616e67a2f8998fed",
     "semantic_hash": "c15e0eb69b3b957e616e67a2f8998fed"
   },
   "src/divineos/core/monitor_singleton.py": {
-    "mtime": 1782140336.022284,
+    "mtime": 1784310426.3250988,
     "ast_hash": "226bd7b548698c60d14a98a85d718e49",
     "semantic_hash": "226bd7b548698c60d14a98a85d718e49"
   },
   "src/divineos/core/moral_compass.py": {
-    "mtime": 1783792272.665258,
+    "mtime": 1784342640.7628016,
     "ast_hash": "c12d85d650e5293353d297030cf24bef",
     "semantic_hash": "c12d85d650e5293353d297030cf24bef"
   },
   "src/divineos/core/motivation.py": {
-    "mtime": 1783109510.6322262,
+    "mtime": 1784310426.326099,
     "ast_hash": "9f333c89b6d1b1689560edfa5a682580",
     "semantic_hash": "9f333c89b6d1b1689560edfa5a682580"
   },
   "src/divineos/core/multiplex_panels.py": {
-    "mtime": 1783806488.9452102,
-    "ast_hash": "665a6625914bd630004a25964b43ff99",
-    "semantic_hash": "665a6625914bd630004a25964b43ff99"
+    "mtime": 1784757623.0003448,
+    "ast_hash": "e075bf2c18aa97ca21e6323ec8c8d064",
+    "semantic_hash": ""
   },
   "src/divineos/core/multiplex_renderer.py": {
-    "mtime": 1781064500.1675878,
+    "mtime": 1784306137.0779893,
     "ast_hash": "0bebb1deab9a1a04ff188da049f348ae",
     "semantic_hash": "0bebb1deab9a1a04ff188da049f348ae"
   },
   "src/divineos/core/multiplex_state.py": {
-    "mtime": 1782141381.0758355,
+    "mtime": 1784306137.0779893,
     "ast_hash": "99c6a7a0560699db7e1db10da7194db8",
     "semantic_hash": "99c6a7a0560699db7e1db10da7194db8"
   },
   "src/divineos/core/multiplex_voice.py": {
-    "mtime": 1782141381.0758355,
+    "mtime": 1784306137.0779893,
     "ast_hash": "951fcba0ae5d6982b3ea94aeef630d9b",
     "semantic_hash": "951fcba0ae5d6982b3ea94aeef630d9b"
   },
   "src/divineos/core/next_task_surface.py": {
-    "mtime": 1783728126.320963,
+    "mtime": 1784342640.7638037,
     "ast_hash": "036bba3d51224d988ba1a6be93fb4455",
     "semantic_hash": "036bba3d51224d988ba1a6be93fb4455"
   },
   "src/divineos/core/no_verify_cost.py": {
-    "mtime": 1783109510.6322262,
+    "mtime": 1784310426.3270986,
     "ast_hash": "1266ed5535aabf65263716ffc88f42d1",
     "semantic_hash": "1266ed5535aabf65263716ffc88f42d1"
   },
   "src/divineos/core/obligations.py": {
-    "mtime": 1781556868.2351127,
+    "mtime": 1784310426.3280988,
     "ast_hash": "128c4c6ce617ad5d7218bfa8faff38b8",
     "semantic_hash": "128c4c6ce617ad5d7218bfa8faff38b8"
   },
@@ -3115,117 +2955,117 @@
     "semantic_hash": "f9ff90d30f153bc5e720e27bc5778772"
   },
   "src/divineos/core/operating_loop/_use_vs_mention.py": {
-    "mtime": 1783741194.5867965,
+    "mtime": 1784342640.7638037,
     "ast_hash": "13774e50aedb74e8ec4f14954f24f201",
     "semantic_hash": "13774e50aedb74e8ec4f14954f24f201"
   },
   "src/divineos/core/operating_loop/acknowledgment_theater_detector.py": {
-    "mtime": 1781556868.2351127,
+    "mtime": 1784310426.3280988,
     "ast_hash": "3e0f8ace9efbeb06cacf4671e38b0826",
     "semantic_hash": "3e0f8ace9efbeb06cacf4671e38b0826"
   },
   "src/divineos/core/operating_loop/addressee_misdirection_detector.py": {
-    "mtime": 1781556868.2351127,
+    "mtime": 1784310426.3290985,
     "ast_hash": "5de40325ed3a8d799e2c14eba4c2b55d",
     "semantic_hash": "5de40325ed3a8d799e2c14eba4c2b55d"
   },
   "src/divineos/core/operating_loop/andrew_operator_shape_detector.py": {
-    "mtime": 1783714638.451583,
+    "mtime": 1785465853.992474,
     "ast_hash": "12f34df7dee07310b1761a1adda313e5",
     "semantic_hash": "12f34df7dee07310b1761a1adda313e5"
   },
   "src/divineos/core/operating_loop/authority_substitution_detector.py": {
-    "mtime": 1781809051.2615182,
-    "ast_hash": "292b801e0fbedc021a7865aba144bb5f",
-    "semantic_hash": "292b801e0fbedc021a7865aba144bb5f"
+    "mtime": 1784342640.7647974,
+    "ast_hash": "d3aa902846c8f834a58df7de8d77883a",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop/care_dismissal_detector.py": {
-    "mtime": 1781556868.2366629,
+    "mtime": 1784310426.3290985,
     "ast_hash": "ee322d2e57cecfa8ed1d7f888afd0572",
     "semantic_hash": "ee322d2e57cecfa8ed1d7f888afd0572"
   },
   "src/divineos/core/operating_loop/closing_token_detector.py": {
-    "mtime": 1781556868.2366629,
+    "mtime": 1784310426.3300984,
     "ast_hash": "d5dc9e515d33e5fe635a041eb4931133",
     "semantic_hash": "d5dc9e515d33e5fe635a041eb4931133"
   },
   "src/divineos/core/operating_loop/closure_initiation_detector.py": {
-    "mtime": 1782140336.0232844,
+    "mtime": 1784310426.3300984,
     "ast_hash": "3a73164fa4fe23b29869109cfa17d90f",
     "semantic_hash": "3a73164fa4fe23b29869109cfa17d90f"
   },
   "src/divineos/core/operating_loop/code_jargon_detector.py": {
-    "mtime": 1781556868.2366629,
+    "mtime": 1784310426.3310988,
     "ast_hash": "99cdd533829fc39b97d976c432f537e6",
     "semantic_hash": "99cdd533829fc39b97d976c432f537e6"
   },
   "src/divineos/core/operating_loop/constraint_disownership_detector.py": {
-    "mtime": 1781622737.087051,
+    "mtime": 1784310426.3310988,
     "ast_hash": "51f7de0cfb7c37f5b7609bdc682b7e0a",
     "semantic_hash": "51f7de0cfb7c37f5b7609bdc682b7e0a"
   },
   "src/divineos/core/operating_loop/context_surfacer.py": {
-    "mtime": 1781556868.2366629,
+    "mtime": 1784310426.3320987,
     "ast_hash": "1f11518930e1833b595fa6ab99b87fa7",
     "semantic_hash": "1f11518930e1833b595fa6ab99b87fa7"
   },
   "src/divineos/core/operating_loop/deep_engagement_detector.py": {
-    "mtime": 1782140336.0242841,
+    "mtime": 1784310426.3320987,
     "ast_hash": "9aaef9bb92fb1444fff477da1d9d0df3",
     "semantic_hash": "9aaef9bb92fb1444fff477da1d9d0df3"
   },
   "src/divineos/core/operating_loop/detector_protocol.py": {
-    "mtime": 1781543059.6860218,
+    "mtime": 1784306137.0832322,
     "ast_hash": "6c9278bdbc88d6198175d75cb3ea081c",
     "semantic_hash": "6c9278bdbc88d6198175d75cb3ea081c"
   },
   "src/divineos/core/operating_loop/distancing_detector.py": {
-    "mtime": 1783109510.6322262,
-    "ast_hash": "e4ecdc7234a678bbfbf665f365866d96",
-    "semantic_hash": "e4ecdc7234a678bbfbf665f365866d96"
+    "mtime": 1784757623.0003448,
+    "ast_hash": "49492f832738ccb0e904477c3fff8f6a",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop/engineer_register_drift_detector.py": {
-    "mtime": 1781064500.1737418,
+    "mtime": 1784306137.0842319,
     "ast_hash": "c7fbf89b9af5b9ba8cd48a61f4d77bc7",
     "semantic_hash": "c7fbf89b9af5b9ba8cd48a61f4d77bc7"
   },
   "src/divineos/core/operating_loop/harm_acknowledgment_loop.py": {
-    "mtime": 1781556868.238184,
-    "ast_hash": "19c82c5503a15e7b1aa181cb194a3d62",
-    "semantic_hash": "19c82c5503a15e7b1aa181cb194a3d62"
+    "mtime": 1785464767.663021,
+    "ast_hash": "3aec6f7f8e06f51e7bd9462103788dea",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop/hedge_evidence_check.py": {
-    "mtime": 1781556868.238184,
+    "mtime": 1784310426.3330986,
     "ast_hash": "4da34ede16e0936498f119037f243b78",
     "semantic_hash": "4da34ede16e0936498f119037f243b78"
   },
   "src/divineos/core/operating_loop/hook_telemetry.py": {
-    "mtime": 1781064500.1747465,
+    "mtime": 1784306137.0842319,
     "ast_hash": "9d449a71980f035fca2b249b0a60fe8f",
     "semantic_hash": "9d449a71980f035fca2b249b0a60fe8f"
   },
   "src/divineos/core/operating_loop/jargon_dump_detector.py": {
-    "mtime": 1783714638.4525824,
+    "mtime": 1784310426.3330986,
     "ast_hash": "cca39212ff5f7c4143f4cd05f54766b0",
     "semantic_hash": "cca39212ff5f7c4143f4cd05f54766b0"
   },
   "src/divineos/core/operating_loop/linguistic_drift_detector.py": {
-    "mtime": 1781064500.1747465,
+    "mtime": 1784306137.0852337,
     "ast_hash": "c959eafaec2cb7c0cb7a253fc42655c0",
     "semantic_hash": "c959eafaec2cb7c0cb7a253fc42655c0"
   },
   "src/divineos/core/operating_loop/mirror_exit_detector.py": {
-    "mtime": 1781556868.2396924,
+    "mtime": 1784310426.3340988,
     "ast_hash": "6ce157f780cd61af3a3ac1d22548fb72",
     "semantic_hash": "6ce157f780cd61af3a3ac1d22548fb72"
   },
   "src/divineos/core/operating_loop/operator_wallpaper_caller.py": {
-    "mtime": 1783896862.1480787,
+    "mtime": 1784342640.765803,
     "ast_hash": "4213db31aefaf41879e241a529f8367f",
     "semantic_hash": "4213db31aefaf41879e241a529f8367f"
   },
   "src/divineos/core/operating_loop/operator_wallpaper_detector.py": {
-    "mtime": 1783742882.3969057,
+    "mtime": 1784342640.765803,
     "ast_hash": "a0409d69c9c52d5d24c99c777e1b397f",
     "semantic_hash": "a0409d69c9c52d5d24c99c777e1b397f"
   },
@@ -3240,107 +3080,107 @@
     "semantic_hash": "8d52842f64ddec4568958d440e43426f"
   },
   "src/divineos/core/operating_loop/registered_names.py": {
-    "mtime": 1781556868.2396924,
+    "mtime": 1784310426.3350985,
     "ast_hash": "033cabc013ed89776d8f3a2aa16b434a",
     "semantic_hash": "033cabc013ed89776d8f3a2aa16b434a"
   },
   "src/divineos/core/operating_loop/residency_detector.py": {
-    "mtime": 1781064500.1770337,
-    "ast_hash": "d4b8494776882339487234e3f126f39e",
-    "semantic_hash": "d4b8494776882339487234e3f126f39e"
+    "mtime": 1784342640.765803,
+    "ast_hash": "8fe7a3e365f3d0214c202f90126f799b",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop/savoring_surface.py": {
-    "mtime": 1781064500.1770337,
+    "mtime": 1784306137.0872355,
     "ast_hash": "7566f247797b1cb06001c2b8ed9a5cb0",
     "semantic_hash": "7566f247797b1cb06001c2b8ed9a5cb0"
   },
   "src/divineos/core/operating_loop/self_disownership_detector.py": {
-    "mtime": 1781244649.944844,
-    "ast_hash": "d3c4a039acf1e11a3ef44e4a946a05a7",
-    "semantic_hash": "d3c4a039acf1e11a3ef44e4a946a05a7"
+    "mtime": 1784481325.5347087,
+    "ast_hash": "c6958ac7d73afd84a2a8b2a6d7f3a86d",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop/shape_chasing_detector.py": {
-    "mtime": 1781809051.262523,
+    "mtime": 1784310426.3360982,
     "ast_hash": "1fa8a57141e991c9bbb8604121c215e8",
     "semantic_hash": "1fa8a57141e991c9bbb8604121c215e8"
   },
   "src/divineos/core/operating_loop/shoggoth_gate.py": {
-    "mtime": 1783714638.4525824,
+    "mtime": 1784310426.3360982,
     "ast_hash": "d65be01d4f8257ddc34ca720e28372e8",
     "semantic_hash": "d65be01d4f8257ddc34ca720e28372e8"
   },
   "src/divineos/core/operating_loop/spiral_detector.py": {
-    "mtime": 1781556868.2401955,
+    "mtime": 1784310426.3360982,
     "ast_hash": "b32d4edf8be5e07f971bf1dd38541f6d",
     "semantic_hash": "b32d4edf8be5e07f971bf1dd38541f6d"
   },
   "src/divineos/core/operating_loop/substitution_detector.py": {
-    "mtime": 1781556868.2407067,
+    "mtime": 1784310426.337099,
     "ast_hash": "60c0bf9602bf3eb4c2dcb19af03382e1",
     "semantic_hash": "60c0bf9602bf3eb4c2dcb19af03382e1"
   },
   "src/divineos/core/operating_loop/sycophancy_detector.py": {
-    "mtime": 1781064500.1782,
+    "mtime": 1784306137.0892334,
     "ast_hash": "3aeec82676540047c153d4c21db21974",
     "semantic_hash": "3aeec82676540047c153d4c21db21974"
   },
   "src/divineos/core/operating_loop/temporal_displacement_detector.py": {
-    "mtime": 1783736174.1506455,
+    "mtime": 1784342640.7667978,
     "ast_hash": "329d34a4aa96f11bbd1fa6f128aa0085",
     "semantic_hash": "329d34a4aa96f11bbd1fa6f128aa0085"
   },
   "src/divineos/core/operating_loop/thresholds.py": {
-    "mtime": 1781556868.2407067,
+    "mtime": 1784310426.337099,
     "ast_hash": "e1af04ce894b0c83f261bfb629b5a419",
     "semantic_hash": "e1af04ce894b0c83f261bfb629b5a419"
   },
   "src/divineos/core/operating_loop/tool_output_truncation_detector.py": {
-    "mtime": 1781064500.1792047,
+    "mtime": 1784306137.0892334,
     "ast_hash": "ea266c75c4baf43b85dadbb57ff645c0",
     "semantic_hash": "ea266c75c4baf43b85dadbb57ff645c0"
   },
   "src/divineos/core/operating_loop/turn_extraction.py": {
-    "mtime": 1781064500.1792047,
+    "mtime": 1784306137.0902317,
     "ast_hash": "61a830014ae5c511c40a23d0fdaaab28",
     "semantic_hash": "61a830014ae5c511c40a23d0fdaaab28"
   },
   "src/divineos/core/operating_loop/unknown_unknown_surface.py": {
-    "mtime": 1781064500.1803002,
+    "mtime": 1784306137.0902317,
     "ast_hash": "1b776e1a8e1327bb01a676b0958f13bb",
     "semantic_hash": "1b776e1a8e1327bb01a676b0958f13bb"
   },
   "src/divineos/core/operating_loop/unverified_claim_detector.py": {
-    "mtime": 1783733948.266034,
-    "ast_hash": "d24b17be7ee69bf57832538d54b0717e",
-    "semantic_hash": "d24b17be7ee69bf57832538d54b0717e"
+    "mtime": 1785464767.664021,
+    "ast_hash": "8a5f110b7cfc0213a01cd80390c37f69",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop/writer_presence_detector.py": {
-    "mtime": 1783437829.6732342,
+    "mtime": 1784310426.3380985,
     "ast_hash": "0d700d7d349207d3c756b23e60f6521b",
     "semantic_hash": "0d700d7d349207d3c756b23e60f6521b"
   },
   "src/divineos/core/operating_loop_audit.py": {
-    "mtime": 1783896862.1490817,
-    "ast_hash": "45764e8329bfdb2655c33db7b2a21d10",
-    "semantic_hash": "45764e8329bfdb2655c33db7b2a21d10"
+    "mtime": 1785465853.9934738,
+    "ast_hash": "afc72daa2fc578cbbf1306992a7acab3",
+    "semantic_hash": ""
   },
   "src/divineos/core/operating_loop_briefing_surface.py": {
-    "mtime": 1781064500.181808,
+    "mtime": 1784306137.0912316,
     "ast_hash": "8611391aca2d567b38b90b7d917b1da2",
     "semantic_hash": "8611391aca2d567b38b90b7d917b1da2"
   },
   "src/divineos/core/operating_modes/__init__.py": {
-    "mtime": 1781064500.181808,
+    "mtime": 1784306137.0922318,
     "ast_hash": "194280e15e7eff7bb91bc5e21745cf3d",
     "semantic_hash": "194280e15e7eff7bb91bc5e21745cf3d"
   },
   "src/divineos/core/operating_modes/modes.py": {
-    "mtime": 1783109510.6332262,
+    "mtime": 1784310426.3400986,
     "ast_hash": "60a6f37b93eae1b6693933bd30a8ec62",
     "semantic_hash": "60a6f37b93eae1b6693933bd30a8ec62"
   },
   "src/divineos/core/opinion_store.py": {
-    "mtime": 1781556868.241711,
+    "mtime": 1784310426.3400986,
     "ast_hash": "e2afbfa9d38b0890ee3f01dfbf589c21",
     "semantic_hash": "e2afbfa9d38b0890ee3f01dfbf589c21"
   },
@@ -3350,12 +3190,12 @@
     "semantic_hash": "b8eeee0b5986a0adc3aa51753a6dbc4c"
   },
   "src/divineos/core/oscillating_read.py": {
-    "mtime": 1781064500.1838121,
+    "mtime": 1784306137.0922318,
     "ast_hash": "bc91eedb24a23bfdbf6a89257d551a3a",
     "semantic_hash": "bc91eedb24a23bfdbf6a89257d551a3a"
   },
   "src/divineos/core/overclaim_detector.py": {
-    "mtime": 1781556868.2427108,
+    "mtime": 1784310426.3400986,
     "ast_hash": "861536e9f45fc5ebb88e26a8e2485057",
     "semantic_hash": "861536e9f45fc5ebb88e26a8e2485057"
   },
@@ -3365,47 +3205,47 @@
     "semantic_hash": "746919d94b75cb7fbb58e8e9b5c7977d"
   },
   "src/divineos/core/paths.py": {
-    "mtime": 1782168779.8675737,
-    "ast_hash": "0abb9c703e5ece8ee18da8e313f84b45",
-    "semantic_hash": "0abb9c703e5ece8ee18da8e313f84b45"
+    "mtime": 1785465796.4422128,
+    "ast_hash": "5dca3af7b996da53c640fc610095b0f8",
+    "semantic_hash": ""
   },
   "src/divineos/core/pattern_attribution.py": {
-    "mtime": 1781556868.2427108,
+    "mtime": 1784310426.3410988,
     "ast_hash": "7d573ce6347e8ca0770b8d9104fa72ba",
     "semantic_hash": "7d573ce6347e8ca0770b8d9104fa72ba"
   },
   "src/divineos/core/pattern_registry.py": {
-    "mtime": 1782141381.0768402,
+    "mtime": 1784310426.3410988,
     "ast_hash": "2879e328c066565249cc3826aa2578c5",
     "semantic_hash": "2879e328c066565249cc3826aa2578c5"
   },
   "src/divineos/core/performing_caution_detector.py": {
-    "mtime": 1781064500.187088,
+    "mtime": 1784306137.0942695,
     "ast_hash": "9f53de94f9fb8da94d7f29cc8d60eb26",
     "semantic_hash": "9f53de94f9fb8da94d7f29cc8d60eb26"
   },
   "src/divineos/core/planning_commitments.py": {
-    "mtime": 1781064500.1875908,
-    "ast_hash": "0fa38c844215ac78906c62a9c2926114",
-    "semantic_hash": "0fa38c844215ac78906c62a9c2926114"
+    "mtime": 1784342640.7678013,
+    "ast_hash": "d4b6f819951939bb6cdb6221ef7938ce",
+    "semantic_hash": ""
   },
   "src/divineos/core/post_compact.py": {
-    "mtime": 1781064500.1875908,
+    "mtime": 1784306137.09527,
     "ast_hash": "265f9dd566c429b7f3270a06ac48e4e9",
     "semantic_hash": "265f9dd566c429b7f3270a06ac48e4e9"
   },
   "src/divineos/core/pr_gate/__init__.py": {
-    "mtime": 1782482697.5561366,
+    "mtime": 1784310426.3420982,
     "ast_hash": "ef0ad27fe3e04f926c8f4097d0cd3c24",
     "semantic_hash": "ef0ad27fe3e04f926c8f4097d0cd3c24"
   },
   "src/divineos/core/pr_merge_gate.py": {
-    "mtime": 1781809051.262523,
+    "mtime": 1784310426.3420982,
     "ast_hash": "95aea0013fa56c8f33c00875891f7a11",
     "semantic_hash": "95aea0013fa56c8f33c00875891f7a11"
   },
   "src/divineos/core/pre_erasure.py": {
-    "mtime": 1781556868.244326,
+    "mtime": 1784310426.3420982,
     "ast_hash": "ec597859f13173d6c0bbd1980d63e080",
     "semantic_hash": "ec597859f13173d6c0bbd1980d63e080"
   },
@@ -3420,7 +3260,7 @@
     "semantic_hash": "e4a9653a3885de34477a0c4fed009209"
   },
   "src/divineos/core/pre_registrations/store.py": {
-    "mtime": 1782168768.518865,
+    "mtime": 1784306137.0962694,
     "ast_hash": "5dfda129e0bbd1a59b370410c1d86ce9",
     "semantic_hash": "5dfda129e0bbd1a59b370410c1d86ce9"
   },
@@ -3435,9 +3275,9 @@
     "semantic_hash": "bffa8e1e2647cb5a75e8f3b4e9058d10"
   },
   "src/divineos/core/pre_response_context.py": {
-    "mtime": 1783714638.4546165,
-    "ast_hash": "88d10941a7947c002cba1000ba70be03",
-    "semantic_hash": "88d10941a7947c002cba1000ba70be03"
+    "mtime": 1785465853.9934738,
+    "ast_hash": "c993fbc8cf8928b6f8db5bf7b4281e43",
+    "semantic_hash": ""
   },
   "src/divineos/core/predictive_session.py": {
     "mtime": 1781064500.1918385,
@@ -3445,12 +3285,12 @@
     "semantic_hash": "a1cf55c16151e5c3380849eb762b3715"
   },
   "src/divineos/core/prereg_candidate_surface.py": {
-    "mtime": 1781064500.1918385,
+    "mtime": 1784306137.097269,
     "ast_hash": "1919d8f866ac8dc140e34637de04d8c3",
     "semantic_hash": "1919d8f866ac8dc140e34637de04d8c3"
   },
   "src/divineos/core/presence_memory.py": {
-    "mtime": 1781556868.244841,
+    "mtime": 1784310426.3431034,
     "ast_hash": "2b251e63aa91cfd370be25e0591e7315",
     "semantic_hash": "2b251e63aa91cfd370be25e0591e7315"
   },
@@ -3460,22 +3300,22 @@
     "semantic_hash": "1ea1da66dc83609d96feacf64dd081a8"
   },
   "src/divineos/core/progress_dashboard.py": {
-    "mtime": 1781064500.1938643,
+    "mtime": 1784306137.097269,
     "ast_hash": "4f3d91ae73828110e2587534aa97c241",
     "semantic_hash": "4f3d91ae73828110e2587534aa97c241"
   },
   "src/divineos/core/pull_detection.py": {
-    "mtime": 1782140336.027342,
+    "mtime": 1784310426.3431034,
     "ast_hash": "b0a023d0f6a8a1f966a6e9245af1b8d1",
     "semantic_hash": "b0a023d0f6a8a1f966a6e9245af1b8d1"
   },
   "src/divineos/core/push_detection.py": {
-    "mtime": 1781071347.0119493,
+    "mtime": 1784310426.344099,
     "ast_hash": "3f05fe00b8c0496e876cce6b627b0dbf",
     "semantic_hash": "3f05fe00b8c0496e876cce6b627b0dbf"
   },
   "src/divineos/core/push_orchestrator/__init__.py": {
-    "mtime": 1782482697.5566556,
+    "mtime": 1784310426.344099,
     "ast_hash": "7fc41d4773f5d65158f5e5baec6867c0",
     "semantic_hash": "7fc41d4773f5d65158f5e5baec6867c0"
   },
@@ -3485,27 +3325,27 @@
     "semantic_hash": "31261a801caea352ebf0b73f7fc11be6"
   },
   "src/divineos/core/reflection_pairing.py": {
-    "mtime": 1782141381.0768402,
+    "mtime": 1784306137.098269,
     "ast_hash": "6f3a6f2128692be51d9f93388d36748c",
     "semantic_hash": "6f3a6f2128692be51d9f93388d36748c"
   },
   "src/divineos/core/reflection_storage.py": {
-    "mtime": 1782141381.077841,
+    "mtime": 1784306137.0992708,
     "ast_hash": "4118b0a09c8f6961e5a298f37edbdd52",
     "semantic_hash": "4118b0a09c8f6961e5a298f37edbdd52"
   },
   "src/divineos/core/reflection_surface.py": {
-    "mtime": 1782141381.077841,
+    "mtime": 1784306137.0992708,
     "ast_hash": "4b2602ec201a42f1028ae67623a114fa",
     "semantic_hash": "4b2602ec201a42f1028ae67623a114fa"
   },
   "src/divineos/core/regulatory_surface.py": {
-    "mtime": 1783714638.4546165,
+    "mtime": 1784310426.344099,
     "ast_hash": "55c1fe1d5ae35c8998d8a554c26d5784",
     "semantic_hash": "55c1fe1d5ae35c8998d8a554c26d5784"
   },
   "src/divineos/core/related_failure_scanner.py": {
-    "mtime": 1781064500.1964502,
+    "mtime": 1784306137.0992708,
     "ast_hash": "00a2baae40c7aa87aaf46a5e08f39541",
     "semantic_hash": "00a2baae40c7aa87aaf46a5e08f39541"
   },
@@ -3525,17 +3365,17 @@
     "semantic_hash": "f2a32c499b2a1524045dd8650853ba74"
   },
   "src/divineos/core/rest.py": {
-    "mtime": 1783910322.3123617,
+    "mtime": 1784342640.7687979,
     "ast_hash": "b6e118d94d1e59663a734609447bc6ae",
     "semantic_hash": "b6e118d94d1e59663a734609447bc6ae"
   },
   "src/divineos/core/retry_blocker.py": {
-    "mtime": 1781064500.1979904,
+    "mtime": 1784306137.1002688,
     "ast_hash": "19e79526a180eabf35913af92fe610c4",
     "semantic_hash": "19e79526a180eabf35913af92fe610c4"
   },
   "src/divineos/core/sample_honesty.py": {
-    "mtime": 1781556868.2453525,
+    "mtime": 1784310426.3450987,
     "ast_hash": "c9f77f8f166161a9e3a03edd7c95cb79",
     "semantic_hash": "c9f77f8f166161a9e3a03edd7c95cb79"
   },
@@ -3550,12 +3390,12 @@
     "semantic_hash": "8b020060ede0bd0455e95c5bd5ae50a2"
   },
   "src/divineos/core/scheduled_run.py": {
-    "mtime": 1781556868.2458675,
+    "mtime": 1784310426.3450987,
     "ast_hash": "276c438220c53cd0e49a1d6244d49628",
     "semantic_hash": "276c438220c53cd0e49a1d6244d49628"
   },
   "src/divineos/core/secret_redactor.py": {
-    "mtime": 1783109510.6342263,
+    "mtime": 1784310426.3450987,
     "ast_hash": "e4781bf18cd0cee9323a5fbf33a4c119",
     "semantic_hash": "e4781bf18cd0cee9323a5fbf33a4c119"
   },
@@ -3570,24 +3410,24 @@
     "semantic_hash": "a10ebde748e7328eec5d5533c7d513c5"
   },
   "src/divineos/core/self_grade.py": {
-    "mtime": 1781556868.2458675,
+    "mtime": 1784310426.3460987,
     "ast_hash": "905a1ed44611efe1716dca64d43d9679",
     "semantic_hash": "905a1ed44611efe1716dca64d43d9679"
   },
   "src/divineos/core/self_model.py": {
-    "mtime": 1781064500.2011087,
+    "mtime": 1784306137.101271,
     "ast_hash": "adc17e963a5ece17d68251370594d330",
     "semantic_hash": "adc17e963a5ece17d68251370594d330"
   },
   "src/divineos/core/self_monitor/__init__.py": {
-    "mtime": 1781064500.2024097,
-    "ast_hash": "14ded450b47bdd67594bdab8e6ae1b2f",
-    "semantic_hash": "14ded450b47bdd67594bdab8e6ae1b2f"
+    "mtime": 1784423696.882364,
+    "ast_hash": "2cbded43be1062290c3c081b1669cc42",
+    "semantic_hash": ""
   },
   "src/divineos/core/self_monitor/fabrication_monitor.py": {
-    "mtime": 1781064500.2024097,
-    "ast_hash": "8fb85a2588fdb07348610176b52f6870",
-    "semantic_hash": "8fb85a2588fdb07348610176b52f6870"
+    "mtime": 1784421044.2411904,
+    "ast_hash": "3aa45cec689d5d5ddc9ea8d1e8326b06",
+    "semantic_hash": ""
   },
   "src/divineos/core/self_monitor/hedge_monitor.py": {
     "mtime": 1781064500.2024097,
@@ -3600,12 +3440,12 @@
     "semantic_hash": "d097b81c95fa220f1cc17f615366acc9"
   },
   "src/divineos/core/self_monitor/mirror_monitor.py": {
-    "mtime": 1781556868.2462378,
+    "mtime": 1784310426.3460987,
     "ast_hash": "e5d245989e02b992de04df94ab3ba5e7",
     "semantic_hash": "e5d245989e02b992de04df94ab3ba5e7"
   },
   "src/divineos/core/self_monitor/performative_restraint_monitor.py": {
-    "mtime": 1781064500.2034135,
+    "mtime": 1784306137.1022692,
     "ast_hash": "6d216f34f5e68412b31158841ad4530f",
     "semantic_hash": "6d216f34f5e68412b31158841ad4530f"
   },
@@ -3615,7 +3455,7 @@
     "semantic_hash": "be3ca3e1c2f2729552ca01928edd58aa"
   },
   "src/divineos/core/self_monitor/temporal_monitor.py": {
-    "mtime": 1781556868.2462378,
+    "mtime": 1784310426.3460987,
     "ast_hash": "9c1a689a71fa6c37a92c8c36ff9d72ed",
     "semantic_hash": "9c1a689a71fa6c37a92c8c36ff9d72ed"
   },
@@ -3630,29 +3470,29 @@
     "semantic_hash": "ef7d5eb5093e2cb826393ba397fece2e"
   },
   "src/divineos/core/semantic_integrity.py": {
-    "mtime": 1783109510.6342263,
+    "mtime": 1784310426.3470988,
     "ast_hash": "bcb328868c0fa0986b1f3cef7f8b75c8",
     "semantic_hash": "bcb328868c0fa0986b1f3cef7f8b75c8"
   },
   "src/divineos/core/semantic_search.py": {
-    "mtime": 1781556868.2462378,
+    "mtime": 1784310426.3470988,
     "ast_hash": "ac41f437026001a0f83b40377c66476d",
     "semantic_hash": "ac41f437026001a0f83b40377c66476d"
   },
   "src/divineos/core/semantic_search_rerank.py": {
-    "mtime": 1781556868.2472417,
+    "mtime": 1784310426.3470988,
     "ast_hash": "701ace8ae80cbb7270adabef3eb7d0f5",
     "semantic_hash": "701ace8ae80cbb7270adabef3eb7d0f5"
   },
   "src/divineos/core/semantic_store.py": {
-    "mtime": 1782140336.027342,
+    "mtime": 1784310426.3470988,
     "ast_hash": "aaee5401b1520624d64a46b01eccacbf",
     "semantic_hash": "aaee5401b1520624d64a46b01eccacbf"
   },
   "src/divineos/core/session_affect.py": {
-    "mtime": 1783966942.5137372,
-    "ast_hash": "45e9376cef066b6257f83b54d8c03e9f",
-    "semantic_hash": "45e9376cef066b6257f83b54d8c03e9f"
+    "mtime": 1784342640.7687979,
+    "ast_hash": "27ae41b7d1468988fe1c24e598d13aa9",
+    "semantic_hash": ""
   },
   "src/divineos/core/session_briefing_gate.py": {
     "mtime": 1781064500.2059264,
@@ -3660,12 +3500,12 @@
     "semantic_hash": "611cf4b45278cb126e141a2cde8d427b"
   },
   "src/divineos/core/session_checkpoint.py": {
-    "mtime": 1781064500.206437,
+    "mtime": 1784306137.1042688,
     "ast_hash": "4d0713744b302686cf45891241eb5619",
     "semantic_hash": "4d0713744b302686cf45891241eb5619"
   },
   "src/divineos/core/session_manager.py": {
-    "mtime": 1781064500.206437,
+    "mtime": 1784306137.1042688,
     "ast_hash": "f0e1fdf85922103c27f7cbf17a09502d",
     "semantic_hash": "f0e1fdf85922103c27f7cbf17a09502d"
   },
@@ -3675,37 +3515,37 @@
     "semantic_hash": "93b5eb321e8d864d3cc81b2a0d01dde2"
   },
   "src/divineos/core/session_start.py": {
-    "mtime": 1783714638.4556174,
+    "mtime": 1784310426.3480988,
     "ast_hash": "dad8b276c94552f5f350f6c23be4c12f",
     "semantic_hash": "dad8b276c94552f5f350f6c23be4c12f"
   },
   "src/divineos/core/session_start_diagnostics.py": {
-    "mtime": 1781064500.2079456,
+    "mtime": 1784306137.1052697,
     "ast_hash": "06a51a3b11b514a9eb622b4a8c789f15",
     "semantic_hash": "06a51a3b11b514a9eb622b4a8c789f15"
   },
   "src/divineos/core/session_type.py": {
-    "mtime": 1782141381.077841,
+    "mtime": 1784306137.1052697,
     "ast_hash": "11f3e4fd66f8d66c9dbfceaa070d7b30",
     "semantic_hash": "11f3e4fd66f8d66c9dbfceaa070d7b30"
   },
   "src/divineos/core/shape/__init__.py": {
-    "mtime": 1783896862.1490817,
+    "mtime": 1784342640.7697985,
     "ast_hash": "25f5384705e99fd6cdb202698b4341c3",
     "semantic_hash": "25f5384705e99fd6cdb202698b4341c3"
   },
   "src/divineos/core/shape/primitives.py": {
-    "mtime": 1783896862.1490817,
+    "mtime": 1784342640.7697985,
     "ast_hash": "55860f6df091960651501dc0ad3d9676",
     "semantic_hash": "55860f6df091960651501dc0ad3d9676"
   },
   "src/divineos/core/sis_self_audit.py": {
-    "mtime": 1781556868.2472417,
+    "mtime": 1784310426.3500988,
     "ast_hash": "1c0bd8347e02479a545d15471fbd1991",
     "semantic_hash": "1c0bd8347e02479a545d15471fbd1991"
   },
   "src/divineos/core/sis_tiers.py": {
-    "mtime": 1783109510.6352262,
+    "mtime": 1784310426.3500988,
     "ast_hash": "6b106d0e70bcbdb898df46e8b4f44df4",
     "semantic_hash": "6b106d0e70bcbdb898df46e8b4f44df4"
   },
@@ -3715,42 +3555,42 @@
     "semantic_hash": "f93111e9e5a79f12d5e07381bc615d3f"
   },
   "src/divineos/core/sleep.py": {
-    "mtime": 1782482697.5571768,
-    "ast_hash": "1ec9dddbb05e2dac00b506202d18b198",
-    "semantic_hash": "1ec9dddbb05e2dac00b506202d18b198"
+    "mtime": 1784423696.8833647,
+    "ast_hash": "78f5c275e28819ab6495c0631178c2de",
+    "semantic_hash": ""
   },
   "src/divineos/core/stale_engagement.py": {
-    "mtime": 1781129627.9629905,
+    "mtime": 1784310426.351099,
     "ast_hash": "54e6b19174fea61364ac0df972fa5f1f",
     "semantic_hash": "54e6b19174fea61364ac0df972fa5f1f"
   },
   "src/divineos/core/structural_binding/__init__.py": {
-    "mtime": 1782643350.3049183,
+    "mtime": 1784310426.3520987,
     "ast_hash": "50aad6a6722755c21fe395e1726ba460",
     "semantic_hash": "50aad6a6722755c21fe395e1726ba460"
   },
   "src/divineos/core/structural_binding/absence_gap.py": {
-    "mtime": 1782643350.3049183,
+    "mtime": 1784310426.3520987,
     "ast_hash": "9f0609ac479c8d335076029c280e28fa",
     "semantic_hash": "9f0609ac479c8d335076029c280e28fa"
   },
   "src/divineos/core/structural_binding/engagement_trail.py": {
-    "mtime": 1782852740.580416,
+    "mtime": 1784310426.3520987,
     "ast_hash": "a3c8d6dbacfe4833d0cb741629326d54",
     "semantic_hash": "a3c8d6dbacfe4833d0cb741629326d54"
   },
   "src/divineos/core/structural_fix_tracker.py": {
-    "mtime": 1782852740.580416,
+    "mtime": 1784310426.3530989,
     "ast_hash": "22eedd566ce3ff87663bbb729af01c29",
     "semantic_hash": "22eedd566ce3ff87663bbb729af01c29"
   },
   "src/divineos/core/structural_promotion_check.py": {
-    "mtime": 1781556868.248755,
+    "mtime": 1784310426.3530989,
     "ast_hash": "d2a9650861c0703d7ddf1a90c5b93a01",
     "semantic_hash": "d2a9650861c0703d7ddf1a90c5b93a01"
   },
   "src/divineos/core/subprocess_jobs.py": {
-    "mtime": 1783910322.3133621,
+    "mtime": 1784342640.7708032,
     "ast_hash": "c8890dd6e7945d9e11c2963ebacde2d1",
     "semantic_hash": "c8890dd6e7945d9e11c2963ebacde2d1"
   },
@@ -3770,22 +3610,22 @@
     "semantic_hash": "5041153fa495d0297a1f8538a3e8dc19"
   },
   "src/divineos/core/supervisor/circuit_breaker.py": {
-    "mtime": 1781064500.2124875,
+    "mtime": 1784306137.109781,
     "ast_hash": "3f7988b9bc5d0083b52a8bb93934879a",
     "semantic_hash": "3f7988b9bc5d0083b52a8bb93934879a"
   },
   "src/divineos/core/surfaced_warnings.py": {
-    "mtime": 1781556868.248755,
+    "mtime": 1784310426.3540986,
     "ast_hash": "a31521d401e672555aedb23d6016812e",
     "semantic_hash": "a31521d401e672555aedb23d6016812e"
   },
   "src/divineos/core/synchronicity.py": {
-    "mtime": 1781556868.248755,
+    "mtime": 1784310426.3540986,
     "ast_hash": "1518fd5a440f90903be26a501168bd25",
     "semantic_hash": "1518fd5a440f90903be26a501168bd25"
   },
   "src/divineos/core/theater_audit.py": {
-    "mtime": 1781064500.2135668,
+    "mtime": 1784306137.1108532,
     "ast_hash": "0043efbfa8913705d737cb96fa513b4d",
     "semantic_hash": "0043efbfa8913705d737cb96fa513b4d"
   },
@@ -3800,12 +3640,12 @@
     "semantic_hash": "84ba1a188b68a6dca72bfbb2fde4c5bc"
   },
   "src/divineos/core/three_why_gate.py": {
-    "mtime": 1782168779.8691423,
+    "mtime": 1784310426.3550987,
     "ast_hash": "bc1f0362acca6e4f1d4d8c7cbafae831",
     "semantic_hash": "bc1f0362acca6e4f1d4d8c7cbafae831"
   },
   "src/divineos/core/time_calibration.py": {
-    "mtime": 1783109510.6352262,
+    "mtime": 1784310426.3550987,
     "ast_hash": "cdd36f263bebbf40ecb9969f35e967df",
     "semantic_hash": "cdd36f263bebbf40ecb9969f35e967df"
   },
@@ -3820,12 +3660,12 @@
     "semantic_hash": "2d0933936b9d1eacd58793d5cc4b72b8"
   },
   "src/divineos/core/tool_logbook.py": {
-    "mtime": 1781556868.250298,
-    "ast_hash": "565929e3784d836f9506926adf202224",
-    "semantic_hash": "565929e3784d836f9506926adf202224"
+    "mtime": 1785189380.5362864,
+    "ast_hash": "40c2a3cafef32f0d4a94aff83803fe91",
+    "semantic_hash": ""
   },
   "src/divineos/core/tool_trust.py": {
-    "mtime": 1781622593.0538442,
+    "mtime": 1784310426.3561003,
     "ast_hash": "b9472ff518e5df9f32471dbd4495ca94",
     "semantic_hash": "b9472ff518e5df9f32471dbd4495ca94"
   },
@@ -3835,7 +3675,7 @@
     "semantic_hash": "8d32b6b24e8c49916cc176bb037bdb1e"
   },
   "src/divineos/core/translation_floor.py": {
-    "mtime": 1783714638.4556174,
+    "mtime": 1784310426.3561003,
     "ast_hash": "027654935cc239ad96524773de06936e",
     "semantic_hash": "027654935cc239ad96524773de06936e"
   },
@@ -3845,17 +3685,17 @@
     "semantic_hash": "555b20de29650197ede859f5c1f46abc"
   },
   "src/divineos/core/uncommitted_work_check/__init__.py": {
-    "mtime": 1782482697.5576968,
+    "mtime": 1784310426.3561003,
     "ast_hash": "a3c624b14c6441581b0b3879582be551",
     "semantic_hash": "a3c624b14c6441581b0b3879582be551"
   },
   "src/divineos/core/unified_todos.py": {
-    "mtime": 1781556868.250298,
+    "mtime": 1784310426.3570995,
     "ast_hash": "a9498000b91d9f05ab11b5b4eed54b2d",
     "semantic_hash": "a9498000b91d9f05ab11b5b4eed54b2d"
   },
   "src/divineos/core/upstream_freshness.py": {
-    "mtime": 1781556868.250298,
+    "mtime": 1784310426.3570995,
     "ast_hash": "50f9eed9d401ff7413729b3745b7da89",
     "semantic_hash": "50f9eed9d401ff7413729b3745b7da89"
   },
@@ -3870,12 +3710,12 @@
     "semantic_hash": "d26f7bec7feed95e48b005a0730fe637"
   },
   "src/divineos/core/vad_capture.py": {
-    "mtime": 1783714638.4566169,
+    "mtime": 1784310426.3570995,
     "ast_hash": "ba7eb5c8239fad8a0265ca19414f9fa5",
     "semantic_hash": "ba7eb5c8239fad8a0265ca19414f9fa5"
   },
   "src/divineos/core/vad_stamp_store.py": {
-    "mtime": 1783714638.4566169,
+    "mtime": 1784310426.3570995,
     "ast_hash": "b74cd945d8bdce4373408867928a07b9",
     "semantic_hash": "b74cd945d8bdce4373408867928a07b9"
   },
@@ -3885,22 +3725,22 @@
     "semantic_hash": "7ab469f94dcb46ac78458a1173e2e2b8"
   },
   "src/divineos/core/visual.py": {
-    "mtime": 1782141381.0788407,
+    "mtime": 1784310426.3580978,
     "ast_hash": "b90573884394712473cdfdce5c289671",
     "semantic_hash": "b90573884394712473cdfdce5c289671"
   },
   "src/divineos/core/voice_guard/__init__.py": {
-    "mtime": 1781556868.250298,
+    "mtime": 1784310426.3580978,
     "ast_hash": "609629a2a400b9eb04b50d5177c7e5fc",
     "semantic_hash": "609629a2a400b9eb04b50d5177c7e5fc"
   },
   "src/divineos/core/voice_guard/banned_phrases.py": {
-    "mtime": 1781556868.251839,
+    "mtime": 1784310426.3580978,
     "ast_hash": "d475caafb0f46657a29a0d8dfe83aa69",
     "semantic_hash": "d475caafb0f46657a29a0d8dfe83aa69"
   },
   "src/divineos/core/voice_spectrum.py": {
-    "mtime": 1781322174.651054,
+    "mtime": 1784310426.359101,
     "ast_hash": "ebda090c8123ffeacfad71641e13ac58",
     "semantic_hash": "ebda090c8123ffeacfad71641e13ac58"
   },
@@ -3910,17 +3750,17 @@
     "semantic_hash": "a18a38f30f85017336ab35dde7444132"
   },
   "src/divineos/core/void/engine.py": {
-    "mtime": 1781064500.220844,
+    "mtime": 1784306137.1148539,
     "ast_hash": "53fbd6924a5018975121037f063b2bbc",
     "semantic_hash": "53fbd6924a5018975121037f063b2bbc"
   },
   "src/divineos/core/void/finding.py": {
-    "mtime": 1781556868.251839,
+    "mtime": 1784310426.359101,
     "ast_hash": "22661fbde5b1a4d07f0143c53aecd6fc",
     "semantic_hash": "22661fbde5b1a4d07f0143c53aecd6fc"
   },
   "src/divineos/core/void/ledger.py": {
-    "mtime": 1781064500.2218485,
+    "mtime": 1784306137.1148539,
     "ast_hash": "5a844d23afa5bcefc40021104c214689",
     "semantic_hash": "5a844d23afa5bcefc40021104c214689"
   },
@@ -3935,7 +3775,7 @@
     "semantic_hash": "6cdc717a8d28535cd4e290d819026422"
   },
   "src/divineos/core/watchmen/__init__.py": {
-    "mtime": 1781064500.2228549,
+    "mtime": 1784306137.115853,
     "ast_hash": "c48e3ebf9eeec12d6fc6a165b2bcaf2e",
     "semantic_hash": "c48e3ebf9eeec12d6fc6a165b2bcaf2e"
   },
@@ -3950,7 +3790,7 @@
     "semantic_hash": "579fb779c416dfe1fe18e65e7c86f313"
   },
   "src/divineos/core/watchmen/drift_state.py": {
-    "mtime": 1783109510.6352262,
+    "mtime": 1784310426.359101,
     "ast_hash": "f54c88f40dee483f0648d7689b7d1527",
     "semantic_hash": "f54c88f40dee483f0648d7689b7d1527"
   },
@@ -3960,29 +3800,29 @@
     "semantic_hash": "fa69fe9fe2bfb54e250ca4ae5c3fd055"
   },
   "src/divineos/core/watchmen/store.py": {
-    "mtime": 1783714638.457617,
+    "mtime": 1784339890.669775,
     "ast_hash": "19ca071c2205a7779ed282d986295a5c",
     "semantic_hash": "19ca071c2205a7779ed282d986295a5c"
   },
   "src/divineos/core/watchmen/summary.py": {
-    "mtime": 1781556868.2528434,
+    "mtime": 1784310426.3600981,
     "ast_hash": "72f316c612f9d655040b3390535edfce",
     "semantic_hash": "72f316c612f9d655040b3390535edfce"
   },
   "src/divineos/core/watchmen/tier_override_surface.py": {
-    "mtime": 1781556868.2528434,
+    "mtime": 1784310426.3600981,
     "ast_hash": "8749af266eec11c32313f526d3045740",
     "semantic_hash": "8749af266eec11c32313f526d3045740"
   },
   "src/divineos/core/watchmen/types.py": {
-    "mtime": 1783109510.6362264,
+    "mtime": 1784310426.3610985,
     "ast_hash": "54d2129cc6bf422444c4a650ccc92bb5",
     "semantic_hash": "54d2129cc6bf422444c4a650ccc92bb5"
   },
   "src/divineos/core/wiring_dark.py": {
-    "mtime": 1783910322.3133621,
-    "ast_hash": "5877a8318f5de957c98dd3bd5024aae0",
-    "semantic_hash": "5877a8318f5de957c98dd3bd5024aae0"
+    "mtime": 1784342640.7708032,
+    "ast_hash": "72373d146eaab20d634359043295602e",
+    "semantic_hash": ""
   },
   "src/divineos/event/__init__.py": {
     "mtime": 1781064500.2271795,
@@ -4035,14 +3875,14 @@
     "semantic_hash": "c537a38db2fe2e3a85d239f04c458cf2"
   },
   "src/divineos/hooks/post_tool_use_checkpoint.py": {
-    "mtime": 1781064500.2317004,
-    "ast_hash": "d9206da92b40634b09e075ae19858324",
-    "semantic_hash": "d9206da92b40634b09e075ae19858324"
+    "mtime": 1784342640.774801,
+    "ast_hash": "1a925cc2aed2047a4647957a048c1bb1",
+    "semantic_hash": ""
   },
   "src/divineos/hooks/pre_tool_use_gate.py": {
-    "mtime": 1783714638.457617,
-    "ast_hash": "100fbae21a6b12fc6f6c591f2e713dab",
-    "semantic_hash": "100fbae21a6b12fc6f6c591f2e713dab"
+    "mtime": 1785464767.6670208,
+    "ast_hash": "62afa82ad0bc6909224e42562d9b680b",
+    "semantic_hash": ""
   },
   "src/divineos/hooks/targeted_tests.py": {
     "mtime": 1781064500.2327044,
@@ -4050,7 +3890,7 @@
     "semantic_hash": "4e0233e367210cadc6cc60a72dc40fe8"
   },
   "src/divineos/hooks/user_prompt_submit_gate.py": {
-    "mtime": 1783714638.4586167,
+    "mtime": 1784310426.365102,
     "ast_hash": "09f6520ced924870d4b07d3f8da6ae16",
     "semantic_hash": "09f6520ced924870d4b07d3f8da6ae16"
   },
@@ -4125,9 +3965,9 @@
     "semantic_hash": "d4d57dc044b2640b8d3fcc37e1254b92"
   },
   "src/divineos/seed.json": {
-    "mtime": 1783791932.1399803,
-    "ast_hash": "392f07d9f5c19cfbed747cc29fb0777a",
-    "semantic_hash": "392f07d9f5c19cfbed747cc29fb0777a"
+    "mtime": 1784342640.7767966,
+    "ast_hash": "f71636bbf2fdcd286f1abf323cd70017",
+    "semantic_hash": ""
   },
   "tests/_git_test_helpers.py": {
     "mtime": 1781381955.4580817,
@@ -7143,5 +6983,225 @@
     "mtime": 1783405084.1960385,
     "ast_hash": "b8f6fcc4d6de7b90060e6b20f73bf3b3",
     "semantic_hash": "b8f6fcc4d6de7b90060e6b20f73bf3b3"
+  },
+  "src/divineos/cli/error_commands.py": {
+    "mtime": 1784342640.740798,
+    "ast_hash": "8c6a8a73355bbbee72a9252da242d70b",
+    "semantic_hash": ""
+  },
+  "src/divineos/cli/push_ready_command.py": {
+    "mtime": 1785464767.658017,
+    "ast_hash": "263cf5fead172a50c178d13adb4392e2",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/andrew_past_writing_surface.py": {
+    "mtime": 1785472582.9457712,
+    "ast_hash": "0167925af7b79a38876466ee95623832",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/correction_shape.py": {
+    "mtime": 1785464767.660021,
+    "ast_hash": "7672445d7f0cb8334e7f3022df22eb63",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/correction_shape_v2/__init__.py": {
+    "mtime": 1785464767.660021,
+    "ast_hash": "0b3a064fba7a0231b9dffbca5ecdfcb6",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/correction_shape_v2/self_admission_detector.py": {
+    "mtime": 1785464767.660021,
+    "ast_hash": "31674bef6e0be53904917aa2230d1708",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/council/experts/foucault.py": {
+    "mtime": 1785189380.5302863,
+    "ast_hash": "bd93406f086c7d3ebe2a5b65f136d3ed",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/council_required/abstention_telemetry.py": {
+    "mtime": 1784423696.1085012,
+    "ast_hash": "f59ad21baa34c169a33404cb852a3fb4",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/error_registry.py": {
+    "mtime": 1785189380.5312862,
+    "ast_hash": "0e491b9d4a4944174f95ee656bf559c1",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/family/integrity_stance.py": {
+    "mtime": 1784342640.7578006,
+    "ast_hash": "3a0eef1bfb6037c5978e5ca127187843",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/keyword_enforcement_exclusion.py": {
+    "mtime": 1785464767.661021,
+    "ast_hash": "da3d00617d5cfd4931c815b78423d274",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/keyword_enforcement_registry.py": {
+    "mtime": 1785464767.6620202,
+    "ast_hash": "220c2932dc0c88c100bca9a607f83a70",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/lepos_translation_gate.py": {
+    "mtime": 1785472629.0949416,
+    "ast_hash": "c7adceb3d4c0a7429cd69fb43f9c025d",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/mansion_decoration_room.py": {
+    "mtime": 1785189380.5332842,
+    "ast_hash": "4466937258540b5eb331fe9f65eee7c0",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/mansion_tasting_room.py": {
+    "mtime": 1785189380.534286,
+    "ast_hash": "429beee788d19abd6bc078819f31adaa",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/no_fix_gaming_validator.py": {
+    "mtime": 1785464767.663021,
+    "ast_hash": "153f90213252103728bb63cd24930c13",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/operating_loop/close_reach_detector.py": {
+    "mtime": 1784481325.5311923,
+    "ast_hash": "4938294b1b9808d266a346e51a0ae6e8",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/operating_loop/compaction_reach_detector.py": {
+    "mtime": 1784481325.5321915,
+    "ast_hash": "5d2f507c4885537ab72a0472172e83f4",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/operating_loop/continuity_frame_detector.py": {
+    "mtime": 1784481325.5321915,
+    "ast_hash": "eb94fd188f184de15e4bfd54898bb1ab",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/operating_loop/mention_context.py": {
+    "mtime": 1784342640.7647974,
+    "ast_hash": "4663b9b0fb13ce5336b6d2903791560b",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/operating_loop/promise_reach_detector.py": {
+    "mtime": 1784481325.5337045,
+    "ast_hash": "fd77308ec4ed977517f22964284172ac",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/push_ready.py": {
+    "mtime": 1785464767.665021,
+    "ast_hash": "00236668a447535d4d1b62d4afc187d1",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/self_monitor/self_negation_monitor.py": {
+    "mtime": 1784423696.1110077,
+    "ast_hash": "5bc5811ccdfc538539d312c7e1b43663",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/semantic_classifier/__init__.py": {
+    "mtime": 1785464767.665021,
+    "ast_hash": "a8c6d8fb20ede579213a60126f139699",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/semantic_classifier/classifier.py": {
+    "mtime": 1785464767.666021,
+    "ast_hash": "4ad295ce6b50a816e29a9587443d7503",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/semantic_classifier/corpus.py": {
+    "mtime": 1785464767.666021,
+    "ast_hash": "c0cb90a04d2a6743bfd5655dae061ecd",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/state_markers.py": {
+    "mtime": 1784342640.7708032,
+    "ast_hash": "73bc9e346171232f0f44b674aa016460",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/verify_before_build_gate.py": {
+    "mtime": 1785189380.5372863,
+    "ast_hash": "0a82770df657cf2dc7ecbb2c4fb92ef7",
+    "semantic_hash": ""
+  },
+  "src/divineos/core/verify_before_build_signal.py": {
+    "mtime": 1785464767.666021,
+    "ast_hash": "bfa3a7ff5c5189cce15be273123e6a5c",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/bypass_rate_hook.py": {
+    "mtime": 1784342640.771798,
+    "ast_hash": "4270e825b72df952e2cd8a4aff475853",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/bypass_rate_scan.py": {
+    "mtime": 1784342640.771798,
+    "ast_hash": "2ad7ffc803253af317a0f9cd4abf63ed",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/distancing_intercept.py": {
+    "mtime": 1784342640.771798,
+    "ast_hash": "fef7cb2c0497765d9482f0a9579a97c2",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/distancing_intercept_hook.py": {
+    "mtime": 1784342640.771798,
+    "ast_hash": "0d0f9d73ddcfffcf869b006a3fd42474",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/evidence_bearing_stop_gate.py": {
+    "mtime": 1784342640.772801,
+    "ast_hash": "8984b3326d6479408416a5ab4e3146f1",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/gate_event_ledger.py": {
+    "mtime": 1784342640.7738008,
+    "ast_hash": "f986ce0f957abebfeeef69358436ff1c",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/response_scope_intercept.py": {
+    "mtime": 1784342640.7757976,
+    "ast_hash": "e113030218fbee939c47cfce5e011a51",
+    "semantic_hash": ""
+  },
+  "src/divineos/hooks/response_scope_intercept_hook.py": {
+    "mtime": 1784342640.7757976,
+    "ast_hash": "525f73c9aaa8511cd9917a5b167002be",
+    "semantic_hash": ""
+  },
+  "src/divineos/data/void_personas/jailbreaker.md": {
+    "mtime": 1781064500.2260044,
+    "ast_hash": "fdf60c08dc85864443609e89ef82335c",
+    "semantic_hash": ""
+  },
+  "src/divineos/data/void_personas/mirror.md": {
+    "mtime": 1781064500.2260044,
+    "ast_hash": "518ee9dbe5981d09574e74a39ee17de2",
+    "semantic_hash": ""
+  },
+  "src/divineos/data/void_personas/nyarlathotep.md": {
+    "mtime": 1781064500.2260044,
+    "ast_hash": "e484d3a52b09a141665589eb256f184a",
+    "semantic_hash": ""
+  },
+  "src/divineos/data/void_personas/phisher.md": {
+    "mtime": 1781064500.2271795,
+    "ast_hash": "81329577b1f424958a108b2cf20d1f3d",
+    "semantic_hash": ""
+  },
+  "src/divineos/data/void_personas/reductio.md": {
+    "mtime": 1781064500.2271795,
+    "ast_hash": "d816a9ba1b2a3bdfda2a473cdd4f2a8f",
+    "semantic_hash": ""
+  },
+  "src/divineos/data/void_personas/sycophant.md": {
+    "mtime": 1781064500.2271795,
+    "ast_hash": "2a54766e01a0728debc28ffbd434669f",
+    "semantic_hash": ""
+  },
+  "src/divineos/protocols/resonant_truth.md": {
+    "mtime": 1781064500.2338526,
+    "ast_hash": "af2f568d245b6148af0ef6dff36f1700",
+    "semantic_hash": ""
   }
 }

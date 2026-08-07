@@ -14,7 +14,7 @@ dependencies = [
     "ftfy>=6.0",
     "numpy>=1.20",
     "filelock>=3.0",  # core/push_orchestrator — cross-platform file lock for push serialization (works on Windows where flock is unavailable). Added 2026-06-24 with the divineos push CLI per prereg-a9ecf79d250d. CI caught the missing dep on PR #266 — local had filelock via another transitive install, CI didn't.
-    "psutil>=5.9",  # core/system_load_check + core/body_awareness — memory readings. Added 2026-07-31 (Aletheia F101, PR #402). SECOND instance of the exact class documented on filelock above: local had psutil transitively, CI did not, and an unguarded module-level import turned a missing dep into a whole-module ModuleNotFoundError. The recurrence is the signal — an imports-vs-declared-deps check belongs on the backlog.
+    "psutil>=5.9",  # core/system_load_check — reads free memory before spawning resource-heavy jobs (prereg-ca5fb15220ea). Core rather than dev: the module is imported by scripts/check_push_readiness.sh, not only by tests. Added 2026-07-31 after the identical filelock story one line above — local had psutil transitively, CI did not, and PR #402 died at COLLECTION with ModuleNotFoundError: 10852 tests, zero run. The import is also guarded now (Aletheia F101) so a missing psutil degrades to a loud fail-open instead of killing the suite. An imports-vs-declared-deps check belongs on the backlog: this was the SECOND instance of the class.
 ]
 
 [project.optional-dependencies]

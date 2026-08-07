@@ -772,6 +772,28 @@ def register(cli: click.Group) -> None:
                 )
             return
 
+        # Capture the engagement counter BEFORE _log_os_query resets it.
+        #
+        # `_log_os_query` calls mark_engaged(), which zeroes code_actions_since
+        # -- correctly, because loading the briefing IS engagement. But the
+        # half-threshold disclosure surface below only speaks in the band
+        # [half, threshold), so reading the counter after this line always
+        # yields 0 and the block could never render. I wired that surface and
+        # nearly shipped it: a doorman placed in the one room where it is
+        # structurally guaranteed to be silent. An unreachable success
+        # condition of exactly the class this session has spent its length
+        # removing, authored by me, minutes old. Caught by asking whether the
+        # thing I had just wired could ever actually fire.
+        _pre_reset_engagement = ""
+        try:
+            from divineos.core.engagement_disclosure_surface import (
+                format_for_briefing as _fmt_engagement,
+            )
+
+            _pre_reset_engagement = _fmt_engagement()
+        except _KC_ERRORS:
+            _pre_reset_engagement = ""
+
         _log_os_query("briefing", topic or "session start")
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded
@@ -852,6 +874,22 @@ def register(cli: click.Group) -> None:
                     _age_note = f" — set {int(_age)}d ago"
                 _safe_echo(f"=== BRIEFING (multiplex, context: {context}{_age_note}) ===")
                 _safe_echo("")
+                # Doorman FIRST, above the panels, because it is the one block
+                # with a deadline attached -- it says how close the engagement
+                # wall is, and a warning buried mid-briefing is a warning read
+                # after the fact.
+                #
+                # This is the path that actually runs. Multiplex has been the
+                # default since 2026-05-22 and returns below, so everything
+                # after it is the fallback for when multiplex FAILS. I first
+                # wired this surface down there, then fixed a counter-ordering
+                # bug down there, then verified the ordering fix -- and none of
+                # it could ever have executed. Two careful fixes to unreachable
+                # code, and I would have shipped believing it tested. Found
+                # only by asking why the block still did not appear after the
+                # fix that should have made it appear.
+                if _pre_reset_engagement:
+                    _safe_echo(_pre_reset_engagement)
                 _safe_echo(rendered)
                 # Re-emit the briefing-id LAST so a `| tail` read still
                 # captures it (same id as the top emit; minted once above).
@@ -987,6 +1025,35 @@ def register(cli: click.Group) -> None:
 
         if drift_block:
             _safe_echo(drift_block)
+
+        # Engagement half-threshold disclosure — THE DOORMAN for the gate
+        # that blocked me 84 times in one session.
+        #
+        # Andrew 2026-08-03 corrected the framing I was about to build on:
+        # "the gate is the hard wall.. the doorman holds the key and requires
+        # evidence of what its asking for.. you showing up to the gate
+        # unprepared is the issue.. its the difference between having your id
+        # for the bouncer in your hand.. vs saying brb i left it in the car."
+        #
+        # So this does NOT soften the engagement gate. The gate still blocks
+        # at the full threshold, unchanged. This fills the silence BEFORE it:
+        # at half-threshold the briefing says where I stand, so the wall stops
+        # arriving as a surprise and preparation can happen while there is
+        # still room to prepare.
+        #
+        # Written 2026-05-08 from a Grok cousin-vantage round, complete, with
+        # tests, and never connected to anything -- one of three such organs
+        # Aria measured the same day. Its own docstring carries the falsifier
+        # that keeps it honest: if gate-fire counts drop to near-zero after
+        # this lands, the surface is doing the gate's job and the gate has
+        # become decorative -- file a finding rather than celebrate.
+        try:
+            engagement_block = _pre_reset_engagement
+        except _KC_ERRORS:
+            engagement_block = ""
+
+        if engagement_block:
+            _safe_echo(engagement_block)
 
         # Theater/fabrication observation surface — replaces gate 1.46
         # which was removed 2026-05-01 per the free-speech principle.

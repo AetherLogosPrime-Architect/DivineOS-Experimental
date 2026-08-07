@@ -17,13 +17,62 @@ from divineos.core import system_load_check
 class TestCheckCapacity:
     """Verify check_capacity behaves correctly across memory conditions."""
 
-    def test_returns_safe_when_free_memory_at_threshold(self) -> None:
-        """Free memory exactly equal to threshold: proceed."""
+    def test_headroom_met_but_ceiling_exceeded_still_refuses(self) -> None:
+        """Two conditions, not one — and this is the case that distinguishes
+        them. 2026-08-01: the check used to be a single absolute
+        free-memory threshold. It now also projects usage AFTER the job.
+
+        A large box that is already heavily consumed: 64 GB total with only
+        9 GB available. Headroom passes (9 >= job 5 + reserve 3), but the
+        job would land usage at ~94%, past the 92% ceiling. Absolute free
+        memory looks fine and the machine is nearly full — which is exactly
+        the case a single free-memory threshold cannot see.
+
+        The ceiling is derived from Andrew's observed crash point of 98-99%,
+        minus margin for the job cost being an estimate.
+        """
         with mock.patch.object(system_load_check, "psutil") as mock_psutil:
             vm = mock.MagicMock()
-            vm.available = system_load_check.SAFE_FREE_BYTES
+            vm.available = 9 * 1024**3
+            vm.total = 64 * 1024**3
+            vm.percent = 86.0
+            mock_psutil.virtual_memory.return_value = vm
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, msg = system_load_check.check_capacity("test-job")
+
+        assert safe is False
+        assert "ceiling" in msg
+        assert "94%" in msg
+
+    def test_ninety_one_percent_projection_is_allowed(self) -> None:
+        """Guards the recalibration itself. 8 GB free of 32 GB projects ~91%
+        used, which my first pass REFUSED under an invented 85% ceiling.
+        Andrew: 'my pc doesnt usually crash until 98-99%'. Observed
+        behaviour beat the conventional number, so this must now pass — and
+        this test fails loudly if anyone quietly restores a lower ceiling.
+        """
+        with mock.patch.object(system_load_check, "psutil") as mock_psutil:
+            vm = mock.MagicMock()
+            vm.available = 8 * 1024**3
             vm.total = 32 * 1024**3
-            vm.percent = 50.0
+            vm.percent = 75.0
+            mock_psutil.virtual_memory.return_value = vm
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, _ = system_load_check.check_capacity("test-job")
+
+        assert safe is True
+
+    def test_headroom_and_ceiling_both_met_proceeds(self) -> None:
+        """Roomy machine: both conditions hold, job proceeds. This is the
+        real-world case that the old 16 GB absolute threshold wrongly
+        refused — 12.4 GB free of 31 GB with nothing heavy running."""
+        with mock.patch.object(system_load_check, "psutil") as mock_psutil:
+            vm = mock.MagicMock()
+            vm.available = int(12.4 * 1024**3)
+            vm.total = int(31.2 * 1024**3)
+            vm.percent = 60.0
             mock_psutil.virtual_memory.return_value = vm
 
             with mock.patch.dict("os.environ", {}, clear=True):
@@ -32,6 +81,25 @@ class TestCheckCapacity:
         assert safe is True
         assert "Memory OK" in msg
         assert "test-job" in msg
+
+    def test_second_concurrent_suite_is_refused(self) -> None:
+        """The original crash class: concurrent pytest suites. One suite is
+        already running, so it has taken ~5 GB out of `available`. The next
+        spawn must be refused by the same arithmetic rather than by a fixed
+        number tuned for one machine on one day."""
+        total = 16 * 1024**3
+        one_suite_running = int(6.5 * 1024**3)  # what's left with 1 suite up
+        with mock.patch.object(system_load_check, "psutil") as mock_psutil:
+            vm = mock.MagicMock()
+            vm.available = one_suite_running
+            vm.total = total
+            vm.percent = 59.0
+            mock_psutil.virtual_memory.return_value = vm
+
+            with mock.patch.dict("os.environ", {}, clear=True):
+                safe, _ = system_load_check.check_capacity("pytest suite")
+
+        assert safe is False
 
     def test_returns_safe_when_free_memory_well_above_threshold(self) -> None:
         """Free memory much greater than threshold: proceed with concrete numbers."""
@@ -64,9 +132,14 @@ class TestCheckCapacity:
         assert safe is False
         assert "REFUSED" in msg
         assert "pytest suite" in msg
-        assert "5.0 GB free" in msg
+        assert "5.0 GB available" in msg
         assert "84% used" in msg
-        assert "16.0 GB" in msg  # threshold surfaced in message
+        # Derived requirement (job cost + reserve) surfaced in the message,
+        # along with both of its components so the number is auditable
+        # rather than magic.
+        assert "8.0 GB" in msg
+        assert "5.0 GB" in msg  # job cost
+        assert "3.0 GB" in msg  # reserve
 
     def test_refuses_when_free_memory_just_below_threshold(self) -> None:
         """Boundary check: 1 byte below threshold still refuses."""
@@ -96,23 +169,6 @@ class TestCheckCapacity:
         assert safe is True
         assert "skipping load check" in msg
         assert "DIVINEOS_SKIP_LOAD_CHECK" in msg
-
-    def test_missing_psutil_fails_open_loudly(self) -> None:
-        """psutil unimportable: proceed, but say so unmissably.
-
-        Aletheia F101 / 2026-07-31. Fail-CLOSED here would block every push
-        from any env lacking psutil — a worse failure than the crash this
-        module prevents. Fail-open is correct; silent fail-open is not.
-        """
-        with mock.patch.object(system_load_check, "psutil", None):
-            with mock.patch.dict("os.environ", {}, clear=True):
-                safe, msg = system_load_check.check_capacity("pytest suite")
-
-        assert safe is True
-        assert "CHECK UNAVAILABLE" in msg
-        assert "UNGUARDED" in msg
-        assert "psutil" in msg
-        assert "pytest suite" in msg
 
     def test_message_carries_job_label(self) -> None:
         """job_label appears in both proceed and refuse messages."""
@@ -162,3 +218,42 @@ class TestMainCli:
         monkeypatch.setattr("sys.argv", ["prog"])
         system_load_check.main()
         assert received_labels == ["resource-heavy job"]
+
+
+class TestPsutilAbsent:
+    """The guarded-import path (Aletheia F101, 2026-07-31).
+
+    PR #402 died in CI at COLLECTION — `ModuleNotFoundError: No module named
+    'psutil'` took down all 10852 tests before one ran. A pre-flight safety
+    check must never be the reason the build cannot start.
+
+    The chosen behaviour is fail-open-LOUDLY: proceed, but make it impossible
+    to mistake an unrun check for a passing one. These tests pin both halves,
+    because an untested guard is the failure mode it exists to prevent.
+    """
+
+    def test_proceeds_when_psutil_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(system_load_check, "_PSUTIL_AVAILABLE", False)
+        safe, msg = system_load_check.check_capacity("pre-push pytest suite")
+        assert safe is True, "must fail OPEN — a missing advisory cannot block every push"
+        assert msg
+
+    def test_says_loudly_that_it_did_not_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(system_load_check, "_PSUTIL_AVAILABLE", False)
+        _, msg = system_load_check.check_capacity("pre-push pytest suite")
+        # The whole point: nobody may read this as "the machine was checked".
+        assert "DID NOT RUN" in msg
+        assert "NOT INSTALLED" in msg
+        assert "pre-push pytest suite" in msg, "must name what proceeded unchecked"
+        assert "not a pass" in msg.lower()
+
+    def test_skip_env_var_still_wins_over_absence(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Ordering check: the explicit operator escape is evaluated before the
+        # psutil branch, so an intentional skip reports as a skip rather than
+        # being mislabelled a missing-dependency event.
+        monkeypatch.setattr(system_load_check, "_PSUTIL_AVAILABLE", False)
+        monkeypatch.setenv(system_load_check.SKIP_ENV_VAR, "1")
+        safe, msg = system_load_check.check_capacity("job-x")
+        assert safe is True
+        assert system_load_check.SKIP_ENV_VAR in msg
+        assert "NOT INSTALLED" not in msg

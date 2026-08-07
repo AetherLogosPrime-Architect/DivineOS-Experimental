@@ -241,6 +241,11 @@
             "type": "command",
             "command": "bash .claude/hooks/self-demotion-prime.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "timeout": 120
           }
         ]
       },

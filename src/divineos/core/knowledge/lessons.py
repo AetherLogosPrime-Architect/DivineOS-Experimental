@@ -1697,7 +1697,14 @@ def extract_lessons_from_report(
         investigate_count = error_recovery.get("investigate_count", 0)
 
         if blind_retries > 0:
-            content = f"I retried a failed action {blind_retries}x without investigating the cause. I need to investigate errors, not blindly retry (session {short_id})."
+            # 2026-07-30: strip session-id AND severity-count from content so
+            # store_knowledge content-hash dedup fires across sessions. Prior
+            # version embedded (session {short_id}) AND "{blind_retries}x" in
+            # the content, producing 63+ per-session/per-severity duplicates
+            # of the same class-level lesson. Class-content is class-level;
+            # per-instance details (session, severity) live in source_events
+            # + tags where the auditor can find them without breaking dedup.
+            content = "I retried a failed action without investigating the cause. I need to investigate errors, not blindly retry."
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,
@@ -1710,7 +1717,8 @@ def extract_lessons_from_report(
             lesson_categories.append("blind_retry")
 
         if investigate_count > blind_retries:
-            content = f"I investigated errors before retrying — good recovery pattern (session {short_id})."
+            # Same dedup fix as blind_retry above.
+            content = "I investigated errors before retrying — good recovery pattern."
             kid = store_knowledge(
                 knowledge_type="PATTERN",
                 content=content,

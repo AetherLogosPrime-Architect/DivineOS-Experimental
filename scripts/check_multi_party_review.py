@@ -75,8 +75,41 @@ import sys
 import time
 from pathlib import Path
 
-# Trailer pattern — matches `External-Review: <id>` on its own line.
-_TRAILER_PATTERN = re.compile(r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE)
+# Trailer pattern — matches `External-Review: <id>` and tolerates trailing
+# tokens on the same line.
+#
+# Fixed 2026-07-31. The pattern was `(\S+)\s*$` — round-id as the ONLY token
+# on the line — while this gate's own BLOCKED message instructs the operator
+# to "add tree-hash:<40-hex> after the round-id". Following that instruction
+# produced a line the regex could not match at all, so the gate reported
+# "Guardrail files staged without External-Review trailer" — no trailer, not
+# bad trailer. Do as told, get told you did not.
+#
+# Measured both forms against validate() before changing anything:
+#   External-Review: round-77a5374003e5                     -> PASS
+#   External-Review: round-77a5374003e5 tree-hash:f9c0112b… -> BLOCK
+#
+# The deeper cause is TWO GATES WITH CONTRADICTORY TRAILER GRAMMARS on the
+# same trailer line:
+#
+#   ci_check_guardrail_trailer.sh  expects `<round-id> tree-hash:<40-hex>`,
+#       reads the tree-hash OUT OF THE TRAILER, and warns when it is absent
+#       ("DEPRECATED: trailer should include tree-hash for substance binding").
+#   check_multi_party_review.py    accepted `<round-id>` ALONE, and reads the
+#       tree-hash out of the ROUND DESCRIPTION (`_round_description` +
+#       `_TREE_HASH_PATTERN.findall`), never from the trailer.
+#
+# So the two layers demanded incompatible lines. Satisfy the shell gate and
+# this one saw no trailer; satisfy this one and the shell gate warned the
+# binding was missing. There was no single trailer that made both happy.
+#
+# Widening this pattern reconciles them: the full form now passes here too,
+# so an operator can write the line the other gate asks for and clear both.
+# Tree-hash sourcing is deliberately unchanged — this gate still reads the
+# round description, which is where `divineos audit submit-round` records it.
+_TRAILER_PATTERN = re.compile(
+    r"^External-Review:\s*(\S+)(?:\s+\S+)*\s*$", re.MULTILINE | re.IGNORECASE
+)
 
 # Diff-hash pattern — the round description must include the hash of the
 # unified diff to prevent stale approvals from authorizing a new change.

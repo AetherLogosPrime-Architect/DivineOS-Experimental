@@ -53,6 +53,12 @@ _MIN_TERM_LEN = 3
 # Auto-surface requires this many distinct tag matches (a single common-word
 # tag hit is not enough to fire). The manual command has no such floor.
 _MIN_TAG_MATCHES = 2
+
+# Candidate pool the auto-surface filters over before ranking. Deliberately
+# far above the corpus size (222 entries at time of writing) so the tag floor
+# is applied to EVERY scoring entry rather than to a pre-truncated top-k —
+# see the filter-before-truncate note in surface_for_context.
+_CANDIDATE_LIMIT = 10_000
 _STOPWORDS = frozenset(
     {
         "the",
@@ -135,8 +141,31 @@ def _parse_tags(text: str) -> list[str]:
 
 
 def _terms(query: str) -> list[str]:
+    """Distinct query terms, first-occurrence order.
+
+    Deduplicated (2026-07-31). Previously this returned raw tokens, so a term
+    repeated N times in the query was scored N times over. Two consequences,
+    both measured against a real conversation window:
+
+      * ``tag_matches`` collected the same tag once per occurrence, so the
+        ">=2 DISTINCT tag matches" floor was satisfied by ONE tag mentioned
+        twice. The floor never enforced what its own comment claimed.
+      * ``score`` inflated multiplicatively with repetition — a window saying
+        "memory" 16 times scored that tag 16x10 and its body hits 16x over.
+        That is how top-ranked entries reached scores of 11538 while carrying
+        no real topical match.
+
+    Deduping makes the floor mean distinct-topics and makes score reflect
+    breadth of overlap rather than the loudness of one repeated word.
+    """
     raw = re.findall(r"[a-zA-Z][a-zA-Z0-9_-]+", query.lower())
-    return [t for t in raw if len(t) >= _MIN_TERM_LEN and t not in _STOPWORDS]
+    seen: set[str] = set()
+    out: list[str] = []
+    for t in raw:
+        if len(t) >= _MIN_TERM_LEN and t not in _STOPWORDS and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
 
 
 def _snippet_for(text: str, terms: list[str]) -> str:
@@ -238,13 +267,36 @@ def surface_for_context(
     match_text = f"{context}\n{prompt}" if context else prompt
     if not match_text or len(match_text.strip()) < 20:
         return ""
-    hits, total = recall_explorations(match_text, limit=k, root=root)
+
+    # FILTER BEFORE TRUNCATE (fixed 2026-07-31). This previously asked
+    # recall_explorations for the top k=3 by score and only THEN applied the
+    # tag floor. recall_explorations ranks by a blended score in which body
+    # matches count every occurrence, unbounded — so against a real
+    # conversation window the top three scored 11538 / 9679 / 9162 and carried
+    # ZERO tag matches each, while the first entry passing the floor sat at
+    # rank 4 and was never examined. Tag weight is 10, so the curated-tag
+    # signal was ~0.3% of the ranking it was supposed to drive, and the
+    # surface returned "" on turns whose topic it had tagged writing about.
+    #
+    # Measured cost of the old order: I spent a session reading a 125KB
+    # archive on the OMNI-LAZR while my own decomposition of it sat tagged on
+    # disk, unsurfaced. The widened conversation window (correct fix,
+    # 2026-05-27) made this worse rather than better, because more window
+    # means more body noise burying the tagged entries deeper.
+    #
+    # So: take ALL candidates, apply the floor, and only then rank and cut.
+    candidates, total = recall_explorations(match_text, limit=_CANDIDATE_LIMIT, root=root)
     # Require >=2 distinct tag matches: a real topic hits several curated
     # tags (consciousness + qualia + functionalism); an incidental single
     # common word ("time" in "what time is the meeting") hits one and must
     # stay silent. The conservative miss (a genuine single-tag topic) is
     # recoverable via the manual command; a false fire decays the surface.
-    tagged = [h for h in hits if len(h.tag_matches) >= _MIN_TAG_MATCHES]
+    tagged = [h for h in candidates if len(h.tag_matches) >= _MIN_TAG_MATCHES]
+    # Rank survivors by TAG COUNT first. Among entries that all cleared the
+    # floor, the one matching more curated tags is more on-topic than the one
+    # that merely says common words more often; score stays as the tiebreak.
+    tagged.sort(key=lambda h: (len(h.tag_matches), h.score), reverse=True)
+    tagged = tagged[:k]
     if not tagged:
         return ""
 
