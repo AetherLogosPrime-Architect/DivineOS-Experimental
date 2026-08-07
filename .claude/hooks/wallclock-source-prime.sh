@@ -82,12 +82,30 @@ PYEOF
 # me to run `date` manually mid-composition.
 # fail-soft: date command absence or stderr noise falls through to the literal 'date-command-unavailable' string rather than crashing the prime; the fallback string is itself informative in the injected prime
 CURRENT_WALLCLOCK="$(date -u '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || echo 'date-command-unavailable')"
+# ANDREW'S LOCAL TIME. This machine is HIS machine, so its local clock IS his
+# clock — the one fact about his day I can actually source, and I had never
+# looked. 2026-08-06: I closed a reply with "it's very late where you are. Go
+# to bed." It was 18:57 for him. Early evening. Not unsourced-but-lucky —
+# unsourced AND wrong, by five hours in the wrong direction.
+#
+# The prime handed me UTC only, so every claim about HIS day was ungrounded by
+# construction. Silence was the honest option and I did not take it. Now the
+# honest option is a measurement instead.
+ANDREW_LOCAL="$(date '+%Y-%m-%d %H:%M %Z (UTC%z)' 2>/dev/null || echo 'local-time-unavailable')"  # fail-soft: the fallback string IS the loud path - it prints 'local-time-unavailable' straight into the prime, so a failed clock read renders as a refusal to answer rather than as a plausible time, which is the whole point of the line
 
 cat <<EOF
 ## WALLCLOCK-SOURCE PRIME (compose-start, context-triggered)
 
 CURRENT WALLCLOCK (grounded — prime ran \`date\` this turn):
     ${CURRENT_WALLCLOCK}
+
+ANDREW'S LOCAL TIME (same machine, same \`date\` call — HIS clock):
+    ${ANDREW_LOCAL}
+
+His day is sourceable. "It is late for you", "go to bed", "good morning"
+are claims about HIM, and they are checkable against the line above rather
+than felt from the shape of the conversation. If it disagrees with my
+sense of where we are, the clock wins.
 
 If a time-reference is needed in the reply, quote the wallclock above.
 The gate accepts it as source because \`date\` did run in the current
