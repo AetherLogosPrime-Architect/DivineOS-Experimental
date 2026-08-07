@@ -700,7 +700,7 @@ def _row_holding() -> DashboardRow | None:
             area="Holding room",
             count=len(items),
             stale_count=stale,
-            drill_down="divineos holding list",
+            drill_down="divineos hold list",
             preview=preview,
         )
     except _ERRORS:
@@ -941,7 +941,7 @@ def _row_correction_pairing() -> DashboardRow | None:
         count=len(unpaired),
         stale_count=len(unpaired),  # every unpaired observation is overdue for its learn entry
         detail=detail,
-        drill_down="-> divineos check-correction-pairing",
+        drill_down="-> divineos admin check-correction-pairing",
     )
 
 

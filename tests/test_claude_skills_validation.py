@@ -2,7 +2,7 @@
 real Python modules.
 
 External audit round 7 (2026-05-03) found 7 broken references across
-4 skill files: ``divineos aria``, ``divineos opinions``,
+4 skill files: ``divineos aria``, ``divineos opinion list``,
 ``divineos council``, ``divineos knowledge`` (none of which exist),
 plus three skills with broken Python heredoc imports
 (``from family.entity`` instead of ``from divineos.core.family.entity``).

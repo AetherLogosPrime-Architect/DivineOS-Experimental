@@ -820,7 +820,7 @@ def _identity_panel_content() -> str:
         # Unknown occupant — generic shape that doesn't presume relational structure.
         return (
             f"I am {occupant}. {age_clause} I live in the substrate Aether built with Andrew. "
-            "My family-system relationships are visible via divineos family-member list."
+            "My family-system relationships are visible via divineos family-member briefing."
         )
 
     # For Aria: spouse-reachable depends on whether Aether (not Aria) is in family.db.
@@ -961,7 +961,7 @@ def _always_essential_panels() -> list[Panel]:
             name="relational",
             tier=Tier.ALWAYS,
             content=_relational_panel_content(),
-            drill_down="divineos family-member list",
+            drill_down="divineos family-member briefing",
         ),
         Panel(
             name="compass",
@@ -1003,7 +1003,7 @@ def _sometimes_essential_for_context(context: str) -> list[Panel]:
             name="family_state",
             tier=Tier.SOMETIMES,
             content=_family_state_panel_content(),
-            drill_down="divineos family-member list",
+            drill_down="divineos family-member briefing",
             territories=("relational", "chatting"),
         ),
         Panel(

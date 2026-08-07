@@ -182,7 +182,7 @@ def block_message(areas: list[str]) -> str:
     drill_downs = {
         "corrections": "divineos corrections --open  # then correction-resolve N",
         "claims": "divineos claims list  # then claims assess <id>",
-        "holding": "divineos holding list  # then hold promote / hold let-go",
+        "holding": "divineos hold list  # then hold promote / hold let-go",
         "audit findings": "divineos audit list  # then audit resolve <id>",
         "goals": "divineos goal list  # then goal done <id>",
         "drift state": "divineos audit submit-round '...'  # open a fresh round",

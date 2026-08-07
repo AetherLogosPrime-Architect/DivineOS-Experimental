@@ -945,12 +945,12 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
     if vitals.db_free_page_ratio > _VACUUM_THRESHOLD:
         vitals.warnings.append(
             f"DB bloat: {vitals.db_free_page_ratio:.0%} free pages "
-            f"-- run 'divineos maintenance' to VACUUM"
+            f"-- run 'divineos admin maintenance' to VACUUM"
         )
 
     if vitals.logs_size_mb > 30:
         vitals.warnings.append(
-            f"Logs: {vitals.logs_size_mb:.0f}MB -- run 'divineos maintenance' to clean"
+            f"Logs: {vitals.logs_size_mb:.0f}MB -- run 'divineos admin maintenance' to clean"
         )
 
     # -- Hardware body (Aletheia Round 5 embodiment lesson, 2026-07-17) --

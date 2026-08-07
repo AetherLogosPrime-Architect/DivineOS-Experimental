@@ -418,7 +418,7 @@ def register(cli: click.Group) -> None:
                 if not sessions:
                     click.secho("\n[-] No analyzed sessions found yet.", fg="yellow")
                     click.secho(
-                        "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
+                        "    Run 'divineos inspect analyze <file.jsonl>' to analyze a session.",
                         fg="bright_black",
                     )
                     click.echo()

@@ -145,7 +145,7 @@ def _suggest_domain(output_text: str) -> str:
     if any(k in text for k in ("correction", "andrew", "father")):
         return "divineos corrections"
     if any(k in text for k in ("opinion", "judgment", "stance")):
-        return "divineos opinions"
+        return "divineos opinion list"
     return "divineos ask"
 
 

@@ -9,7 +9,7 @@ gap class as 8d3c04a5.
 
 Fix has three parts:
   1. Logic ported to divineos.core.correction_pairing (importable).
-  2. Admin CLI command ``divineos check-correction-pairing``.
+  2. Admin CLI command ``divineos admin check-correction-pairing``.
   3. Briefing-dashboard row ``_row_correction_pairing`` that hides
      in the clean state and surfaces unpaired observations otherwise.
 
@@ -84,7 +84,7 @@ def test_row_surfaces_unpaired_with_detail(monkeypatch) -> None:
     assert row.stale_count == 2
     assert "truthfulness" in row.detail
     assert "+1 more" in row.detail
-    assert "divineos check-correction-pairing" in row.drill_down
+    assert "divineos admin check-correction-pairing" in row.drill_down
 
 
 def test_row_in_routing_table() -> None:
@@ -99,7 +99,7 @@ def test_row_in_routing_table() -> None:
 
 
 def test_cli_command_registered() -> None:
-    """LOAD-BEARING: ``divineos check-correction-pairing`` must be
+    """LOAD-BEARING: ``divineos admin check-correction-pairing`` must be
     registered as a CLI command, otherwise the drill-down in the
     briefing row is a broken pointer."""
     from divineos.cli import cli

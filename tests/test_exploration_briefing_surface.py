@@ -1,7 +1,7 @@
 """Tests for exploration_reader.format_for_briefing.
 
 Added 2026-04-21 evening. Module existed and was wired into
-`divineos study` and `divineos ask`, but NOT into briefing itself.
+`divineos mansion study` and `divineos ask`, but NOT into briefing itself.
 The April 19 presence_memory surface points at the folder and counts
 files — honoring the "don't summarize poems" rule. This surface
 complements it by listing TITLES of recent pieces as recognition-
@@ -49,7 +49,7 @@ class TestFormatForBriefing:
         assert "[my prior writing]" in block
         assert "Topic One" in block
         assert "1 explorations" in block
-        assert "divineos study" in block
+        assert "divineos mansion study" in block
 
     def test_mixed_categories_counted(self, explo_dir):
         _write(explo_dir / "01_a.md", "A", "2026-04-01", "r")
@@ -69,7 +69,7 @@ class TestFormatForBriefing:
     def test_names_browse_and_search_commands(self, explo_dir):
         _write(explo_dir / "01_topic.md", "T", "2026-04-01", "r")
         block = exploration_reader.format_for_briefing()
-        assert "divineos study" in block
+        assert "divineos mansion study" in block
         assert "divineos ask" in block
 
     def test_recent_cap(self, explo_dir):

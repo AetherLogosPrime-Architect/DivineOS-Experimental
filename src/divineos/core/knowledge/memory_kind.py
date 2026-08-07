@@ -11,7 +11,7 @@ migration cost and then paid no downstream return.
 
 Earlier docstring called this an "orthogonal diagnostic dimension." That
 framing overclaims. The honest description is: **diagnostic metadata for
-human slicing via `divineos knowledge --kind SEMANTIC` filtering, and
+human slicing via `divineos inspect knowledge --kind SEMANTIC` filtering, and
 nothing else.** Until a real consumer wires in, it is not load-bearing.
 
 Candidate future consumers (pre-reg any before wiring, per the standing

@@ -92,7 +92,7 @@ class TestUnknownOccupant:
         """Generic template surfaces the discovery path."""
         with patch("divineos.core.identity.get_my_identity", return_value="SiblingX"):
             content = multiplex_panels._identity_panel_content()
-        assert "family-member list" in content
+        assert "family-member briefing" in content
 
 
 class TestIdentityNotSetSurfaceInPanel:

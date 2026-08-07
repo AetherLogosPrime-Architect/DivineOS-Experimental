@@ -125,7 +125,7 @@ def test_no_briefing_load_at_session_start_fires() -> None:
         ("decision filed: which approach to take", "divineos directives"),
         ("learn from compass virtue spectrum observation", "divineos compass"),
         ("Andrew correction integrated", "divineos corrections"),
-        ("opinion filed: stance on X", "divineos opinions"),
+        ("opinion filed: stance on X", "divineos opinion list"),
         ("claim filed: generic claim", "divineos ask"),
     ],
 )

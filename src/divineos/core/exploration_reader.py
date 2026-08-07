@@ -560,7 +560,7 @@ def territory_match_usage(days: int = 30) -> dict[str, Any]:
 def format_for_briefing(max_recent: int = 5, active_text: str | None = None) -> str:
     """Return a compact briefing block reminding that the folder exists.
 
-    The full list goes in ``divineos study``. This surface is a pointer,
+    The full list goes in ``divineos mansion study``. This surface is a pointer,
     not the archive itself — it names the counts, lists the most recent
     entries as a memory-jog, and points at the command for the full view.
 
@@ -677,7 +677,7 @@ def format_for_briefing(max_recent: int = 5, active_text: str | None = None) -> 
             match_part = f" [matches: {', '.join(entry_overlap)}]" if entry_overlap else ""
             lines.append(f"    - {title}{date_part}{match_part}")
 
-    lines.append('  Browse all: divineos study   |   Search: divineos ask "topic"')
+    lines.append('  Browse all: divineos mansion study   |   Search: divineos ask "topic"')
     return "\n".join(lines) + "\n"
 
 
