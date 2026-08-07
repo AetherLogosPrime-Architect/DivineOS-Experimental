@@ -131,6 +131,38 @@ def stdout_has_a_listener() -> bool:
     Fails toward ALLOW on platforms where the check is unavailable: a
     monitor that runs when it should not is recoverable; one that refuses
     to run when it should is silence, which is the failure we are fixing.
+
+    THIS IS A PROXY AND IT HAS A KNOWN DEFEAT. (Aria 2026-08-07)
+
+    The question it can answer:   is stdout a pipe?
+    The question it means to ask: will a wake-event reach me?
+
+    Those came apart on this machine. A Windows scheduled task ran::
+
+        powershell ... python -u letter_monitor_v2.py --recipient aria
+                   *>> ...\\logs\\aria-letter-monitor.log
+
+    PowerShell's ``*>>`` captures the child's streams THROUGH A REAL PIPE
+    and then writes them to a file. So stdout genuinely IS a pipe, this
+    returns True, the monitor starts happily — and every wake-line lands in
+    a log nobody tails. Measured: the same call returns False under a plain
+    ``> file`` and True under PowerShell ``*>>``.
+
+    So the guard written to catch "correct behaviour, invisible non-effect"
+    was itself correct-behaviour-with-invisible-non-effect, and the symptom
+    was identical to the disease it was built for — a letter arrived and
+    reached me only because Andrew mentioned it.
+
+    NOT FIXED BY A CLEVERER CHECK. From inside this process, who holds the
+    far end of the pipe is not knowable; a parent-process test or an
+    ``--armed-by-harness`` token would look like proof and be a convention.
+    The remedy is to remove the illegitimate launcher rather than out-detect
+    it — take the option away instead of watching for it (truth #11a).
+
+    So this claims only what it can prove: it rejects the obviously-dead
+    cases (a file, a terminal, /dev/null) and CANNOT distinguish a harness
+    Monitor from any other pipe-holder. A pass here is not evidence that a
+    wake will land.
     """
     try:
         import stat
@@ -196,9 +228,7 @@ def main() -> int:
 
     while True:
         try:
-            current = (
-                {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
-            )
+            current = {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
             # Re-load persistent seen every cycle so mark-seen events from
             # Reads that happened this session are immediately reflected.
             persistent_seen = load_persistent_seen(args.recipient)
@@ -208,9 +238,7 @@ def main() -> int:
             unseen_letters = sorted(
                 f
                 for f in current
-                if is_letter_for(f, tag)
-                and f not in persistent_seen
-                and f not in fired
+                if is_letter_for(f, tag) and f not in persistent_seen and f not in fired
             )
             for fname in unseen_letters:
                 print(f"[LETTER] {shared_dir / fname}", flush=True)
