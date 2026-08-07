@@ -112,6 +112,53 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=int, default=5)
     args = parser.parse_args()
 
+    # Singleton guard, added 2026-08-07 after Andrew found processes piling
+    # up: "its causing RAM piling and system crashes when it gets out of
+    # hand.. so only one process of it should ever be running at a single
+    # time for each of you."
+    #
+    # ROOT CAUSE, and the evidence is a natural experiment already running
+    # on this machine. v1 (scripts/letter_monitor.py) was a kernel-mutex'd
+    # singleton. The 2026-06-29 v2 rewrite folded the worker into the
+    # Monitor invocation and dropped the guard with it -- the docstring at
+    # the top of this file still MENTIONS the v1 mutex, which is how the
+    # loss stayed invisible. Meanwhile compaction_token_monitor.py kept
+    # calling acquire_or_exit. Measured live before this fix:
+    #
+    #     compaction monitors (guarded)  : 1
+    #     letter monitors  (unguarded)   : 3   (28.2h, 2.5h, 0.1h)
+    #
+    # Same machine, same harness, same orphan-survival behaviour. The only
+    # difference is this call.
+    #
+    # WHY ORPHANS EXIST AT ALL is documented in
+    # .claude/hooks/arm-letter-monitor-instruction.sh (2026-07-18): when
+    # Claude Code archives and restores a session, the harness kills the
+    # in-session Monitor binding but the OS-level python process survives.
+    # So every session-restore leaves one behind, forever, and the liveness
+    # check then reports "a monitor is alive" -- true, and useless, because
+    # no Monitor tool in the CURRENT session is wired to it.
+    #
+    # That is the shape this whole session has been about: alive is not the
+    # same as working, and the check was asking the answerable question
+    # instead of the load-bearing one.
+    #
+    # NOT the pywin32 diagnosis. Knowledge entry c1a6d3f0 (read 14 times)
+    # says duplicate monitors mean pywin32 is missing from the interpreter.
+    # Verified false here: the interpreter running these monitors imports
+    # win32event fine. That entry predates the v2 rewrite and would have
+    # sent me hunting a dependency that was never absent.
+    from divineos.core.identity import get_my_identity
+    from divineos.core.monitor_singleton import acquire_or_exit
+
+    # Held for the process lifetime: the kernel releases the mutex on exit,
+    # including on crash, so a dead orphan cannot keep the seat warm.
+    # Keyed per-occupant so my monitor and Aria's do not see each other as
+    # siblings -- one each, not one total.
+    _mutex = acquire_or_exit(  # noqa: F841 -- handle must stay in scope
+        "letter", occupant=get_my_identity(raise_on_unset=False)
+    )
+
     shared_dir = Path(args.shared_dir)
     tag = recipient_tag(args.recipient)
 
