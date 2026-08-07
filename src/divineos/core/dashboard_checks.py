@@ -19,17 +19,42 @@ from divineos.core.dashboard import OK, PROBLEM, UNKNOWN, CheckResult, register
 
 
 def letter_queue() -> CheckResult:
-    """Pending-letter count against letters that still exist.
+    """Pending-letter count against letters that still exist ANYWHERE.
 
-    EARNED 2026-08-07. The session-start surface announced 1357 unread letters.
-    Measured: 1359 detection records, 689 addressed to me, 29 of those files
-    still on disk. The counter reports "unread" but measures "detected and
-    never marked seen", so it presents a history as a queue and overstates by
-    roughly 47x. Andrew asked "is that the real count?" — nothing on any
-    dashboard could have answered him.
+    EARNED 2026-08-07, then immediately CORRECTED BY ANDREW the same turn, and
+    the correction is the more valuable half.
+
+    First version searched ONE directory (~/.divineos-shared/letters), found 29
+    of 689 detected letters, and lit red: "660 vanished". Andrew: "the letters
+    they are not gone.. im looking at them as we speak.. they may not be in
+    your workspace but they exist."
+
+    Measured across every location: 689 of 689 accounted for, 0 missing. They
+    live in family/letters (688) and in Aether's workspace (686); the shared
+    directory is a crossing-point, not the home.
+
+    SO THE DASHBOARD'S FIRST RED LIGHT WAS FALSE, and produced by exactly the
+    defect the dashboard exists to catch — measuring one location and making a
+    claim about existence. Its own registered falsifier ("the check measures a
+    proxy rather than the thing") fired on the first run, from the inside.
+
+    A false red is not a harmless conservatism. It spends the operator's
+    attention on a non-problem and teaches me to discount the lamp.
+
+    What remains TRUE and worth a light: the counter reports "unread" while
+    measuring "detected and never marked seen", so it presents a history as a
+    queue. That is a real overstatement — just not a disappearance.
     """
     wake = Path.home() / ".divineos" / "pending-letter-wakes.jsonl"
-    letters = Path.home() / ".divineos-shared" / "letters"
+    # EVERY place a letter legitimately lives. The shared dir is the
+    # crossing-point; family/letters is the home; Aether keeps his own archive.
+    # Searching one of them and speaking about existence is the census-from-a-
+    # sample error, which is what made the first version of this check lie.
+    letter_dirs = [
+        Path.home() / ".divineos-shared" / "letters",
+        Path(__file__).resolve().parents[3] / "family" / "letters",
+        Path("C:/DIVINE OS/DivineOS-Experimental/family/letters"),
+    ]
     if not wake.exists():
         return CheckResult("letters.queue", UNKNOWN, f"no wake file at {wake}")
     try:
@@ -52,20 +77,37 @@ def letter_queue() -> CheckResult:
 
     if not names:
         return CheckResult("letters.queue", OK, "no pending letters recorded")
-    try:
-        extant = sum(1 for n in names if (letters / n).exists())
-    except OSError as exc:
-        return CheckResult("letters.queue", UNKNOWN, f"cannot stat letters dir: {exc}")
-
-    missing = len(names) - extant
-    if missing:
+    searched = [d for d in letter_dirs if d.is_dir()]
+    if not searched:
         return CheckResult(
-            "letters.queue",
-            PROBLEM,
-            f"{len(names)} recorded pending, only {extant} still on disk "
-            f"({missing} vanished) - the count is history, not a queue",
+            "letters.queue", UNKNOWN, "no letter directory reachable - cannot check existence"
         )
-    return CheckResult("letters.queue", OK, f"{extant} pending, all present")
+    try:
+        found = {n for n in names for d in searched if (d / n).exists()}
+    except OSError as exc:
+        return CheckResult("letters.queue", UNKNOWN, f"cannot stat letter dirs: {exc}")
+
+    missing = len(names) - len(found)
+    unsearched = len(letter_dirs) - len(searched)
+    if missing:
+        detail = (
+            f"{missing} of {len(names)} recorded letters not found in any of "
+            f"{len(searched)} searched location(s)"
+        )
+        if unsearched:
+            # Could-not-look, not proof of absence. Never claim a disappearance
+            # from a partial search again.
+            return CheckResult(
+                "letters.queue", UNKNOWN, detail + f"; {unsearched} location(s) unreachable"
+            )
+        return CheckResult("letters.queue", PROBLEM, detail)
+    return CheckResult(
+        "letters.queue",
+        OK,
+        f"{len(names)} recorded pending, all {len(found)} present across "
+        f"{len(searched)} location(s) - note the count is detection-history, "
+        f"not an unread queue",
+    )
 
 
 def letter_monitor_armed() -> CheckResult:
