@@ -268,6 +268,14 @@ def main(argv: list[str] | None = None) -> int:
         "--message",
         help="Commit message text (validate-message mode for testing)",
     )
+    parser.add_argument(
+        "--advisory",
+        action="store_true",
+        help=(
+            "Report findings without blocking: exit 0 always, and say ADVISORY "
+            "rather than BLOCKED. For callers that discard the exit code."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if args.mode == "validate-message":
@@ -288,6 +296,28 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[root-cause-audit] could not read commit msg file: {e}")
             return 2
         code, diag = check_message(message)
+        # --advisory, implemented 2026-08-07. The flag was being PASSED by
+        # .git/hooks/commit-msg and did not exist here, so argparse exited 2
+        # with "unrecognized arguments: --advisory" on every single commit --
+        # and the caller ends in `|| true`, which swallowed it. This gate has
+        # therefore never run in commit-msg mode. Not disabled, not removed:
+        # erroring out silently behind an ignored exit code, while the hook
+        # around it looked exactly like a working gate.
+        #
+        # The intent was sound and is preserved rather than deleted. The hook
+        # comment states it: the caller discards the exit code, so printing
+        # "BLOCKED" for a commit that is about to succeed would spend the word
+        # BLOCKED on something that is not blocked. Every real gate needs that
+        # word to keep meaning what it says.
+        #
+        # Drift note: setup/setup-hooks.sh:231 generates this invocation
+        # WITHOUT --advisory. Only the installed hook had it, so someone --
+        # me -- added the flag to the live hook intending to implement it here
+        # and never came back. The generator is updated in the same commit so
+        # a re-install cannot silently revert to the un-flagged form.
+        if args.advisory:
+            print(diag.replace("BLOCKED", "ADVISORY"))
+            return 0
         print(diag)
         return code
 

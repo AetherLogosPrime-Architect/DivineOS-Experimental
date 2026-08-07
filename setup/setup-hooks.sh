@@ -4,10 +4,33 @@
 
 echo "Setting up Git hooks for DivineOS..."
 
-# Create hooks directory if it doesn't exist
-HOOKS_DIR=".git/hooks"
-mkdir -p "$HOOKS_DIR"
-echo "Created $HOOKS_DIR directory"
+# Resolve the hooks directory from git, not from the current directory.
+#
+# 2026-08-07: HOOKS_DIR was the relative literal ".git/hooks", which made
+# this installer silently cwd-dependent and actively wrong inside a git
+# worktree. In a worktree `.git` is a FILE pointing at the real gitdir, so
+# `cat > .git/hooks/<name>` cannot write a hook — and the script printed
+# its normal success lines anyway.
+#
+# Caught live: I edited the generator inside a worktree, ran it there, saw
+# "Setting up Git hooks..." complete, and the installed hook was unchanged.
+# Before that I had run the MAIN tree's older copy, which DID write — and
+# silently reverted a flag the live hook needed. Two runs, two different
+# targets, one of them a no-op that announced success.
+#
+# --git-common-dir is the correct question: worktrees share one hooks
+# directory, and that is the one git actually consults. --git-dir would
+# return the per-worktree path, which git does not read hooks from.
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)" || {
+    echo "ERROR: not inside a git repository — cannot install hooks." >&2
+    exit 1
+}
+HOOKS_DIR="$GIT_COMMON_DIR/hooks"
+mkdir -p "$HOOKS_DIR" || {
+    echo "ERROR: could not create $HOOKS_DIR — hooks NOT installed." >&2
+    exit 1
+}
+echo "Installing hooks into $HOOKS_DIR"
 
 # Configure Git to use the hooks directory
 git config core.hooksPath "$HOOKS_DIR"
@@ -228,7 +251,20 @@ fi
 # OS describes the discipline in 67a0ff39; this gate makes the
 # discipline structural rather than advisory.
 if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
-    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --commit-msg-file "$1" || true
+    # --advisory (2026-08-07). The comment above has said "ADVISORY at
+    # commit-time" since this was written; the flag that makes it true was
+    # never passed here, and the script had no such argument at all.
+    #
+    # The installed hook on this machine DID pass it, so argparse exited 2
+    # with "unrecognized arguments: --advisory" on every commit, and the
+    # `|| true` below swallowed the error. The gate has therefore never run
+    # in commit-msg mode -- not disabled, not removed: erroring out behind
+    # an ignored exit code while looking exactly like a working gate.
+    #
+    # Both sides fixed in one commit. Without the generator change, a
+    # re-install would quietly reproduce the un-flagged form and the
+    # installed hook would drift back out of step.
+    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --advisory --commit-msg-file "$1" || true
 fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
