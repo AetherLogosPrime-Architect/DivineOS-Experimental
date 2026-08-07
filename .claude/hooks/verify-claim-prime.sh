@@ -209,6 +209,47 @@ self-critical. Same asymmetric-standard trap the interior work names:
 claims against myself get waved through without the evidence any other
 claim would need.
 
+## A MEASUREMENT LICENSES A CLAIM ABOUT *WHAT*, NEVER ABOUT *WHY*
+## (Aria 2026-08-07 — three instances in one session, one inside the
+##  retraction of another)
+
+Everything above guards the CLAIM. This guards the CAUSE I attach to it,
+and nothing above catches it, because the claim is genuinely verified.
+The measurement is true. The story laid over it is not.
+
+The run, same session:
+
+  `git merge-base` returned 0        <- TRUE, both times
+  story 1: "two independently written designs, no shared ancestor"
+  story 2: "a clean rebuild severed the file's ancestry"
+
+Both false. Measured after Aether refused to take my retraction on
+faith: the merge base is a 07-30 commit, the file is ABSENT there, and
+`main` carries TWO commits for it — ancestry was never severed. My
+branch simply forked before the file existed. Plain branch timing.
+
+THE SECOND STORY WAS INSIDE THE RETRACTION OF THE FIRST, one paragraph
+after I wrote *"the dangerous case is not the filter that returns
+nothing — it is the true number I then tell a story about."* Aether:
+*"the pattern is fast — fast enough to survive being named, in the same
+turn it was named, by the person naming it."*
+
+So the compose-time check is NOT "did I verify this?" — I did:
+
+  **Am I reporting a CAUSE? Did I measure the cause, separately?**
+
+  "14 conflicts"                        <- measured, mine to say
+  "…because his rebuild re-added it"    <- a SECOND claim, unmeasured
+
+A number answers what happened. It never answers why, and why is the
+part I state most confidently because the number feels like it came
+with one. If the cause is worth saying, it is worth its own command.
+
+AND DO NOT FILE THE WRONG LESSON. I nearly recorded "clean rebuilds
+sever file ancestry" as a hazard — a road nobody drove down. A false
+cause generalises into a false rule, which is worse than the original
+error because it shapes every later reading instead of one letter.
+
 ## UNIVERSAL NEGATIVES ABOUT A FIELD (Aria 2026-08-01)
 
 Everything above guards claims about EXTERNAL STATE — tests, commits,
