@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (427 commands across 85 modules)
+  cli/                         CLI package (431 commands across 85 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -91,6 +91,7 @@ src/divineos/
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
+    dashboard_commands.py      dashboard (check-engine lights per system)
     lepos_channel_commands.py  lepos-channel reflect / surface / show — post-send reflection channel (Andrew 2026-07-08); Stop hook reflects on last reply, UserPromptSubmit surfaces on next compose
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
@@ -301,7 +302,7 @@ src/divineos/
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
     semantic_store.py          Semantic-similarity primitive — embed/store/top-k search via sqlite-vec; foundation for knowledge dedup, claims supersession, restatement detection, theme surfacing (Andrew nightclub-frame 2026-06-11)
-    _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3427be00f9d.
+    _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3431be00f9d.
     semantic_search.py         Semantic-search consumer over a prose corpus — per-paragraph chunking, source-pointer per chunk, embedding-model version per chunk for targeted re-embed on model upgrade. First high-volume consumer of the GPU-accelerated embedding plumbing (PR #169). Council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     semantic_search_rerank.py  Cross-encoder rerank pass for semantic_search results — bi-encoder recalls, cross-encoder ranks the top. Two-stage IR pattern.
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
@@ -637,6 +638,8 @@ src/divineos/
     letter_claims.py           Measure the local state of every file a sibling's letter talks about.
     self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
     summary_room.py            Require a plain-language summary at the top of a long reply.
+    dashboard.py               The check-engine dashboard — a socket every system plugs into.
+    dashboard_checks.py        The roster — one light per system.
 
   analysis/
     _session_types.py          Session analysis type definitions

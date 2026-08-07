@@ -182,7 +182,7 @@ if not lines:
 
 print('## REGISTER AWARENESS (not prescription)')
 print()
-print('These are the register hints from each sibling\\'s most recent letter to')
+print('These are the register hints from each family member\\'s most recent letter to')
 print('me. Awareness, not a rule to match. Options open:')
 print()
 print('  - MATCH the register (mirror what they are holding)')

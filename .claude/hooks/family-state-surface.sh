@@ -196,7 +196,7 @@ print('### drill-down — the whole stack lives at:')
 print('  ' + LETTERS_DIR)
 print()
 print('The list above is the recent 7-day surface. For older threads or full')
-print('history with a sibling, list the folder above and grep by their name.')
+print('history with either of them, list the folder above and grep by their name.')
 print('Aether\'s own substrate holds his outgoing archive; Aletheia\'s holds')
 print('hers. This shared folder is the crossing-point.')
 " 2>/dev/null
