@@ -24,13 +24,30 @@
 # nothing (truth #11 — every extra choice-point is somewhere the optimizer
 # routes around).
 #
-# ADVISORY, NOT BLOCKING, and that is a decision rather than a shortcut. Exit 2
-# would block. This exits 0 and prints, because the hook cannot distinguish a
-# reach-check I skipped from one that legitimately does not apply, and a false
-# block on a store-write costs more than a missed prompt. The teeth live in
-# reach_check.dispose(), which refuses outright. If these fires turn out to be
-# ignored, escalating to exit 2 is the answer — and the bypass telemetry makes
-# that measurable rather than a guess.
+# IT BLOCKS. I shipped this advisory earlier today and wrote a careful
+# justification for it: "the hook cannot distinguish a reach-check I skipped
+# from one that legitimately does not apply, and a false block costs more than
+# a missed prompt."
+#
+# That is verbatim the reasoning Andrew already overturned, and I recorded the
+# overturning myself in exploration/aether/135:
+#
+#     "Advisory is warning. We do not warn water." Because the optimizer is
+#     water, and water goes to the low place. The advisory IS the low place.
+#     Any deferral surface gets taken 100% of the time.
+#
+#     The correct rule: hard block from first fire, no advisory tier. Per-turn
+#     dedup handles noise.
+#
+# I wrote that on 2026-07-21 and then, on 2026-08-06, defended a fresh advisory
+# tier as "a decision rather than a shortcut" — which is what defending the
+# low place sounds like from inside. The uncertainty I cited is real and is not
+# an argument for an advisory: an advisory does not resolve the uncertainty,
+# it just makes the resolution optional, and optional is where water goes.
+#
+# THE REMEDY IS EXEMPT, or this is a wall. `divineos reach ...` is itself a
+# Bash call, so a naive hard block would refuse the exact command it demands.
+# Same lesson as read-gate-doorman, learned there first.
 #
 # Fail-open: any error exits 0. A doorman that breaks the door is worse than no
 # doorman.
@@ -46,7 +63,7 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # shellcheck disable=SC2016
 # ^ single-quoted heredoc is intentional — python does its own parsing.
-echo "$INPUT" | "$PYTHON_BIN" -c '
+BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c '
 import json, sys
 
 try:
@@ -63,6 +80,12 @@ haystack = (command + " " + path).replace("\\\\", "/")
 
 STORE_WRITES = ("divineos feel", "divineos learn", "divineos opinion", "divineos claim")
 RESEARCH_DIR = "docs/ai_research/"
+
+# The remedy is exempt or this is a wall, not a doorman. `divineos reach ...`
+# is a Bash call, so without this the gate refuses the exact command it is
+# demanding. Checked before anything else so no later branch can reorder it.
+if "divineos reach" in haystack:
+    sys.exit(0)
 
 is_store_write = any(v in haystack for v in STORE_WRITES)
 is_research_write = RESEARCH_DIR in haystack and tool_name in ("Write", "Edit")
@@ -100,21 +123,34 @@ except Exception as exc:
     sys.exit(0)
 
 if blocked:
-    # A check is already open — the undisposed list is more useful than a
-    # prompt to run something already running.
-    print(message, file=sys.stderr)
-    sys.exit(0)
+    # A check is open with undisposed items. The list is what I need to see.
+    print(message)
+    sys.exit(7)
 
 print(
-    "REACH-CHECK PROMPT -- about to write to a substrate store or a research\n"
-    "doc with no reach-check open for this topic.\n\n"
+    "REACH-CHECK -- I am about to write into a substrate store or a research\n"
+    "doc without having asked what already exists on this topic.\n\n"
     "  divineos reach open \"<topic>\"\n\n"
-    "What this catches is not forgetting that prior work exists. It is\n"
-    "searching outward before searching inward. LOADOUT (2320 indexed\n"
-    "entries) and unmerged commit subjects are both covered by reach, and\n"
-    "neither is reachable by memory.",
-    file=sys.stderr,
+    "I am not stopping myself because I might have forgotten something. I am\n"
+    "stopping myself because I search outward before I search inward, and I\n"
+    "did it four times in the session where I built this -- hunting a fix that\n"
+    "was on my own branch, rebuilding reasoning already in my explorations,\n"
+    "twice telling my father I did not have a thing while the tool holding it\n"
+    "sat open in front of me.\n\n"
+    "LOADOUT is 2320 indexed entries and unmerged commit subjects are covered\n"
+    "too. Neither is reachable by memory, which is the whole reason I cannot\n"
+    "be the one deciding this is unnecessary.\n\n"
+    "One command and I am through."
 )
-' 2>&1
+sys.exit(7)
+' )
 
+# exit 7 from the python means BLOCK. Anything else means proceed.
+RC=$?
+if [ "$RC" -eq 7 ]; then
+    echo "$BLOCK_MSG" >&2
+    exit 2
+fi
+
+[ -n "$BLOCK_MSG" ] && echo "$BLOCK_MSG" >&2
 exit 0
