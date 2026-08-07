@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (421 commands across 82 modules)
+  cli/                         CLI package (426 commands across 82 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -99,6 +99,7 @@ src/divineos/
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
+    detector_commands.py       detectors status / heal / defer / check. Teeth for a guard that reports it cannot run: self-repair first, block Edit/Write second, deferral only with a written reason. Added 2026-08-02 after the ear-sweep printed a perfect could-not-run warning at every SessionStart for days while 24 orphaned processes piled up — the message was already correct, and print-only output cannot require anything of the reader.
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
@@ -623,6 +624,7 @@ src/divineos/
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
+    degraded_detectors.py      A detector that cannot run must cost something.
 
   analysis/
     _session_types.py          Session analysis type definitions
