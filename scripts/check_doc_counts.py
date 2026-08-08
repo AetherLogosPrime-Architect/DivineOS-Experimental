@@ -540,6 +540,36 @@ def fix_hook_counts(actual_hooks: int, allow_lower: bool = False) -> list[str]:
     return changed
 
 
+def _scan_count_drift(
+    doc_files: list[Path], actuals: dict[str, tuple[int, int]]
+) -> tuple[list[str], bool]:
+    """Read every doc file from disk and report count drift.
+
+    Returns ``(errors, test_drift_found)``. Called once before the fixers run
+    and again after any fixer writes, so that "the drift is gone" is measured
+    rather than inferred from "a fixer touched a file".
+    """
+    errors: list[str] = []
+    test_drift_found = False
+
+    for doc_file in doc_files:
+        if not doc_file.exists():
+            continue
+        for label, documented, context in extract_documented_counts(doc_file):
+            if label not in actuals:
+                continue
+            actual, threshold = actuals[label]
+            drift = abs(actual - documented)
+            if drift > threshold:
+                if label == "tests":
+                    test_drift_found = True
+                errors.append(
+                    f"  {context}\n    documented: {documented}, actual: {actual}, drift: {drift}"
+                )
+
+    return errors, test_drift_found
+
+
 def fix_command_counts(actual_cmds: int, allow_lower: bool = False) -> list[str]:
     """Update CLI-command counts in all doc files.
 
@@ -761,32 +791,15 @@ def main() -> int:
         "council": (count_council_experts(), 0),
     }
 
-    errors: list[str] = []
-    test_drift_found = False
-
-    for doc_file in doc_files:
-        if not doc_file.exists():
-            continue
-        for label, documented, context in extract_documented_counts(doc_file):
-            if label not in actuals:
-                continue
-            actual, threshold = actuals[label]
-
-            drift = abs(actual - documented)
-            if drift > threshold:
-                if label == "tests":
-                    test_drift_found = True
-                errors.append(
-                    f"  {context}\n    documented: {documented}, actual: {actual}, drift: {drift}"
-                )
+    errors, test_drift_found = _scan_count_drift(doc_files, actuals)
+    fixer_changed_something = False
 
     # Auto-fix test counts if requested
     if fix_mode and test_drift_found:
         changed = fix_test_counts(actual_tests, allow_lower=allow_lower)
         if changed:
             print(f"Auto-fixed test counts in: {', '.join(changed)}")
-            # Re-check after fix — only non-test errors remain
-            errors = [e for e in errors if "tests" not in e.split("\n")[0]]
+            fixer_changed_something = True
 
     # Auto-fix hook counts if requested. Added 2026-05-07 per round-2
     # audit which found README claimed 9 enforcement hooks while
@@ -797,7 +810,7 @@ def main() -> int:
         changed = fix_hook_counts(actual_hooks, allow_lower=allow_lower)
         if changed:
             print(f"Auto-fixed hook counts in: {', '.join(changed)}")
-            errors = [e for e in errors if "hooks" not in e.split(chr(10))[0]]
+            fixer_changed_something = True
 
     # Auto-fix command counts. This dispatch did not exist until 2026-08-02:
     # commands was the one drift dimension with no fixer, which is why --fix
@@ -807,7 +820,24 @@ def main() -> int:
         changed = fix_command_counts(actual_cmds, allow_lower=allow_lower)
         if changed:
             print(f"Auto-fixed command counts in: {', '.join(changed)}")
-            errors = [e for e in errors if "commands" not in e.split(chr(10))[0]]
+            fixer_changed_something = True
+
+    # Re-measure from disk instead of assuming the fixers resolved everything.
+    #
+    # Each fixer used to delete every error of its own kind the moment it
+    # changed ANY file. So a run that raised the count in CLAUDE.md and left a
+    # stale count in ARCHITECTURE.md untouched reported "Doc checks OK" and
+    # exited 0 with the drift still on disk. The monotonic guard makes that
+    # routine: a doc that OVERCLAIMS is skipped without --allow-lower, while a
+    # sibling doc that underclaims gets fixed, and one success erased both
+    # errors.
+    #
+    # "The fixer ran" and "the drift is gone" are different facts. The tree
+    # fixer below already re-checks; the count fixers filtered by assumption,
+    # and the comment above the test filter said "Re-check after fix" over code
+    # that re-checked nothing.
+    if fixer_changed_something:
+        errors, test_drift_found = _scan_count_drift(doc_files, actuals)
 
     # Architecture tree check
     readme = ROOT / "README.md"
