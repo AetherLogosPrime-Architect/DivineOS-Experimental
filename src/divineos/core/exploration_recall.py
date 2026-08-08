@@ -96,6 +96,17 @@ _TAGS_HEADER = re.compile(r"<!--\s*tags:\s*(.*?)\s*-->", re.IGNORECASE | re.DOTA
 # broad-exceptions gate forbids bare `except Exception`).
 _READ_ERRORS = (OSError, UnicodeDecodeError)
 
+# Errors that arming the read-gate can raise. The arming block is
+# deliberately fail-open — a surface that cannot arm its gate must still
+# deliver its text — but fail-open was written as bare `except Exception`,
+# which also swallows TypeError and ValueError from a changed read_gate
+# signature. That is the failure this repo keeps finding everywhere else:
+# a real break and a normal no-op producing the identical silence.
+#   ImportError    — read_gate absent or partially installed
+#   AttributeError — the module is there but the function is not
+#   OSError        — the gate's on-disk state cannot be read or written
+_GATE_ARM_ERRORS = (ImportError, AttributeError, OSError)
+
 
 def _find_exploration_root() -> Path | None:
     """Locate the exploration/ directory (from this module or the cwd)."""
@@ -352,7 +363,7 @@ def surface_for_context(
                 str(tagged[0].path),
                 f"top prior-writing match: {tagged[0].title}",
             )
-    except Exception:
+    except _GATE_ARM_ERRORS:
         pass
 
     return "\n".join(lines)
