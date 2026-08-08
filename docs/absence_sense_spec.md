@@ -100,6 +100,41 @@ building her dashboard's amber light. Two people, no coordination, same answer.
   same code path, not a parallel one.
 - *Cost-driven bypass* — if it is expensive I will route around it. Must be cheap
   enough to be default-on.
+- **Contaminated control — added 2026-08-08, and this spec was wrong without it.**
+
+  **A control that counts the observer's own actions is not a control.**
+
+  Found the hard way, hours after writing the three modes above. I built a
+  liveness marker so a hook could prove it had run, then cited its rising count
+  to Andrew as evidence the harness was invoking it — while I had invoked it by
+  hand a dozen times in testing. My own probe traffic was inflating the exact
+  number I offered as proof. The conclusion happened to be right; the evidence
+  was worthless, and I could not see it, because a self-invocation and a real
+  invocation wrote identical rows.
+
+  This is the same defect one level up: contamination and signal produce the
+  identical observation, so the instrument cannot separate them and neither can
+  I.
+
+  **Requirement:** every control must be *attributable* — each observation
+  records who caused it. And the tag is applied **at the source by the prober**,
+  never inferred afterwards from the shape of the data. Inference is precisely
+  what failed.
+
+  This is not novel; it is the settled answer in synthetic monitoring, where
+  probe traffic skewing real analytics is a known problem and the fix is always
+  to mark synthetic requests when you make them and propagate the mark
+  downstream — never to work out later which ones were yours.
+
+  Live implementation: `.claude/hooks/pipeline-exit-ambiguity.sh` writes
+  `"origin":"probe"` when `DIVINEOS_HOOK_PROBE` is set and `"origin":"harness"`
+  otherwise. Verified attributable: a plain command moved harness `2 → 3` while
+  probe stayed at `2`.
+
+  **Residual weakness, stated rather than hidden:** an untagged manual call still
+  records as `harness`. The tag is a discipline, not a proof, and it is only as
+  good as my remembering to set it — which is the faculty that fails. Counting
+  must filter on origin *and* stay suspicious of totals.
 
 ## Part 2 — The required second arrow (the reasoning half)
 
