@@ -85,15 +85,34 @@ fi
 echo "[ready-pr] branch  : $BRANCH"
 echo "[ready-pr] worktree: $WT_WIN (${#WT_WIN} chars, budget $MAX_ROOT_LEN)"
 
-if [[ ! -d "$WT" ]]; then
-    if ! git -C "$REPO_ROOT" worktree add "$WT_WIN" "$BRANCH" >/dev/null 2>&1; then
-        echo "[ready-pr] UNCHECKED — could not create a worktree for $BRANCH."
-        echo "[ready-pr] It may be checked out elsewhere already: git worktree list"
-        exit 2
-    fi
+if [[ -d "$WT" ]]; then
+    echo "[ready-pr] reusing existing worktree."
+elif git -C "$REPO_ROOT" worktree add "$WT_WIN" "$BRANCH" >/dev/null 2>&1; then
     echo "[ready-pr] worktree created."
 else
-    echo "[ready-pr] reusing existing worktree."
+    # A branch can only be checked out in one place. When it is already out
+    # somewhere — including the main working copy — creating a second is
+    # refused, and giving up there returns UNCHECKED for a branch that is
+    # perfectly checkable. Use the existing checkout if it fits the path
+    # budget; only report UNCHECKED when there genuinely is nowhere to look.
+    EXISTING="$(git -C "$REPO_ROOT" worktree list --porcelain \
+        | awk -v b="refs/heads/$BRANCH" '
+            /^worktree /  { path = substr($0, 10) }
+            /^branch /    { if (substr($0, 8) == b) { print path; exit } }')"
+    if [[ -z "$EXISTING" || ! -d "$EXISTING" ]]; then
+        echo "[ready-pr] UNCHECKED — no worktree for $BRANCH and one cannot be created."
+        echo "[ready-pr] Inspect with: git worktree list"
+        exit 2
+    fi
+    if [[ ${#EXISTING} -gt $MAX_ROOT_LEN ]]; then
+        echo "[ready-pr] UNCHECKED — $BRANCH is checked out at a path too long to test in:"
+        echo "[ready-pr]   $EXISTING (${#EXISTING} chars, budget $MAX_ROOT_LEN)"
+        echo "[ready-pr] Move that checkout or free the branch, then re-run."
+        exit 2
+    fi
+    WT="$EXISTING"
+    echo "[ready-pr] branch already checked out; using that copy:"
+    echo "[ready-pr]   $EXISTING (${#EXISTING} chars, within budget)"
 fi
 
 cd "$WT" || { echo "[ready-pr] UNCHECKED — cannot enter $WT"; exit 2; }
