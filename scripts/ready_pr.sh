@@ -110,29 +110,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
     exit 2
 fi
 
-# ── Step 3: does this branch's push gate carry the GIT_DIR scrub? ──────────
-#
-# Root cause found 2026-08-08: git exports GIT_DIR into hook processes. The
-# pre-push gate ran pytest without clearing it; GIT_DIR overrides cwd; so a
-# test building a scratch bare repo hit the REAL repository and set
-# core.bare=true on it, breaking git in every worktree until reset by hand.
-# Weeks of "git randomly breaks" were this.
-#
-# The fix lives in scripts/check_push_readiness.sh. A branch predating it
-# still spills. Checked BEFORE the multi-minute suite, so the warning arrives
-# before the damage rather than after.
-if grep -q "GIT_ENV_SCRUB" scripts/check_push_readiness.sh 2>/dev/null; then
-    SCRUB_MISSING=0
-else
-    SCRUB_MISSING=1
-    echo "[ready-pr] WARNING: this branch's push gate has no GIT_DIR scrub."
-    echo "[ready-pr] Pushing from here sets core.bare=true on the real repo and breaks"
-    echo "[ready-pr] git everywhere until someone resets it by hand."
-    echo "[ready-pr] Land or cherry-pick the fix from split/doc-count-autofix."
-    echo "[ready-pr] The CHECK still runs; --push is refused while this is missing."
-fi
-
-# ── Step 4: bring main in ──────────────────────────────────────────────────
+# ── Step 4a: bring main in ──────────────────────────────────────────────────
 #
 # The freshness gate refuses stale branches at push time. Merge rather than
 # rebase: these branches are published, and a rebase rewrites every hash,
@@ -145,6 +123,48 @@ if ! git merge origin/main --no-edit >/tmp/ready_pr_merge.txt 2>&1; then
     exit 1
 fi
 echo "[ready-pr] main merged: $(tail -1 /tmp/ready_pr_merge.txt)"
+
+# ── Step 4b: does this branch's push gate carry the GIT_DIR scrub? ──────────
+#
+# Root cause found 2026-08-08: git exports GIT_DIR into hook processes. The
+# pre-push gate ran pytest without clearing it; GIT_DIR overrides cwd; so a
+# test building a scratch bare repo hit the REAL repository and set
+# core.bare=true on it, breaking git in every worktree until reset by hand.
+# Weeks of "git randomly breaks" were this.
+#
+# The fix lives in scripts/check_push_readiness.sh. A branch predating it
+# still spills. Runs after the merge (main may already carry it) and before
+# the multi-minute suite, so the suite measures the branch as it will be
+# pushed rather than as it was.
+#
+# The answer never varies: every branch needs this before it can push safely.
+# A choice-point whose answer is always the same is a choice-point the lazy
+# path will eventually get wrong, so the routine carries the fix rather than
+# warning me to carry it (foundational truth #11, remediation A — take the
+# option away). I hand-applied it to two branches before writing this; there
+# were eight more waiting, which is the whole argument.
+SCRUB_FIX_COMMIT="e7bbbb40"
+if grep -q "GIT_ENV_SCRUB" scripts/check_push_readiness.sh 2>/dev/null; then
+    SCRUB_MISSING=0
+    echo "[ready-pr] GIT_DIR scrub: present."
+else
+    echo "[ready-pr] GIT_DIR scrub missing — carrying the fix onto this branch."
+    if ! git cat-file -e "${SCRUB_FIX_COMMIT}^{commit}" 2>/dev/null; then
+        SCRUB_MISSING=1
+        echo "[ready-pr] Cannot: commit $SCRUB_FIX_COMMIT is not in this repo."
+        echo "[ready-pr] --push will be refused; the CHECK still runs."
+    elif git cherry-pick "$SCRUB_FIX_COMMIT" >/tmp/ready_pr_cp.txt 2>&1; then
+        SCRUB_MISSING=0
+        echo "[ready-pr] fix applied: $(git log --oneline -1)"
+    else
+        git cherry-pick --abort 2>/dev/null
+        SCRUB_MISSING=1
+        echo "[ready-pr] Cherry-pick conflicted; branch left untouched:"
+        tail -6 /tmp/ready_pr_cp.txt
+        echo "[ready-pr] Resolve by hand. --push refused; the CHECK still runs."
+    fi
+fi
+
 
 # ── Step 5: the suite ──────────────────────────────────────────────────────
 #
