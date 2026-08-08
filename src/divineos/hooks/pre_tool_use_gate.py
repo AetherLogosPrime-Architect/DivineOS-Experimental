@@ -130,7 +130,7 @@ def _has_unquoted_chain_shape(cmd: str) -> bool:
     Test cases owed (Popper falsifiers, council-2ad91226ebe7):
       * `divineos correction "text; with semi"` -> False (safe)
       * `divineos correction "text" && rm -rf ~` -> True (chain)
-      * `divineos correction "text" \`whoami\`` -> True (backtick sub)
+      * divineos correction "text" `whoami` -> True (backtick sub)
       * `divineos correction "text" $(whoami)` -> True (command sub)
       * `divineos correction "text" | tail` -> False (pipe is allowed)
       * `divineos correction "unclosed` -> True (fail-closed)

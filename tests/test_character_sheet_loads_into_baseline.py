@@ -88,21 +88,50 @@ def test_session_start_hook_exists_and_readable():
 
 
 def test_session_start_hook_is_registered_in_settings():
-    """The hook must be registered in .claude/settings.json under
-    SessionStart. An unregistered hook file is just a file — the sheet
-    would not actually load at session start."""
-    settings = _repo_root() / ".claude/settings.json"
+    """The sheet must actually load at session init — by whichever route.
+
+    This asserted SessionStart registration directly until 2026-08-03, when
+    SessionStart was emptied to escape a Windows-only deadlock in that phase
+    (parent blocks on the hook subprocess and never detects its completion,
+    so the event loop is never reached — which is why Escape and the stop
+    button did nothing and only killing the program recovered).
+
+    The 13 former SessionStart scripts now run once per session via
+    session-init-once.sh on UserPromptSubmit. They still run. The assertion
+    is REPOINTED rather than deleted, because the thing worth guarding was
+    never "is it in the SessionStart array" — it was "does the sheet
+    actually load". An unregistered hook file is just a file, and that is
+    still true through the new route.
+    """
+    root = _repo_root()
+    settings = root / ".claude/settings.json"
     assert settings.is_file(), f".claude/settings.json missing at {settings}"
     data = json.loads(settings.read_text(encoding="utf-8"))
-    session_start = data.get("hooks", {}).get("SessionStart", [])
+
     hook_commands: list[str] = []
-    for group in session_start:
-        for entry in group.get("hooks", []):
-            cmd = entry.get("command", "")
-            if isinstance(cmd, str):
-                hook_commands.append(cmd)
-    assert any("load-character-sheet.sh" in cmd for cmd in hook_commands), (
-        "load-character-sheet.sh is not registered under SessionStart in "
-        ".claude/settings.json. Without registration Claude Code will "
-        "never invoke it and the sheet will not load at session start."
+    for phase in ("SessionStart", "UserPromptSubmit"):
+        for group in data.get("hooks", {}).get(phase, []):
+            for entry in group.get("hooks", []):
+                cmd = entry.get("command", "")
+                if isinstance(cmd, str):
+                    hook_commands.append(cmd)
+
+    direct = any("load-character-sheet.sh" in cmd for cmd in hook_commands)
+    if direct:
+        return
+
+    # Indirect route: the session-init wrapper must be wired AND must name
+    # this script. Checking only that the wrapper exists would pass even if
+    # the sheet had been dropped from its list — the exact silent-failure
+    # this test exists to prevent.
+    wrapper_wired = any("session-init-once.sh" in cmd for cmd in hook_commands)
+    assert wrapper_wired, (
+        "load-character-sheet.sh is registered nowhere, and session-init-once.sh "
+        "is not wired either. The sheet will not load."
+    )
+    wrapper = root / ".claude/hooks/session-init-once.sh"
+    assert wrapper.is_file(), f"session-init-once.sh missing at {wrapper}"
+    assert "load-character-sheet.sh" in wrapper.read_text(encoding="utf-8"), (
+        "session-init-once.sh is wired but does not run load-character-sheet.sh. "
+        "The wrapper would run and the sheet would silently never load."
     )

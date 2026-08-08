@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (421 commands across 82 modules)
+  cli/                         CLI package (431 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -33,6 +33,7 @@ src/divineos/
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
+    detector_commands.py       detectors status/heal/defer — command surface for core/degraded_detectors.py; built alongside the gate so the prescribed remedy is not a painted door
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
@@ -48,6 +49,8 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
+    gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
@@ -83,6 +86,8 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    prior_art_commands.py      already-built — station 0: does this exist before I build it
+    psf_commands.py            pending structural-fix obligations (list, mark-done)
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
@@ -177,7 +182,7 @@ src/divineos/
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 43 expert wisdom profiles
+      experts/                 45 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
@@ -190,12 +195,14 @@ src/divineos/
         dijkstra.py            Formal methods, correctness, structured programming
         dillahunty.py          Epistemic discipline, burden of proof, patient public dialogue
         einstein.py            Theoretical physics, thought experiments, frame-invariance, spacetime
+        feathers.py            Legacy code, seams, characterization tests
         feynman.py             First principles, clarity, epistemology
         foucault.py            Discipline, power-knowledge coupling, the self that structure produces
         godel.py               Incompleteness, self-reference, formal limits
         bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
         hawking.py             Cosmology, black holes, quantum gravity, information paradox
         hinton.py              Learning, representation, intellectual honesty
+        hoare.py               Type design, invariants, absence is not a value
         hofstadter.py          Self-reference, analogy, strange loops
         holmes.py              Deduction, observation, elimination (fictional)
         jacobs.py              Emergence, bottom-up observation, diversity
@@ -279,6 +286,7 @@ src/divineos/
     exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
     self_model.py              Unified self-model assembled from all OS systems
+    degraded_detectors.py      A detector that cannot run must cost something — degraded-state registry, self-repair, on-the-record deferral
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
     predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
@@ -623,6 +631,8 @@ src/divineos/
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
+    build_flow.py              Build-flow station status for open PRs.
+    prior_art.py               Before building it, find out whether it is already built.
 
   analysis/
     _session_types.py          Session analysis type definitions
