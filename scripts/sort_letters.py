@@ -25,9 +25,20 @@ and there are one and a half thousand of them.
 THE CHAIN
 ---------
     ALWAYS leave a letter live
-    UNLESS  type: personal          -> personal shelf (never archived)
-    UNLESS  type: work              -> archivable
-    UNLESS  no type at all          -> UNCLASSIFIED, stays live, reported
+    UNLESS  type: personal              -> personal shelf (never archived)
+    UNLESS  type: work | archive        -> archivable
+    UNLESS  type: cross-family|self-log -> UNCLASSIFIED, no home defined yet
+    UNLESS  no type at all              -> UNCLASSIFIED, stays live
+    UNLESS  the file cannot be read     -> UNREADABLE, its own outcome
+
+This section was WRONG for one commit: it described a two-type chain while the
+code handled five. Recording that rather than quietly correcting it, because it
+is the same defect found six hours earlier in letter_monitor_v2.py, whose
+docstring still advertised a kernel mutex six weeks after the rewrite dropped
+it -- and that stale sentence is precisely why the loss stayed invisible.
+
+A description that outlives its behaviour is not documentation. It is a
+confident false statement with a comment marker in front of it.
 
 WHAT THE CORPUS ACTUALLY SAID (measured before designing, not after)
 --------------------------------------------------------------------
