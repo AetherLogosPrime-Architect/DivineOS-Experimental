@@ -313,6 +313,31 @@ else
             fi
         fi
 
+        # Strip git's per-invocation environment before handing off to pytest.
+        # ROOT CAUSE of the intermittent `core.bare=true` corruption chased
+        # 2026-08-08 — weeks of "git randomly breaks in every worktree",
+        # reset by hand each time and never attributed.
+        #
+        # git exports GIT_DIR (and friends) into hook processes. A pre-push
+        # hook therefore runs with GIT_DIR pinned to the pushing worktree, and
+        # every child inherits it — pytest, and every git subprocess a test
+        # spawns. GIT_DIR OVERRIDES cwd. So a test that carefully builds a
+        # scratch repo under its own tmp dir and runs `git init --bare` there
+        # hits the REAL repository instead and sets core.bare=true on it.
+        # The same mechanism put `user.email = test@test` in the live config.
+        #
+        # Direct evidence, GIT_TRACE_SETUP during a real push:
+        #   setup: git_dir: .../DivineOS-Experimental/.git/worktrees/wt-419
+        #   setup: cwd:     .../push-gate-SlEsNi/tmp/pytest/.../test_unstaged_0
+        # A command standing in a pytest tmp dir, aimed at the real repo.
+        #
+        # This is why it only ever appeared on push and never on a hand-run
+        # suite: no push, no GIT_DIR, no corruption. It was never a race.
+        #
+        # Scrub every path-bearing git variable, not only GIT_DIR — leaving
+        # one behind reproduces the same bug through a narrower door.
+        GIT_ENV_SCRUB="env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_PREFIX -u GIT_NAMESPACE -u GIT_QUARANTINE_PATH"
+
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
             # Isolated path: temp worktree at the pushed commit. Survives
             # concurrent pushes because each gets its own checkout.
@@ -343,7 +368,7 @@ else
                 # Wrapped in subprocess_jobs so pytest+xdist workers die with parent.
                 # Root fix for 2026-07-13 leak where pytest workers survived parent
                 # bash death and ate ~2GB each. Per prereg-dae52c6ca269.
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -363,14 +388,14 @@ else
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
                 # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-                python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
+                $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
             fi
         else
             # No SHA available, or operator opted out of worktree isolation
             # via DIVINEOS_PUSH_GATE_NO_WORKTREE=1.
             # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-            python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
             PYTEST_RC=$?
         fi
         if [[ $PYTEST_RC -ne 0 ]]; then
