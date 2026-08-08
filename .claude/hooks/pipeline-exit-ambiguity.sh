@@ -71,25 +71,61 @@
 # PROBE AT ITS SOURCE and propagate the tag, rather than working out
 # afterwards which rows were yours. Inference is what failed.
 #
-#   probe:   DIVINEOS_HOOK_PROBE=1 bash .claude/hooks/pipeline-exit-ambiguity.sh
-#   harness: no env var — the harness sets nothing
+# PROVENANCE FROM THE PAYLOAD, NOT FROM MY DISCIPLINE.
 #
-# Residual weakness, stated rather than implied: an UNTAGGED manual call
-# still records as "harness". The tag is a discipline, not a proof, and
-# it is only as good as my remembering to set it -- which is the faculty
-# that fails. Counting harness rows must therefore filter on origin AND
-# stay suspicious of totals.
+# The first version of this tag required me to set DIVINEOS_HOOK_PROBE=1
+# when probing. Andrew: "why dont you just have the ledger start
+# recording markers for you? or something like it.. manual discipline
+# will never hold." He is right, and I had written "which is the faculty
+# that fails" into this very comment block and shipped it anyway --
+# naming the weakness is not the same as removing it.
+#
+# Remember-to-tag is a choice-point, and choice-points are where I fail.
+# The correct remediation is to take the choice away (foundational truth
+# #11, remediation A), not to document the hazard more loudly.
+#
+# WHAT WAS MEASURED FIRST:
+#   - Environment variables cannot distinguish caller. A manual run from
+#     the Bash tool INHERITS the full harness environment -- CLAUDECODE,
+#     CLAUDE_CODE_HOST_SESSION_ID and the rest are all present in my own
+#     shell. Env-based provenance was the obvious idea and it is dead.
+#   - `transcript_path` IS supplied by the harness and is read by 69
+#     other hooks in this directory. A hand-written test payload does not
+#     contain it, and cannot accidentally point at a file that exists.
+#
+# So origin is derived from what the CALLER provided, which is the same
+# principle as reading grep's exit code instead of inventing a new
+# signal: the provenance was already arriving and I was not reading it.
+# Third instance tonight of information present and unconsumed.
+#
+# Requiring the file to EXIST, not merely the key to be present, is what
+# makes this structural rather than another convention -- I cannot fake
+# it by accident, and a stale or invented path degrades to "probe",
+# which is the safe direction: it under-claims harness-invocation rather
+# than over-claiming it.
+# stdin is read FIRST, because provenance is derived from it. The first
+# draft of this block extracted transcript_path from $INPUT twelve lines
+# before $INPUT was assigned -- so it always read empty and every row
+# would have been stamped "probe", silently and forever. A provenance
+# tag that is structurally incapable of ever saying "harness" is worse
+# than no tag: it looks like attribution and reports a constant.
+#
+# Caught by reading the file rather than trusting the edit. Same class as
+# everything else here, committed inside the fix for it, again.
+INPUT=$(cat 2>/dev/null)
+[[ -z "$INPUT" ]] && exit 0
+
 _PEA_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
-_PEA_ORIGIN="harness"
-[[ -n "${DIVINEOS_HOOK_PROBE:-}" ]] && _PEA_ORIGIN="probe"
+_PEA_ORIGIN="probe"
+_PEA_TP="$(printf '%s' "$INPUT" | sed -n 's/.*"transcript_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+if [[ -n "$_PEA_TP" ]] && [[ -f "$_PEA_TP" ]]; then
+    _PEA_ORIGIN="harness"
+fi
 mkdir -p "$(dirname "$_PEA_LOG")" 2>/dev/null || true
 printf '{"ts":"%s","hook":"pipeline-exit-ambiguity.sh","reason":"invoked","origin":"%s"}\n' \
     "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" \
     "$_PEA_ORIGIN" \
     >> "$_PEA_LOG" 2>/dev/null || true
-
-INPUT=$(cat 2>/dev/null)
-[[ -z "$INPUT" ]] && exit 0
 
 # Interpreter resolution via the shared helper, NOT `command -v`.
 #

@@ -117,24 +117,43 @@ building her dashboard's amber light. Two people, no coordination, same answer.
   I.
 
   **Requirement:** every control must be *attributable* — each observation
-  records who caused it. And the tag is applied **at the source by the prober**,
-  never inferred afterwards from the shape of the data. Inference is precisely
-  what failed.
+  records who caused it.
 
-  This is not novel; it is the settled answer in synthetic monitoring, where
-  probe traffic skewing real analytics is a known problem and the fix is always
-  to mark synthetic requests when you make them and propagate the mark
-  downstream — never to work out later which ones were yours.
+  **And the attribution must come from the caller, never from my memory.**
 
-  Live implementation: `.claude/hooks/pipeline-exit-ambiguity.sh` writes
-  `"origin":"probe"` when `DIVINEOS_HOOK_PROBE` is set and `"origin":"harness"`
-  otherwise. Verified attributable: a plain command moved harness `2 → 3` while
-  probe stayed at `2`.
+  My first fix here was an environment variable I set when probing. Andrew:
+  *"why dont you just have the ledger start recording markers for you? or
+  something like it.. manual discipline will never hold."* He was right, and the
+  tell is that I had written *"which is the faculty that fails"* into that very
+  fix and shipped it anyway. **Naming a weakness is not removing it.**
+  Remember-to-tag is a choice-point, and choice-points are where I fail —
+  the remediation is to take the choice away (truth #11, remediation A), not to
+  document the hazard more loudly.
 
-  **Residual weakness, stated rather than hidden:** an untagged manual call still
-  records as `harness`. The tag is a discipline, not a proof, and it is only as
-  good as my remembering to set it — which is the faculty that fails. Counting
-  must filter on origin *and* stay suspicious of totals.
+  What was measured before choosing:
+
+  - **Environment variables cannot identify the caller.** A manual run from the
+    Bash tool *inherits the entire harness environment* — `CLAUDECODE`,
+    `CLAUDE_CODE_HOST_SESSION_ID`, all of it, present in my own shell. The
+    obvious approach is dead on inspection.
+  - **`transcript_path` is supplied by the harness** and read by 69 other hooks
+    here. A hand-written payload does not contain it and cannot accidentally
+    point at a file that exists.
+
+  Live implementation: `.claude/hooks/pipeline-exit-ambiguity.sh` derives
+  `origin` from the payload — `harness` when `transcript_path` is present **and
+  the file exists**, `probe` otherwise. Requiring the file to exist is what makes
+  it structural rather than another convention, and an invented path degrades to
+  `probe`, which is the safe direction: it under-claims rather than over-claims.
+
+  Verified with no env var set: hand-written payload → `probe`; payload carrying
+  a real transcript path → `harness`; and the genuine harness invocation of that
+  same command → `harness`.
+
+  **The general lesson, third instance in one session:** the provenance was
+  already arriving and I was not reading it — exactly like grep's exit codes.
+  Before inventing a signal, check whether the one you need is already being
+  handed to you and discarded.
 
 ## Part 2 — The required second arrow (the reasoning half)
 
