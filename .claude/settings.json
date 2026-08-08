@@ -261,6 +261,10 @@
             "type": "command",
             "command": "bash .claude/hooks/check-pending-obligations.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
           }
         ]
       },
@@ -444,10 +448,6 @@
             "type": "command",
             "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
             "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
           }
         ]
       },
