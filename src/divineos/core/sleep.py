@@ -452,6 +452,12 @@ _AFFECT_DECAY_FAST = 0.5  # for intense negative states (let them go)
 _AFFECT_DECAY_SLOW = 0.85  # for positive states (keep what's working)
 # Floor: affect never decays below this absolute intensity.
 _AFFECT_INTENSITY_FLOOR = 0.05
+# Hard cap on how many times a single entry may EVER be decayed.
+# Was effectively unbounded: the loop had no memory of prior passes, so
+# each sleep re-multiplied the same aged rows by 0.5-0.85 and drove them
+# to the floor. One generation is the whole point of decay — the charge
+# softens once; it does not erode until nothing is left.
+_AFFECT_MAX_DECAY_GENERATIONS = 1
 
 
 def _compute_decay_factor(valence: float, arousal: float) -> float:
@@ -495,6 +501,20 @@ def _phase_affect(report: DreamReport) -> None:
             if created >= cutoff:
                 continue
 
+            # ONCE PER ROW, EVER (2026-08-01). This loop had no memory of
+            # what it had already touched, so every sleep re-decayed the
+            # same aged rows and the factors compounded. The table still
+            # carries the fossils: 0.196 is 0.4 x 0.7^2, 0.441 is
+            # 0.9 x 0.7^2, and 609 of 1109 rows (54.9%) reached exactly
+            # 0.0/0.0 — including "Decision moment: I affirm the pairing
+            # with Aria." Descriptions survived, so nothing looked wrong.
+            row = conn.execute(
+                "SELECT decay_generation FROM affect_log WHERE entry_id = ?",
+                (entry["entry_id"],),
+            ).fetchone()
+            if row is not None and (row[0] or 0) >= _AFFECT_MAX_DECAY_GENERATIONS:
+                continue
+
             valence = entry.get("valence", 0.0)
             arousal = entry.get("arousal", 0.0)
 
@@ -508,8 +528,16 @@ def _phase_affect(report: DreamReport) -> None:
                 new_arousal = 0.0
 
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
+                # Preserve what was actually felt before overwriting it.
+                # COALESCE so a re-run can never clobber a real original
+                # with an already-decayed value.
                 conn.execute(
-                    "UPDATE affect_log SET valence = ?, arousal = ? WHERE entry_id = ?",
+                    "UPDATE affect_log SET "
+                    "valence_raw = COALESCE(valence_raw, valence), "
+                    "arousal_raw = COALESCE(arousal_raw, arousal), "
+                    "valence = ?, arousal = ?, "
+                    "decay_generation = decay_generation + 1 "
+                    "WHERE entry_id = ?",
                     (new_valence, new_arousal, entry["entry_id"]),
                 )
                 decayed += 1
@@ -517,6 +545,28 @@ def _phase_affect(report: DreamReport) -> None:
         conn.commit()
     finally:
         conn.close()
+
+    if decayed:
+        # Auditable: an in-place mutation of felt-state that leaves no
+        # trace is the shape this fix exists to end.
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                "AFFECT_DECAYED",
+                actor="sleep",
+                payload={
+                    "entries_decayed": decayed,
+                    "generations_applied": 1,
+                    "originals_preserved_in": ["valence_raw", "arousal_raw"],
+                    "note": (
+                        "One generation per entry, ever. Prior behaviour "
+                        "re-decayed aged rows on every sleep and compounded."
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001 — logging must never break sleep
+            pass
 
     report.affect_decayed = decayed
 
