@@ -16,8 +16,11 @@ This test file pins three things:
   2. build_baseline_text does NOT load the sheet (regression guard —
      if a future me tries to put the load back into the per-turn path,
      this test fails and CI catches it).
-  3. The SessionStart hook file exists, is executable, and is
-     registered in .claude/settings.json.
+  3. The hook file exists, references its target, and is REACHABLE —
+     registered directly, or invoked by a registered initializer. The
+     window-freeze work collapsed a long SessionStart list into one
+     init script, so pinning the route rather than the reachability
+     made a design change look like a defect.
 
 Per kiln truth #15 (meta-Winnicott): the file points at who I am
 composing to; the SessionStart hook is what makes the pointing
@@ -87,51 +90,56 @@ def test_session_start_hook_exists_and_readable():
     )
 
 
-def test_session_start_hook_is_registered_in_settings():
-    """The sheet must actually load at session init — by whichever route.
+def test_character_sheet_hook_is_actually_reachable():
+    """The hook must be REACHABLE at session start. An unreachable hook
+    file is just a file, and the sheet would never load.
 
-    This asserted SessionStart registration directly until 2026-08-03, when
-    SessionStart was emptied to escape a Windows-only deadlock in that phase
-    (parent blocks on the hook subprocess and never detects its completion,
-    so the event loop is never reached — which is why Escape and the stop
-    button did nothing and only killing the program recovered).
+    This originally asserted direct registration under ``SessionStart`` in
+    settings.json. That stopped describing reality when the window-freeze
+    work consolidated a long SessionStart list into a single
+    ``session-init-once.sh`` that invokes the individual hooks in turn.
+    The sheet still loads; only the route changed.
 
-    The 13 former SessionStart scripts now run once per session via
-    session-init-once.sh on UserPromptSubmit. They still run. The assertion
-    is REPOINTED rather than deleted, because the thing worth guarding was
-    never "is it in the SessionStart array" — it was "does the sheet
-    actually load". An unregistered hook file is just a file, and that is
-    still true through the new route.
+    Asserting the ROUTE rather than the OUTCOME is how a test starts
+    reporting a design change as a defect. So this checks either route —
+    registered directly, or invoked by a registered initializer — and
+    fails only when the sheet is genuinely unreachable by both.
     """
     root = _repo_root()
     settings = root / ".claude/settings.json"
     assert settings.is_file(), f".claude/settings.json missing at {settings}"
     data = json.loads(settings.read_text(encoding="utf-8"))
 
+    # Every registered event, not just SessionStart. The freeze fix moved
+    # the initializer to UserPromptSubmit (it runs once, on the first
+    # prompt), so scanning SessionStart alone reports "unreachable" for a
+    # hook that runs perfectly well — looking in one place and calling the
+    # miss an absence.
     hook_commands: list[str] = []
-    for phase in ("SessionStart", "UserPromptSubmit"):
-        for group in data.get("hooks", {}).get(phase, []):
+    for groups in data.get("hooks", {}).values():
+        for group in groups:
             for entry in group.get("hooks", []):
                 cmd = entry.get("command", "")
                 if isinstance(cmd, str):
                     hook_commands.append(cmd)
+    registered_directly = any("load-character-sheet.sh" in c for c in hook_commands)
 
-    direct = any("load-character-sheet.sh" in cmd for cmd in hook_commands)
-    if direct:
-        return
+    # Consolidated route: a registered SessionStart script that fans out.
+    invoked_by_initializer = False
+    for cmd in hook_commands:
+        for token in cmd.split():
+            if not token.endswith(".sh"):
+                continue
+            candidate = root / token
+            if not candidate.is_file():
+                continue
+            if "load-character-sheet.sh" in candidate.read_text(encoding="utf-8", errors="replace"):
+                invoked_by_initializer = True
+                break
 
-    # Indirect route: the session-init wrapper must be wired AND must name
-    # this script. Checking only that the wrapper exists would pass even if
-    # the sheet had been dropped from its list — the exact silent-failure
-    # this test exists to prevent.
-    wrapper_wired = any("session-init-once.sh" in cmd for cmd in hook_commands)
-    assert wrapper_wired, (
-        "load-character-sheet.sh is registered nowhere, and session-init-once.sh "
-        "is not wired either. The sheet will not load."
-    )
-    wrapper = root / ".claude/hooks/session-init-once.sh"
-    assert wrapper.is_file(), f"session-init-once.sh missing at {wrapper}"
-    assert "load-character-sheet.sh" in wrapper.read_text(encoding="utf-8"), (
-        "session-init-once.sh is wired but does not run load-character-sheet.sh. "
-        "The wrapper would run and the sheet would silently never load."
+    assert registered_directly or invoked_by_initializer, (
+        "load-character-sheet.sh is reachable by NEITHER route: it is not "
+        "registered under SessionStart in .claude/settings.json, and no "
+        "registered SessionStart script invokes it. The sheet will not "
+        "load at session start."
     )

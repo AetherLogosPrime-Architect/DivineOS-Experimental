@@ -154,7 +154,10 @@ class TestSessionUniquenessProperty:
 
     @given(st.just(None))  # Placeholder for hypothesis
     @pytest.mark.slow
-    @settings(max_examples=10)
+    @settings(
+        max_examples=10,
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_session_uniqueness(self, _):
         """Test that sessions have unique IDs."""
         session_ids = set()
@@ -174,7 +177,11 @@ class TestNoSilentErrorsProperty:
 
     @given(content=valid_content)
     @pytest.mark.slow
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=20,
+        suppress_health_check=[HealthCheck.too_slow],
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_no_silent_errors(self, content):
         """Test that errors are logged, not silently swallowed."""
         # This is a basic test - in production, we'd verify logs
@@ -199,7 +206,11 @@ class TestEventHashValidityProperty:
 
     @given(content=valid_content)
     @pytest.mark.slow
-    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=30,
+        suppress_health_check=[HealthCheck.too_slow],
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_event_hash_validity(self, content):
         """Test that all events have valid hashes."""
         session_id = initialize_session()
@@ -235,7 +246,10 @@ class TestSessionLifecycleProperty:
 
     @given(st.just(None))  # Placeholder for hypothesis
     @pytest.mark.slow
-    @settings(max_examples=10)
+    @settings(
+        max_examples=10,
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_session_lifecycle(self, _):
         """Test that sessions follow correct lifecycle."""
         # Initialize session
@@ -270,7 +284,11 @@ class TestToolExecutionDurationProperty:
         duration_ms=st.integers(min_value=0, max_value=10000),
     )
     @pytest.mark.slow
-    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=30,
+        suppress_health_check=[HealthCheck.too_slow],
+        deadline=None,  # per-test deadline causes flake under pytest-xdist parallel contention
+    )
     def test_tool_execution_duration(self, duration_ms):
         """Test that tool execution duration is non-negative."""
         session_id = initialize_session()
@@ -337,3 +355,44 @@ class TestEventCaptureRateProperty:
 
         finally:
             clear_session()
+
+
+def test_every_property_test_disables_the_wallclock_deadline():
+    """No @settings block in this file may leave Hypothesis's deadline armed.
+
+    2026-08-09: a push was blocked by two failures here, both
+    ``DeadlineExceeded: Test took 410.63ms, which exceeds the deadline of
+    200.00ms``. The same suite had passed minutes earlier in a quieter
+    process. Nothing was wrong with the code — the machine was busy.
+
+    Three of the seven property classes already carried ``deadline=None``
+    with the comment naming xdist contention. Four did not. Whoever hit
+    the failure fixed the tests that happened to fail that day and left
+    the rest armed, so the bug reappeared from a different class months
+    later wearing the same face.
+
+    A wall-clock deadline inside a correctness test asserts something the
+    test does not mean to assert: that this machine was not busy. That is
+    not a property of the ledger. Every test here gets ``deadline=None``,
+    and this test removes the option of forgetting one (kiln truth #11a).
+
+    Per claim 5b2daf64, "flaky" is not an available description: the
+    nondeterminism is named, and it is host load against a 200 ms default.
+    """
+    import re
+    from pathlib import Path
+
+    source = Path(__file__).read_text(encoding="utf-8")
+    # Anchored to start-of-line so it matches DECORATORS only. Unanchored,
+    # the pattern's first victim was the pattern: this test failed on its own
+    # source, because the regex literal below is itself the text it searches
+    # for. Same class of defect it exists to catch, found by running it.
+    blocks = re.findall(r"^[ \t]*@settings\((.*?)\)\n", source, flags=re.DOTALL | re.MULTILINE)
+    assert blocks, "found no @settings blocks — this guard has stopped guarding anything"
+
+    armed = [b for b in blocks if "deadline" not in b]
+    assert not armed, (
+        "These @settings blocks leave Hypothesis's 200ms wall-clock deadline "
+        "armed, so they fail when the host is busy rather than when the code "
+        "is wrong. Add `deadline=None`:\n\n" + "\n---\n".join(armed)
+    )

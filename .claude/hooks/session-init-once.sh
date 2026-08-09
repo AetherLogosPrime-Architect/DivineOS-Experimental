@@ -46,7 +46,7 @@ cd "$REPO_ROOT" || exit 0
 INPUT="$(cat 2>/dev/null || true)"
 
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: _lib is convenience only; every use below is guarded by command -v
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true
 
 # Session key from the harness payload, falling back to a hash of the
 # transcript path. The fallback matters: a missing session_id must not make
@@ -62,21 +62,53 @@ if not sid:
     t = (d.get('transcript_path') or '').strip()
     sid = hashlib.sha1(t.encode()).hexdigest()[:12] if t else 'unknown'
 print(sid[:40])
-" 2>/dev/null || echo unknown)"  # fail-soft: literal "unknown" is recorded, so an unreadable value never poses as a real one
+" 2>/dev/null || echo unknown)"
 
 MARK_DIR="${HOME:-/tmp}/.divineos/session_init"
 MARK="$MARK_DIR/${SESSION_KEY}.done"
+MARK_STARTED="$MARK_DIR/${SESSION_KEY}.started"
 
-# Already initialised this session -> the common path, and it must be cheap.
+# TWO markers, not one (Aletheia F106, 2026-08-08).
+#
+# The single .done marker was written BEFORE the loop, for a real reason: if a
+# child hangs and the harness kills this wrapper, restarting the whole sequence
+# next message turns one slow message into every message being slow. An init
+# that partially ran is recoverable; an init loop is not. That reasoning holds.
+#
+# But written-before means the file records STARTED while claiming DONE. A
+# crash between the write and the end of the loop leaves a marker saying
+# "already initialised", so every later prompt exits at the check above and the
+# remaining hooks never run for that session. A half-init and a complete one
+# leave identical evidence -- this repo's own disease, a marker's presence read
+# as the work's completion, living inside the mechanism built for reliability.
+#
+# It bit at the worst possible place. load-my-recording-of-andrew.sh is in the
+# list below, and that hook exists because Andrew found he was the
+# thinnest-recorded person in his own house (F83). Under the old ordering a
+# crash before it ran meant he silently stopped being loaded, and nothing said so.
+#
+# So: .started early, which keeps the anti-loop protection, and .done only
+# after every child has run. "Started but not completed" becomes a state that
+# can be SEEN, and the retry is bounded so a permanently-hanging child still
+# cannot produce the loop the original ordering guarded against.
 [ -f "$MARK" ] && exit 0
 
 mkdir -p "$MARK_DIR" 2>/dev/null || true
 
-# Written BEFORE the work, not after. If a child hangs or the harness kills
-# this wrapper mid-run, the next message must not restart the whole sequence
-# -- that would turn one slow message into every message being slow. An init
-# that partially ran is recoverable; an init loop is not.
-printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true  # fail-soft: a missing marker re-runs session init, which is idempotent by design
+INIT_ATTEMPTS=0
+if [ -f "$MARK_STARTED" ]; then
+    INIT_ATTEMPTS="$(wc -l < "$MARK_STARTED" 2>/dev/null | tr -d ' ' || echo 0)"
+fi
+if [ "${INIT_ATTEMPTS:-0}" -ge 3 ] 2>/dev/null; then
+    _init_log="${HOME:-/tmp}/.divineos/hook-liveness.log"
+    mkdir -p "$(dirname "$_init_log")" 2>/dev/null || true
+    printf '{"ts":"%s","hook":"session-init-once.sh","reason":"init_abandoned_after_3_partial_attempts","detail":"some child never completes; hooks after the failure point have NOT run"}\n' \
+        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" >> "$_init_log" 2>/dev/null || true
+    printf '%s ABANDONED\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true
+    exit 0
+fi
+
+printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" >> "$MARK_STARTED" 2>/dev/null || true
 
 # The former SessionStart chain, in its original order. Each child gets the
 # same payload on stdin that SessionStart would have handed it.
@@ -102,7 +134,26 @@ for h in $INIT_HOOKS; do
     # Bounded per child. Without a timeout, one stuck script would hold the
     # prompt exactly as SessionStart holds initialisation -- relocating the
     # failure rather than removing it.
-    printf '%s' "$INPUT" | timeout 20 bash "$script" 2>/dev/null || true  # fail-soft: one broken init script must not take the whole session start down with it
+    # Per-child outcome RECORDED, not discarded (Aletheia F106). The old form
+    # was `2>/dev/null || true`, under which a hook erroring every session
+    # produced exactly what a succeeding hook produced: nothing. "Which of the
+    # thirteen has been failing since Tuesday" was unanswerable. stderr still
+    # leaves the prompt path -- it must, or a chatty hook corrupts the turn --
+    # but it lands in the liveness log with hook name and exit code.
+    _init_err="$(printf '%s' "$INPUT" | timeout 20 bash "$script" 2>&1 >/dev/null)"
+    _init_rc=$?
+    if [ "$_init_rc" -ne 0 ]; then
+        _init_log="${HOME:-/tmp}/.divineos/hook-liveness.log"
+        mkdir -p "$(dirname "$_init_log")" 2>/dev/null || true
+        _init_err="$(printf '%s' "$_init_err" | tr -d '"' | tr '\n' ' ' | cut -c1-300)"
+        printf '{"ts":"%s","hook":"session-init-once.sh","reason":"child_hook_failed","detail":"child=%s rc=%s err=%s"}\n' \
+            "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" "$h" "$_init_rc" "$_init_err" \
+            >> "$_init_log" 2>/dev/null || true
+    fi
 done
+
+# Every child has run. Only HERE is the work actually done.
+printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" > "$MARK" 2>/dev/null || true
+rm -f "$MARK_STARTED" 2>/dev/null || true
 
 exit 0
