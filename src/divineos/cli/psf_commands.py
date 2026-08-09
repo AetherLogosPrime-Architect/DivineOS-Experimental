@@ -89,8 +89,27 @@ def register(cli: click.Group) -> None:
             click.secho("[~] No pending structural fixes.", fg="bright_black")
             return
         click.secho(f"{len(items)} pending structural fix(es):", fg="cyan")
+        # RANKED BY HOW MANY TIMES IT HAS ASKED, not by when it last spoke.
+        #
+        # Andrew 2026-08-09: "you should only need to be told once, if that one
+        # time doesnt work? then repeating it 64 more times wont."
+        #
+        # The backlog had one obligation filed 65 times over 11 days and it
+        # produced less action than a single row would have, because at
+        # constant volume repetition is DILUTION -- every copy makes each
+        # individual row matter less, and the pile reads as clutter rather
+        # than as one thing asking again. Dedup alone would fix the clutter and
+        # leave the ignoring untouched, so the count has to change the ORDER:
+        # an item that has asked 65 times now sits at the top, where being
+        # ignored makes it louder instead of merely more numerous.
+        items = sorted(items, key=lambda e: -int(e.get("occurrences", 1) or 1))
         for e in items:
-            click.echo(f"  {e.get('id', '?')}  [{e.get('status', 'open')}]")
+            n = int(e.get("occurrences", 1) or 1)
+            # The count is the point: "x65" says this asked 65 times and was
+            # never answered. A bare id said the same thing 65 separate times
+            # and buried the other 64 obligations doing it.
+            times = click.style(f"  x{n}", fg="red", bold=True) if n > 1 else ""
+            click.echo(f"  {e.get('id', '?')}  [{e.get('status', 'open')}]{times}")
             # The stored field is `content_excerpt`. This read `content`, which
             # no record has, so every one of 129 obligations printed as a blank
             # line under its id -- the ids were right, so the list looked like

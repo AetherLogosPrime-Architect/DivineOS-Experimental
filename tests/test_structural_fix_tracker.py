@@ -349,3 +349,37 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
         )
         assert result.exit_code == 0
         assert list_pending() == []
+
+
+def test_identical_content_becomes_one_row_with_a_count(tmp_path: Path) -> None:
+    """Andrew 2026-08-09: "65 duplicate rows IS noise and is junk to be
+    deleted.. it should be a single row with 65 stamps on it."
+
+    The backlog held 129 rows, 65 of them the same emergency-bypass text fired
+    across 11 days. Those 64 extra rows carried nothing the first did not, and
+    buried the 64 distinct obligations sharing the list with them.
+    """
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}):
+        first = record_pending_fix("the same obligation, named again", trigger="structural fix")
+        for _ in range(9):
+            again = record_pending_fix("the same obligation, named again", trigger="structural fix")
+            assert again == first, "a repeat must return the existing id, not mint a row"
+
+        rows = list_pending()
+        assert len(rows) == 1
+        assert rows[0]["occurrences"] == 10
+        assert rows[0]["last_seen"] >= rows[0]["created_at"]
+        # Bounded on purpose: an unbounded stamp list re-grows the problem it fixes.
+        assert len(rows[0]["stamps"]) <= 20
+
+
+def test_distinct_obligations_are_not_collapsed(tmp_path: Path) -> None:
+    """The dedup must be narrow. Collapsing genuinely different obligations
+    would be the same information loss the duplicates caused, in reverse."""
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}):
+        a = record_pending_fix("wire the teachings module into pre-composition")
+        b = record_pending_fix("auto-commit letters so branch ops cannot eat them")
+        assert a != b
+        texts = {(r.get("content_excerpt") or "") for r in list_pending()}
+        assert "wire the teachings module into pre-composition" in texts
+        assert "auto-commit letters so branch ops cannot eat them" in texts

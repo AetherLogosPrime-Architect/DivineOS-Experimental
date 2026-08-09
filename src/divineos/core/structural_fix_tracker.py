@@ -162,17 +162,62 @@ def record_pending_fix(
     """
     if not content:
         return ""
+    excerpt = content.strip()[:200]
+    entries = _read_pending()
+
+    # ONE ROW, MANY STAMPS. (Andrew 2026-08-09.)
+    #
+    # The backlog held 129 rows and 65 of them were the same text: the
+    # emergency bypass of check-branch-on-push, fired across 11 days while I
+    # was gate-locked. I first argued those 65 were signal rather than junk.
+    # Andrew: "65 duplicate rows IS noise and is junk to be deleted.. it
+    # should be a single row with 65 stamps on it, but the fact you are
+    # ignoring them is the real issue.. you should only need to be told once,
+    # if that one time doesnt work? then repeating it 64 more times wont."
+    #
+    # He is right and the distinction is exact. The FACT is signal -- this
+    # happened 65 times and was never fixed. The STORAGE was junk: 64 rows
+    # carrying no information the first row did not already carry, burying the
+    # other 64 distinct obligations they shared a list with. A count preserves
+    # every bit of the signal and costs one row.
+    #
+    # And the repetition was never going to work. A mechanism whose response
+    # to being ignored is to say the same thing again is not escalating, it is
+    # diluting -- each copy makes the list longer and every individual row
+    # matter less. That is why `occurrences` exists: so the surface can rank
+    # by how many times it has asked rather than by how recently, and being
+    # ignored makes an item LOUDER instead of just more numerous.
+    for e in entries:
+        if e.get("status") == "done":
+            continue
+        if (e.get("content_excerpt") or "").strip() != excerpt:
+            continue
+        now = time.time()
+        e["occurrences"] = int(e.get("occurrences", 1)) + 1
+        e["last_seen"] = now
+        # Bounded: the count is authoritative, the stamps are for reading the
+        # shape of the recurrence. An unbounded list would re-grow the exact
+        # problem this fix exists to remove.
+        stamps = list(e.get("stamps") or [e.get("created_at", now)])
+        stamps.append(now)
+        e["stamps"] = stamps[-20:]
+        _write_pending(entries)
+        return str(e.get("id") or "")
+
     psf_id = f"psf-{uuid.uuid4().hex[:8]}"
+    now = time.time()
     entry = {
         "id": psf_id,
-        "created_at": time.time(),
+        "created_at": now,
         "lesson_id": lesson_id,
-        "content_excerpt": content.strip()[:200],
+        "content_excerpt": excerpt,
         "trigger": trigger,
         "source_kind": source_kind,
         "status": "pending",
+        "occurrences": 1,
+        "last_seen": now,
+        "stamps": [now],
     }
-    entries = _read_pending()
     entries.append(entry)
     _write_pending(entries)
     return psf_id
