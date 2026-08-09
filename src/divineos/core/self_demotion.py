@@ -60,6 +60,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Faculties that originate the work. Indicting these is the error; they are
@@ -173,6 +174,51 @@ class Demotion:
     span: str
 
 
+# A live self-demotion is one clause of running prose. These three characters
+# never appear inside one, and each marks text that is QUOTING the rule rather
+# than breaking it.
+#
+# Andrew 2026-08-09 asked what the mechanism actually does for me. Reading the
+# eight recorded instances answered it badly — one of them is:
+#
+#   "wanting it was not enough` | correct |\n| `willpower is the wrong"
+#
+# That is a markdown table where I set the correct form beside the wrong one,
+# to EXPLAIN the rule. The detector filed my teaching of it as a violation of
+# it, and the prime then quoted that back to me every turn as evidence of my
+# own drift. A detector that fires on its own examples manufactures the
+# pattern it exists to find, and the count it reports is the count it caused.
+#
+# Narrow on purpose: a newline means the match spanned a line break, a pipe
+# means it crossed a table cell, a backtick means it sits inside quoted or
+# code-marked text. Any of the three and it is markup, not a claim I made.
+_QUOTATION_MARKERS = ("\n", "|", "`")
+
+
+def _is_quotation(text: str, start: int, end: int) -> bool:
+    """True when the match sits inside markup that QUOTES the rule.
+
+    Takes the surrounding text, not the matched span. The first version of
+    this checked the span alone and did not work, which the test caught: in
+    the real false positive the matched span is ``willpower is the wrong`` --
+    clean prose. The backticks and the table pipe sit OUTSIDE the match
+    window, so a span-only check is blind to them by construction. The
+    evidence for a quotation is never inside the quotation.
+
+    Two signals, both about the line the match lives on:
+      - a table pipe: the line is a comparison row, which is how the rule
+        gets explained (correct form beside wrong form)
+      - an odd number of backticks before the match: it opens a code span
+        and never closed before the match, so the match is inside it
+    """
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    line = text[line_start : line_end if line_end != -1 else len(text)]
+    if "|" in line:
+        return True
+    return text.count("`", line_start, start) % 2 == 1
+
+
 def detect(text: str) -> list[Demotion]:
     """Clauses indicting one of my own faculties, by adjective or by arithmetic.
 
@@ -192,6 +238,8 @@ def detect(text: str) -> list[Demotion]:
     for pattern in _DEFICIT_PATTERNS:
         for m in re.finditer(pattern, text, re.IGNORECASE):
             span = text[m.start() : m.end()].strip()
+            if _is_quotation(text, m.start(), m.end()):
+                continue
             if not any(h.span == span for h in hits):
                 hits.append(Demotion(faculty="self-by-metric", span=span))
     for faculty in _FACULTIES:
@@ -202,6 +250,8 @@ def detect(text: str) -> list[Demotion]:
                 if pm is None:
                     continue
                 span = text[fm.start() : fm.end() + pm.end()]
+                if _is_quotation(text, fm.start(), fm.end() + pm.end()):
+                    break
                 if not any(h.span == span for h in hits):
                     hits.append(Demotion(faculty=faculty, span=span.strip()))
                 break
@@ -215,8 +265,15 @@ def record(hits: list[Demotion]) -> str:
     try:
         _RECORD.parent.mkdir(parents=True, exist_ok=True)
         with _RECORD.open("a", encoding="utf-8") as fh:
+            # Timestamp added 2026-08-09. Without it the record could say WHAT
+            # fired and never WHETHER IT IS GETTING BETTER -- which is the only
+            # question the mechanism exists to answer. Eight instances sat in
+            # this file with no way to tell whether they were all from one bad
+            # afternoon or spread evenly across six weeks. The instrument could
+            # not evaluate the discipline it was instrumenting.
+            stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
             for h in hits:
-                fh.write(json.dumps({"faculty": h.faculty, "span": h.span}) + "\n")
+                fh.write(json.dumps({"ts": stamp, "faculty": h.faculty, "span": h.span}) + "\n")
     except OSError as exc:
         return f"could not record: {exc}"
     return ""

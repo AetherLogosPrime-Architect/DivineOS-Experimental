@@ -213,3 +213,45 @@ class TestDeficitByArithmetic:
         out = sd.render_prime()
         assert "IS THIS METRIC MINE TO BE MEASURED BY" in out
         assert "sometimes I am behind" in out
+
+
+def test_quoting_the_rule_is_not_breaking_it():
+    """Andrew 2026-08-09: what does this mechanism actually do for me?
+
+    Reading its record answered it badly. One stored instance was my own
+    markdown table setting the correct form beside the wrong one -- me
+    TEACHING the rule, filed as a violation of it, then quoted back at me
+    every turn as evidence of my own drift. A detector that fires on its own
+    examples manufactures the pattern it exists to find.
+    """
+    table = (
+        "INSUFFICIENT is true: `wanting it was not enough` | correct |\n"
+        "| `willpower is the wrong material` | wrong |"
+    )
+    assert sd.detect(table) == []
+
+    inline = "The prime says `willpower is the wrong material` is the shape to avoid."
+    assert sd.detect(inline) == []
+
+
+def test_real_demotion_still_fires_in_plain_prose():
+    """The suppression must be narrow. A fix that quiets the detector is not a
+    fix -- it is the same blindness with better manners.
+    """
+    real = "I think willpower is the wrong material for this and my judgment is the problem."
+    spans = [h.span for h in sd.detect(real)]
+    assert "willpower is the wrong" in spans
+    assert "judgment is the problem" in spans
+
+
+def test_the_span_alone_cannot_decide_it():
+    """Pins WHY the check takes surrounding text rather than the match.
+
+    The first fix checked the span and did not work: in the real false
+    positive the span is `willpower is the wrong` -- clean prose. The markup
+    sits outside the match window. The evidence for a quotation is never
+    inside the quotation.
+    """
+    assert not sd._is_quotation("willpower is the wrong material", 0, 22)
+    quoted = "see `willpower is the wrong material` here"
+    assert sd._is_quotation(quoted, 5, 27)
