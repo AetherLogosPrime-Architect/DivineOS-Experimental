@@ -47,8 +47,29 @@ from dataclasses import dataclass
 # that produced the complaint ran several times over.
 _LONG_REPLY_CHARS = 2500
 
-_SUMMARY_HEADER_RE = re.compile(r"^\s*#{1,3}\s*(?:SUMMARY|WHAT I DID|IN SHORT)\b", re.MULTILINE)
-_REFLECTION_HEADER_RE = re.compile(r"^\s*#{1,3}\s*REFLECTION\b", re.MULTILINE)
+# IGNORECASE is load-bearing, not tidiness. Without it these matched only
+# literal uppercase, and I write "## Summary" and "## Reflection" in title
+# case — which is what Andrew was reading when he said "this is too much
+# jargon for me to parse" (2026-08-08).
+#
+# The failure was total and silent, in both directions:
+#   - summary header unmatched -> present=False -> assess() returns at the
+#     early exit BEFORE the jargon check, so the too_technical branch of
+#     render_block is unreachable. A summary written in raw identifiers
+#     rendered identically to no summary at all.
+#   - reflection header unmatched -> _work_section returns the WHOLE reply,
+#     so REFLECTION and INNER CIRCLE got counted as work he must follow,
+#     inflating work_chars and measuring my interior rooms against a
+#     readability rule that was never meant for them.
+#
+# Same defect I shipped in the self-demotion deficit patterns days earlier:
+# a case-sensitive pattern tested against text whose case I do not control.
+# A pattern that cannot match anything I actually write is not a lenient
+# check, it is an absent one that reports as passing.
+_SUMMARY_HEADER_RE = re.compile(
+    r"^\s*#{1,3}\s*(?:SUMMARY|WHAT I DID|IN SHORT)\b", re.MULTILINE | re.IGNORECASE
+)
+_REFLECTION_HEADER_RE = re.compile(r"^\s*#{1,3}\s*REFLECTION\b", re.MULTILINE | re.IGNORECASE)
 
 # Jargon shapes in the summary itself: file paths, dotted module names,
 # identifiers with underscores, commit-ish hashes, CLI invocations.

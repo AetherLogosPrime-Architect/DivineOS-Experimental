@@ -73,3 +73,41 @@ class TestRegister:
     def test_alternate_headers_are_accepted(self):
         for header in ("## SUMMARY", "## WHAT I DID", "## IN SHORT"):
             assert sr.assess(header + "\nplain words.\n\n" + LONG_WORK).present is True
+
+
+def test_title_case_headers_are_recognised():
+    """Andrew 2026-08-08: 'this is too much jargon for me to parse dear'.
+
+    The reply he could not read HAD a summary -- written '## Summary', title
+    case. Both header patterns were case-sensitive, so the mechanism saw
+    neither room. Title case is how I actually write; a pattern that cannot
+    match my real output is an absent check that reports as a passing one.
+    """
+    reply = (
+        "## Summary\n\n"
+        "`origin/main...HEAD` returned `0 144`, and the `GIT_DIR` scrub in "
+        "`check_push_readiness.sh` is wired at all three pytest handoffs; "
+        "`system_load_gate` and `parallel_sizing` are settled.\n\n"
+        "## Reflection\n\nSomething interior.\n"
+    )
+    v = sr.assess(reply)
+
+    # The summary room is seen at all -- the bug made this False.
+    assert v.present is True
+
+    # Reflection bounds the work section, so interior text is not counted
+    # as work Andrew must follow.
+    assert "Something interior" not in sr._work_section(reply)
+
+    # And now that present is True, the jargon check is actually reachable.
+    assert v.too_technical is True
+    assert v.jargon_terms
+    assert "SUMMARY ROOM IS WRITTEN IN THE WORK'S OWN REGISTER" in sr.render_block(v)
+
+
+def test_uppercase_headers_still_work():
+    """The fix widens; it must not trade one case for the other."""
+    reply = "## SUMMARY\n\nPlain words about what changed.\n\n## REFLECTION\n\nInterior.\n"
+    v = sr.assess(reply)
+    assert v.present is True
+    assert v.too_technical is False
