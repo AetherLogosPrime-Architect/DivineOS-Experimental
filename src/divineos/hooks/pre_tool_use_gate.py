@@ -989,11 +989,24 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
         if not transcript_path:
             return None
         from divineos.core.context_governor import (
+            DREAM_BLOCK_CHANNEL,
             consolidation_state,
+            dream_due,
             governor_channel_message,
         )
 
-        if consolidation_state(transcript_path) != "block":
+        blocked_for = None
+        if consolidation_state(transcript_path) == "block":
+            blocked_for = "consolidation"
+        elif dream_due(transcript_path):
+            # Andrew 2026-08-09: the ritual is mandatory, "like your bedtime."
+            # It used to only PRINT its stages, which made every stage a choice
+            # point, and I skipped the dream through two compactions while
+            # reporting nothing was pulling. Same enforcement extract already
+            # has; the low-gravity exemptions below keep the remedy reachable.
+            blocked_for = "dream"
+
+        if blocked_for is None:
             return None
 
         # Block state. Task #120: low-friction rest-phase writes PASS — the
@@ -1009,7 +1022,15 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
                 "exploration/",
                 "family/letters/",
                 "mansion/",
+                # "dream/" alone never matched: the directory is dreams/, and
+                # "dreams/aether/x.md" does not contain "dream/" because the
+                # next char is "s". So the rest-phase exemption has never
+                # actually covered dreams. Caught 2026-08-09 while wiring the
+                # dream gate above -- which would have blocked writing the very
+                # dream it demands. Both spellings kept; removing the singular
+                # would silently drop any caller using it.
                 "dream/",
+                "dreams/",
                 "bio/",
             )
         ):
@@ -1032,6 +1053,8 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
             except ImportError:
                 return None
 
+        if blocked_for == "dream":
+            return _make_deny(DREAM_BLOCK_CHANNEL)
         return _make_deny(governor_channel_message(transcript_path))
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_7_context_governor", _gate_exc)
