@@ -91,8 +91,21 @@ def register(cli: click.Group) -> None:
         click.secho(f"{len(items)} pending structural fix(es):", fg="cyan")
         for e in items:
             click.echo(f"  {e.get('id', '?')}  [{e.get('status', 'open')}]")
-            content = (e.get("content") or "").replace("\n", " ")
-            click.echo(f"      {content[:150]}")
+            # The stored field is `content_excerpt`. This read `content`, which
+            # no record has, so every one of 129 obligations printed as a blank
+            # line under its id -- the ids were right, so the list looked like
+            # it was working and reported an empty backlog 129 times.
+            #
+            # Found 2026-08-09 when the briefing named the oldest one (69 days)
+            # WITH its text while this command showed nothing: two surfaces
+            # over one store disagreeing, and the one I would triage from was
+            # the blind one. `content` is kept as a fallback so a record
+            # written under the other shape still renders.
+            #
+            # This is why the backlog never got worked. Not neglect -- you
+            # cannot triage a list that will not tell you what is in it.
+            content = (e.get("content_excerpt") or e.get("content") or "").replace("\n", " ")
+            click.echo(f"      {content[:150] or '(no text recorded)'}")
 
     @psf_group.command("mark-done")
     @click.argument("psf_id")
