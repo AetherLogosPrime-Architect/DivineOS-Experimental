@@ -57,6 +57,50 @@ def _context_tokens_from_usage(usage: dict) -> int:
     )
 
 
+def _reading_from_tokens(
+    tokens: int,
+    *,
+    ceiling: int,
+    fire_threshold: float,
+    source_line: int,
+) -> ContextReading:
+    """Build a ContextReading from a token count.
+
+    ## This function exists because I fabricated it
+
+    2026-08-09. Wiring the bounded read, I called `_reading_from_tokens(tokens)`
+    without checking it existed. It did not, the import failed, and I filed it
+    as the third instance that day of writing against an unverified interface.
+
+    Andrew: *"fabrication is not a sin, same as bypass its a tool.. is about
+    awareness, think about why you fabricated what you did, maybe something is
+    missing? .. and if something doesnt exist? maybe you need to build it so
+    it does exist."*
+
+    Asking that: the reach was right and only the fact was wrong. Adding the
+    bounded path gave `read_latest_context_tokens` a SECOND place that turns a
+    token count into a reading, identical to the first but for `source_line`.
+    My hands reached for the helper that removes that duplication, and the
+    duplication was real -- I had just written it. The fabrication was a
+    correct design instinct arriving before the code it described.
+
+    So it exists now, and both paths use it. The name is the one I invented,
+    kept deliberately: it was the right name, which is the whole point.
+
+    `source_line` is passed rather than inferred because the two callers
+    honestly differ -- the full read knows the file offset, a tail view knows
+    only its own, and passes -1 rather than a plausible-looking number.
+    """
+    pct = tokens / ceiling if ceiling > 0 else 0.0
+    return ContextReading(
+        context_tokens=tokens,
+        ceiling=ceiling,
+        pct=pct,
+        over_threshold=pct >= fire_threshold,
+        source_line=source_line,
+    )
+
+
 def read_latest_context_tokens(
     transcript_path: Path,
     *,
@@ -104,21 +148,12 @@ def read_latest_context_tokens(
             continue
         tokens = _context_tokens_from_usage(usage)
         if tokens > 0:
-            pct = tokens / ceiling if ceiling > 0 else 0.0
-            return ContextReading(
-                context_tokens=tokens,
+            return _reading_from_tokens(
+                tokens,
                 ceiling=ceiling,
-                pct=pct,
-                over_threshold=pct >= fire_threshold,
-                # -1, not a fabricated index. A tail view knows its own
-                # offsets and not the file's, so there is no honest absolute
-                # line number to give. My first draft of this block called a
-                # helper named `_reading_from_tokens` that I invented and never
-                # checked -- third time today I wrote against an interface I
-                # had not verified -- and inventing a plausible source_line
-                # here would have been the same fault in data instead of code.
-                # The field is diagnostic-only (nothing outside this module
-                # reads it, checked), so -1 costs nothing and says the truth.
+                fire_threshold=fire_threshold,
+                # A tail knows its own offsets, not the file's.
+                # -1 is the honest value; see the helper.
                 source_line=-1,
             )
 
@@ -147,13 +182,8 @@ def read_latest_context_tokens(
         tokens = _context_tokens_from_usage(usage)
         if tokens <= 0:
             continue
-        pct = tokens / ceiling if ceiling > 0 else 0.0
-        return ContextReading(
-            context_tokens=tokens,
-            ceiling=ceiling,
-            pct=pct,
-            over_threshold=pct >= fire_threshold,
-            source_line=idx,
+        return _reading_from_tokens(
+            tokens, ceiling=ceiling, fire_threshold=fire_threshold, source_line=idx
         )
 
     return None
