@@ -554,6 +554,32 @@ def _is_bypass_command(cmd: str) -> bool:
         or ".divineos\\context_consolidated.json" in cmd
     ):
         return True
+    # 2026-08-09, same rule as directly above and the same chicken-and-egg.
+    # The correction-gate block message names THREE first-class remedies --
+    # `divineos learn`, `divineos correction`, and
+    # `python scripts/clear_correction_marker.py` -- and states in its own
+    # text that "the PreToolUse gate exempts each". It exempted two. The
+    # third was blocked in both plain and `cd DIR &&` form, verified by
+    # calling this function directly on all five shapes.
+    #
+    # And the blocked one is the remedy specifically FOR when the CLI is
+    # broken -- mid-rebase, import error, the cases where `divineos
+    # correction` cannot run. So the escape hatch for being stuck was the
+    # one nailed shut, and the situations that need it are exactly the ones
+    # where the other two are unavailable.
+    #
+    # This is the root cause behind the loudest row in the backlog:
+    # psf-01d5f2af, "Aria gate-locked on her side (engagement gate blocks
+    # even clear-commands)", filed 65 times across 11 days in July and never
+    # fixed. An emergency bypass marker was used each time because the
+    # documented way out did not work.
+    #
+    # Exempting it removes no discipline of its own: the script still
+    # requires a named reason of at least 30 characters and still writes
+    # every use to ~/.divineos/cli_broken_escapes.jsonl. The audit survives;
+    # only the deadlock goes.
+    if "clear_correction_marker.py" in cmd:
+        return True
     # divineos bypass subcommands — anchored to command start (F22 fix).
     match = _DIVINEOS_SUBCMD_RE.match(cmd)
     if match and match.group(1) in _BYPASS_DIVINEOS_SUBCOMMANDS:
