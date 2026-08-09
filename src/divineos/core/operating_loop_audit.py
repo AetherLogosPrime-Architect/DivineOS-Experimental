@@ -1626,8 +1626,28 @@ def run_audit(
             # close.
             _raw_wc = check_wallclock_fabrication(last_assistant_text)
             lepos_wallclock_block = _with_root_cause_footer(_raw_wc) if _raw_wc else None
-        except _ERRORS:
-            lepos_dual_channel_block = None
+        except _ERRORS as exc:
+            # 2026-08-08. This used to set both blocks to None, so a gate that
+            # CRASHED and a reply that PASSED rendered identically -- the
+            # mechanism had no way to say "I could not look". Andrew had just
+            # said of this gate: "this is something very important to me so idk
+            # why its always put off until later", and a silent-pass on error
+            # is the same absence as the ten days it spent switched off, only
+            # harder to notice because nothing records it.
+            #
+            # Fails loud now. The cost is bounded: a Stop block appends a
+            # notice asking me to fix the gate, in the same turn, which is the
+            # correct response to my own enforcement being broken. Silent-pass
+            # spends that cost on him instead, one unreadable reply at a time.
+            detail = f"{type(exc).__name__}: {exc}"
+            lepos_dual_channel_block = (
+                "LEPOS GATE COULD NOT RUN — this is not a pass. The channel "
+                f"check raised {detail} and was skipped, so this reply went "
+                "out unchecked.\n\n"
+                "Post a short correction line saying the gate is broken (do "
+                "NOT re-emit the reply — re-emission duplicates on his end), "
+                "then fix the gate in this same turn."
+            )
             lepos_wallclock_block = None
 
     # 2026-07-22 (council-8a4d56da4237 design + council-396a28cd3634

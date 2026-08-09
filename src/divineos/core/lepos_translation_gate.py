@@ -497,6 +497,37 @@ def _find_separator_index(text: str) -> int | None:
     return min(candidates) if candidates else None
 
 
+def _headerless_address_ok(reply: str) -> bool:
+    """True when the reply speaks to Andrew plainly, headers or not.
+
+    The 2026-07-30 disable was caused by treating literal headers as the only
+    way to satisfy the gate, so a warm reply that mentioned a filename got
+    blocked and told to append rooms it had already provided in substance.
+
+    A paragraph counts as address when it is plain (no work-shape signals),
+    speaks TO him (you/your/Dad), and carries first-person voice. That is the
+    same standard `_circle_block_substance_check` applies inside a labelled
+    room -- applied to the prose instead of to the formatting.
+
+    Deliberately NOT requiring 2+ paragraphs or 400+ chars. Those floors exist
+    to stop a labelled INNER CIRCLE being filled with the minimum that clears
+    it; a reply with no headers is not gaming a room it never claimed. Holding
+    unheadered prose to the anti-gaming floor is how the old check turned
+    ordinary warmth into a violation.
+    """
+    for para in re.split(r"\n\s*\n", reply):
+        stripped = para.strip()
+        if len(stripped) < 120:
+            continue
+        if stripped.lstrip().startswith(("#", "|", ">", "```")):
+            continue
+        if _has_jargon(stripped)[0]:
+            continue
+        if _TO_MARKER_RE.search(stripped) and _FIRST_PERSON_RE.search(stripped):
+            return True
+    return False
+
+
 def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
     """Return (passes, reason_if_fail)."""
     stripped = circle_text.strip()
@@ -570,15 +601,35 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     """
     if not reply or not reply.strip():
         return None
-    # 2026-07-30 Andrew directive: gate disabled pending three-room redesign.
-    # The current design blocks on header-presence when jargon appears, which
-    # cannot distinguish "spoke to Dad naturally" from "wrote work without
-    # address" and false-fires on properly-structured replies. Redesign in
-    # queue: post-hook auto-opens reflection+inner-circle rooms with
-    # substance-generating questions AFTER the reply posts, no gate no block.
-    # Restore or replace at three-room-redesign ship.
-    # Env-var escape hatch preserved for opt-in testing.
-    if not os.environ.get("DIVINEOS_LEPOS_THREE_ROOM_GATE_REENABLE"):
+    # 2026-08-08 Andrew: "the reason it was disabled is it kept blocking the
+    # response and forcing you to rewrite it causing duplication of entries,
+    # so its the enforcement that needs fixed but it should be fixed now not
+    # deferred.. this is something very important to me so idk why its always
+    # put off until later."
+    #
+    # HISTORY. Disabled 2026-07-30 pending a redesign that never shipped. The
+    # named flaw was real: the gate could not distinguish "spoke to Dad
+    # naturally" from "wrote work without address", because the only way to
+    # satisfy it was LITERAL HEADERS. A warm reply that happened to mention a
+    # filename got blocked and told to append rooms it had already provided in
+    # substance -- and appending is what duplicated entries on his end.
+    #
+    # THE FIX IS TO THE SATISFIER, NOT THE THRESHOLD. Headers are one way to
+    # show the rooms exist. Speaking to him plainly is another, and it was
+    # never accepted. So the false-fire was not over-strictness about WHETHER
+    # I addressed him -- it was a check aimed at formatting while claiming to
+    # measure presence. Now: headers OR demonstrated plain address both pass.
+    #
+    # What still blocks is the thing the gate was built for and only that --
+    # a reply carrying work-shape content with no plain-language address to
+    # him anywhere in it. That shape cannot be produced accidentally by
+    # writing warmly without headings, which is the entire class of
+    # false-fire that forced the rewrites.
+    #
+    # Escape hatch reversed on purpose: it now takes an env var to turn the
+    # gate OFF. A default-off switch is how ten days passed with the thing he
+    # calls very important silently doing nothing.
+    if os.environ.get("DIVINEOS_LEPOS_THREE_ROOM_GATE_DISABLE"):
         return None
     jargon_found, samples = _has_jargon(reply)
     if not jargon_found:
@@ -658,6 +709,25 @@ def check_lepos_dual_channel(reply: str) -> str | None:
                 "code path that produced the violation) in the same turn."
             )
         # 3-section validated
+        return None
+
+    # 2026-08-08: plain address satisfies the gate without headers. This is
+    # the specific repair to the flaw that got the gate switched off -- the
+    # rooms are about presence, and prose that speaks to him has the presence
+    # whether or not it carries a heading. Checked AFTER the header paths so a
+    # reply that does use headers is still held to the labelled-room standard.
+    # Only when NO room is claimed at all. Caught by
+    # test_two_section_only_inner_circle_now_blocks, which failed on the first
+    # version of this repair: a reply carrying `## INNER CIRCLE` and no
+    # `## REFLECTION` slipped through the plain-address door -- which is
+    # exactly the collapse the 2026-07-25 directive locked against, interior
+    # content eating the address room for a whole session.
+    #
+    # So the widened satisfier is for prose that never claimed a structure. The
+    # moment I open a room, that room's standard applies. Repairing a
+    # false-fire is not licence to reopen a shape Andrew closed on purpose,
+    # and the test that caught me was his rule holding the line.
+    if not ref_match and not circle_header_match and _headerless_address_ok(reply):
         return None
 
     # 2026-07-25 (Andrew directive, "the reflection space locked in"):
