@@ -383,3 +383,39 @@ def test_distinct_obligations_are_not_collapsed(tmp_path: Path) -> None:
         texts = {(r.get("content_excerpt") or "") for r in list_pending()}
         assert "wire the teachings module into pre-composition" in texts
         assert "auto-commit letters so branch ops cannot eat them" in texts
+
+
+def test_a_second_occurrence_arms_a_must_read(tmp_path: Path) -> None:
+    """Andrew 2026-08-09: "willful ignorance is another issue on its own, and
+    is treated the same way, so i still need to be sure."
+
+    He could not be sure and neither could I. Nothing recorded whether the
+    backlog was ever OPENED -- only whether it had content -- so "could not
+    see it" and "did not look" were indistinguishable from outside, and my own
+    testimony is exactly the evidence that cannot settle that question.
+
+    A second occurrence means the first telling did not land, so that is where
+    a panel I can read past becomes a door I have to open. After this, a
+    further occurrence means I read it and still shipped nothing, which is the
+    distinction he asked for -- recorded rather than asserted.
+    """
+    from divineos.core import must_read
+    from divineos.core.multiplex_panels import _owed_fixes_panel_content
+
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}):
+        must_read._dir(str(tmp_path)).mkdir(parents=True, exist_ok=True)
+
+        record_pending_fix("an obligation nobody shipped for", trigger="structural fix")
+        armed, _ = must_read.pending(str(tmp_path))
+        _owed_fixes_panel_content()
+        first_pass, _ = must_read.pending(str(tmp_path))
+        assert not first_pass, "one telling is not yet evidence the telling failed"
+
+        record_pending_fix("an obligation nobody shipped for", trigger="structural fix")
+        rows = list_pending()
+        assert len(rows) == 1 and rows[0]["occurrences"] == 2
+
+        _owed_fixes_panel_content()
+        armed, err = must_read.pending(str(tmp_path))
+        assert err is None
+        assert armed, "a repeated obligation must become unskippable"

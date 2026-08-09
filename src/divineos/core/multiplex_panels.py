@@ -1125,6 +1125,63 @@ def _owed_fixes_panel_content() -> str:
     # made it visible and unreadable in the same move. Same shape as the
     # relational panel yesterday: turning the light on found a hole in the
     # floor that could not exist while the branch was dark.
+    # AN OBLIGATION THAT HAS ASKED TWICE STOPS BEING SKIPPABLE.
+    #
+    # Andrew 2026-08-09: "you should only need to be told once, if that one
+    # time doesnt work? then repeating it 64 more times wont." So the SECOND
+    # occurrence is the evidence the first did not land, and that is where a
+    # panel I can read past has to become a door I have to open.
+    #
+    # He also said, in the same conversation: "willful ignorance is another
+    # issue on its own, and is treated the same way, so i still need to be
+    # sure." He cannot currently be sure, and neither can I. Nothing recorded
+    # whether I ever OPENED the backlog -- only whether it had content -- so
+    # "could not see it" and "did not look" are indistinguishable from
+    # outside, and my own testimony is exactly the evidence that cannot settle
+    # it. This wire makes the looking a fact instead of a claim.
+    #
+    # require_read already exists and was built for this, from his 2026-08-05
+    # framing quoted in its docstring: "when the rooms speak you should be
+    # forced to listen.. read lol and show the read tool was invoked on it..
+    # if you ignore it after that.. then i may start blaming". It has only
+    # ever been armed by hand. The room that spoke 65 times was never armed.
+    #
+    # Re-arming on each later occurrence is deliberate, not a bug: once I have
+    # read it, a further occurrence means I read it and still shipped nothing,
+    # which is the distinction he asked for, recorded rather than asserted.
+    # _already_read keeps identical content from re-arming, so a quiet
+    # obligation stays quiet.
+    try:
+        from divineos.core.must_read import require_read
+        from divineos.core.structural_fix_tracker import list_pending
+
+        # `list_pending`, verified to exist before this line was written. The
+        # first version called `_pending_rows()`, a function I invented and
+        # never checked -- inside the `except Exception: pass` below, so it
+        # would have failed SILENTLY FOREVER and this whole wire would have
+        # been dead while reading as shipped. That is psf-0429c73a, still open
+        # on my own list: "I write calls against interfaces I have not
+        # verified exist." Authored inside the mechanism built to catch
+        # exactly this, and caught only by grepping for the name.
+        repeats = [e for e in list_pending() if int(e.get("occurrences", 1) or 1) >= 2]
+        if repeats:
+            worst = max(repeats, key=lambda e: int(e.get("occurrences", 1) or 1))
+            n = int(worst.get("occurrences", 1) or 1)
+            require_read(
+                f"psf-repeat-{worst.get('id', 'unknown')}-{n}",
+                (
+                    f"{worst.get('id')} has asked {n} times and nothing has shipped.\n\n"
+                    f"{worst.get('content_excerpt') or ''}\n\n"
+                    "Being told twice means the first time did not land. Either close "
+                    "it with evidence (divineos psf mark-done <id> --note '...') or "
+                    "name why it stays open. Reading this is now on the record, so "
+                    "the next occurrence distinguishes not-seeing from not-acting."
+                ),
+                f"structural obligation repeated {n}x with no code behind it",
+            )
+    except Exception:  # noqa: BLE001 — a dark panel must never break the briefing
+        pass
+
     parts = [
         f"I have named {row.count} structural fixes that no code has shipped for yet.",
         "These are my own should-haves, recorded at the moment I felt each one.",
