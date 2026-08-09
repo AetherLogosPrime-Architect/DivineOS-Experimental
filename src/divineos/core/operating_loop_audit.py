@@ -408,6 +408,60 @@ def _latest_user_timestamp(transcript_path: str | Path) -> float | None:
     if not path.exists():
         return None
     latest: float | None = None
+
+    # 2026-08-09: bounded read. This wants the LATEST matching record and was
+    # reading the whole file to find it -- on a 67 MB transcript, parsing every
+    # line of session history to learn about the most recent one.
+    #
+    # THE FREEZE. Andrew: "it said stopping for a few mins then stopped."
+    # Measured this session: 8 Stop hooks each read and JSON-parse the entire
+    # transcript, ~539 MB of disk-and-parse on every stop, against 1,261 MB of
+    # accumulated history. Aether measured the cause on 2026-08-03 and we wrote
+    # transcript_tail.py for it; it then sat with ZERO callers for six days
+    # while the freeze kept happening. Its own docstring names three intended
+    # callers, none of which were ever wired to it.
+    #
+    # WHY THIS CALL SITE IS SAFE and not every one is. Aether's concern is
+    # exactly right: "a bounded reader that silently gives a detector less than
+    # it had is a false-negative generator" -- the could-not-look-versus-found-
+    # nothing failure, inside the repair for it. So the axis is not which hook
+    # event fires it; it is WHAT THE CONSUMER NEEDS. This function needs the
+    # newest matching record, and a tail contains the newest by construction.
+    # It cannot starve. `_extract_letter_paths_from_transcript` above collects
+    # across history and is NOT safe by the same argument, so it is untouched.
+    #
+    # `truncated` is carried, not discarded: if the tail held no human prompt
+    # at all AND was cut, the honest answer is "I could not see far enough",
+    # which falls through to the full read rather than returning a confident
+    # None. The third word, kept.
+    records: list[dict] | None = None
+    truncated = False
+    try:
+        from divineos.core.operating_loop.transcript_tail import read_tail_records
+
+        records, truncated = read_tail_records(path)
+    except _ERRORS:
+        records = None
+
+    if records is not None:
+        for rec in records:
+            if rec.get("type") != "user" or not _is_human_prompt_record(rec):
+                continue
+            ts = rec.get("timestamp")
+            if not ts:
+                continue
+            try:
+                parsed = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+            except (ValueError, TypeError):
+                continue
+            if latest is None or parsed > latest:
+                latest = parsed
+        if latest is not None or not truncated:
+            # Found one, or saw the whole file. Either way this answer is real.
+            return latest
+        # Nothing found AND the view was cut: fall through and read it all
+        # rather than report a confident absence I did not earn.
+
     try:
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
