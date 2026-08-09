@@ -307,6 +307,31 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         "context_surfacer.py": "pre-response surfacer, not post-response detector",
         "detector_protocol.py": "type-only contract module",
         "hook_telemetry.py": "telemetry recorder, not a detector",
+        # Exempt from the DETECTOR contract because it is a bounded READER --
+        # it reads the tail of a transcript rather than scanning response text.
+        # The orchestrator was always the wrong home for it.
+        #
+        # BUT DO NOT READ THIS EXEMPTION AS "FINE". Measured 2026-08-09: zero
+        # callers anywhere in the repo. No module, no hook, no test. It is the
+        # freeze fix -- written after Andrew's windows locked up, "the timer
+        # comes, the thinking never arrives" -- against sixteen hooks each
+        # parsing tens of megabytes of transcript in the gap between his
+        # keypress and my first thought. Aether measured a 39 MB live
+        # transcript; my project history is 298 MB.
+        #
+        # So the fix for a problem he is STILL hitting has sat unwired since
+        # 2026-08-03, and this test surfaced it only because it blocked a push
+        # for an unrelated reason.
+        #
+        # This entry makes the CLASSIFICATION honest, not the situation.
+        # Wiring it touches ~19 hooks on his machine and is not a change to
+        # make unilaterally mid-push, so it is filed as an obligation that
+        # will ask again rather than going quiet.
+        "transcript_tail.py": (
+            "bounded transcript READER, not a response-text detector -- but "
+            "currently has ZERO callers repo-wide; this exemption is about "
+            "classification, not health (see note above)"
+        ),
         "principle_surfacer.py": "pre-response surfacer",
         "register_observer.py": "observer recorder, called from audit but not via import-and-call shape",
         "registered_names.py": "name registry",
