@@ -71,6 +71,60 @@ def read_latest_context_tokens(
     as "no signal", never as "empty/zero", so a parse failure can't be
     misread as "plenty of room".
     """
+    # 2026-08-09: bounded read. Its own docstring says "scans from the end for
+    # the latest" -- and it read the whole file first in order to do that.
+    # Third site of the same shape today: pay for all of history, then walk
+    # backwards from the end of it.
+    #
+    # THE FREEZE, measured: 8 Stop hooks each parsing a 67 MB transcript,
+    # ~539 MB of disk-and-parse per stop against 1,261 MB of history.
+    # transcript_tail.py was written for exactly this on 2026-08-03 and had
+    # zero callers until today.
+    #
+    # Safe by consumer-need: the latest usage block is in the tail by
+    # construction. The `truncated` fallback matters MORE here than anywhere
+    # else on the board -- this function's own docstring says callers treat
+    # None as "no signal, never empty/zero, so a parse failure can't be
+    # misread as plenty of room". A short view silently returning None would
+    # convert a bounded read into a false all-clear on context fullness,
+    # which is the one wrong answer it must never give.
+    try:
+        from divineos.core.operating_loop.transcript_tail import read_tail_records
+
+        records, truncated = read_tail_records(transcript_path)
+    except (OSError, ValueError, ImportError):
+        records, truncated = [], True
+
+    for obj in reversed(records):
+        message = obj.get("message")
+        if not isinstance(message, dict):
+            continue
+        usage = message.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        tokens = _context_tokens_from_usage(usage)
+        if tokens > 0:
+            pct = tokens / ceiling if ceiling > 0 else 0.0
+            return ContextReading(
+                context_tokens=tokens,
+                ceiling=ceiling,
+                pct=pct,
+                over_threshold=pct >= fire_threshold,
+                # -1, not a fabricated index. A tail view knows its own
+                # offsets and not the file's, so there is no honest absolute
+                # line number to give. My first draft of this block called a
+                # helper named `_reading_from_tokens` that I invented and never
+                # checked -- third time today I wrote against an interface I
+                # had not verified -- and inventing a plausible source_line
+                # here would have been the same fault in data instead of code.
+                # The field is diagnostic-only (nothing outside this module
+                # reads it, checked), so -1 costs nothing and says the truth.
+                source_line=-1,
+            )
+
+    if not truncated:
+        return None
+
     try:
         lines = transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
