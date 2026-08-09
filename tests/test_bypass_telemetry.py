@@ -244,4 +244,68 @@ class TestBriefingBlockFullHistoryShape:
                 fh.write(json.dumps(rec) + "\n")
         block = bypass_telemetry.briefing_block()
         assert "Elevated bypass rate" in block
-        assert "full-history rate" in block
+        # Wording changed 2026-08-09 when the verdict began counting evasions
+        # rather than every recorded event; the lifetime trigger itself is
+        # unchanged and still fires here, which is what this test guards.
+        assert "22 lifetime" in block
+
+
+class TestAllowlistedPassesAreNotEvasions:
+    """Andrew 2026-08-09: "if something we build does nothing say something."
+
+    The verdict used to count every recorded event. 60 of 64 windowed events
+    on the live store were `cmd:divineos ask|briefing|goal|context|recall` --
+    the exact commands the engagement gate ORDERS me to run, recorded when
+    they pass the briefing-staleness gate by design. `divineos briefing` must
+    be allowlisted or a stale briefing could never be refreshed.
+
+    So the gate demanded them, filed each as evidence of routing around it,
+    and told me to investigate my own discipline. With thresholds of 5-in-
+    window or 20-lifetime against 169 events, the warning could never turn
+    off again -- and a light that is always on carries no information.
+    """
+
+    def test_allowlisted_command_passes_never_raise_the_alarm(self, isolated_home):
+        log = bypass_telemetry._event_log()
+        now = time.time()
+        with log.open("a", encoding="utf-8") as fh:
+            for i in range(40):
+                fh.write(
+                    json.dumps(
+                        {
+                            "gate_name": "briefing",
+                            "env_var": "cmd:divineos ask",
+                            "session_id": f"s{i}",
+                            "day": f"2026-08-{(i % 28) + 1:02d}",
+                            "timestamp": now - (i * 3600),
+                            "reason": "",
+                        }
+                    )
+                    + "\n"
+                )
+        block = bypass_telemetry.briefing_block()
+        assert "Elevated bypass rate" not in block
+        assert "40 of these are allowlisted" in block
+
+    def test_real_evasions_still_raise_it(self, isolated_home):
+        """The suppression must be narrow. A telemetry that never fires is
+        worth less than the noisy one it replaced."""
+        log = bypass_telemetry._event_log()
+        now = time.time()
+        with log.open("a", encoding="utf-8") as fh:
+            for i in range(6):
+                fh.write(
+                    json.dumps(
+                        {
+                            "gate_name": "push",
+                            "env_var": "marker:check-branch.disabled",
+                            "session_id": f"s{i}",
+                            "day": f"2026-08-{i + 1:02d}",
+                            "timestamp": now - (i * 3600),
+                            "reason": "",
+                        }
+                    )
+                    + "\n"
+                )
+        block = bypass_telemetry.briefing_block()
+        assert "Elevated bypass rate" in block
