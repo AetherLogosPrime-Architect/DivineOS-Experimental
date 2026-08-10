@@ -16,6 +16,7 @@ import click
 
 from divineos.core.council_walk import (
     GRAVITY_FLOORS,
+    open_walks,
     WalkRefused,
     apply_lens,
     close_walk,
@@ -104,3 +105,19 @@ def register(cli: click.Group) -> None:
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {walk_id} closed — {len(st['lenses'])} lenses accounted for.", fg="green")
+
+    @walk_group.command("list")
+    def list_cmd() -> None:
+        """Walks left open — unfinished thinking."""
+        rows = open_walks(10)
+        click.echo()
+        if not rows:
+            click.secho("No walks left open.", fg="green")
+            return
+        for row in rows:
+            click.secho(
+                f"{row['walk_id']}: {row['unaccounted']} of {row['total_lenses']} unaccounted",
+                fg="yellow",
+            )
+            click.echo(f"    {str(row['problem'])[:160]}")
+        click.echo()

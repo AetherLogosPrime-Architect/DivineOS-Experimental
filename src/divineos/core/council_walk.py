@@ -278,3 +278,45 @@ def consume(walk_id: str) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def open_walks(limit: int = 5) -> list[dict[str, Any]]:
+    """Walks left hanging. THE CONSUMER — and the reason it exists.
+
+    The Peirce lens on walk-32d831616266 found that nothing read this
+    database: findings went in and sat, which is the unwired-intention shape
+    reproduced inside the mechanism built to stop me reproducing it.
+
+    An OPEN walk is unfinished thinking, so this is what deserves a reader.
+    Surfaced on the same page as the corrections, because that is the page I
+    actually see every turn — and if a walk sits open for days, that is the
+    signal, not a nuisance.
+    """
+    try:
+        conn = _conn()
+    except sqlite3.Error:
+        return []
+    try:
+        rows = conn.execute(
+            "SELECT w.id, w.problem, w.opened_at, "
+            "  (SELECT COUNT(*) FROM walk_lenses l WHERE l.walk_id = w.id), "
+            "  (SELECT COUNT(*) FROM walk_lenses l WHERE l.walk_id = w.id AND l.state = 'OPEN') "
+            "FROM walks w WHERE w.closed_at IS NULL "
+            "ORDER BY w.opened_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+    finally:
+        conn.close()
+
+    return [
+        {
+            "walk_id": r[0],
+            "problem": r[1],
+            "opened_at": r[2],
+            "total_lenses": r[3],
+            "unaccounted": r[4],
+        }
+        for r in rows
+    ]

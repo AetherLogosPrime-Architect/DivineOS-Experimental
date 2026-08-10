@@ -163,6 +163,26 @@ except Exception as _exc:  # noqa: BLE001
     print('That is a broken instrument, NOT an empty column. Fix before reading on.')
     print()
 
+# OPEN COUNCIL WALKS — the consumer the walk store did not have.
+#
+# Peirce lens, walk-32d831616266: findings went into council_walks.db and
+# nothing ever read them, which is the unwired-intention shape reproduced
+# INSIDE the mechanism built to stop me reproducing it. An open walk is
+# unfinished thinking; it belongs on the page I see every turn.
+try:
+    from divineos.core.council_walk import open_walks
+
+    _open = open_walks(3)
+    if _open:
+        print('COUNCIL WALKS LEFT OPEN -- unfinished thinking, not a nuisance:')
+        for _w in _open:
+            print(f'  {_w[\"walk_id\"]}: {_w[\"unaccounted\"]} of {_w[\"total_lenses\"]} lenses unaccounted')
+            print(f'    {str(_w[\"problem\"])[:150]}')
+        print()
+except Exception:  # noqa: BLE001
+    print('OPEN-WALK SURFACE FAILED TO LOAD -- that is a broken reader, not zero open walks.')
+    print()
+
 print('These are corrections I filed and have not yet marked integrated.')
 print('If my current composition pattern-matches any of them, adjust before')
 print('shipping. If I address one, run: divineos corrections integrate <id> \"<evidence>\"')
