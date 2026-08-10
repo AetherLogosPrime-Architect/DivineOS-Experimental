@@ -102,7 +102,7 @@ from divineos.core.memory_linkage_retriever import (
     _ensure_cache,
     _shape_content,
     composite_score,
-    compute_threshold,
+    threshold_for_target_k,
     synthesize_topic,
 )
 
@@ -449,9 +449,13 @@ def retrieve_v2(
     # contested span after the loop. Empty when nothing is primed.
     _priming_factors: dict[str, float] = {}
     for source, items in _EMBEDDING_CACHE.items():
-        threshold = compute_threshold(source, len(items))
-        for item in items:
-            similarity = _cosine(topic_vec, item.embedding)
+        # TWO PASSES, and the first one is the whole fix. The bar is read off
+        # the scores this turn actually produced rather than guessed from cache
+        # size, so target_k finally decides what target_k always claimed to.
+        # Andrew 2026-08-10: "are you ever going to wire it?"
+        sims = [_cosine(topic_vec, item.embedding) for item in items]
+        threshold = threshold_for_target_k(sims, source, len(items))
+        for item, similarity in zip(items, sims, strict=True):
             # C4: threshold gate stays similarity-based; priming does
             # NOT lift items over the threshold.
             if similarity < threshold:
@@ -568,9 +572,12 @@ def retrieve_similarity_only(prompt: str) -> list[MemoryLinkagePayload]:
 
     candidates: list[MemoryLinkagePayload] = []
     for source, items in _EMBEDDING_CACHE.items():
-        threshold = compute_threshold(source, len(items))
-        for item in items:
-            similarity = _cosine(topic_vec, item.embedding)
+        # Same derivation as the main lane. Leaving this one on cache-size
+        # guessing would mean the regulatory path and the normal path
+        # disagreed about what counts as relevant — two rulers, one substrate.
+        sims = [_cosine(topic_vec, item.embedding) for item in items]
+        threshold = threshold_for_target_k(sims, source, len(items))
+        for item, similarity in zip(items, sims, strict=True):
             if similarity < threshold:
                 continue
             recency_days = _days_since(item.filed_at_unix)
