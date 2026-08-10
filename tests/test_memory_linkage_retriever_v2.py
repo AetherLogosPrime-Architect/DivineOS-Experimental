@@ -488,3 +488,50 @@ def test_overflow_evicts_oldest():
 def test_supersession_transfers_priming_with_attribution():
     """§10.5 — deferred coverage placeholder."""
     pass
+
+
+def test_priming_is_a_fraction_of_the_contested_span_not_a_fixed_number():
+    """Aether measured what neither of us had (find-ccf2825ee742, 2026-08-10).
+
+    Visible-set composite span, 20 probes, 16 with a contestable ordering:
+
+        span   min 0.006   median 0.084   mean 0.090   max 0.243
+        span <= 0.15  ->  14/16  =  87% of prompts
+
+    PRIMING_MAX_BOOST = 0.15 exceeded the ENTIRE visible span on seven
+    prompts in eight. All four structural bounds held -- priming provably
+    cannot lift a dissimilar item over the threshold -- and none of them
+    constrained what mattered, because reordering IS control when only the
+    top items reach composition.
+
+    A smaller constant does not fix it: the spans swing 40x, so any fixed
+    value is either most of the field or invisible depending on the prompt.
+    The defect was measuring a relative thing with an absolute ruler.
+
+    This pins the invariant that replaced it.
+    """
+    from divineos.core import memory_linkage_retriever_v2 as v2
+
+    assert 0.0 < v2.PRIMING_SPAN_FRACTION <= 0.25, (
+        "priming must stay a tiebreaker among near-equals; much above a "
+        "quarter of the span it starts deciding between clear unequals"
+    )
+
+    for span in (0.006, 0.084, 0.090, 0.243):
+        allowance = v2.PRIMING_SPAN_FRACTION * span
+        assert allowance < span, "priming must never span the whole field"
+        assert allowance <= 0.05, (
+            f"allowance {allowance:.4f} at span {span} should stay small in "
+            "absolute terms across the measured range"
+        )
+
+    # The old failure stated as the thing that must not recur.
+    median_span = 0.084
+    assert v2.PRIMING_SPAN_FRACTION * median_span < median_span * 0.5, (
+        "at the median measured span priming must move an item less than "
+        "half the field -- the condition 0.15 violated outright"
+    )
+    assert v2.PRIMING_MAX_BOOST * 1.0 > median_span, (
+        "documents WHY this changed: the retired absolute ceiling exceeded "
+        "the median measured span, which is how it became unbounded in practice"
+    )

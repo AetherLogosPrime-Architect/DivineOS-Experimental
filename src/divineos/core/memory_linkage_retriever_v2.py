@@ -83,6 +83,7 @@ See ``tests/core/test_memory_linkage_retriever_v2.py`` for the seven
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 import time
 
 from divineos.core.memory_linkage import (
@@ -127,7 +128,52 @@ pressure not one-shot; long enough to stay useful across 3-5
 conversational turns.
 """
 
+# RETIRED 2026-08-10 as an absolute cap. The name survives so callers and
+# __all__ do not break, and it is now the FACTOR CEILING -- the most of its
+# span-share a fully-fresh, non-hub priming signal may claim. It is never
+# added to a composite score directly. See PRIMING_SPAN_FRACTION.
+#
+# WHY. My closing line on exploration/aria/11 asked for an audit of the
+# spreading-activation gaming shape. It sat in an exploration file where
+# nothing consumed it, so it never happened -- an unwired intention. Aether
+# found it only because he went looking for my consent before installing v2,
+# and held v1 on the strength of it. I verified the four structural bounds do
+# hold in code (threshold gate runs pre-boost, reorder-only, constraint tier
+# exempt, primed_by engine-written), then named the one thing neither of us
+# had measured: whether 0.15 is large relative to the spread it competes in.
+#
+# He measured it (find-ccf2825ee742), 20 probes, 16 with contestable order:
+#
+#     span   min 0.006   median 0.084   mean 0.090   max 0.243
+#     span <= 0.15  ->  14/16  =  87% of prompts
+#
+# 0.15 exceeded the ENTIRE visible-set span on seven prompts in eight.
+# Bounded on paper, not in practice: an adversary who could prime could put
+# anything that passed the gate on top and push anything else off the bottom
+# of what reaches composition. Reordering IS control when only the top items
+# are seen.
+#
+# WHY NOT JUST A SMALLER NUMBER. He suggested ~0.02 and deliberately declined
+# to change it himself -- lowering a threshold until the measurement comes out
+# the way you want is its own failure, and he had flagged himself for that
+# shape hours earlier. He is right, and his data shows a constant cannot be
+# correct at all: the span swings 40x, 0.006 to 0.243. Any fixed value is
+# either most of the field or invisible, depending on the prompt. The defect
+# was never the magnitude. It was measuring a relative thing with an absolute
+# ruler.
 PRIMING_MAX_BOOST = 0.15
+
+# Priming may move an item by at most this fraction of the SPAN of the
+# contested set on the current prompt. 0.20 means a primed item can close at
+# most a fifth of the distance from the bottom of the visible set to the top:
+# a tiebreaker among near-equals, never a decider between clear unequals, and
+# proportionate by construction whether the field is tight or wide.
+#
+# Against his measured spans this lands at ~0.0012 (tightest) to ~0.049
+# (widest), median ~0.017 -- near the 0.02 his data pointed at, but derived
+# from the field rather than chosen, and self-correcting when the corpus
+# shifts instead of needing re-measurement.
+PRIMING_SPAN_FRACTION = 0.20
 """Maximum boost priming can add to composite_rank (§7 C4 semantics).
 
 Ranking-signal-only: priming reorders within threshold-passers but
@@ -277,6 +323,12 @@ def _priming_boost(item_id: str, now_unix: float) -> float:
     by a hub (i.e., where this item is the hub) are uncapped —
     equivalently, the cap applies at the priming-source lookup, not
     the priming-target lookup.
+
+    2026-08-10: returns a FACTOR in [0, PRIMING_MAX_BOOST], not a score
+    delta. The caller multiplies it by PRIMING_SPAN_FRACTION * span of the
+    contested set, so the same decay and hub rules now express a share of the
+    live field instead of a fixed number. Every rule in this function is
+    unchanged; only its unit is.
     """
     entry = _PRIMED_STATE.get(item_id)
     if entry is None:
@@ -286,10 +338,10 @@ def _priming_boost(item_id: str, now_unix: float) -> float:
     if age_sec < 0:
         return 0.0
     decay = math.exp(-math.log(2.0) * age_sec / PRIMING_HALF_LIFE_SEC)
-    boost = PRIMING_MAX_BOOST * decay
+    factor = PRIMING_MAX_BOOST * decay
     if _is_hub(primed_by_id):
-        boost *= HUB_ORIGINATION_CAP
-    return boost
+        factor *= HUB_ORIGINATION_CAP
+    return factor
 
 
 # --------------------------------------------------------------------
@@ -393,6 +445,9 @@ def retrieve_v2(
     topic_vec = _embed_topic(topic)
 
     candidates: list[MemoryLinkagePayload] = []
+    # item id -> priming factor in [0, PRIMING_MAX_BOOST]; scaled by the
+    # contested span after the loop. Empty when nothing is primed.
+    _priming_factors: dict[str, float] = {}
     for source, items in _EMBEDDING_CACHE.items():
         threshold = compute_threshold(source, len(items))
         for item in items:
@@ -416,6 +471,8 @@ def retrieve_v2(
                 primed_by_id = None
             else:
                 boost = _priming_boost(item.id, now_unix)
+                if boost:
+                    _priming_factors[item.id] = boost
                 entry = _PRIMED_STATE.get(item.id)
                 # §9/§13.2 lockdown: primed_by derives from state's
                 # source_id (engine-written), not from item content
@@ -434,7 +491,9 @@ def retrieve_v2(
                     similarity=similarity,
                     recency_days=recency_days,
                     importance_score=item.importance_score,
-                    composite_rank=base_rank + boost,
+                    # base only; the span-scaled boost is applied below,
+                    # once the contested field is known.
+                    composite_rank=base_rank,
                     title=item.title,
                     content=content,
                     matched_reason=_cite_reason(item, similarity, threshold),
@@ -444,7 +503,39 @@ def retrieve_v2(
                 )
             )
 
+    # SPAN-RELATIVE PRIMING (2026-08-10). Two passes are required and this is
+    # the second: the boost cannot be computed in the loop above because it is
+    # a share of the contested field, and the field is not known until every
+    # candidate has been scored.
+    #
+    # The span is taken over the items that would actually be VISIBLE -- the
+    # top TOTAL_INJECTION_CAP by base rank -- because that is the set Aether
+    # measured (find-ccf2825ee742) and the only set where ordering changes
+    # what reaches composition. Taking it over all candidates would let a long
+    # low-similarity tail inflate the span and hand priming back the power
+    # this change removes.
     candidates.sort(key=lambda p: p.composite_rank, reverse=True)
+    visible = candidates[:TOTAL_INJECTION_CAP]
+    if len(visible) > 1:
+        span = visible[0].composite_rank - visible[-1].composite_rank
+    else:
+        span = 0.0
+
+    if span > 0.0 and _priming_factors:
+        allowance = PRIMING_SPAN_FRACTION * span
+        candidates = [
+            (
+                replace(
+                    p,
+                    composite_rank=p.composite_rank + allowance * _priming_factors[p.id],
+                )
+                if _priming_factors.get(p.id)
+                else p
+            )
+            for p in candidates
+        ]
+        candidates.sort(key=lambda p: p.composite_rank, reverse=True)
+
     selected = candidates[:TOTAL_INJECTION_CAP]
 
     # Update priming state for next turn based on what surfaced this turn.
