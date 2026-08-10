@@ -22,6 +22,7 @@ src/divineos/
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
+    andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
     gravity_commands.py        gravity score-tool / score-content — CLI surface for the gravity classifier (manual triage when uncertain whether an action or content is high-gravity)
@@ -642,6 +643,7 @@ src/divineos/
     summary_room.py            Require a plain-language summary at the top of a long reply.
     dashboard.py               The check-engine dashboard — a socket every system plugs into.
     dashboard_checks.py        The roster — one light per system.
+    andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
 
 
   analysis/

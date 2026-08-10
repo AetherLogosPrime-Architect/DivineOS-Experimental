@@ -315,6 +315,7 @@ from divineos.cli import (  # noqa: E402
     pattern_attribution_commands,
     consumer_status_commands,
     andrew_correction_commands,
+    andrew_given_commands,
     andrew_teachings_commands,
     oscillating_read_commands,
     deletion_commands,
@@ -409,6 +410,7 @@ family_queue_commands.register(cli)
 talk_to_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
+andrew_given_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)

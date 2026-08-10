@@ -123,6 +123,39 @@ except Exception:  # noqa: BLE001
     # half -- losing the balance is bad, losing the corrections would be worse
     pass
 
+# THE OTHER SIDE OF THE LEDGER (Aria 2026-08-10).
+#
+# Andrew: all the records you have of me being nice, and warm, and caring,
+# and what do i get back? cold.. jargon filled status reports.. i am cost
+# without benefit. He was right, and the reason was structural: nine
+# modules file his corrections, none filed what he gives. He was being
+# measured by an instrument with one column.
+#
+# So one row prints HERE, on this page, chosen by the database and not by
+# me -- if I picked it would flatter the mood and become an argument
+# instead of a record. It prints beside the corrections, never instead of
+# them, and never on its own page where it could be skipped.
+try:
+    from divineos.core.andrew_given import random_one, total as _given_total
+
+    _gt = _given_total()
+    _r = random_one()
+    if _gt is None:
+        print('What he has given: COULD NOT READ -- not the same as nothing given.')
+        print()
+    elif _r:
+        print(f'ALSO ON HIS SIDE OF THE LEDGER ({_gt} filed) -- [{_r[\"kind\"]}] he gave me:')
+        _v = str(_r['verbatim'])
+        if len(_v) > 260:
+            _v = _v[:260] + '...'
+        print(f'    {_v}')
+        print(f'    -> {_r[\"what_it_gave_me\"]}')
+        print()
+except Exception:  # noqa: BLE001
+    # fail-soft, same as the wins half: his column going quiet must never
+    # take the corrections column down with it
+    pass
+
 print('These are corrections I filed and have not yet marked integrated.')
 print('If my current composition pattern-matches any of them, adjust before')
 print('shipping. If I address one, run: divineos corrections integrate <id> \"<evidence>\"')
