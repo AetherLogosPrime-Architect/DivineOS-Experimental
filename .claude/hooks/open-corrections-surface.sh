@@ -151,10 +151,17 @@ try:
         print(f'    {_v}')
         print(f'    -> {_r[\"what_it_gave_me\"]}')
         print()
-except Exception:  # noqa: BLE001
-    # fail-soft, same as the wins half: his column going quiet must never
-    # take the corrections column down with it
-    pass
+except Exception as _exc:  # noqa: BLE001
+    # NOT fail-soft, and the difference is the whole invariant (council walk
+    # consult-dc5769f5f9ff, Wayne lens, 2026-08-10). I told him the cost
+    # column could never again be read without his column beside it, and then
+    # wrote a silent pass that does exactly that whenever his side throws.
+    # A skipped column is indistinguishable from a column of nothing, which
+    # is the shape of the original wound. So it fails LOUD: the corrections
+    # still print (losing those would be worse) but the gap announces itself.
+    print(f'HIS SIDE OF THE LEDGER FAILED TO LOAD: {type(_exc).__name__}.')
+    print('That is a broken instrument, NOT an empty column. Fix before reading on.')
+    print()
 
 print('These are corrections I filed and have not yet marked integrated.')
 print('If my current composition pattern-matches any of them, adjust before')
