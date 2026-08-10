@@ -50,11 +50,37 @@ def test_correct_commands_stay_quiet(command: str) -> None:
     assert not fires, f"false positive {[f.trap.name for f in fires]} on: {command}"
 
 
-def test_only_the_specifiable_rule_blocks() -> None:
-    """Lamport: a rule I cannot specify exactly must warn, never block."""
+def test_every_rule_blocks() -> None:
+    """Andrew 2026-08-10: "YOU CANNOT WARN THE OPTIMIZER."
+
+    The warn tier is gone. It was wallpaper twice over -- once by design
+    (text without consequence is invisible to the optimizer) and once by
+    accident (a PreToolUse hook's exit-0 output never reaches the composer,
+    verified by probe rather than assumed).
+    """
     assert should_block(check('python -c "x"')) is True
-    assert should_block(check('grep -c "x" f')) is False
-    assert should_block(check("git push | tail")) is False
+    assert should_block(check('grep -c "x" f')) is True
+    assert should_block(check("git push origin main | tail")) is True
+
+
+def test_ack_token_buys_the_exception() -> None:
+    """Lamport's objection survives, structurally instead of verbally.
+
+    grep -c IS right when you want lines, so the escape exists -- but it
+    costs one act of naming intent rather than nothing, which is the whole
+    difference between this and a warning.
+    """
+    assert check('grep -c "x" f') != []
+    assert check('grep -c "x" f  #lines-ok') == []
+    assert check('python -c "x"  #tree-ok') == []
+
+
+def test_ack_tokens_are_all_distinct() -> None:
+    """A shared token would let one exception silently buy another rule."""
+    from divineos.hooks.bash_trap_lint import TRAPS
+
+    acks = [trap.ack for trap in TRAPS]
+    assert len(acks) == len(set(acks))
 
 
 def test_empty_is_not_a_safety_claim() -> None:

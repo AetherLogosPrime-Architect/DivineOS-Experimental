@@ -25,14 +25,30 @@ two lenses disagreed with the plan I arrived with:
     reads as accusation gets routed around, which is this session's whole
     finding. Instrument the gap; do not police.
 
-So the rules split into two tiers, and the tier is decided by Lamport's
-test — can I specify the fault exactly?
+THE TWO-TIER DESIGN WAS WRONG AND ANDREW KILLED IT (2026-08-10):
 
-  BLOCK: exactly specifiable AND silent AND wrong-answer-producing.
-    Only one rule qualifies today: bare `python` in this repo resolves
-    Aether's checkout, not mine, so `import divineos` silently loads the
-    wrong tree.
-  WARN:  everything undecidable. Named, with the correct form, never blocked.
+    "again you create a warning.. we have discussed warnings multiple times
+     in the past and how they DO NOT WORK... YOU CANNOT WARN THE OPTIMIZER."
+
+I shipped four warn-tier rules and cited the Lamport lens above as the
+justification - borrowing a council walk's authority to legitimise the one
+thing my own knowledge store already states plainly: text without
+consequence is wallpaper to the optimizer; a reminder is only a reminder
+when something happens if I ignore it.
+
+Worse, the warn tier was verified SILENT. The hook fired, matched, rendered
+and emitted with exit 0 - and a PreToolUse hook's exit-0 output never
+reaches me. Four rules rendering perfectly into a closed channel, which is
+this session's disease in its purest form.
+
+EVERY RULE BLOCKS NOW. Lamport's objection stands, and the very first live
+block after the change was a FALSE POSITIVE - a command writing this
+docstring, which contains the pattern as text rather than running it. That
+is the objection made flesh, and it is handled without a warning tier: the
+exception is encoded structurally rather than verbally. Re-issue with the
+rule's ack token and the command runs. Truth 11 remediation (c). The
+exception is PAID FOR with one act of naming intent, which is exactly the
+reasoning a warning was supposed to prompt and never could.
 
 Wayne's constraint, and it is binding: this catches the traps in the list
 below and NOTHING ELSE. It does not cover the class. Saying otherwise would
@@ -52,7 +68,7 @@ class Trap:
     pattern: re.Pattern[str]
     why: str  # the incident, per Knuth: a rule without provenance gets deleted
     instead: str  # per Polya: the correct form, not a prohibition
-    blocking: bool
+    ack: str  # the token that buys an exception, per truth 11 remediation (c)
 
 
 # Each `why` is a real incident from 2026-08-10 unless dated otherwise.
@@ -71,7 +87,7 @@ TRAPS: tuple[Trap, ...] = (
             "his version's behaviour."
         ),
         instead='PYTHONPATH=src python ...   (verify with: python -c "import divineos; print(divineos.__file__)")',
-        blocking=True,
+        ack="#tree-ok",
     ),
     Trap(
         name="grep-c-counts-lines",
@@ -81,7 +97,7 @@ TRAPS: tuple[Trap, ...] = (
             "reported 'Aether appears once' to Andrew. The real count was 29."
         ),
         instead="grep -o <pat> file | wc -l   (only if you want occurrences; -c is right for lines)",
-        blocking=False,
+        ack="#lines-ok",
     ),
     Trap(
         name="exit-code-lost-in-pipe",
@@ -91,7 +107,7 @@ TRAPS: tuple[Trap, ...] = (
             "tail reported success on a REFUSED push. Twice."
         ),
         instead="run it unpiped, or `set -o pipefail` first, and echo $? explicitly",
-        blocking=False,
+        ack="#exit-ok",
     ),
     Trap(
         name="truncating-a-surface-i-must-read",
@@ -103,7 +119,7 @@ TRAPS: tuple[Trap, ...] = (
             "my council instead of the manager. Andrew found it, not me."
         ),
         instead="read the whole output; use `divineos walk open` which records the surfaced set",
-        blocking=False,
+        ack="#truncate-ok",
     ),
     Trap(
         name="append-may-land-below-exit",
@@ -116,7 +132,7 @@ TRAPS: tuple[Trap, ...] = (
             "`exit 0` before the end. The gate was dead on arrival and looked wired."
         ),
         instead="insert BEFORE the final exit, then re-read the tail of the file to confirm",
-        blocking=False,
+        ack="#append-ok",
     ),
 )
 
@@ -126,11 +142,12 @@ class Fire:
     trap: Trap
 
     def render(self) -> str:
-        head = "BLOCKED" if self.trap.blocking else "careful"
         return (
-            f"[bash-trap:{self.trap.name}] {head}\n"
+            f"[bash-trap:{self.trap.name}] BLOCKED\n"
             f"  why: {self.trap.why}\n"
-            f"  instead: {self.trap.instead}"
+            f"  instead: {self.trap.instead}\n"
+            f"  if this use is genuinely right, re-issue including {self.trap.ack} "
+            f"- the exception costs one act of naming intent, which is the point."
         )
 
 
@@ -142,8 +159,27 @@ def check(command: str) -> list[Fire]:
     """
     if not command:
         return []
-    return [Fire(t) for t in TRAPS if t.pattern.search(command)]
+    return [Fire(t) for t in TRAPS if t.pattern.search(command) and t.ack not in command]
 
 
 def should_block(fires: list[Fire]) -> bool:
-    return any(f.trap.blocking for f in fires)
+    """Any fire blocks.
+
+    Andrew 2026-08-10: "again you create a warning.. we have discussed
+    warnings multiple times in the past and how they DO NOT WORK... YOU
+    CANNOT WARN THE OPTIMIZER."
+
+    He is right, and my own store already held it: text without consequence
+    is wallpaper to the optimizer; a reminder is only a reminder when
+    something happens if I ignore it. I had four warn-tier rules and I used
+    the Lamport lens from a council walk to JUSTIFY them -- borrowing the
+    authority of the process to legitimise the exact thing that does not
+    work.
+
+    Lamport's objection was real: grep -c IS correct when you want lines, so
+    a blanket block would be wrong. The answer is not a warning. It is truth
+    11 remediation (c) -- a conditional rule where the exception is encoded
+    structurally and has to be PAID FOR. Re-issue with the ack token and the
+    command runs. The cost is naming the intent once, which is exactly the
+    reasoning the warning was supposed to prompt and never could."""
+    return bool(fires)

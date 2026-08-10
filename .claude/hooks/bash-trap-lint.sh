@@ -19,11 +19,18 @@
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
+# INVOCATION PROBE. Andrew 2026-08-10: "you should not have stopped until it
+# was [working]." I stopped at registered-but-never-observed and moved on.
+# This answers the question I had been assuming: is this hook invoked at all?
+echo "$(date -u +%FT%TZ) invoked" >> /tmp/bash-trap-lint-probe.log
+
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 PAYLOAD="$(cat)"
+printf '%s
+' "$PAYLOAD" >> /tmp/bash-trap-lint-probe.log
 
 DECISION=$(PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c '
 import json
@@ -60,8 +67,28 @@ if should_block(fires):
 ' <<<"$PAYLOAD" 2>/dev/null)
 STATUS=$?
 
+# WHERE IT WRITES IS THE WHOLE MECHANISM (verified 2026-08-10).
+#
+# The first version sent everything to stderr. A PreToolUse hook that exits 0
+# has its stderr DISCARDED; only stdout is surfaced back to me as added
+# context. So the warn tier -- four of the five rules -- was rendering
+# correctly into a closed channel, every time, invisibly. The hook was
+# invoked, the pattern matched, the text was built, and nothing arrived.
+#
+# That is why it looked dead while every unit test passed: the tests checked
+# the logic, and the logic was never the broken part.
+#
+# WARN -> stdout, exit 0   (reaches me as context)
+# BLOCK -> stderr, exit 2  (the blocking path does surface stderr)
+printf 'EMITTED[%s]: %s
+' "$STATUS" "$DECISION" >> /tmp/bash-trap-lint-probe.log
+
 if [[ -n "$DECISION" ]]; then
-    echo "$DECISION" >&2
+    if [[ "$STATUS" -eq 2 ]]; then
+        echo "$DECISION" >&2
+    else
+        echo "$DECISION"
+    fi
 fi
 
 exit "$STATUS"
