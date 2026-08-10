@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (431 commands across 84 modules)
+  cli/                         CLI package (427 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -33,7 +33,6 @@ src/divineos/
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
-    detector_commands.py       detectors status/heal/defer — command surface for core/degraded_detectors.py; built alongside the gate so the prescribed remedy is not a painted door
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
@@ -286,7 +285,6 @@ src/divineos/
     exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
     self_model.py              Unified self-model assembled from all OS systems
-    degraded_detectors.py      A detector that cannot run must cost something — degraded-state registry, self-repair, on-the-record deferral
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
     predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
