@@ -208,6 +208,7 @@ CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
 ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
 WIRING_CLAIMS="$REPO_ROOT/scripts/check_wiring_claims.py"
 PREREG_INFRA="$REPO_ROOT/scripts/check_prereg_for_new_infra.py"
+COUNCIL_WALK="$REPO_ROOT/scripts/check_council_walk_for_new_infra.py"
 
 # 1. Multi-party-review — INFORMATIONAL at commit-time.
 # Script never blocks at commit-time; just warns if guardrails touched
@@ -736,6 +737,16 @@ fi
 if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
     python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" post-merge >/dev/null 2>&1 || true  # fail-soft: an unemitted merge event costs awareness, never the merge
 fi
+
+# Council-walk gate — BLOCKING. New capability under src/divineos/core/
+# must cite a walk that actually COMPLETED (every manager-surfaced lens
+# applied or excluded-with-reason). Citing an abandoned walk fails the
+# same as citing none. No env-var bypass, deliberately — Andrew
+# 2026-08-10: 'nothing stops you from skipping it'.
+if [[ -f "$COUNCIL_WALK" ]]; then
+    python "$COUNCIL_WALK" "$1" || exit 1
+fi
+
 exit 0
 EOF
 
