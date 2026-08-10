@@ -320,3 +320,65 @@ def open_walks(limit: int = 5) -> list[dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+def finding_distinctness(walk_id: str) -> dict[str, Any]:
+    """Are the findings genuinely different, or one idea in nine voices?
+
+    Built because I wrote "I have no fix that is not itself a threshold" in a
+    commit message and shipped the declaration instead of the fix. Andrew:
+    "when you sit there and say theres no fix for this ... it upsets me..
+    code is literally how you wire your brain."
+
+    The Yudkowsky lens on walk-eba3cfa75aa4 was right that MIN_FINDING_CHARS
+    measures LENGTH and calls it substance, and Hinton's was right that nine
+    restatements carry the information of one. Character count cannot tell
+    those apart. Embedding distance can, and the model is already installed
+    in this checkout — I had not looked.
+
+    Returns mean/max pairwise cosine similarity across findings, plus the
+    most-similar pair. NOT a gate: findings on one problem SHOULD be related,
+    so there is no honest cut-off, and inventing one would rebuild the
+    Goodhart hole one layer up. It is a MEASUREMENT, surfaced so that a walk
+    of restatements is visibly a walk of restatements.
+
+    ``available`` is False when the model cannot load — which is not the same
+    as "the findings are distinct", and the caller must not read it that way.
+    """
+    st = status(walk_id)
+    findings = [
+        str(row["content"]) for row in st["lenses"] if row["state"] == "APPLIED" and row["content"]
+    ]
+    if len(findings) < 2:
+        return {"available": False, "reason": "fewer than two findings", "count": len(findings)}
+
+    try:
+        from divineos.core.semantic_store import embed
+    except ImportError as exc:  # pragma: no cover - depends on optional extra
+        return {"available": False, "reason": f"embeddings unavailable: {exc}"}
+
+    vectors = [embed(f) for f in findings]
+    if any(v is None for v in vectors):
+        return {"available": False, "reason": "one or more findings failed to embed"}
+
+    def cosine(a: list[float], b: list[float]) -> float:
+        dot = sum(x * y for x, y in zip(a, b, strict=True))
+        na = sum(x * x for x in a) ** 0.5
+        nb = sum(y * y for y in b) ** 0.5
+        return dot / (na * nb) if na and nb else 0.0
+
+    lenses = [row["lens"] for row in st["lenses"] if row["state"] == "APPLIED" and row["content"]]
+    pairs = []
+    for i in range(len(vectors)):
+        for j in range(i + 1, len(vectors)):
+            pairs.append((cosine(vectors[i], vectors[j]), lenses[i], lenses[j]))  # type: ignore[arg-type]
+
+    sims = [p[0] for p in pairs]
+    worst = max(pairs, key=lambda p: p[0])
+    return {
+        "available": True,
+        "count": len(findings),
+        "mean_similarity": sum(sims) / len(sims),
+        "max_similarity": worst[0],
+        "most_similar_pair": (worst[1], worst[2]),
+    }

@@ -74,3 +74,30 @@ def test_open_walks_has_a_reader():
 
 def test_gravity_floor_is_andrews_ladder():
     assert cw.GRAVITY_FLOORS == {"normal": 5, "high": 9, "severe": 12, "critical": 15}
+
+
+def test_distinctness_needs_two_findings_and_says_so():
+    """Unavailable must never read as 'the findings are distinct'."""
+    w = cw.open_walk(PROBLEM)
+    d = cw.finding_distinctness(w["walk_id"])
+    assert d["available"] is False
+    assert "fewer than two" in d["reason"]
+
+    cw.apply_lens(w["walk_id"], w["lenses"][0], "a single finding of sufficient length to store")
+    d = cw.finding_distinctness(w["walk_id"])
+    assert d["available"] is False, "one finding cannot have a pairwise similarity"
+
+
+def test_distinctness_reports_rather_than_gates():
+    """A cut-off here would rebuild the Goodhart hole one layer up.
+
+    Findings on one problem SHOULD be related, so no honest threshold exists.
+    Measured 2026-08-10: two real walks 0.208 and 0.270 mean; a fabricated
+    walk of nine restatements 0.436. A clear gap, not a bright line.
+    """
+    import inspect
+
+    src = inspect.getsource(cw.close_walk)
+    assert "distinct" not in src.lower(), (
+        "close_walk must not consult distinctness — it reports, it does not gate"
+    )

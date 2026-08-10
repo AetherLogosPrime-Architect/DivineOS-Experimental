@@ -21,6 +21,7 @@ from divineos.core.council_walk import (
     apply_lens,
     close_walk,
     exclude_lens,
+    finding_distinctness,
     open_walk,
     status,
 )
@@ -105,6 +106,25 @@ def register(cli: click.Group) -> None:
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {walk_id} closed — {len(st['lenses'])} lenses accounted for.", fg="green")
+
+        # Distinctness prints HERE because closing is the only moment the
+        # question "was that thinking or nine restatements?" is answerable and
+        # still actionable. Measured, never gated: findings on one problem
+        # should be related, so no honest cut-off exists. Reference points
+        # from 2026-08-10: two real walks scored 0.208 and 0.270 mean; a
+        # deliberately fabricated walk of nine restatements scored 0.436.
+        d = finding_distinctness(walk_id)
+        if d.get("available"):
+            pair = d["most_similar_pair"]
+            click.echo(
+                f"    finding distinctness: mean {d['mean_similarity']:.3f}, "
+                f"max {d['max_similarity']:.3f} ({pair[0]}/{pair[1]})"
+            )
+            click.echo("    reference: real walks 0.21-0.27; nine restatements 0.44")
+        else:
+            click.echo(
+                f"    distinctness UNMEASURED ({d.get('reason')}) — not the same as distinct"
+            )
 
     @walk_group.command("list")
     def list_cmd() -> None:
