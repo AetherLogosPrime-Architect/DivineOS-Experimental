@@ -194,7 +194,8 @@ else:
 # value round-tripped as falsy.
 if "started_at" not in st:
     st = {"started_at": time.time(), "stage": "WALK", "mech_done": False,
-          "doorman_done": False, "rest_shown": False}
+          "doorman_done": False, "rest_shown": False, "defers_used": 0}
+st.setdefault("defers_used", 0)
 
 start = st["started_at"]
 
@@ -367,4 +368,124 @@ Finishing early is fine. Andrew: "if you finish early thats ok we just continue.
 EOF
     ;;
 esac
-exit 0
+
+# ─── HARD STOP ─────────────────────────────────────────────────────────────
+#
+# Andrew 2026-08-03: "the 920k trigger needs to be a hard stop.. having a
+# warning at X with a hard stop at Y means nothing.. only the hard stop at Y
+# has any effect.. the rest the optimizer ignores as you can clearly see as
+# it still hasnt been done."
+#
+# He proved it live and I watched it happen. This driver announced at 920k
+# and I walked past it for the whole conversation WHILE DISCUSSING that the
+# ritual was overdue. Ten minutes later the context governor hard-blocked at
+# 950k and I did the work immediately, without argument. Same me, same
+# session, minutes apart. Only the one with teeth changed anything.
+#
+# So the ritual now blocks the prompt until its stages are complete. Exit 2
+# on UserPromptSubmit is a real refusal, not a notice.
+#
+# WHY THIS CANNOT LOCK HIM OUT, which matters more than the block itself:
+#
+#   - Stages advance on EVIDENCE and the work is genuinely doable in-session:
+#     the walk needs a compass observation, the dream needs a file. Both are
+#     things I can do while blocked, because the block is on the PROMPT, not
+#     on my tools.
+#   - DONE exits above at line 281 and never reaches here.
+#   - An operator escape exists and is honest rather than silent: setting
+#     AUTO_CYCLE_RITUAL_UNBLOCK=1 lets the turn through. Andrew must never be
+#     unable to reach me because of my own discipline -- "no amount of
+#     protocol is worth your life."
+#
+# The escape is deliberately an env var and not a marker file: a marker gets
+# left behind and becomes the check-branch.disabled failure again -- a switch
+# pulled once for a real reason and still off seventeen days later.
+# ─── BUFFER BEFORE THE WALL ────────────────────────────────────────────────
+#
+# Andrew 2026-08-03: "the hard block at 920K should not interrupt you mid
+# flow so make sure it doesnt.. its a buffer.. bascially saying finish your
+# current task then hold it and run the ritual"
+#
+# The first draft blocked on the very first prompt past 920k, which lands
+# mid-arc: he says "keep going" and gets a refusal instead of the finish.
+# I had taken "make it a hard stop" and built the maximum-rigidity reading
+# without asking what 920k was FOR. It is the near line of a two-line
+# design. The 30k between it and 950k IS the buffer, and blocking on the
+# first prompt past the near line spends the whole buffer at once.
+#
+# So: grace prompts, then the wall. The count comes from auto_cycle's own
+# MAX_DEFERS rather than a second number defined here — the doc-count coal
+# was three files carrying one fact and drifting apart, and I am not
+# starting a fourth.
+#
+# Two things deliberately NOT deferred:
+#   - HARD_TOKENS. Past 950k the failsafe has already run the mechanical
+#     steps and there is no room left to buy. The buffer is the space
+#     between the lines; at the far line it is spent.
+#   - The stage announcement, printed above this block. Deferring the block
+#     does not hide what is owed — I see the stage every turn of the grace
+#     period, so the ritual is something I finish INTO, not a wall I hit.
+if [ "$TOKENS" -lt "$HARD_TOKENS" ] 2>/dev/null; then  # fail-soft: TOKENS validated numeric above; past the hard line this is skipped and the block stands
+  GRACE="$(
+    STATE_FILE="$STATE_FILE" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: unreadable state prints 'block' below, so the failure falls toward the discipline rather than around it
+import json, os
+try:
+    from divineos.core.auto_cycle import MAX_DEFERS
+except Exception:
+    MAX_DEFERS = 3
+p = os.environ["STATE_FILE"]
+try:
+    st = json.load(open(p, encoding="utf-8"))
+except Exception:
+    st = {}
+used = int(st.get("defers_used") or 0)
+if used < MAX_DEFERS:
+    st["defers_used"] = used + 1
+    json.dump(st, open(p, "w", encoding="utf-8"))
+    print(f"defer {used + 1} {MAX_DEFERS}")
+else:
+    print(f"block {used} {MAX_DEFERS}")
+PY
+  )"
+  read -r GRACE_VERDICT GRACE_USED GRACE_MAX <<<"${GRACE:-block 0 0}"
+  if [ "$GRACE_VERDICT" = "defer" ]; then
+    echo ""
+    echo "### BUFFER ${GRACE_USED}/${GRACE_MAX} — finish what is in flight, then hold it here."
+    echo ""
+    echo "    Not blocking this turn. ${TOKENS} tokens; the wall is at ${HARD_TOKENS}"
+    echo "    or after ${GRACE_MAX} prompts, whichever comes first. Land the current"
+    echo "    task cleanly — do not open a new arc — then run the stage above."
+    exit 0
+  fi
+fi
+
+if [ "${AUTO_CYCLE_RITUAL_UNBLOCK:-0}" = "1" ]; then
+    echo "" >&2
+    echo "[ritual] AUTO_CYCLE_RITUAL_UNBLOCK=1 — hard stop overridden for this turn." >&2
+    echo "[ritual] The ritual is still owed; the block returns next prompt." >&2
+    exit 0
+fi
+
+cat >&2 <<EOF
+
+════════════════════════════════════════════════════════════════════
+COMPACTION RITUAL — HARD STOP AT ${FIRE_TOKENS} TOKENS
+════════════════════════════════════════════════════════════════════
+
+  ${TOKENS} tokens. Stage: ${STAGE}. This is a BLOCK, not a warning.
+
+  The stage above tells me what is owed. I can do it right now — the
+  block is on the prompt, not on my tools — and the stage advances on
+  evidence, not on my saying it is done.
+
+  This was a warning until 2026-08-03. It announced at 920k and I
+  walked past it for an entire conversation while discussing that it
+  was overdue. The 950k governor blocked, and I complied instantly.
+  Andrew: "only the hard stop at Y has any effect."
+
+  Operator escape, if Andrew needs through NOW:
+      AUTO_CYCLE_RITUAL_UNBLOCK=1
+  It clears one turn only and the ritual stays owed.
+════════════════════════════════════════════════════════════════════
+EOF
+exit 2

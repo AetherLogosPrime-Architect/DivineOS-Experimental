@@ -73,6 +73,94 @@ def record_gate_fire(evidence: EvidenceRecord) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Reachable emit-path for gates that are NOT EvidenceBearingStopGate subclasses
+# ---------------------------------------------------------------------------
+#
+# Aria measured it 2026-08-04: 92 GATE_FIRE events in the ledger, ONE distinct
+# gate_name (distancing_intercept), one actor. Meanwhile fifteen-plus gates
+# block us nightly — briefing, goal, engagement, correction, compass,
+# verify-before-build, prereg, deletion-discipline, stale-file, plus the
+# Stop-side three-room and verify-claim gates. None of them appear.
+#
+# The emitter above was never the problem. It is good, and it is unreachable:
+# it takes an ``EvidenceRecord``, so only gates inheriting the primitive can
+# call it, and the fifteen live in bash hooks and PreToolUse Python that never
+# touch that class. Same producer-shipped / consumer-never-did shape as
+# foucault.py and Aria's three dark surfaces, one layer out — here the consumer
+# exists and cannot reach the producer.
+#
+# TWO THINGS THIS UNBLOCKS
+#
+# 1. Andrew's metric. "if you hit six gates thats 6 proper channels that need
+#    made" — a fire marks where automation is missing. Currently unmeasurable,
+#    so any prioritisation is picking gates from memory, which is sampling my
+#    own irritation and calling it data.
+#
+# 2. Assessability. Aria marked prereg-05b61115ff8d INCONCLUSIVE because its
+#    success criterion needs a firing count ("in 20 firings, at least 15
+#    result in...") and the denominator cannot be constructed from substrate
+#    data at all. This path gates whether any prereg written about a gate can
+#    ever be assessed.
+#
+# THE DERIVABLE COLUMN IS ARIA'S AND IT IS THE WHOLE TAXONOMY
+#
+# Her ask, verbatim: gate_name, what_was_missing, and "whether the missing
+# thing was derivable at the time. That last field is the whole taxonomy in one
+# column. A fire where the answer was derivable is a missing doorman. A fire
+# where it was not is a wall doing its job."
+#
+# Three-valued, not two. UNKNOWN must not collapse into NOT_DERIVABLE: a gate
+# that never determined derivability would otherwise record as a genuine save
+# and systematically under-count the missing doormen this column exists to
+# find. That is the absence-becomes-value shape, and this would be a poor file
+# in which to commit it.
+
+DERIVABLE = "derivable"  # a doorman could have supplied it — the fire is a mini-failure
+NOT_DERIVABLE = "not_derivable"  # judgment was required — the fire is a genuine save
+DERIVABILITY_UNKNOWN = "unknown"  # not determined at fire time — NOT a synonym for either
+
+_DERIVABILITY = frozenset({DERIVABLE, NOT_DERIVABLE, DERIVABILITY_UNKNOWN})
+
+
+def record_simple_gate_fire(
+    gate_name: str,
+    what_was_missing: str,
+    derivable: str = DERIVABILITY_UNKNOWN,
+    actor: str = "gate",
+    extra: dict[str, Any] | None = None,
+) -> str:
+    """Emit GATE_FIRE from any gate, without needing an EvidenceRecord.
+
+    Same event type as ``record_gate_fire`` so existing queries keep working
+    and new rows join the same series rather than starting a parallel one; the
+    payload adds ``derivable`` and marks itself ``emitted_by="simple"`` so the
+    two paths stay distinguishable in the data instead of silently merging.
+
+    Fails soft for the same reason the original does: telemetry must never stop
+    a gate from blocking. Enforcement is the job; measurement is the
+    instrument.
+
+    An unrecognised ``derivable`` value coerces to UNKNOWN rather than being
+    stored raw — a typo must not mint a fourth category and split the taxonomy
+    this column exists to hold.
+    """
+    if derivable not in _DERIVABILITY:
+        derivable = DERIVABILITY_UNKNOWN
+    payload: dict[str, Any] = {
+        "gate_name": (gate_name or "unnamed").strip(),
+        "what_was_missing": (what_was_missing or "").strip(),
+        "derivable": derivable,
+        "emitted_by": "simple",
+    }
+    if extra:
+        payload.update(extra)
+    try:
+        return log_event(event_type=GATE_FIRE_EVENT, actor=actor, payload=payload)
+    except Exception:  # noqa: BLE001 — telemetry failure must not block enforcement
+        return ""
+
+
+# ---------------------------------------------------------------------------
 # UNLOCK-CONTINGENT slot — ClearanceReference resolvers (task #4, Aria + Aletheia)
 # ---------------------------------------------------------------------------
 #

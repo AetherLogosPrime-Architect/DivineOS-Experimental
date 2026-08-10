@@ -109,9 +109,19 @@ def test_high_similarity_result_is_not_tagged(monkeypatch):
 
 
 def test_semantic_unavailable_prints_one_time_caveat(monkeypatch):
-    """When the embedding model is not available (similarity returns None
-    for the first result), the caveat appears once at the top and no
-    per-entry tag fires."""
+    """When embeddings are unavailable, say so loudly AND say why.
+
+    Assertion updated 2026-08-05. It previously pinned the literal phrase
+    "semantic re-rank unavailable", which was the parenthetical caveat that
+    appeared on every `ask` for an entire session and got read past every
+    time. The message is now a loud banner carrying the recorded failure
+    reason, because the wording was the defect: a one-line aside is how a
+    half-working memory search hides in plain sight.
+
+    Asserts the SUBSTANCE rather than a phrase -- that the reader is told the
+    results are keyword-only, and that a reason accompanies it. A future
+    rewording is free; dropping either half is not.
+    """
     results = [
         _fake_result("aaa12345678", "first entry"),
         _fake_result("bbb12345678", "second entry"),
@@ -123,10 +133,16 @@ def test_semantic_unavailable_prints_one_time_caveat(monkeypatch):
         sim_fn=lambda a, b: None,
     )
     assert result.exit_code == 0
-    assert "semantic re-rank unavailable" in result.output
-    assert "verify each result's relevance manually" in result.output
-    # No per-entry tag when embeddings unavailable — the caveat covers it
-    assert "keyword-match only" not in result.output
+    out = result.output
+    assert "SEMANTIC RE-RANK IS DOWN" in out, "the degradation must be loud, not parenthetical"
+    assert "keyword-match only" in out, "the reader must be told what the results actually are"
+    assert "reason:" in out, (
+        "a failure with no stated reason is the original defect -- three "
+        "layers each swallowed the cause and the caller printed a shrug"
+    )
+    # The reader must be warned in BOTH directions: a hit proves nothing and
+    # a miss proves nothing. Only one of those is intuitive.
+    assert "does NOT mean" in out
 
 
 def test_boundary_score_at_threshold_is_not_tagged(monkeypatch):
