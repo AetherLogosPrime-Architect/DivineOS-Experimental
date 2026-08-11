@@ -689,7 +689,6 @@ src/divineos/
     event_emission.py          Event emission API
     event_validation.py        Event payload validation
   hooks/                       Hook integration
-    bash_trap_lint.py          Five shell traps whose failure was SILENT (grep -c counting lines, bare python resolving the wrong tree, exit code lost in a pipe, truncating a surface, appending below exit 0). One blocks, the rest speak. Per walk-eba3cfa75aa4.
     clarity_enforcement.py     Clarity enforcement engine (AGENT_RUNTIME — invoked from .claude/hooks/, not from the CLI pipeline)
     pre_tool_use_gate.py       PreToolUse consolidated gate (bypass, briefing, goal, pull, engagement, cadence) — single-process replacement for require-goal.sh Python spawn chain
     user_prompt_submit_gate.py UserPromptSubmit consolidated gate (WIP scaffold, 2026-07-08) — six-check single-interpreter replacement for the six UserPromptSubmit shell hooks; targets warm _embedding_model reuse (Aletheia diagnostic 2026-07-08)
