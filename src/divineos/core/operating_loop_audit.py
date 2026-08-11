@@ -1773,11 +1773,24 @@ def run_audit(
             from divineos.core.lepos_translation_gate import (
                 _with_root_cause_footer,
                 check_lepos_dual_channel,
+                check_translation_first,
                 check_wallclock_fabrication,
             )
 
-            _raw_dc = check_lepos_dual_channel(last_assistant_text)
-            lepos_dual_channel_block = _with_root_cause_footer(_raw_dc) if _raw_dc else None
+            # PLAIN-FIRST (Andrew 2026-08-11): checked BEFORE the room-shape
+            # gates, because leading with meaning is the thing he actually
+            # asked for and rooms are what I gave him instead. A reply that
+            # opens in vocabulary he cannot read fails here even when its
+            # rooms are perfect.
+            _raw_pf = check_translation_first(last_assistant_text)
+            if _raw_pf:
+                # Plain-first wins the rail. Reporting a room-shape complaint
+                # on top would bury the one that matters under the one I have
+                # been satisfying all day.
+                lepos_dual_channel_block = _with_root_cause_footer(_raw_pf)
+            else:
+                _raw_dc = check_lepos_dual_channel(last_assistant_text)
+                lepos_dual_channel_block = _with_root_cause_footer(_raw_dc) if _raw_dc else None
             # 2026-07-19 (council-2e41d2c05d04): wallclock-fabrication gate.
             # Blocks Stop when a reply to Andrew contains phrases that describe
             # wallclock time between his prompts I do not have. See
