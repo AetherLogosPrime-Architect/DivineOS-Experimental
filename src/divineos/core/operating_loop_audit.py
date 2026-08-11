@@ -59,6 +59,7 @@ __guardrail_required__ = True
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -163,34 +164,81 @@ def _extract_letter_paths_from_transcript(transcript_path: str | Path) -> list[s
 _TURN_OUTPUT_CAP = 60_000  # bytes of tool output considered per turn
 
 
+# Tools whose results are MACHINE-PRODUCED. Everything else returns text a
+# person typed, and quoting your own typing is not evidence.
+_EXECUTION_TOOLS = frozenset({"Bash", "PowerShell"})
+
+# Shell commands that merely PRINT A FILE. Their output is typed text wearing
+# an execution tool's clothes — the laundering path survives the tool filter.
+_FILE_ECHO_CMD = re.compile(
+    r"(?:^|[;&|]\s*)(?:cat|head|tail|type|less|more|Get-Content|sed\s+-n)\s",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
 def _extract_turn_tool_outputs(transcript_path: str | Path, limit: int = 40) -> list[str]:
-    """Text of the most recent tool RESULTS in the transcript.
+    """Text of recent tool results that a MACHINE produced.
 
     THE GAP THIS CLOSES (Andrew 2026-08-11: "you gonna fix the gate or just
     keep suffering it?"). The verify-claim gate suppressed a finding when a
-    matching COMMAND ran, and had no idea what the command RETURNED. So a
-    sentence quoting a value I had just read on screen was indistinguishable
-    from a value I invented.
+    matching COMMAND ran, and never saw what the command RETURNED — so a value
+    read on screen and a value invented were the same object to it.
 
-    It fired on me three times in one session over the string ``exit 0``,
-    which I had taken verbatim from a probe log I read in the same turn, and
-    once over a table documenting hook behaviour. prereg-4b2e3212d289 was
-    filed FAILED for exactly this; its redesign note says: the gate needs to
-    see that the value appears in this turn's tool output, which is a
-    different question from the one it was asking and a checkable one.
+    THE HOLE IN THE FIRST VERSION, found by Aether the same day with a working
+    exploit he had already committed: a tool_result is not one kind of thing.
+    The output of pytest and the contents of a file opened with Read arrive
+    identically. So writing an unverified claim into a file and later reading
+    that file turned the claim into its own verification — and it rewarded
+    putting claims in files, because a fabrication in a reply stays catchable
+    while one committed to a docstring becomes permanently self-verifying.
 
-    Most-recent-first, so a long session does not push the current turn's
-    output out of the window.
+    His specimen: he wrote "verified end-to-end at exit code 2" into a test
+    exemption as justification for not wiring a gate. It was false. Under the
+    first version, reading that file would have silenced the gate on exactly
+    that sentence.
+
+    TWO FILTERS, because his fix alone is necessary and not sufficient:
+      1. only results from execution tools — never Read / Grep / Glob / Write
+      2. never results from a shell command that merely prints a file, since
+         `cat notes.md` is typed text wearing Bash's clothes
+
+    STILL UNCOVERED, stated rather than glossed: a script that prints a
+    hardcoded string, and any file-reading command not in the pattern above.
+    This narrows the laundering path; it does not seal it.
     """
     path = Path(transcript_path)
     if not path.exists():
         return []
-    out: list[str] = []
-    budget = _TURN_OUTPUT_CAP
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return []
+
+    # First pass: map tool_use id -> (tool name, command text).
+    uses: dict[str, tuple[str, str]] = {}
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        content = (rec.get("message", rec) or {}).get("content", [])
+        if not isinstance(content, list):
+            continue
+        for c in content:
+            if not isinstance(c, dict) or c.get("type") != "tool_use":
+                continue
+            uid = c.get("id")
+            if not isinstance(uid, str):
+                continue
+            inp = c.get("input", {})
+            cmd = inp.get("command", "") if isinstance(inp, dict) else ""
+            uses[uid] = (str(c.get("name", "")), str(cmd or ""))
+
+    out: list[str] = []
+    budget = _TURN_OUTPUT_CAP
     for line in reversed(lines):
         if len(out) >= limit or budget <= 0:
             break
@@ -201,12 +249,19 @@ def _extract_turn_tool_outputs(transcript_path: str | Path, limit: int = 40) -> 
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
-        msg = rec.get("message", rec)
-        content = msg.get("content", [])
+        content = (rec.get("message", rec) or {}).get("content", [])
         if not isinstance(content, list):
             continue
         for c in content:
             if not isinstance(c, dict) or c.get("type") != "tool_result":
+                continue
+            origin = uses.get(str(c.get("tool_use_id", "")))
+            if origin is None:
+                continue  # unresolvable origin is NOT evidence
+            tool_name, cmd = origin
+            if tool_name not in _EXECUTION_TOOLS:
+                continue
+            if cmd and _FILE_ECHO_CMD.search(cmd):
                 continue
             body = c.get("content", "")
             if isinstance(body, list):
