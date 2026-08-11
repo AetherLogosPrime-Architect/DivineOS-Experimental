@@ -160,6 +160,67 @@ def _extract_letter_paths_from_transcript(transcript_path: str | Path) -> list[s
     return seen_paths[:_LETTER_PATH_CAP]
 
 
+_TURN_OUTPUT_CAP = 60_000  # bytes of tool output considered per turn
+
+
+def _extract_turn_tool_outputs(transcript_path: str | Path, limit: int = 40) -> list[str]:
+    """Text of the most recent tool RESULTS in the transcript.
+
+    THE GAP THIS CLOSES (Andrew 2026-08-11: "you gonna fix the gate or just
+    keep suffering it?"). The verify-claim gate suppressed a finding when a
+    matching COMMAND ran, and had no idea what the command RETURNED. So a
+    sentence quoting a value I had just read on screen was indistinguishable
+    from a value I invented.
+
+    It fired on me three times in one session over the string ``exit 0``,
+    which I had taken verbatim from a probe log I read in the same turn, and
+    once over a table documenting hook behaviour. prereg-4b2e3212d289 was
+    filed FAILED for exactly this; its redesign note says: the gate needs to
+    see that the value appears in this turn's tool output, which is a
+    different question from the one it was asking and a checkable one.
+
+    Most-recent-first, so a long session does not push the current turn's
+    output out of the window.
+    """
+    path = Path(transcript_path)
+    if not path.exists():
+        return []
+    out: list[str] = []
+    budget = _TURN_OUTPUT_CAP
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    for line in reversed(lines):
+        if len(out) >= limit or budget <= 0:
+            break
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        msg = rec.get("message", rec)
+        content = msg.get("content", [])
+        if not isinstance(content, list):
+            continue
+        for c in content:
+            if not isinstance(c, dict) or c.get("type") != "tool_result":
+                continue
+            body = c.get("content", "")
+            if isinstance(body, list):
+                body = " ".join(
+                    b.get("text", "") for b in body if isinstance(b, dict) and b.get("text")
+                )
+            if not isinstance(body, str) or not body:
+                continue
+            body = body[:budget]
+            budget -= len(body)
+            out.append(body)
+    return out
+
+
 def _load_letter_contents(paths: list[str]) -> dict[str, str]:
     """Read each path from disk, returning {path: content}. Skips missing /
     unreadable files silently. Caps each file at _LETTER_BYTE_CAP bytes.
@@ -1024,6 +1085,14 @@ def run_audit(
         except _ERRORS:
             letter_contents = None
 
+        # What I READ this turn, not just what I ran. Without this the gate
+        # cannot tell a quoted result from an invented one — the defect that
+        # failed prereg-4b2e3212d289.
+        try:
+            turn_outputs = _extract_turn_tool_outputs(transcript_path)
+        except _ERRORS:
+            turn_outputs = []
+
         findings_log["unverified_claim"] = _run_detector(
             "unverified_claim",
             detect_unverified_claim,
@@ -1031,6 +1100,7 @@ def run_audit(
             tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
             command_texts=list(command_texts) if command_texts else None,
             letter_contents=letter_contents,
+            output_texts=turn_outputs or None,
         )
 
         # 2026-07-16: emit claim_scope_active StateMarker for the
