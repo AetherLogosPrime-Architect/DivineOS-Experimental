@@ -87,6 +87,15 @@ def register(cli: click.Group) -> None:
         branch = pr.get("headRefName", "")
         pr_title = pr.get("title", "") or f"PR #{pr_number}"
 
+        # Pull in any approvals waiting in the shared crossing-point BEFORE
+        # validating. Andrew 2026-08-12: review was being given and then lost,
+        # because it landed in ~/.divineos-shared/audit/ and every check reads
+        # the local store. Syncing here means nobody has to remember to.
+        from divineos.cli.audit_sync_command import render_sync_report
+        from divineos.core.watchmen.shared_sync import sync_from_shared
+
+        render_sync_report(sync_from_shared())
+
         # Resolve the round from the branch when not named. Station 8's
         # convention is that a round's focus names the branch it covers,
         # which is also what the build-flow station checker matches on.

@@ -37,6 +37,7 @@ src/divineos/
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
     stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
+    audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
@@ -334,6 +335,7 @@ src/divineos/
       tier_override_surface.py Briefing block for recent TIER_OVERRIDE events (closes Schneier Sch2 partial-theater finding)
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
       merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
+      shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
