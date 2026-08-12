@@ -466,6 +466,9 @@ def _with_root_cause_footer(msg: str) -> str:
 # session, etc.) which supply-the-ground doesn't close.
 
 
+_TIME_CONNECTORS = frozenset({"by", "on", "at", "in", "the", "this", "next", "last"})
+
+
 def check_wallclock_fabrication(reply: str, andrews_words: str | None = None) -> str | None:
     """Return None if the reply contains no wallclock-fabrication phrases,
 
@@ -527,7 +530,12 @@ def check_wallclock_fabrication(reply: str, andrews_words: str | None = None) ->
 
         if m:
             phrase = m.group(0)
-            if phrase and phrase in his_clock:
+            # Match on the TEMPORAL ANCHOR, not the whole phrase. He wrote
+            # "its only tuesday"; I wrote "by tuesday". Whole-phrase
+            # matching missed it because the connector differs, which is
+            # how a correct idea ships as a check that never fires.
+            anchor = [w for w in phrase.split() if w not in _TIME_CONNECTORS]
+            if anchor and all(w in his_clock for w in anchor):
                 continue
 
             return (
