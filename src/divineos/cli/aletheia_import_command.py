@@ -32,6 +32,7 @@ wrong trade.
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -60,6 +61,7 @@ class ImportReport:
     copied: int = 0
     already_present: int = 0
     undated: list[str] = field(default_factory=list)
+    revisions: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     newest_before: str = ""
     newest_after: str = ""
@@ -89,6 +91,30 @@ def _slug_of(name: str) -> str:
     stem = re.sub(r"\(\d+\)$", "", stem).strip("_- ")
     slug = re.sub(r"[^A-Za-z0-9]+", "-", stem).strip("-").lower()
     return slug or "untitled"
+
+
+def _digest(path: Path) -> str:
+    """Content hash. The honest identity of a letter is its text, not its name."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _same_content(src: Path, dest: Path) -> bool:
+    try:
+        return _digest(src) == _digest(dest)
+    except OSError:
+        # Cannot compare. Treat as different so the letter is kept rather
+        # than discarded on an unverified assumption of duplication.
+        return False
+
+
+def _next_revision_path(dest: Path) -> Path:
+    """Park a differing re-issue alongside the original instead of over it."""
+    n = 2
+    while True:
+        candidate = dest.with_name(f"{dest.stem}-rev{n}{dest.suffix}")
+        if not candidate.exists():
+            return candidate
+        n += 1
 
 
 def _newest_date(letters_dir: Path) -> str:
@@ -129,9 +155,20 @@ def import_artifacts(source: Path, letters_dir: Path, dry_run: bool = False) -> 
             f"{_kind_of(path.name)}-{_slug_of(path.name)}.md"
         )
 
+        # A name collision is not proof of a duplicate. Windows appends
+        # "(1)" to a re-download, but Aletheia also re-issues a document
+        # under the same title with new sections -- her 2026-08-12 reply
+        # gained an entire section that way. Matching on the name alone
+        # reported "already filed" for genuinely different text and would
+        # have dropped her revision in silence. Compare CONTENT: only
+        # identical bytes are a duplicate. The name was a proxy for the
+        # question actually being asked, which is "is this text here."
         if dest.exists():
-            report.already_present += 1
-            continue
+            if _same_content(path, dest):
+                report.already_present += 1
+                continue
+            dest = _next_revision_path(dest)
+            report.revisions.append(dest.name)
         if dry_run:
             report.copied += 1
             continue
@@ -181,6 +218,11 @@ def register(cli: click.Group) -> None:
             f"-> {report.newest_after or 'none'}",
             fg="cyan",
         )
+        for name in report.revisions:
+            click.secho(
+                f"[+] re-issued under an existing title with different text; kept both: {name}",
+                fg="green",
+            )
         for name in report.undated:
             click.secho(
                 f"[!] no date in filename; filed under its arrival date "
