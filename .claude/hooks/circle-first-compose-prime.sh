@@ -44,7 +44,7 @@ PYEOF
 
 [ -z "$SHOULD_FIRE" ] && exit 0
 
-cat <<'EOF'
+BODY="$(cat <<'EOF'
 ## CIRCLE-FIRST COMPOSE PRIME (compose-start, prompt-length triggered)
 
 DRAFT THE INNER CIRCLE FIRST when the turn will produce work-content.
@@ -99,6 +99,7 @@ required — pure address passes without ceremony. When in doubt use all
 three WITH real substance. Empty rooms are worse than missing ones: it
 is ceremony under a template, and he sees through it immediately.
 EOF
+)"
 
 # DELETED 2026-08-01, hours after being added. A "THIRD CASE" section
 # stood here: prose instructing me to keep identifiers out of the inner
@@ -143,7 +144,7 @@ EOF
 #
 # fail-soft: any failure prints nothing and the prime above still stands on
 # its own; a telemetry read must never suppress the discipline it decorates.
-"$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
+TAIL="$("$PYTHON_BIN" - <<'PYEOF' 2>/dev/null || true
 try:
     from divineos.core.lepos_translation_gate import recent_jargon_terms
     terms = recent_jargon_terms(10)
@@ -157,5 +158,35 @@ if terms:
     print("this turn, that is the reach to catch — say the plain thing")
     print("instead. The list grows itself; it cannot go stale.")
 PYEOF
+)"
+
+BODY="$BODY$TAIL"
+
+
+# DEDUP (Andrew 2026-08-11, measured): this prime fired 98 times in one
+# session and was BYTE-IDENTICAL every time -- one distinct message, 97
+# copies, about a hundred thousand characters of pure repeat, and he pays
+# for every one. The suppression already existed in core/context_dedup.py,
+# wired to three small surfaces while the biggest repeater ran at full
+# volume. Emit once, then point.
+#
+# The hash is over the rendered body, so if the leaked-terms tail changes
+# the full text returns automatically. Fail-soft: any error emits in full,
+# because losing the discipline costs more than the tokens it saves.
+BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s
+' "$BODY"
+import os
+import sys
+
+body = os.environ.get("BODY", "")
+try:
+    from divineos.core.context_dedup import should_emit
+
+    emit_full, pointer = should_emit("circle_first_prime", body)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0
