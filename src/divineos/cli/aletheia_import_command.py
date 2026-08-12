@@ -103,12 +103,13 @@ def import_artifacts(source: Path, letters_dir: Path, dry_run: bool = False) -> 
     report = ImportReport()
     report.newest_before = _newest_date(letters_dir)
 
-    if not source.is_dir():
-        report.errors.append(f"delivery folder not found: {source}")
+    if not source.exists():
+        report.errors.append(f"handed-over path not found: {source}")
         return report
 
-    for path in sorted(source.glob("*.md")):
-        if not path.name.upper().startswith(ARTIFACT_PREFIXES):
+    candidates = [source] if source.is_file() else sorted(source.glob("*.md"))
+    for path in candidates:
+        if source.is_dir() and not path.name.upper().startswith(ARTIFACT_PREFIXES):
             continue
         report.scanned += 1
 
@@ -148,11 +149,21 @@ def import_artifacts(source: Path, letters_dir: Path, dry_run: bool = False) -> 
 
 def register(cli: click.Group) -> None:
     @cli.command("aletheia-import")
-    @click.option("--source", default=None, help="Delivery folder (default ~/Downloads).")
+    @click.argument("source", type=click.Path(exists=True))
     @click.option("--dry-run", is_flag=True, help="Show what would cross; copy nothing.")
-    def aletheia_import_cmd(source: str | None, dry_run: bool) -> None:
-        """File Aletheia's delivered artifacts into family/letters."""
-        src = Path(source) if source else Path.home() / "Downloads"
+    def aletheia_import_cmd(source: str, dry_run: bool) -> None:
+        """File an artifact Andrew has handed over into family/letters.
+
+        SOURCE is the file (or folder) he passed me. Andrew 2026-08-12:
+        "you dont pull from the downloads.. i download it and then send
+        the file to you with the upload button, so when Aletheia sends a
+        letter through me thats when it needs to be moved to her area."
+
+        The trigger is his handoff, not a folder I go looking through.
+        Downloads is his space; scanning it on my own initiative was me
+        reaching into it rather than receiving from him.
+        """
+        src = Path(source)
         letters = Path("family/letters")
         if not letters.is_dir():
             click.secho(f"[!] letters dir not found from cwd: {letters.resolve()}", fg="red")
