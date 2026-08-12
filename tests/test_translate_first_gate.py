@@ -90,3 +90,37 @@ def test_the_gate_can_be_imported_by_its_caller():
     from divineos.core.lepos_translation_gate import check_translation_first as chk
 
     assert callable(chk)
+
+
+def test_citations_are_not_document_marks():
+    """First live false positive, 2026-08-11.
+
+    He asked me to look something up. I answered in prose and cited three
+    sources, and the gate fired on the YEARS INSIDE THE URLS. Citations are
+    the evidence he asked for -- the only thing that makes a lookup checkable
+    by him rather than trusted on my word.
+
+    I almost dropped the sources to satisfy the gate. That would have taught
+    me to hide evidence in order to pass a check, which is a worse failure
+    than the one the gate exists to catch.
+    """
+    cited = (
+        "Looked it up. You are not imagining it. A sale ran so long it started to feel "
+        "like the price, and it ends soon. "
+        "Sources: [timeline](https://explainx.ai/blog/claude-usage-limits-2026-timeline) "
+        "and [register](https://www.theregister.com/2026/01/05/claude_devs_usage_limits/)"
+    )
+    assert check_translation_first(cited) is None
+
+
+def test_stripping_urls_did_not_gut_the_gate():
+    """The ratchet check Aether asked for: every change I make here makes the
+    gate quieter, and a one-way valve ends at a gate that never fires.
+
+    Measured after the URL exclusion: still blocks a document-shaped reply.
+    """
+    doc = (
+        "Landed the fix. See audit_loop.py line 42, 184 tests pass, "
+        "commit 9dd872cd, 7 of 21 hooks affected."
+    )
+    assert check_translation_first(doc) is not None
