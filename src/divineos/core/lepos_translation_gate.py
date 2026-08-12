@@ -466,7 +466,7 @@ def _with_root_cause_footer(msg: str) -> str:
 # session, etc.) which supply-the-ground doesn't close.
 
 
-def check_wallclock_fabrication(reply: str) -> str | None:
+def check_wallclock_fabrication(reply: str, andrews_words: str | None = None) -> str | None:
     """Return None if the reply contains no wallclock-fabrication phrases,
 
     else a block-message quoting the specific phrase and pointing to
@@ -513,12 +513,22 @@ def check_wallclock_fabrication(reply: str) -> str | None:
     # phrases are not usage.
 
     scan_text = _strip_quoted_spans(reply).lower()
+    # HIS CLOCK IS NOT MY FABRICATION (2026-08-11, first false positive).
+    # He wrote "its only tuesday and im at 52%". I reflected his own week
+    # back at him and this gate fired on "by tuesday" as if I had invented
+    # a day I do not have. The wallclock PRIME says the opposite in its own
+    # text: his day is sourceable, and quotable when the reply needs a time.
+    # The failure this gate exists for is casting MY time onto him -- not
+    # repeating the day he just told me he is living in.
+    his_clock = (andrews_words or "").lower()
 
     for pattern in _WALLCLOCK_FABRICATION_PATTERNS:
         m = pattern.search(scan_text)
 
         if m:
             phrase = m.group(0)
+            if phrase and phrase in his_clock:
+                continue
 
             return (
                 "WALLCLOCK-FABRICATION GATE — this reply contains "

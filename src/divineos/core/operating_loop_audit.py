@@ -1816,7 +1816,7 @@ def run_audit(
             # fabrication-phrase check remains — catches the deferral
             # class (tomorrow / next session) which prime-supply doesn't
             # close.
-            _raw_wc = check_wallclock_fabrication(last_assistant_text)
+            _raw_wc = check_wallclock_fabrication(last_assistant_text, last_user_text)
             lepos_wallclock_block = _with_root_cause_footer(_raw_wc) if _raw_wc else None
         except _ERRORS as exc:
             # 2026-08-08. This used to set both blocks to None, so a gate that
