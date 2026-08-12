@@ -356,6 +356,7 @@ from divineos.cli import (  # noqa: E402
     letter_seen_commands,
     push_commands,
     push_ready_command,
+    stamp_ready_command,
     context_tokens_commands,
     context_dedup_commands,
     ear_sweep_commands,
@@ -444,6 +445,7 @@ progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
 push_ready_command.register(cli)
+stamp_ready_command.register(cli)
 context_tokens_commands.register(cli)
 context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)

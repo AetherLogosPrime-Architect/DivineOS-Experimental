@@ -334,6 +334,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
           }
         ]
       },
@@ -363,6 +367,16 @@
             "type": "command",
             "command": "bash .claude/hooks/read-gate-doorman.sh",
             "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "timeout": 30
           }
         ]
       }

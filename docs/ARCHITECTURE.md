@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (427 commands across 84 modules)
+  cli/                         CLI package (433 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -36,6 +36,7 @@ src/divineos/
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
@@ -332,6 +333,7 @@ src/divineos/
       drift_state.py           Data-as-metric surface: ops-count dimensions since last MEDIUM+ audit (replaces cadence.py 2026-04-21)
       tier_override_surface.py Briefing block for recent TIER_OVERRIDE events (closes Schneier Sch2 partial-theater finding)
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
+      merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass

@@ -75,7 +75,7 @@ except Exception as exc:
 
 if blocked:
     print(message)
-' 2>/dev/null)
+')
 
 if [ -n "$BLOCK_MSG" ]; then
     echo "$BLOCK_MSG" >&2
