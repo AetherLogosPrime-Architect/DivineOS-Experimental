@@ -132,13 +132,35 @@ def sync_from_shared(shared_dir: Path | None = None) -> SyncReport:
 
         round_records = [r for r in records if r.get("kind") == "round"]
         finding_records = [r for r in records if r.get("kind") == "finding"]
-        if not round_records:
-            report.errors.append(f"{path.name}: no round record; its findings were skipped")
-            continue
 
-        round_id = str(round_records[0].get("round_id") or "").strip()
+        # A round record is not required. It was meant as a provenance
+        # anchor -- proof the sender knew which round they were filing
+        # against -- but it never was evidence of anything, since the
+        # sender writes that line themselves. The real existence test is
+        # below: the round must already be in the LOCAL store.
+        #
+        # Demanding it actively broke the case it exists for. Aletheia's
+        # 2026-08-13 batch of eleven CONFIRMS arrived as finding-lines
+        # only, in exactly the format my own work order specified, and
+        # every one was skipped with "no round record". The spec I wrote
+        # produced input my own importer refused.
+        #
+        # Order of preference: the round record if present, else the
+        # round_id the findings themselves carry, else the filename,
+        # which is round-<id>.jsonl by convention.
+        round_id = ""
+        if round_records:
+            round_id = str(round_records[0].get("round_id") or "").strip()
         if not round_id:
-            report.errors.append(f"{path.name}: round record carries no round_id")
+            for rec in finding_records:
+                candidate = str(rec.get("round_id") or "").strip()
+                if candidate:
+                    round_id = candidate
+                    break
+        if not round_id:
+            round_id = path.stem.strip()
+        if not round_id:
+            report.errors.append(f"{path.name}: no round_id in the file or its name")
             continue
 
         report.rounds_seen += 1

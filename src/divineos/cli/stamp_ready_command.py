@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import click
 
@@ -134,6 +135,45 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
             )
             raise click.exceptions.Exit(1)
+
+        # The branch half, BEFORE the body half. The server-side gate wants
+        # the trailer on every guardrail-touching COMMIT as well as in the
+        # PR body, and stamping only the body left eleven PRs red on
+        # 2026-08-13 while every success message said "ready for review".
+        #
+        # Order is not cosmetic: amending rewrites the commits and moves the
+        # tree, so the tree-hash MUST be read after. Doing the body first
+        # would bind the trailer to a tree that no longer exists -- valid to
+        # look at, certifying nothing, which is the failure this module's
+        # own header warns about.
+        from divineos.core.push_ready import PushReadyError, run_push_ready
+
+        try:
+            pr_result = run_push_ready(
+                Path.cwd(), branch=branch, dry_run=dry_run, round_id=round_id
+            )
+        except PushReadyError as exc:
+            click.secho(f"[!] Could not stamp the branch commits: {exc}", fg="red")
+            click.secho("    PR left as-is; nothing was changed.", fg="bright_black")
+            raise click.exceptions.Exit(1) from exc
+
+        if pr_result.needing_trailer:
+            click.secho(
+                f"[+] {len(pr_result.amended_shas) or len(pr_result.needing_trailer)} "
+                f"commit(s) carried no trailer; bound to {round_id}.",
+                fg="green",
+            )
+            if not dry_run and not pr_result.pushed:
+                click.secho(
+                    f"[!] Commits amended but the push failed: "
+                    f"{pr_result.push_stderr.strip()[:160]}\n"
+                    "    Not writing the body -- it would bind a tree the remote "
+                    "does not have.",
+                    fg="red",
+                )
+                raise click.exceptions.Exit(1)
+        else:
+            click.secho("[=] Branch commits already carry the trailer.", fg="cyan")
 
         tree_hash = pr_head_tree_hash(pr_number)
         if not tree_hash:
