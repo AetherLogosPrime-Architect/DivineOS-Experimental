@@ -229,7 +229,10 @@ fi
 # OS describes the discipline in 67a0ff39; this gate makes the
 # discipline structural rather than advisory.
 if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
-    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --commit-msg-file "$1" || true
+    # --advisory: this call discards the exit code, so the gate must not
+    # print "BLOCKED" for a commit that is about to succeed. BLOCKED has to
+    # keep meaning blocked; every real gate spends that word.
+    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --advisory --commit-msg-file "$1" || true  # fail-soft: advisory by design -- it warns at commit and blocks at push to main
 fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /

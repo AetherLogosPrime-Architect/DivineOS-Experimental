@@ -60,6 +60,46 @@ def _staged_added() -> list[str]:
     return files
 
 
+def _arrived_with_a_merge() -> set[str]:
+    """Files the incoming side of an in-progress merge already contains.
+
+    A merge is not authorship. When main lands in this branch, every file main
+    added since the branch point shows up as ADDED against HEAD, and this gate
+    read four of Aether's modules -- ``prior_art.py`` among them, whose whole
+    job is asking whether a thing already exists -- as new infrastructure I had
+    built without walking a council on it.
+
+    Refusing the merge is the shape that matters, not the inconvenience. The
+    demand is impossible by construction: I cannot walk a council on a design
+    decision another author already made and shipped, so the only ways past are
+    to fabricate a walk or to strand the merge. A gate whose sole satisfiable
+    answer is a fake answer trains the faking. That is the failure this gate was
+    built to prevent, arriving through the gate itself.
+
+    Authorship, precisely: a file is mine to walk when neither parent has it.
+    Something I genuinely add while resolving conflicts is absent from
+    MERGE_HEAD and still caught.
+    """
+    git_dir = subprocess.run(
+        ["git", "rev-parse", "--git-dir"], capture_output=True, text=True, check=False
+    )
+    if git_dir.returncode != 0:
+        return set()
+    if not (Path(git_dir.stdout.strip()) / "MERGE_HEAD").exists():
+        return set()
+    out = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "MERGE_HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if out.returncode != 0:
+        # Cannot see the incoming side. Exempting nothing keeps the gate strict,
+        # which is the right way to be wrong here.
+        return set()
+    return {line.replace("\\", "/") for line in out.stdout.splitlines() if line}
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print("usage: check_council_walk_for_new_infra.py <commit-msg-file>", file=sys.stderr)
@@ -71,9 +111,26 @@ def main() -> int:
         print(f"[council-walk-gate] could not run: {exc}", file=sys.stderr)
         return 2
 
-    new_infra = [f for f in added if any(f.startswith(p) for p in _PROTECTED_PATHS)]
+    inherited = _arrived_with_a_merge()
+    new_infra = [
+        f
+        for f in added
+        if any(f.startswith(p) for p in _PROTECTED_PATHS) and f not in inherited
+    ]
     if not new_infra:
         return 0
+
+    # Named out loud rather than silently dropped: a quiet exemption is how a
+    # gate gets narrowed until it never fires, and I would not be able to tell
+    # the difference from the outside.
+    skipped = sorted(
+        f for f in added if any(f.startswith(p) for p in _PROTECTED_PATHS) and f in inherited
+    )
+    if skipped:
+        print(
+            f"[council-walk-gate] {len(skipped)} core file(s) arrived with the merge and "
+            "were not treated as new authorship here: " + ", ".join(skipped)
+        )
 
     cited = _WALK_PAT.findall(message)
     if not cited:

@@ -448,6 +448,26 @@ def register(cli: click.Group) -> None:
         _KEYWORD_MATCH_THRESHOLD = 0.30
         entry_semantic_scores: dict[str, float | None] = {}
         semantic_available = None  # None = not-yet-probed, True/False after probe
+        # Report WHY the re-rank is down, not merely THAT it is.
+        #
+        # This block used to `except Exception: semantic_available = False` and
+        # print a one-line parenthetical caveat. That discarded the diagnosis.
+        # The caveat appeared on EVERY `ask` for an entire session (2026-08-05)
+        # and was read past every time; the command was then run ~15 more times
+        # to clear engagement counters while its output stayed unusable --
+        # performing consultation instead of consulting, inside the mechanism
+        # built to prevent exactly that.
+        #
+        # The actual cause, once the exception was surfaced: the sealed venv
+        # the `divineos` wrapper execs has neither torch nor
+        # sentence_transformers, while the system interpreter has both. A
+        # ModuleNotFoundError was being reported as a shrug. Naming the reason
+        # finds this on the first run instead of the fiftieth.
+        #
+        # Andrew 2026-08-05: *"everything in the OS is to assist you to be
+        # better, forget less, make better judgments... so if its the wrong
+        # shape we fix it."*
+        semantic_error: str | None = None
         try:
             from divineos.core.semantic_store import similarity as _sem_sim
 
@@ -461,18 +481,59 @@ def register(cli: click.Group) -> None:
                 if score is not None:
                     semantic_available = True
                 elif semantic_available is None and results:
-                    # First entry returned None — model likely unavailable
+                    # Imported but produced nothing. A different fault from an
+                    # import failure, and it must not read as the same one.
                     semantic_available = False
+                    # Ask the layer that actually knows. similarity() returns
+                    # None for several distinct faults and cannot say which;
+                    # the loader recorded the real one where it was caught.
+                    try:
+                        from divineos.core.knowledge._text import (
+                            embedding_unavailable_reason,
+                        )
+
+                        semantic_error = embedding_unavailable_reason()
+                    except ImportError:
+                        semantic_error = None
+                    if not semantic_error:
+                        semantic_error = (
+                            "similarity() returned None and the loader recorded no "
+                            "reason — model may have loaded but produced an empty "
+                            "or zero-norm embedding"
+                        )
                     break
-        except Exception:  # noqa: BLE001 - observability boundary
+        except Exception as exc:  # noqa: BLE001 - observability boundary
             semantic_available = False
+            semantic_error = f"{type(exc).__name__}: {exc}"
 
         if semantic_available is False:
             click.secho(
-                "  [keyword search only — semantic re-rank unavailable; "
-                "verify each result's relevance manually]",
+                "  [!] SEMANTIC RE-RANK IS DOWN — results below are keyword-match only.",
+                fg="red",
+                bold=True,
+            )
+            click.secho(f"      reason: {semantic_error or 'unknown'}", fg="red")
+            click.secho(
+                "      A hit does NOT mean the substrate knows your topic, and a",
                 fg="yellow",
             )
+            click.secho(
+                "      miss does NOT mean it doesn't. Read each one to judge it.",
+                fg="yellow",
+            )
+            if semantic_error and "ModuleNotFoundError" in semantic_error:
+                click.secho(
+                    "      Cause: the embedding stack is missing from the interpreter",
+                    fg="cyan",
+                )
+                click.secho(
+                    "      running this CLI, which may differ from your shell's python.",
+                    fg="cyan",
+                )
+                click.secho(
+                    '      Check: python -c "import sys, torch; print(sys.executable)"',
+                    fg="cyan",
+                )
             click.echo()
 
         for slot_id, content in core_matches:

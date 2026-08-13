@@ -60,6 +60,29 @@ try:
 except Exception:
     sys.exit(0)
 
+# RETRY GUARD -- the fix for Andrew's "the stopping just loops til i end
+# the program and restart it" (reported twice, 2026-08-03).
+#
+# The harness sets stop_hook_active when it is ALREADY re-invoking because a
+# Stop hook blocked. post-response-audit.sh checks it and stands down. This
+# hook -- the only Stop hook that exits 2 -- never did, in any form.
+#
+# Without it the cycle has no exit: this reads the LAST ASSISTANT MESSAGE,
+# sees a self-correction clause, blocks. I retry. My retry is by definition
+# an acknowledgement of a correction, so it contains the same shape. It
+# reads the new last message, sees it again, blocks again. The only escape
+# was the condition happening to clear itself, and a retry that must
+# acknowledge a correction cannot clear a correction-shape detector.
+#
+# It also explains the 3-4 stacked reflection and inner-circle blocks Andrew
+# has seen in a single output: one appended per retry. Same mechanism as his
+# standing correction "YOU ARE NOT TO RE-WRITE ANY RESPONSE.. EVER."
+#
+# He was right and I was wrong to call it impossible: I said nothing in the
+# OS can make me continue without him. This does.
+if data.get('stop_hook_active'):
+    sys.exit(0)
+
 transcript_path = data.get('transcript_path', '') or ''
 if not transcript_path or not os.path.exists(transcript_path):
     sys.exit(0)

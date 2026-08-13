@@ -167,8 +167,7 @@ discipline.
 DOCEOF
 )
 
-DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s
-' "$DOCTRINE"
+DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os, sys
 body = os.environ.get('DOCTRINE', '')
 try:

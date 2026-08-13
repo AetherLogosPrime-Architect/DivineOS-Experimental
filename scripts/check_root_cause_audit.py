@@ -264,6 +264,28 @@ def check_message(message: str) -> tuple[int, str]:
     return 0, (f"[root-cause-audit] OK: fix-shaped commit bound to root-cause round {trailer}")
 
 
+def _relabel(diag: str, advisory: bool) -> str:
+    """Rewrite BLOCKED -> ADVISORY when the caller discards the exit code.
+
+    The pre-commit hook invokes this gate with `|| true`; it blocks only at
+    pre-push-to-main. That split is right -- Andrew: "commiting anything
+    requires no external trailer.. only pushing." What was wrong is that the
+    diagnostic said BLOCKED at commit-time while the commit sailed through.
+
+    A notice that says BLOCKED and does not block teaches the reader that
+    BLOCKED does not mean blocked, and BLOCKED is the one word in this
+    codebase that has to keep meaning something -- every real gate spends it.
+    Same class as a kill-switch left off for seventeen days: a signal that
+    reads as meaningful, is not, and trains the eye to slide past the next one.
+    """
+    if not advisory:
+        return diag
+    return diag.replace(
+        "BLOCKED:",
+        "ADVISORY (does not block this commit; WILL block on push to main):",
+    )
+
+
 def _read_commit_msg_file(path: str) -> str:
     with open(path, encoding="utf-8") as f:
         return f.read()
@@ -332,6 +354,14 @@ def main(argv: list[str] | None = None) -> int:
         "--message",
         help="Commit message text (validate-message mode for testing)",
     )
+    parser.add_argument(
+        "--advisory",
+        action="store_true",
+        help=(
+            "The caller discards a non-zero exit. Relabels the diagnostic so it "
+            "does not claim to have blocked something it did not block."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if args.mode == "validate-message":
@@ -339,7 +369,7 @@ def main(argv: list[str] | None = None) -> int:
             print("[root-cause-audit] --message required in validate-message mode")
             return 2
         code, diag = check_message(args.message)
-        print(diag)
+        print(_relabel(diag, args.advisory))
         return code
 
     if args.mode == "commit-msg":
@@ -352,7 +382,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[root-cause-audit] could not read commit msg file: {e}")
             return 2
         code, diag = check_message(message)
-        print(diag)
+        print(_relabel(diag, args.advisory))
         return code
 
     # pre-push mode

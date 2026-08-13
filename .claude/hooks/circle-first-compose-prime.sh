@@ -173,8 +173,7 @@ BODY="$BODY$TAIL"
 # The hash is over the rendered body, so if the leaked-terms tail changes
 # the full text returns automatically. Fail-soft: any error emits in full,
 # because losing the discipline costs more than the tokens it saves.
-BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s
-' "$BODY"
+BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os
 import sys
 

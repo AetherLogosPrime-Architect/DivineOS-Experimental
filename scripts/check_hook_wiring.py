@@ -68,6 +68,38 @@ _DECLARED_PATTERN = re.compile(
 )
 
 
+# A hook can be wired without appearing in settings.json. `session-init-once.sh`
+# IS registered, and runs a roster of children itself — the collapse that fixed
+# the Windows SessionStart deadlock (2026-08-03). Those children are wired; the
+# wire simply has one more segment in it.
+#
+# This check did not know that, so on 2026-08-13 it reported thirteen live hooks
+# as dark the moment that branch merged. Two answers were available and only one
+# is honest: stamp thirteen files with INTENTIONALLY UNWIRED, which would be a
+# lie written thirteen times to quiet a check — or teach the check what a wire
+# looks like now. A wiring check that cannot follow an indirection reports the
+# indirection as an absence.
+#
+# The buried cost of getting this wrong is the reason it matters: if a hook the
+# launcher runs is called dark, the obvious fix is to delete it or declare it
+# unwired, and either one turns a working hook off while the check goes green.
+_LAUNCHERS = ("session-init-once.sh",)
+
+
+def _launcher_roster(hooks_dir: Path) -> set[str]:
+    """Hook names a registered launcher invokes itself."""
+    names: set[str] = set()
+    for launcher in _LAUNCHERS:
+        path = hooks_dir / launcher
+        try:
+            body = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        names.update(re.findall(r"^\s*([\w.-]+\.sh)\s*$", body, re.MULTILINE))
+    names.discard("")
+    return names
+
+
 def classify(hooks_dir: Path, settings: Path) -> tuple[dict[str, list[str]], str | None]:
     """Return ``({state: [names]}, error)``.
 
@@ -81,12 +113,21 @@ def classify(hooks_dir: Path, settings: Path) -> tuple[dict[str, list[str]], str
     except (OSError, ValueError) as exc:
         return {}, f"cannot read {settings}: {exc}"
 
+    # Only launchers that are themselves registered can confer wiring. An
+    # unregistered launcher's roster is a list of hooks that all go dark
+    # together, which is precisely the failure worth catching.
+    via_launcher = (
+        _launcher_roster(hooks_dir)
+        if any(name in registered_blob for name in _LAUNCHERS)
+        else set()
+    )
+
     out: dict[str, list[str]] = {"REGISTERED": [], "DECLARED": [], "DARK": []}
     for path in sorted(hooks_dir.glob("*.sh")):
         name = path.name
         if name in _EXEMPT:
             continue
-        if name in registered_blob:
+        if name in registered_blob or name in via_launcher:
             out["REGISTERED"].append(name)
             continue
         try:

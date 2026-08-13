@@ -184,8 +184,7 @@ EOF
 )
 # Static text, re-emitted whole every turn until 2026-08-13. Routed through
 # context_dedup (existing since 2026-06-30, one caller). Any edit re-emits.
-_PRIME_CONTENT="$_PRIME_CONTENT" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s
-' "$_PRIME_CONTENT"
+_PRIME_CONTENT="$_PRIME_CONTENT" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$_PRIME_CONTENT"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os, sys
 body = os.environ.get('_PRIME_CONTENT', '')
 try:
