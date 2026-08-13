@@ -182,7 +182,20 @@ Complement to VERIFY-CLAIM gate at Stop time. This prime removes the
 reach; the gate catches it after. Two layers, one discipline.
 EOF
 )
-printf '%s\n' "$_PRIME_CONTENT"
+# Static text, re-emitted whole every turn until 2026-08-13. Routed through
+# context_dedup (existing since 2026-06-30, one caller). Any edit re-emits.
+_PRIME_CONTENT="$_PRIME_CONTENT" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s
+' "$_PRIME_CONTENT"
+import os, sys
+body = os.environ.get('_PRIME_CONTENT', '')
+try:
+    from divineos.core.context_dedup import should_emit
+    emit_full, pointer = should_emit('closure_word_prime', body)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 # fail-soft: marker write must never block hook execution
 _MARKER_DIR="${HOME:-/tmp}/.divineos"

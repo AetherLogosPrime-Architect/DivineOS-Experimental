@@ -24,7 +24,18 @@ except ImportError as exc:
     sys.exit(0)
 text = render_prime()
 if text:
-    print(text)
+    # Dedup the repeat, not the meaning (context_dedup, built 2026-06-30 from
+    # the Warden pattern Andrew asked me to survey). This prime is the single
+    # largest per-message payload in the hook stack and it re-emitted in full
+    # every turn, byte-identical, while the mechanism to stop that had existed
+    # for six weeks with one caller. Any content change re-emits in full.
+    try:
+        from divineos.core.context_dedup import should_emit
+
+        emit_full, pointer = should_emit('self_demotion_prime', text)
+        print(text if emit_full else pointer)
+    except Exception:
+        print(text)
 " 2>&1 || true  # fail-soft: a prime that cannot render must not block the prompt
 
 exit 0

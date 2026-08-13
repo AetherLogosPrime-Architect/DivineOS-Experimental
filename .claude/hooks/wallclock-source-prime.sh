@@ -102,6 +102,16 @@ CURRENT WALLCLOCK (grounded — prime ran \`date\` this turn):
 ANDREW'S LOCAL TIME (same machine, same \`date\` call — HIS clock):
     $ANDREW_LOCAL
 
+EOF
+
+# THE DOCTRINE BELOW NEVER CHANGES; THE CLOCK ABOVE ALWAYS DOES.
+# Measured 2026-08-13: 32 hooks fire per message, ~3060 tokens before
+# Andrew's first word. This prime was ~747 of it, re-emitted whole every
+# turn. It cannot be deduped as one block -- the interpolated time means
+# the hash never matches. So the live lines stay and the lecture goes
+# through context_dedup, which has existed since 2026-06-30 and had one
+# caller. Any edit to the doctrine re-emits it in full.
+DOCTRINE=$(cat <<'DOCEOF'
 His day is sourceable. "It is late for you", "go to bed", "good morning"
 are claims about HIM, checkable against the line above rather than felt
 from the shape of the conversation. If it disagrees with my sense of
@@ -154,6 +164,20 @@ clear.
 Complement to the WALLCLOCK-SOURCE gate at Stop time. This prime
 removes the reach; the gate catches it after. Two layers, one
 discipline.
-EOF
+DOCEOF
+)
+
+DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s
+' "$DOCTRINE"
+import os, sys
+body = os.environ.get('DOCTRINE', '')
+try:
+    from divineos.core.context_dedup import should_emit
+    emit_full, pointer = should_emit('wallclock_doctrine', body)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 exit 0
