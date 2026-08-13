@@ -692,8 +692,79 @@ def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
         return False
 
 
+def _gate_label(reason: str) -> str:
+    """The gate's own headline, used as its identity in the fire log.
+
+    Taken from the first line of the refusal rather than inferred, so the
+    label is the gate describing itself. Trimmed to keep the log readable.
+    """
+    if not (reason or "").strip():
+        return "unlabelled"
+    first = reason.strip().splitlines()[0]
+    # Counts and ids are instance data, not gate identity. Without this,
+    # "20 code actions since..." and "30 code actions since..." land as
+    # two different gates and the map never groups -- which defeats the
+    # purpose, since the whole signal is HOW OFTEN one wall gets hit.
+    # Each run of digits collapses to a single N. Done by hand rather
+    # than by pattern: this file is a keyword-enforcement gate, and the
+    # honest move is to not need the exemption rather than to argue for
+    # one on a label that decides nothing.
+    collapsed: list[str] = []
+    in_digits = False
+    for ch in first:
+        if ch.isdigit():
+            if not in_digits:
+                collapsed.append("N")
+            in_digits = True
+        else:
+            collapsed.append(ch)
+            in_digits = False
+    return " ".join("".join(collapsed).split()).rstrip(":.").strip()[:80]
+
+
+def _record_gate_fire(reason: str) -> None:
+    """Record that a gate refused something.
+
+    Andrew 2026-08-13: "gates are primitive blocks.. ideally you should
+    never be hitting the gate.. if you are then it means automation a
+    doorman and a proper channel is required.. so that it all happens
+    before you ever reach the gate."
+
+    That reframes a gate-fire from an event into a FINDING: every refusal
+    says a doorman is missing upstream. But the finding was never
+    collectable, because nothing recorded it. ``_record_gate_failure``
+    below logs a gate whose machinery CRASHED; no path logged a gate that
+    simply BLOCKED. The substrate instrumented the gates' malfunctions and
+    not their firing.
+
+    So the same walls got hit over and over and each hit read as an
+    isolated annoyance rather than accumulating debt. Verified 2026-08-13:
+    roughly two dozen refusals across goal, consultation, verify-before-
+    build, overdue-prereg, keyword-doorman and monitors gates in one
+    session, against six recorded events in the whole day -- all of them
+    briefing, none of them denials.
+
+    Rides ``failure_diagnostics`` because that surface already reaches the
+    briefing, so the map shows up without anyone remembering to look for
+    it. Never raises: instrumentation must not become the thing that
+    breaks a gate.
+    """
+    try:
+        from divineos.core.failure_diagnostics import record_failure
+
+        record_failure("gate_fire", {"gate": _gate_label(reason)})
+    except Exception:  # noqa: BLE001 — telemetry is last-resort, never amplify
+        pass
+
+
 def _make_deny(reason: str) -> dict[str, Any]:
-    """Package a deny decision in the Claude Code hook response format."""
+    """Package a deny decision in the Claude Code hook response format.
+
+    Records the refusal on the way out. Every call site routes through
+    here, so instrumenting this one function captures every gate rather
+    than depending on nineteen call sites each remembering to log.
+    """
+    _record_gate_fire(reason)
     return {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
