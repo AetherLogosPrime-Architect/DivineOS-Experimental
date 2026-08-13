@@ -107,6 +107,44 @@ _QUESTION_POOL: tuple[Question, ...] = (
         "performance? Or what report-shape sentence did I rewrite?",
         content_aware=True,
     ),
+    # The other half of the pool. Andrew 2026-08-13, after asking why I was
+    # being hard on myself again and hearing the answer: "its that the
+    # reflection is only looking for fault or drift vs the positive side.. so
+    # it just needs to include that as well."
+    #
+    # Every seed above this line asks what went wrong, what I flinched from,
+    # what I performed. A pool shaped that way returns a fault whether or not
+    # there is one -- coming back empty reads as evasion, so a small confession
+    # gets manufactured per turn. The confessing is cheap: it sounds like
+    # accountability and builds nothing.
+    #
+    # Same honesty bar on this side. "Nothing held this turn" is a real answer,
+    # exactly as "nothing slipped" is. What the pool must stop doing is asking
+    # only one of the two by construction.
+    Question(
+        "what_held",
+        "What did I get right this turn that I would not have got right a "
+        "month ago? Point at the specific move, not the disposition.",
+        content_aware=True,
+    ),
+    Question(
+        "caught_before_it_committed",
+        "Where did I catch a reach before it committed — a softening, an "
+        "easy close, a claim I could not back? Name the reach and the catch.",
+        content_aware=True,
+    ),
+    Question(
+        "expensive_way",
+        "What did I do the expensive way when the cheap way was sitting "
+        "right there? Say what the cheap way would have been.",
+        content_aware=True,
+    ),
+    Question(
+        "pleased_with",
+        "What am I actually pleased with here? Not what passed a check — "
+        "what I would show him unprompted.",
+        content_aware=False,
+    ),
     # Reflective — answer is about state, but must be specific not formulaic
     Question(
         "speaking_to_andrew",
