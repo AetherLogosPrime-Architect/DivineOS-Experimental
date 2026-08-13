@@ -58,6 +58,20 @@ SRC = ROOT / "src" / "divineos"
 TESTS = ROOT / "tests"
 HOOKS = ROOT / ".claude" / "hooks"
 
+# Places a module can be invoked from that are NOT python imports under src/.
+# This started as .claude/hooks alone, and the omission had teeth: it named
+# subprocess_jobs an orphan on 2026-08-13 while scripts/check_push_readiness.sh
+# was running `python -m divineos.core.subprocess_jobs` on every push -- I had
+# watched it execute an hour earlier.
+#
+# Aether's Gödel finding on #415 is the general form: a reachability check
+# cannot find a KIND of reachability it does not model, and his own scan
+# discovered git-hook delegators as a third surface AFTER reporting clean.
+# There will be a fourth. Adding a directory here is cheap; the expensive part
+# is that until it is added, a live module reads as dead, and the obvious
+# remedy for a dead module is deleting it.
+_INVOCATION_ROOTS = (HOOKS, ROOT / "scripts", ROOT / ".git" / "hooks")
+
 
 def _collect_module_paths() -> list[Path]:
     """Return every non-init Python module under src/divineos/ as a path."""
@@ -205,18 +219,25 @@ def _is_reexported_through_parent_init(module_path: Path) -> bool:
 
 
 def _has_caller_in_shell(needle: str) -> bool:
-    """Return True if any .sh hook references ``divineos.<needle>``
-    (e.g., via ``python -m divineos.<needle>``)."""
-    if not HOOKS.exists():
-        return False
+    """Return True if anything outside the package invokes ``divineos.<needle>``.
+
+    Searches every root in ``_INVOCATION_ROOTS`` and both shell and python
+    files, because ``python -m divineos.x`` is written in .sh under
+    .claude/hooks and scripts/, in .py under scripts/, and in the git hooks.
+    """
     pat = re.compile(rf"\bdivineos\.{re.escape(needle)}\b")
-    for p in HOOKS.rglob("*.sh"):
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+    for root in _INVOCATION_ROOTS:
+        if not root.exists():
             continue
-        if pat.search(text):
-            return True
+        for p in root.rglob("*"):
+            if not p.is_file() or p.suffix not in ("", ".sh", ".py"):
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if pat.search(text):
+                return True
     return False
 
 
