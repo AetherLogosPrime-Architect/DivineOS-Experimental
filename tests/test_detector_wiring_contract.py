@@ -269,6 +269,12 @@ def test_registry_covers_known_detectors() -> None:
         "hook_telemetry",
         "principle_surfacer",  # surfaces, doesn't detect
         "registered_names",  # helper: operator/family-name registry, not a detector
+        # transcript_tail reads records off the transcript for the detectors to
+        # judge. Its only public name is read_tail_records; it reaches no verdict
+        # and has none to wire. Listed here rather than given an empty entry in
+        # the registry, because a registry row implies something checks its
+        # output, and nothing does. Arrived 2026-08-13 with main.
+        "transcript_tail",
         # register_observer is in the registry below — check is explicit
     }
     detector_modules = hook_modules - non_detectors
