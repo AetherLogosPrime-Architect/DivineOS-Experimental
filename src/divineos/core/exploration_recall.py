@@ -357,11 +357,28 @@ def surface_for_context(
     try:
         from divineos.core import read_gate
 
-        if not read_gate.has_pending("prior-writing"):
+        # THE FILE MUST STILL EXIST. Andrew 2026-08-14, blocked mid-merge: the
+        # gate demanded I open
+        #   .../divineos-push-gate-Zve404/tmp/pytest/run-62892/.../tagged.md
+        # a fixture pytest wrote and deleted inside the push-gate's own test
+        # run. The index had swallowed it while it briefly existed; by the time
+        # the gate fired it was gone. Read is never blocked, so the remedy was
+        # available -- and impossible, because there was nothing there to open.
+        #
+        # An unsatisfiable gate is the shape whose only way past is the bypass,
+        # which is how a gate teaches the reaching it exists to prevent. Same
+        # class as the council-walk gate refusing a merge on 2026-08-14 and the
+        # pre-reg gate blocking the very command that would satisfy it.
+        #
+        # Checking existence at ARM time rather than at fire time, because a
+        # requirement that was satisfiable when written is the only kind worth
+        # writing down.
+        top = tagged[0]
+        if not read_gate.has_pending("prior-writing") and Path(top.path).exists():
             read_gate.require_read(
                 "prior-writing",
-                str(tagged[0].path),
-                f"top prior-writing match: {tagged[0].title}",
+                str(top.path),
+                f"top prior-writing match: {top.title}",
             )
     except _GATE_ARM_ERRORS:
         pass
