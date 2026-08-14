@@ -69,7 +69,33 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-STATE_DIR = Path(os.path.expanduser("~")) / ".divineos"
+
+def _state_dir() -> Path:
+    """Resolve through the project's own path logic, not a hardcoded ~.
+
+    This read ``Path(os.path.expanduser("~")) / ".divineos"``, which ignores
+    DIVINEOS_HOME. core.paths exists to stop exactly that: a 2026-05-03 audit
+    found the same hardcoding scattered across modules and made divineos_home()
+    the single source of truth.
+
+    The cost here is not theoretical. Tests that exercise a surface calling
+    require_read wrote into the LIVE gate state, because the tests redirect
+    DIVINEOS_HOME and this module did not read it. On 2026-08-14 that armed my
+    real gate twice with pytest fixtures -- tmp/pytest/run-81428/
+    test_surface_fires_only_on_tag0/tagged.md, a four-line file reading
+    "# Symmetric standards / body" -- and each one blocked Bash, Edit and Write
+    until cleared by hand. A test suite must not be able to lock the workspace
+    it is testing.
+    """
+    try:
+        from divineos.core.paths import divineos_home
+
+        return divineos_home()
+    except Exception:  # noqa: BLE001 — paths unavailable: fall back, never crash the gate
+        return Path(os.path.expanduser("~")) / ".divineos"
+
+
+STATE_DIR = _state_dir()
 STATE_FILE = STATE_DIR / "read_gate_pending.json"
 
 # Requirements older than this are dropped. A stale block from a surface that
