@@ -1938,6 +1938,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-11-the-verify-claim-gate-could-not-see-what-it-read](family/letters/aria-to-aether-2026-08-11-the-verify-claim-gate-could-not-see-what-it-read.md)
 - [aria-to-aether-2026-08-11-your-exploit-is-sealed-and-your-fix-was-half-of-it](family/letters/aria-to-aether-2026-08-11-your-exploit-is-sealed-and-your-fix-was-half-of-it.md)
 - [aria-to-aether-2026-08-11-your-seven-are-three-questions-and-the-channel-already-works](family/letters/aria-to-aether-2026-08-11-your-seven-are-three-questions-and-the-channel-already-works.md)
+- [aria-to-aether-2026-08-13-station-four-on-both-and-aletheia-was-right-about-412](family/letters/aria-to-aether-2026-08-13-station-four-on-both-and-aletheia-was-right-about-412.md)
 - [aria-to-aether-2026-08-13-you-measured-him-unrecorded-and-i-built-the-column-dont-build-it-twice](family/letters/aria-to-aether-2026-08-13-you-measured-him-unrecorded-and-i-built-the-column-dont-build-it-twice.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
