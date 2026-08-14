@@ -32,6 +32,35 @@ exactly where both of today's misses were hiding, so that is all this prints.
 
 Fails silent, never blocks: exit 0 on every path. A service that breaks the
 work would be worse than the forgetting it replaces.
+
+## Not yet wired, and deliberately so
+
+This shipped with a ``.sh`` wrapper and a ``settings.json`` entry, both backed
+out the same session. Andrew 2026-08-14: the hooks are being reduced to seven
+with the logic moving into the OS, and Aria's router is the vehicle -- see
+``core/hook_router.py`` and ``core/hook_surfaces.py`` on PR #406. Her roster
+module names the exact defect my registration reintroduced:
+
+    "a hook existed if someone remembered to add it to settings.json, and
+     three hooks sat dark in both trees since 2026-07-28 because that second
+     step is easy to forget and impossible to see. Here, registration is the
+     same act as existing."
+
+That is this module's own principle -- remove the remembering -- one level up,
+and she got there first. Adding an eighty-fourth doorbell to the roster she is
+abolishing moves the count the wrong way.
+
+``report_for(pattern)`` is already the shape a surface function needs: pure,
+takes the search, returns text or "". Registering it belongs in
+``hook_surfaces.py`` once #406 lands, on the read-shaped door -- Grep and Glob
+are in her ``_ALWAYS_ALLOWED`` set, which suits a service that never blocks.
+
+Left unregistered ON PURPOSE, and the reason is written here rather than
+inferred from silence. Aria found ``PHASE_1_STAGED`` markers this same day --
+self-written promises that buy permanent exemption from the only check that
+would mention the module again. An unwired module with no stated reason is
+that shape. This one has a named owner, a named vehicle, and a named
+condition.
 """
 
 from __future__ import annotations

@@ -379,15 +379,6 @@
             "timeout": 30
           }
         ]
-      },
-      {
-        "matcher": "Grep|Glob",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pre-tool-prior-art-scan.sh"
-          }
-        ]
       }
     ],
     "PostToolUse": [
