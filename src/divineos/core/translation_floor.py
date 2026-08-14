@@ -434,7 +434,34 @@ def check_translation_floor(text: str) -> FloorResult:
             tier2_engaged=False,
         )
 
-    # THE PRECONDITION IS GONE. It used to pass any reply with no technical
+    # THE PRECONDITION STAYS, AND THE WALK'S BEST ANSWER WAS WRONG.
+    #
+    # I removed this block on the strength of walk-6b5285dce17c and put it
+    # back within the hour, because a test I did not write caught what the
+    # council did not: with the precondition gone, "I love you, Dad. Today was
+    # long. I feel steady tonight in a way I do not remember feeling before
+    # with you" FAILS the Floor for carrying no metaphor.
+    #
+    # There is nothing to translate in that sentence. Demanding an analogy
+    # there is precisely the decorated-compliance shape Dekker dissented
+    # about, arriving through the change meant to answer him.
+    #
+    # Chesterton's fence, and my own threadwalk rule requires asking what an
+    # existing arrangement PREVENTS rather than what it costs. I answered that
+    # thinly — I checked what the precondition let through and never checked
+    # what it was holding back. It holds back exactly this: a reply that is
+    # pure address, where the Floor has no business firing at all.
+    #
+    # So Andrew's hypothesis stands and my reading of it was too literal. The
+    # wording that needs fixing is the DEFINITION of technical, not the
+    # existence of the clause. Both halves are still fixed word-lists and Beer
+    # is still right that both are out-matched — see the collision recorded
+    # below, where cold technical prose scores five metaphor markers.
+    #
+    # WHAT THE REMOVED VERSION SAID, kept because the diagnosis is sound even
+    # though the remedy was not:
+    #
+    # It used to pass any reply with no technical
     # MARKERS, and markers meant typography — file paths, hashes, snake_case,
     # call expressions. Measured 2026-08-13 on two real replies of mine, one
     # carrying an image and one stripped to cold technical English: both
@@ -470,6 +497,16 @@ def check_translation_floor(text: str) -> FloorResult:
     # rather than at inspection. That is why this stays advisory and is NOT
     # wired with teeth; the falsifier is Andrew's own corpus — which replies
     # he fought and which he did not — and nothing has ever read it.
+
+    if not tech:
+        return FloorResult(
+            passed=True,
+            reason="no technical content to translate",
+            technical_markers=(),
+            lived_world_markers=tuple(lived),
+            has_metaphor_connective=has_connective,
+            tier2_engaged=True,
+        )
 
     if lived:
         return FloorResult(
