@@ -67,6 +67,16 @@ except ImportError as exc:
     )
     sys.exit(0)
 
+# Clear anything the action-stream shows was actually read, BEFORE asking
+# whether to block. satisfy_from_stream existed from the start and was called
+# by nothing -- one occurrence in the tree, its own definition -- so reading a
+# required file never opened the door. The premise is "a check for the read
+# tool being used"; without this line there was no check, only the demand.
+try:
+    read_gate.satisfy_from_transcript(data.get("transcript_path"))
+except Exception as exc:
+    print(f"[read-gate] satisfier errored, gate unchanged: {exc}", file=sys.stderr)
+
 try:
     blocked, message = read_gate.gate_status()
 except Exception as exc:

@@ -173,6 +173,85 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     return True, ""
 
 
+# Tail-read budget for the transcript. These files reach hundreds of megabytes
+# and this runs before every mutating tool call.
+_TRANSCRIPT_TAIL_BYTES = 2_000_000
+
+
+def _content_blocks(rec: dict[str, object]) -> list[dict[str, object]]:
+    """Pull content blocks out of a transcript record, whatever its shape."""
+    message = rec.get("message")
+    content = message.get("content") if isinstance(message, dict) else rec.get("content")
+    if not isinstance(content, list):
+        return []
+    return [b for b in content if isinstance(b, dict)]
+
+
+def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
+    """Clear requirements by scanning the session transcript for Read calls.
+
+    ``satisfy_from_stream`` has existed since this module was written and was
+    called by NOTHING -- verified 2026-08-14: one occurrence in the whole tree,
+    and it is the definition. The gate could arm but had no path to clear
+    itself by reading. Every requirement stood until it aged out at three hours
+    or was deleted by hand.
+
+    That inverts the design. The premise is Andrew's -- "a check for the read
+    tool being used, then at that point if you dont read it.. its your fault"
+    -- and without this the check was never wired, so reading was not the way
+    out. I read a required entry in full and the door stayed shut; twice in one
+    session that ended in clearing state manually, which is the
+    bypass-habituation this module exists to prevent.
+
+    Same class as the defect Aria named in her roster module: the function
+    exists, nothing calls it, and the gap is invisible from inside.
+
+    Fails open on every error. A satisfier that cannot run must leave the gate
+    exactly as it found it and never break the tool call.
+    """
+    if not transcript_path:
+        return []
+    path = Path(transcript_path)
+    if not path.is_file():
+        return []
+
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _TRANSCRIPT_TAIL_BYTES))
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return []
+
+    calls: list[tuple[str, str, dict[str, object] | None]] = []
+    for line in chunk.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        for block in _content_blocks(record):
+            if block.get("type") != "tool_use":
+                continue
+            if str(block.get("name", "")) not in ("Read", "NotebookRead"):
+                continue
+            args = block.get("input")
+            args = args if isinstance(args, dict) else {}
+            target = str(args.get("file_path") or args.get("notebook_path") or "")
+            if target:
+                calls.append((str(block["name"]), target, args))
+
+    if not calls:
+        return []
+    try:
+        return satisfy_from_stream(tuple(calls))  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001 — never let the satisfier break a tool call
+        return []
+
+
 def satisfy_from_stream(tool_calls_in_turn: tuple[tuple[str, str], ...]) -> list[str]:
     """Clear any requirement whose path appears as a Read in the action-stream.
 
