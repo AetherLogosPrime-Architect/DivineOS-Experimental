@@ -261,18 +261,41 @@ def register(cli: click.Group) -> None:
 
         from divineos.core.goal_auto_close import auto_close_from_message
 
+        # HEAD's timestamp travels with HEAD's message so the closer can
+        # refuse to close goals that did not exist when that commit landed.
+        # Without it a goal added after the commit was closed by it, at
+        # birth, which left has_session_fresh_goal() permanently false.
+        message_time: float | None = None
+        resolved: str = message or ""
+
         if message is None:
             try:
-                message = subprocess.check_output(
+                resolved = subprocess.check_output(
                     ["git", "log", "-1", "--pretty=%B"],
                     text=True,
                     stderr=subprocess.DEVNULL,
                 )
+                message_time = float(
+                    subprocess.check_output(
+                        ["git", "log", "-1", "--pretty=%ct"],
+                        text=True,
+                        stderr=subprocess.DEVNULL,
+                    ).strip()
+                )
             except (subprocess.CalledProcessError, FileNotFoundError):
                 click.secho("[-] Could not read HEAD commit message.", fg="red")
                 return
+            except ValueError:
+                # Message read fine but the timestamp did not parse. Run
+                # without the ordering check rather than skipping the
+                # close entirely, and say so -- a silent downgrade here
+                # is what let the original bug hide.
+                click.secho(
+                    "[!] Could not read HEAD's timestamp; running without the causality check.",
+                    fg="yellow",
+                )
 
-        result = auto_close_from_message(message, threshold=threshold)
+        result = auto_close_from_message(resolved, threshold=threshold, message_time=message_time)
         if not result.closed:
             click.secho("[~] No goals closed.", fg="bright_black")
             if result.skipped:

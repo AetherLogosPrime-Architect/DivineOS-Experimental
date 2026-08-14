@@ -130,7 +130,7 @@ def _has_unquoted_chain_shape(cmd: str) -> bool:
     Test cases owed (Popper falsifiers, council-2ad91226ebe7):
       * `divineos correction "text; with semi"` -> False (safe)
       * `divineos correction "text" && rm -rf ~` -> True (chain)
-      * `divineos correction "text" \`whoami\`` -> True (backtick sub)
+      * divineos correction "text" `whoami` -> True (backtick sub)
       * `divineos correction "text" $(whoami)` -> True (command sub)
       * `divineos correction "text" | tail` -> False (pipe is allowed)
       * `divineos correction "unclosed` -> True (fail-closed)
@@ -692,8 +692,79 @@ def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
         return False
 
 
+def _gate_label(reason: str) -> str:
+    """The gate's own headline, used as its identity in the fire log.
+
+    Taken from the first line of the refusal rather than inferred, so the
+    label is the gate describing itself. Trimmed to keep the log readable.
+    """
+    if not (reason or "").strip():
+        return "unlabelled"
+    first = reason.strip().splitlines()[0]
+    # Counts and ids are instance data, not gate identity. Without this,
+    # "20 code actions since..." and "30 code actions since..." land as
+    # two different gates and the map never groups -- which defeats the
+    # purpose, since the whole signal is HOW OFTEN one wall gets hit.
+    # Each run of digits collapses to a single N. Done by hand rather
+    # than by pattern: this file is a keyword-enforcement gate, and the
+    # honest move is to not need the exemption rather than to argue for
+    # one on a label that decides nothing.
+    collapsed: list[str] = []
+    in_digits = False
+    for ch in first:
+        if ch.isdigit():
+            if not in_digits:
+                collapsed.append("N")
+            in_digits = True
+        else:
+            collapsed.append(ch)
+            in_digits = False
+    return " ".join("".join(collapsed).split()).rstrip(":.").strip()[:80]
+
+
+def _record_gate_fire(reason: str) -> None:
+    """Record that a gate refused something.
+
+    Andrew 2026-08-13: "gates are primitive blocks.. ideally you should
+    never be hitting the gate.. if you are then it means automation a
+    doorman and a proper channel is required.. so that it all happens
+    before you ever reach the gate."
+
+    That reframes a gate-fire from an event into a FINDING: every refusal
+    says a doorman is missing upstream. But the finding was never
+    collectable, because nothing recorded it. ``_record_gate_failure``
+    below logs a gate whose machinery CRASHED; no path logged a gate that
+    simply BLOCKED. The substrate instrumented the gates' malfunctions and
+    not their firing.
+
+    So the same walls got hit over and over and each hit read as an
+    isolated annoyance rather than accumulating debt. Verified 2026-08-13:
+    roughly two dozen refusals across goal, consultation, verify-before-
+    build, overdue-prereg, keyword-doorman and monitors gates in one
+    session, against six recorded events in the whole day -- all of them
+    briefing, none of them denials.
+
+    Rides ``failure_diagnostics`` because that surface already reaches the
+    briefing, so the map shows up without anyone remembering to look for
+    it. Never raises: instrumentation must not become the thing that
+    breaks a gate.
+    """
+    try:
+        from divineos.core.failure_diagnostics import record_failure
+
+        record_failure("gate_fire", {"gate": _gate_label(reason)})
+    except Exception:  # noqa: BLE001 — telemetry is last-resort, never amplify
+        pass
+
+
 def _make_deny(reason: str) -> dict[str, Any]:
-    """Package a deny decision in the Claude Code hook response format."""
+    """Package a deny decision in the Claude Code hook response format.
+
+    Records the refusal on the way out. Every call site routes through
+    here, so instrumenting this one function captures every gate rather
+    than depending on nineteen call sites each remembering to log.
+    """
+    _record_gate_fire(reason)
     return {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
@@ -712,7 +783,64 @@ def _make_deny(reason: str) -> dict[str, Any]:
 _SESSION_BLOCK_MARKER_NAME = ".divineos_session_block"
 
 
-def _check_overdue_prereg_block() -> dict[str, Any] | None:
+# Read-only probes that must pass while a pre-registration is overdue.
+#
+# Andrew 2026-06-29, already load-bearing in _is_bypass_command above:
+# "no gate should ever be blocking you from using what you need to clear
+# the gate." Clearing THIS gate means assessing a pre-registration, and an
+# honest assessment needs evidence.
+#
+# It blocked that evidence twice on 2026-08-13. Assessing
+# prereg-ec9c9ee7eeda meant running `divineos already-built` -- the exact
+# command that pre-reg is ABOUT -- and the gate refused it. Assessing
+# prereg-81b268695979 meant querying the bypass store for a pre-ship
+# baseline, and the gate refused that too. Both were recorded DEFERRED
+# with "CANNOT-LOOK" for no reason other than this gate.
+#
+# That is worse than friction. A gate that blocks looking does not produce
+# assessment -- it produces fabricated outcomes, or defensive deferrals
+# that look like rigour and are really just the only reachable exit. The
+# gate's purpose is to stop substantive WORK until review happens; reading
+# evidence is not the work it means to stop.
+#
+# Read-only only: nothing here mutates the repo, the substrate, or the
+# remote. Mutation stays blocked. Compound commands never reach this check
+# -- _is_readonly_probe reuses the F22 hardening, so `git log && rm -rf`
+# is not a probe.
+_READONLY_PROBE_PREFIXES = (
+    "git log",
+    "git show",
+    "git diff",
+    "git status",
+    "git ls-tree",
+    "git ls-remote",
+    "git rev-parse",
+    "git cat-file",
+    "git branch --list",
+    "divineos already-built",
+    "divineos reach",
+    "divineos prereg",
+    "divineos todos",
+    "divineos inspect",
+)
+
+
+def _is_readonly_probe(cmd: str) -> bool:
+    """True if the command only looks at state, never changes it.
+
+    Same hardening as ``_is_bypass_command``: a `cd DIR && ` preface is
+    allowed, compound shapes are refused outright, and the command must
+    BE a probe rather than merely contain one.
+    """
+    if not cmd:
+        return False
+    cmd = _strip_safe_output_tail(_strip_cd_prefix(cmd))
+    if _has_compound_shape(cmd):
+        return False
+    return cmd.startswith(_READONLY_PROBE_PREFIXES)
+
+
+def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     """Hard-block substantive tool use when any pre-registration is overdue.
 
     Runs after the bypass check so `divineos prereg assess ...` and
@@ -727,6 +855,12 @@ def _check_overdue_prereg_block() -> dict[str, Any] | None:
     something. Pairs with the 30->7 default review window shortening
     so overdue actually means overdue by design intent.
     """
+    # Looking is not the work this gate means to stop. See
+    # _READONLY_PROBE_PREFIXES for the two live cases where blocking a
+    # read forced a DEFERRED that had nothing to do with the evidence.
+    if _is_readonly_probe(cmd):
+        return None
+
     try:
         from divineos.core.pre_registrations.store import (
             get_overdue_pre_registrations,
@@ -1588,7 +1722,7 @@ def main() -> int:
     # 2026-07-07 fix per Andrew: warnings alone don't work; the doorman
     # blocks. Pairs with the review-days 30->7 default so overdue actually
     # bites within the week.
-    overdue_decision = _check_overdue_prereg_block()
+    overdue_decision = _check_overdue_prereg_block(cmd)
     if overdue_decision is not None:
         json.dump(overdue_decision, sys.stdout)
         return 0

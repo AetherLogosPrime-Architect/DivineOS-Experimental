@@ -14,9 +14,11 @@ job) AND runnable locally for a dry-run:
     python scripts/ci_merge_review_check.py --pr 60 \
         --repo AetherLogosPrime-Architect/DivineOS-Experimental
 
+Scope: EVERY PR to main. There is no touches-no-guardrail exemption; see the
+comment in ``main`` for why that seam was closed 2026-08-13.
+
 Exit codes:
-  0 — gate PASSES (operator approval on head + named, logged round), OR the
-      PR touches no guardrail files (gate does not apply).
+  0 — gate PASSES (operator approval on head + named, logged round).
   1 — gate FAILS (verdict False). The message explains why.
   2 — infrastructure error (could not fetch PR data). Fails LOUD, not silent.
 
@@ -37,6 +39,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from divineos.core.merge_review_gate import (
     Review,
@@ -104,42 +107,42 @@ def _fetch_pr_meta(repo: str, pr: int) -> tuple[str, str] | None:
 
 
 def _round_is_logged(round_id: str) -> bool:
-    """True if the referenced audit round exists in the Watchmen store.
+    """True if the referenced audit round is verifiably logged.
 
-    Fails toward False (a round we cannot confirm is treated as absent), so a
-    fabricated id cannot pass by making the lookup error out.
+    Two sources, checked in that order:
+
+    1. ``docs/audit_rounds/<round-id>.json`` -- committed, so it travels with
+       the PR and lands in the diff the operator approves.
+    2. The local Watchmen store, for someone running this on the machine that
+       holds the audit.
+
+    Source 1 exists because source 2 alone made this requirement impossible
+    to satisfy anywhere but that one machine. The store lives at
+    ``DIVINEOS_HOME/data/event_ledger.db``, which is gitignored; on a GitHub
+    runner the ``audit_rounds`` table is not even created, ``get_round``
+    raises, and the ``except`` below returned False. Every run. Confirmed
+    2026-08-14 against an empty DIVINEOS_HOME: ``no such table:
+    audit_rounds``. The gate was not strict, it was unsatisfiable -- and it
+    reported that as an ordinary failure, so it read like work left undone
+    rather than a door with no handle.
+
+    Still fails toward False: a round nobody can confirm counts as absent.
     """
     if not round_id:
         return False
+    try:
+        from divineos.core.watchmen.round_export import exported_round_exists
+
+        if exported_round_exists(Path.cwd(), round_id):
+            return True
+    except Exception:  # noqa: BLE001 — export unreadable → fall through to the store
+        pass
     try:
         from divineos.core.watchmen.store import get_round
 
         return get_round(round_id) is not None
     except Exception:  # noqa: BLE001 — unknown/unreachable round → not logged
         return False
-
-
-def _pr_touches_guardrail(repo: str, pr: int) -> bool:
-    """True if the PR changes any file on the guardrail list."""
-    files = _gh_json(
-        ["api", f"repos/{repo}/pulls/{pr}/files", "--paginate", "--jq", "[.[].filename]"]
-    )
-    if not isinstance(files, list):
-        # Cannot determine → assume it does, so the gate applies (fail safe).
-        return True
-    changed = {str(f).replace("\\", "/") for f in files}
-    try:
-        from pathlib import Path
-
-        guard_raw = Path("scripts/guardrail_files.txt").read_text(encoding="utf-8")
-    except OSError:
-        return True
-    guard = {
-        line.strip().replace("\\", "/")
-        for line in guard_raw.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    }
-    return bool(changed & guard)
 
 
 def main(argv: list[str]) -> int:
@@ -211,9 +214,16 @@ def main(argv: list[str]) -> int:
             )
             return 0
 
-    if not _pr_touches_guardrail(args.repo, args.pr):
-        print("[merge-review] PR touches no guardrail files; gate does not apply.")
-        return 0
+    # No guardrail scoping. Andrew 2026-08-13: "all PR's merging to main must
+    # have an audit... i notice the optimizer uses that as a metric to do
+    # things that dont touch guardrail files to bypass it.. so there is no
+    # more bypass."
+    #
+    # The guardrail list was a routable metric: whether the gate applied was a
+    # property of which files a change happened to touch, which is a property
+    # I control while writing the change. Every merge to main is now in scope.
+    # Letters and docs need an audit too, and those are the cheap ones to
+    # confirm -- the cost of the blanket rule is small and it has no seam.
 
     meta = _fetch_pr_meta(args.repo, args.pr)
     reviews = _fetch_reviews(args.repo, args.pr)
@@ -224,8 +234,6 @@ def main(argv: list[str]) -> int:
     head_sha, body_and_commits = meta
 
     try:
-        from pathlib import Path
-
         config_raw = Path(_CONFIG_PATH).read_text(encoding="utf-8")
     except OSError:
         config_raw = ""

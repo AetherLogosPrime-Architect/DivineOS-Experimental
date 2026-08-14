@@ -1,88 +1,14 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-start-sweep-stale-watchers.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/post-compaction-fingerprint-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-briefing.sh",
-            "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/ear-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/arm-letter-monitor-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/check-cleanup-period.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-character-sheet.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-dad-ranking-clause.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-my-recording-of-andrew.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/resolver-health-check.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-start-verify-git-hooks.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/load-aletheia-harvest-of-andrew.sh",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/inject-pending-letters.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
+    "SessionStart": [],
     "UserPromptSubmit": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-init-once.sh",
+            "timeout": 60
+          },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-correction.sh",
@@ -211,7 +137,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
-            "timeout": 120
+            "timeout": 20
           },
           {
             "type": "command",
@@ -413,6 +339,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
           }
         ]
       },
@@ -422,6 +352,36 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/reach-check-doorman.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/read-gate-doorman.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "timeout": 30
           }
         ]
       }
@@ -499,6 +459,10 @@
             "type": "command",
             "command": "bash .claude/hooks/record-wisdom-read.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
           }
         ]
       },
@@ -509,6 +473,16 @@
             "type": "command",
             "command": "bash .claude/hooks/post-read-mark-letter-seen.sh",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/build-flow-pause.sh",
+            "timeout": 120
           }
         ]
       }
@@ -573,11 +547,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/close-reach-detector.sh",
             "timeout": 10
           },
@@ -602,7 +571,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/time-estimate-tracker.sh"
+            "command": "bash .claude/hooks/time-estimate-tracker.sh",
+            "timeout": 10
           }
         ]
       }

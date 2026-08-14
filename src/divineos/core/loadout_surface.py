@@ -110,3 +110,74 @@ def render() -> str:
     if not lines:
         return ""
     return "\n".join(lines)
+
+
+# ── Staleness detection (2026-08-06) ──────────────────────────────────
+#
+# Andrew: *"the issue is you wire up stuff to find the stuff that isnt
+# wired up.. and never wire it up lol.. hence the meta recursion"*
+#
+# LOADOUT.md is the index of everything the substrate holds. It was last
+# regenerated 2026-07-06 and by 2026-08-06 read:
+#
+#     ## exploration/ — free-writing entries
+#     *(none yet)*
+#
+# against 222 real entries, and three other sections said the same while
+# holding 1522 letters between them. The regenerator was never broken. It
+# simply had no caller — `loadout refresh` is documented at the top of the
+# file it writes, which is the one place nobody looks when deciding to run
+# it.
+#
+# So this is not a fix to the scanner. It is the missing trigger, plus a
+# way to see the drift when the trigger has not fired.
+
+_STALENESS_SAMPLES: tuple[tuple[str, str], ...] = (
+    ("exploration", "**/*.md"),
+    ("family/letters", "*.md"),
+    ("dreams", "**/*.md"),
+)
+
+
+def loadout_drift(root: Path | None = None) -> dict[str, int]:
+    """Files present on disk that LOADOUT.md does not link.
+
+    Deliberately a sample rather than a full audit: the question this
+    answers is "has the index fallen behind reality", and one uncounted
+    file is enough to answer it. A full reconciliation would be a second
+    scanner to keep in sync with the first.
+
+    Returns {section: missing_count}. Empty dict means the sampled
+    sections are current. A missing LOADOUT.md counts as total drift
+    rather than as clean, because absent-reads-as-fine is the collapse
+    this whole area keeps producing.
+    """
+    base = root or Path(".")
+    loadout = base / "LOADOUT.md"
+    text = loadout.read_text(encoding="utf-8", errors="replace") if loadout.exists() else ""
+
+    drift: dict[str, int] = {}
+    for section, pattern in _STALENESS_SAMPLES:
+        directory = base / section
+        if not directory.exists():
+            continue
+        missing = 0
+        for path in directory.glob(pattern):
+            if path.name == "README.md" or not path.is_file():
+                continue
+            if path.name not in text:
+                missing += 1
+        if missing:
+            drift[section] = missing
+    return drift
+
+
+def format_loadout_drift(drift: dict[str, int]) -> str:
+    """One-line-per-section report, or a clean line. For briefing/doctor."""
+    if not drift:
+        return "LOADOUT.md: current against sampled sections."
+    lines = ["LOADOUT.md IS STALE — the substrate index does not list what exists:"]
+    for section, count in sorted(drift.items(), key=lambda kv: -kv[1]):
+        lines.append(f"  {section:<20} {count} file(s) present but unlisted")
+    lines.append("  Fix: divineos loadout refresh")
+    return "\n".join(lines)
