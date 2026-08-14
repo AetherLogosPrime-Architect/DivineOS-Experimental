@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -123,11 +124,24 @@ def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
         marker = body.upper().find(_APPROVAL_MARKER)
         if marker < 0:
             continue
-        claimed = body[marker + len(_APPROVAL_MARKER) :].strip().split()
-        if not claimed:
+        # Take the first hex run after the marker, not the first whitespace
+        # token. The first real approval comment was rejected on a trailing
+        # double-quote: the operator pasted the whole shell command --
+        #
+        #   gh pr comment 428 --body "MERGE-APPROVED: 654827a6"
+        #
+        # -- so the token was `654827a6"` and the prefix match failed on
+        # punctuation while the approval itself was entirely genuine. A gate
+        # that rejects a real approval over a quote character is friction with
+        # no security value; anyone who can post the marker can post it clean.
+        # Scanning for hex accepts the sha wrapped in quotes, backticks, code
+        # fences or trailing commas, and still requires the operator to name
+        # the actual commit.
+        m = re.search(r"[0-9a-fA-F]{7,40}", body[marker + len(_APPROVAL_MARKER) :])
+        if not m:
             continue
-        sha = claimed[0].strip().lower()
-        if len(sha) < 7 or not head_sha.lower().startswith(sha):
+        sha = m.group(0).lower()
+        if not head_sha.lower().startswith(sha):
             continue
         user = c.get("user") or {}
         approvals.append(
