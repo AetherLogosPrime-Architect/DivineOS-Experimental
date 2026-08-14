@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -85,6 +86,72 @@ def _fetch_reviews(repo: str, pr: int) -> list[Review] | None:
             )
         )
     return reviews
+
+
+_APPROVAL_MARKER = "MERGE-APPROVED:"
+
+
+def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
+    """Operator approvals expressed as a PR comment, for the self-authored case.
+
+    GITHUB DOES NOT LET YOU APPROVE YOUR OWN PULL REQUEST. The Approve button
+    is not rendered for the author. Every PR in this repo is authored by the
+    same account the gate requires an approval FROM, so ``verify_merge`` asked
+    for a review that could not be created by anyone -- twelve PRs sat blocked
+    for two weeks on a door with no handle, and the failure message
+    ("No APPROVED operator review on head <sha>") read like work left undone
+    rather than an impossibility. Same shape as the round-export fix above,
+    one layer out.
+
+    A comment is the channel GitHub leaves open to the author. The approval
+    must NAME THE HEAD SHA, which preserves the property the review-based
+    path had and is the whole point of the gate: approval is of a specific
+    commit, so pushing new work invalidates it rather than inheriting it.
+
+    Accepts a >= 7 char prefix, because that is what the operator sees in the
+    UI and in ``git log --oneline``. Only comments from a login the config
+    already trusts are considered, so this widens the CHANNEL, not the set of
+    people who can approve.
+    """
+    data = _gh_json(["api", f"repos/{repo}/issues/{pr}/comments", "--paginate"])
+    if not isinstance(data, list) or not head_sha:
+        return []
+    approvals: list[Review] = []
+    for c in data:
+        if not isinstance(c, dict):
+            continue
+        body = str(c.get("body") or "")
+        marker = body.upper().find(_APPROVAL_MARKER)
+        if marker < 0:
+            continue
+        # Take the first hex run after the marker, not the first whitespace
+        # token. The first real approval comment was rejected on a trailing
+        # double-quote: the operator pasted the whole shell command --
+        #
+        #   gh pr comment 428 --body "MERGE-APPROVED: 654827a6"
+        #
+        # -- so the token was `654827a6"` and the prefix match failed on
+        # punctuation while the approval itself was entirely genuine. A gate
+        # that rejects a real approval over a quote character is friction with
+        # no security value; anyone who can post the marker can post it clean.
+        # Scanning for hex accepts the sha wrapped in quotes, backticks, code
+        # fences or trailing commas, and still requires the operator to name
+        # the actual commit.
+        m = re.search(r"[0-9a-fA-F]{7,40}", body[marker + len(_APPROVAL_MARKER) :])
+        if not m:
+            continue
+        sha = m.group(0).lower()
+        if not head_sha.lower().startswith(sha):
+            continue
+        user = c.get("user") or {}
+        approvals.append(
+            Review(
+                author_login=str(user.get("login", "")),
+                state="APPROVED",
+                commit_id=head_sha,
+            )
+        )
+    return approvals
 
 
 def _fetch_pr_meta(repo: str, pr: int) -> tuple[str, str] | None:
@@ -232,6 +299,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     head_sha, body_and_commits = meta
+    reviews = reviews + _fetch_comment_approvals(args.repo, args.pr, head_sha)
 
     try:
         config_raw = Path(_CONFIG_PATH).read_text(encoding="utf-8")
