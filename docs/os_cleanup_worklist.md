@@ -68,13 +68,23 @@ were built the week I did those exact things. Neither was ever plugged in.
 **Why it is here.** Right now the architecture document claims we are protected
 against failures we are not protected against.
 
-**Fixed means.** Each one is either wired to something real, with a test that
-fails the day it comes unwired again — or deleted, with a written note saying
-the failure it guarded is now unguarded. Either answer is fine. Leaving them
-ambiguous is not.
+**Fixed means.** Each one gets *read first* — what it was for, and whether that
+need still exists. Then it is either wired to something real, with a test that
+fails the day it comes unwired again, or, only if it turns out to be genuinely
+superseded, retired through the gate that will not let anything go until the
+reason it existed has been written down.
 
-**This one needs your call**, at least on the first: whether an unwired guard
-gets connected or buried is a decision about what this house promises.
+I had this wrong when I first wrote this page. It said wiring and burying were
+equally fine answers. They are not.
+
+> "nothing we have built was built without reason or purpose.. some may be
+> obsolete or superceded but nothing should be thrown away without looking
+> first." — Andrew, 2026-08-13
+
+**This one needs your call.** Whether an unwired guard gets connected or retired
+is a decision about what this house promises — and you asked first what each one
+guards, which is the right question and one I owe you before the decision, one
+guard at a time.
 
 ---
 

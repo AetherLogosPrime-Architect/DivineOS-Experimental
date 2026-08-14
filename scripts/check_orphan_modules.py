@@ -21,10 +21,25 @@ Output format mirrors ``check_doc_counts.py``: prints findings to
 stdout, exits 0 on clean tree, non-zero if orphans found (so it can
 be wired into pre-commit / CI when ready).
 
-Note: this script is NOT yet wired into the gate. It's a tool for
-running periodically to catch accumulation. Wiring it as a hard
-gate would block any PR that introduces a new module before its
-caller lands, which is too strict.
+WIRED AS A GATE 2026-08-13. It blocks a commit on NEW orphans only.
+The objection this paragraph used to raise was real -- a hard gate
+would refuse every commit against a standing backlog, and the only
+satisfiable answer would be switching the gate off. The answer is
+``orphan_modules_baseline.txt``: the known backlog is written down
+with a reason per entry, new arrivals block immediately, and the
+check FAILS if a baseline entry stops being an orphan, so the list
+closes behind us rather than becoming a permanent amnesty.
+
+A module that lands before its caller does belongs in the baseline
+with that stated as its reason, which takes one line and leaves a
+record of the promise.
+
+AND NOTHING GOES IN THE BIN UNLOOKED-AT. Andrew 2026-08-13: "nothing
+we have built was built without reason or purpose.. some may be
+obsolete or superceded but nothing should be thrown away without
+looking first." The advice this script prints puts LOOK FIRST above
+the options and routes deletion through ``divineos delete-justify``,
+which refuses until what-it-was-for has been written down.
 
 Known limitations:
 
@@ -322,11 +337,19 @@ def main() -> int:
         for rel in fresh:
             print(f"  {rel}: {found[rel]}")
         print()
-        print("Decide one, now, while you still remember why you wrote it —")
+        print('LOOK FIRST. Andrew 2026-08-13: "nothing we have built was built')
+        print("without reason or purpose.. some may be obsolete or superceded but")
+        print('nothing should be thrown away without looking first."')
+        print()
+        print("Open it. Find what it was for and whether that need still exists.")
+        print("Then decide, while you still remember why you wrote it —")
         print("  (a) Wire it into a production code path")
         print("  (b) Add `# AGENT_RUNTIME` if something outside the CLI graph runs it")
-        print("  (c) Delete the module and its tests")
-        print(f"  (d) Add it to {BASELINE.name} WITH a reason, if it is owed a real decision")
+        print(f"  (c) Add it to {BASELINE.name} WITH a reason, if it is owed a decision")
+        print("  (d) Only if genuinely superseded: delete it THROUGH")
+        print("      `divineos delete-justify`, which will not let it go until you")
+        print("      have said what it was for, what you looked at, and what you")
+        print("      took out of it first.")
         print()
 
     if stale:
