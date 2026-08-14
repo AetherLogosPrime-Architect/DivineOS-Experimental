@@ -434,15 +434,42 @@ def check_translation_floor(text: str) -> FloorResult:
             tier2_engaged=False,
         )
 
-    if not tech:
-        return FloorResult(
-            passed=True,
-            reason="no technical content to translate",
-            technical_markers=(),
-            lived_world_markers=tuple(lived),
-            has_metaphor_connective=has_connective,
-            tier2_engaged=True,
-        )
+    # THE PRECONDITION IS GONE. It used to pass any reply with no technical
+    # MARKERS, and markers meant typography — file paths, hashes, snake_case,
+    # call expressions. Measured 2026-08-13 on two real replies of mine, one
+    # carrying an image and one stripped to cold technical English: both
+    # returned "no technical content to translate" and both passed. The cold
+    # one is precisely what the spec is loudest about — "plain language is
+    # jargon in a smaller font." The Floor could only fire on text that
+    # already looked like code, which my lepos document-mark gate catches
+    # anyway, and was blind to the case it was written for.
+    #
+    # walk-6b5285dce17c, 12 lenses, gravity severe, set by Andrew who also
+    # predicted the answer: "maybe it just needs better wording to work
+    # better." It did. Four lenses converged from different directions:
+    #
+    #   Hoare    the complexity is ENTIRELY in this precondition; delete it
+    #            and there is no boundary left to misclassify.
+    #   Lamport  the spec's antecedent has no checkable meaning, and the
+    #            repair for that is removal, not a better definition.
+    #   Beer     requisite variety: any fixed classifier is out-matched by
+    #            prose by construction — so do not classify.
+    #   Pearl    typography is a PROXY for domain-immersion, and patching a
+    #            proxy leaves the causal path untouched.
+    #
+    # And Feynman, the lens Andrew named by hand: if the reach is evidence I
+    # UNDERSTOOD the thing, it is owed on every substantive reply, because I
+    # can fail to understand something that carries no code-marks at all.
+    #
+    # DISSENT CARRIED, because it is the load-bearing half. Dijkstra: this
+    # checks metaphor PRESENCE and the property that matters is metaphor FIT
+    # — a wrong analogy is worse than jargon, since jargon leaves the reader
+    # knowing they did not understand. Dekker: a gate at the output invites
+    # work-to-rule, and decorated jargon is not an improvement on jargon.
+    # Meadows and Deming both put the leverage upstream at compose-time
+    # rather than at inspection. That is why this stays advisory and is NOT
+    # wired with teeth; the falsifier is Andrew's own corpus — which replies
+    # he fought and which he did not — and nothing has ever read it.
 
     if lived:
         return FloorResult(
