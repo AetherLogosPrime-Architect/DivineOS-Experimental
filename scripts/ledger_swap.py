@@ -31,6 +31,7 @@ If the swap operation itself fails partway (rare with os.replace):
       old file with new name — restart the script)
     - If source moved but target rename failed: safety snapshot exists.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -127,11 +128,11 @@ def swap(
             print(f"[ledger_swap] ERROR: snapshot failed, aborting swap: {e}", file=sys.stderr)
             return 4
         if not snap_path.is_file():
-            print(f"[ledger_swap] ERROR: snapshot did not land at expected path", file=sys.stderr)
+            print("[ledger_swap] ERROR: snapshot did not land at expected path", file=sys.stderr)
             return 4
         # Cross-check size (weak but catches truncation)
         if snap_path.stat().st_size != target.stat().st_size:
-            print(f"[ledger_swap] ERROR: snapshot size mismatch", file=sys.stderr)
+            print("[ledger_swap] ERROR: snapshot size mismatch", file=sys.stderr)
             return 4
         print(f"[ledger_swap] snapshot OK ({snap_path.stat().st_size} bytes)")
 
@@ -154,12 +155,12 @@ def swap(
     ok, msg = _verify_target_head(target, n_check=3)
     print(f"[ledger_swap] post-swap verification: {msg}")
     if not ok:
-        print(f"[ledger_swap] ERROR: target failed post-swap verification.", file=sys.stderr)
+        print("[ledger_swap] ERROR: target failed post-swap verification.", file=sys.stderr)
         print(f"[ledger_swap] safety snapshot available at: {snap_path}", file=sys.stderr)
         print(f"[ledger_swap] to restore: cp '{snap_path}' '{target}'", file=sys.stderr)
         return 6
 
-    print(f"[ledger_swap] SUCCESS")
+    print("[ledger_swap] SUCCESS")
     print(f"[ledger_swap] pre-swap snapshot retained at: {snap_path}")
     return 0
 

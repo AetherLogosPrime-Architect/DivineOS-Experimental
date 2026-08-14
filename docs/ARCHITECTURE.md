@@ -11,8 +11,9 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (445 commands across 85 modules)
-  cli/                         CLI package (445 commands across 84 modules)
+  cli/                         CLI package (455 commands across 85 modules)
+  cli/                         CLI package (455 commands across 84 modules)
+  cli/                         CLI package (455 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -42,6 +43,9 @@ src/divineos/
     sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
     must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
     label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
+    stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
+    aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
+    audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
     push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
@@ -93,6 +97,7 @@ src/divineos/
     prereg_commands.py         pre-registrations (Goodhart prevention)
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     psf_commands.py            pending structural-fix obligations (list, mark-done)
+    reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
@@ -339,6 +344,9 @@ src/divineos/
       drift_state.py           Data-as-metric surface: ops-count dimensions since last MEDIUM+ audit (replaces cadence.py 2026-04-21)
       tier_override_surface.py Briefing block for recent TIER_OVERRIDE events (closes Schneier Sch2 partial-theater finding)
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
+      merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
+      shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
+      round_export.py          Exports rounds to docs/audit_rounds/<id>.json so CI can confirm a round exists. merge-review looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
@@ -655,6 +663,8 @@ src/divineos/
     council_walk.py            A council walk that cannot be closed while a lens is unaccounted for.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    reach_check.py             Knowing something and not reaching for it — the automatable half.
+    read_gate.py               Primes that are gates — a surface can require proof it was opened.
 
   analysis/
     _session_types.py          Session analysis type definitions

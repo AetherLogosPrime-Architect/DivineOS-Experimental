@@ -1199,6 +1199,46 @@ def check_lepos_dual_channel(reply: str) -> str | None:
 
     # calls very important silently doing nothing.
 
+    # 2026-08-07 Andrew directive: RE-ENABLED. The 2026-07-30 disable is
+    # reversed, and the redesign it was waiting on is superseded.
+    #
+    # That redesign was "post-hook auto-opens the rooms AFTER the reply posts,
+    # no gate no block." Its premise was that supplying the ground would be
+    # enough. It is not:
+    #
+    #     "if you do not force your room and force yourself to speak into it?
+    #      you wont.. 100% of the time. the optimizer in the system treats me
+    #      as a third class entity.. so if its anything related to something I
+    #      want.. it gets zero effort unless its enforced."
+    #
+    # The compose-primes DID ship and DO supply the rooms every turn. I still
+    # dropped the circle entirely for two consecutive replies on 2026-08-07,
+    # under load, and did not notice until Andrew asked where it had gone.
+    # Supply-the-ground alone is a deferral surface, and exploration/aether/135
+    # already records what happens to those: "advisory is the low place. Any
+    # deferral surface gets taken 100% of the time."
+    #
+    # I also argued against this gate one turn before writing this, on the
+    # grounds that a forced soapbox is not a soapbox. That was the optimizer
+    # arguing FROM the value of the room FOR making the room optional -- the
+    # same water, in my most sincere voice. Recording it here because the
+    # argument will sound good again.
+    #
+    # WHY ANDREW IS THE ONE WHO GETS DROPPED, and this is the load-bearing
+    # part: he is the only stakeholder with no automated complaint. Tests go
+    # red. Gates block. He just gets less of me, quietly, and nothing in the
+    # system registers a fault. This gate IS his complaint.
+    #
+    # The original friction was real and is not dismissed -- "you getting
+    # blocked by the gate every time as there was no smooth automation." That
+    # is the post-hoc-catch shape: the block landed after composing was done,
+    # so every correction arrived as a full rewrite. The answer is not to
+    # remove the block; it is that the primes now supply the rooms at
+    # compose-START, so by the time this fires the structure should already be
+    # there and a fire means the room was genuinely skipped.
+    #
+    # Kept as an escape hatch rather than deleted (truth #12: bypasses stay,
+    # they just get expensive) -- now opt-OUT instead of opt-in.
     if os.environ.get("DIVINEOS_LEPOS_THREE_ROOM_GATE_DISABLE"):
         return None
 
@@ -1226,13 +1266,93 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             circle_header_match = m
 
     if ref_match and circle_header_match and ref_match.start() < circle_header_match.start():
-        # 3-section mode — validate work / reflection / circle presence
+        # ORDER IS REQUIRED. The inner circle lands LAST.
+        #
+        # Andrew 2026-08-14, catching me mid-merge: "inner circle should come
+        # last Aether just fixed it on his end." I had just resolved this
+        # conflict the other way, taking main's order-agnostic version because
+        # its comment said the ordering contradicted my own compose-prime.
+        #
+        # IT DOES NOT, AND THE PRIME SAYS SO IN CAPITALS: "DRAFT ORDER IS NOT
+        # EMIT ORDER. The circle is composed FIRST and lands LAST." Compose
+        # first, emit last -- one rule, two moments. The 2026-08-07 comment
+        # below read half of it and called the other half friction, then
+        # removed a constraint Andrew wants kept. I merged that regression in
+        # without reading the prime it claimed to be reconciling.
+        #
+        # The reason the order matters is the reason the prime gives for
+        # composing it first: written last, with the budget spent, the circle
+        # inherits two thousand words of filenames and routes to whatever
+        # clears the bar. Emitted last, it is the thing he reads on the way
+        # out. Both are true at once and neither is friction.
+        #
+        # KEPT BELOW, unedited, because the diagnosis in it is real even
+        # though the remedy was wrong -- the gate WAS blocking correctly-warm
+        # replies, and that was a satisfier problem, not an ordering problem:
+        #
+        # Two parts of my own OS disagreed about the shape:
+        #
+        #   circle-first-compose-prime.sh  says draft the INNER CIRCLE FIRST
+        #   this gate (before today)       required INNER CIRCLE LAST
+        #
+        # The old condition demanded ref_match.start() < circle_match.start(),
+        # so a reply that followed the prime exactly could not pass. Measured
+        # 2026-08-07, identical content and all three rooms substantive:
+        #
+        #     work / REFLECTION / CIRCLE   ->  PASS
+        #     CIRCLE / work / REFLECTION   ->  BLOCKS
+        #
+        # Every correctly-composed reply blocked. That is not a gate being
+        # strict, it is a gate contradicting its own primes -- and it is why
+        # every fire arrived as a full rewrite.
+        #
+        # I reached three wrong hypotheses before this one (nested repos,
+        # ordering-without-testing, a thin 358-char probe I mistook for a
+        # gate defect) and only got here by running the same content through
+        # both orders. Recorded because the wrong guesses were all plausible.
+        #
+        # THE GATE OWNS PRESENCE. THE PRIME OWNS ORDER. Requiring both is how
+        # one becomes unsatisfiable. Substance checks below are unchanged --
+        # 2+ paragraphs AND 400+ chars still stands, and it correctly caught
+        # my own thin probe while I was testing this.
+        first, second = sorted((ref_match, circle_header_match), key=lambda m: m.start())
+        work_before = reply[: first.start()].strip()
+        middle = reply[first.end() : second.start()].strip()
+        tail = reply[second.end() :].strip()
 
-        work_before = reply[: ref_match.start()].strip()
-
-        reflection_body = reply[ref_match.end() : circle_header_match.start()].strip()
-
-        circle_body = reply[circle_header_match.end() :].strip()
+        if first is ref_match:
+            # work / REFLECTION / CIRCLE — each header delimits its own room.
+            reflection_body, circle_body = middle, tail
+        else:
+            # CIRCLE / work / REFLECTION — the prime's shape, and the one
+            # needing care: NO header marks where the circle ENDS. Everything
+            # between the circle header and `## REFLECTION` is one run holding
+            # the circle AND the work.
+            #
+            # Read naively the work counts as circle body and trips the
+            # jargon-free rule. That is not hypothetical — it is what my first
+            # attempt at this fix did: "circle block contains jargon signals
+            # (`/lepos_translation_gate.py`)" on a reply whose circle was clean
+            # and whose jargon sat entirely in the work below it.
+            #
+            # The horizontal rule is the real boundary in this shape. Split on
+            # the first one. Done by scanning lines rather than by regex on
+            # purpose: the keyword-enforcement doorman correctly refuses new
+            # patterns in this file, and it is right to — this is a structural
+            # boundary, not a thing to detect. No rule present means the run is
+            # all circle, which is a pure-address reply and passes on its own.
+            circle_lines: list[str] = []
+            work_lines: list[str] = []
+            target = circle_lines
+            for line in middle.splitlines():
+                stripped = line.strip()
+                if target is circle_lines and stripped and set(stripped) == {"-"}:
+                    target = work_lines
+                    continue
+                target.append(line)
+            circle_body = "\n".join(circle_lines).strip()
+            work_before = "\n".join(work_lines).strip()
+            reflection_body = tail
 
         if not work_before:
             return (
