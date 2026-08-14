@@ -157,23 +157,66 @@ def register(cli: click.Group) -> None:
             click.secho("    PR left as-is; nothing was changed.", fg="bright_black")
             raise click.exceptions.Exit(1) from exc
 
-        if pr_result.needing_trailer:
+        if not pr_result.needing_trailer:
+            click.secho("[=] Branch commits already carry the trailer.", fg="cyan")
+        elif dry_run:
             click.secho(
-                f"[+] {len(pr_result.amended_shas) or len(pr_result.needing_trailer)} "
-                f"commit(s) carried no trailer; bound to {round_id}.",
-                fg="green",
+                f"[=] {len(pr_result.needing_trailer)} commit(s) would be bound to {round_id}.",
+                fg="cyan",
             )
-            if not dry_run and not pr_result.pushed:
+        else:
+            # Verify the STATE, never the report. On 2026-08-13 this path
+            # announced "2 commit(s) bound" and PR #425 went ready while all
+            # three of its commits still carried no trailer. The chain: the
+            # branch was checked out in another worktree, so filter-branch
+            # could not rewrite it; nothing changed; the force-push was a
+            # no-op that returned success; and the guard here asked "did the
+            # push succeed" instead of "do the commits carry the trailer
+            # now". A push with nothing to push succeeds honestly.
+            #
+            # Re-detect against the real repo. If the trailer is still
+            # missing, refuse the body -- a PR marked ready over unstamped
+            # commits is the exact state this command exists to prevent.
+            from divineos.core.push_ready import (
+                _commits_needing_trailer,
+                detect_commits,
+                load_guardrail_set,
+            )
+
+            still = _commits_needing_trailer(
+                detect_commits(Path.cwd(), branch, load_guardrail_set(Path.cwd()))
+            )
+            if still:
                 click.secho(
-                    f"[!] Commits amended but the push failed: "
+                    f"[!] {len(still)} commit(s) STILL carry no trailer after the "
+                    "amend, whatever the amend reported:",
+                    fg="red",
+                )
+                for c in still:
+                    click.echo(f"      {c.short_sha} {c.subject[:56]}")
+                click.secho(
+                    "    Not writing the body, not clearing draft. Common cause: "
+                    "the branch is checked out in another worktree, so its "
+                    "history cannot be rewritten from here.",
+                    fg="bright_black",
+                )
+                raise click.exceptions.Exit(1)
+
+            if not pr_result.pushed:
+                click.secho(
+                    "[!] Commits carry the trailer but the push failed: "
                     f"{pr_result.push_stderr.strip()[:160]}\n"
                     "    Not writing the body -- it would bind a tree the remote "
                     "does not have.",
                     fg="red",
                 )
                 raise click.exceptions.Exit(1)
-        else:
-            click.secho("[=] Branch commits already carry the trailer.", fg="cyan")
+
+            click.secho(
+                f"[+] {len(pr_result.needing_trailer)} commit(s) now carry the "
+                f"trailer for {round_id}, verified after the amend.",
+                fg="green",
+            )
 
         tree_hash = pr_head_tree_hash(pr_number)
         if not tree_hash:
