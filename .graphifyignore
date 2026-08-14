@@ -14,6 +14,14 @@
 .venv/
 node_modules/
 __pycache__/
+# .direnv holds a venv whose .gitignore is a bare `*`, same as the entries
+# above, and it was the one missing. Rebuilding from a worktree reported
+# "2757 file(s) left the scan corpus" and produced 69 src nodes where the
+# manifest knows 665 -- the `*` leaked past its subtree and took src/ and
+# tests/ with it. Only bites from a worktree, since direnv creates .direnv
+# per-checkout, which is why the map built cleanly from the main tree and
+# not from here (2026-08-14).
+.direnv/
 
 # Benchmark run outputs (nested .gitignore with `*`)
 benchmark/video_runs/
