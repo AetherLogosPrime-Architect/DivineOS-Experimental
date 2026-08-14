@@ -215,8 +215,23 @@ fi
 # one needs an individual decision (wire / mark / delete). Surfacing
 # on every commit catches new accumulation; not blocking lets the
 # existing real orphans wait for their own follow-up PRs.
-section "Orphan Modules (informational)"
-python scripts/check_orphan_modules.py 2>/dev/null || true
+# 2026-08-13: this stopped being informational. Andrew's map made it the FIRST
+# job on the cleanup list -- everything else on that list accumulated while this
+# check was a note nobody read, printed into a pipe, with its own errors thrown
+# into 2>/dev/null so a crash in the checker and a clean pass looked identical.
+#
+# It blocks on NEW orphans only. The standing backlog lives in
+# scripts/orphan_modules_baseline.txt and the check fails if an entry there
+# stops being an orphan, so the list closes behind us instead of becoming a
+# permanent amnesty.
+#
+# Its caller search was widened first. It had been calling four live modules
+# dead -- subprocess_jobs among them, which THIS FILE'S sibling runs on every
+# push. Teeth on a lying instrument would have gotten working code deleted.
+section "Orphan Modules"
+if ! python scripts/check_orphan_modules.py; then
+    note_fail
+fi
 
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
@@ -371,8 +386,32 @@ fi
 #    Andrew 2026-05-29: "the inspector who would condemn the dead lightbulbs
 #    has no current either." This is the current.
 if [ $ERRORS -eq 0 ]; then
+    # 2026-08-13: stderr un-silenced. It was 2>/dev/null, so a crash in the
+    # checker and a clean run were the same output -- the exact failure shape
+    # the whole cleanup list is about. Still informational (the orphan check
+    # above is the one with teeth), but no longer able to fail invisibly.
+    #
+    # The truncation SAYS what it dropped now. A silent `head` reports partial
+    # coverage as full coverage, which is worse than the noise it saves.
     section "Wiring-gap (informational)"
-    python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+    if _wg="$(python scripts/wiring_gap_phase1.py --only-zero-callers 2>&1)"; then
+        _wg_rc=0
+    else
+        _wg_rc=$?
+    fi
+    printf '%s\n' "$_wg" | head -40
+    _wg_lines="$(printf '%s\n' "$_wg" | wc -l)"
+    if [ "$_wg_lines" -gt 40 ]; then
+        echo "  ... $((_wg_lines - 40)) more line(s) not shown. Full output:"
+        echo "      python scripts/wiring_gap_phase1.py --only-zero-callers"
+    fi
+    # The status is REPORTED rather than discarded. Informational means "does
+    # not fail your commit", not "you never find out it broke".
+    if [ "$_wg_rc" -ne 0 ]; then
+        echo "  [!] the wiring-gap checker itself exited $_wg_rc — its output above"
+        echo "      is not a clean run. Not blocking, but do not read it as one."
+    fi
+    unset _wg _wg_lines _wg_rc
 
     # The repo copy of the shim is not the copy that runs. Same bug was found
     # in both, six weeks apart, because nothing compared them (2026-08-06).

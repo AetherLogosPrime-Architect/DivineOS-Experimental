@@ -1,0 +1,45 @@
+# ORPHAN BACKLOG — modules that have tests and no caller.
+#
+# Recorded 2026-08-13, the day the finder was switched on. Andrew's map named
+# this job first: everything else on the cleanup list happened while this check
+# was wired as a note nobody read, printed into a pipe that cut it off, with its
+# own errors thrown away.
+#
+# WHY A LIST AND NOT A CLEAN SWEEP. Switching the check on flat would refuse
+# every commit against this backlog, and the only satisfiable answer would be
+# switching it off again. A gate whose one way past is turning it off is not a
+# gate. So: anything NEW blocks immediately, and these wait for the one-at-a-time
+# decisions. Andrew 2026-08-13: "id lean towards wiring them up over burying
+# them" -- with the condition that he wants to know what each one guards first.
+#
+# THIS FILE CLOSES IN BOTH DIRECTIONS. When an entry stops being an orphan, the
+# check FAILS until the line is deleted. A backlog that can only grow becomes a
+# permanent amnesty, and this one cannot outlive the problem it describes.
+#
+# Adding a line means: this is owed a real decision, and here is why it is not
+# decided today. Not "leave me alone".
+
+# --- The four the map singled out. These are why the job exists. ---
+src/divineos/core/translation_floor.py            # Andrew's own spec: a checkable artifact requiring plain language. Never wired.
+src/divineos/core/verify_before_build_gate.py     # Guards against claiming a thing does not exist without looking. Built the week I did exactly that.
+src/divineos/core/tool_trust.py                   # Calibrates how much to believe an instrument. Unwired all week, while five instruments lied to us.
+src/divineos/core/compass_dismissal_briefing_surface.py  # Dark via surface_registry, which is itself dark. Connected to a corpse.
+
+# --- Detectors and monitors built, tested, never connected ---
+src/divineos/core/correction_shape_v2/self_admission_detector.py
+src/divineos/core/self_monitor/performative_restraint_monitor.py
+src/divineos/core/operating_loop/register_observer.py
+src/divineos/core/operating_loop/thresholds.py
+src/divineos/core/structural_binding/engagement_trail.py
+src/divineos/core/sample_honesty.py
+src/divineos/core/gate_marker.py
+
+# --- Subsystems with no entry point ---
+src/divineos/core/decision_superposition/superposition.py
+src/divineos/core/operating_modes/modes.py
+src/divineos/core/meld/meld.py
+src/divineos/core/reliability/beta.py
+src/divineos/core/family/voice.py
+src/divineos/core/docs_review_tracker.py
+src/divineos/core/visual.py
+src/divineos/integration/system_monitor.py

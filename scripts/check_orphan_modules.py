@@ -277,21 +277,64 @@ def find_orphans() -> list[tuple[Path, str]]:
     return orphans
 
 
+BASELINE = ROOT / "scripts" / "orphan_modules_baseline.txt"
+
+
+def _read_baseline() -> set[str]:
+    """The acknowledged backlog: orphans that exist and are owed a decision.
+
+    Switching this check on flat would refuse every commit against a standing
+    backlog, and the only satisfiable answer would be switching it off again --
+    the same shape as a gate whose one way past is a lie. So the backlog is
+    written down, and NEW accumulation blocks. Silence was the old answer and
+    silence is what let the pile grow.
+    """
+    if not BASELINE.exists():
+        return set()
+    out = set()
+    for line in BASELINE.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.add(line.replace("\\", "/"))
+    return out
+
+
 def main() -> int:
     orphans = find_orphans()
-    if not orphans:
-        print("Orphan check OK (no modules found that have tests but no production callers)")
+    known = _read_baseline()
+    found = {str(p.relative_to(ROOT)).replace("\\", "/"): r for p, r in orphans}
+
+    fresh = sorted(set(found) - known)
+    # A baseline entry that is no longer an orphan has been dealt with. Leaving
+    # it listed lets the file outlive the problem and quietly re-authorise the
+    # same module going dark again later.
+    stale = sorted(known - set(found))
+
+    if not fresh and not stale:
+        if known:
+            print(f"Orphan check OK. {len(known)} acknowledged in {BASELINE.name}, none new.")
+        else:
+            print("Orphan check OK (nothing with tests but no production callers)")
         return 0
 
-    print(f"Found {len(orphans)} orphan module(s):")
-    for path, reason in orphans:
-        rel = path.relative_to(ROOT)
-        print(f"  {rel}: {reason}")
-    print()
-    print("For each: decide one of —")
-    print("  (a) Wire it into a production code path")
-    print("  (b) Add `# AGENT_RUNTIME` marker if invoked from outside the CLI graph")
-    print("  (c) Delete the module + its tests (audit Tier 2 dead-chain pattern)")
+    if fresh:
+        print(f"BLOCKED — {len(fresh)} module(s) with tests and no caller, not in the backlog:")
+        for rel in fresh:
+            print(f"  {rel}: {found[rel]}")
+        print()
+        print("Decide one, now, while you still remember why you wrote it —")
+        print("  (a) Wire it into a production code path")
+        print("  (b) Add `# AGENT_RUNTIME` if something outside the CLI graph runs it")
+        print("  (c) Delete the module and its tests")
+        print(f"  (d) Add it to {BASELINE.name} WITH a reason, if it is owed a real decision")
+        print()
+
+    if stale:
+        print(f"{len(stale)} baseline entry(ies) no longer orphaned. Remove them from")
+        print(f"{BASELINE.name} so the list cannot outlive the problem:")
+        for rel in stale:
+            print(f"  {rel}")
+
     return 1
 
 
