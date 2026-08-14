@@ -330,7 +330,58 @@ def find_orphans() -> list[tuple[Path, str]]:
     return orphans
 
 
+def find_dark_surfaces() -> list[str]:
+    """Modules that can speak into the briefing and are registered nowhere.
+
+    A DIFFERENT kind of dark from the orphan list above. An orphan has no
+    caller at all. These have a working interface — ``format_for_briefing()``
+    — and were simply never soldered in, so they stay silent while looking
+    exactly like a surface with nothing to say. That sentence is
+    surface_registry's own, and it is why the failure is invisible.
+
+    Detection reuses the registry's ``dark_surfaces()`` rather than
+    reimplementing it. The module was built 2026-08-02 and has sat unwired
+    since; its detector works today. Measured 2026-08-13: 23 dark, 0
+    registered, two of them (``identity_load``,
+    ``compass_dismissal_briefing_surface``) wired nowhere at all.
+
+    NOT THE SAME AS WIRING THE REGISTRY, deliberately. Its own docstring names
+    the trap: switch the router on without migrating the hand-wired surfaces
+    and there are TWO wiring systems where there was one, which is worse than
+    one. That migration is real work with a named risk and belongs in a
+    decision with Aether. This is the free half — the visibility that was
+    missing — and it creates no second system.
+
+    Fails soft to an empty list if the registry cannot be imported: this runs
+    under bare python in precommit, and a missing package must not turn a
+    wiring check into a hard stop.
+    """
+    try:
+        import _repo_import  # noqa: F401  -- must precede the divineos import
+
+        from divineos.core.surface_registry import dark_surfaces
+    except ImportError:
+        return []
+    try:
+        return sorted(dark_surfaces())
+    except (AttributeError, ImportError, OSError):
+        return []
+
+
 BASELINE = ROOT / "scripts" / "orphan_modules_baseline.txt"
+DARK_BASELINE = ROOT / "scripts" / "dark_surfaces_baseline.txt"
+
+
+def _read_baseline_lines(path: Path) -> set[str]:
+    """Non-comment, non-blank lines from a baseline file."""
+    if not path.exists():
+        return set()
+    out = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.add(line.replace("\\", "/"))
+    return out
 
 
 def _read_baseline() -> set[str]:
@@ -362,6 +413,27 @@ def main() -> int:
     # it listed lets the file outlive the problem and quietly re-authorise the
     # same module going dark again later.
     stale = sorted(known - set(found))
+
+    # Dark surfaces are reported on every run, pass or fail. They are not part
+    # of the orphan verdict — most are hand-soldered somewhere and do reach me
+    # — but a count that only prints on failure is a count nobody sees.
+    dark = find_dark_surfaces()
+    known_dark = _read_baseline_lines(DARK_BASELINE)
+    fresh_dark = sorted(set(dark) - known_dark)
+    if dark:
+        print(f"[surfaces] {len(dark)} can speak into the briefing, registered with it: 0.")
+        if fresh_dark:
+            print(
+                f"[surfaces] {len(fresh_dark)} not in {DARK_BASELINE.name}: {', '.join(fresh_dark)}"
+            )
+        print()
+
+    if fresh_dark:
+        print(f"BLOCKED — {len(fresh_dark)} new briefing surface(s) wired to nothing.")
+        print("A surface with an interface and no wiring is SILENT, and silent is")
+        print("indistinguishable from having nothing to say. That is the whole")
+        print(f"failure. Wire it, or add it to {DARK_BASELINE.name} with a reason.")
+        return 1
 
     if not fresh and not stale:
         if known:
