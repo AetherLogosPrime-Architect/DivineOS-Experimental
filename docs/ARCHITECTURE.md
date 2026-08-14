@@ -337,6 +337,7 @@ src/divineos/
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
       merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
       shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
+      round_export.py          Exports rounds to docs/audit_rounds/<id>.json so CI can confirm a round exists. merge-review looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
