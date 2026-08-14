@@ -250,14 +250,27 @@ def _emit_tool_call(tool_name: str = "Task") -> None:
     """PR-1b: active-session signal is TOOL_CALL count, not fires+allows.
     Tests that exercise block/allow ratio detector must emit TOOL_CALL
     events alongside rudder events so active-session threshold is met.
-    """
-    from divineos.core.ledger import log_event
 
-    log_event(
-        event_type="TOOL_CALL",
-        actor="tool_wrapper",
-        payload={"tool_name": tool_name, "tool_input": "test"},
-        validate=False,
+    2026-08-01: this used to call `ledger.log_event`, which writes to
+    `system_events`. The real tool wrapper stopped writing there on
+    2026-05-05 and writes `tool_logbook` instead — so this helper was
+    reproducing the production bug on the WRITE side while the detector
+    reproduced it on the READ side. The two wrong halves agreed, the
+    suite stayed green, and `rudder_infrastructure_failure` was
+    structurally unable to fire in production for three months.
+
+    A test that cannot fail is the same defect class the detector itself
+    was built to catch. Emit through the real logbook path so this
+    exercises what actually runs.
+    """
+    import uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    emit_tool_call(
+        tool_name=tool_name,
+        tool_input="test",
+        tool_use_id=str(uuid.uuid4()),
     )
 
 
