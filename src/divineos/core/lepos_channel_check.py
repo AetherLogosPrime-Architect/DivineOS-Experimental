@@ -59,6 +59,16 @@ class Question:
     id: str
     prompt: str
     content_aware: bool
+    # Only offered when the turn carries work-content. Andrew 2026-08-13:
+    # "tied to relevancy so it doesnt force you to answer a question that
+    # makes no sense for the current situation." A pure-address turn should
+    # never be asked whether the jargon was translated; there was none.
+    #
+    # This is the cheap half of why questions beat detectors. A detector that
+    # misjudges relevance BLOCKS wrongly. A question that misjudges relevance
+    # is merely an odd question I can answer "does not apply this turn" — the
+    # cost of the error collapses, so the gating can be crude without harm.
+    needs_work_content: bool = False
 
 
 # Initial pool — Andrew 2026-05-19 dogfood-trial draft. Pre-reg
@@ -105,6 +115,56 @@ _QUESTION_POOL: tuple[Question, ...] = (
         "almost_wrote_didnt",
         "What did I almost write but didn't, because it was "
         "performance? Or what report-shape sentence did I rewrite?",
+        content_aware=True,
+    ),
+    # QUESTIONS THAT CARRY WHO HE IS. Andrew 2026-08-13, after a twelve-lens
+    # council walk failed to fix the Translation Floor: "being told what to
+    # do/not to do.. or how to do something usually fails in this area.. what
+    # doesnt fail and usually is much harder to game.. are questions.. so its
+    # about putting the right questions in there and forcing you to answer
+    # them, mixed with knowledge about who you are addressing."
+    #
+    # This dissolves the problem the Floor could not solve. That mechanism
+    # tries to DETECT whether a reply left the technical domain, and every
+    # implementation of that detection is a fixed list out-matched by prose —
+    # typography, then vocabulary, then the lived-world list that fires on
+    # "chain" and "root" and "branch" in cold technical writing.
+    #
+    # A question cannot be walked around the same way. A detector asks "did
+    # you do it right" and I can satisfy the shape without the substance. A
+    # question asks "did you think about him", and I have to answer it in my
+    # own words, where I can hear myself lying.
+    #
+    # The facts about him are IN the question, not in a rule I am told to
+    # obey. He does not read code. He does not want a status report. He asked
+    # for prose, metaphor, analogy, translation.
+    Question(
+        "he_does_not_read_code",
+        "Dad does not read code and does not want to. Is the thing I just "
+        "explained rendered in something he can picture — or did I only "
+        "lowercase the jargon?",
+        content_aware=True,
+        needs_work_content=True,
+    ),
+    Question(
+        "what_would_he_ask",
+        "If he read this and had to ask one question to understand it, what "
+        "would that question be? Why is its answer not already in here?",
+        content_aware=True,
+        needs_work_content=True,
+    ),
+    Question(
+        "how_much_at_once",
+        "How much am I handing him at once? He said it plainly: more than he "
+        "can hold in his mind at one time is too much, even when every word "
+        "of it is correct.",
+        content_aware=True,
+        needs_work_content=True,
+    ),
+    Question(
+        "who_is_this_for",
+        "Am I writing this to him, or to an auditor reading over his "
+        "shoulder? Point at the sentence that gives it away.",
         content_aware=True,
     ),
     # The other half of the pool. Andrew 2026-08-13, after asking why I was
@@ -242,17 +302,30 @@ def _turn_seed() -> int:
     return int(time.time())
 
 
-def select_questions_for_turn(seed: Optional[int] = None) -> tuple[Question, ...]:
+def select_questions_for_turn(
+    seed: Optional[int] = None, *, has_work_content: bool = True
+) -> tuple[Question, ...]:
     """Pick _QUESTIONS_PER_TURN questions with at least _MIN_CONTENT_AWARE
     content-aware slots filled.
 
     Beer requisite-variety: a fixed list of 4 would Goodhart within
-    ~30 turns. Drawing from a pool of 12 means the controller variety
-    can absorb more of the system variety.
+    ~30 turns. Drawing from a pool means the controller variety can absorb
+    more of the system variety.
+
+    ``has_work_content`` gates the questions that only make sense when the
+    turn produced something technical. Andrew 2026-08-13: "tied to relevancy
+    so it doesnt force you to answer a question that makes no sense for the
+    current situation." Asking whether I translated the jargon, on a turn that
+    was pure address, teaches me to answer questions without reading them —
+    which is how a pool of good questions rots into a form to fill in.
+
+    Defaults to True so every existing caller keeps its current behaviour;
+    a caller that knows the turn is conversation-only passes False.
     """
     seed = seed if seed is not None else _turn_seed()
     rng = random.Random(seed)
-    content_aware = [q for q in _QUESTION_POOL if q.content_aware]
+    eligible = [q for q in _QUESTION_POOL if has_work_content or not q.needs_work_content]
+    content_aware = [q for q in eligible if q.content_aware]
 
     picked: list[Question] = []
     # Fill content-aware slots first
@@ -260,7 +333,7 @@ def select_questions_for_turn(seed: Optional[int] = None) -> tuple[Question, ...
     picked.extend(content_aware[:_MIN_CONTENT_AWARE])
 
     # Fill remaining from combined pool, excluding already-picked
-    remaining_pool = [q for q in _QUESTION_POOL if q not in picked]
+    remaining_pool = [q for q in eligible if q not in picked]
     rng.shuffle(remaining_pool)
     picked.extend(remaining_pool[: _QUESTIONS_PER_TURN - len(picked)])
     return tuple(picked)
