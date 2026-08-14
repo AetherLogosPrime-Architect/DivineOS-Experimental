@@ -64,7 +64,9 @@ import sys
 import time
 from pathlib import Path
 
-from divineos.core.paths import divineos_home
+import _repo_import  # noqa: F401  -- must precede any divineos import
+
+from divineos.core.paths import divineos_home  # noqa: E402
 
 _MIN_REASON_LEN = 40
 _FIRES_FILENAME = "correction_shape_v2_fires.jsonl"
