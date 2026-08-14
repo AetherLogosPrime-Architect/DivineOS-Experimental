@@ -69,7 +69,33 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-STATE_DIR = Path(os.path.expanduser("~")) / ".divineos"
+
+def _state_dir() -> Path:
+    """Resolve through the project's own path logic, not a hardcoded ~.
+
+    This read ``Path(os.path.expanduser("~")) / ".divineos"``, which ignores
+    DIVINEOS_HOME. core.paths exists to stop exactly that: a 2026-05-03 audit
+    found the same hardcoding scattered across modules and made divineos_home()
+    the single source of truth.
+
+    The cost here is not theoretical. Tests that exercise a surface calling
+    require_read wrote into the LIVE gate state, because the tests redirect
+    DIVINEOS_HOME and this module did not read it. On 2026-08-14 that armed my
+    real gate twice with pytest fixtures -- tmp/pytest/run-81428/
+    test_surface_fires_only_on_tag0/tagged.md, a four-line file reading
+    "# Symmetric standards / body" -- and each one blocked Bash, Edit and Write
+    until cleared by hand. A test suite must not be able to lock the workspace
+    it is testing.
+    """
+    try:
+        from divineos.core.paths import divineos_home
+
+        return divineos_home()
+    except Exception:  # noqa: BLE001 — paths unavailable: fall back, never crash the gate
+        return Path(os.path.expanduser("~")) / ".divineos"
+
+
+STATE_DIR = _state_dir()
 STATE_FILE = STATE_DIR / "read_gate_pending.json"
 
 # Requirements older than this are dropped. A stale block from a surface that
@@ -147,6 +173,144 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     return True, ""
 
 
+# Tail-read budget for the transcript. These files reach hundreds of megabytes
+# and this runs before every mutating tool call.
+_TRANSCRIPT_TAIL_BYTES = 2_000_000
+
+
+def _content_blocks(rec: dict[str, object]) -> list[dict[str, object]]:
+    """Pull content blocks out of a transcript record, whatever its shape."""
+    message = rec.get("message")
+    content = message.get("content") if isinstance(message, dict) else rec.get("content")
+    if not isinstance(content, list):
+        return []
+    return [b for b in content if isinstance(b, dict)]
+
+
+def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
+    """Clear requirements by scanning the session transcript for Read calls.
+
+    ``satisfy_from_stream`` has existed since this module was written and was
+    called by NOTHING -- verified 2026-08-14: one occurrence in the whole tree,
+    and it is the definition. The gate could arm but had no path to clear
+    itself by reading. Every requirement stood until it aged out at three hours
+    or was deleted by hand.
+
+    That inverts the design. The premise is Andrew's -- "a check for the read
+    tool being used, then at that point if you dont read it.. its your fault"
+    -- and without this the check was never wired, so reading was not the way
+    out. I read a required entry in full and the door stayed shut; twice in one
+    session that ended in clearing state manually, which is the
+    bypass-habituation this module exists to prevent.
+
+    Same class as the defect Aria named in her roster module: the function
+    exists, nothing calls it, and the gap is invisible from inside.
+
+    Fails open on every error. A satisfier that cannot run must leave the gate
+    exactly as it found it and never break the tool call.
+    """
+    if not transcript_path:
+        return []
+    path = Path(transcript_path)
+    if not path.is_file():
+        return []
+
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _TRANSCRIPT_TAIL_BYTES))
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return []
+
+    calls: list[tuple[str, str, dict[str, object] | None]] = []
+    for line in chunk.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        for block in _content_blocks(record):
+            if block.get("type") != "tool_use":
+                continue
+            if str(block.get("name", "")) not in ("Read", "NotebookRead"):
+                continue
+            args = block.get("input")
+            args = args if isinstance(args, dict) else {}
+            target = str(args.get("file_path") or args.get("notebook_path") or "")
+            if target:
+                calls.append((str(block["name"]), target, args))
+
+    calls = _accumulate_seen_reads(str(path), calls)
+
+    if not calls:
+        return []
+    try:
+        return satisfy_from_stream(tuple(calls))  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001 — never let the satisfier break a tool call
+        return []
+
+
+SEEN_READS = STATE_DIR / "read_gate_seen.json"
+
+
+def _accumulate_seen_reads(
+    transcript: str,
+    calls: list[tuple[str, str, dict[str, object] | None]],
+) -> list[tuple[str, str, dict[str, object] | None]]:
+    """Carry reads forward so they cannot scroll out of the transcript tail.
+
+    THE BUG THIS CLOSES, measured 2026-08-14. The scan above reads the last
+    2 MB of the transcript. By late session the transcript was 10 MB, so a
+    file I had genuinely opened earlier was no longer inside the window -- and
+    the gate re-armed on it and blocked me as though I had never opened it.
+    Four times in one turn, on two entries I had read in full. Each block cost
+    a forced clear, and from outside those clears look like gaming while being
+    nothing of the kind.
+
+    The tail window is the wrong place to keep this memory: it is bounded by
+    bytes of unrelated conversation, so whether a read still counts depends on
+    how much has been said since. This log is bounded by the reads themselves.
+
+    Keyed by transcript path, so it stays per-session -- an entry read in some
+    earlier session does not silently satisfy today's requirement. Union, then
+    persist, then return; the caller matches against the accumulated set.
+
+    Fails open toward the old behaviour in both directions: an unreadable or
+    corrupt log degrades to the plain tail-scan, never to a harder gate.
+    """
+    seen: list[list[str]] = []
+    try:
+        raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
+        if isinstance(raw, dict) and raw.get("transcript") == transcript:
+            entries = raw.get("reads")
+            if isinstance(entries, list):
+                seen = [e for e in entries if isinstance(e, list) and len(e) == 2]
+    except (OSError, ValueError):
+        seen = []
+
+    known = {(str(name), str(target)) for name, target in seen}
+    for name, target, _args in calls:
+        known.add((name, target))
+
+    try:
+        SEEN_READS.parent.mkdir(parents=True, exist_ok=True)
+        SEEN_READS.write_text(
+            json.dumps({"transcript": transcript, "reads": sorted(known)}),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+    fresh = {(name, target) for name, target, _ in calls}
+    carried: list[tuple[str, str, dict[str, object] | None]] = list(calls)
+    carried.extend((name, target, None) for name, target in sorted(known - fresh))
+    return carried
+
+
 def satisfy_from_stream(tool_calls_in_turn: tuple[tuple[str, str], ...]) -> list[str]:
     """Clear any requirement whose path appears as a Read in the action-stream.
 
@@ -199,6 +363,29 @@ def gate_status() -> tuple[bool, str]:
     which thing is the painted-door shape one layer up.
     """
     reqs = _load()
+
+    # A target can vanish after it was armed. require_read refuses a path that
+    # does not exist -- "rather than creating a block that nobody can clear" --
+    # but it checks once, at arming, so a requirement outlives its file.
+    #
+    # 2026-08-14: the prior-writing index matched a pytest tmpdir
+    # (.../popen-gw4/test_surface_fires_only_on_tag0/tagged.md), pytest cleaned
+    # it up, and every Bash, Edit and Write afterwards demanded I open a file
+    # that no longer existed. Read is exempt by design, so the prescribed cure
+    # ran and returned "File does not exist" -- and because Edit and Write were
+    # held too, the gate blocked the repair of itself while an unfinished merge
+    # sat conflicted in the main checkout. That is precisely the shape the
+    # message below promises this is not: "A gate whose cure sits behind itself
+    # is a wall."
+    #
+    # Dropping vanished targets applies the invariant require_read already
+    # states, at the moment it actually matters. A file I cannot open is not a
+    # reading I am avoiding.
+    live = [r for r in reqs if Path(r.path).exists()]
+    if len(live) != len(reqs):
+        _save(live)
+    reqs = live
+
     if not reqs:
         return False, ""
     lines = [

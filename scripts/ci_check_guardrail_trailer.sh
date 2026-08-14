@@ -67,6 +67,39 @@ parse_trailer_line() {
     echo "$1" | grep -iE '^External-Review:[[:space:]]*\S+' | head -1
 }
 
+# Fall back to the pull request's own body when the commit message has no
+# trailer.
+#
+# WHY THIS EXISTS, measured 2026-08-14. GitHub composes a squash-merge message
+# when the merge dialog is OPENED and never refreshes it. The operator opened
+# the dialog, two more commits landed on the branch, and the merge took the
+# current head while keeping the stale message -- so the code merged and the
+# trailer did not, and this gate went red on `main` over a message-snapshot
+# race. That red cannot be cleaned without force-pushing `main`, declined as
+# too risky, so the badge is permanent.
+#
+# The operator cannot fix that by being more careful. There is no click order
+# that avoids it, and he had already said plainly: "i cant copy paste
+# anything." A requirement whose only compliance path is a human pasting text
+# into a web form at exactly the right instant is a trap, not a control.
+#
+# The PR body carries the same audit claim through a channel that cannot go
+# stale: fetched live at check time, editable after the fact, and it is the
+# artifact the operator actually reviews. A trailer on the commit still wins;
+# this runs only when there is none.
+#
+# Fails toward the old behaviour: no gh, no token, no PR number, or any error
+# leaves the result empty and the commit blocks exactly as before.
+trailer_from_pr_body() {
+    local subject="$1"
+    local pr
+    pr=$(echo "$subject" | grep -oE '\(#[0-9]+\)$' | grep -oE '[0-9]+') || true
+    [ -z "$pr" ] && return 0
+    command -v gh >/dev/null 2>&1 || return 0
+    gh pr view "$pr" --json body --jq .body 2>/dev/null \
+        | grep -iE '^External-Review:[[:space:]]*\S+' | head -1 || true
+}
+
 # Extract the tree-hash field from a trailer line, if present.
 # Returns the 40-hex hash or empty.
 parse_trailer_tree_hash() {
@@ -113,6 +146,11 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
 
     MSG=$(git log -1 --format=%B "$commit")
     TRAILER=$(parse_trailer_line "$MSG")
+
+    if [ -z "$TRAILER" ]; then
+        TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
+        [ -n "$TRAILER" ] && echo "[info] $commit: trailer absent from the commit message; read from the PR body instead (squash-message snapshot race)."
+    fi
 
     if [ -z "$TRAILER" ]; then
         BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"

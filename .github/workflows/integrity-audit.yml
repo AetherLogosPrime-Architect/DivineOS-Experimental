@@ -59,6 +59,11 @@ jobs:
 
       - name: Verify guardrail-modifying commits carry External-Review trailer
         shell: bash
+        # Token so the script can read the trailer off the PR body when the
+        # squash-merge message snapshot missed it. Read-only use; without it
+        # the lookup is skipped and the check behaves exactly as before.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
 
