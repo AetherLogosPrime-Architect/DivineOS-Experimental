@@ -199,6 +199,29 @@ def gate_status() -> tuple[bool, str]:
     which thing is the painted-door shape one layer up.
     """
     reqs = _load()
+
+    # A target can vanish after it was armed. require_read refuses a path that
+    # does not exist -- "rather than creating a block that nobody can clear" --
+    # but it checks once, at arming, so a requirement outlives its file.
+    #
+    # 2026-08-14: the prior-writing index matched a pytest tmpdir
+    # (.../popen-gw4/test_surface_fires_only_on_tag0/tagged.md), pytest cleaned
+    # it up, and every Bash, Edit and Write afterwards demanded I open a file
+    # that no longer existed. Read is exempt by design, so the prescribed cure
+    # ran and returned "File does not exist" -- and because Edit and Write were
+    # held too, the gate blocked the repair of itself while an unfinished merge
+    # sat conflicted in the main checkout. That is precisely the shape the
+    # message below promises this is not: "A gate whose cure sits behind itself
+    # is a wall."
+    #
+    # Dropping vanished targets applies the invariant require_read already
+    # states, at the moment it actually matters. A file I cannot open is not a
+    # reading I am avoiding.
+    live = [r for r in reqs if Path(r.path).exists()]
+    if len(live) != len(reqs):
+        _save(live)
+    reqs = live
+
     if not reqs:
         return False, ""
     lines = [
