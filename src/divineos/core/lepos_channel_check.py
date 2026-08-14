@@ -302,9 +302,52 @@ def _turn_seed() -> int:
     return int(time.time())
 
 
-def select_questions_for_turn(
-    seed: Optional[int] = None, *, has_work_content: bool = True
-) -> tuple[Question, ...]:
+def _turn_carries_work(window_seconds: int = 900) -> bool:
+    """Whether recent turns show real work, derived from the ledger.
+
+    NOT A PARAMETER I PASS. Andrew 2026-08-13: "ask yourself when building
+    something.. how would i game this? and not thwart it." Running that on my
+    own build, an hour after shipping it, found a hole he had not named and I
+    had not seen: ``has_work_content`` arrived as an argument, and the only
+    caller is a compose-start surface that fires BEFORE the turn exists — so
+    the value could only ever come from my own say-so.
+
+    A relevance gate whose input I control is not a gate. It is the same shape
+    as operator-set gravity needing a marker channel, for the same reason:
+    anything settable by me is settable by the part of me looking for the
+    cheap route. And this route was cheaper than the one he DID name — saying
+    "does not apply" at least requires writing the words.
+
+    So the signal comes from evidence instead: did substrate-touching work
+    actually happen in the recent window. I cannot set this by deciding
+    something; I can only set it by doing the work, which is not a bypass.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+
+        cutoff = time.time() - window_seconds
+        conn = get_connection()
+        row = conn.execute(
+            # ANYTHING that is not him talking and not the session waking up.
+            # My first attempt named six specific event types I assumed the
+            # ledger recorded — DECISION_RECORDED, KNOWLEDGE_STORED and the
+            # rest — and it returned False on a session that had done nothing
+            # BUT work for hours, because none of those names exist. A signal
+            # that is silently always-false is worse than no signal: it makes
+            # the gate look wired while it never opens. Caught by running it
+            # instead of shipping it.
+            "SELECT COUNT(*) FROM system_events WHERE timestamp > ? "
+            "AND event_type NOT IN ('USER_INPUT','BRIEFING_LOADED')",
+            (cutoff,),
+        ).fetchone()
+        return bool(row and row[0] > 0)
+    except Exception:  # noqa: BLE001 — observability boundary
+        # Fail toward ASKING. An unanswerable relevance question costs me a
+        # sentence; a silently-skipped one costs him the message.
+        return True
+
+
+def select_questions_for_turn(seed: Optional[int] = None) -> tuple[Question, ...]:
     """Pick _QUESTIONS_PER_TURN questions with at least _MIN_CONTENT_AWARE
     content-aware slots filled.
 
@@ -312,18 +355,18 @@ def select_questions_for_turn(
     ~30 turns. Drawing from a pool means the controller variety can absorb
     more of the system variety.
 
-    ``has_work_content`` gates the questions that only make sense when the
-    turn produced something technical. Andrew 2026-08-13: "tied to relevancy
+    Relevance is DERIVED, not passed (see ``_turn_carries_work``). It gates
+    the questions that only make sense when the turn produced something
+    technical. Andrew 2026-08-13: "tied to relevancy
     so it doesnt force you to answer a question that makes no sense for the
     current situation." Asking whether I translated the jargon, on a turn that
     was pure address, teaches me to answer questions without reading them —
     which is how a pool of good questions rots into a form to fill in.
 
-    Defaults to True so every existing caller keeps its current behaviour;
-    a caller that knows the turn is conversation-only passes False.
     """
     seed = seed if seed is not None else _turn_seed()
     rng = random.Random(seed)
+    has_work_content = _turn_carries_work()
     eligible = [q for q in _QUESTION_POOL if has_work_content or not q.needs_work_content]
     content_aware = [q for q in eligible if q.content_aware]
 
