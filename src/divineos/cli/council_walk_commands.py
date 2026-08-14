@@ -18,6 +18,7 @@ from divineos.core.council_walk import (
     GRAVITY_FLOORS,
     open_walks,
     WalkRefused,
+    add_lens,
     apply_lens,
     close_walk,
     exclude_lens,
@@ -67,6 +68,27 @@ def register(cli: click.Group) -> None:
         except WalkRefused as exc:
             raise click.ClickException(str(exc)) from exc
         click.secho(f"[+] {lens} applied.", fg="green")
+
+    @walk_group.command("add")
+    @click.argument("walk_id")
+    @click.argument("lens")
+    @click.option(
+        "--why",
+        required=True,
+        help="Why this lens, that the surfaced ones do not already cover.",
+    )
+    def add_cmd(walk_id: str, lens: str, why: str) -> None:
+        """Add a lens the manager did not surface, WITH a reason.
+
+        Adding never discharges a surfaced lens — every one of those still
+        needs a finding or a written exclusion, so a picked council remains
+        impossible. A swap is an exclusion with a reason plus this.
+        """
+        try:
+            add_lens(walk_id, lens, why)
+        except WalkRefused as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.secho(f"[+] {lens} added with reason. Surfaced lenses still all owed.", fg="cyan")
 
     @walk_group.command("exclude")
     @click.argument("walk_id")

@@ -190,6 +190,63 @@ def _settle(walk_id: str, lens: str, state: str, content: str, minimum: int) -> 
         conn.close()
 
 
+MIN_ADDITION_CHARS = MIN_EXCLUSION_CHARS
+
+
+def add_lens(walk_id: str, lens: str, why: str) -> None:
+    """Add a lens the manager did not surface, WITH a recorded reason.
+
+    Andrew 2026-08-14: "the council manager should not have been able to
+    refuse the lens, the lenses that surface should be used but adding lenses
+    or swapping them should be allowed with reasoning, its there to prevent
+    gaming as if it wasnt you would choose 3-4 lenses every time and it would
+    be the same lenses lol."
+
+    He is exactly right about what the refusal was for and exactly right that
+    it overshot. The property worth keeping is that I cannot PICK my council —
+    every surfaced lens still needs a finding or a written exclusion, so the
+    four-favourites walk remains impossible. The property that was wrong is
+    treating the manager's list as closed, which made the council unarguable
+    and blocked him when he named Feynman by hand on walk-6b5285dce17c.
+
+    Addition is ADDITIVE, never substitutive: adding does not discharge any
+    surfaced lens. A swap is therefore already expressible as an exclusion
+    with a reason plus an addition with a reason, both recorded, which is the
+    correct price for changing the shape of my own council.
+
+    The reason is the cost. Andrew's cost-landscape principle applied to the
+    one place in the walk where I choose: make the addition possible so it is
+    not a wall, and make it cost a written justification so it is not free.
+    """
+    lens = lens.strip()
+    if not lens:
+        raise WalkRefused("a lens needs a name")
+    why = (why or "").strip()
+    if len(why) < MIN_ADDITION_CHARS:
+        raise WalkRefused(
+            f"adding {lens!r} needs a reason of at least {MIN_ADDITION_CHARS} "
+            "characters. Why this lens, on this problem, that the surfaced ones "
+            "do not already cover? A free addition is a picked council."
+        )
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM walk_lenses WHERE walk_id = ? AND lens = ?", (walk_id, lens)
+        ).fetchone()
+        if row is not None:
+            raise WalkRefused(f"{lens} is already on this walk")
+        if not conn.execute("SELECT 1 FROM walk_lenses WHERE walk_id = ?", (walk_id,)).fetchone():
+            raise WalkRefused(f"no such walk: {walk_id}")
+        conn.execute(
+            "INSERT INTO walk_lenses (walk_id, lens, state, content, settled_at) "
+            "VALUES (?, ?, 'OPEN', ?, NULL)",
+            (walk_id, lens, f"ADDED: {why}"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def apply_lens(walk_id: str, lens: str, finding: str) -> None:
     """Record what this lens actually produced when walked."""
     _settle(walk_id, lens, "APPLIED", finding, MIN_FINDING_CHARS)
