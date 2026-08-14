@@ -43,3 +43,12 @@ src/divineos/core/family/voice.py
 src/divineos/core/docs_review_tracker.py
 src/divineos/core/visual.py
 src/divineos/integration/system_monitor.py
+
+# --- Surfaced 2026-08-13 when PHASE_1_STAGED stopped being an exemption ---
+# Aletheia found the evidence gate unwired; I checked what had been hiding it
+# and it was a word in its own docstring. A module cannot grant itself a
+# permanent exemption from the only check that would ever mention it again.
+# These are here now so the parking is visible and dated instead of silent.
+src/divineos/core/empirica/gate.py                # THE TRUTH GATE. Every claim is meant to pass through it before entering the substrate. Staged 2026-04-17 -- four months. Andrew's alarm about this is warranted; wiring it is a caller-contract decision shared with Aether.
+src/divineos/core/family/costly_disagreement.py   # Family operator: makes a member's disagreement cost them something, so agreement is not free. Staged 2026-05-02.
+src/divineos/core/family/planted_contradiction.py # Family operator: plants a contradiction to see whether a member catches it. Staged 2026-05-02.

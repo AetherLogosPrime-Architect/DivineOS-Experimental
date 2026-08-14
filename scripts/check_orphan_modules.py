@@ -108,25 +108,63 @@ def _module_dotted_name(path: Path) -> str:
 
 
 def _is_intentionally_unwired(path: Path) -> bool:
-    """Modules with an explicit unwired-marker are intentionally not
-    in the import graph. Two markers honored:
+    """Modules invoked from outside the import graph, not orphans.
 
-    * ``AGENT_RUNTIME`` — invoked from a separate runtime context
-      (Claude Code hooks, external workflow runners, etc.)
-    * ``PHASE_1_STAGED`` — staged for a later wiring phase. Same
-      semantics as AGENT_RUNTIME for orphan-detection: known-by-design
-      unwired, not accidentally orphaned.
+    ``AGENT_RUNTIME`` means something really does run this — a Claude Code
+    hook, an external workflow runner. Unlike the marker below it, that is a
+    statement of fact, and a statement of fact is checkable.
 
-    Markers must appear in the first ~2000 chars (typical docstring
-    location). Renamed from ``_is_agent_runtime`` 2026-05-07 per
-    round-2 audit because the function now honors more than the
-    AGENT_RUNTIME marker.
+    IT HAS NOT BEEN CHECKED, and I nearly wrote here that it had. A search
+    for each module's dotted path across hooks, scripts and git hooks found
+    an invoker for four of eleven on 2026-08-13. The other seven are a LEAD,
+    not a verdict — a hook can reach a module through a wrapper or through
+    the CLI without ever naming its path, so absence of a match is not
+    absence of an invoker. It is exactly the shape that made this checker
+    call four live modules dead earlier the same day.
+
+    Worth someone's afternoon. Untouched here because verifying it properly
+    means running each hook, not grepping for it, and a claim of
+    verification I have not done is worse than the gap it papers over.
+
+    ``PHASE_1_STAGED`` USED TO BE HONOURED HERE AND IS NOT ANY MORE.
+
+    It does not say "something runs this." It says "we mean to wire this
+    later" — a promise, in the module's own handwriting, granting itself a
+    permanent exemption from the only check that would ever mention it
+    again. Nobody signs it, nothing dates it, nothing asks whether the
+    later arrived.
+
+    Measured 2026-08-13, after Aletheia found the evidence gate unwired and
+    I checked what was hiding it:
+        empirica/gate.py               staged since 2026-04-17
+        dead_architecture_alarm.py     staged since 2026-04-05
+        family/costly_disagreement.py  staged since 2026-05-02
+        family/planted_contradiction.py staged since 2026-05-02
+        family/integrity_stance.py     staged since 2026-07-16
+
+    The evidence gate — the thing every claim is supposed to pass through
+    before entering the substrate — sat exempt for four months. And the
+    first entry is the DEAD-ARCHITECTURE ALARM, exempting itself from the
+    dead-architecture check.
+
+    Staged modules are now reported (see ``_is_staged``), not skipped. A
+    parking place is fine. A parking place nothing can see into is how
+    four months pass.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return bool(re.search(r"AGENT_RUNTIME|PHASE_1_STAGED", text[:2000]))
+    return bool(re.search(r"AGENT_RUNTIME", text[:2000]))
+
+
+def _is_staged(path: Path) -> bool:
+    """True if the module claims it is waiting for a later wiring phase."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return bool(re.search(r"PHASE_1_STAGED", text[:2000]))
 
 
 # Backward-compat alias — keep the old name pointing at the new function
