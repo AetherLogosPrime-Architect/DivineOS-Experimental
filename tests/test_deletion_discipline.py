@@ -95,6 +95,51 @@ class TestQuotedContextNotTriggered:
         assert dd.block_reason("git branch -D feature-x  # 'keep this comment'") is not None
 
 
+class TestFlaglessRmIsNotRecursiveOrForce:
+    """A plain ``rm <file>`` carries no -r and no -f, so the gate named after
+    those flags must not claim it does.
+
+    The pattern was ``-{0,2}\\w*[rRf]``, which permits ZERO dashes and let the
+    flag-letter class match the FILENAME. ``rm pr427_body.tmp.md`` matched on
+    the literal text "rm pr" and was refused as "rm recursive/force". Any
+    flagless delete whose target starts with word-characters containing r, R,
+    or f hit it -- report.md, forever.txt, README.md.
+
+    Worth a test rather than just a fix: the cost of this false positive was
+    not the interruption, it was that a gate blocking safe acts teaches the
+    habit of reaching for the bypass. These cases pin both directions so the
+    permissive half cannot be widened later without the strict half failing.
+    """
+
+    SAFE_FLAGLESS = [
+        "rm pr427_body.tmp.md",
+        "rm report.md",
+        "rm forever.txt",
+        "rm README.md",
+        "rm requirements.txt",
+    ]
+
+    STILL_DESTRUCTIVE = [
+        "rm -rf src/divineos",
+        "rm -f src/x.py",
+        "rm -R docs/",
+        "rm --force docs/a.md",
+        "rm -i -rf src/",
+    ]
+
+    def test_flagless_rm_of_a_tracked_file_is_not_flagged(self):
+        for cmd in self.SAFE_FLAGLESS:
+            assert dd.is_destructive_deletion(cmd) == (False, None), (
+                f"flagless rm wrongly classed as recursive/force: {cmd!r}"
+            )
+
+    def test_flagged_rm_is_still_caught(self):
+        for cmd in self.STILL_DESTRUCTIVE:
+            is_destructive, hint = dd.is_destructive_deletion(cmd)
+            assert is_destructive, f"real destructive rm slipped through: {cmd!r}"
+            assert hint == "rm recursive/force"
+
+
 class TestJustificationFlow:
     def test_destructive_blocked_without_justification(self):
         assert dd.block_reason("git push origin --delete stale-branch") is not None

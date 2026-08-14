@@ -44,7 +44,22 @@ _GIT_PUSH_DELETE = re.compile(r"\bgit\s+push\b[^|;&\n]*(--delete\b|\s:\w)", re.I
 _GIT_BRANCH_DELETE = re.compile(r"\bgit\s+branch\b[^|;&\n]*\s(-D|-d|--delete)\b", re.IGNORECASE)
 _GIT_RM = re.compile(r"\bgit\s+rm\b", re.IGNORECASE)
 # rm carrying a recursive (-r/-R) or force (-f) flag — the high-blast forms.
-_RM_RECURSIVE_OR_FORCE = re.compile(r"\brm\s+(-{1,2}\S+\s+)*-{0,2}\w*[rRf]", re.IGNORECASE)
+#
+# The dash count is load-bearing. It was ``-{0,2}``, which permits ZERO dashes,
+# so ``\w*[rRf]`` was free to match the FILENAME: ``rm pr427_body.tmp.md``
+# matched on the literal text "rm pr" and was reported as "rm recursive/force".
+# Any flagless ``rm`` whose target begins with word-characters ending in r, R,
+# or f tripped a gate that names itself after flags the command did not carry.
+#
+# Cost of the false positive is not the interruption. It is that the gate cried
+# wolf on ordinary cleanup, and a gate that blocks safe acts trains the habit of
+# reaching for the bypass — which is exactly what the bypass telemetry has been
+# reporting as elevated. Andrew 2026-08-14: "lets fix those gate defects."
+#
+# ``-{1,2}`` requires a real flag. Verified after the change: ``rm -rf x``,
+# ``rm -f x``, ``rm -R x``, ``rm --force x``, and ``rm -i -rf x`` all still
+# match; ``rm pr427_body.tmp.md`` and ``rm report.md`` no longer do.
+_RM_RECURSIVE_OR_FORCE = re.compile(r"\brm\s+(-{1,2}\S+\s+)*-{1,2}\w*[rRf]", re.IGNORECASE)
 
 # Heredoc body: <<'EOF' ... EOF  /  <<EOF ... EOF  /  <<-EOF ... EOF
 _HEREDOC = re.compile(r"<<-?\s*'?(\w+)'?.*?\n\1\b", re.DOTALL)

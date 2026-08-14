@@ -180,6 +180,52 @@ def has_completion_signal(message: str) -> bool:
     return bool(_COMPLETION_SIGNALS_RE.search(message))
 
 
+def _completion_names_goal(message: str, goal_tokens: set[str], threshold: float) -> bool:
+    """True iff some single line both claims completion and names the goal.
+
+    Binds the "done" to the thing declared done. ``has_completion_signal``
+    answers "did this commit finish something"; this answers "did it finish
+    THIS", which is the question the closure actually depends on.
+
+    Line-level rather than message-level because a commit that completes a
+    goal says so in one breath, while a commit that merely works in a goal's
+    subject area spreads those words across paragraphs far from any claim.
+
+    Fails toward NOT-closing, same direction as the rest of this module: an
+    untidy goal list is cheap, and a goal marked done that is not done is a
+    false report about what shipped.
+
+    The line must NAME the goal, not merely share a word with it. One shared
+    token is worthless here because a conventional-commit subject carries a
+    completion word by construction -- ``fix(merge-review): ...`` contains
+    "fix" whether or not anything was finished -- so a single-token rule made
+    every goal sharing one word with the subject closable. The first version
+    of this function had that hole and passed its own reduced test case; it
+    only appeared when the case was checked directly instead of through the
+    overlap filter that was masking it.
+
+    Measured against the goal-words the MESSAGE uses, not against every word
+    in the goal. A commit that finishes something usually names it in the
+    subject and elaborates below, so demanding the completion line carry the
+    whole goal broke real closures: "feat(core): synchronicity detector
+    landed" names two of the goal's five words and is unambiguously a close.
+    The denominator is the goal's footprint in this message, which asks the
+    right question -- of the goal-words this commit talks about, does the line
+    claiming completion talk about most of them, or just brush one in passing.
+    """
+    if not goal_tokens:
+        return False
+    present = goal_tokens & _tokenize(message)
+    if not present:
+        return False
+    for line in message.splitlines():
+        if not has_completion_signal(line):
+            continue
+        if len(present & _tokenize(line)) / len(present) >= threshold:
+            return True
+    return False
+
+
 @dataclass(frozen=True)
 class AutoCloseResult:
     """Outcome of an auto-close pass over a commit message."""
@@ -276,11 +322,29 @@ def auto_close_from_message(
         if message_time is not None and goal.get("added_at", 0) > message_time:
             continue
         overlap = len(goal_tokens & msg_tokens) / len(goal_tokens)
-        if overlap >= threshold:
-            if complete_goal(goal_text):
-                closed.append(goal_text[:80])
-        else:
+        if overlap < threshold:
             skipped.append((goal_text[:60], overlap))
+            continue
+        # The completion signal has to be about THIS goal.
+        #
+        # The check above (has_completion_signal) runs once on the whole
+        # message, so any commit that genuinely completes one thing licensed
+        # the closure of every other goal it merely mentioned. Observed
+        # 2026-08-14: a commit whose completion signals were "Fixes the 7
+        # pre-existing lint errors" and "174 targeted tests pass" closed the
+        # goal "close the 13-PR stack", of which exactly one PR was open and
+        # none merged. The signal was true; it was true about something else.
+        #
+        # Requiring co-occurrence on a single line binds the "done" to the
+        # thing declared done. A commit that finishes a goal says so in one
+        # breath -- subject line, or the body line that names it -- while a
+        # commit that merely touches a goal's subject matter scatters those
+        # tokens across paragraphs away from any claim of completion.
+        if not _completion_names_goal(message, goal_tokens, threshold):
+            skipped.append((goal_text[:60], overlap))
+            continue
+        if complete_goal(goal_text):
+            closed.append(goal_text[:80])
 
     return AutoCloseResult(closed=closed, skipped=skipped)
 

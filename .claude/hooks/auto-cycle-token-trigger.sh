@@ -514,6 +514,41 @@ EOF
     exit 0
 fi
 
+# The remedy is never the thing that gets blocked.
+#
+# The PreToolUse matcher is Edit|Write|MultiEdit|NotebookEdit, so Bash passes
+# and every CLI-satisfied stage can still be satisfied while this holds. DREAM
+# is the one stage whose evidence is a FILE -- "advances when a new file
+# appears under dreams/" -- and a file needs a write. The block therefore
+# landed on precisely the tool that stage requires, and the only way through
+# was the operator escape hatch.
+#
+# The banner below states the invariant and asserts it as already true:
+# "every stage is doable with the tools this block still permits." That was
+# false for DREAM, and the sentence should have been read as the bug report it
+# was. Andrew 2026-08-14: "lets fix those gate defects."
+#
+# Not an exemption -- convergence (foundational truth #11b). The only write
+# allowed while the ritual is owed is the write that discharges it, so the
+# lazy route and the correct route are the same route.
+if [ "${STAGE}" = "DREAM" ]; then
+  IS_DREAM_WRITE="$(printf '%s' "$HOOK_JSON" | python -c '
+import json, sys
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    print("0"); raise SystemExit
+target = str((payload.get("tool_input") or {}).get("file_path") or "")
+# Normalise separators before matching, so a Windows path is not read as
+# "somewhere else" purely on the direction of its slashes.
+print("1" if "/dreams/" in target.replace("\\", "/") else "0")
+' 2>/dev/null || echo 0)"
+  if [ "$IS_DREAM_WRITE" = "1" ]; then
+    echo "[ritual] DREAM stage: allowing this write - it is the stage's own evidence." >&2
+    exit 0
+  fi
+fi
+
 cat >&2 <<EOF
 
 ════════════════════════════════════════════════════════════════════
