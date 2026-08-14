@@ -570,6 +570,7 @@ def check_lepos_dual_channel(reply: str) -> str | None:
         if first is ref_match:
             # work / REFLECTION / CIRCLE — each header delimits its own room.
             reflection_body, circle_body = middle, tail
+            work_boundary_found = True
         else:
             # CIRCLE / work / REFLECTION — the prime's shape, and the one
             # needing care: NO header marks where the circle ENDS. Everything
@@ -600,8 +601,25 @@ def check_lepos_dual_channel(reply: str) -> str | None:
             circle_body = "\n".join(circle_lines).strip()
             work_before = "\n".join(work_lines).strip()
             reflection_body = tail
+            # 2026-08-14: same defect class as the ordering bug above, one
+            # level down. The rule-scan finds the boundary only when a `---`
+            # is present -- and NOTHING tells me to emit one. The three-room
+            # template in circle-first-compose-prime.sh shows
+            # CIRCLE / work / REFLECTION with no separator at all, so a reply
+            # that follows the prime exactly lands here with every line in
+            # circle_lines and work_before empty, and gets blocked for
+            # "no work block" while carrying a full technical report.
+            #
+            # Without the rule the boundary is genuinely UNDECIDABLE from
+            # here: "circle then work, unseparated" and "pure-address reply"
+            # are the same bytes. Blocking on an undecidable is how a gate
+            # becomes unsatisfiable, which is the exact failure the ordering
+            # fix above was written to end. So: no rule => do not enforce
+            # work-presence. The substance checks on circle and reflection
+            # still run, and those are what the gate actually owns.
+            work_boundary_found = bool(work_lines)
 
-        if not work_before:
+        if not work_before and work_boundary_found:
             return (
                 "LEPOS CHANNEL GATE — 3-section headers present but no work "
                 "block before `## REFLECTION`. If there's genuinely no work "
