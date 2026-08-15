@@ -156,7 +156,7 @@ def _save(reqs: list[ReadRequirement]) -> None:
 REARM_LOG = STATE_DIR / "read_gate_rearms.jsonl"
 
 
-def _record_rearm_after_read(gate_id: str, path: str) -> None:
+def _record_rearm_after_read(gate_id: str, path: str) -> bool:
     """Record when a path is re-required after this session already read it.
 
     THE REPRODUCTION I SKIPPED. 2026-08-15 I diagnosed the re-arm defect from
@@ -181,7 +181,7 @@ def _record_rearm_after_read(gate_id: str, path: str) -> None:
         raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
         entries = raw.get("reads") if isinstance(raw, dict) else None
         if not isinstance(entries, list):
-            return
+            return False
         tail = Path(path).name
         seen = [
             str(e[1])
@@ -189,7 +189,7 @@ def _record_rearm_after_read(gate_id: str, path: str) -> None:
             if isinstance(e, list) and len(e) == 2 and tail and tail in str(e[1])
         ]
         if not seen:
-            return
+            return False
         REARM_LOG.parent.mkdir(parents=True, exist_ok=True)
         with REARM_LOG.open("a", encoding="utf-8") as fh:
             fh.write(
@@ -204,8 +204,9 @@ def _record_rearm_after_read(gate_id: str, path: str) -> None:
                 )
                 + "\n"
             )
+        return True
     except (OSError, ValueError, TypeError, KeyError, IndexError):
-        pass
+        return False
 
 
 def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
@@ -222,7 +223,21 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     if any(r.gate_id == gate_id and r.path == str(target) for r in reqs):
         return True, "already pending"
 
-    _record_rearm_after_read(gate_id, str(target))
+    already = _record_rearm_after_read(gate_id, str(target))
+    if already:
+        # THE ACTUAL CAUSE, reproduced 2026-08-15 rather than reasoned about.
+        #
+        # Clearing was never the broken half. A surface re-registers its match
+        # every prompt; the satisfier clears it at the next mutating call; the
+        # surface registers it again on the following prompt. Requirement
+        # cleared, requirement returns, forever -- and from inside it looks
+        # exactly like the clear failing, which is why I misdiagnosed it as a
+        # transcript-window problem and shipped a fix for the wrong half.
+        #
+        # The register side is where it belongs: once this session has opened
+        # the file, there is nothing left for the gate to ask for. Scoped to
+        # the session by transcript path, so a later session still gets to ask.
+        return False, f"already read in this session, not registering: {path}"
     reqs.append(
         ReadRequirement(gate_id=gate_id, path=str(target), reason=reason, registered_at=time.time())
     )
