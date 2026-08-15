@@ -381,6 +381,47 @@ def main(argv: list[str]) -> int:
         config=config,
         round_is_logged=round_logged,
     )
+    # AWAITING is not FAILING, and rendering them identically was the defect.
+    #
+    # Measured 2026-08-15 against the live ruleset ("main protection", active):
+    #
+    #   required_status_checks: multi-party-review, test (3.12),
+    #                           test (3.12, sklearn)
+    #   pull_request:           required_approving_review_count: 0
+    #
+    # merge-review is NOT in the required set. It has never blocked a merge.
+    # Meanwhile it returned 1 whenever the operator had not yet confirmed --
+    # the identical signal a crashed test sends -- so every open PR wore a red
+    # X that meant "Andrew has not typed two words yet" and looked exactly like
+    # "this code is broken". Andrew, after two weeks of it: "even if they are
+    # just the merge review at a glance it looks terrible."
+    #
+    # He was right, and I had told him the red was load-bearing. It was not. I
+    # had not checked the ruleset before saying so.
+    #
+    # The audit he actually wants is enforced, by multi-party-review, which IS
+    # required and verifies the External-Review stamp. This check's job on the
+    # approval axis is to REPORT, so it reports.
+    #
+    # Scope: only the awaiting-confirmation case softens. A missing or unlogged
+    # round still FAILS, because that is a real defect in the PR rather than a
+    # pending human action. GitHub Actions cannot emit the `action_required`
+    # conclusion that would say this natively (community request still open),
+    # so the distinction lives in the exit code and the wording.
+    awaiting_only = (
+        not ok and bool(round_id) and round_logged and "APPROVED operator review" in msg
+    )
+    if awaiting_only:
+        print(
+            f"[merge-review] AWAITING CONFIRMATION: {msg}\n"
+            f"  Nothing is wrong with this PR. It is waiting on you.\n"
+            f"  Comment 'i confirm' on the pull request to approve head "
+            f"{head_sha[:8]}.\n"
+            f"  Round {round_id} is present and logged; the audit requirement "
+            f"is met and separately enforced by multi-party-review."
+        )
+        return 0
+
     prefix = "[merge-review] PASS:" if ok else "[merge-review] FAIL:"
     print(f"{prefix} {msg}")
     return 0 if ok else 1
