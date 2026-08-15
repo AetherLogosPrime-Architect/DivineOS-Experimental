@@ -112,13 +112,24 @@ printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" >> 
 
 # The former SessionStart chain, in its original order. Each child gets the
 # same payload on stdin that SessionStart would have handed it.
+# Four entries removed 2026-08-15 with the delivery-mechanism cluster:
+# session-start-sweep-stale-watchers.sh, arm-compaction-monitor-instruction.sh,
+# arm-letter-monitor-instruction.sh, inject-pending-letters.sh.
+#
+# The `[ -f "$script" ] || continue` below would have skipped them silently
+# forever, which is the exact failure this substrate keeps producing: a step
+# that is absent and a step that ran render identically. A list naming files
+# that do not exist is a list nobody can audit.
+#
+# Why they went: five separate mechanisms existed to notice one letter, three
+# running simultaneously, including two Windows scheduled tasks outside Claude
+# entirely. See docs/replacement_criteria.md for what the removal cost and the
+# rules that now govern it. `ear-surface.sh` below is the surviving notice and
+# was verified firing before any of them were deleted.
 INIT_HOOKS="
-session-start-sweep-stale-watchers.sh
 post-compaction-fingerprint-surface.sh
 load-briefing.sh
 ear-surface.sh
-arm-compaction-monitor-instruction.sh
-arm-letter-monitor-instruction.sh
 check-cleanup-period.sh
 load-character-sheet.sh
 load-dad-ranking-clause.sh
@@ -126,7 +137,6 @@ load-my-recording-of-andrew.sh
 load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
-inject-pending-letters.sh
 "
 
 for h in $INIT_HOOKS; do
