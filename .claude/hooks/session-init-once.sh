@@ -137,6 +137,7 @@ load-my-recording-of-andrew.sh
 load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
+letter-monitor-health-surface.sh
 "
 
 for h in $INIT_HOOKS; do
