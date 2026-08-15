@@ -89,11 +89,32 @@ class TestBriefingBlock:
         assert "ENV_A" in block
 
     def test_escalation_note_at_five_events(self, isolated_home):
+        """The verdict judges ESCAPES, never obedience.
+
+        Assertion updated 2026-08-06. It previously pinned "Elevated bypass
+        rate" -- the pre-fix wording, from when the count came off
+        total_events and therefore counted compliance. On the day that
+        changed, the windowed sample's top entries were `divineos briefing`,
+        `ask`, `goal`, `context`, `recall`: the documented remedies. The
+        surface was telling Andrew the gates were being routed around, using
+        as its evidence the fact that they were being obeyed.
+
+        Asserts the SUBSTANCE rather than the phrase -- that the verdict names
+        escapes, and that the compliance-exclusion is stated. Rewording stays
+        free; dropping either half is the regression.
+        """
         # Five distinct env vars (each unique key) cross the >=5 threshold.
         for i in range(5):
             bypass_telemetry.record_bypass(f"gate-{i}", f"ENV_{i}", "r")
         block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
+        assert "Elevated ESCAPE rate" in block, (
+            "the verdict must name escapes, not bypasses -- counting every "
+            "bypass event reads compliance as evasion"
+        )
+        assert "is not evasion" in block, (
+            "the exclusion must be stated in the surface itself, or the "
+            "reader cannot tell which events the verdict was computed from"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -243,5 +264,14 @@ class TestBriefingBlockFullHistoryShape:
                 }
                 fh.write(json.dumps(rec) + "\n")
         block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
+        # Same substance-over-phrase update as the windowed case above: the
+        # verdict must name escapes and state the compliance-exclusion. This
+        # site additionally pins that the full-history scale is the one that
+        # fired, which is the point of the test.
+        assert "Elevated ESCAPE rate" in block, (
+            "the verdict must name escapes, not bypasses -- a legacy row with "
+            "no compliance flag counts strictly as an escape, but the LABEL "
+            "still has to say which thing was counted"
+        )
+        assert "is not evasion" in block
         assert "full-history rate" in block

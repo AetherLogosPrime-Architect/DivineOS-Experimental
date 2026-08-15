@@ -105,6 +105,56 @@ def _is_intentionally_unwired(path: Path) -> bool:
 _is_agent_runtime = _is_intentionally_unwired
 
 
+# Any dotted name following `from` or `import`. Deliberately as loose as the
+# per-needle regex it replaces: it scans raw text, so a mention inside a comment
+# or a docstring counts as a caller exactly as it did before.
+_IMPORT_TARGET_RE = re.compile(r"\b(?:from|import)\s+([A-Za-z_][\w.]*)")
+
+# search-root -> {dotted-prefix: [resolved caller paths]}. Built once per root.
+_PREFIX_INDEX_CACHE: dict[Path, dict[str, list[Path]]] = {}
+
+
+def _import_prefix_index(search_root: Path) -> dict[str, list[Path]]:
+    """Map every importable prefix under ``search_root`` to the files citing it.
+
+    Replaces a scan that re-read the whole tree once per module. ``find_orphans``
+    asks about ~700 modules and every ask re-globbed and re-regexed ~700 files,
+    so the work grew with the square of the tree. It sat behind a 120s timeout
+    whose docstring claimed ~34s, and it blew that ceiling under coverage
+    instrumentation on 2026-08-14 -- tracing made the suite 29% slower
+    (484s -> 622s) and this is its slowest test. The coverage step is
+    deliberately non-gating, which is exactly why the drift could keep going:
+    a real slowdown reported into a step nobody reads as a verdict.
+
+    Indexing by PREFIX preserves the old matcher's reach. Its pattern ended in
+    ``\\b``, so needle ``divineos.core`` matched an import of
+    ``divineos.core.foo``; storing every prefix of each captured import keeps
+    that, while ``divineos.core.foo`` still refuses ``divineos.core.foobar``
+    because the boundary falls inside a word.
+    """
+    root = search_root.resolve()
+    cached = _PREFIX_INDEX_CACHE.get(root)
+    if cached is not None:
+        return cached
+
+    index: dict[str, list[Path]] = {}
+    for p in root.rglob("*.py"):
+        if "__pycache__" in p.parts:
+            continue
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        resolved = p.resolve()
+        for dotted in set(_IMPORT_TARGET_RE.findall(text)):
+            parts = dotted.split(".")
+            for i in range(1, len(parts) + 1):
+                index.setdefault(".".join(parts[:i]), []).append(resolved)
+
+    _PREFIX_INDEX_CACHE[root] = index
+    return index
+
+
 def _has_caller_in(needle_module: str, search_root: Path, exclude: Path | None = None) -> bool:
     """Return True if any file under ``search_root`` imports ``needle_module``.
 
@@ -113,33 +163,26 @@ def _has_caller_in(needle_module: str, search_root: Path, exclude: Path | None =
     ``__init__.py`` (since a package re-export isn't a caller) and
     the file at ``exclude`` (the module itself).
     """
-    # Pattern: bare module-name reference or sub-module reference
-    pat = re.compile(
-        rf"\b(?:from\s+{re.escape(needle_module)}\b|import\s+{re.escape(needle_module)}\b)"
-    )
-    for p in search_root.rglob("*.py"):
-        if exclude and p.resolve() == exclude.resolve():
-            continue
-        if "__pycache__" in p.parts:
+    callers = _import_prefix_index(search_root).get(needle_module)
+    if not callers:
+        return False
+
+    exclude_resolved = exclude.resolve() if exclude else None
+    for p in callers:
+        if exclude_resolved is not None and p == exclude_resolved:
             continue
         # Skip the module's package __init__.py — re-exports aren't real callers
         if p.name == "__init__.py":
-            parent = p.parent
             # If this __init__.py is the parent of the module we're checking,
             # treat its imports as re-exports, not callers.
             try:
-                parent_dotted = _module_dotted_name(parent / "_dummy.py").rsplit(".", 1)[0]
+                parent_dotted = _module_dotted_name(p.parent / "_dummy.py").rsplit(".", 1)[0]
                 if needle_module.startswith(parent_dotted + "."):
                     continue
             except ValueError:
                 # Path isn't under SRC (e.g., a test conftest); fall through.
                 pass
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        if pat.search(text):
-            return True
+        return True
     return False
 
 
