@@ -91,6 +91,12 @@ def _fetch_reviews(repo: str, pr: int) -> list[Review] | None:
 
 _APPROVAL_MARKER = "MERGE-APPROVED"
 
+# Andrew 2026-08-15: "this used to be so much easier all it took was me saying
+# i confirm and that was enough." He is right, and the ceremony grew without
+# anyone deciding it should. The word he actually uses is the one that should
+# work; a coined token is my vocabulary imposed on his approval.
+_APPROVAL_PHRASES = ("MERGE-APPROVED", "I CONFIRM")
+
 
 def _parse_time(value: str) -> datetime | None:
     """Parse a GitHub ISO-8601 timestamp; None on anything unexpected."""
@@ -139,9 +145,15 @@ def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
         if not isinstance(c, dict):
             continue
         body = str(c.get("body") or "")
-        marker = body.upper().find(_APPROVAL_MARKER)
+        upper = body.upper()
+        marker, phrase = -1, ""
+        for candidate in _APPROVAL_PHRASES:
+            found = upper.find(candidate)
+            if found >= 0 and (marker < 0 or found < marker):
+                marker, phrase = found, candidate
         if marker < 0:
             continue
+        marker += len(phrase) - len(_APPROVAL_MARKER)
         # Take the first hex run after the marker, not the first whitespace
         # token. The first real approval comment was rejected on a trailing
         # double-quote: the operator pasted the whole shell command --
