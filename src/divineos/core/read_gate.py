@@ -153,6 +153,61 @@ def _save(reqs: list[ReadRequirement]) -> None:
         pass
 
 
+REARM_LOG = STATE_DIR / "read_gate_rearms.jsonl"
+
+
+def _record_rearm_after_read(gate_id: str, path: str) -> None:
+    """Record when a path is re-required after this session already read it.
+
+    THE REPRODUCTION I SKIPPED. 2026-08-15 I diagnosed the re-arm defect from
+    one observation -- a 10 MB transcript against a 2 MB scan window -- found a
+    mechanism that explained it, shipped the accumulator, and reported it
+    fixed. It was not. With the fix live the gate re-armed twice in one turn on
+    a file I had read, and I had no data about why because I never drove the
+    failing case through the patched code. Theory-fit accepted as proof, which
+    is precisely the failure need-02632a0a names: *reproduce the cause before
+    you fix it -- fit is not proof.*
+
+    So the next occurrence produces evidence instead of another guess. If the
+    accumulator holds a read for this path and the gate re-registers it anyway,
+    that is the exact contradiction, and the row below carries both sides of
+    it: what the seen-log knew, and what got required regardless.
+
+    Purely observational. It never blocks, never clears, and never changes the
+    verdict -- a diagnostic that can alter the thing it measures is worse than
+    none. Silent on every error for the same reason.
+    """
+    try:
+        raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
+        entries = raw.get("reads") if isinstance(raw, dict) else None
+        if not isinstance(entries, list):
+            return
+        tail = Path(path).name
+        seen = [
+            str(e[1])
+            for e in entries
+            if isinstance(e, list) and len(e) == 2 and tail and tail in str(e[1])
+        ]
+        if not seen:
+            return
+        REARM_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with REARM_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {
+                        "at": time.time(),
+                        "gate_id": gate_id,
+                        "required_path": path,
+                        "already_read_as": seen,
+                        "transcript": raw.get("transcript"),
+                    }
+                )
+                + "\n"
+            )
+    except (OSError, ValueError, TypeError, KeyError, IndexError):
+        pass
+
+
 def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     """Register a read requirement. Returns (registered, why_not).
 
@@ -166,6 +221,8 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     reqs = _load()
     if any(r.gate_id == gate_id and r.path == str(target) for r in reqs):
         return True, "already pending"
+
+    _record_rearm_after_read(gate_id, str(target))
     reqs.append(
         ReadRequirement(gate_id=gate_id, path=str(target), reason=reason, registered_at=time.time())
     )
