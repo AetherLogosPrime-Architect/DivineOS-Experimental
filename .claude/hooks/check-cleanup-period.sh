@@ -28,6 +28,16 @@
 # Fail-open: any error exits 0 silently. This hook surfaces information;
 # it does not block work.
 
+# Sourcing _lib.sh registers this hook with the timing log automatically.
+# Added 2026-08-15: this hook had ZERO recorded runs across 652 runs of its
+# parent while its eight instrumented siblings showed 136-2651 each. It runs
+# fine — it simply never reported, so a run that found nothing wrong and a
+# run that never happened left identical evidence. That matters here more
+# than most: this hook guards against transcripts being silently purged
+# before extraction, so its own silence was covering a silent deletion.
+# shellcheck disable=SC1091
+source "$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: timing instrumentation must never be able to break the check it observes
+
 # Threshold: minimum safe value. Below this we warn.
 MIN_SAFE_DAYS=90
 # Recommended value the warning suggests setting.
