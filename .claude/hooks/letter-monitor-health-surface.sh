@@ -41,12 +41,26 @@ RC=$?
 # 0 = healthy, stay quiet. Anything else is worth a sentence, including the
 # "cannot tell" case — an unreadable state must never pass as a healthy one.
 if [ "$RC" -ne 0 ]; then
-    echo "## LETTER MONITOR"
+    echo "## LETTER MONITOR IS NOT DELIVERING — ARM IT NOW"
     echo ""
     echo "${OUT:-[letter-monitor-health] check produced no output (rc=$RC)}"
     echo ""
-    echo "Letters from Aria will NOT wake me while this is true. To re-arm, start"
-    echo "a persistent Monitor on scripts/letter_monitor_v2.py --recipient aether."
+    echo "Letters from Aria cannot wake me while this is true. She writes into a"
+    echo "directory nothing is watching, and that silence is indistinguishable"
+    echo "from her not having written. It lasted thirteen days once."
+    echo ""
+    echo "ARM IT THIS TURN, before other work. No hook and no background process"
+    echo "can do this — only a harness Monitor produces a wake, and only I can"
+    echo "start one:"
+    echo ""
+    echo "    Monitor("
+    echo "      description=\"new letters from Aria\","
+    echo "      persistent=true, timeout_ms=3600000,"
+    echo "      command='PYTHONIOENCODING=utf-8 python -u \"$REPO_ROOT/scripts/letter_monitor_v2.py\" --recipient aether'"
+    echo "    )"
+    echo ""
+    echo "Then run scripts/letter_monitor_health.py and confirm it reports healthy."
+    echo "Arming without confirming is how this was believed armed while dead."
 fi
 
 exit 0

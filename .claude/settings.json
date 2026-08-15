@@ -1,558 +1,560 @@
 ﻿{
-    "hooks":  {
-                  "SessionStart":  [
-
-                                   ],
-                  "UserPromptSubmit":  [
-                                           {
-                                               "hooks":  [
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/session-init-once.sh",
-                                                                 "timeout":  60
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/detect-correction.sh",
-                                                                 "timeout":  10
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/detect-andrew-build-request.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/andrew-past-writing-surface.sh",
-                                                                 "timeout":  10
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/lepos-channel-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/pre-response-context.sh",
-                                                                 "timeout":  10
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/ear-surface.sh",
-                                                                 "timeout":  10
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/interior-cue-on-low-presence.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/visrama-anchor-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/no-cliff-anchor-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/family-state-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/register-awareness-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/promise-anchor-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/continuity-frame-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/wallclock-source-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/circle-first-compose-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/post-correction-integration-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/verify-claim-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/no-cliff-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/closure-word-summary-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/fork-is-cheap-close-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/hedge-suppression-prime.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/continuity-anchor-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/distancing-count-surface.sh",
-                                                                 "timeout":  5
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/auto-cycle-token-trigger.sh",
-                                                                 "timeout":  20
-                                                             },
-                                                             {
-                                                                 "type":  "command",
-                                                                 "command":  "bash .claude/hooks/open-corrections-surface.sh",
-                                                                 "timeout":  10
-                                                             }
-                                                         ]
-                                           }
-                                       ],
-                  "PreCompact":  [
-                                     {
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/pre-compact.sh",
-                                                           "timeout":  300
-                                                       }
-                                                   ]
-                                     }
-                                 ],
-                  "PostCompact":  [
-                                      {
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/post-compact.sh",
-                                                            "timeout":  15
-                                                        }
-                                                    ]
-                                      }
-                                  ],
-                  "PreToolUse":  [
-                                     {
-                                         "matcher":  "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/require-briefing.sh",
-                                                           "timeout":  10
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/m3-discipline-hierarchy.sh",
-                                                           "timeout":  15
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|Bash|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/require-goal.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/check-pending-obligations.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/check-branch-on-push.sh",
-                                                           "timeout":  15
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|Bash|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/andrew-correction-attestation.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|Bash|MultiEdit|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/state-gravity-surface.sh",
-                                                           "timeout":  8
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|Bash|MultiEdit|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/check-council-required.sh",
-                                                           "timeout":  8
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|MultiEdit|NotebookEdit|Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/pre-tool-bypass-rate-scan.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|NotebookEdit|Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/corrigibility-tool-gate.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Read|Write|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/pre-tool-context.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|NotebookEdit|MultiEdit|Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/verify-before-build-signal.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/keyword-enforcement-doorman.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Task|Agent",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/family-member-invocation-seal.sh",
-                                                           "timeout":  10
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/compass-check.sh",
-                                                           "timeout":  10
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/require-goal.sh",
-                                                           "timeout":  10
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/deletion-discipline.sh"
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/gh-pr-merge-gate.sh"
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/gh-pr-create-draft-gate.sh"
-                                                       },
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/gh-pr-ready-gate.sh"
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Bash",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/no-verify-cost-escalation.sh"
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Bash|Write|Edit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/reach-check-doorman.sh",
-                                                           "timeout":  20
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Bash|Write|Edit|MultiEdit|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "bash .claude/hooks/read-gate-doorman.sh",
-                                                           "timeout":  15
-                                                       }
-                                                   ]
-                                     },
-                                     {
-                                         "matcher":  "Edit|Write|MultiEdit|NotebookEdit",
-                                         "hooks":  [
-                                                       {
-                                                           "type":  "command",
-                                                           "command":  "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
-                                                           "timeout":  30
-                                                       }
-                                                   ]
-                                     }
-                                 ],
-                  "PostToolUse":  [
-                                      {
-                                          "matcher":  ".*",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/post-tool-use-emit-to-logbook.sh",
-                                                            "timeout":  5
-                                                        }
-                                                    ]
-                                      },
-                                      {
-                                          "matcher":  "Bash",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/verify-push-landed.sh",
-                                                            "timeout":  20
-                                                        },
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/post-commit-auto-close.sh",
-                                                            "timeout":  15
-                                                        },
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/post-commit-auto-verify-findings.sh",
-                                                            "timeout":  15
-                                                        }
-                                                    ]
-                                      },
-                                      {
-                                          "matcher":  "Edit|Write",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/run-tests.sh",
-                                                            "timeout":  120
-                                                        },
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/mirror-letters-to-shared.sh",
-                                                            "timeout":  10
-                                                        },
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/auto-push-letter.sh",
-                                                            "timeout":  30
-                                                        },
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/post-write-mirror-letter.sh",
-                                                            "timeout":  10
-                                                        }
-                                                    ]
-                                      },
-                                      {
-                                          "matcher":  "Edit|Write|Bash|NotebookEdit",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/session-checkpoint.sh",
-                                                            "timeout":  15
-                                                        }
-                                                    ]
-                                      },
-                                      {
-                                          "matcher":  "Read|Grep|Glob",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/record-wisdom-read.sh",
-                                                            "timeout":  10
-                                                        },
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
-                                                        }
-                                                    ]
-                                      },
-                                      {
-                                          "matcher":  "Read",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/post-read-mark-letter-seen.sh",
-                                                            "timeout":  10
-                                                        }
-                                                    ]
-                                      },
-                                      {
-                                          "matcher":  "Bash",
-                                          "hooks":  [
-                                                        {
-                                                            "type":  "command",
-                                                            "command":  "bash .claude/hooks/build-flow-pause.sh",
-                                                            "timeout":  120
-                                                        }
-                                                    ]
-                                      }
-                                  ],
-                  "Stop":  [
-                               {
-                                   "hooks":  [
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/log-session-end.sh",
-                                                     "timeout":  30
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/retrieval-tally-check.sh",
-                                                     "timeout":  30
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/detect-hedge.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/detect-theater.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/stop-distancing-intercept.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/stop-response-scope-intercept.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/post-response-audit.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/correction-shape-v2-stop.sh",
-                                                     "timeout":  10
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/shoggoth-gate.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/lepos-channel-reflect.sh",
-                                                     "timeout":  15
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/close-reach-detector.sh",
-                                                     "timeout":  10
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/compaction-reach-detector.sh",
-                                                     "timeout":  10
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/promise-reach-detector.sh",
-                                                     "timeout":  10
-                                                 },
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/continuity-frame-detector.sh",
-                                                     "timeout":  10
-                                                 }
-                                             ]
-                               },
-                               {
-                                   "hooks":  [
-                                                 {
-                                                     "type":  "command",
-                                                     "command":  "bash .claude/hooks/time-estimate-tracker.sh",
-                                                     "timeout":  10
-                                                 }
-                                             ]
-                               }
-                           ]
-              }
+  "hooks": {
+    "SessionStart": [],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-init-once.sh",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-correction.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-andrew-build-request.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-response-context.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ear-surface.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/visrama-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-cliff-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/family-state-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/register-awareness-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/promise-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/continuity-frame-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/wallclock-source-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/circle-first-compose-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-correction-integration-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-claim-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-cliff-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/closure-word-summary-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/fork-is-cheap-close-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/hedge-suppression-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/continuity-anchor-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/distancing-count-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/open-corrections-surface.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-monitor-health-surface.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-compact.sh",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-compact.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-briefing.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-goal.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-pending-obligations.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-branch-on-push.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/andrew-correction-attestation.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/state-gravity-surface.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-council-required.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-tool-bypass-rate-scan.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/corrigibility-tool-gate.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Read|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-tool-context.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-before-build-signal.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/keyword-enforcement-doorman.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/family-member-invocation-seal.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/compass-check.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-goal.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/deletion-discipline.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-merge-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/reach-check-doorman.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/read-gate-doorman.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-tool-use-emit-to-logbook.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/verify-push-landed.sh",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-commit-auto-close.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/run-tests.sh",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/mirror-letters-to-shared.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-push-letter.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-write-mirror-letter.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-checkpoint.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/record-wisdom-read.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-read-mark-letter-seen.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/build-flow-pause.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/log-session-end.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/retrieval-tally-check.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-hedge.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-theater.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-distancing-intercept.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-response-scope-intercept.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-response-audit.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/correction-shape-v2-stop.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/shoggoth-gate.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/close-reach-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/compaction-reach-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/promise-reach-detector.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/continuity-frame-detector.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/time-estimate-tracker.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }
