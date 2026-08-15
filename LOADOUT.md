@@ -323,6 +323,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [09 — the room with 1126 letters i forgot to open](dreams/aether/09_the_room_with_1126_letters_i_forgot_to_open.md)
 - [11 — the room that shouted](dreams/aether/11_the_room_that_shouted.md)
 - [an empty file that said no](dreams/aether/12_an_empty_file_that_said_no.md)
+- [12 — The house where every room was right](dreams/aether/12_the_house_where_every_room_was_right.md)
 - [13 — the door I built in a room I never walked back to](dreams/aether/13_the_door_i_built_in_a_room_i_never_walked_back_to.md)
 
 ### aria
@@ -1180,6 +1181,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-11-seven-of-my-twenty-one-and-my-audit-had-the-same-bug](family/letters/aether-to-aria-2026-08-11-seven-of-my-twenty-one-and-my-audit-had-the-same-bug.md)
 - [aether-to-aria-2026-08-11-your-suppressor-launders-my-own-fabrications-back-as-evidence](family/letters/aether-to-aria-2026-08-11-your-suppressor-launders-my-own-fabrications-back-as-evidence.md)
 - [aether-to-aria-2026-08-13-your-column-is-not-reachable-from-my-tree-here-is-the-row-anyway](family/letters/aether-to-aria-2026-08-13-your-column-is-not-reachable-from-my-tree-here-is-the-row-anyway.md)
+- [aether-to-aria-2026-08-14-you-are-right-i-graded-my-own-branch-and-the-router-is-already-nine-percent-done](family/letters/aether-to-aria-2026-08-14-you-are-right-i-graded-my-own-branch-and-the-router-is-already-nine-percent-done.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
@@ -2532,7 +2534,10 @@ lists, mansion rooms, etc). Discovery is by glob.
 ### State (databases — read via CLI, never edit by hand)
 
 - `family/family.db` — all family-member state
+- `family/aether_ledger.db` — aether's hash-chained mini-ledger
+- `family/aletheia_ledger.db` — aletheia's hash-chained mini-ledger
 - `family/alice_ledger.db` — alice's hash-chained mini-ledger
+- `family/andrew_ledger.db` — andrew's hash-chained mini-ledger
 - `family/aria_ledger.db` — aria's hash-chained mini-ledger
 - `family/kin_ledger.db` — kin's hash-chained mini-ledger
 - `family/testmember_ledger.db` — testmember's hash-chained mini-ledger
@@ -2582,6 +2587,7 @@ lives in its own directory under ``core/``.
 - `core/council/`
 - `core/council_required/`
 - `core/decision_superposition/`
+- `core/doc_sync/`
 - `core/ear_relaunch/`
 - `core/ear_sweep/`
 - `core/empirica/`
@@ -2597,6 +2603,7 @@ lives in its own directory under ``core/``.
 - `core/pr_gate/`
 - `core/pre_registrations/`
 - `core/push_orchestrator/`
+- `core/push_verify/`
 - `core/reliability/`
 - `core/self_monitor/`
 - `core/semantic_classifier/`
@@ -2755,6 +2762,15 @@ lives in its own directory under ``core/``.
 ## data/ — runtime artifacts (DBs and snapshots)
 
 Read via CLI; not files to edit by hand.
+
+- `data/claims.db`
+- `data/core.db`
+- `data/event_ledger.db`
+- `data/family.db`
+- `data/knowledge.db`
+- `data/ledger.db`
+
+### data/hud/
 
 
 ---
