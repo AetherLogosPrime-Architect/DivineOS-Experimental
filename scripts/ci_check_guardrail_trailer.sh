@@ -154,9 +154,13 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     MSG=$(git log -1 --format=%B "$commit")
     TRAILER=$(parse_trailer_line "$MSG")
 
+    FROM_PR_BODY=""
     if [ -z "$TRAILER" ]; then
         TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
-        [ -n "$TRAILER" ] && echo "[info] $commit: trailer absent from the commit message; read from the PR body instead (squash-message snapshot race)."
+        if [ -n "$TRAILER" ]; then
+            FROM_PR_BODY="1"
+            echo "[info] $commit: trailer absent from the commit message; read from the PR body instead."
+        fi
     fi
 
     if [ -z "$TRAILER" ]; then
@@ -167,6 +171,28 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
 
     # Trailer present. Now check substance-binding via tree-hash.
     TRAILER_TREE_HASH=$(parse_trailer_tree_hash "$TRAILER")
+
+    # A tree-hash in a PR-BODY trailer describes the PULL REQUEST, not any one
+    # commit inside it. Verifying it against an individual commit's tree is a
+    # category error that fails 100% of the time on a multi-commit branch --
+    # only the last commit could ever match, and not after main is merged in.
+    #
+    # Measured 2026-08-15 across the open stack: ten PRs carry a tree-hash
+    # trailer in the body and ZERO of their branch commits carry one in the
+    # message, so every one of them would have taken this path and been
+    # blocked by a hash that was never a claim about them. The check would
+    # have reported ten review failures and meant nothing by any of them.
+    #
+    # On this path the substance anchor is merge-review instead: the operator
+    # approves the HEAD commit, and that approval is invalidated by any later
+    # push. Say so in the output rather than implying a binding that was not
+    # checked -- a gate that is honest about the limits of its own check is
+    # the one an operator can trust the rest of the time.
+    if [ -n "$FROM_PR_BODY" ] && [ -n "$TRAILER_TREE_HASH" ]; then
+        echo "    [info] tree-hash in a PR-body trailer describes the PR, not this commit; not verified here."
+        echo "    [info] substance anchor on this path is merge-review's operator approval of the head commit."
+        TRAILER_TREE_HASH=""
+    fi
 
     if [ -z "$TRAILER_TREE_HASH" ]; then
         # Legacy trailer (Phase 1). Pass with a warning unless
