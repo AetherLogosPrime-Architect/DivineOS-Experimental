@@ -108,10 +108,20 @@ def _parse_time(value: str) -> datetime | None:
 
 def _head_commit_time(repo: str, head_sha: str) -> datetime | None:
     """When the head commit was committed, for ordering a bare approval."""
-    data = _gh_json(
-        ["api", f"repos/{repo}/commits/{head_sha}", "--jq", ".commit.committer.date"]
-    )
-    return _parse_time(str(data)) if isinstance(data, str) else None
+    # No --jq here. It prints the selected string RAW, without quotes, and a
+    # bare `2026-08-15T02:40:00Z` is not valid JSON -- so _gh_json's
+    # json.loads failed, this returned None, and every bare confirmation was
+    # refused for want of an ordering it could not read. The gate reported
+    # "no approval on the current commit" while the approval sat right there.
+    # Caught by dry-running the real PR; the unit test fed the timestamp in
+    # directly and so never exercised this call at all.
+    data = _gh_json(["api", f"repos/{repo}/commits/{head_sha}"])
+    if not isinstance(data, dict):
+        return None
+    commit = data.get("commit")
+    committer = commit.get("committer") if isinstance(commit, dict) else None
+    when = committer.get("date") if isinstance(committer, dict) else None
+    return _parse_time(str(when)) if when else None
 
 
 def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
