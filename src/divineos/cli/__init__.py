@@ -372,6 +372,7 @@ from divineos.cli import (  # noqa: E402
     prior_art_commands,
     psf_commands,
     prereg_commands,
+    reach_commands,
     admin_reset_template,
     admin_migrate_family,
     family_member_commands,
@@ -381,6 +382,9 @@ from divineos.cli import (  # noqa: E402
     letter_seen_commands,
     push_commands,
     push_ready_command,
+    stamp_ready_command,
+    audit_sync_command,
+    aletheia_import_command,
     context_tokens_commands,
     context_dedup_commands,
     ear_sweep_commands,
@@ -469,6 +473,9 @@ progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
 push_ready_command.register(cli)
+stamp_ready_command.register(cli)
+audit_sync_command.register(cli)
+aletheia_import_command.register(cli)
 context_tokens_commands.register(cli)
 context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
@@ -481,6 +488,7 @@ correction_commands.register(cli)
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
+reach_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)
 family_member_commands.register(cli)

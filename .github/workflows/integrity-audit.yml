@@ -36,12 +36,21 @@ jobs:
   guardrail-trailer-check:
     name: multi-party-review
     runs-on: ubuntu-latest
-    # Draft PRs skip CI so pre-audit visibility doesn't accumulate red marks
-    # on the Actions page. The check still runs on push to main and on the
-    # ready_for_review transition (when audit is complete and the PR is
-    # promoted out of draft). Aletheia 2026-06-08 confirmed this is the
-    # mechanism — delay the run, don't defang the check.
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    # Push-to-main only (Andrew 2026-08-13): "not every commit just every
+    # merge to main, committing is allowed in your own workspace without any
+    # audit, the github is the main vault/backup."
+    #
+    # This job checks each individual COMMIT for a trailer, which made every
+    # amend-and-force-push cycle a fresh chance to fail — and on branches
+    # checked out in a second worktree, `filter-branch` cannot rewrite the
+    # history at all, so the requirement was unmeetable from here. The PR
+    # path is already covered by merge-review below, which anchors on the
+    # operator's approval of the head commit; that is the stronger check and
+    # it does not care how the branch's individual commits were worded.
+    #
+    # Kept on push-to-main because that is the vault. What lands on main
+    # still has to carry the trailer.
+    if: github.event_name == 'push'
     steps:
       - name: Check out PR with full history
         uses: actions/checkout@v4

@@ -129,6 +129,74 @@ def test_deferring_clears_the_block():
     assert _check_overdue_prereg_block() is None
 
 
+class TestReadOnlyProbesPassWhileOverdue:
+    """A gate must not block the evidence its own remedy requires.
+
+    Andrew 2026-06-29, already load-bearing in _is_bypass_command:
+    "no gate should ever be blocking you from using what you need to
+    clear the gate." Clearing this gate means assessing a pre-reg, and an
+    honest assessment needs evidence.
+
+    It blocked that evidence twice on 2026-08-13. Assessing
+    prereg-ec9c9ee7eeda meant running `divineos already-built` -- the very
+    command that pre-reg was about -- and the gate refused it. Assessing
+    prereg-81b268695979 meant querying the bypass store for a baseline,
+    and the gate refused that too. Both were recorded DEFERRED with
+    "CANNOT-LOOK" for no reason but this gate. A gate that blocks looking
+    produces fabricated outcomes or defensive deferrals, not assessment.
+
+    Andrew 2026-08-13, on finding it named-but-unfixed: "why dont you fix
+    the gate?"
+    """
+
+    def _overdue(self) -> str:
+        init_pre_registrations_tables()
+        prereg_id = file_pre_registration(
+            mechanism="readonly-probe-fixture",
+            claim="X",
+            success_criterion="Y",
+            falsifier="Z",
+            review_window_days=7,
+            actor="aether",
+        )
+        _backdate_review(prereg_id, days_ago=3)
+        assert _check_overdue_prereg_block() is not None, "fixture must be blocking"
+        return prereg_id
+
+    def test_the_command_a_prereg_was_about_is_not_blocked(self):
+        """prereg-ec9c9ee7eeda's own subject, refused live."""
+        self._overdue()
+        assert _check_overdue_prereg_block('divineos already-built "letter monitor"') is None
+
+    def test_read_only_git_is_not_blocked(self):
+        self._overdue()
+        assert _check_overdue_prereg_block("git ls-remote origin some-branch") is None
+        assert _check_overdue_prereg_block("git log --oneline -3") is None
+        assert _check_overdue_prereg_block("git rev-parse HEAD") is None
+
+    def test_cd_preface_still_reads_as_a_probe(self):
+        """Every Bash call in this codebase prefixes `cd DIR && `."""
+        self._overdue()
+        assert _check_overdue_prereg_block("cd /some/dir && git status") is None
+
+    def test_mutation_is_still_blocked(self):
+        """The gate's actual purpose survives the allowance."""
+        self._overdue()
+        for cmd in ("git push origin main", "git commit -m x", "rm -rf /tmp/x"):
+            assert _check_overdue_prereg_block(cmd) is not None, cmd
+
+    def test_probe_word_with_mutation_attached_is_blocked(self):
+        """F22's decoy shape: a safe word does not launder a compound."""
+        self._overdue()
+        assert _check_overdue_prereg_block("git log && rm -rf /tmp/x") is not None
+        assert _check_overdue_prereg_block("git status; git push") is not None
+
+    def test_no_command_still_blocks(self):
+        """Non-Bash tools supply no command and must not slip through."""
+        self._overdue()
+        assert _check_overdue_prereg_block("") is not None
+
+
 def test_multiple_overdue_all_named_in_message():
     """Deny message lists overdue IDs (capped at 5 preview + more-count)
     so the operator knows exactly which pre-regs need attention."""
