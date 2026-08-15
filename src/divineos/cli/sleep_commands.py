@@ -184,6 +184,7 @@ def register(cli: click.Group) -> None:
             _phase_affect,
             _phase_consolidation,
             _phase_curiosity,
+            _phase_loadout_refresh,
             _phase_maintenance,
             _phase_pruning,
             _phase_recombination,
@@ -232,6 +233,7 @@ def register(cli: click.Group) -> None:
                 "maintenance": ("Phase 4: Maintenance", _phase_maintenance),
                 "recombination": ("Phase 5: Creative Recombination", _phase_recombination),
                 "curiosity": ("Phase 6: Curiosity Generation", _phase_curiosity),
+                "loadout_refresh": ("Phase: LOADOUT refresh", _phase_loadout_refresh),
             }
             if phase not in phase_map:
                 click.secho(
