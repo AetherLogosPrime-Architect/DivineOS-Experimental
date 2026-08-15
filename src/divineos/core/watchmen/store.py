@@ -475,7 +475,7 @@ def _row_to_round(row: Any) -> AuditRound:
         expert_count=row[4],
         finding_count=row[5],
         notes=row[6],
-        tier=Tier(row[7]) if row[7] else Tier.WEAK,
+        tier=Tier(_enum_text(row[7])) if row[7] else Tier.WEAK,
     )
 
 
@@ -623,24 +623,37 @@ def list_findings(
         conn.close()
 
 
+def _enum_text(value: Any) -> str:
+    """Normalize a stored enum string so case differences cannot break a read."""
+    return str(value or "").strip().upper()
+
+
 def _row_to_finding(row: Any) -> Finding:
     """Convert a database row to a Finding dataclass."""
     tags = json.loads(row[12]) if row[12] else []
-    tier = Tier(row[13]) if len(row) > 13 and row[13] else Tier.WEAK
+    tier = Tier(_enum_text(row[13])) if len(row) > 13 and row[13] else Tier.WEAK
     reviewed_id = row[14] if len(row) > 14 else ""
     stance_raw = row[15] if len(row) > 15 else ""
-    stance = ReviewStance(stance_raw) if stance_raw else None
+    # Case is not semantic here. Six real CONFIRMS findings -- three from
+    # Andrew, three from Aletheia -- were written with lowercase severity
+    # and category by a writer that bypassed the enum, and every read of
+    # their rounds then raised ValueError. The crash surfaced as "no
+    # confirms", so genuine approvals looked like missing ones and the
+    # trailer gate refused PRs that had in fact been reviewed
+    # (Andrew 2026-08-12: "the confirms and audits get lost").
+    # Normalizing on read means no writer can produce that state again.
+    stance = ReviewStance(_enum_text(stance_raw)) if stance_raw else None
     return Finding(
         finding_id=row[0],
         round_id=row[1],
         created_at=row[2],
         actor=row[3],
-        severity=Severity(row[4]),
-        category=FindingCategory(row[5]),
+        severity=Severity(_enum_text(row[4])),
+        category=FindingCategory(_enum_text(row[5])),
         title=row[6],
         description=row[7],
         recommendation=row[8],
-        status=FindingStatus(row[9]),
+        status=FindingStatus(_enum_text(row[9])),
         resolution_notes=row[10],
         routed_to=row[11],
         tags=tags,
