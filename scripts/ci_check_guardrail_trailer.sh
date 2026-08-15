@@ -92,8 +92,15 @@ parse_trailer_line() {
 # leaves the result empty and the commit blocks exactly as before.
 trailer_from_pr_body() {
     local subject="$1"
-    local pr
-    pr=$(echo "$subject" | grep -oE '\(#[0-9]+\)$' | grep -oE '[0-9]+') || true
+    local pr="${PR_NUMBER:-}"
+    # On a pull_request event the workflow supplies PR_NUMBER directly.
+    # Branch commits carry no "(#N)" in their subject -- only the squash
+    # commit does -- so without this the fallback worked AFTER the merge and
+    # not before it, which is the whole complaint: the check could never be
+    # seen green in the place where seeing it still changes the outcome.
+    if [ -z "$pr" ]; then
+        pr=$(echo "$subject" | grep -oE '\(#[0-9]+\)$' | grep -oE '[0-9]+') || true
+    fi
     [ -z "$pr" ] && return 0
     command -v gh >/dev/null 2>&1 || return 0
     gh pr view "$pr" --json body --jq .body 2>/dev/null \
