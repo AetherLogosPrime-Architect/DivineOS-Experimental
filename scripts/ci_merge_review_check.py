@@ -40,6 +40,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from divineos.core.merge_review_gate import (
@@ -88,7 +89,39 @@ def _fetch_reviews(repo: str, pr: int) -> list[Review] | None:
     return reviews
 
 
-_APPROVAL_MARKER = "MERGE-APPROVED:"
+_APPROVAL_MARKER = "MERGE-APPROVED"
+
+# Andrew 2026-08-15: "this used to be so much easier all it took was me saying
+# i confirm and that was enough." He is right, and the ceremony grew without
+# anyone deciding it should. The word he actually uses is the one that should
+# work; a coined token is my vocabulary imposed on his approval.
+_APPROVAL_PHRASES = ("MERGE-APPROVED", "I CONFIRM")
+
+
+def _parse_time(value: str) -> datetime | None:
+    """Parse a GitHub ISO-8601 timestamp; None on anything unexpected."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _head_commit_time(repo: str, head_sha: str) -> datetime | None:
+    """When the head commit was committed, for ordering a bare approval."""
+    # No --jq here. It prints the selected string RAW, without quotes, and a
+    # bare `2026-08-15T02:40:00Z` is not valid JSON -- so _gh_json's
+    # json.loads failed, this returned None, and every bare confirmation was
+    # refused for want of an ordering it could not read. The gate reported
+    # "no approval on the current commit" while the approval sat right there.
+    # Caught by dry-running the real PR; the unit test fed the timestamp in
+    # directly and so never exercised this call at all.
+    data = _gh_json(["api", f"repos/{repo}/commits/{head_sha}"])
+    if not isinstance(data, dict):
+        return None
+    commit = data.get("commit")
+    committer = commit.get("committer") if isinstance(commit, dict) else None
+    when = committer.get("date") if isinstance(committer, dict) else None
+    return _parse_time(str(when)) if when else None
 
 
 def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
@@ -116,14 +149,21 @@ def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
     data = _gh_json(["api", f"repos/{repo}/issues/{pr}/comments", "--paginate"])
     if not isinstance(data, list) or not head_sha:
         return []
+    head_time = _head_commit_time(repo, head_sha)
     approvals: list[Review] = []
     for c in data:
         if not isinstance(c, dict):
             continue
         body = str(c.get("body") or "")
-        marker = body.upper().find(_APPROVAL_MARKER)
+        upper = body.upper()
+        marker, phrase = -1, ""
+        for candidate in _APPROVAL_PHRASES:
+            found = upper.find(candidate)
+            if found >= 0 and (marker < 0 or found < marker):
+                marker, phrase = found, candidate
         if marker < 0:
             continue
+        marker += len(phrase) - len(_APPROVAL_MARKER)
         # Take the first hex run after the marker, not the first whitespace
         # token. The first real approval comment was rejected on a trailing
         # double-quote: the operator pasted the whole shell command --
@@ -138,11 +178,33 @@ def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
         # fences or trailing commas, and still requires the operator to name
         # the actual commit.
         m = re.search(r"[0-9a-fA-F]{7,40}", body[marker + len(_APPROVAL_MARKER) :])
-        if not m:
-            continue
-        sha = m.group(0).lower()
-        if not head_sha.lower().startswith(sha):
-            continue
+        if m:
+            sha = m.group(0).lower()
+            if not head_sha.lower().startswith(sha):
+                continue
+        else:
+            # NO SHA NAMED. Accept the bare marker when the comment was
+            # written AFTER the head commit existed.
+            #
+            # Andrew 2026-08-14: "i cant copy paste anything." Requiring him
+            # to reproduce a commit id by hand is the same trap as requiring
+            # a pasted trailer, one size smaller -- and a mistyped character
+            # rejects a genuine approval, which is what already happened once
+            # today over a stray quote.
+            #
+            # The property worth keeping is not the TEXT of the sha, it is
+            # that approval cannot silently inherit onto work the operator
+            # never saw. A timestamp gives that directly: a comment written
+            # before the head commit existed cannot be approving it, and any
+            # push after the comment moves the head past it again. Same
+            # invariant, nothing to type.
+            #
+            # If either timestamp is unavailable the bare marker is REFUSED
+            # and the sha form remains the only path -- unverifiable ordering
+            # must not read as approval.
+            when = _parse_time(str(c.get("created_at") or ""))
+            if head_time is None or when is None or when < head_time:
+                continue
         user = c.get("user") or {}
         approvals.append(
             Review(
