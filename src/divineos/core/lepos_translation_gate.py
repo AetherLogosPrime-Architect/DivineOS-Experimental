@@ -115,6 +115,32 @@ from pathlib import Path
 # it would trade a false positive for a new hole. Recording the instance is
 # the honest move: both falsifier directions have now fired, which is
 # stronger evidence for the semantic replacement than either alone.
+#
+# THIRD INSTANCE, 2026-08-15, and it widens the class. The reply described a
+# hook's registration slot — "runs on every prompt, not just at session start",
+# "a start-only check leaves the rest of that session deaf" — while reporting
+# three commits already made and verified in that same turn. Nothing was
+# deferred; there was nothing left to defer.
+#
+# What is new: SessionStart and UserPromptSubmit are not loose talk about time,
+# they are the literal names of harness lifecycle events. Any accurate sentence
+# about WHERE a hook is registered must name them. So the false-positive surface
+# is wider than "session is a first-class object" already said — it covers the
+# whole vocabulary for describing the enforcement spine, which is the machinery
+# these gates themselves run on.
+#
+# Still not adding an exemption for the lifecycle names. That is the same banned
+# fix in a more convincing outfit, and an exemption for "session start" is
+# precisely the hole a real deferral would route through. The semantic
+# replacement — does this sentence commit ME to a future window, or describe a
+# MECHANISM — is overdue on three independent fires, not optional.
+#
+# Recording this instance required authorizing past the keyword-enforcement
+# doorman, which counted this comment as adding a pattern because it quotes
+# phrases. The file documenting a detector's false positives cannot record a new
+# one without tripping a detector — the same self-referential blindness as the
+# letter-monitor liveness check that scanned for itself and always found itself,
+# found the same day one level up. Logged for audit rather than worked around.
 _WALLCLOCK_FABRICATION_PATTERNS = (
     re.compile(r"\btomorrow\b"),
     re.compile(r"\bnext session\b"),
