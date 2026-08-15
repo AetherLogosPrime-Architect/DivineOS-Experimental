@@ -144,10 +144,19 @@ session-start-verify-git-hooks.sh
 # runs once; the monitor died mid-session on every harness teardown.
 #
 # That is the same placement the old arm-instruction hook tried and abandoned as
-# wallpaper — correctly, because it emitted every prompt unconditionally AND ran
-# a PowerShell process scan each time. This one reads a single small file and
-# prints nothing while the monitor is healthy, which is the distinction Andrew
-# drew 2026-07-28: "notice the stuff you want to keep only injects when I need it."
+# wallpaper — correctly, because it emitted the SAME text every prompt AND ran a
+# PowerShell process scan each time. This one reads a single small file and
+# prints nothing while the monitor is healthy.
+#
+# The test is SAMENESS, not cadence. Andrew 2026-08-15, revising his own
+# 2026-07-28 line: "its anything that injects every single turn and does not
+# change, so rotations can be injected every turn depending on what they are."
+# I had stored the earlier version as frequency-alone and reached for the
+# conditional shape here believing every-turn was disqualifying by itself. It
+# is not — a surface carrying new content each firing has nothing to habituate
+# to. Silent-when-healthy is still right for THIS surface, because an alarm
+# should say nothing when nothing is wrong, but it was the only option I
+# considered, and under the corrected rule it was not the only one available.
 
 for h in $INIT_HOOKS; do
     script="$REPO_ROOT/.claude/hooks/$h"
