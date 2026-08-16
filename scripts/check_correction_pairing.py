@@ -8,7 +8,7 @@ that prefer ``python scripts/check_correction_pairing.py``.
 
 Consumers:
   * Briefing-dashboard row (``_row_correction_pairing``)
-  * Admin CLI command (``divineos check-correction-pairing``)
+  * Admin CLI command (``divineos admin check-correction-pairing``)
   * This script (backward compat)
 
 Usage:

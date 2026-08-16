@@ -138,6 +138,11 @@
             "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/open-corrections-surface.sh",
+            "timeout": 10
           }
         ]
       }
@@ -177,6 +182,11 @@
             "type": "command",
             "command": "bash .claude/hooks/degraded-detector-gate.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
+            "timeout": 15
           }
         ]
       },
@@ -197,6 +207,10 @@
             "type": "command",
             "command": "bash .claude/hooks/check-pending-obligations.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
           }
         ]
       },
@@ -339,6 +353,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
           }
         ]
       },
@@ -348,6 +366,36 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/reach-check-doorman.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/read-gate-doorman.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
+            "timeout": 30
           }
         ]
       }
@@ -425,6 +473,10 @@
             "type": "command",
             "command": "bash .claude/hooks/record-wisdom-read.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
           }
         ]
       },

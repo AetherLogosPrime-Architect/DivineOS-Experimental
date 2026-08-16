@@ -157,7 +157,21 @@ fi
 
 # It's a push. Run the branch-health check with --strict.
 # Capture both stdout (the report) and stderr (errors).
-CHECK_OUTPUT=$("$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+# PYTHONPATH pins the import to THIS worktree. Without it the hook's
+# interpreter loads divineos from whichever checkout pip last recorded --
+# the main one -- which keeps its own session state. The gate then read a
+# briefing that was never loaded THERE, printed "BLOCKED: Briefing not
+# loaded", and refused a legitimate push while `divineos briefing` in the
+# worktree reported success every time. The gate's own prescribed remedy
+# could not clear it, so the only exit on offer was the kill-switch.
+#
+# Fourth instance of this class today: gh-pr-ready-gate exited 49 under
+# the Windows Store python stub and gated nothing; file-aletheia-on-arrival
+# failed on every artifact with a usage error; aletheia-import was absent
+# from the main install. Same root cause each time -- a hook resolving
+# divineos somewhere other than the tree it is guarding.
+CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+    "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
 CHECK_RC=$?
 
 case "$CHECK_RC" in

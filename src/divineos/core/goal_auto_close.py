@@ -212,6 +212,7 @@ def auto_close_from_message(
     message: str,
     threshold: float = _DEFAULT_THRESHOLD,
     goals: list[dict] | None = None,
+    message_time: float | None = None,
 ) -> AutoCloseResult:
     """Auto-close goals whose substantive tokens overlap the commit message.
 
@@ -219,10 +220,33 @@ def auto_close_from_message(
         message: full commit message text (subject + body).
         threshold: minimum overlap_ratio to count as a match.
         goals: optional pre-loaded goal list (for testing).
+        message_time: unix timestamp of the commit this message came from.
+            Goals added after it are skipped. When omitted, no ordering
+            check runs -- the pre-2026-08-12 behaviour.
 
     Returns:
         ``AutoCloseResult`` with the goals that were closed and the
         ones that were considered but fell below threshold.
+
+    Causality guard (Andrew 2026-08-12). A commit can only complete work
+    that existed to be done when it was made. This reads HEAD's message,
+    which is frequently older than the goal being tested, and had no
+    ordering check -- so a goal added AFTER a commit got closed BY that
+    commit, at birth, before any work happened under it.
+
+    That deadlocked the goal gate. ``has_session_fresh_goal()`` needs a
+    goal that is both recent and active; any fresh goal whose wording
+    overlapped the last commit was marked done within seconds, so no
+    fresh-and-active goal could exist and the gate's own prescribed
+    remedy could not clear it. Observed live: two goals closed 92s and
+    161s after creation, the only surviving active goal ~20h old, and
+    the gate refusing Bash, Write and Edit alike.
+
+    The guard is an ordering relation, not an age threshold -- per the
+    standing no-durations rule, this asks "was the goal already open when
+    that commit landed" rather than measuring an elapsed gap. A grace
+    period would still close a genuinely-finished young goal and still
+    miss an old one the commit really did complete.
     """
     msg_tokens = _tokenize(message)
     if not msg_tokens:
@@ -245,6 +269,11 @@ def auto_close_from_message(
         goal_text = goal.get("text", "")
         goal_tokens = _tokenize(goal_text)
         if not goal_tokens:
+            continue
+        # Causality: this commit predates the goal, so it cannot have
+        # completed it. Skip silently rather than counting it as
+        # considered-but-below-threshold, which it never was.
+        if message_time is not None and goal.get("added_at", 0) > message_time:
             continue
         overlap = len(goal_tokens & msg_tokens) / len(goal_tokens)
         if overlap >= threshold:
