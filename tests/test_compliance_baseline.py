@@ -201,16 +201,23 @@ class TestAnomalyIntegration:
     def test_baselines_uncalibrated_anomaly_fires_via_detect_anomalies(self, monkeypatch) -> None:
         """High gated activity + zero clean sessions → baselines_uncalibrated
         anomaly surfaces through the standard detect_anomalies pipeline."""
+        import uuid
+
         from divineos.core.compliance_audit import detect_anomalies
-        from divineos.core.ledger import log_event
+
+        # 2026-08-01: was ledger.log_event, which writes system_events.
+        # The real wrapper writes tool_logbook (migrated 2026-05-05), so
+        # the old helper reproduced the production bug on the write side
+        # while the detector reproduced it on the read side. Green suite,
+        # blind detector.
+        from divineos.core.tool_logbook import emit_tool_call
 
         # Simulate gated activity — needs to be >= UNCALIBRATED threshold (50)
         for _ in range(55):
-            log_event(
-                event_type="TOOL_CALL",
-                actor="tool_wrapper",
-                payload={"tool_name": "Task", "tool_input": "test"},
-                validate=False,
+            emit_tool_call(
+                tool_name="Task",
+                tool_input="test",
+                tool_use_id=str(uuid.uuid4()),
             )
         # Disable substance-check flags (irrelevant here)
         for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
@@ -221,16 +228,23 @@ class TestAnomalyIntegration:
         assert "baselines_uncalibrated" in names
 
     def test_baselines_uncalibrated_not_fired_when_clean_sessions_exist(self, monkeypatch) -> None:
+        import uuid
+
         from divineos.core.compliance_audit import detect_anomalies
-        from divineos.core.ledger import log_event
+
+        # 2026-08-01: was ledger.log_event, which writes system_events.
+        # The real wrapper writes tool_logbook (migrated 2026-05-05), so
+        # the old helper reproduced the production bug on the write side
+        # while the detector reproduced it on the read side. Green suite,
+        # blind detector.
+        from divineos.core.tool_logbook import emit_tool_call
 
         _make_clean_round_and_tag("session-clean-1")
         for _ in range(55):
-            log_event(
-                event_type="TOOL_CALL",
-                actor="tool_wrapper",
-                payload={"tool_name": "Task", "tool_input": "test"},
-                validate=False,
+            emit_tool_call(
+                tool_name="Task",
+                tool_input="test",
+                tool_use_id=str(uuid.uuid4()),
             )
         for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
             monkeypatch.setenv(f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}", "off")
@@ -240,16 +254,23 @@ class TestAnomalyIntegration:
         assert "baselines_uncalibrated" not in names
 
     def test_baselines_uncalibrated_disabled_via_feature_flag(self, monkeypatch) -> None:
+        import uuid
+
         from divineos.core.compliance_audit import detect_anomalies
-        from divineos.core.ledger import log_event
+
+        # 2026-08-01: was ledger.log_event, which writes system_events.
+        # The real wrapper writes tool_logbook (migrated 2026-05-05), so
+        # the old helper reproduced the production bug on the write side
+        # while the detector reproduced it on the read side. Green suite,
+        # blind detector.
+        from divineos.core.tool_logbook import emit_tool_call
 
         monkeypatch.setenv("DIVINEOS_DETECTOR_BASELINES_UNCALIBRATED", "off")
         for _ in range(55):
-            log_event(
-                event_type="TOOL_CALL",
-                actor="tool_wrapper",
-                payload={"tool_name": "Task", "tool_input": "test"},
-                validate=False,
+            emit_tool_call(
+                tool_name="Task",
+                tool_input="test",
+                tool_use_id=str(uuid.uuid4()),
             )
         for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
             monkeypatch.setenv(f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}", "off")

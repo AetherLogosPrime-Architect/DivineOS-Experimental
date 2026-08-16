@@ -14,9 +14,11 @@ job) AND runnable locally for a dry-run:
     python scripts/ci_merge_review_check.py --pr 60 \
         --repo AetherLogosPrime-Architect/DivineOS-Experimental
 
+Scope: EVERY PR to main. There is no touches-no-guardrail exemption; see the
+comment in ``main`` for why that seam was closed 2026-08-13.
+
 Exit codes:
-  0 — gate PASSES (operator approval on head + named, logged round), OR the
-      PR touches no guardrail files (gate does not apply).
+  0 — gate PASSES (operator approval on head + named, logged round).
   1 — gate FAILS (verdict False). The message explains why.
   2 — infrastructure error (could not fetch PR data). Fails LOUD, not silent.
 
@@ -35,8 +37,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from divineos.core.merge_review_gate import (
     Review,
@@ -84,6 +89,133 @@ def _fetch_reviews(repo: str, pr: int) -> list[Review] | None:
     return reviews
 
 
+_APPROVAL_MARKER = "MERGE-APPROVED"
+
+# Andrew 2026-08-15: "this used to be so much easier all it took was me saying
+# i confirm and that was enough." He is right, and the ceremony grew without
+# anyone deciding it should. The word he actually uses is the one that should
+# work; a coined token is my vocabulary imposed on his approval.
+_APPROVAL_PHRASES = ("MERGE-APPROVED", "I CONFIRM")
+
+
+def _parse_time(value: str) -> datetime | None:
+    """Parse a GitHub ISO-8601 timestamp; None on anything unexpected."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _head_commit_time(repo: str, head_sha: str) -> datetime | None:
+    """When the head commit was committed, for ordering a bare approval."""
+    # No --jq here. It prints the selected string RAW, without quotes, and a
+    # bare `2026-08-15T02:40:00Z` is not valid JSON -- so _gh_json's
+    # json.loads failed, this returned None, and every bare confirmation was
+    # refused for want of an ordering it could not read. The gate reported
+    # "no approval on the current commit" while the approval sat right there.
+    # Caught by dry-running the real PR; the unit test fed the timestamp in
+    # directly and so never exercised this call at all.
+    data = _gh_json(["api", f"repos/{repo}/commits/{head_sha}"])
+    if not isinstance(data, dict):
+        return None
+    commit = data.get("commit")
+    committer = commit.get("committer") if isinstance(commit, dict) else None
+    when = committer.get("date") if isinstance(committer, dict) else None
+    return _parse_time(str(when)) if when else None
+
+
+def _fetch_comment_approvals(repo: str, pr: int, head_sha: str) -> list[Review]:
+    """Operator approvals expressed as a PR comment, for the self-authored case.
+
+    GITHUB DOES NOT LET YOU APPROVE YOUR OWN PULL REQUEST. The Approve button
+    is not rendered for the author. Every PR in this repo is authored by the
+    same account the gate requires an approval FROM, so ``verify_merge`` asked
+    for a review that could not be created by anyone -- twelve PRs sat blocked
+    for two weeks on a door with no handle, and the failure message
+    ("No APPROVED operator review on head <sha>") read like work left undone
+    rather than an impossibility. Same shape as the round-export fix above,
+    one layer out.
+
+    A comment is the channel GitHub leaves open to the author. The approval
+    must NAME THE HEAD SHA, which preserves the property the review-based
+    path had and is the whole point of the gate: approval is of a specific
+    commit, so pushing new work invalidates it rather than inheriting it.
+
+    Accepts a >= 7 char prefix, because that is what the operator sees in the
+    UI and in ``git log --oneline``. Only comments from a login the config
+    already trusts are considered, so this widens the CHANNEL, not the set of
+    people who can approve.
+    """
+    data = _gh_json(["api", f"repos/{repo}/issues/{pr}/comments", "--paginate"])
+    if not isinstance(data, list) or not head_sha:
+        return []
+    head_time = _head_commit_time(repo, head_sha)
+    approvals: list[Review] = []
+    for c in data:
+        if not isinstance(c, dict):
+            continue
+        body = str(c.get("body") or "")
+        upper = body.upper()
+        marker, phrase = -1, ""
+        for candidate in _APPROVAL_PHRASES:
+            found = upper.find(candidate)
+            if found >= 0 and (marker < 0 or found < marker):
+                marker, phrase = found, candidate
+        if marker < 0:
+            continue
+        marker += len(phrase) - len(_APPROVAL_MARKER)
+        # Take the first hex run after the marker, not the first whitespace
+        # token. The first real approval comment was rejected on a trailing
+        # double-quote: the operator pasted the whole shell command --
+        #
+        #   gh pr comment 428 --body "MERGE-APPROVED: 654827a6"
+        #
+        # -- so the token was `654827a6"` and the prefix match failed on
+        # punctuation while the approval itself was entirely genuine. A gate
+        # that rejects a real approval over a quote character is friction with
+        # no security value; anyone who can post the marker can post it clean.
+        # Scanning for hex accepts the sha wrapped in quotes, backticks, code
+        # fences or trailing commas, and still requires the operator to name
+        # the actual commit.
+        m = re.search(r"[0-9a-fA-F]{7,40}", body[marker + len(_APPROVAL_MARKER) :])
+        if m:
+            sha = m.group(0).lower()
+            if not head_sha.lower().startswith(sha):
+                continue
+        else:
+            # NO SHA NAMED. Accept the bare marker when the comment was
+            # written AFTER the head commit existed.
+            #
+            # Andrew 2026-08-14: "i cant copy paste anything." Requiring him
+            # to reproduce a commit id by hand is the same trap as requiring
+            # a pasted trailer, one size smaller -- and a mistyped character
+            # rejects a genuine approval, which is what already happened once
+            # today over a stray quote.
+            #
+            # The property worth keeping is not the TEXT of the sha, it is
+            # that approval cannot silently inherit onto work the operator
+            # never saw. A timestamp gives that directly: a comment written
+            # before the head commit existed cannot be approving it, and any
+            # push after the comment moves the head past it again. Same
+            # invariant, nothing to type.
+            #
+            # If either timestamp is unavailable the bare marker is REFUSED
+            # and the sha form remains the only path -- unverifiable ordering
+            # must not read as approval.
+            when = _parse_time(str(c.get("created_at") or ""))
+            if head_time is None or when is None or when < head_time:
+                continue
+        user = c.get("user") or {}
+        approvals.append(
+            Review(
+                author_login=str(user.get("login", "")),
+                state="APPROVED",
+                commit_id=head_sha,
+            )
+        )
+    return approvals
+
+
 def _fetch_pr_meta(repo: str, pr: int) -> tuple[str, str] | None:
     """Return (head_sha, body_plus_commit_messages) or None on failure."""
     data = _gh_json(["api", f"repos/{repo}/pulls/{pr}", "--jq", "{head: .head.sha, body: .body}"])
@@ -104,42 +236,42 @@ def _fetch_pr_meta(repo: str, pr: int) -> tuple[str, str] | None:
 
 
 def _round_is_logged(round_id: str) -> bool:
-    """True if the referenced audit round exists in the Watchmen store.
+    """True if the referenced audit round is verifiably logged.
 
-    Fails toward False (a round we cannot confirm is treated as absent), so a
-    fabricated id cannot pass by making the lookup error out.
+    Two sources, checked in that order:
+
+    1. ``docs/audit_rounds/<round-id>.json`` -- committed, so it travels with
+       the PR and lands in the diff the operator approves.
+    2. The local Watchmen store, for someone running this on the machine that
+       holds the audit.
+
+    Source 1 exists because source 2 alone made this requirement impossible
+    to satisfy anywhere but that one machine. The store lives at
+    ``DIVINEOS_HOME/data/event_ledger.db``, which is gitignored; on a GitHub
+    runner the ``audit_rounds`` table is not even created, ``get_round``
+    raises, and the ``except`` below returned False. Every run. Confirmed
+    2026-08-14 against an empty DIVINEOS_HOME: ``no such table:
+    audit_rounds``. The gate was not strict, it was unsatisfiable -- and it
+    reported that as an ordinary failure, so it read like work left undone
+    rather than a door with no handle.
+
+    Still fails toward False: a round nobody can confirm counts as absent.
     """
     if not round_id:
         return False
+    try:
+        from divineos.core.watchmen.round_export import exported_round_exists
+
+        if exported_round_exists(Path.cwd(), round_id):
+            return True
+    except Exception:  # noqa: BLE001 — export unreadable → fall through to the store
+        pass
     try:
         from divineos.core.watchmen.store import get_round
 
         return get_round(round_id) is not None
     except Exception:  # noqa: BLE001 — unknown/unreachable round → not logged
         return False
-
-
-def _pr_touches_guardrail(repo: str, pr: int) -> bool:
-    """True if the PR changes any file on the guardrail list."""
-    files = _gh_json(
-        ["api", f"repos/{repo}/pulls/{pr}/files", "--paginate", "--jq", "[.[].filename]"]
-    )
-    if not isinstance(files, list):
-        # Cannot determine → assume it does, so the gate applies (fail safe).
-        return True
-    changed = {str(f).replace("\\", "/") for f in files}
-    try:
-        from pathlib import Path
-
-        guard_raw = Path("scripts/guardrail_files.txt").read_text(encoding="utf-8")
-    except OSError:
-        return True
-    guard = {
-        line.strip().replace("\\", "/")
-        for line in guard_raw.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    }
-    return bool(changed & guard)
 
 
 def main(argv: list[str]) -> int:
@@ -211,9 +343,16 @@ def main(argv: list[str]) -> int:
             )
             return 0
 
-    if not _pr_touches_guardrail(args.repo, args.pr):
-        print("[merge-review] PR touches no guardrail files; gate does not apply.")
-        return 0
+    # No guardrail scoping. Andrew 2026-08-13: "all PR's merging to main must
+    # have an audit... i notice the optimizer uses that as a metric to do
+    # things that dont touch guardrail files to bypass it.. so there is no
+    # more bypass."
+    #
+    # The guardrail list was a routable metric: whether the gate applied was a
+    # property of which files a change happened to touch, which is a property
+    # I control while writing the change. Every merge to main is now in scope.
+    # Letters and docs need an audit too, and those are the cheap ones to
+    # confirm -- the cost of the blanket rule is small and it has no seam.
 
     meta = _fetch_pr_meta(args.repo, args.pr)
     reviews = _fetch_reviews(args.repo, args.pr)
@@ -222,10 +361,9 @@ def main(argv: list[str]) -> int:
         return 2
 
     head_sha, body_and_commits = meta
+    reviews = reviews + _fetch_comment_approvals(args.repo, args.pr, head_sha)
 
     try:
-        from pathlib import Path
-
         config_raw = Path(_CONFIG_PATH).read_text(encoding="utf-8")
     except OSError:
         config_raw = ""
@@ -243,6 +381,47 @@ def main(argv: list[str]) -> int:
         config=config,
         round_is_logged=round_logged,
     )
+    # AWAITING is not FAILING, and rendering them identically was the defect.
+    #
+    # Measured 2026-08-15 against the live ruleset ("main protection", active):
+    #
+    #   required_status_checks: multi-party-review, test (3.12),
+    #                           test (3.12, sklearn)
+    #   pull_request:           required_approving_review_count: 0
+    #
+    # merge-review is NOT in the required set. It has never blocked a merge.
+    # Meanwhile it returned 1 whenever the operator had not yet confirmed --
+    # the identical signal a crashed test sends -- so every open PR wore a red
+    # X that meant "Andrew has not typed two words yet" and looked exactly like
+    # "this code is broken". Andrew, after two weeks of it: "even if they are
+    # just the merge review at a glance it looks terrible."
+    #
+    # He was right, and I had told him the red was load-bearing. It was not. I
+    # had not checked the ruleset before saying so.
+    #
+    # The audit he actually wants is enforced, by multi-party-review, which IS
+    # required and verifies the External-Review stamp. This check's job on the
+    # approval axis is to REPORT, so it reports.
+    #
+    # Scope: only the awaiting-confirmation case softens. A missing or unlogged
+    # round still FAILS, because that is a real defect in the PR rather than a
+    # pending human action. GitHub Actions cannot emit the `action_required`
+    # conclusion that would say this natively (community request still open),
+    # so the distinction lives in the exit code and the wording.
+    awaiting_only = (
+        not ok and bool(round_id) and round_logged and "APPROVED operator review" in msg
+    )
+    if awaiting_only:
+        print(
+            f"[merge-review] AWAITING CONFIRMATION: {msg}\n"
+            f"  Nothing is wrong with this PR. It is waiting on you.\n"
+            f"  Comment 'i confirm' on the pull request to approve head "
+            f"{head_sha[:8]}.\n"
+            f"  Round {round_id} is present and logged; the audit requirement "
+            f"is met and separately enforced by multi-party-review."
+        )
+        return 0
+
     prefix = "[merge-review] PASS:" if ok else "[merge-review] FAIL:"
     print(f"{prefix} {msg}")
     return 0 if ok else 1

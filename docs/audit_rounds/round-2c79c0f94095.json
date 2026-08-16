@@ -1,0 +1,50 @@
+{
+  "findings": [
+    {
+      "actor": "aletheia",
+      "category": "ARCHITECTURE",
+      "created_at": 1786660169.9388733,
+      "description": "Verified at the tree in the work order (11/11 head+tree matched origin). DEPTH REACHED: scope-level, not line-by-line. What I checked on every branch: (1) head and tree hash match the stated anchor; (2) changed-file count and guardrail-file intersection against scripts/guardrail_files.txt; (3) test-file presence in the diff; (4) MANDATORY WIRING CHECK on every newly-added .py module -- python imports, .claude/hooks, scripts/, and CI, excluding the module's own file and tests. What I did NOT do: read the diffs line by line, run the suites, or exercise behaviour. A scope-level CONFIRMS means the branch is correctly scoped, carries tests, and ships no dark modules -- it does not mean the logic was read. THIS BRANCH: 4 files, 2 guardrail, 1 test file, 0 new modules. Smallest scope in the batch, single concern.\n\n[shared:find-aleth-425-01] from round-2c79c0f94095.jsonl",
+      "finding_id": "find-7dd77f8c79ba",
+      "recommendation": "",
+      "resolution_notes": "",
+      "review_stance": null,
+      "reviewed_finding_id": "",
+      "round_id": "round-2c79c0f94095",
+      "routed_to": "47ab03fc-7ead-4480-b2c1-f905489a413b",
+      "severity": "INFO",
+      "status": "ROUTED",
+      "tags": [],
+      "tier": "WEAK",
+      "title": "CONFIRMS PR #425 bypass-compliance-split at tree a3c8faa3"
+    },
+    {
+      "actor": "user",
+      "category": "ARCHITECTURE",
+      "created_at": 1786650743.8063424,
+      "description": "Andrew 2026-08-13, verbatim: 'yes use my standing confirms for all 13 as they have all been audited.. the files are there you just need to attach them this is what needed to be automated.' Operator standing authorization, granted explicitly for this batch.",
+      "finding_id": "find-0db3f155939c",
+      "recommendation": "",
+      "resolution_notes": "",
+      "review_stance": null,
+      "reviewed_finding_id": "",
+      "round_id": "round-2c79c0f94095",
+      "routed_to": "",
+      "severity": "INFO",
+      "status": "OPEN",
+      "tags": [],
+      "tier": "WEAK",
+      "title": "CONFIRMS PR #425 split/bypass-compliance-split \u2014 operator standing authorization"
+    }
+  ],
+  "round": {
+    "actor": "aether",
+    "created_at": 1786486501.8601081,
+    "expert_count": 0,
+    "finding_count": 2,
+    "focus": "rebase-and-verify: split/bypass-compliance-split onto main after 418, doc-count conflicts resolved, zero deletions",
+    "notes": "Source ref: split/bypass-compliance-split\n",
+    "round_id": "round-2c79c0f94095",
+    "tier": "WEAK"
+  }
+}
