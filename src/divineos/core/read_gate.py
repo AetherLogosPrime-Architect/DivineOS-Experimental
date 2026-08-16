@@ -209,6 +209,25 @@ def _record_rearm_after_read(gate_id: str, path: str) -> bool:
         return False
 
 
+def is_pytest_scratch(target: Path) -> bool:
+    """True when a path lives in pytest's temp tree.
+
+    Pure and filesystem-free on purpose. The first version of this check was
+    tested through real files, and the test could not express its own control
+    case — pytest's ``tmp_path`` IS pytest scratch, so every "legitimate entry"
+    fixture landed inside the thing being excluded and the guard correctly
+    refused it. A predicate that cannot be tested without lying about its
+    inputs is the wrong shape; this one takes a path and answers.
+
+    Requires BOTH a ``tmp`` component and a ``pytest``/``run-`` component, so
+    an unrelated directory called tmp is still held by the gate.
+    """
+    parts = [p.lower() for p in target.parts]
+    if "tmp" not in parts:
+        return False
+    return any(p.startswith("pytest") or p.startswith("run-") for p in parts)
+
+
 def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     """Register a read requirement. Returns (registered, why_not).
 
@@ -218,6 +237,27 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     target = Path(path)
     if not target.exists():
         return False, f"path does not exist, not registering: {path}"
+
+    # Never arm on pytest scratch. Test runs build fixture .md files with real
+    # tag headers ("# The Hedging Reflex", body "body about the flinch"), the
+    # surface matches them, and the path gets armed into the REAL requirement
+    # store — test state leaking into live state.
+    #
+    # The 2026-08-14 note further down fixed the second-order symptom: those
+    # files vanish when pytest cleans up, leaving a requirement nobody could
+    # clear, which walled off Edit and Write while an unfinished merge sat
+    # conflicted. This is the first-order cause, and it survived that fix — it
+    # fired twice more on 2026-08-15, once naming the very fixture that comment
+    # names.
+    #
+    # It matters beyond the annoyance. There are 749 generated .md files under
+    # tmp/ against 224 real exploration entries, so by count the index is mostly
+    # scratch. Every fixture the gate holds the door for teaches me the door is
+    # noise — the same shape Aletheia named in the bypass-groove finding: the
+    # gate trained the bypass, the price broke the discipline. A gate I value
+    # gets one cheap guard rather than slow erosion.
+    if is_pytest_scratch(target):
+        return False, f"pytest scratch, not registering: {path}"
 
     reqs = _load()
     if any(r.gate_id == gate_id and r.path == str(target) for r in reqs):

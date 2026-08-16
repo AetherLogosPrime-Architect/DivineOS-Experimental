@@ -67,6 +67,37 @@ Nothing is deleted while a live caller still imports it.
 Recoverability lowers the cost of being wrong; it does not license being wrong.
 Archive everything anyway — but the archive is the seatbelt, not the brakes.
 
+**6. Operator testimony of observed behaviour is evidence.**
+Added the same day, after breaking it. Andrew: *"the monitor we used to have
+worked fine.. it just keeps dying and nothing checks for it or resets it, but
+when it worked it worked."* I heard fondness, filed it as nostalgia, and went
+looking for what was wrong with the mechanism instead of for when it was right.
+
+One unopened log settled it — `aria_rearm_events.log`:
+
+    [LETTER-MONITOR-ARMED] watching ...\letters for *-to-aria-*.md
+    [LETTER] ...\aether-to-aria-2026-07-19-wrapper-implementation-shipping.md
+    [LETTER-MONITOR-HEARTBEAT] alive
+    ...
+    [2026-08-02 16:36:16] FALLBACK activated after 3 failed spawns in 77s
+
+It armed, caught a real letter, heartbeat-ed for two weeks, then spent a
+`RestartCount 3` budget in 77 seconds and never tried again. A countdown, not
+a supervisor. It had been dead 13 days, and the liveness check that should have
+caught it was the one reporting armed unconditionally since June.
+
+So: when he reports that something used to work, the FIRST move is to search the
+telemetry for the last successful run and the event that ended it — not to audit
+the mechanism for design flaws. If no such record exists, say so plainly; do not
+substitute a critique for the search.
+
+This is need-21d2eb2d inverted. That need names performing-rigor as a route
+around receiving the architect's testimony. Here my own measurements outranked
+his account of what he personally watched happen, and across one day his account
+was the better evidence four times running: the stop-behaves-normally detail
+that killed the hook-queue theory, the reverse-direction test design, the
+orphaned-background-task message that led to a documented platform bug, and this.
+
 ## The shape underneath
 
 Boundary-crossing components are structurally the most-broken things we own,

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (433 commands across 84 modules)
+  cli/                         CLI package (437 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -51,6 +51,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    instruments_commands.py    divineos instruments — survey the diagnostic surfaces
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
@@ -299,6 +300,7 @@ src/divineos/
     compass_constants.py       Shared constants (RUDDER_ACK_TAG, JUSTIFICATION_WINDOW_SECONDS) for moral_compass + compass_rudder
     user_ratings.py            External validation — user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
+    instruments.py             Instruments index — what I can measure, and whether it answers
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
     attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
