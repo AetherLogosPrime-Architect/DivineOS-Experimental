@@ -147,8 +147,46 @@ fi
 # failed on every artifact with a usage error; aletheia-import was absent
 # from the main install. Same root cause each time -- a hook resolving
 # divineos somewhere other than the tree it is guarding.
-CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+# WHICH TREE TO MEASURE (2026-08-15). This hook cd's to the ambient repo
+# root above, but the push it is policing may target a different worktree.
+# When it does, the check measured the wrong HEAD entirely: it reported
+# "25 file(s) would be deleted by merge" against a push whose own branch
+# deleted nothing, because it read the main checkout's branch instead of
+# the worktree being pushed from. Both numbers were right about different
+# trees -- which reads as a real finding and costs a kill-switch to clear.
+#
+# That cost is the reason this is worth fixing rather than tolerating. The
+# marker disables the gate for EVERY later push, not just the misfiring
+# one, so a gate that cries wolf spends its own authority. Same shape
+# Aletheia named in the bypass-groove finding: the gate trained the bypass.
+#
+# The command being intercepted is in the payload, and it carries its own
+# directory when I push from a worktree. Read it rather than assume.
+PUSH_CWD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, re, sys, os
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+except Exception:
+    sys.exit(0)
+cmd = (data.get('tool_input') or {}).get('command', '') or ''
+# A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
+m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
+if not m:
+    sys.exit(0)
+path = m.group(1).strip('\"\'')
+# Only honor it if it is really a git working tree; otherwise stay silent
+# and let the ambient root stand.
+if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+    print(path)
+" 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+
+if [ -n "$PUSH_CWD" ]; then
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch --cwd "$PUSH_CWD" 2>&1)
+else
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+fi
 CHECK_RC=$?
 
 case "$CHECK_RC" in
