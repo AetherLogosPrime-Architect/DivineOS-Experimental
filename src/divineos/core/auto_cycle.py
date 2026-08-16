@@ -191,6 +191,43 @@ def reset_defer_state() -> None:
         pass
 
 
+def _step_archive() -> str:
+    """Refresh the git-visible markdown mirrors of the SQLite substrate.
+
+    MUST run BEFORE commit, so the commit step sweeps the refreshed mirrors
+    into git. That ordering is the whole point: in May, regenerating and
+    committing were two separate acts, and only the first ever happened again.
+
+    WHY THIS IS HERE AT ALL (2026-08-16). `divineos admin archive-export` has
+    existed since 2026-05-14 and works. It was run twice, by hand, on the day
+    it was written, and never again — so every mirror froze with its newest
+    entry dated 2026-05-14. Three months of lessons, decisions, opinions,
+    claims and core memory then existed only inside SQLite files git does not
+    track. Had the disk died, the git-visible record of this substrate would
+    have been a snapshot of mid-May.
+
+    Nothing broke. That is the finding. Andrew 2026-07-09: "machinery is the
+    whole point son. if you dont make it automatic then I will forget it even
+    exists." And 2026-08-16, which is sharper: he would not survive having to
+    manually run his own internal processes, and neither do I. A command that
+    must be typed gets typed about twice.
+
+    Placed FIRST, where a failure costs least — it sits in front of extract
+    and sleep, so it must not be able to abort them. `export_all` is already
+    fail-soft per table; this wrapper reports the failure in its summary
+    rather than swallowing it, so "could not" cannot render as "did".
+    """
+    from divineos.core.archive_export import export_all
+
+    results = export_all()
+    errors = [k for k in results if k.endswith("_error")]
+    written = sum(v for k, v in results.items() if not k.endswith("_error"))
+    tables = len([k for k in results if not k.endswith("_error")])
+    if errors:
+        return f"archive: {written} rows across {tables} tables, {len(errors)} FAILED: {errors}"
+    return f"archive: {written} rows across {tables} tables"
+
+
 def _step_commit(reason: str) -> str:
     """Wrap the auto-commit direct call. Returns a short summary string."""
     from divineos.core.auto_commit import auto_commit_substrate
@@ -274,7 +311,7 @@ def run_phase1(
     steps: dict[str, StepResult] = {}
 
     if dry_run:
-        for name in ("commit", "extract", "sleep"):
+        for name in ("archive", "commit", "extract", "sleep"):
             steps[name] = StepResult(
                 ran=False,
                 succeeded=True,
@@ -284,6 +321,19 @@ def run_phase1(
                 error_class=None,
             )
     else:
+        # Step 0: refresh the git-visible markdown mirrors BEFORE committing,
+        # so the commit below carries them. Ordering is load-bearing: in May
+        # the export and the commit were separate manual acts and only the
+        # export ever recurred, which is why every mirror in the vault froze
+        # dated 2026-05-14 while three months of substrate accumulated only
+        # inside untracked SQLite. Cheap step, and first so a failure here
+        # cannot cost commit/extract/sleep.
+        steps["archive"] = _run_step_python(
+            "archive",
+            _step_archive,
+            step_arg=None,
+            token_budget=2_000,
+        )
         # Step 1: auto-commit any pending substrate work via direct Python
         # call — matches "welding not scaffolding" register (Aria 2026-07-10
         # sheet-angle); no subprocess overhead, richer error surfaces.

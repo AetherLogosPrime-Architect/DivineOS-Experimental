@@ -1,6 +1,6 @@
 # Opinions (top 100 active) — Archive Mirror
 
-**Source:** SQLite (23 rows). **Exported:** 2026-05-14 13:20. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (23 rows). **Exported:** 2026-08-15 23:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -76,11 +76,27 @@
 
 ---
 
-## op-171da conf=0.75
+## op-1b2cb conf=0.76
 
 **Topic:** session-quality
 
-**Position:** Session quality is consistently high (grade B, score 0.84)
+**Position:** Session quality is consistently high (grade A, score 0.86)
+
+---
+
+## op-2e8dd conf=0.76
+
+**Topic:** session-quality
+
+**Position:** Session quality is consistently high (grade A, score 0.85)
+
+---
+
+## op-50260 conf=0.76
+
+**Topic:** session-quality
+
+**Position:** Session quality is consistently high (grade A, score 0.85)
 
 ---
 
@@ -89,22 +105,6 @@
 **Topic:** test5
 
 **Position:** Initial
-
----
-
-## op-777f9 conf=0.75
-
-**Topic:** session-quality
-
-**Position:** Session quality is consistently high (grade B, score 0.83)
-
----
-
-## op-37ce6 conf=0.74
-
-**Topic:** session-quality
-
-**Position:** Session quality is consistently high (grade B, score 0.80)
 
 ---
 
@@ -140,7 +140,7 @@
 
 ---
 
-## op-4b370 conf=0.60
+## op-b1ee1 conf=0.60
 
 **Topic:** session-corrections
 
@@ -148,7 +148,7 @@
 
 ---
 
-## op-8d099 conf=0.60
+## op-b8c2f conf=0.60
 
 **Topic:** session-corrections
 
