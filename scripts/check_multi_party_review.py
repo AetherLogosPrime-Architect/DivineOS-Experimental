@@ -484,20 +484,41 @@ def _commit_msg_for_sha(sha: str) -> str:
 
 
 def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tuple[str, set[str]]]:
-    """Walk commits in `base_sha..head_sha` and return [(sha, touched_guardrails)]
-    for each commit that modifies any guardrail file. Empty list if no
-    commits in range touch guardrails.
-    """
-    guardrails = _load_guardrail_set()
-    if not guardrails:
-        return []
+    """Walk `base_sha..head_sha` and return [(sha, changed_files)] per commit.
 
-    # Aletheia 2026-05-17 audit caught Bug 1 in the prior implementation:
-    # `git log --name-only --format=%H` outputs the SHA, then a BLANK line,
-    # then the file list — not blank-separated commits. The old text-parsing
-    # logic reset state on the blank line and then mistook the next file path
-    # for a SHA. Replaced with git plumbing: rev-list to enumerate SHAs, then
-    # diff-tree per-SHA to get the file list. Unambiguous; no parsing pitfalls.
+    EVERY commit that changes anything counts. The guardrail list is no longer
+    consulted here.
+
+    Andrew 2026-08-05:
+
+        *"the whole guardrail thing probably needs fixed anyway.. it should
+        just be blanket that anything that merges to main requires an external
+        audit.. point blank period.. if its benign its ok Aletheia will know"*
+
+    The 432-entry list was a second source of truth about what matters, and a
+    list of what matters is always behind reality. Carmack's question -- what
+    real constraint does this piece satisfy -- has no answer here that the
+    auditor does not satisfy better. A benign change costs Aletheia one glance;
+    a dangerous change missing from the list costs everything the list exists
+    to protect. The asymmetry is the whole argument.
+
+    It also dissolves a loop: changing the guardrail list used to require
+    guardrail review. Andrew's resolution -- *"you can edit the guardrail files
+    whenever you want.. you just cant push to main without the audit"* -- puts
+    the gate at the push, where it belongs, and leaves the workspace free.
+
+    The list itself stays on disk. It is still read by the commit-time notice
+    for the informational "this touches the self-auditing stack" heads-up, and
+    deleting it is a separate change from stopping the merge gate depending on
+    it. One thing at a time.
+
+    Aletheia 2026-05-17 audit caught Bug 1 in the prior implementation:
+    ``git log --name-only --format=%H`` outputs the SHA, then a BLANK line,
+    then the file list -- not blank-separated commits. The old text-parsing
+    logic reset state on the blank line and then mistook the next file path
+    for a SHA. Replaced with git plumbing: rev-list to enumerate SHAs, then
+    diff-tree per-SHA to get the file list. Unambiguous; no parsing pitfalls.
+    """
     try:
         revs = subprocess.run(
             ["git", "rev-list", f"{base_sha}..{head_sha}"],
@@ -525,9 +546,12 @@ def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tup
             files = {f.strip().replace("\\", "/") for f in tree.stdout.splitlines() if f.strip()}
         except OSError:
             continue
-        hits = files & guardrails
-        if hits:
-            out.append((sha, hits))
+        # Blanket: any commit that changes anything needs the review. The
+        # previous `files & guardrails` filter is gone -- see the docstring.
+        # An empty file set means a commit that changed nothing, which is not
+        # a merge-to-main risk and is the one honest exclusion here.
+        if files:
+            out.append((sha, files))
     return out
 
 

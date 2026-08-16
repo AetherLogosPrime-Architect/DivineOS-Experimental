@@ -36,12 +36,37 @@ jobs:
   guardrail-trailer-check:
     name: multi-party-review
     runs-on: ubuntu-latest
-    # Draft PRs skip CI so pre-audit visibility doesn't accumulate red marks
-    # on the Actions page. The check still runs on push to main and on the
-    # ready_for_review transition (when audit is complete and the PR is
-    # promoted out of draft). Aletheia 2026-06-08 confirmed this is the
-    # mechanism — delay the run, don't defang the check.
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    # Push-to-main only (Andrew 2026-08-13): "not every commit just every
+    # merge to main, committing is allowed in your own workspace without any
+    # audit, the github is the main vault/backup."
+    #
+    # This job checks each individual COMMIT for a trailer, which made every
+    # amend-and-force-push cycle a fresh chance to fail — and on branches
+    # checked out in a second worktree, `filter-branch` cannot rewrite the
+    # history at all, so the requirement was unmeetable from here. The PR
+    # path is already covered by merge-review below, which anchors on the
+    # operator's approval of the head commit; that is the stronger check and
+    # it does not care how the branch's individual commits were worded.
+    #
+    # Kept on push-to-main because that is the vault. What lands on main
+    # still has to carry the trailer.
+    #
+    # NOW ALSO ON pull_request (2026-08-15). Andrew, repeatedly and finally
+    # in exasperation: "i havent merged it because the multiparty review is
+    # skipped.. so when i do it will fail.. i have said this repeatedly."
+    #
+    # He is right, and the skip was the actual defect. A check that only
+    # runs AFTER the merge cannot inform the merge. It reported 'skipping'
+    # on every PR, went red on main once the decision was irreversible, and
+    # left a badge that cannot be cleaned without force-pushing main. Every
+    # merge was a blind bet with an unrecoverable downside.
+    #
+    # The reason it was push-only was that per-commit trailers were
+    # unmeetable on a branch (amend, force-push, worktrees where
+    # filter-branch cannot rewrite history). The PR-body fallback removes
+    # that: the branch satisfies the check through the PR body, which is
+    # editable and fetched live. The original justification no longer holds,
+    # so the restriction should not outlive it.
     steps:
       - name: Check out PR with full history
         uses: actions/checkout@v4
@@ -50,6 +75,12 @@ jobs:
 
       - name: Verify guardrail-modifying commits carry External-Review trailer
         shell: bash
+        # Token so the script can read the trailer off the PR body when the
+        # squash-merge message snapshot missed it. Read-only use; without it
+        # the lookup is skipped and the check behaves exactly as before.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -e
 

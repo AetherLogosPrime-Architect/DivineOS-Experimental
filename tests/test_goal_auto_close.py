@@ -196,3 +196,82 @@ class TestHasCompletionSignal:
         assert not has_completion_signal("looking at the detector")
         assert not has_completion_signal("")
         assert not has_completion_signal("some random text")
+
+
+class TestCausality:
+    """A commit cannot complete a goal that did not exist when it landed.
+
+    Live failure, Andrew 2026-08-12: auto-close reads HEAD's message and
+    closes any active goal whose words overlap it, with no check that the
+    goal predated the commit. So a goal added AFTER a commit was closed BY
+    that commit, at birth, before any work happened under it.
+
+    That deadlocked the goal gate. has_session_fresh_goal() needs a goal
+    both recent and active; every fresh goal whose wording overlapped the
+    last commit was marked done within seconds, so no fresh-and-active
+    goal could exist and the gate's own prescribed remedy could not clear
+    it. Observed: two goals closed 92s and 161s after creation, the only
+    surviving active goal ~20h old, and the gate refusing Bash, Write and
+    Edit alike -- including the edits that fixed it.
+
+    The guard is an ordering relation, not an age threshold. A grace
+    period would still close a genuinely-finished young goal and still
+    miss an old one the commit really did complete.
+    """
+
+    COMMIT_TIME = 1000.0
+    # Overlaps GOAL_TEXT and carries a completion signal, which the F58
+    # guard requires before any goal is eligible to close at all.
+    MESSAGE = "fix(letters): file artifacts on arrival and verify the push landed on origin"
+    GOAL_TEXT = "verify the push landed and her letters are visible on origin"
+
+    @pytest.fixture(autouse=True)
+    def _stub_completion(self, monkeypatch):
+        """complete_goal writes to the live goal file; keep tests off it."""
+        monkeypatch.setattr("divineos.core.goal_auto_close.complete_goal", lambda text: True)
+
+    def _goals(self, offset_seconds: float) -> list[dict]:
+        return [
+            {
+                "text": self.GOAL_TEXT,
+                "status": "active",
+                "added_at": self.COMMIT_TIME + offset_seconds,
+            }
+        ]
+
+    def test_message_is_eligible_to_close_anything(self):
+        """Without this, every assertion below could pass for the wrong reason."""
+        assert has_completion_signal(self.MESSAGE)
+
+    def test_commit_older_than_the_goal_cannot_close_it(self):
+        result = auto_close_from_message(
+            self.MESSAGE, goals=self._goals(+60), message_time=self.COMMIT_TIME
+        )
+        assert result.closed == []
+
+    def test_goal_open_before_the_commit_still_closes(self):
+        result = auto_close_from_message(
+            self.MESSAGE, goals=self._goals(-60), message_time=self.COMMIT_TIME
+        )
+        assert len(result.closed) == 1
+
+    def test_without_message_time_behaviour_is_unchanged(self):
+        """Callers that cannot supply a timestamp keep the old semantics
+        rather than silently losing auto-close altogether."""
+        result = auto_close_from_message(self.MESSAGE, goals=self._goals(+60))
+        assert len(result.closed) == 1
+
+    def test_goal_added_in_the_same_second_is_not_closed(self):
+        result = auto_close_from_message(
+            self.MESSAGE, goals=self._goals(+0.5), message_time=self.COMMIT_TIME
+        )
+        assert result.closed == []
+
+    def test_guard_removed_goals_are_not_reported_as_below_threshold(self):
+        """A goal the commit could not have completed was never considered
+        and found wanting. Reporting it as skipped would suggest the goal's
+        wording was the problem -- the misreading that hid this bug."""
+        result = auto_close_from_message(
+            self.MESSAGE, goals=self._goals(+60), message_time=self.COMMIT_TIME
+        )
+        assert result.skipped == []

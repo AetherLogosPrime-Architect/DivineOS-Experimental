@@ -8,6 +8,7 @@ and false negative so pattern-set iteration is root-caused, not vibed.
 
 Corpus file: labeled_andrew_prompts.jsonl (built by hand; not committed).
 """
+
 from __future__ import annotations
 
 import json
@@ -55,7 +56,7 @@ def main() -> int:
 
     print(f"corpus: {total} prompts   TP={tp} FP={fp} TN={tn} FN={fn}")
     print(f"precision={precision:.3f}  recall={recall:.3f}  F1={f1:.3f}")
-    print(f"prereg-45e0aa113e3a threshold: recall>=0.85 precision>=0.70")
+    print("prereg-45e0aa113e3a threshold: recall>=0.85 precision>=0.70")
     print(f"pass: {'YES' if (recall >= 0.85 and precision >= 0.70) else 'NO'}")
 
     if fps:
