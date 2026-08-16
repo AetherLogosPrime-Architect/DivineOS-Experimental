@@ -506,7 +506,7 @@ def register(cli: click.Group) -> None:
             click.echo()
 
         click.secho(
-            'To distill, run: divineos distill --id <ID> --to "clean first-person version"',
+            'To distill, run: divineos admin distill --id <ID> --to "clean first-person version"',
             fg="bright_black",
         )
         click.echo()
