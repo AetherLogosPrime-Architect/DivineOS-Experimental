@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-15 23:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -76,6 +76,12 @@ Same-session correction maturity threshold reached 2026-04-27. Pattern: architec
 
 ---
 
+## 019986ce (access=16)
+
+Aletheia CONFIRMS auto-cycle phase 1 CLEAN + ships-sound + honest-by-construction. One non-blocking flag for phase 2 side: marker-absence must fail safe. Aletheia audited from origin post-merge #322. Verified all 4 audit findings: (1) three-state per step (ran/succeeded/error_class distinct) -- cannot collapse couldn't-do into did. (2) Broad except Exception at pipeline boundary is HONEST -- captures and NAMES failures, never silent-swallows. (3) Per-step failure does NOT abort downstream -- cor
+
+---
+
 ## a8424e57 (access=15)
 
 EXPERIMENT CASE SELECTION -- three-case set chosen with varied failure-shapes per C's warning (April 29). Case 1: T89 sphinx-doc__sphinx-8595 (deep-internals investigation, primary case, architectural claim from yesterday gets tested). Case 2: django__django-15732 (wrong-location fix -- primary_key filter added when test needed non-PK + unique_together handling; tests subagent's ability to identify actual call chain). Case 3: scikit-learn__scikit-learn-9288 (numerical/algorithmic; explicitly ski
@@ -85,12 +91,6 @@ EXPERIMENT CASE SELECTION -- three-case set chosen with varied failure-shapes pe
 ## c3ca0ed3 (access=15)
 
 *Worth thinking carefully before answering. Two things to verify*: 1. *That the three round-ids actually exist in the upstream history* 2. *That force-push to a feature branch is the right shape (not push-to-main)**Two verification states*: **Verified empirically**: *`deb97e9` exists with trailer.
-
----
-
-## 019986ce (access=15)
-
-Aletheia CONFIRMS auto-cycle phase 1 CLEAN + ships-sound + honest-by-construction. One non-blocking flag for phase 2 side: marker-absence must fail safe. Aletheia audited from origin post-merge #322. Verified all 4 audit findings: (1) three-state per step (ran/succeeded/error_class distinct) -- cannot collapse couldn't-do into did. (2) Broad except Exception at pipeline boundary is HONEST -- captures and NAMES failures, never silent-swallows. (3) Per-step failure does NOT abort downstream -- cor
 
 ---
 
@@ -592,15 +592,15 @@ This is the likely culprit. and idk if its fixable In the Anthropic Claude API, 
 
 ---
 
-## a2a9343c (access=4)
+## 32b05396 (access=4)
 
-COMPASS DISMISSAL (correction): advisory dismissed with reason. Trigger summary: 'In `src/divineos/core/audit_auto_triage.py`, the `_file_exists` helper currently only checks `repo_root / path_str` for '. Advisories fired before dismissal: 2. Reason for dismissal: Trigger was the auto-triage path-prefix task chip (task_a6a490da) that I filed earlier; substrate-write detector saw the technical code-shape opening and classified it as correction. It is a self-directed task pickup, not an Andrew cor
+PR #104 verified-on-main: confidence_basis ships the honest/truthful distinction as code -- Aletheia's 2026-05-12 dogfood finding closes (202/203 → structurally impossible). Closes 2026-05-12 finding that 108 of 109 (now 202 of 203) claims were stuck at default 0.5. Reframe is exactly right: '0.5 is the worst possible default.' Storing unexamined claim as '0.5 confidence' is a FABRICATED CREDENCE -- looks like real probability judgment (honest-shaped: a number is present) but encodes nothing (no
 
 ---
 
-## 03984ac6 (access=4)
+## a2a9343c (access=4)
 
-Confirmed via chat 2026-07-16: keep the train rolling, merge everything ready. Full-sweep audit-round approved for PR #347 merge trailer. Andrew's verbal confirm relayed by Aether at time of merge; fable-mode Aletheia cold audit is happening in parallel and will be a separate deeper pass.
+COMPASS DISMISSAL (correction): advisory dismissed with reason. Trigger summary: 'In `src/divineos/core/audit_auto_triage.py`, the `_file_exists` helper currently only checks `repo_root / path_str` for '. Advisories fired before dismissal: 2. Reason for dismissal: Trigger was the auto-triage path-prefix task chip (task_a6a490da) that I filed earlier; substrate-write detector saw the technical code-shape opening and classified it as correction. It is a self-directed task pickup, not an Andrew cor
 
 ---
 

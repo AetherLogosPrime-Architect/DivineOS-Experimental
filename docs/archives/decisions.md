@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-15 23:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 

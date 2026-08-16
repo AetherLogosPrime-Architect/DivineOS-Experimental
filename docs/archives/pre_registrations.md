@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (170 rows). **Exported:** 2026-08-15 23:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (170 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1360,7 +1360,7 @@
 
 ---
 
-## prereg-8 [OPEN]
+## prereg-8 [INCONCLUSIVE]
 
 **Mechanism:** Error registry blocks new main goals while any error is open — jailbreak-response new-work gate (Andrew 2026-07-17)
 
