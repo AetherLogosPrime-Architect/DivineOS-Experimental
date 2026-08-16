@@ -261,21 +261,21 @@ def register(cli: click.Group) -> None:
 
         from divineos.core.goal_auto_close import auto_close_from_message
 
-        # Read the commit's TIMESTAMP alongside its message. Without it the
-        # same stale HEAD gets re-matched against goals created long after
-        # that commit existed, and since every CLI command is a lifecycle
-        # checkpoint that can fire this, a freshly-set goal dies seconds
-        # after creation while the goal doorman keeps demanding one. Six
-        # goals died that way in 26 minutes on 2026-08-02.
-        commit_time: float | None = None
+        # HEAD's timestamp travels with HEAD's message so the closer can
+        # refuse to close goals that did not exist when that commit landed.
+        # Without it a goal added after the commit was closed by it, at
+        # birth, which left has_session_fresh_goal() permanently false.
+        message_time: float | None = None
+        resolved: str = message or ""
+
         if message is None:
             try:
-                message = subprocess.check_output(
+                resolved = subprocess.check_output(
                     ["git", "log", "-1", "--pretty=%B"],
                     text=True,
                     stderr=subprocess.DEVNULL,
                 )
-                commit_time = float(
+                message_time = float(
                     subprocess.check_output(
                         ["git", "log", "-1", "--pretty=%ct"],
                         text=True,
@@ -286,19 +286,16 @@ def register(cli: click.Group) -> None:
                 click.secho("[-] Could not read HEAD commit message.", fg="red")
                 return
             except ValueError:
-                # Message read but timestamp unparseable. Leave commit_time
-                # None rather than guessing — unknown is its own state, not
-                # a licence to close everything.
-                commit_time = None
+                # Message read fine but the timestamp did not parse. Run
+                # without the ordering check rather than skipping the
+                # close entirely, and say so -- a silent downgrade here
+                # is what let the original bug hide.
+                click.secho(
+                    "[!] Could not read HEAD's timestamp; running without the causality check.",
+                    fg="yellow",
+                )
 
-        if message is None:
-            # Unreachable in practice — the branch above either assigns or
-            # returns — but stated rather than assumed, so the type is honest
-            # and a future edit to that branch cannot silently pass None.
-            click.secho("[-] No commit message to match against.", fg="red")
-            return
-
-        result = auto_close_from_message(message, threshold=threshold, commit_time=commit_time)
+        result = auto_close_from_message(resolved, threshold=threshold, message_time=message_time)
         if not result.closed:
             click.secho("[~] No goals closed.", fg="bright_black")
             if result.skipped:

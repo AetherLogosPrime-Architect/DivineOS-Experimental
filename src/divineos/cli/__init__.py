@@ -271,9 +271,35 @@ def _enforce_briefing_gate() -> None:
 
 
 @click.group()
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
     # Install-location divergence check ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â fires when this CLI's installed
+    # Record engagement for EVERY command, centrally.
+    #
+    # Until 2026-08-03 only thirteen commands did this, because mark_engaged
+    # was reachable solely through _log_os_query and only thirteen call sites
+    # invoked it. Widening the recognised-tool SET was therefore a no-op --
+    # verified empirically: `divineos claims list` left the counter unmoved at
+    # 11, because "claims" never reached the lookup that would have accepted
+    # it. A table nothing consults for a name is not a widening.
+    #
+    # So the name is recorded here, where every command necessarily passes.
+    # The classification (deep / light / unrecognised) still lives in
+    # hud_handoff, which is the right place for it; this only guarantees the
+    # question gets asked at all.
+    #
+    # Fail-open: engagement bookkeeping must never prevent a command running.
+    try:
+        from divineos.core.hud_handoff import mark_engaged
+
+        _sub = (ctx.invoked_subcommand or "").strip()
+        if _sub:
+            mark_engaged(tool=_sub, query="")
+    except Exception:  # noqa: BLE001 — bookkeeping never gates the CLI
+        pass
+
+    # Install-location divergence check â€” fires when this CLI's installed
     # package points at a different source tree than the current working
     # directory's git repo. Silent the rest of the time. Suppressable via
     # DIVINEOS_SUPPRESS_INSTALL_WARNING=1 for intentional cross-repo use.
@@ -319,6 +345,7 @@ from divineos.cli import (  # noqa: E402
     complete_commands,
     correction_commands,
     corrigibility_commands,
+    emergency_completion_commands,
     council_required_commands,
     decision_commands,
     directive_commands,
@@ -346,6 +373,7 @@ from divineos.cli import (  # noqa: E402
     prior_art_commands,
     psf_commands,
     prereg_commands,
+    reach_commands,
     admin_reset_template,
     admin_migrate_family,
     family_member_commands,
@@ -355,10 +383,14 @@ from divineos.cli import (  # noqa: E402
     letter_seen_commands,
     push_commands,
     push_ready_command,
+    stamp_ready_command,
+    audit_sync_command,
+    aletheia_import_command,
     context_tokens_commands,
     context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
+    dark_matter_commands,
     pr_gate_commands,
     ear_relaunch_commands,
     obligation_commands,
@@ -443,11 +475,15 @@ progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
 push_ready_command.register(cli)
+stamp_ready_command.register(cli)
+audit_sync_command.register(cli)
+aletheia_import_command.register(cli)
 context_tokens_commands.register(cli)
 context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
+dark_matter_commands.register(cli)
 ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
@@ -455,6 +491,7 @@ correction_commands.register(cli)
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
+reach_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)
 family_member_commands.register(cli)
@@ -468,6 +505,7 @@ cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_reset_template.authorize_reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
+emergency_completion_commands.register(cli)
 council_required_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)

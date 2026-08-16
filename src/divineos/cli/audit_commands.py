@@ -1240,6 +1240,56 @@ def register(cli: click.Group) -> None:
                 fg="yellow",
             )
 
+    @audit_group.command("export")
+    @click.argument("round_ids", nargs=-1)
+    @click.option(
+        "--for-branch",
+        default=None,
+        help="Export every round whose focus names this branch.",
+    )
+    def audit_export_cmd(round_ids: tuple[str, ...], for_branch: str | None) -> None:
+        """Write rounds to docs/audit_rounds/ so CI can see they exist.
+
+        The merge-review gate checks that the round named in the trailer is
+        logged. It looked that up in the local event ledger, which no GitHub
+        runner has, so that requirement failed on every run regardless of who
+        approved what. Exporting puts the round where the gate can read it --
+        and in the PR diff, where the operator reads it before approving.
+        """
+        from pathlib import Path
+
+        from divineos.core.watchmen.round_export import export_round
+        from divineos.core.watchmen.store import list_rounds
+
+        targets = list(round_ids)
+        if for_branch:
+            targets.extend(
+                rnd.round_id
+                for rnd in list_rounds(limit=500)
+                if for_branch in (getattr(rnd, "focus", "") or "")
+            )
+        targets = list(dict.fromkeys(t for t in targets if t))
+
+        if not targets:
+            click.secho("[!] Name at least one round-id, or pass --for-branch.", fg="red")
+            raise click.exceptions.Exit(1)
+
+        repo = Path.cwd()
+        missing: list[str] = []
+        for round_id in targets:
+            path = export_round(repo, round_id)
+            if path is None:
+                missing.append(round_id)
+                click.secho(f"[!] {round_id}: not in the local store; nothing to export.", fg="red")
+                continue
+            click.secho(f"[+] {round_id} -> {path.relative_to(repo)}", fg="green")
+
+        if missing:
+            # A partial export that exits 0 would read as "all exported" to
+            # any caller that checks the exit code, which is how the trailer
+            # work kept reporting success over commits it had not touched.
+            raise click.exceptions.Exit(1)
+
     @audit_group.command("prepare-merge")
     @click.argument("round_id")
     @click.option(

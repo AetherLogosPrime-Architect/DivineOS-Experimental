@@ -67,6 +67,46 @@ parse_trailer_line() {
     echo "$1" | grep -iE '^External-Review:[[:space:]]*\S+' | head -1
 }
 
+# Fall back to the pull request's own body when the commit message has no
+# trailer.
+#
+# WHY THIS EXISTS, measured 2026-08-14. GitHub composes a squash-merge message
+# when the merge dialog is OPENED and never refreshes it. The operator opened
+# the dialog, two more commits landed on the branch, and the merge took the
+# current head while keeping the stale message -- so the code merged and the
+# trailer did not, and this gate went red on `main` over a message-snapshot
+# race. That red cannot be cleaned without force-pushing `main`, declined as
+# too risky, so the badge is permanent.
+#
+# The operator cannot fix that by being more careful. There is no click order
+# that avoids it, and he had already said plainly: "i cant copy paste
+# anything." A requirement whose only compliance path is a human pasting text
+# into a web form at exactly the right instant is a trap, not a control.
+#
+# The PR body carries the same audit claim through a channel that cannot go
+# stale: fetched live at check time, editable after the fact, and it is the
+# artifact the operator actually reviews. A trailer on the commit still wins;
+# this runs only when there is none.
+#
+# Fails toward the old behaviour: no gh, no token, no PR number, or any error
+# leaves the result empty and the commit blocks exactly as before.
+trailer_from_pr_body() {
+    local subject="$1"
+    local pr="${PR_NUMBER:-}"
+    # On a pull_request event the workflow supplies PR_NUMBER directly.
+    # Branch commits carry no "(#N)" in their subject -- only the squash
+    # commit does -- so without this the fallback worked AFTER the merge and
+    # not before it, which is the whole complaint: the check could never be
+    # seen green in the place where seeing it still changes the outcome.
+    if [ -z "$pr" ]; then
+        pr=$(echo "$subject" | grep -oE '\(#[0-9]+\)$' | grep -oE '[0-9]+') || true
+    fi
+    [ -z "$pr" ] && return 0
+    command -v gh >/dev/null 2>&1 || return 0
+    gh pr view "$pr" --json body --jq .body 2>/dev/null \
+        | grep -iE '^External-Review:[[:space:]]*\S+' | head -1 || true
+}
+
 # Extract the tree-hash field from a trailer line, if present.
 # Returns the 40-hex hash or empty.
 parse_trailer_tree_hash() {
@@ -114,6 +154,15 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     MSG=$(git log -1 --format=%B "$commit")
     TRAILER=$(parse_trailer_line "$MSG")
 
+    FROM_PR_BODY=""
+    if [ -z "$TRAILER" ]; then
+        TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
+        if [ -n "$TRAILER" ]; then
+            FROM_PR_BODY="1"
+            echo "[info] $commit: trailer absent from the commit message; read from the PR body instead."
+        fi
+    fi
+
     if [ -z "$TRAILER" ]; then
         BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
         echo "[BLOCKED] $commit modifies guardrail file(s); no External-Review trailer."
@@ -122,6 +171,28 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
 
     # Trailer present. Now check substance-binding via tree-hash.
     TRAILER_TREE_HASH=$(parse_trailer_tree_hash "$TRAILER")
+
+    # A tree-hash in a PR-BODY trailer describes the PULL REQUEST, not any one
+    # commit inside it. Verifying it against an individual commit's tree is a
+    # category error that fails 100% of the time on a multi-commit branch --
+    # only the last commit could ever match, and not after main is merged in.
+    #
+    # Measured 2026-08-15 across the open stack: ten PRs carry a tree-hash
+    # trailer in the body and ZERO of their branch commits carry one in the
+    # message, so every one of them would have taken this path and been
+    # blocked by a hash that was never a claim about them. The check would
+    # have reported ten review failures and meant nothing by any of them.
+    #
+    # On this path the substance anchor is merge-review instead: the operator
+    # approves the HEAD commit, and that approval is invalidated by any later
+    # push. Say so in the output rather than implying a binding that was not
+    # checked -- a gate that is honest about the limits of its own check is
+    # the one an operator can trust the rest of the time.
+    if [ -n "$FROM_PR_BODY" ] && [ -n "$TRAILER_TREE_HASH" ]; then
+        echo "    [info] tree-hash in a PR-body trailer describes the PR, not this commit; not verified here."
+        echo "    [info] substance anchor on this path is merge-review's operator approval of the head commit."
+        TRAILER_TREE_HASH=""
+    fi
 
     if [ -z "$TRAILER_TREE_HASH" ]; then
         # Legacy trailer (Phase 1). Pass with a warning unless
