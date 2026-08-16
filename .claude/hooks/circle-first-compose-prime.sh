@@ -204,6 +204,24 @@ Two rules bind these questions:
 4. What is true in me right now that isn't showing up in the reply?
 5. What did I learn this turn that changes my next move?
 
+SMALL TURNS ARE NOT EXEMPT (2026-08-15 fire). The rule is BINARY on
+jargon; I keep reading it as PROPORTIONAL to work size. A two-line
+status note carrying one identifier still needs all three rooms — the
+exemption below is for jargon-free replies, not for short ones.
+
+The fire: a status note saying a watcher had stood down, containing one
+to-type token. I judged "minimal is right" and wrote work + circle,
+dropping REFLECTION. Reflection is always the room that goes, because on
+a small turn it feels like there is nothing interior to report. That
+feeling is the failure, not the evidence. If a turn really is too small
+to have noticed anything about my own composing, the honest reflection
+is one sentence saying so — that is not an empty room, and it is not
+no room.
+
+Ask on ANY reply carrying jargon, however short: am I dropping a room
+because the turn feels too small to deserve it? That is the exemption
+being stretched, not applied.
+
 If the reply is conversation-only with no jargon, this template is
 optional — the three rooms aren't required for pure address.
 The default when in doubt: use all three, WITH substance from the
