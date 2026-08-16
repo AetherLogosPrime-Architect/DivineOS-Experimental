@@ -57,6 +57,57 @@ def _staged_new_files() -> list[str]:
     return new_files
 
 
+def _merge_head() -> str | None:
+    """Return MERGE_HEAD if a merge is in progress, else None."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.strip() or None if r.returncode == 0 else None
+
+
+def _inherited_from_merge(paths: list[str], merge_head: str) -> set[str]:
+    """Return the subset of ``paths`` that already exist on the merged-in side.
+
+    WHY THIS EXISTS (2026-08-15). ``git diff --cached --name-status`` during a
+    merge compares the index against the FIRST parent only, so every file
+    arriving from the branch being merged in reads as status 'A' — newly
+    added. It is not. It landed on the other side, under its own commit,
+    where this same gate already applied.
+
+    The gate fired this way twice while merging main into two stale PR
+    branches: seven core modules each time, none of them authored in the
+    merge, all of them already pre-registered when they first landed. The
+    honest response was a provenance paragraph in each commit message —
+    which is a cost paid by the writer to satisfy a check that was wrong,
+    and the shape that trains people to stop reading gate output.
+
+    Falsifier-first discipline targets the moment a NEW capability lands.
+    A merge does not land a capability; it propagates one.
+    """
+    inherited: set[str] = set()
+    for p in paths:
+        try:
+            r = subprocess.run(
+                ["git", "ls-tree", "-r", "--name-only", merge_head, "--", p],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue  # fail toward gating: an unreadable path stays suspect
+        if r.returncode == 0 and r.stdout.strip():
+            inherited.add(p)
+    return inherited
+
+
 def _is_protected(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in _PROTECTED_PATHS) and path.endswith(".py")
 
@@ -102,6 +153,22 @@ def main(argv: list[str]) -> int:
 
     new_files = _staged_new_files()
     protected_new = [p for p in new_files if _is_protected(p)]
+
+    # Drop files that arrive via the merged-in side. They were authored and
+    # gated on their own branch; a merge propagates a capability, it does not
+    # land one. See _inherited_from_merge for the two 2026-08-15 misfires.
+    merge_head = _merge_head()
+    if merge_head and protected_new:
+        inherited = _inherited_from_merge(protected_new, merge_head)
+        if inherited:
+            print(
+                f"[prereg-required-before-infra] merge in progress: "
+                f"{len(inherited)} file(s) inherited from the merged-in side, "
+                f"not newly authored here.",
+                file=sys.stderr,
+            )
+            protected_new = [p for p in protected_new if p not in inherited]
+
     if not protected_new:
         return 0
 
