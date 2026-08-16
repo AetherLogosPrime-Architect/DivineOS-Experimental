@@ -639,6 +639,7 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    engagement_monitor.py      Engagement as a measurement, not a toll gate.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
 
