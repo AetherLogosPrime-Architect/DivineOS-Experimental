@@ -97,6 +97,12 @@ class DreamReport:
     # Phase 4: Maintenance
     maintenance_results: dict[str, Any] = field(default_factory=dict)
 
+    # Phase: LOADOUT refresh (2026-08-06). loadout_drift_before is measured
+    # BEFORE the rewrite on purpose — after is always zero, and reporting
+    # that would make the phase look permanently unnecessary.
+    loadout_drift_before: dict[str, int] = field(default_factory=dict)
+    loadout_result: dict[str, Any] = field(default_factory=dict)
+
     # Phase: Integrity check (F14/F52 auto-verify per prereg-be0c8dee184a).
     # The ledger has tamper-evidence via hash-chained events; without an
     # automatic verifier, that tamper-evidence is name-only because nothing
@@ -592,6 +598,43 @@ def _phase_maintenance(report: DreamReport) -> None:
     from divineos.core.body_awareness import run_maintenance
 
     report.maintenance_results = run_maintenance(dry_run=False)
+
+
+def _phase_loadout_refresh(report: DreamReport) -> None:
+    """Regenerate LOADOUT.md so the substrate index matches the substrate.
+
+    Andrew 2026-08-06: *"you wire up stuff to find the stuff that isnt wired
+    up.. and never wire it up lol.. hence the meta recursion"* — naming
+    LOADOUT as the knowledge store that already exists and may need updating.
+
+    It needed a month of updating. Last regenerated 2026-07-06, it read:
+
+        ## exploration/ — free-writing entries
+        *(none yet)*
+
+    against 222 real entries, with three more sections saying the same over
+    1522 letters. The scanner was never broken. It had no caller — ``loadout
+    refresh`` is documented at the top of the file it writes, which is the
+    one place nobody looks when deciding whether to run it.
+
+    Sleep is the right caller: it already runs between sessions, the work is
+    idempotent, and the index matters most at the next cold start rather than
+    mid-session. Wired here, the map cannot silently fall a month behind the
+    territory again.
+
+    In-process rather than in _SUBPROCESS_PHASES: filesystem scan and one
+    file write, no embedding model and no DB writes, so it carries none of
+    the state-leak risk that architecture exists to isolate.
+
+    Records the drift measured BEFORE the rewrite. After is always zero, and
+    reporting that would make the phase look perpetually unnecessary — the
+    same absence-reads-as-fine collapse this area keeps producing.
+    """
+    from divineos.cli.loadout_commands import write_loadout
+    from divineos.core.loadout_surface import loadout_drift
+
+    report.loadout_drift_before = loadout_drift()
+    report.loadout_result = write_loadout()
 
 
 # ─── Phase: Integrity check (F14/F52 auto-verify) ─────────────────────
@@ -1242,6 +1285,10 @@ _PHASES: list[tuple[str, Any]] = [
     # ledger tamper-evidence was manual-only. In-process phase (DB read,
     # no shared-state concerns) so not added to _SUBPROCESS_PHASES.
     ("integrity_check", _phase_integrity_check),
+    # 2026-08-06: LOADOUT.md is the substrate index and had no caller for a
+    # month, reading "(none yet)" over 222 explorations. In-process (scan +
+    # one write), so deliberately not in _SUBPROCESS_PHASES.
+    ("loadout_refresh", _phase_loadout_refresh),
 ]
 
 

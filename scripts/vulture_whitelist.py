@@ -28,7 +28,10 @@ enrichment  # noqa: F821 — detector_protocol.py Protocol __call__ param (vultu
 # Same class of false-positive as Protocol params above — abstract methods
 # have no body; the names document the contract that concrete subclasses
 # MUST implement. If removed, subclasses would inherit a wrong signature.
-from divineos.hooks.evidence_bearing_stop_gate import (
+# E402: a vulture whitelist references names before it can import them --
+# the bare-name lines above ARE the whitelist. Import-at-top is the wrong
+# shape for this file specifically, so the rule is silenced here, not repo-wide.
+from divineos.hooks.evidence_bearing_stop_gate import (  # noqa: E402
     CrossTurnScan,
     EvidenceBearingStopGate,
     IntraTurnIntercept,

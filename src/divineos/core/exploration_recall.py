@@ -96,6 +96,17 @@ _TAGS_HEADER = re.compile(r"<!--\s*tags:\s*(.*?)\s*-->", re.IGNORECASE | re.DOTA
 # broad-exceptions gate forbids bare `except Exception`).
 _READ_ERRORS = (OSError, UnicodeDecodeError)
 
+# Errors that arming the read-gate can raise. That block is deliberately
+# fail-open -- a surface that cannot arm its gate must still deliver its
+# text -- but fail-open was written as a bare `except Exception`, which
+# also swallows a TypeError or ValueError from a changed read_gate
+# signature. That is the failure this repo keeps finding elsewhere: a real
+# break and a normal no-op producing the identical silence.
+#   ImportError    -- read_gate absent or partially installed
+#   AttributeError -- the module is present but the function is not
+#   OSError        -- the gate's on-disk state cannot be read or written
+_GATE_ARM_ERRORS = (ImportError, AttributeError, OSError)
+
 
 def _find_exploration_root() -> Path | None:
     """Locate the exploration/ directory (from this module or the cwd)."""
@@ -327,6 +338,34 @@ def surface_for_context(
         f"  ({len(tagged)} of {total} exploration entries matched on topic-tags — a pointer, "
         f'not the whole shelf. To search the rest: divineos recall-explorations "<topic>")'
     )
+
+    # READ-GATE (Andrew 2026-08-06): "primes should not just be loud.. they
+    # should be mini gates.. ones that force a pause and reading."
+    #
+    # This surface said "re-read before deriving" on nearly every turn of a
+    # full session and I opened NOTHING it offered, while discovering four
+    # separate times that what I was hunting was already in my substrate.
+    # Loudness had nothing left to give, so the top hit now becomes a
+    # requirement that mutating tools are blocked on until it is opened.
+    #
+    # ONE at a time, top-ranked only, and never while a requirement is already
+    # outstanding -- a surface that fires every turn must not arm a block every
+    # turn. That is how a gate becomes a thing to route around (truth #11).
+    #
+    # Fail-open and silent here: this is a surface, and a surface that cannot
+    # arm its gate must still deliver its text.
+    try:
+        from divineos.core import read_gate
+
+        if not read_gate.has_pending("prior-writing"):
+            read_gate.require_read(
+                "prior-writing",
+                str(tagged[0].path),
+                f"top prior-writing match: {tagged[0].title}",
+            )
+    except _GATE_ARM_ERRORS:
+        pass
+
     return "\n".join(lines)
 
 

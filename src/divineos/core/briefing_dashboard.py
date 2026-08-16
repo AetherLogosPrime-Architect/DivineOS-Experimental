@@ -599,6 +599,52 @@ def _row_gate_failures() -> DashboardRow | None:
         return None
 
 
+def _row_gate_fires() -> DashboardRow | None:
+    """Surface how often gates REFUSED, which is not the same as failing.
+
+    Andrew 2026-08-13: "gates are primitive blocks.. ideally you should
+    never be hitting the gate.. if you are then it means automation a
+    doorman and a proper channel is required.. so that it all happens
+    before you ever reach the gate."
+
+    That makes every refusal a finding: a wall hit repeatedly is a missing
+    doorman, and the count is the priority order for building them. Note
+    the row above measures the opposite thing -- gate machinery breaking
+    and failing open. A gate that fires is working; it is the ABSENCE
+    upstream of it that this row is about.
+
+    Grouped by the gate's own headline so one wall reads as one row with a
+    count, rather than as a scatter of individual refusals.
+    """
+    try:
+        from divineos.core.failure_diagnostics import recent_failures
+
+        fires = recent_failures("gate_fire", window=500)
+        if not fires:
+            return None
+        cutoff = time.time() - _SECONDS_PER_DAY
+        recent = [f for f in fires if f.get("timestamp", 0) >= cutoff]
+        if not recent:
+            return None
+        counts: dict[str, int] = {}
+        for f in recent:
+            label = str(f.get("gate") or "unlabelled")
+            counts[label] = counts.get(label, 0) + 1
+        worst, worst_n = max(counts.items(), key=lambda kv: kv[1])
+        return DashboardRow(
+            area="Gate fires",
+            count=len(recent),
+            stale_count=worst_n,
+            drill_down="divineos briefing --full",
+            detail=(
+                f"{len(counts)} distinct wall(s) hit in 24h; most-hit "
+                f'({worst_n}x): "{worst[:48]}" — each is a doorman not built'
+            ),
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_directives() -> DashboardRow | None:
     """Surface filed directives in the briefing dashboard.
 
@@ -1248,6 +1294,7 @@ _ROW_FNS = [
     _row_preregs,
     _row_prereg_candidates,
     _row_gate_failures,
+    _row_gate_fires,
     _row_goals,
     _row_lessons,
     _row_drift_state,

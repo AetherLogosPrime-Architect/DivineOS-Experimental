@@ -262,3 +262,55 @@ class TestHookCounts:
         monkeypatch.setattr(mod, "ROOT", tmp_path)
         changed = fix_hook_counts(16)
         assert changed == []
+
+
+class TestPartialFixDoesNotReportSuccess:
+    """A fixer that changed *a* file has not necessarily removed *the* drift.
+
+    Regression for the false green found 2026-08-08 while readying PR #419:
+    each count fixer deleted every error of its own kind as soon as it changed
+    any file, without re-reading disk. A run that raised the count in one doc
+    and skipped an overclaiming sibling (the monotonic guard refuses to lower
+    without --allow-lower) printed "Doc checks OK" and exited 0 with the drift
+    still there.
+    """
+
+    def _scan(self, docs, actuals):
+        from scripts.check_doc_counts import _scan_count_drift
+
+        return _scan_count_drift(docs, actuals)
+
+    def test_scan_reads_from_disk_each_call(self, tmp_path):
+        """The scan must re-measure, not memoize — that is what makes the
+        post-fix re-check meaningful."""
+        doc = tmp_path / "CLAUDE.md"
+        doc.write_text("- 999 commands\n", encoding="utf-8")
+        actuals = {"commands": (422, 0)}
+
+        errors, _ = self._scan([doc], actuals)
+        assert errors, "drift present on disk should be reported"
+
+        doc.write_text("- 422 commands\n", encoding="utf-8")
+        errors_after, _ = self._scan([doc], actuals)
+        assert errors_after == [], "corrected disk state must report clean"
+
+    def test_overclaiming_sibling_still_reported(self, tmp_path):
+        """The exact shape of the bug: one doc underclaims (fixable), another
+        overclaims (skipped by the monotonic guard). The overclaim must survive
+        into the error list rather than being erased by the other's success."""
+        under = tmp_path / "CLAUDE.md"
+        under.write_text("- 400 commands\n", encoding="utf-8")
+        over = tmp_path / "README.md"
+        over.write_text("- 999 commands\n", encoding="utf-8")
+        actuals = {"commands": (422, 0)}
+
+        errors, _ = self._scan([under, over], actuals)
+        contexts = " ".join(errors)
+        assert "400" in contexts
+        assert "999" in contexts
+
+    def test_missing_file_is_skipped_not_an_error(self, tmp_path):
+        """Absent doc files are not drift — only files that exist are measured."""
+        errors, test_drift = self._scan([tmp_path / "nope.md"], {"commands": (422, 0)})
+        assert errors == []
+        assert test_drift is False
