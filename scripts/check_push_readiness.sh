@@ -211,6 +211,32 @@ if [[ "$DELETION_ONLY" == "1" ]]; then
     echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
 elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
     echo "[push-readiness] DIVINEOS_SKIP_TESTS=1 — skipping pytest." >&2
+    # Record it. This is an ESCAPE, not compliance: it SUPPRESSES the check
+    # rather than satisfying it, so it files an obligation like any other.
+    #
+    # It did not, until 2026-08-02. The loudest documented bypass in this
+    # repo — printed by this very script in its own failure message — had
+    # never once appeared in bypass telemetry. Every quieter escape was
+    # counted while the advertised one stayed invisible, which made the
+    # bypass rate an undercount of precisely the wrong thing.
+    #
+    # Found by using it. I skipped tests on a letter-only push, went looking
+    # for my own obligation, and there was none. What made me look was that
+    # the skip had been UNNECESSARY: family/*.md is already covered by the
+    # low-impact fast path below, so the front door was open and I went
+    # through the window anyway.
+    #
+    # Fail-soft on purpose (|| true): a telemetry outage must never turn
+    # into a push failure. Recording the escape is not worth becoming one.
+    python - <<'PYEOF' 2>/dev/null || true  # fail-soft: telemetry outage must never become a push failure; recording an escape is not worth becoming one
+from divineos.core.bypass_telemetry import record_bypass
+
+record_bypass(
+    gate_name="push-readiness-tests",
+    env_var="DIVINEOS_SKIP_TESTS",
+    reason="pytest suppressed at push time via the documented emergency bypass",
+)
+PYEOF
 else
     CHANGED_FILES="$(_collect_changed_files)"
     if _all_changed_low_impact "$CHANGED_FILES"; then
@@ -505,6 +531,42 @@ if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
             exit 20
         fi
         echo "[push-readiness]   multi-party-review: OK"
+    fi
+fi
+
+# ─── 3. Full-tree lint ──────────────────────────────────────────────────
+# Andrew 2026-08-13, after a duplicate-import F811 reached CI: "the CLI
+# testing we do internally before we push as well so that when we do merge
+# to main the CLI passes.. and if it doesnt (which there is a lint failure)
+# we fix the root cause on our end so we dont miss it in the next internal
+# test."
+#
+# The root cause is scope, not diligence. The pre-commit hook lints only
+# STAGED files, so anything that arrives another way — a rebase, a merge
+# resolution, an amend, a file edited and committed in a different sequence
+# — is never looked at locally. CI lints the whole tree, so the first place
+# the divergence shows up is a red badge on GitHub.
+#
+# This runs the same full-tree check CI runs, at the last moment before the
+# work leaves the machine. Blocking: a lint failure caught here costs one
+# command; the same failure caught on GitHub costs a round trip and a mark
+# on the Actions page that cannot be erased.
+if [[ "${DIVINEOS_SKIP_LINT_CHECK:-0}" != "1" ]]; then
+    if command -v ruff >/dev/null 2>&1; then
+        echo "[push-readiness] Full-tree lint (ruff)..."
+        if ! ruff check scripts/ src/ tests/ --output-format=concise >&2; then
+            echo "" >&2
+            echo "[push-readiness] BLOCKED — lint failures above (exit 21)." >&2
+            echo "[push-readiness] Fix them, or auto-fix with:" >&2
+            echo "[push-readiness]   ruff check scripts/ src/ tests/ --fix" >&2
+            echo "[push-readiness] Emergency bypass: DIVINEOS_SKIP_LINT_CHECK=1 git push" >&2
+            exit 21
+        fi
+        echo "[push-readiness]   lint: OK"
+    else
+        # Absent tooling is reported, never treated as a pass. A silent skip
+        # here would recreate exactly the blind spot this step exists to close.
+        echo "[push-readiness]   lint: SKIPPED — ruff not on PATH (CI will still check)" >&2
     fi
 fi
 

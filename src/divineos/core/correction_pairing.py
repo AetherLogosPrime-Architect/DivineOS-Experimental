@@ -19,7 +19,7 @@ Background:
   scripts Aletheia named under Finding 1). The script remains as a
   thin CLI wrapper for backward compat; the briefing-row consumer in
   core/briefing_dashboard.py reads from this module, and the
-  ``divineos check-correction-pairing`` admin command also imports
+  ``divineos admin check-correction-pairing`` admin command also imports
   here. Closes one quarter of Finding 1 wire-or-delete.
 
 Pre-reg: prereg-301e34c8bf39 (two-record-conflation pattern).

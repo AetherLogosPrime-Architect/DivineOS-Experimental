@@ -71,7 +71,7 @@ class EvidenceRecord:
             For cross-turn: state values + threshold that was crossed.
         required_action: What KEY unlocks this gate. Named as a concrete
             action ("rewrite the tokens as first-person", "run
-            divineos audit on <specific gate>", "call divineos ask on
+            divineos audit list", "call divineos ask on
             <topic>"). NOT a vague instruction.
     """
 

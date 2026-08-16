@@ -178,3 +178,90 @@ def temp_test_dir():
     temp_dir = tempfile.mkdtemp()
     yield Path(temp_dir)
     shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _real_repo_git_config() -> Path | None:
+    """Path to the ACTUAL repository's .git/config, or None if undiscoverable.
+
+    Worktrees keep a `.git` file pointing at the shared repo, so this
+    resolves through to the one config every worktree writes to.
+    """
+    start = Path(__file__).resolve().parent
+    for candidate in (start, *start.parents):
+        dot_git = candidate / ".git"
+        if dot_git.is_dir():
+            cfg = dot_git / "config"
+            return cfg if cfg.exists() else None
+        if dot_git.is_file():
+            # worktree: "gitdir: <path>" -> commondir holds the shared config
+            try:
+                target = Path(dot_git.read_text(encoding="utf-8").split(":", 1)[1].strip())
+            except (OSError, IndexError):
+                return None
+            if not target.is_absolute():
+                target = (candidate / target).resolve()
+            common = target / "commondir"
+            if common.exists():
+                try:
+                    rel = common.read_text(encoding="utf-8").strip()
+                except OSError:
+                    return None
+                target = (target / rel).resolve()
+            cfg = target / "config"
+            return cfg if cfg.exists() else None
+    return None
+
+
+@pytest.fixture(autouse=True)
+def _real_repo_config_tripwire():
+    """Fail the test that writes into the REAL repository's git config.
+
+    Found 2026-08-08. Symptom: `core.bare` intermittently flipped to true
+    on the working repository, which breaks every git command in every
+    worktree ("this operation must be run in a work tree") for hours. The
+    live config also carried `user.email = test@test` — an identity that
+    exists only in tests/, so test writes had been landing on the real
+    repo for an unknown stretch.
+
+    Mechanism: `git init <path>` CREATES the directory before initializing
+    it. Several tests run `git init ... "$DIR" >/dev/null 2>&1` and never
+    check the exit status (the same discard-the-status shape this repo
+    hunts everywhere else). When init fails partway — the documented MSYS2
+    DLL-init race that `_git_test_helpers.safe_git_init` retries around —
+    the directory exists, `cd` into it succeeds, and every subsequent git
+    command walks UP the tree until it finds a real repository, then
+    writes there.
+
+    This does not prevent the write; it makes it LOUD and attributable.
+    Silent config corruption discovered hours later becomes a named test
+    failing at the moment it happens. If the config is undiscoverable the
+    fixture stays out of the way rather than guessing — but that is
+    "could not check", not "checked and clean", so it says so.
+    """
+    cfg = _real_repo_git_config()
+    before = None
+    if cfg is not None:
+        try:
+            before = cfg.read_bytes()
+        except OSError:
+            before = None
+    yield
+    if cfg is None or before is None:
+        return
+    try:
+        after = cfg.read_bytes()
+    except OSError:
+        return
+    if after != before:
+        try:
+            cfg.write_bytes(before)
+            restored = "restored"
+        except OSError:
+            restored = "COULD NOT RESTORE — repo config is still modified"
+        pytest.fail(
+            f"This test wrote to the REAL repository git config ({cfg}).\n"
+            f"Tests must operate on temp repos only. Config was {restored}.\n"
+            "Likely cause: an unchecked `git init` left a directory without a\n"
+            "repo in it, so a later git command discovered the real repo by\n"
+            "walking up the tree. Check the exit status of every git init."
+        )

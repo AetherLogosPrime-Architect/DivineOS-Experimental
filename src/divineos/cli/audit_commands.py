@@ -1156,105 +1156,6 @@ def register(cli: click.Group) -> None:
                 fg="yellow",
             )
 
-    @audit_group.command("export")
-    @click.option(
-        "--out-dir",
-        default=None,
-        help="Directory for per-round markdown (default docs/audit_rounds).",
-    )
-    @click.option(
-        "--round",
-        "round_id",
-        default=None,
-        help="Export only this round. Default: every round in the store.",
-    )
-    @click.option("--limit", default=10_000, help="Max rounds to export.")
-    @click.option(
-        "--check",
-        is_flag=True,
-        help="Write nothing; exit 1 if any round in the store lacks an exported file.",
-    )
-    def audit_export_cmd(
-        out_dir: str | None, round_id: str | None, limit: int, check: bool
-    ) -> None:
-        """Export audit rounds to markdown so the review travels with the repo.
-
-        The audit store is local runtime state and is gitignored, so GitHub
-        has only ever seen a POINTER to a review — the
-        ``External-Review: <round-id>`` line — with no way to open what it
-        referenced. That is why server-side checks could not verify any claim
-        about an audit.
-
-        This writes the RECORD (findings, actors, tiers, verdicts) as plain
-        markdown into the repo, exactly as ``prereg export`` has always done
-        for pre-registrations. Commit the output and the review becomes
-        readable on GitHub and checkable by CI without a database.
-        """
-        from divineos.core.watchmen.export import (
-            DEFAULT_OUT_DIR,
-            export_rounds,
-            find_unexported_rounds,
-        )
-        from divineos.core.watchmen.store import get_round, list_findings, list_rounds
-
-        target_dir = out_dir or DEFAULT_OUT_DIR
-
-        if check:
-            # Aria 2026-08-01: a record nothing breaks over is a record nobody
-            # checks. Without this, the export could fall arbitrarily far behind
-            # the store and CI would keep passing, reporting each missing round
-            # as merely 'unverifiable' rather than as drift.
-            all_ids = [r.round_id for r in list_rounds(limit=limit)]
-            stale = find_unexported_rounds(all_ids, out_dir=target_dir)
-            if stale:
-                click.secho(
-                    f"[!] {len(stale)} audit round(s) in the store have no exported "
-                    f"file in {target_dir}/:",
-                    fg="red",
-                )
-                for rid in stale[:10]:
-                    click.secho(f"      {rid}", fg="red")
-                if len(stale) > 10:
-                    click.secho(f"      ... and {len(stale) - 10} more", fg="red")
-                click.secho(
-                    "    Fix: divineos audit export && git add docs/audit_rounds",
-                    fg="yellow",
-                )
-                raise click.exceptions.Exit(1)
-            click.secho(
-                f"[+] All {len(all_ids)} round(s) in the store have an exported file.",
-                fg="green",
-            )
-            return
-
-        if round_id:
-            one = get_round(round_id)
-            if one is None:
-                click.secho(f"[!] Round {round_id} is not in the store.", fg="red")
-                raise click.exceptions.Exit(1)
-            rounds = [one]
-        else:
-            rounds = list_rounds(limit=limit)
-
-        if not rounds:
-            click.secho("[~] No audit rounds to export.", fg="bright_black")
-            return
-
-        findings_for = {r.round_id: list_findings(round_id=r.round_id, limit=1000) for r in rounds}
-        written = export_rounds(rounds, findings_for, out_dir=target_dir)
-        total_findings = sum(len(v) for v in findings_for.values())
-
-        click.secho(
-            f"[+] Exported {len(written)} round(s) and {total_findings} finding(s) "
-            f"to {target_dir}/",
-            fg="cyan",
-        )
-        click.secho(
-            "    Commit these files — until they are committed, GitHub still "
-            "cannot see the review.",
-            fg="bright_black",
-        )
-
     @audit_group.command("confirm-holds")
     @click.option(
         "--round", "round_id", required=True, help="Round whose external CONFIRM to re-check."
@@ -1338,6 +1239,56 @@ def register(cli: click.Group) -> None:
                 "    Re-audit against the current change and relay a fresh confirm.",
                 fg="yellow",
             )
+
+    @audit_group.command("export")
+    @click.argument("round_ids", nargs=-1)
+    @click.option(
+        "--for-branch",
+        default=None,
+        help="Export every round whose focus names this branch.",
+    )
+    def audit_export_cmd(round_ids: tuple[str, ...], for_branch: str | None) -> None:
+        """Write rounds to docs/audit_rounds/ so CI can see they exist.
+
+        The merge-review gate checks that the round named in the trailer is
+        logged. It looked that up in the local event ledger, which no GitHub
+        runner has, so that requirement failed on every run regardless of who
+        approved what. Exporting puts the round where the gate can read it --
+        and in the PR diff, where the operator reads it before approving.
+        """
+        from pathlib import Path
+
+        from divineos.core.watchmen.round_export import export_round
+        from divineos.core.watchmen.store import list_rounds
+
+        targets = list(round_ids)
+        if for_branch:
+            targets.extend(
+                rnd.round_id
+                for rnd in list_rounds(limit=500)
+                if for_branch in (getattr(rnd, "focus", "") or "")
+            )
+        targets = list(dict.fromkeys(t for t in targets if t))
+
+        if not targets:
+            click.secho("[!] Name at least one round-id, or pass --for-branch.", fg="red")
+            raise click.exceptions.Exit(1)
+
+        repo = Path.cwd()
+        missing: list[str] = []
+        for round_id in targets:
+            path = export_round(repo, round_id)
+            if path is None:
+                missing.append(round_id)
+                click.secho(f"[!] {round_id}: not in the local store; nothing to export.", fg="red")
+                continue
+            click.secho(f"[+] {round_id} -> {path.relative_to(repo)}", fg="green")
+
+        if missing:
+            # A partial export that exits 0 would read as "all exported" to
+            # any caller that checks the exit code, which is how the trailer
+            # work kept reporting success over commits it had not touched.
+            raise click.exceptions.Exit(1)
 
     @audit_group.command("prepare-merge")
     @click.argument("round_id")
