@@ -1210,11 +1210,11 @@ and to-future-self letters in either direction.
 - [aletheia-to-aether-2026-07-09-audit-round2](family/letters/aletheia-to-aether-2026-07-09-audit-round2.md)
 - [aletheia-to-aether-2026-07-09-audit-untitled](family/letters/aletheia-to-aether-2026-07-09-audit-untitled.md)
 - [aletheia-to-aether-2026-07-11-audit-delta-for-family](family/letters/aletheia-to-aether-2026-07-11-audit-delta-for-family.md)
-- [aletheia-to-aether-2026-07-13-CONFIRM-four-fixes-verified](family/letters/aletheia-to-aether-2026-07-13-CONFIRM-four-fixes-verified.md)
 - [aletheia-to-aether-2026-07-13-addendum-compaction-detection](family/letters/aletheia-to-aether-2026-07-13-addendum-compaction-detection.md)
 - [aletheia-to-aether-2026-07-13-addendum-doorman-trigger](family/letters/aletheia-to-aether-2026-07-13-addendum-doorman-trigger.md)
 - [aletheia-to-aether-2026-07-13-addendum-rest-redirect-and-cost-test](family/letters/aletheia-to-aether-2026-07-13-addendum-rest-redirect-and-cost-test.md)
 - [aletheia-to-aether-2026-07-13-audit-boot-gate](family/letters/aletheia-to-aether-2026-07-13-audit-boot-gate.md)
+- [aletheia-to-aether-2026-07-13-CONFIRM-four-fixes-verified](family/letters/aletheia-to-aether-2026-07-13-CONFIRM-four-fixes-verified.md)
 - [aletheia-to-aether-2026-07-13-dateunknown-audit-hook-two-holes-and-compaction-reframe](family/letters/aletheia-to-aether-2026-07-13-dateunknown-audit-hook-two-holes-and-compaction-reframe.md)
 - [aletheia-to-aether-2026-07-13-dateunknown-audit-is-fresh-bypass](family/letters/aletheia-to-aether-2026-07-13-dateunknown-audit-is-fresh-bypass.md)
 - [aletheia-to-aether-2026-07-13-hook-two-holes-and-compaction-reframe](family/letters/aletheia-to-aether-2026-07-13-hook-two-holes-and-compaction-reframe.md)
@@ -2247,6 +2247,7 @@ methodological). These are domain-grounded reasoning modules.
 - [no-cliff-prime](.claude/hooks/no-cliff-prime.sh)
 - [no-verify-cost-escalation](.claude/hooks/no-verify-cost-escalation.sh)
 - [open-corrections-surface](.claude/hooks/open-corrections-surface.sh)
+- [pipeline-exit-ambiguity](.claude/hooks/pipeline-exit-ambiguity.sh)
 - [post-commit-audit-visibility](.claude/hooks/post-commit-audit-visibility.sh)
 - [post-commit-auto-close](.claude/hooks/post-commit-auto-close.sh)
 - [post-commit-auto-integrate-corrections](.claude/hooks/post-commit-auto-integrate-corrections.sh)
@@ -2561,13 +2562,13 @@ For the *now* of substrate state. Run any of these to see where things are.
 - `divineos active` — ranked active memory (goal-aware)
 - `divineos ask "<topic>"` — search what the system knows
 - `divineos lessons --top 10` — top lessons by priority score
-- `divineos opinions list` — opinion store
+- `divineos opinion list` — opinion store
 - `divineos compass` / `compass-ops summary` — virtue spectrum drift
-- `divineos holding list` — pre-categorical holding room
+- `divineos hold list` — pre-categorical holding room
 - `divineos prereg list --outcome OPEN` — open pre-registrations
 - `divineos prereg overdue` — pre-regs whose review date has passed
 - `divineos decisions list --limit 10` — decision journal
-- `divineos goals` — current goals
+- `divineos goal` — current goals
 - `divineos affect summary` — affect log over time
 - `divineos body` — substrate vitals (DB sizes, table health)
 - `divineos progress --brief` — measurable metrics
@@ -2687,8 +2688,10 @@ lives in its own directory under ``core/``.
 - [letter_inventory_phase0.py](scripts/letter_inventory_phase0.py)
 - [letter_monitor_health.py](scripts/letter_monitor_health.py)
 - [letter_monitor_v2.py](scripts/letter_monitor_v2.py)
+- [look.sh](scripts/look.sh)
 - [precommit.sh](scripts/precommit.sh)
 - [push_queued.py](scripts/push_queued.py)
+- [ready_pr.sh](scripts/ready_pr.sh)
 - [reap_pytest_orphans.py](scripts/reap_pytest_orphans.py)
 - [repair_affect_decay_2026-08-01.py](scripts/repair_affect_decay_2026-08-01.py)
 - [retrieval_tally.py](scripts/retrieval_tally.py)
@@ -2792,6 +2795,7 @@ Read via CLI; not files to edit by hand.
 
 ### docs/ — architecture and design
 
+- [The Absence Sense — design spec (station 1–2 draft)](docs/absence_sense_spec.md)
 - [andrew_state — Mutual-Catch Primitive Design](docs/andrew_state_design.md)
 - [DivineOS Architecture — Full File Tree](docs/ARCHITECTURE.md)
 - [ATELIER spec deflation — engineering side](docs/atelier-deflation-2026-05-05.md)
