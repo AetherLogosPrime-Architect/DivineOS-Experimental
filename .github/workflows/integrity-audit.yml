@@ -50,7 +50,23 @@ jobs:
     #
     # Kept on push-to-main because that is the vault. What lands on main
     # still has to carry the trailer.
-    if: github.event_name == 'push'
+    #
+    # NOW ALSO ON pull_request (2026-08-15). Andrew, repeatedly and finally
+    # in exasperation: "i havent merged it because the multiparty review is
+    # skipped.. so when i do it will fail.. i have said this repeatedly."
+    #
+    # He is right, and the skip was the actual defect. A check that only
+    # runs AFTER the merge cannot inform the merge. It reported 'skipping'
+    # on every PR, went red on main once the decision was irreversible, and
+    # left a badge that cannot be cleaned without force-pushing main. Every
+    # merge was a blind bet with an unrecoverable downside.
+    #
+    # The reason it was push-only was that per-commit trailers were
+    # unmeetable on a branch (amend, force-push, worktrees where
+    # filter-branch cannot rewrite history). The PR-body fallback removes
+    # that: the branch satisfies the check through the PR body, which is
+    # editable and fetched live. The original justification no longer holds,
+    # so the restriction should not outlive it.
     steps:
       - name: Check out PR with full history
         uses: actions/checkout@v4
@@ -59,6 +75,12 @@ jobs:
 
       - name: Verify guardrail-modifying commits carry External-Review trailer
         shell: bash
+        # Token so the script can read the trailer off the PR body when the
+        # squash-merge message snapshot missed it. Read-only use; without it
+        # the lookup is skipped and the check behaves exactly as before.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -e
 
