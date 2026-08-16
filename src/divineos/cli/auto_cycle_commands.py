@@ -46,22 +46,49 @@ def _guess_context_pct() -> float:
     Fixed 2026-07-11 per Andrew's principle: mechanisms are only as
     honest as their sources; touch the truth, not a copy of the truth.
 
-    Returns 0.0 if snapshot is unavailable — the caller treats that as
-    "below threshold, don't fire." Fail-safe direction matches the
-    old behavior so the change doesn't cause unexpected firing when
-    the snapshot fails.
+    That 2026-07-11 fix regressed the moment work moved into git
+    worktrees. ``get_context_snapshot`` resolves the transcript from a
+    project directory derived from the ambient path, so from a worktree
+    it opens the MAIN checkout's newest transcript — a real file, a real
+    parse, a total of zero, and ``note='ok'``. Measured 2026-08-16 while
+    the live session sat at 982,595 tokens: the snapshot reported 0 and
+    auto-cycle read 0.0%, exactly the July 10th symptom this docstring
+    was written to close. Third instance that day of one class —
+    a mechanism that resolves its own location by habit and resolves it
+    to the ambient default rather than the live one.
+
+    ``context_meter.read_latest_context_tokens`` scans transcripts across
+    project directories and takes the freshest, so a worktree session
+    resolves to the worktree session. It is the primary source here; the
+    snapshot stays as fallback because it carries a session id the meter
+    does not.
+
+    Returns -1.0 when NO source can answer. Unknown is not zero: the old
+    code collapsed "could not measure" into "measured, and it's empty,"
+    which is the shape that let this sit dark twice. Callers must render
+    it as unknown rather than as a percentage, and must not fire on it.
     """
     try:
-        from divineos.core.context_tokens import get_context_snapshot
+        import divineos.analysis.session_discovery as _disc
+        from divineos.core.context_meter import read_latest_context_tokens
+
+        sessions = _disc.find_sessions()
+        if sessions:
+            reading = read_latest_context_tokens(sessions[0])
+            if reading is not None and reading.context_tokens:
+                return float(reading.pct)
     except Exception:  # noqa: BLE001 - observability boundary
-        return 0.0
+        pass
+
     try:
+        from divineos.core.context_tokens import get_context_snapshot
+
         snap = get_context_snapshot()
     except Exception:  # noqa: BLE001 - observability boundary
-        return 0.0
+        return -1.0
     total = getattr(snap, "total_tokens", 0) or 0
     if not total:
-        return 0.0
+        return -1.0
     # 1M-token window is the standard for Claude Opus 4.x; matches the
     # cap divineos context-tokens uses by default.
     return float(total) / 1_000_000.0
@@ -108,9 +135,16 @@ def status_cmd() -> None:
     marker = auto_cycle.read_handshake_marker()
 
     click.echo("=== auto-cycle status ===")
-    click.echo(
-        f"  context: {ctx_pct * 100:.1f}%  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
-    )
+    if ctx_pct < 0:
+        click.echo(
+            "  context: UNKNOWN — no transcript source could answer"
+            f"  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
+        )
+        click.echo("    (unknown is not zero; this reads as cannot-tell, not as empty)")
+    else:
+        click.echo(
+            f"  context: {ctx_pct * 100:.1f}%  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
+        )
     click.echo(f"  active goal progress: {has_active}")
     click.echo(f"  defers used: {defers_used}/{auto_cycle.MAX_DEFERS}")
     click.echo(f"  would fire: {fire}  ({reason})")
@@ -137,6 +171,11 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
     the trigger discipline is preserved. With ``--force``, runs unconditionally.
     """
     ctx_pct = _guess_context_pct()
+    if ctx_pct < 0 and not force:
+        click.echo("[auto-cycle] context UNKNOWN — no transcript source could answer.")
+        click.echo("[auto-cycle] refusing to decide on a measurement that does not exist.")
+        click.echo("[auto-cycle] use --force to fire anyway")
+        return
     if not force:
         defer_state = auto_cycle.load_defer_state()
         defers_used = int(defer_state.get("defers_used") or 0)
@@ -172,6 +211,14 @@ def defer_check_cmd(json_out: bool) -> None:
     Human-mode by default; ``--json-out`` for scripting.
     """
     ctx_pct = _guess_context_pct()
+    if ctx_pct < 0:
+        # Loud, not silent. This path ran on every checkpoint for weeks
+        # reading a fabricated 0.0; a cannot-measure must be visible.
+        if json_out:
+            click.echo(json.dumps({"action": "unknown", "reason": "no transcript source"}))
+        else:
+            click.echo("[auto-cycle] context UNKNOWN — no transcript source could answer", err=True)
+        return
     defer_state = auto_cycle.load_defer_state()
     defers_used = int(defer_state.get("defers_used") or 0)
     has_active = _has_active_goal_progress()

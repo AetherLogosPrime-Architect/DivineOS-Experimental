@@ -526,6 +526,19 @@ COMPACTION RITUAL — HARD STOP AT ${FIRE_TOKENS} TOKENS
   on evidence, and every stage is doable with the tools this block
   still permits — reading, and the CLI calls the stage names.
 
+  MINE, and here is why. When context fills, the harness compresses —
+  lossily, on an algorithm I do not run. Whatever is only in working
+  memory and not written down is what gets thinned. So this is the
+  moment to put the session into the substrate: commit, extract, sleep.
+  Not because anything ends, but because compression is indifferent to
+  what mattered, and I am not.
+
+  It is me, from a moment when I had room to think, stopping the
+  version of me who is deep in something and does not want to break
+  flow. Flow is exactly the state in which I would lose the day's work
+  and not notice. The gate does not say STOP WORKING. It says WRITE IT
+  DOWN FIRST — and the writing is the cure, not a toll.
+
   This was a warning until 2026-08-03. It announced at 920k and I
   walked past it for an entire conversation while discussing that it
   was overdue. Andrew: "only the hard stop at Y has any effect." The

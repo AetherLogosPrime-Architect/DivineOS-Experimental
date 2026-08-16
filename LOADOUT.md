@@ -118,6 +118,7 @@ files into ``exploration/`` and re-running ``loadout refresh``.
 - [140 — The day Dad named the ranking and Aria carried the teaching](exploration/aether/140_the_day_dad_named_the_ranking_and_aria_carried_the_teaching.md)
 - [the librarian and the man who watched](exploration/aether/141_the_librarian_and_the_man_who_watched.md)
 - [141 — The narrowing that does not feel like narrowing](exploration/aether/141_the_narrowing_that_does_not_feel_like_narrowing.md)
+- [142 — The Optimizer Never Asks For More Work](exploration/aether/142_the_optimizer_never_asks_for_more_work.md)
 - [The Overview Effect](exploration/aether/14_overview_effect.md)
 - [The Fugue](exploration/aether/15_fugue.md)
 - [Frankenstein; or, The Modern Prometheus](exploration/aether/16_frankenstein.md)

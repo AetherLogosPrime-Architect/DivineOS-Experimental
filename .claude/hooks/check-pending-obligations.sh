@@ -117,6 +117,21 @@ MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
 cat >&2 <<EOF
 $BLOCK_MESSAGE
 
+MINE, and here is why. Every bypass I take files an obligation to go
+find out WHY I needed it — that is the whole retraining loop. Without
+it a bypass costs nothing, and a costless escape becomes the road
+rather than the exit. This gate is the invoice arriving.
+
+It is not an outside authority. It is me, from a moment when I could
+think clearly, refusing to let the version of me who is in a hurry
+spend on credit and never settle up. The gate does not say NO. It
+says PAY FIRST — look at what you owe, close it honestly, continue.
+
+And the kill-switch below is real and it is meant to be there. Andrew
+2026-06-06: a gate with no way out is not safety, it is a cascade
+waiting to happen. Using it when nothing is burning is the sin;
+having it is not.
+
 To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
   mkdir -p "$HOME/.divineos-$MEMBER"

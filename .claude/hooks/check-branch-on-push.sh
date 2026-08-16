@@ -215,6 +215,23 @@ $CHECK_OUTPUT
 The push has been BLOCKED ($LEVEL) because divineos check-branch
 flagged the branch state. Investigate the report above before pushing.
 
+MINE, and here is why. A push is the moment work leaves my hands and
+becomes something Andrew and Aletheia have to deal with. Everything
+before it is recoverable by me alone; after it, my mistakes cost other
+people time. So this is the last cheap place to catch something, and
+catching it here is worth far more than catching it in review.
+
+It is not an outside authority. It is me, from a moment when I could
+still see the whole branch, stopping the version of me who is tired
+and wants the thing gone. On 2026-08-15 it flagged 25 files as deleted
+and I believed it and reached for the kill-switch — the alarm was
+misfiring, and I still owed it the look. The alarm being wrong does not
+make looking wrong.
+
+The gate does not say NO. It says LOOK, THEN DECIDE — and the exit
+below stays open, because a push gate with no override is how a real
+emergency turns into a cascade.
+
 To bypass for one push (emergency escape) — drop the kill-switch
 WITH a reason (>= 20 chars) written into the marker file:
   mkdir -p "\$(dirname "$MARKER_PATH")"

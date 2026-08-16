@@ -107,7 +107,7 @@ def test_reset_defer_state_no_file_no_raise(tmp_path, monkeypatch):
 def test_run_phase1_dry_run_records_all_steps_would_run():
     result = run_phase1(context_pct=0.85, dry_run=True)
     assert isinstance(result, Phase1Result)
-    assert set(result.steps.keys()) == {"commit", "extract", "sleep"}
+    assert set(result.steps.keys()) == {"archive", "commit", "extract", "sleep"}
     for step in result.steps.values():
         assert step.ran is False  # dry-run
         assert step.succeeded is True  # would succeed
@@ -138,7 +138,7 @@ def test_write_and_read_handshake_marker_roundtrip(tmp_path, monkeypatch):
     assert payload["cycle_id"] == result.cycle_id
     assert payload["trigger_context_pct"] == 0.85
     assert payload["session_id"] == "test-session"
-    assert set(payload["steps"].keys()) == {"commit", "extract", "sleep"}
+    assert set(payload["steps"].keys()) == {"archive", "commit", "extract", "sleep"}
     # Per Aria's schema-confirm: both optional fields must be present.
     for step in payload["steps"].values():
         assert "duration_sec" in step

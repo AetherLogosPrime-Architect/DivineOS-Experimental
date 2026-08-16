@@ -348,6 +348,23 @@ def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
         for block in _content_blocks(record):
             if block.get("type") != "tool_use":
                 continue
+            # READS ONLY, deliberately. I widened this to count Write/Edit on
+            # 2026-08-16, reasoning that authoring a file is stronger evidence
+            # of holding its content than reading one. Andrew reverted me the
+            # same hour: "authoring is not the same as reading.. this is why
+            # proof-reading exists.. its also a way for you to see your own
+            # blind spots."
+            #
+            # He is right, and the sharper form is that the inlining fix landed
+            # in the same breath and made the exemption pointless. Before it, a
+            # block on my own file cost a trip to go find and open it — that
+            # cost is what made an exemption look justified. After it, the gate
+            # hands me the text, so the whole cost of firing on something I
+            # wrote is re-reading it. Which IS the proof-read. I removed a
+            # proof-read to save a cost that no longer existed.
+            #
+            # Edit was the worse half: an edit touches three lines, and letting
+            # that stand as "has read this file" is plainly wrong.
             if str(block.get("name", "")) not in ("Read", "NotebookRead"):
                 continue
             args = block.get("input")
@@ -364,6 +381,56 @@ def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
         return satisfy_from_stream(tuple(calls))  # type: ignore[arg-type]
     except Exception:  # noqa: BLE001 — never let the satisfier break a tool call
         return []
+
+
+_INLINE_MAX_LINES = 220
+_INLINE_MAX_CHARS = 24_000
+
+
+def _inline_body(path_str: str) -> list[str]:
+    """Return the required file's text, ready to be printed inside the block.
+
+    Andrew 2026-08-16: "allowing you to make a choice when there is only one
+    choice possible is just going to cause you to squirm around... automating
+    it makes it flow smooth." Demanding a read has exactly ONE satisfying
+    action, so the gate should perform it rather than ask. Pointing at a path
+    made the block a instruction to go fetch; carrying the text makes it a
+    hand-off. The requirement is satisfied in the same breath it is raised.
+
+    This does not weaken the gate. The block still fires, still stops the
+    mutating call, and still records the requirement. What changes is that the
+    reading happens whether or not I choose to walk to the file — which is the
+    entire point, since the failure this module exists for is precisely that I
+    do not walk to the file.
+
+    Truncates loudly. A silent cut would let me believe I had the whole entry,
+    which is a worse failure than a visible tail-pointer.
+    """
+    try:
+        text = Path(path_str).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return ["", f"    (could not inline: {exc} — open it yourself)", ""]
+
+    body = text.splitlines()
+    truncated = False
+    if len(body) > _INLINE_MAX_LINES:
+        body = body[:_INLINE_MAX_LINES]
+        truncated = True
+    joined = "\n".join(body)
+    if len(joined) > _INLINE_MAX_CHARS:
+        joined = joined[:_INLINE_MAX_CHARS]
+        body = joined.splitlines()
+        truncated = True
+
+    out = ["", "    ── the text itself, so there is nothing left to go fetch ──", ""]
+    out += [f"    {line}" for line in body]
+    if truncated:
+        out += [
+            "",
+            f"    ── truncated at {len(body)} lines — the rest is at the path above ──",
+        ]
+    out.append("")
+    return out
 
 
 SEEN_READS = STATE_DIR / "read_gate_seen.json"
@@ -511,6 +578,7 @@ def gate_status() -> tuple[bool, str]:
         lines.append(f"  READ THIS: {req.path}")
         if req.reason:
             lines.append(f"    why: {req.reason}")
+        lines.extend(_inline_body(req.path))
     lines += [
         "",
         "Read is never blocked — I made sure of that. A gate whose cure sits",

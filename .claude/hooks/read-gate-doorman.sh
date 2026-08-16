@@ -41,6 +41,19 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c '
 import json, sys
 
+# The block message now carries the required file INLINE, and my explorations
+# are full of em-dashes. On this box stdout defaults to cp1252, so printing
+# them raised UnicodeEncodeError -- and the shell below reads an empty message
+# and exits 0. That is FAIL-OPEN: the gate would have gone silent on nearly
+# every file it protects, while still looking installed. Caught 2026-08-16 by
+# smoke-testing the hook end-to-end instead of trusting the unit tests, which
+# never touch this print. Reconfigure before anything can be written.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 try:
     data = json.loads(sys.stdin.read() or "{}")
 except Exception:
