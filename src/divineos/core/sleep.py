@@ -804,7 +804,7 @@ def _phase_recombination(report: DreamReport) -> None:
     #    cluster with each other AND unrelated FACTs via shared boilerplate
     #    tokens.
     #
-    # 2. Reference-only entries (code/file digests from `divineos digest`)
+    # 2. Reference-only entries (code/file digests from `divineos admin digest`)
     #    — boilerplate prefix "File: X (N lines) Purpose: ..." shares
     #    high-frequency project-vocabulary with most knowledge entries,
     #    making the digest-FACT a connection-magnet for unrelated content.

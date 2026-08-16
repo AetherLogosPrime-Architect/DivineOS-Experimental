@@ -204,3 +204,87 @@ class TestMonotonicAutofix:
         text = (tmp_path / "README.md").read_text(encoding="utf-8")
         # The 35 stays untouched.
         assert "(35 hooks" in text
+
+
+class TestCommandCountAutofix:
+    """The drift dimension that had no fixer at all until 2026-08-02.
+
+    ``--fix`` shipped with fixers for tests, hooks, and the architecture
+    tree. Commands had none. So on a command-count drift, --fix ran, changed
+    nothing, and the caller printed "still drifted after auto-fix (likely a
+    non-count error). Investigate manually." It IS a count error — it simply
+    had no fixer behind it, and the message misdirected everyone who read it.
+
+    Aria hit this 2026-06-17 ("leapfrog is blocking my baseline"). I hit it
+    twice on 2026-08-02 while splitting a PR and hand-edited the numbers both
+    times without asking why the tool was telling me to do its job. Andrew:
+    "dont keep walking over the same coals."
+    """
+
+    def _setup(self, tmp_path, monkeypatch):
+        from scripts import check_doc_counts as cdc
+
+        monkeypatch.setattr(cdc, "ROOT", tmp_path)
+        (tmp_path / "README.md").write_text("base", encoding="utf-8")
+        (tmp_path / "docs").mkdir(exist_ok=True)
+        return cdc
+
+    def test_the_fixer_exists(self):
+        """Its absence IS the defect: --fix reported success while the drift
+        survived, because nothing was dispatched for this dimension."""
+        from scripts import check_doc_counts as cdc
+
+        assert hasattr(cdc, "fix_command_counts")
+
+    def test_raises_a_stale_command_count(self, tmp_path, monkeypatch):
+        cdc = self._setup(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("- **100 CLI commands**", encoding="utf-8")
+        assert "README.md" in cdc.fix_command_counts(426)
+        assert "426 CLI commands" in (tmp_path / "README.md").read_text(encoding="utf-8")
+
+    def test_also_fixes_the_bare_commands_phrasing(self, tmp_path, monkeypatch):
+        """The checker matches both "N commands" and "N CLI commands". A
+        fixer handling only one leaves the checker failing on the other, and
+        the tool still cannot converge."""
+        cdc = self._setup(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("CLI package (100 commands)", encoding="utf-8")
+        cdc.fix_command_counts(426)
+        assert "426 commands" in (tmp_path / "README.md").read_text(encoding="utf-8")
+
+    def test_monotonic_by_default(self, tmp_path, monkeypatch):
+        """Kept deliberately — two in-flight branches must not fight over the
+        same line at rebase (Andrew 2026-06-12)."""
+        cdc = self._setup(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("- **999 CLI commands**", encoding="utf-8")
+        assert cdc.fix_command_counts(426) == []
+
+    def test_allow_lower_corrects_an_overclaiming_doc(self, tmp_path, monkeypatch):
+        """THE regression, and the state that produced both manual edits.
+
+        Every fixer here is monotonic and refuses to lower, while the CHECKER
+        still errors on documented > actual. Fixer and checker disagree, so a
+        branch with fewer commands than main can never converge no matter how
+        often --fix runs. This is the way down."""
+        cdc = self._setup(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("- **999 CLI commands**", encoding="utf-8")
+        assert "README.md" in cdc.fix_command_counts(426, allow_lower=True)
+        assert "426 CLI commands" in (tmp_path / "README.md").read_text(encoding="utf-8")
+
+    def test_the_same_way_down_exists_for_tests_and_hooks(self, tmp_path, monkeypatch):
+        """The fixer/checker disagreement is shared by every monotonic fixer,
+        so the escape must be too — otherwise the coal just moves."""
+        cdc = self._setup(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text(
+            "- **9,999+ tests**\n- **999 enforcement hooks**", encoding="utf-8"
+        )
+        cdc.fix_test_counts(10, allow_lower=True)
+        cdc.fix_hook_counts(11, allow_lower=True)
+        body = (tmp_path / "README.md").read_text(encoding="utf-8")
+        assert "10+ tests" in body, "the test fixer writes the '+' suffix"
+        assert "11 enforcement hooks" in body
+        assert "9,999" not in body and "999 enforcement" not in body
+
+    def test_a_doc_with_no_command_count_is_untouched(self, tmp_path, monkeypatch):
+        cdc = self._setup(tmp_path, monkeypatch)
+        (tmp_path / "README.md").write_text("nothing numeric here", encoding="utf-8")
+        assert cdc.fix_command_counts(426, allow_lower=True) == []

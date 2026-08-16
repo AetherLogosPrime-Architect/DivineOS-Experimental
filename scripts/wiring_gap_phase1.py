@@ -111,7 +111,24 @@ def _commits_in_range(rev_range: str) -> list[tuple[str, str]]:
     Returns empty list when the range is invalid (e.g. shallow clone without
     enough history). Callers can decide whether to error or skip.
     """
-    out = _git("log", "--reverse", "--format=%h%x09%s", rev_range, allow_failure=True)
+    # --no-merges. A merge commit AUTHORS no functions -- everything `git show`
+    # reports for one was already written, and already scanned, on the side it
+    # came from. Including merges is not merely wasteful; it is the documented
+    # flake. This scan's footprint is bounded by "last N commits", and a merge
+    # commit's diff is unbounded. Merging main into a branch that had drifted
+    # produced one commit larger than the heuristic ever anticipated, and the
+    # xdist worker died on it -- the exact crash the window was narrowed twice
+    # to avoid (HEAD~30 -> HEAD~5 on 2026-07-03, HEAD~5 -> HEAD~3 on
+    # 2026-07-10).
+    #
+    # Both narrowings treated commit COUNT as the knob. Count was never the
+    # variable that mattered; per-commit footprint was, and it varies without
+    # bound. Excluding merges removes the unbounded case instead of guessing a
+    # smaller number a third time -- and costs no coverage, because a merge has
+    # no new functions to find.
+    out = _git(
+        "log", "--reverse", "--no-merges", "--format=%h%x09%s", rev_range, allow_failure=True
+    )
     rows: list[tuple[str, str]] = []
     for line in out.splitlines():
         if not line.strip():

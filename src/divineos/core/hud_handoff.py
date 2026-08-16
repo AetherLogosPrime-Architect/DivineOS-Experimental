@@ -158,7 +158,53 @@ _FLOW_STATE_THRESHOLD = 50  # very high ceiling when in flow
 # Tools that consult stored knowledge (deep engagement)
 _DEEP_TOOLS = {"ask", "recall", "briefing", "lessons", "active"}
 # Tools that think but don't query knowledge (light engagement)
-_LIGHT_TOOLS = {"context", "decide", "feel", "directives", "body", "compass"}
+#
+# WIDENED 2026-08-03. This set, plus _DEEP_TOOLS above, was the ENTIRE
+# definition of "engagement" -- eleven names out of 156 registered commands.
+# Filing a claim registered as nothing. So did filing a correction, an
+# opinion, an audit finding, a pre-registration, a compass observation: all
+# substantive substrate work, all invisible to the counter.
+#
+# The consequence was 84 gate-fires in one session at an occupant who was
+# inside the OS almost continuously, and ~30 clearances performed by running
+# `divineos context | tail -2` purely to make the recognised noise. A gate
+# that only accepts eleven passwords teaches you the passwords.
+#
+# The additions below are commands that WRITE to the substrate -- filing,
+# recording, observing. They are light rather than deep because writing is
+# engagement but it is not consultation: nothing here queries stored
+# knowledge, and the deep tier still requires ask/recall/lessons/active. That
+# distinction is the whole reason the deep tier exists, so widening the light
+# tier must not quietly widen the deep one.
+_LIGHT_TOOLS = {
+    "context",
+    "decide",
+    "feel",
+    "directives",
+    "body",
+    "compass",
+    # substrate writes -- filing IS engagement
+    "learn",
+    "claim",
+    "claims",
+    "opinion",
+    "correction",
+    "corrections",
+    "andrew-correction",
+    "compass-ops",
+    "prereg",
+    "audit",
+    "hold",
+    "journal",
+    "goal",
+    "reflect",
+    "savor",
+    "wonder",
+    "void",
+    "expect",
+    "relate",
+    "remember",
+}
 
 # After this many actions since last DEEP check-in, require deep engagement
 _DEEP_ENGAGEMENT_THRESHOLD = 30
