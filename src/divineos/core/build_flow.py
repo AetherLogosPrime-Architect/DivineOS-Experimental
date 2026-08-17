@@ -197,7 +197,28 @@ def check_audit_station(
     dependencies, one layer up.
     """
     if audit_refs is None:
-        return StationResult("8-audit", Status.CANNOT_CHECK, "audit store not readable")
+        # DO NOT NAME A CULPRIT THIS CANNOT SEE. None arrives here for two
+        # unrelated reasons -- the audit store would not open, OR the gh call
+        # its collector makes first came back empty -- and the old wording
+        # blamed the store for both.
+        #
+        # Caught live during the 2026-08-17 GitHub incident: all three PRs
+        # reported "audit store not readable" while the store answered
+        # perfectly, 20 rounds, checked directly in the same minute. The real
+        # cause was the network, and the collector's own comment says so
+        # ("no network -> cannot check, do not claim absent") -- the knowledge
+        # existed at the point of failure and was thrown away by the time it
+        # reached the reader.
+        #
+        # A misattributed cause is worse than an unattributed one: it sends
+        # someone to investigate a database that is fine. Say what is true --
+        # the lookup did not complete -- and name both candidates instead of
+        # picking one.
+        return StationResult(
+            "8-audit",
+            Status.CANNOT_CHECK,
+            "audit lookup did not complete (network or store) — cause not narrowed",
+        )
     if any(f"#{pr_number}" in r for r in audit_refs):
         return StationResult("8-audit", Status.SATISFIED, f"audit round names PR #{pr_number}")
     if branch and any(branch in r for r in audit_refs):
