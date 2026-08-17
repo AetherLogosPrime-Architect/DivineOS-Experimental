@@ -117,13 +117,61 @@ class TestItDoesNotBecomeABlankCheque:
         """The genuine case-1: nothing was ever asked."""
         assert R.satisfied_recently()[0] is False
 
-    def test_a_check_with_no_items_does_not_satisfy(self, store):
-        """Zero artifacts disposed is not 'all artifacts disposed'.
+    def test_a_check_with_no_items_DOES_satisfy(self, store):
+        """REVERSED. This test previously asserted the opposite, and was wrong.
 
-        An empty check would otherwise pass a MIN()-over-nothing test and open
-        the gate on a reach that surfaced nothing to look at.
+        The original reasoning: "zero artifacts disposed is not all artifacts
+        disposed." It sounds careful. It rebuilt, inside the repair, the exact
+        wall the repair was for -- `reach open` returning NOT FOUND is the gate
+        WORKING (prior_art was asked; nothing exists to look at), and the
+        doorman answered "you have not reached." I hit it about an hour after
+        fixing the original, and it deadlocked every remedy the
+        correction-marker gate offers, including the marker-clear itself.
+
+        The test passed the whole time. It was asserting the defect.
+
+        A test written from the same understanding that produced the code is
+        the SECOND reading, not the third -- it agrees because it shares the
+        assumption. See docs/two_readings_disagree.md, which this instance is
+        in. Left as a reversal rather than a deletion so the trace survives.
+
+        Nothing is waved through: a zero-item check means the search ran and
+        came back empty. Recency is the only guard it needs, and the staleness
+        test below still applies to it.
         """
-        _check_with(store, [], [])
+        # Inserted directly rather than via _check_with, which back-dates
+        # opened_at an hour -- fine for disposal-time cases, outside the window
+        # for a check judged on when it was OPENED.
+        import sqlite3
+
+        conn = sqlite3.connect(store)
+        conn.execute(
+            "INSERT INTO reach_checks (check_id, symptom, opened_at) VALUES (?,?,?)",
+            ("chk-empty", "asked just now", time.time()),
+        )
+        conn.commit()
+        conn.close()
+
+        ok, why = R.satisfied_recently()
+        assert ok is True
+        assert "nothing existed to open" in why, "and it must say WHY it opened"
+
+    def test_an_old_empty_check_still_goes_stale(self, store):
+        """The recency guard has to survive the reversal above.
+
+        Otherwise one NOT-FOUND reach would authorise writes indefinitely,
+        which is the blank cheque the original test was reaching for -- it had
+        the right worry and put it on the wrong condition.
+        """
+        import sqlite3
+
+        conn = sqlite3.connect(store)
+        conn.execute(
+            "INSERT INTO reach_checks (check_id, symptom, opened_at) VALUES (?,?,?)",
+            ("chk-old", "asked long ago", time.time() - R.SATISFIED_WINDOW_SECONDS - 60),
+        )
+        conn.commit()
+        conn.close()
         assert R.satisfied_recently()[0] is False
 
 

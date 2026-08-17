@@ -534,9 +534,35 @@ def satisfied_recently(now: float | None = None) -> tuple[bool, str]:
     it, and the next confused reader is me.
     """
     init_reach_tables()
-    cutoff = (time.time() if now is None else now) - SATISFIED_WINDOW_SECONDS
+    stamp = time.time() if now is None else now
+    cutoff = stamp - SATISFIED_WINDOW_SECONDS
     conn = _get_connection()
     try:
+        # A CHECK THAT SURFACED NOTHING IS SATISFIED, and the first version of
+        # this function said otherwise. I reasoned "zero artifacts disposed is
+        # not all artifacts disposed" and wrote a test pinning it -- which
+        # rebuilt, inside the repair, the exact wall the repair was for: open a
+        # reach, get NOT FOUND (the gate working perfectly, nothing exists to
+        # look at), and be told again that I have not reached. Hit it 2026-08-17
+        # about an hour after fixing the original, and it deadlocked every
+        # remedy the correction-marker gate offers, including its own.
+        #
+        # The test passed the whole time. It asserted the defect.
+        #
+        # Nothing is waved through: a zero-item check means prior_art was asked
+        # and answered empty. Recency is the only guard it needs, and it has it.
+        empty = conn.execute(
+            "SELECT c.check_id, c.symptom FROM reach_checks c "
+            "LEFT JOIN reach_items i ON i.check_id = c.check_id "
+            "WHERE i.item_id IS NULL AND c.opened_at >= ? "
+            "ORDER BY c.opened_at DESC LIMIT 1",
+            (cutoff,),
+        ).fetchone()
+        if empty is not None:
+            return True, (
+                f"reach-check satisfied: {empty[0]} ({empty[1]}) - "
+                "asked, and nothing existed to open"
+            )
         row = conn.execute(
             "SELECT c.check_id, c.symptom, MAX(i.disposed_at), COUNT(*) "
             "FROM reach_checks c JOIN reach_items i ON i.check_id = c.check_id "

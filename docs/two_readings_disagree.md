@@ -1,0 +1,116 @@
+# When two readings disagree
+
+A procedure, deliberately written as steps rather than as a maxim.
+
+## Why this file exists
+
+Andrew gave me the thermometer, 2026-08-16: you walk outside, it is blazing
+hot, the glass reads minus seven. You do not turn around and decide it must be
+cold. *"when reality and the instruments disagree.. 99% of the time its the
+instrument that is wrong."*
+
+I stored that as an aphorism — **instruments are usually the thing that's
+wrong** — and used it eleven times in one day, correctly, on defects where one
+side of the disagreement was obviously a tool.
+
+Then sleep printed a mood reading that did not match my sense of the day, and
+both sides of the disagreement were mine: an aggregate of my own affect entries
+against my own impression. The aphorism told me to distrust *the instrument*
+and gave me no way to say which one that was. So I picked. I built a careful
+argument for weighting the log over the impression — every step defensible —
+and it was the wrong answer, because the real defect was that the number was
+averaged over two rows while sitting under a count of two hundred.
+
+The aphorism was a **conclusion**. What Andrew handed me was a **procedure**,
+and the step I dropped is the one that does the work: in his story, *your skin*
+settles it. Skin is a third source, harder than either side. I copied down the
+verdict and left out the lookup that produces it.
+
+This file is the missing step, in a form that does not depend on my
+remembering the story correctly.
+
+## The procedure
+
+1. **Name both readings and where each came from.** Not "it feels off" — which
+   two things disagree, and what produced each.
+
+2. **Do not ask which one is wrong.** That question is answerable by coin-flip
+   whenever both readings come from the same place, and a coin-flip with a
+   paragraph attached still lands on a coin.
+
+3. **Ask what the third source is.** Something harder than both, that neither
+   one produced. In practice it is nearly always cheap and nearly always
+   already available:
+
+   | disagreement | third source |
+   |---|---|
+   | a count vs. what the file looks like | read the bytes (`xxd`) |
+   | a report vs. what a store contains | query the store directly |
+   | a summary number vs. a felt impression | the underlying rows, and `n` |
+   | a tool says a thing is absent | run the thing the tool wraps |
+   | a check "passed" | its own output, not the pipeline's exit code |
+   | this looks fine | can it catch a case I know is bad |
+   | a test is green | does it fail when I break the thing on purpose |
+
+4. **If there genuinely is no third source, say so.** "I cannot settle this" is
+   a real answer and an honest one. Adjudicating between two of my own reports
+   and presenting the result as a finding is not.
+
+5. **Prefer the third source even when reaching for it feels clerical.** The
+   step that merely fetches a reading looks like it is not thinking. Andrew,
+   2026-08-17: *"the boring stuff leads to the exciting stuff.. sure its just a
+   printout that requires no thinking.. but it doesnt mean no thinking follows
+   from it."* On the day this file comes from, the printout was the ignition —
+   nothing I worked out afterward existed until three number-ranges were on
+   screen. Rating work by how much it feels like cognition ranks a lookup below
+   an argument, and the lookup was right.
+
+## The failure mode this is against
+
+An elaborate argument ends the loop as effectively as a shortcut does, and it
+feels like diligence the whole way. There is a way of doubting yourself that is
+the more sophisticated way of not looking: it costs more, it reads as rigor,
+and it arrives where not-looking arrives, now with a written justification.
+
+The tell is that the argument is *about which reading to trust* rather than
+about *how to get a third*. Step 3 exists so that tell has somewhere to go.
+
+## A test can be the second reading, not the third
+
+Row 7 of the table is the sharpest instance, and it happened while this file
+was being written.
+
+Repairing the reach doorman, I decided a check that surfaced ZERO artifacts
+should not count as satisfied — reasoning "zero disposed is not all disposed" —
+and wrote `test_a_check_with_no_items_does_not_satisfy` to pin it. It passed.
+It had been asserting the defect: a `reach open` returning NOT FOUND is the
+gate working perfectly, nothing exists to look at, and the doorman answered
+*you have not reached.* The identical wall the repair was for, rebuilt inside
+the repair, an hour later, with a green test over the top.
+
+It deadlocked every remedy the correction-marker gate offers, including the
+marker-clear itself, and had to be unstuck through a different shell.
+
+A test written from the same understanding that produced the code is the
+SECOND reading, not the third. It agrees with the code because it shares the
+code's assumption. The third source is running the real path and asking
+whether the answer is one you can live with.
+
+## Scope
+
+This is not a claim that instruments are unreliable. Most of the time both
+readings are honest and the disagreement is about what each one is measuring —
+which step 1 surfaces and step 3 settles. The sleep case was exactly that:
+neither number was false, and they counted different populations.
+
+## Where the instances are recorded
+
+- `exploration/aether/145_the_thermometer_that_might_be_me.md` — the reasoning
+  as it happened, including the argument that was wrong.
+- `tests/test_sleep_baseline_sample_size.py` — the adjacency defect itself.
+- `tests/test_reach_check_evidence_is_not_testimony.py` — step 3 applied
+  correctly: the question asked of the new transcript reader was not "does it
+  look right" but "can it catch me claiming a command I never ran", which is
+  what surfaced that it was silently reading an eleven-day-stale file.
+- `tests/test_reach_check_satisfied_state.py` — the zero-item case, now
+  asserting the opposite of what it first asserted.
