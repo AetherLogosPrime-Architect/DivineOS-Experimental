@@ -78,7 +78,48 @@ def _open_prs() -> list[dict] | None:
     return parsed if isinstance(parsed, list) else None
 
 
+"""``gh pr view --json files`` returns at most this many entries, with no
+warning and no pagination. A result of exactly this length cannot be
+distinguished from a truncated one."""
+_GH_PR_FILES_CAP = 100
+
+
 def _changed_paths(pr: int) -> tuple[str, ...] | None:
+    """Every path this PR changes, or None when the set cannot be trusted.
+
+    ``gh pr view --json files`` SILENTLY CAPS AT 100 FILES. It does not
+    paginate, does not warn, and returns a well-formed list that looks
+    complete. Found 2026-08-17 on PR #412, which changes 443 files: the
+    truncated list stopped inside ``docs/audit_rounds/`` and never reached
+    ``src/``, so the module the PR is actually about was absent from its own
+    changed-file set. Station 2 keyed its lens lookup off that set and
+    reported ``0/2 lenses walked`` while two matching walks sat in the ledger
+    with the correct fingerprint.
+
+    That is the same false ACCUSATION this function's caller was repaired for
+    on 2026-08-07, one layer up: the data was present and the query could not
+    reach it. A station that can only fail teaches me to discount it, and a
+    discounted gate is a dead gate. The earlier fix corrected the key; this
+    one corrects the corpus the key is looked up in.
+
+    ``gh api --paginate`` walks the Link headers and returns the whole set.
+    The 100-length check afterwards is the belt: if pagination is ever
+    unavailable or silently capped again, an exactly-100 result is
+    indistinguishable from a truncation, so it is reported as
+    CANNOT_CHECK rather than as a confident set. A PR with exactly 100 files
+    loses nothing real -- it is downgraded from a possibly-wrong answer to an
+    honestly-unknown one, which is the direction this house errs in.
+    """
+    repo = _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"])
+    if repo:
+        out = _gh(["api", f"repos/{repo.strip()}/pulls/{pr}/files", "--paginate", "-q", ".[].path"])
+        if out is not None:
+            paths = tuple(p.strip() for p in out.splitlines() if p.strip())
+            if paths:
+                return paths
+
+    # Fall back to the capped view, but refuse to present a truncated set as
+    # a complete one.
     out = _gh(["pr", "view", str(pr), "--json", "files"])
     if out is None:
         return None
@@ -86,7 +127,10 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
         data = json.loads(out)
     except json.JSONDecodeError:
         return None
-    return tuple(f.get("path", "") for f in (data.get("files") or []))
+    paths = tuple(f.get("path", "") for f in (data.get("files") or []))
+    if len(paths) >= _GH_PR_FILES_CAP:
+        return None  # may be truncated; unknown is not zero
+    return paths
 
 
 def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
