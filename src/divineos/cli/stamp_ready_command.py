@@ -23,10 +23,87 @@ actually been confirmed.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
 import click
+
+# "at tree dd08aa75", "tree-hash:ebad5700...", "tree: <hash>". Anchored on the
+# word `tree` deliberately: a bare hex scan also matches the hex tail of a
+# round id (round-6d67d2df400d), and a round id mistaken for a tree is a silent
+# wrong answer of exactly the kind this guard exists to stop.
+_TREE_NEAR = re.compile(r"tree[-\s]*(?:hash)?[:\s]+([0-9a-f]{8,40})", re.IGNORECASE)
+
+
+def _confirmed_trees(round_id: str) -> set[str]:
+    """Trees named by the CONFIRMS findings on this round.
+
+    The tree an audit actually covers lives in its CONFIRMS findings, NOT in
+    the round's ``notes``. Learned mid-fix on 2026-08-17: the first version of
+    this guard read ``notes``, and the stale round in the live case carried
+    ``Source ref: split/ci-merge-review-visibility`` -- a branch name. It named
+    no tree, so the guard concluded "this round makes no claim" and waved
+    through the exact pairing it had been written to refuse.
+
+    A check that cannot see the data it is checking is worse than no check,
+    because it reports safety. That first version passed its own test and
+    would have failed the only case that mattered.
+
+    Hashes appear abbreviated ("at tree dd08aa75") and full
+    ("tree-hash:ebad5700..."), so callers compare by prefix in both directions.
+
+    KNOWN LIMIT, stated because it runs in the permissive direction. This
+    cannot tell a tree the finding CONFIRMS from a tree the finding merely
+    MENTIONS. The live round here returns both ebad5700 (what it confirms) and
+    dd08aa75 (named in prose as the confirmation it supersedes). So a round
+    whose text discusses an old tree could be stamped onto that old tree
+    without objection.
+
+    Accepted rather than solved: the strict version needs structured
+    per-finding tree fields, and inferring intent from prose would be a worse
+    guess than the loose match. What this DOES catch is the case that actually
+    occurred -- a round whose findings never mention the head tree at all --
+    and it catches it by refusing, which is the direction that matters.
+    """
+    from divineos.core.watchmen.store import list_findings
+
+    trees: set[str] = set()
+    try:
+        findings = list_findings(round_id=round_id, limit=200) or []
+    except Exception:  # noqa: BLE001 - an unreadable store is not "no trees"
+        return trees
+    for f in findings:
+        text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
+        if "confirms" not in text.lower():
+            continue
+        trees.update(m.group(1).lower() for m in _TREE_NEAR.finditer(text))
+    return trees
+
+
+def _tree_is_covered(head_tree: str, confirmed: set[str]) -> bool:
+    """Does any confirmed tree refer to this head? Prefix match, both ways.
+
+    The empty-head guard is not defensive noise. Prefix matching makes ""
+    match EVERYTHING -- every string starts with the empty string -- so an
+    unresolvable head tree would have read as covered by any round at all.
+    Caught by the test that asserted it, which is the whole argument for
+    writing the unglamorous case down.
+    """
+    h = (head_tree or "").lower()
+    if not h:
+        return False
+    return any(h.startswith(t) or t.startswith(h) for t in confirmed if t)
+
+
+def _round_by_id(round_id: str):
+    """The round record, or None. Lookup by id, never by position."""
+    from divineos.core.watchmen.store import list_rounds
+
+    for rnd in list_rounds(limit=500):
+        if getattr(rnd, "round_id", "") == round_id:
+            return rnd
+    return None
 
 
 def register(cli: click.Group) -> None:
@@ -101,10 +178,28 @@ def register(cli: click.Group) -> None:
         # convention is that a round's focus names the branch it covers,
         # which is also what the build-flow station checker matches on.
         if not round_id:
+            # Match the full branch OR its last segment. The narrow version
+            # matched only the full ref, and on 2026-08-17 that made a WRONG
+            # resolution look like a confident one: PR #412's fresh round had
+            # focus "...PR 412 ci-merge-review-visibility at tree ebad5700",
+            # which does not contain "split/ci-merge-review-visibility". So the
+            # correct round was not a candidate at all, the stale one was the
+            # only match, and the multi-candidate guard below -- which exists
+            # precisely to refuse this -- never fired because one is not more
+            # than one.
+            #
+            # Widening makes ambiguity VISIBLE rather than resolving it by
+            # accident. Two candidates now means the command stops and asks,
+            # which is the outcome the guard was written for.
+            tail = branch.rsplit("/", 1)[-1] if branch else ""
             candidates = [
                 rnd
                 for rnd in list_rounds(limit=200)
-                if branch and branch in (getattr(rnd, "focus", "") or "")
+                if branch
+                and (
+                    branch in (getattr(rnd, "focus", "") or "")
+                    or (tail and tail in (getattr(rnd, "focus", "") or ""))
+                )
             ]
             if not candidates:
                 click.secho(f"[!] No audit round names branch {branch}.", fg="red")
@@ -226,6 +321,62 @@ def register(cli: click.Group) -> None:
                 "    DEPRECATED. Fetch the branch, then re-run.",
                 fg="yellow",
             )
+
+        # THE ROUND MUST ATTEST TO THE TREE IT IS ABOUT TO BE PAIRED WITH.
+        #
+        # `External-Review: <round> tree-hash:<T>` is a sentence, and it says
+        # that round authorized tree T. Until 2026-08-17 nothing checked it:
+        # the round came from branch-resolution and the tree came from the PR
+        # head, and they were concatenated without ever being compared.
+        #
+        # Caught on PR #412, where the two halves came from different reviews.
+        # Branch-resolution selected a round aged 5.3 days and paired it with a
+        # tree written four hours earlier. Every line of the validation output
+        # was true -- operator-CONFIRMS present, external-AI-CONFIRMS present,
+        # within the 14-day recency window -- and the composed sentence was
+        # false. A recency window measured in DAYS cannot see that the tree
+        # moved, and tree-movement rather than elapsed time is what ends a
+        # confirmation's authority. That is precisely the stale-round stamping
+        # that substance-binding was introduced to stop, performed by the tool
+        # built to perform substance-binding.
+        #
+        # Worse in that instance, and the reason this refuses rather than
+        # warns: the id belonged to a DIFFERENT PARTY'S round. The external
+        # reviewer minted an id in her own store; it collided with an unrelated
+        # local round on the same branch. So the failure is not only "old
+        # review" -- it can be "someone else's review entirely", and neither is
+        # visible in the emitted trailer.
+        if tree_hash:
+            confirmed = _confirmed_trees(round_id)
+            if confirmed and not _tree_is_covered(tree_hash, confirmed):
+                named = ", ".join(sorted(t[:12] for t in confirmed))
+                click.secho(
+                    f"[!] Round {round_id} CONFIRMS tree(s) {named}, but this PR's head\n"
+                    f"    tree is {tree_hash[:12]}. Pairing them would assert a review\n"
+                    "    that did not happen.\n"
+                    "    Get a round against the current tree, or pass --audit-round\n"
+                    "    naming the round that actually covers it.",
+                    fg="red",
+                )
+                click.secho(
+                    "    PR left in draft. This is the stale-round stamping that\n"
+                    "    substance-binding exists to prevent.",
+                    fg="bright_black",
+                )
+                raise click.exceptions.Exit(1)
+            if not confirmed:
+                # The round's CONFIRMS name no tree at all. That is NOT
+                # agreement -- it is a round that never said, and saying
+                # nothing must not read as saying yes. Loud, but not fatal:
+                # plenty of legitimate older rounds predate the convention of
+                # naming the tree, and refusing them outright would break the
+                # normal path to fix a rare one.
+                click.secho(
+                    f"[!] Round {round_id} names no tree in any CONFIRMS finding, so\n"
+                    f"    nothing here proves it covers tree {tree_hash[:12]}. The trailer\n"
+                    "    will still bind the tree; the ROUND's coverage of it is unverified.",
+                    fg="yellow",
+                )
 
         body = compose_merge_body(round_id, pr_title, verdict.age_days, tree_hash)
 
