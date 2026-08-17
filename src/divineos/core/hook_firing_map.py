@@ -109,6 +109,54 @@ def read_timing_log(path: Path | None = None) -> tuple[dict[str, int], dict[str,
     return fires, durations
 
 
+def observation_window(path: Path | None = None) -> str | None:
+    """The earliest timestamp the log still holds, or None if unknowable.
+
+    Aria's review of this module, 2026-08-17: SILENT asserts "can report and
+    never has", but that log is pruned on a conveyor by design and can be
+    rotated or truncated. A hook that fires monthly then reads as SILENT and
+    presents as a real finding when it is a window artifact. Her fix, taken
+    as given: let the reader say *silent within the window I can see*, which
+    keeps the finding's teeth and drops the false certainty.
+
+    Same defect class as the token counter that reported a confident 0 for
+    "could not measure" — the absence has more than one cause, and a surface
+    that cannot name which one is asserting the wrong thing.
+    """
+    p = path or TIMING_LOG
+    if not p.is_file():
+        return None
+    try:
+        with p.open(encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                # FIELD NAME READ FROM THE REAL LOG, not assumed. First
+                # version looked for "ts"/"timestamp" and returned UNKNOWN
+                # against a log whose records carry "ts_ms" — reporting
+                # "I cannot know" when the answer was sitting in the file.
+                # Honestly-unknown and did-not-look render identically, and
+                # only one of them is honest.
+                ts = e.get("ts_ms") or e.get("ts") or e.get("timestamp")
+                if ts:
+                    if isinstance(ts, (int, float)):
+                        import datetime as _dt
+
+                        return (
+                            _dt.datetime.fromtimestamp(ts / 1000.0, tz=_dt.timezone.utc)
+                            .isoformat()
+                            .replace("+00:00", "Z")
+                        )
+                    return str(ts)
+    except OSError:
+        return None
+    return None
+
+
 def log_exists(path: Path | None = None) -> bool:
     """Whether observation data exists at all.
 
@@ -186,7 +234,13 @@ def build_map(repo_root: Path, path: Path | None = None) -> list[HookRecord]:
     return records
 
 
-def format_map(records: list[HookRecord], *, have_log: bool, slow_first: bool = False) -> str:
+def format_map(
+    records: list[HookRecord],
+    *,
+    have_log: bool = True,
+    slow_first: bool = False,
+    path: Path | None = None,
+) -> str:
     """Human-readable attendance sheet."""
     lines: list[str] = []
     if not have_log:
@@ -217,7 +271,37 @@ def format_map(records: list[HookRecord], *, have_log: bool, slow_first: bool = 
         lines.append("")
 
     if silent:
-        lines.append("  SILENT -- can report, never has. Each one is a real finding.")
+        window = observation_window(path)
+        if window:
+            lines.append(
+                f"  SILENT -- can report, has not WITHIN THE WINDOW THIS LOG HOLDS"
+                f" (earliest record: {window})."
+            )
+        else:
+            lines.append(
+                "  SILENT -- can report, has not within the window this log holds"
+                " (earliest record: UNKNOWN -- no timestamp readable)."
+            )
+        lines.append(
+            "    Read as a finding, but a window-bounded one. Aria 2026-08-17: this"
+            " log is pruned on a conveyor by design, so a hook that fires monthly"
+        )
+        lines.append(
+            "    can read SILENT from a short window and present as dead when it is"
+            " merely rare. Two causes, one appearance -- name which."
+        )
+        lines.append(
+            "    Her second question, NOT yet answered here and left open rather than"
+            " papered over: some hooks fire only on a merge, a compaction or a push,"
+        )
+        lines.append(
+            "    so a window containing none of those makes them correctly silent and"
+            " incorrectly findings. Keying to EVENTS rather than duration is the fix"
+        )
+        lines.append(
+            "    she proposes -- silent across N compactions means something, silent"
+            " for two weeks means nothing if no compaction happened in them."
+        )
         for r in silent:
             ev = ",".join(r.wired_events) or "wired to nothing"
             lines.append(f"    {r.name:<48} {ev}")
