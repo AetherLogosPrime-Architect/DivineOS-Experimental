@@ -371,6 +371,31 @@ def vacuum_database(dry_run: bool = False) -> dict[str, float]:
     return result
 
 
+def mtime_or_zero(path: Path) -> float:
+    """Modification time, or 0.0 if the path vanished mid-scan.
+
+    A SORT KEY THAT CAN RAISE takes the whole caller down with it. These
+    scans run against live directories — the log dir while other processes
+    rotate it, pytest's run- dirs while other xdist workers create and tear
+    them down — so a file disappearing between the listing and the sort is
+    ordinary, not exceptional.
+
+    Reproduced 2026-08-17 by unlinking one file between glob and sort:
+    FileNotFoundError propagated out of run_maintenance, which then returned
+    nothing, so callers asserting result["logs"] found no such key. That is
+    the mechanism behind four parallel-only failures this session. Both
+    removal loops in this module already wrapped the identical stat() call;
+    only the sort keys were bare.
+
+    Sorting a vanished file first is correct: it is the oldest thing that
+    could possibly be there, and every removal path skips it anyway.
+    """
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def clean_old_logs(dry_run: bool = False, log_dir: Path | None = None) -> dict[str, int | float]:
     """Remove old rotated log files — count-based OR age-based.
 
@@ -400,7 +425,25 @@ def clean_old_logs(dry_run: bool = False, log_dir: Path | None = None) -> dict[s
         return {"removed_count": 0, "freed_mb": 0.0}
 
     # Rotated logs match pattern: divineos.YYYY-MM-DD_*.log
-    rotated = sorted(log_dir.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
+    #
+    # STAT DEFENSIVELY IN THE SORT KEY, not just in the removal loop below.
+    # A bare p.stat() here raised FileNotFoundError whenever a rotated log
+    # vanished between the glob and the sort — and this function runs against
+    # the LIVE log directory while other processes are writing and rotating it.
+    # The exception propagated out of run_maintenance, which then returned
+    # nothing at all, so callers asserting result["logs"] found no such key.
+    #
+    # Reproduced 2026-08-17 by deleting one file between the glob and the sort:
+    # FileNotFoundError, run_maintenance aborted, result["logs"] absent. That
+    # is the mechanism behind four parallel-only test failures across this
+    # session (test_logs_section_has_fields twice, test_caches_section_has_actions,
+    # test_wiring_gap_phase1) — under pytest -n auto, other workers churn the
+    # same directory, so the window between glob and stat actually gets hit.
+    #
+    # The loop below ALREADY wraps the identical p.stat() call in try/except
+    # OSError. The risk was known and guarded in one place and left bare in the
+    # other, twenty lines apart.
+    rotated = sorted(log_dir.glob("divineos.*.log"), key=mtime_or_zero)
     if not rotated:
         return {"removed_count": 0, "freed_mb": 0.0}
 
@@ -568,7 +611,7 @@ def clean_pytest_tmp(dry_run: bool = False, keep_recent: int = 3) -> dict:
     for pytest_dir in pytest_dirs:
         run_dirs = sorted(
             [d for d in pytest_dir.iterdir() if d.is_dir() and d.name.startswith("run-")],
-            key=lambda d: d.stat().st_mtime,
+            key=mtime_or_zero,
             reverse=True,
         )
 

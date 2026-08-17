@@ -125,6 +125,29 @@ try:
         reason=sys.argv[1],
     )
     print(f'[check-branch-on-push] BYPASS RECORDED — telemetry+claim+obligation filed', file=sys.stderr)
+    # A pulled kill-switch IS a down detector, so say so where it costs
+    # something. Wired 2026-08-02 after finding this marker had sat engaged
+    # for 17 DAYS: written for one relayed emergency on 2026-07-16 (Aria
+    # gate-locked near compaction), never switched back, silently skipping
+    # branch-health on every push since. It showed as the second-heaviest
+    # bypass in the 14-day window -- not 14 decisions, one stale file firing
+    # repeatedly. The hook recorded each use faithfully and nothing ever
+    # reconsidered the switch, which is the exact shape the degraded-detector
+    # teeth exist for: broken, unfixed, and unspoken.
+    #
+    # report_degraded is idempotent and does NOT re-arm an existing deferral,
+    # so a genuinely long emergency can be deferred once with a written
+    # reason instead of nagging every push.
+    try:
+        from divineos.core.degraded_detectors import report_degraded
+        report_degraded(
+            'check-branch-on-push',
+            'kill-switch engaged: ' + (sys.argv[1] or '(no reason recorded)')[:180],
+            'delete the marker once the emergency is over, or: '
+            'divineos detectors defer check-branch-on-push --reason '<why it must stay off>'',
+        )
+    except Exception:
+        pass
 except Exception as e:
     print(f'[check-branch-on-push] BYPASS-RECORDING FAILED — {type(e).__name__}: {e}', file=sys.stderr)
     print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
