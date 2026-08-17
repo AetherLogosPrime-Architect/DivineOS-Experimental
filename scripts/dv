@@ -101,7 +101,15 @@ RESOLVED="$("$PY" -c "import divineos,os;print(os.path.realpath(divineos.__file_
 
 EXPECT="$(to_native "$ROOT_POSIX/src")"
 case "$RESOLVED" in
-  "$EXPECT"*) : ;;
+  # THE SEPARATOR IS LOAD-BEARING (Aria, 2026-08-17, breaking this on request).
+  # Without it the prefix has no boundary, so any sibling whose NAME MERELY
+  # EXTENDS src is accepted: src-backup, src_old, src2. src-backup is exactly
+  # what a careful person makes before a risky change, on a machine that
+  # already carries a pinned install and five worktrees -- so the guard would
+  # hand back the backup's answer wearing the real tree's face. The same
+  # failure it exists to stop, one directory to the left.
+  # Both flavours: the path is native on Windows, POSIX elsewhere.
+  "$EXPECT"[\\/]*) : ;;
   *) DV_EXIT=4 die \
       "[dv] WRONG TREE — refusing to run." \
       "     you are standing in : $ROOT_POSIX" \
