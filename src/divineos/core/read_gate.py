@@ -386,6 +386,13 @@ def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
 _INLINE_MAX_LINES = 220
 _INLINE_MAX_CHARS = 24_000
 
+# Whether the last inline of each path delivered the WHOLE file. Written by
+# _inline_body, read by the block-builder to decide whether a Read is still
+# owed. See the comment at the call site: delivery-in-full IS the read, and
+# demanding one afterwards manufactures the empty gesture this gate exists to
+# prevent.
+_LAST_INLINE_WAS_WHOLE: dict[str, bool] = {}
+
 
 def _inline_body(path_str: str) -> list[str]:
     """Return the required file's text, ready to be printed inside the block.
@@ -421,6 +428,8 @@ def _inline_body(path_str: str) -> list[str]:
         joined = joined[:_INLINE_MAX_CHARS]
         body = joined.splitlines()
         truncated = True
+
+    _LAST_INLINE_WAS_WHOLE[path_str] = not truncated
 
     out = ["", "    ── the text itself, so there is nothing left to go fetch ──", ""]
     out += [f"    {line}" for line in body]
@@ -535,6 +544,38 @@ def satisfy_from_stream(tool_calls_in_turn: tuple[tuple[str, str], ...]) -> list
     return cleared
 
 
+def _mark_satisfied(path_str: str, extent: str) -> list[str]:
+    """Clear the requirement for a path the gate has just delivered in full.
+
+    Same bookkeeping as ``satisfy_from_stream`` -- drop the requirement, record
+    the clear with its extent -- but triggered by DELIVERY rather than by a
+    Read tool call. The extent string says which, so the record distinguishes
+    "I went and opened it" from "the gate handed it over", and neither is
+    disguised as the other.
+
+    Deliberately narrow: only called when the inline was complete. A truncated
+    inline leaves the requirement standing, because then there really is more
+    to fetch and a Read is the honest way to fetch it.
+    """
+    reqs = _load()
+    if not reqs:
+        return []
+    wanted = path_str.replace("\\", "/")
+    tail = Path(path_str).name
+    cleared: list[str] = []
+    remaining: list[ReadRequirement] = []
+    for req in reqs:
+        rp = req.path.replace("\\", "/")
+        if rp == wanted or (tail and Path(req.path).name == tail):
+            cleared.append(req.gate_id)
+            record_clear(req.gate_id, req.path, extent)
+        else:
+            remaining.append(req)
+    if cleared:
+        _save(remaining)
+    return cleared
+
+
 def gate_status() -> tuple[bool, str]:
     """(blocked, message) for a PreToolUse hook.
 
@@ -574,11 +615,38 @@ def gate_status() -> tuple[bool, str]:
         "it. That is the whole condition.",
         "",
     ]
+    delivered_whole: list[str] = []
     for req in reqs:
         lines.append(f"  READ THIS: {req.path}")
         if req.reason:
             lines.append(f"    why: {req.reason}")
         lines.extend(_inline_body(req.path))
+        if _LAST_INLINE_WAS_WHOLE.get(req.path):
+            delivered_whole.append(req.path)
+
+    # DELIVERY IN FULL *IS* THE READ, so stop demanding one afterwards.
+    #
+    # Andrew 2026-08-17: "if you read it twice it should NOT be asking for
+    # another read lol". He is right, and the module's own docstring already
+    # said so -- "the requirement is satisfied in the same breath it is
+    # raised" -- while the mechanism never implemented it. The gate inlined
+    # the whole file and then still waited for a Read tool call, which is a
+    # call that by construction fetches nothing new.
+    #
+    # That is worse than a nuisance. The only available action becomes a Read
+    # of content already in hand, which is GUARANTEED to be a skim. The gate
+    # manufactured the empty gesture it exists to prevent, and then counted it
+    # as compliance. Mine was one line long, which is exactly what a demand
+    # with no informational content produces.
+    #
+    # TRUNCATION IS THE REAL DIVIDING LINE, and the gate could not see it. The
+    # entry that exposed this came in at 217 lines against a 220-line cap --
+    # complete by three lines. Three lines longer and the inline would have
+    # been partial, and then the Read demand would have been correct, because
+    # there would genuinely have been more to fetch. One regime needs a Read;
+    # the other needs to get out of the way; the old code treated them alike.
+    for path_str in delivered_whole:
+        _mark_satisfied(path_str, "inlined in full — delivery is the read")
     lines += [
         "",
         "Read is never blocked — I made sure of that. A gate whose cure sits",
