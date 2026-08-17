@@ -73,7 +73,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import time
@@ -81,6 +80,7 @@ from pathlib import Path
 
 try:
     from divineos.core.mesh_loop import FireAction, decide_for_letter
+
     _MESH_LOOP_AVAILABLE = True
 except ImportError:
     _MESH_LOOP_AVAILABLE = False
@@ -225,11 +225,7 @@ def scan_dir(shared_dir: Path, tag: str) -> list[Path]:
     if not shared_dir.exists() or not shared_dir.is_dir():
         return []
     try:
-        return sorted(
-            p
-            for p in shared_dir.iterdir()
-            if p.is_file() and is_letter_for(p.name, tag)
-        )
+        return sorted(p for p in shared_dir.iterdir() if p.is_file() and is_letter_for(p.name, tag))
     except OSError:
         return []
 
@@ -364,8 +360,11 @@ def _launch_ephemeral_task_worker(
         log_fp = log_path.open("wb")
         subprocess.Popen(
             [
-                "claude", "-p", prompt,
-                "--allowedTools", allowed_tools,
+                "claude",
+                "-p",
+                prompt,
+                "--allowedTools",
+                allowed_tools,
             ],
             stdout=log_fp,
             stderr=subprocess.STDOUT,
@@ -419,9 +418,7 @@ def _maybe_fire_ephemeral_task_worker(
             "max": decision.state.max,
             "signal": decision.state.signal,
         }
-    _append_worker_event(
-        wake_file, "worker_decision", letter_path, recipient, decision_payload
-    )
+    _append_worker_event(wake_file, "worker_decision", letter_path, recipient, decision_payload)
 
     # Enumerative dispatch — every FireAction must be in exactly one of
     # FIRING_ACTIONS or SKIP_ACTIONS. If a new action is added to the enum

@@ -599,7 +599,9 @@ def get_cross_session_summary(limit: int = 10) -> str:
             "SELECT name FROM sqlite_master WHERE type='table' AND name='check_result'",
         ).fetchone()
         if not tables:
-            return "No sessions analyzed yet. Run 'divineos report <session> --store' first."
+            return (
+                "No sessions analyzed yet. Run 'divineos inspect analyze <session> --store' first."
+            )
 
         rows = conn.execute(
             "SELECT DISTINCT session_id FROM check_result ORDER BY session_id LIMIT ?",
@@ -608,7 +610,9 @@ def get_cross_session_summary(limit: int = 10) -> str:
 
         session_count = len(rows)
         if session_count == 0:
-            return "No sessions analyzed yet. Run 'divineos report <session> --store' first."
+            return (
+                "No sessions analyzed yet. Run 'divineos inspect analyze <session> --store' first."
+            )
         if session_count == 1:
             return "Only 1 session analyzed so far. Need 2+ sessions to spot patterns."
 

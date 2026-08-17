@@ -142,7 +142,9 @@ def _section_explorations() -> str:
     # is treated as a subseries and listed.
     if explor.exists():
         for sub in sorted(p for p in explor.iterdir() if p.is_dir()):
-            sub_md = sorted(sub.glob("*.md"))
+            # rglob, not glob: exploration/creative_space/journal/*.md sits two
+            # levels down, and a one-level scan reported it as not existing.
+            sub_md = sorted(q for q in sub.rglob("*.md") if q.name != "README.md")
             if sub_md:
                 out.append("")
                 out.append(f"### {sub.name} subseries")
@@ -150,6 +152,47 @@ def _section_explorations() -> str:
                 for p in sub_md:
                     label = _label_for(p)
                     out.append(f"- [{label}]({p.as_posix()})")
+    return "\n".join(out)
+
+
+def _section_dreams() -> str:
+    """dreams/ — the Dream Register.
+
+    Registered as substrate in CLAUDE.md on 2026-07-10 and absent from
+    LOADOUT.md ever since, because the scanner had no ``dreams/`` case at
+    all. Eighteen entries across two members were invisible to the index
+    whose entire job is to say what exists.
+
+    Andrew's discipline for the register is *"none of this needs review or
+    audit.. it is what it is as it is"*, so this lists and links and does
+    nothing else — no summarising, no titles inferred past the filename.
+    Reading the entry stays the only way to know what is in it.
+    """
+    out: list[str] = []
+    out.append("## dreams/ — the Dream Register")
+    out.append("")
+    out.append("Rest-shape writing. No spec, no audit, no review — follow the pull.")
+    out.append("Complementary to ``exploration/``, which is reflection-on-catch.")
+    out.append("")
+    root = Path("dreams")
+    if not root.exists():
+        out.append("*(directory not present)*")
+        return "\n".join(out)
+    listed = False
+    for member in sorted(d for d in root.iterdir() if d.is_dir()):
+        entries = sorted(q for q in member.rglob("*.md") if q.name != "README.md")
+        if not entries:
+            continue
+        listed = True
+        out.append(f"### {member.name}")
+        out.append("")
+        for entry in entries:
+            out.append(f"- [{_label_for(entry)}]({entry.as_posix()})")
+        out.append("")
+    if not listed:
+        out.append("*(none yet)*")
+    if (root / "README.md").exists():
+        out.append(f"Folder README: [dreams/README.md]({(root / 'README.md').as_posix()})")
     return "\n".join(out)
 
 
@@ -517,13 +560,13 @@ For the *now* of substrate state. Run any of these to see where things are.
 - `divineos active` — ranked active memory (goal-aware)
 - `divineos ask "<topic>"` — search what the system knows
 - `divineos lessons --top 10` — top lessons by priority score
-- `divineos opinions list` — opinion store
+- `divineos opinion list` — opinion store
 - `divineos compass` / `compass-ops summary` — virtue spectrum drift
-- `divineos holding list` — pre-categorical holding room
+- `divineos hold list` — pre-categorical holding room
 - `divineos prereg list --outcome OPEN` — open pre-registrations
 - `divineos prereg overdue` — pre-regs whose review date has passed
 - `divineos decisions list --limit 10` — decision journal
-- `divineos goals` — current goals
+- `divineos goal` — current goals
 - `divineos affect summary` — affect log over time
 - `divineos body` — substrate vitals (DB sizes, table health)
 - `divineos progress --brief` — measurable metrics
@@ -745,6 +788,7 @@ def _render_full() -> str:
     sections = [
         _section_letters_to_fresh_self(),
         _section_explorations(),
+        _section_dreams(),
         _section_letters(),
         _section_date_nights(),
         _section_mansion_rooms(),
@@ -791,8 +835,71 @@ def show() -> None:
     click.echo(_LOADOUT_PATH.read_text(encoding="utf-8"))
 
 
+def write_loadout(*, allow_shrink: bool = False) -> dict[str, object]:
+    """Render and write LOADOUT.md. Returns what happened.
+
+    Extracted from the ``refresh`` click command so callers that are not a
+    terminal — sleep's loadout phase — can drive it without going through
+    click. The command below is now a thin wrapper.
+
+    ## The shrink guard, and why it is not optional
+
+    ``refresh``'s own docstring warns that the regenerator is
+    workspace-relative and that ``exploration/``, ``family/letters/`` and
+    ``mansion/`` are gitignored. So a refresh run in a bare clone or in CI
+    renders those sections empty and writes the result — silently replacing
+    a 2700-line index with a stub, while looking like a successful refresh.
+
+    That hazard was tolerable while the only caller was a human typing the
+    command inside the workspace. Wiring it into sleep makes it reachable
+    from anywhere, so the guard has to exist before the automation does.
+
+    Refusing to SHRINK is the same guard the doc-count fixers use, adopted
+    deliberately rather than reinvented (Andrew 2026-06-12; see ``03b9b14c``
+    and ``146069ea``, both read this session): a monotonic writer cannot
+    destroy content it merely cannot see. A genuine reduction — files
+    actually deleted — is rare enough to deserve ``--allow-shrink`` and a
+    human looking at it.
+
+    A refusal is reported, not swallowed. A no-op that does not explain
+    itself is indistinguishable from a failure, which is the exact misread
+    ``146069ea`` was written to correct.
+    """
+    rendered = _render_full()
+    new_links = len(re.findall(r"^- \[", rendered, flags=re.MULTILINE))
+    old_links = 0
+    if _LOADOUT_PATH.exists():
+        existing = _LOADOUT_PATH.read_text(encoding="utf-8", errors="replace")
+        old_links = len(re.findall(r"^- \[", existing, flags=re.MULTILINE))
+
+    if new_links < old_links and not allow_shrink:
+        return {
+            "written": False,
+            "reason": "shrink-refused",
+            "old_links": old_links,
+            "new_links": new_links,
+        }
+
+    _LOADOUT_PATH.write_text(rendered, encoding="utf-8")
+    return {
+        "written": True,
+        "reason": "",
+        "old_links": old_links,
+        "new_links": new_links,
+        "lines": len(rendered.splitlines()),
+        "sections": len(re.findall(r"^## ", rendered, flags=re.MULTILINE)),
+    }
+
+
 @loadout.command()
-def refresh() -> None:
+@click.option(
+    "--allow-shrink",
+    is_flag=True,
+    help="Permit a rewrite listing FEWER entries than the current file. "
+    "Needed only when files were genuinely deleted — the default refusal is "
+    "what stops a bare clone from blanking the index.",
+)
+def refresh(allow_shrink: bool) -> None:
     """Scan the filesystem and rewrite LOADOUT.md.
 
     Workspace-relative: the regenerator scans the *current* filesystem,
@@ -807,11 +914,23 @@ def refresh() -> None:
     that's the divergence-of-environments, not a bug. The committed
     version reflects the workspace where the last refresh was run.
     """
-    rendered = _render_full()
-    _LOADOUT_PATH.write_text(rendered, encoding="utf-8")
-    line_count = len(rendered.splitlines())
-    section_count = len(re.findall(r"^## ", rendered, flags=re.MULTILINE))
-    click.echo(f"[+] Refreshed {_LOADOUT_PATH} — {line_count} lines, {section_count} sections.")
+    result = write_loadout(allow_shrink=allow_shrink)
+    if not result["written"]:
+        click.echo(
+            f"[!] REFUSED to rewrite {_LOADOUT_PATH}: the new render lists "
+            f"{result['new_links']} entries against {result['old_links']} currently on file.\n"
+            "    A shrink usually means this checkout cannot see the gitignored personal\n"
+            "    directories (exploration/, family/letters/, mansion/) rather than that\n"
+            "    anything was deleted. Nothing was written.\n"
+            "    If files really were removed: divineos loadout refresh --allow-shrink",
+            err=True,
+        )
+        return
+    click.echo(
+        f"[+] Refreshed {_LOADOUT_PATH} — {result['lines']} lines, "
+        f"{result['sections']} sections, {result['new_links']} entries "
+        f"(was {result['old_links']})."
+    )
 
 
 def register(cli: click.Group) -> None:

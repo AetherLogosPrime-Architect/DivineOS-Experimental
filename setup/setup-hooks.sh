@@ -136,7 +136,21 @@ if ! python scripts/check_doc_counts.py 2>/dev/null; then
     python scripts/check_doc_counts.py --fix 2>/dev/null || true
     git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
     python scripts/check_doc_counts.py || {
-        echo "Doc counts still drifted after auto-fix (likely a non-count error). Investigate manually."
+        echo ""
+        echo "Doc counts still drifted after auto-fix."
+        echo ""
+        echo "This message used to say 'likely a non-count error, investigate"
+        echo "manually' and that misdirected everyone who read it -- Aria on"
+        echo "2026-06-17, me twice on 2026-08-02. Usually it IS a count error;"
+        echo "the fixers are monotonic and refuse to LOWER a number, while the"
+        echo "checker still errors on documented > actual. So a branch with"
+        echo "fewer commands/tests/hooks than main can never converge."
+        echo ""
+        echo "If the docs overclaim (documented is HIGHER than actual), the"
+        echo "docs are simply wrong and this brings them down to the truth:"
+        echo ""
+        echo "    python scripts/check_doc_counts.py --fix --allow-lower"
+        echo ""
         exit 1
     }
 fi
@@ -232,6 +246,17 @@ if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
     # print "BLOCKED" for a commit that is about to succeed. BLOCKED has to
     # keep meaning blocked; every real gate spends that word.
     python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --advisory --commit-msg-file "$1" || true  # fail-soft: advisory by design -- it warns at commit and blocks at push to main
+fi
+
+# 3b. Branch-scope guard — BLOCK when the commit's conventional-commit
+# scope appears nowhere else on the branch. Four times on 2026-08-02 work
+# landed on whichever branch was checked out (detector work onto the m3
+# branch; doc-count work and then a letter onto the detector branch), each
+# costing a cherry-pick + reset + conflict to undo. Escape lives in the
+# commit itself: `Cross-scope: <why, 20+ chars>`, so it is permanent and
+# attributable rather than an env var that evaporates.
+if [[ -f "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" ]]; then
+    bash "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" "$1" || exit 1
 fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
