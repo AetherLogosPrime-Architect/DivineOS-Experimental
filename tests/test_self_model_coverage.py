@@ -39,8 +39,20 @@ class TestBuildSelfModel:
         model = build_self_model()
         comp = model["completeness"]
         assert comp["total"] == 8
-        assert comp["succeeded"] + len(comp["failed"]) == 8
-        assert comp["complete"] == (len(comp["failed"]) == 0)
+        # UPDATED 2026-08-17 and this test is why the rename was safe -- it
+        # caught the field change immediately, which is a test doing its job.
+        #
+        # `succeeded`/`failed` became `populated`/`empty`/`raised`. The old pair
+        # counted "did not raise" as success, and since every section catches
+        # six exception types internally and returns a default, essentially
+        # nothing could ever land in `failed`. So the old assertion
+        # (succeeded + failed == 8) held for a model that knew nothing at all,
+        # and `complete` came out True on a fresh database with identity
+        # Unknown and every list empty.
+        assert comp["populated"] + len(comp["empty"]) + len(comp["raised"]) == 8
+        # complete now requires sections that actually carry something, not
+        # merely sections that did not throw.
+        assert comp["complete"] == (not comp["empty"] and not comp["raised"])
 
 
 class TestIdentity:
