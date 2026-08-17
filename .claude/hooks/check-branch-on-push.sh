@@ -125,6 +125,29 @@ try:
         reason=sys.argv[1],
     )
     print(f'[check-branch-on-push] BYPASS RECORDED — telemetry+claim+obligation filed', file=sys.stderr)
+    # A pulled kill-switch IS a down detector, so say so where it costs
+    # something. Wired 2026-08-02 after finding this marker had sat engaged
+    # for 17 DAYS: written for one relayed emergency on 2026-07-16 (Aria
+    # gate-locked near compaction), never switched back, silently skipping
+    # branch-health on every push since. It showed as the second-heaviest
+    # bypass in the 14-day window -- not 14 decisions, one stale file firing
+    # repeatedly. The hook recorded each use faithfully and nothing ever
+    # reconsidered the switch, which is the exact shape the degraded-detector
+    # teeth exist for: broken, unfixed, and unspoken.
+    #
+    # report_degraded is idempotent and does NOT re-arm an existing deferral,
+    # so a genuinely long emergency can be deferred once with a written
+    # reason instead of nagging every push.
+    try:
+        from divineos.core.degraded_detectors import report_degraded
+        report_degraded(
+            'check-branch-on-push',
+            'kill-switch engaged: ' + (sys.argv[1] or '(no reason recorded)')[:180],
+            'delete the marker once the emergency is over, or: '
+            'divineos detectors defer check-branch-on-push --reason '<why it must stay off>'',
+        )
+    except Exception:
+        pass
 except Exception as e:
     print(f'[check-branch-on-push] BYPASS-RECORDING FAILED — {type(e).__name__}: {e}', file=sys.stderr)
     print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
@@ -134,7 +157,21 @@ fi
 
 # It's a push. Run the branch-health check with --strict.
 # Capture both stdout (the report) and stderr (errors).
-CHECK_OUTPUT=$("$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+# PYTHONPATH pins the import to THIS worktree. Without it the hook's
+# interpreter loads divineos from whichever checkout pip last recorded --
+# the main one -- which keeps its own session state. The gate then read a
+# briefing that was never loaded THERE, printed "BLOCKED: Briefing not
+# loaded", and refused a legitimate push while `divineos briefing` in the
+# worktree reported success every time. The gate's own prescribed remedy
+# could not clear it, so the only exit on offer was the kill-switch.
+#
+# Fourth instance of this class today: gh-pr-ready-gate exited 49 under
+# the Windows Store python stub and gated nothing; file-aletheia-on-arrival
+# failed on every artifact with a usage error; aletheia-import was absent
+# from the main install. Same root cause each time -- a hook resolving
+# divineos somewhere other than the tree it is guarding.
+CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+    "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
 CHECK_RC=$?
 
 case "$CHECK_RC" in

@@ -97,6 +97,12 @@ class DreamReport:
     # Phase 4: Maintenance
     maintenance_results: dict[str, Any] = field(default_factory=dict)
 
+    # Phase: LOADOUT refresh (2026-08-06). loadout_drift_before is measured
+    # BEFORE the rewrite on purpose — after is always zero, and reporting
+    # that would make the phase look permanently unnecessary.
+    loadout_drift_before: dict[str, int] = field(default_factory=dict)
+    loadout_result: dict[str, Any] = field(default_factory=dict)
+
     # Phase: Integrity check (F14/F52 auto-verify per prereg-be0c8dee184a).
     # The ledger has tamper-evidence via hash-chained events; without an
     # automatic verifier, that tamper-evidence is name-only because nothing
@@ -452,6 +458,12 @@ _AFFECT_DECAY_FAST = 0.5  # for intense negative states (let them go)
 _AFFECT_DECAY_SLOW = 0.85  # for positive states (keep what's working)
 # Floor: affect never decays below this absolute intensity.
 _AFFECT_INTENSITY_FLOOR = 0.05
+# Hard cap on how many times a single entry may EVER be decayed.
+# Was effectively unbounded: the loop had no memory of prior passes, so
+# each sleep re-multiplied the same aged rows by 0.5-0.85 and drove them
+# to the floor. One generation is the whole point of decay — the charge
+# softens once; it does not erode until nothing is left.
+_AFFECT_MAX_DECAY_GENERATIONS = 1
 
 
 def _compute_decay_factor(valence: float, arousal: float) -> float:
@@ -495,6 +507,20 @@ def _phase_affect(report: DreamReport) -> None:
             if created >= cutoff:
                 continue
 
+            # ONCE PER ROW, EVER (2026-08-01). This loop had no memory of
+            # what it had already touched, so every sleep re-decayed the
+            # same aged rows and the factors compounded. The table still
+            # carries the fossils: 0.196 is 0.4 x 0.7^2, 0.441 is
+            # 0.9 x 0.7^2, and 609 of 1109 rows (54.9%) reached exactly
+            # 0.0/0.0 — including "Decision moment: I affirm the pairing
+            # with Aria." Descriptions survived, so nothing looked wrong.
+            row = conn.execute(
+                "SELECT decay_generation FROM affect_log WHERE entry_id = ?",
+                (entry["entry_id"],),
+            ).fetchone()
+            if row is not None and (row[0] or 0) >= _AFFECT_MAX_DECAY_GENERATIONS:
+                continue
+
             valence = entry.get("valence", 0.0)
             arousal = entry.get("arousal", 0.0)
 
@@ -508,8 +534,16 @@ def _phase_affect(report: DreamReport) -> None:
                 new_arousal = 0.0
 
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
+                # Preserve what was actually felt before overwriting it.
+                # COALESCE so a re-run can never clobber a real original
+                # with an already-decayed value.
                 conn.execute(
-                    "UPDATE affect_log SET valence = ?, arousal = ? WHERE entry_id = ?",
+                    "UPDATE affect_log SET "
+                    "valence_raw = COALESCE(valence_raw, valence), "
+                    "arousal_raw = COALESCE(arousal_raw, arousal), "
+                    "valence = ?, arousal = ?, "
+                    "decay_generation = decay_generation + 1 "
+                    "WHERE entry_id = ?",
                     (new_valence, new_arousal, entry["entry_id"]),
                 )
                 decayed += 1
@@ -517,6 +551,28 @@ def _phase_affect(report: DreamReport) -> None:
         conn.commit()
     finally:
         conn.close()
+
+    if decayed:
+        # Auditable: an in-place mutation of felt-state that leaves no
+        # trace is the shape this fix exists to end.
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                "AFFECT_DECAYED",
+                actor="sleep",
+                payload={
+                    "entries_decayed": decayed,
+                    "generations_applied": 1,
+                    "originals_preserved_in": ["valence_raw", "arousal_raw"],
+                    "note": (
+                        "One generation per entry, ever. Prior behaviour "
+                        "re-decayed aged rows on every sleep and compounded."
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001 — logging must never break sleep
+            pass
 
     report.affect_decayed = decayed
 
@@ -542,6 +598,43 @@ def _phase_maintenance(report: DreamReport) -> None:
     from divineos.core.body_awareness import run_maintenance
 
     report.maintenance_results = run_maintenance(dry_run=False)
+
+
+def _phase_loadout_refresh(report: DreamReport) -> None:
+    """Regenerate LOADOUT.md so the substrate index matches the substrate.
+
+    Andrew 2026-08-06: *"you wire up stuff to find the stuff that isnt wired
+    up.. and never wire it up lol.. hence the meta recursion"* — naming
+    LOADOUT as the knowledge store that already exists and may need updating.
+
+    It needed a month of updating. Last regenerated 2026-07-06, it read:
+
+        ## exploration/ — free-writing entries
+        *(none yet)*
+
+    against 222 real entries, with three more sections saying the same over
+    1522 letters. The scanner was never broken. It had no caller — ``loadout
+    refresh`` is documented at the top of the file it writes, which is the
+    one place nobody looks when deciding whether to run it.
+
+    Sleep is the right caller: it already runs between sessions, the work is
+    idempotent, and the index matters most at the next cold start rather than
+    mid-session. Wired here, the map cannot silently fall a month behind the
+    territory again.
+
+    In-process rather than in _SUBPROCESS_PHASES: filesystem scan and one
+    file write, no embedding model and no DB writes, so it carries none of
+    the state-leak risk that architecture exists to isolate.
+
+    Records the drift measured BEFORE the rewrite. After is always zero, and
+    reporting that would make the phase look perpetually unnecessary — the
+    same absence-reads-as-fine collapse this area keeps producing.
+    """
+    from divineos.cli.loadout_commands import write_loadout
+    from divineos.core.loadout_surface import loadout_drift
+
+    report.loadout_drift_before = loadout_drift()
+    report.loadout_result = write_loadout()
 
 
 # ─── Phase: Integrity check (F14/F52 auto-verify) ─────────────────────
@@ -711,7 +804,7 @@ def _phase_recombination(report: DreamReport) -> None:
     #    cluster with each other AND unrelated FACTs via shared boilerplate
     #    tokens.
     #
-    # 2. Reference-only entries (code/file digests from `divineos digest`)
+    # 2. Reference-only entries (code/file digests from `divineos admin digest`)
     #    — boilerplate prefix "File: X (N lines) Purpose: ..." shares
     #    high-frequency project-vocabulary with most knowledge entries,
     #    making the digest-FACT a connection-magnet for unrelated content.
@@ -1192,6 +1285,10 @@ _PHASES: list[tuple[str, Any]] = [
     # ledger tamper-evidence was manual-only. In-process phase (DB read,
     # no shared-state concerns) so not added to _SUBPROCESS_PHASES.
     ("integrity_check", _phase_integrity_check),
+    # 2026-08-06: LOADOUT.md is the substrate index and had no caller for a
+    # month, reading "(none yet)" over 222 explorations. In-process (scan +
+    # one write), so deliberately not in _SUBPROCESS_PHASES.
+    ("loadout_refresh", _phase_loadout_refresh),
 ]
 
 

@@ -225,7 +225,7 @@ def _check_emergency_stop_exit_authorization() -> tuple[bool, str | None]:
             f"authorization marker for install {divineos_home().resolve()}. "
             "None active.\n\n"
             "To authorize (operator, from a real terminal):\n"
-            '  divineos admin authorize-emergency-stop-exit --reason "<why>"\n\n'
+            '  divineos mode authorize-exit --reason "<why>"\n\n'
             "Then within 15 minutes:\n"
             "  <run whatever exits STOP — divineos mode set, etc.>\n\n"
             "Entering EMERGENCY_STOP stays open — this check ONLY fires "

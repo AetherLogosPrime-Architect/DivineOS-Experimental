@@ -321,8 +321,25 @@ def run_push_ready(
     repo: Path,
     branch: str | None = None,
     dry_run: bool = False,
+    round_id: str | None = None,
 ) -> PushReadyResult:
-    """Top-level: detect, open-round, amend, self-confirm, push."""
+    """Top-level: detect, open-round, amend, self-confirm, push.
+
+    ``round_id`` binds the trailer to a round that already exists instead
+    of opening a fresh one, and suppresses the aether self-CONFIRMS.
+
+    Both suppressions are required together. Andrew 2026-08-13, after the
+    eleven stamped PRs all went red on the server-side gate: the trailer
+    has to be on each guardrail-touching COMMIT as well as in the PR body,
+    and stamp-ready wrote only the body. Folding this in means one command
+    does both halves against ONE round.
+
+    Reusing the default path would have minted a second round per branch
+    and attached my own signature beside Andrew's and Aletheia's real
+    confirms. A self-signature next to two real ones is worse than none --
+    it pads the count with something that means nothing, on the exact
+    mechanism built to require signatures that do.
+    """
     branch = branch or current_branch(repo)
     guardrail_set = load_guardrail_set(repo)
     commits = detect_commits(repo, branch, guardrail_set)
@@ -340,19 +357,32 @@ def run_push_ready(
         return result
 
     if dry_run:
-        result.message = (
-            f"[dry-run] Would open audit round, amend {len(needing)} commit(s) "
-            f"on {branch} with trailer, file aether CONFIRMS, force-push."
-        )
+        if round_id:
+            result.message = (
+                f"[dry-run] Would amend {len(needing)} commit(s) on {branch} "
+                f"with trailer bound to {round_id}, then force-push. "
+                "No new round, no self-CONFIRMS."
+            )
+        else:
+            result.message = (
+                f"[dry-run] Would open audit round, amend {len(needing)} commit(s) "
+                f"on {branch} with trailer, file aether CONFIRMS, force-push."
+            )
         return result
 
-    round_id = open_audit_round(branch, needing)
+    bound_to_existing = bool(round_id)
+    if not round_id:
+        round_id = open_audit_round(branch, needing)
     result.round_id = round_id
 
     amended = amend_trailers(repo, commits, needing, round_id)
     result.amended_shas = amended
 
-    result.confirms_finding_id = file_self_confirms(round_id, branch)
+    # Only self-confirm when this opened its own round. A caller supplying
+    # a round has real signatures on it already; adding mine would pad the
+    # count with a signature that certifies nothing.
+    if not bound_to_existing:
+        result.confirms_finding_id = file_self_confirms(round_id, branch)
 
     pushed, stderr = force_push_branch(repo, branch)
     result.pushed = pushed

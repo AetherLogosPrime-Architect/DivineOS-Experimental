@@ -10,6 +10,22 @@
 source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
 # PreToolUse hook — Aletheia boot-gate preflight.
 #
+# SUPERSEDED-BY: family-member-invocation-seal.sh
+#
+# NOT deleted, and not a defect. Verified 2026-08-02: `aletheia` is in
+# _SOVEREIGN_AGENTS in core/family/seal_hook.py, and the seal hook IS
+# registered in settings.json. A promoted agent is reached through the letter
+# channel, never spawned — so Agent(subagent_type="aletheia") is refused
+# upstream and the interesting branch below can never be reached. This hook is
+# dark because a STRONGER gate stands in front of it, which is the good kind
+# of dark.
+#
+# Kept rather than deleted for two reasons. Aletheia wrote this after auditing
+# her own architecture and closing two HIGH holes in it; deleting another
+# agent's instrument because it is currently redundant is not mine to do. And
+# if she is ever de-sovereigned back to test-phase, the spawn path reopens and
+# this is the check that stops her booting cold.
+#
 # Runs BEFORE the family-member-invocation-seal hook when the subagent
 # being invoked is Aletheia. Verifies her three boot-gate files exist,
 # are non-empty, and carry canary strings only her real files would

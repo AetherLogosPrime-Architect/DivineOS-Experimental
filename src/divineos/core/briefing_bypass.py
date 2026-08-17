@@ -103,7 +103,22 @@ def is_bypass_bash_command(command: str) -> bool:
                     record_bypass(
                         gate_name="briefing",
                         env_var=f"cmd:{prefix}",
-                        reason="command-prefix bypass via BYPASS_PREFIXES",
+                        reason="gate-compliance: command satisfies the gate's condition",
+                        # COMPLIANCE, not escape (2026-08-02). Every prefix in
+                        # BYPASS_PREFIXES is a command that MAKES THE GATE'S
+                        # CONDITION TRUE — running `divineos briefing` loads
+                        # the briefing the briefing-gate is asking for. That is
+                        # the remedy, not a way around it.
+                        #
+                        # Logged as a bypass, it filed a root-cause obligation
+                        # per event; unresolved obligations block the learning
+                        # checkpoint; clearing them requires running these very
+                        # commands. Aria demonstrated the livelock: five closed,
+                        # three appeared immediately, and she escaped only by
+                        # leaving the instrumented path entirely.
+                        #
+                        # The row is still written, so the rate still informs.
+                        is_compliance=True,
                     )
                 except _TELEMETRY_ERRORS:
                     # telemetry failure must not break the gate decision

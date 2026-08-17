@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "actor": "aether",
+      "category": "ARCHITECTURE",
+      "created_at": 1786748136.6329844,
+      "description": "All 12 open PRs are authored by AetherLogosPrime-Architect; the gate requires an APPROVED review from that same login; GitHub does not render Approve for a PR author. Unsatisfiable by construction, reported as an ordinary failure. Fix adds an operator approval-by-comment channel bound to the head sha.",
+      "finding_id": "find-e20fbde77c64",
+      "recommendation": "",
+      "resolution_notes": "",
+      "review_stance": null,
+      "reviewed_finding_id": "",
+      "round_id": "round-2dab8bce64d6",
+      "routed_to": "c1e5f19a-a8c9-4489-a868-6627607f3865",
+      "severity": "HIGH",
+      "status": "ROUTED",
+      "tags": [],
+      "tier": "WEAK",
+      "title": "merge-review demanded a review GitHub cannot create for a self-authored PR"
+    }
+  ],
+  "round": {
+    "actor": "aether",
+    "created_at": 1786748120.8414807,
+    "expert_count": 0,
+    "finding_count": 1,
+    "focus": "merge-review self-approval: the gate required a review GitHub does not allow the PR author to create (PR #428)",
+    "notes": "Source ref: fix/merge-review-self-approval\n",
+    "round_id": "round-2dab8bce64d6",
+    "tier": "WEAK"
+  }
+}
