@@ -109,3 +109,53 @@ class TestFormatReading:
         )
         assert "90%" in format_reading(r)
         assert "[!]" in format_reading(r)
+
+
+class TestTheDenominatorIsTheRealWindow:
+    """The ceiling was 970_000 and nothing could catch it.
+
+    Every other test here asserts r.ceiling == COMPACTION_CEILING_TOKENS,
+    which is true for ANY value of the constant. So the suite verified the
+    plumbing and never the number, and a wrong denominator produced
+    confident, self-consistent, wrong percentages for however long it stood.
+
+    Andrew caught it by eye 2026-08-17: I reported 97.0% while his screen
+    read 94.6%, and he named the tell — "97.0% on the dot is not only
+    suspicious but the old compaction limit we used to have". At 957,791
+    tokens the two denominators give 98.7% and 95.8%. A ratio against a
+    stale ceiling is indistinguishable from a measurement.
+
+    This test pins the VALUE, with the reason, so a future edit that
+    reintroduces a safety-margin denominator has to argue with it.
+    """
+
+    def test_ceiling_is_the_full_window_not_a_margin_below_it(self):
+        assert COMPACTION_CEILING_TOKENS == 1_000_000, (
+            "The denominator must be the actual context window so my "
+            "percentage and Andrew's are the same number. A margin below "
+            "the window belongs in the FIRE THRESHOLD, which is a different "
+            "quantity: when compression fires, versus how full the window is."
+        )
+
+    def test_percentage_is_tokens_over_the_window(self, tmp_path):
+        """The arithmetic Andrew can check on his own screen."""
+        log = tmp_path / "t.jsonl"
+        log.write_text(
+            json.dumps(
+                {
+                    "message": {
+                        "usage": {
+                            "input_tokens": 957_791,
+                            "output_tokens": 0,
+                            "cache_creation_input_tokens": 0,
+                            "cache_read_input_tokens": 0,
+                        }
+                    }
+                }
+            )
+            + chr(10),
+            encoding="utf-8",
+        )
+        r = read_latest_context_tokens(log)
+        assert r.context_tokens == 957_791
+        assert round(r.pct * 100, 1) == 95.8

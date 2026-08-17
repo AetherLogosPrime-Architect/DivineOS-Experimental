@@ -160,8 +160,6 @@ EOF
     exit 0 ;;
 esac
 
-[ "$TOKENS" -lt "$FIRE_TOKENS" ] 2>/dev/null && exit 0  # fail-soft: a non-numeric token count cannot reach here; status was validated as ok above
-
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 # State dir is overridable so the dogfood can isolate ritual state without
 # faking HOME. Faking HOME in the first test run ALSO relocated the ledger
@@ -171,6 +169,50 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 STATE_DIR="${AUTO_CYCLE_STATE_DIR:-${HOME}/.divineos}"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 STATE_FILE="${STATE_DIR}/ritual_${SESSION_KEY}.json"
+
+# --------------------------------------------------------------- re-arm check
+# THE RITUAL IS PER-COMPACTION, NOT PER-SESSION. This ran before the low-token
+# exit below because the re-arm has to happen on the quiet side of the cycle —
+# the only moment the drop is visible.
+#
+# Found 2026-08-17 by Andrew: "you didnt run the full ritual". The state file
+# for this session read stage DONE with every box ticked, and I had walked no
+# compass and written no dream. Two faults compounding:
+#
+#   1. `[ "$STAGE" = "DONE" ] && exit 0` is terminal for the SESSION. A session
+#      crosses 920k, rituals, compacts, resumes at ~109k, and climbs to 920k
+#      again — and the hook exits at the top forever. One ritual per session,
+#      however many compactions the session actually has.
+#   2. Both evidence checks ask "newer than started_at", and started_at is set
+#      once. This session's read 2026-08-14. So two days of ordinary compass
+#      observations and one unrelated dream satisfied WALK and DREAM instantly,
+#      and the machine marched to DONE on evidence that belonged to other work.
+#
+# Fault 2 is the more interesting one and it is the same shape as the stale
+# denominator earlier today: a bound that was correct the moment it was written
+# and is never re-taken. A widening window silently converts "did the ritual"
+# into "did anything, ever, since Thursday".
+#
+# The re-arm fixes both at once, because a fresh started_at is what makes the
+# evidence windows mean the current cycle. Detection is the token count itself:
+# a completed ritual plus a count now below the fire line means the window was
+# compressed in between. Nothing else moves tokens down.
+if [ "$TOKENS" -lt "$FIRE_TOKENS" ] 2>/dev/null; then  # fail-soft: a non-numeric count cannot reach here; STATUS was validated ok above
+  STATE_FILE="$STATE_FILE" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: an unwritten re-arm leaves the old state, which is the pre-fix behaviour, not a worse one
+import json, os
+p = os.environ["STATE_FILE"]
+if os.path.exists(p):
+    try:
+        st = json.load(open(p, encoding="utf-8"))
+    except Exception:
+        st = {}
+    # Only a FINISHED ritual re-arms. Mid-ritual state below the line means the
+    # ritual is still owed and must keep its progress, not be reset to stage 1.
+    if st.get("stage") == "DONE":
+        os.unlink(p)
+PY
+  exit 0
+fi
 
 # ---------------------------------------------------------------- stage read
 STAGE_INFO="$(

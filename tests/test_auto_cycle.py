@@ -59,7 +59,17 @@ def test_should_fire_defers_exhausted_fires_regardless_of_active_work():
 
 
 def test_should_fire_defer_counter_increments_in_reason():
-    _, reason = should_fire(context_pct=0.9, has_active_goal_progress=True, defers_used=1)
+    # Above the threshold RELATIVE TO THE CONSTANT, not a hardcoded 0.9.
+    # This test broke on 2026-08-17 when TRIGGER_THRESHOLD moved 0.82 -> 0.92
+    # (Andrew: start the ritual at 920k so it finishes before the window
+    # fills at 1M). The literal 0.9 had silently meant "above threshold" and
+    # became "below" without the test's intent changing at all — it is about
+    # the defer counter, not about any particular fullness. Deriving from the
+    # constant keeps the intent and removes the rot.
+    from divineos.core.auto_cycle import TRIGGER_THRESHOLD
+
+    above = min(TRIGGER_THRESHOLD + 0.03, 0.99)
+    _, reason = should_fire(context_pct=above, has_active_goal_progress=True, defers_used=1)
     assert "2/3" in reason  # (defers_used + 1) / MAX_DEFERS
 
 

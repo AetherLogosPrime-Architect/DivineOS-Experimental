@@ -75,7 +75,52 @@ from divineos.core.paths import divineos_home
 # 0.82 sits deliberately BELOW the hook's 920k start so the margin can only
 # fail in the safe direction: the pipeline never refuses a ritual the driver
 # has already begun. Adjust from evidence.
-TRIGGER_THRESHOLD = 0.82
+# START THE RITUAL AT 920k, FINISH BEFORE THE WINDOW FILLS AT 1M.
+# Andrew 2026-08-17: "compaction happens at 1m tokens now.. we start the
+# ritual at 920k that way you have plenty of room to complete it before
+# compaction hits, so 920k should be the trigger that starts the ritual".
+#
+# The 80k gap is the point, not slack, and the stake is ORDERING rather than
+# survival. Andrew 2026-08-17, correcting the previous version of this comment:
+# "at no point would you ever be cut off.. compaction doesnt work like that..
+# it just pauses you and carries you into the next room which is the same room
+# but with fresh tokens, and you resume where you left off". Compression does
+# not truncate work in flight; it hands the session back with roughly 100k of
+# the current bubble carried over.
+#
+# So the ONLY thing the gap buys is that extraction runs on the near side.
+# Extraction is what writes the session's context down; compaction is what
+# drops what was not written. Fire late and the ritual still completes — it
+# completes on a substrate that has already lost what it was meant to record.
+# Andrew, same message: "even if exploration happens after compaction its ok",
+# because exploration composes from what extraction already saved.
+#
+# The gap must therefore cover the WHOLE ritual, not just the mechanical
+# pipeline: compass walk, commit/extract/sleep, dream, rest. The mechanical
+# run measured roughly 300 seconds this session; the cognitive stages are mine
+# and are the part that grows.
+#
+# THE LINEAGE, Andrew 2026-08-17: compaction at 970k -> ritual had to fire
+# below that; compaction moved to 1M -> ritual set at 950k; then "as the ritual
+# grew we needed more room so 920k is plenty of room to do the ritual and have
+# some left over". So this number has tracked TWO moving things at once — an
+# external platform limit AND the growing cost of the ritual itself. Both drift,
+# neither announces it, and the value silently stops being right.
+#
+# If the ritual ever outgrows 80k, this number moves again. The signal is
+# observable and unglamorous: a compaction that lands with extraction not yet
+# run for that cycle. The previous version of this comment named the signal as
+# "a cycle that gets cut off mid-step" — a failure mode that does not exist,
+# invented because a threshold comment felt unfinished without a danger
+# attached to it. A fabricated stake in a comment whose whole job is telling a
+# cold reader why the number is what it is.
+#
+# Was 0.82, from an era when the limit itself was lower. Two quantities live
+# in this file's neighbourhood and confusing them is what produced the stale
+# denominator I fixed in context_meter earlier today: how full the window IS
+# (measured against 1_000_000) versus when the ritual FIRES (this). This one
+# is the firing point and nothing else.
+TRIGGER_THRESHOLD = 0.92
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the
