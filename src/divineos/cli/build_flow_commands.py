@@ -51,9 +51,33 @@ _BF_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 
 
 def _gh(args: list[str]) -> str | None:
-    """Run gh; None means could-not-reach, which is NOT the same as empty."""
+    """Run gh; None means could-not-reach, which is NOT the same as empty.
+
+    ``encoding``/``errors`` are pinned because ``text=True`` alone decodes
+    with the platform default — cp1252 on this box. Any gh response carrying
+    a byte outside cp1252 (a patch hunk with an em-dash, a curly quote, a
+    name with an accent) raised UnicodeDecodeError inside subprocess's reader
+    THREAD, which does not propagate: stdout came back empty, the exit code
+    was still 0, and this function returned "" — the one value its own
+    docstring promises to distinguish from None.
+
+    Found 2026-08-17 chasing why station 2 read 0 lenses for PR #412. The
+    changed-file fetch was returning an empty string because the diff
+    contained a smart quote, so the PR appeared to change no files. Every
+    caller of this function had the same exposure; this is not a file-list
+    bug, it is a decode bug that happened to surface there first. Same shape
+    as the read-gate hook that died on an inlined em-dash under cp1252 and
+    exited 0, which is to say: fail-quiet on an encoding boundary.
+    """
     try:
-        p = subprocess.run(["gh", *args], capture_output=True, text=True, timeout=60)
+        p = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     if p.returncode != 0:
@@ -84,6 +108,29 @@ distinguished from a truncated one."""
 _GH_PR_FILES_CAP = 100
 
 
+def _paginated_filenames(raw: str) -> tuple[str, ...]:
+    """Filenames from ``gh api --paginate`` output.
+
+    ``--paginate`` concatenates one JSON array per page with nothing between
+    them — ``[{...}][{...}]`` — which is not a JSON document, so a plain
+    ``json.loads`` raises on any PR past the first page. Decoding
+    incrementally reads each array in turn and stops cleanly at the end.
+    """
+    dec = json.JSONDecoder()
+    names: list[str] = []
+    i, n = 0, len(raw)
+    while i < n:
+        while i < n and raw[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        page, i = dec.raw_decode(raw, i)
+        for entry in page if isinstance(page, list) else []:
+            if isinstance(entry, dict):
+                names.append(str(entry.get("filename") or ""))
+    return tuple(names)
+
+
 def _changed_paths(pr: int) -> tuple[str, ...] | None:
     """Every path this PR changes, or None when the set cannot be trusted.
 
@@ -112,9 +159,13 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
     """
     repo = _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"])
     if repo:
-        out = _gh(["api", f"repos/{repo.strip()}/pulls/{pr}/files", "--paginate", "-q", ".[].path"])
+        # No ``-q``: gh's jq filter yields NOTHING under ``--paginate`` off a
+        # tty, and does it with exit code 0 — an empty success, which would
+        # read here as "this PR changes no files". Parsing the JSON ourselves
+        # keeps the failure mode an exception instead of a plausible zero.
+        out = _gh(["api", f"repos/{repo.strip()}/pulls/{pr}/files", "--paginate"])
         if out is not None:
-            paths = tuple(p.strip() for p in out.splitlines() if p.strip())
+            paths = tuple(f for f in _paginated_filenames(out) if f)
             if paths:
                 return paths
 
