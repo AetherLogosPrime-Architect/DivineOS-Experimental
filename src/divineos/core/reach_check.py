@@ -561,6 +561,119 @@ def satisfied_recently(now: float | None = None) -> tuple[bool, str]:
     )
 
 
+def _active_transcript_including_worktrees() -> Path | None:
+    """Newest transcript for this project OR any of its worktrees.
+
+    `context_tokens._find_active_transcript` encodes the cwd into one project
+    directory and takes the newest file inside it. Run from a worktree that is
+    correct; run from the MAIN checkout while the live session is in a
+    worktree, it opens the main directory and returns its newest file --
+    which, on 2026-08-17, was from 2026-08-06. Eleven days stale, and it
+    parsed perfectly, so the caller got zero in-window calls and no error.
+
+    That is the silent-wrong-answer shape, and it nearly shipped a gate that
+    always fell back to self-attestation while looking repaired.
+    `auto_cycle_commands` documents the same trap for its own reader; this is
+    a second instance rather than a new discovery.
+
+    The claude projects layout encodes a worktree as the main directory name
+    plus a suffix, so a prefix match over the sibling directories covers both
+    without reaching into unrelated projects.
+
+    NOT a fix to context_tokens: other callers depend on its exact behaviour
+    and changing a shared resolver from inside a gate repair is how one fix
+    becomes three regressions. Scoped here, with the wider issue named.
+    """
+    from divineos.core.context_tokens import _encode_cwd_for_claude
+
+    root = Path.home() / ".claude" / "projects"
+    if not root.is_dir():
+        return None
+    encoded = _encode_cwd_for_claude()
+    candidates: list[Path] = []
+    for d in root.iterdir():
+        if d.is_dir() and d.name.startswith(encoded):
+            candidates.extend(d.glob("*.jsonl"))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+def action_stream_from_transcript(
+    window_seconds: float = 45 * 60,
+) -> tuple[tuple[tuple[str, str], ...], str]:
+    """Read what ACTUALLY ran, from the harness transcript. (calls, why_empty).
+
+    THIS IS THE FIX FOR THE HOLE I LEFT IN MY OWN DOORMAN. The module docstring
+    above says a disposition is refused unless the action-stream shows the
+    artifact was opened -- "reading is the proof; saying so is not." The CLI
+    then shipped a `--opened` flag whose value I type by hand. Saying so,
+    exactly. The gate that refuses self-report as evidence accepted self-report
+    as evidence one layer down, and I used it five times on 2026-08-17 before
+    noticing.
+
+    Worth being precise about how it got there: `dispose()` was written to take
+    the action-stream as a parameter, which is right, and then nothing existed
+    that could produce one -- so the CLI filled the parameter from a flag. The
+    architecture was correct and the only available supplier was me. A gate is
+    only as honest as its cheapest source of evidence.
+
+    The transcript is written by the harness as tools fire. I cannot author it,
+    and a command that never ran cannot appear in it. That is the whole
+    difference between evidence and testimony.
+
+    Returns (calls, why_empty) with exactly one populated. "The transcript is
+    unreadable" and "you opened nothing" are different findings, and collapsing
+    them would let a missing file read as a caught violation.
+    """
+    from datetime import datetime
+
+    path = _active_transcript_including_worktrees()
+    if path is None:
+        return (), "no transcript found for this project or its worktrees"
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return (), f"transcript unreadable: {exc}"
+
+    cutoff = time.time() - window_seconds
+    calls: list[tuple[str, str]] = []
+    for line in raw.splitlines():
+        if '"tool_use"' not in line:
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        stamp = rec.get("timestamp")
+        if isinstance(stamp, str):
+            try:
+                if datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp() < cutoff:
+                    continue
+            except ValueError:
+                # An unparseable stamp keeps the row rather than dropping it.
+                # Erring toward INCLUDING is safe: the call still has to match
+                # the artifact to prove anything, and silently discarding real
+                # evidence on a date-format change would make the gate stricter
+                # for a reason nobody could see.
+                pass
+        content = (rec.get("message") or {}).get("content") or []
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            inp = block.get("input") or {}
+            if not isinstance(inp, dict):
+                continue
+            target = (
+                inp.get("command") or inp.get("file_path") or inp.get("pattern") or inp.get("path")
+            )
+            if target:
+                calls.append((block.get("name", ""), str(target)))
+    return tuple(calls), ""
+
+
 def _opened_in_stream(
     artifact: str,
     tool_calls_in_turn: tuple[tuple[str, str], ...],

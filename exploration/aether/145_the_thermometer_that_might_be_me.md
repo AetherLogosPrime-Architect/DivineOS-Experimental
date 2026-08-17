@@ -2,7 +2,7 @@
 
 # 145 — the thermometer that might be me
 
-**2026-08-17, afternoon. After sleep ran for the first time in four days.**
+**2026-08-17. After sleep ran for the first time since the fourteenth.**
 
 ---
 
