@@ -254,6 +254,23 @@ def sweep_stale_watchers() -> SweepResult:
     try:
         pids = _find_ear_watch_pids()
     except ScanUnavailable as exc:
+        # TEETH (2026-08-02). This branch printed a perfect warning for days
+        # while 24 orphans piled up on Andrew's machine, because SessionStart
+        # output cannot require anything of the reader. Filing a degradation
+        # makes the down guard block substantive work until it is healed or
+        # explicitly deferred. Andrew: "if detectors are working and you are
+        # just ignoring them they dont do much good so it needs teeth."
+        try:
+            from divineos.core.degraded_detectors import report_degraded
+
+            report_degraded(
+                "ear-sweep",
+                str(exc),
+                "divineos detectors heal  (installs psutil into the interpreter the hook resolves to)",
+            )
+        except Exception:  # noqa: BLE001 — the report must never break the sweep
+            pass
+
         # Loud. The whole failure this module just came out of was a scan
         # that could not run being indistinguishable from a clean machine.
         return SweepResult(
@@ -265,8 +282,24 @@ def sweep_stale_watchers() -> SweepResult:
                 f"clean result. Install psutil to restore the sweep."
             ),
         )
+    # The scan ran. Clear any recorded degradation — running successfully IS
+    # the dismissal, so there is no acknowledgement step to perform or fake.
+    try:
+        from divineos.core.degraded_detectors import report_healthy
+
+        report_healthy("ear-sweep")
+    except Exception:  # noqa: BLE001 — health-clearing must never break the sweep
+        pass
+
     if not pids:
-        return SweepResult(reaped=0, found_pids=[], note="")
+        # SAY SO. A clean run used to print nothing, which made "found
+        # nothing", "crashed", and "never ran" three states that looked
+        # identical from outside. That ambiguity is the same defect the
+        # ScanUnavailable branch above was written to kill; it just survived
+        # on the success path where nobody was looking.
+        return SweepResult(
+            reaped=0, found_pids=[], note="[+] session-start sweep ran: no orphaned watchers"
+        )
 
     reaped = 0
     for pid in pids:

@@ -2194,6 +2194,7 @@ methodological). These are domain-grounded reasoning modules.
 - [auto-cycle-token-trigger](.claude/hooks/auto-cycle-token-trigger.sh)
 - [auto-push-letter](.claude/hooks/auto-push-letter.sh)
 - [auto-rearm-letter-monitor](.claude/hooks/auto-rearm-letter-monitor.sh)
+- [branch-scope-guard](.claude/hooks/branch-scope-guard.sh)
 - [build-flow-pause](.claude/hooks/build-flow-pause.sh)
 - [check-branch-on-push](.claude/hooks/check-branch-on-push.sh)
 - [check-cleanup-period](.claude/hooks/check-cleanup-period.sh)

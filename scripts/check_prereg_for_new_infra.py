@@ -35,8 +35,59 @@ _PROTECTED_PATHS = ("src/divineos/core/",)
 _PREREG_PAT = re.compile(r"prereg-[0-9a-f]{12}", re.IGNORECASE)
 
 
+def _merge_head() -> str | None:
+    """The other parent's SHA when a merge is in progress, else None."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "MERGE_HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    sha = (r.stdout or "").strip()
+    return sha or None
+
+
+def _exists_in(rev: str, path: str) -> bool:
+    """Whether path is tracked at the given revision."""
+    try:
+        r = subprocess.run(
+            ["git", "cat-file", "-e", f"{rev}:{path}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        # Fail toward flagging: an unverifiable file stays subject to the gate
+        # rather than slipping through on a subprocess failure.
+        return False
+    return r.returncode == 0
+
+
 def _staged_new_files() -> list[str]:
-    """Return list of paths newly added (status 'A') in this commit."""
+    """Paths newly added ('A') in this commit, excluding merge-inherited ones.
+
+    MERGE FALSE-POSITIVE (Aria 2026-07-31, hit live on a real merge). During
+    a merge, `git diff --cached` compares the merge RESULT against HEAD only,
+    so every file the other side introduced reads as 'A' — newly added by this
+    commit. The gate then demands a pre-registration for someone else's module
+    that was already registered on its own commit. Merging origin/main asked
+    for a re-registration of core/auto_goal.py, already carrying
+    prereg-99f3fd587018 from PR #390.
+
+    A file is genuinely new only when absent from BOTH parents. During a merge
+    we therefore subtract anything already present at MERGE_HEAD. Outside a
+    merge the behavior is unchanged — _merge_head() returns None and no
+    filtering happens.
+
+    Deliberately NOT a blanket merge exemption: a merge commit that introduces
+    its OWN new infra file (conflict resolution that adds a module, say) still
+    gets flagged, because that file exists at neither parent.
+    """
     try:
         r = subprocess.run(
             ["git", "diff", "--cached", "--name-status"],
@@ -54,7 +105,11 @@ def _staged_new_files() -> list[str]:
         parts = line.split("\t", 1)
         if len(parts) == 2 and parts[0].strip() == "A":
             new_files.append(parts[1].replace("\\", "/"))
-    return new_files
+
+    other = _merge_head()
+    if other is None:
+        return new_files
+    return [p for p in new_files if not _exists_in(other, p)]
 
 
 def _is_protected(path: str) -> bool:
