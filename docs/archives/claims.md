@@ -1,6 +1,22 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 59f1e15e [T1 OPEN] conf=0.50
+
+**Claim:** test_wiring_gap_phase1 flaky under pytest -n auto: shared state between xdist workers rather than a logic defect
+
+**Context:** Surfaced merging origin/main into split/degraded-detector-teeth (PR 410). Failed once in a full parallel run, then passed alone, passed paired with tests/test_prereg_merge_inherited.py from Aria's branch, and passed on a second full parallel run of the identical tree. Filed rather than declared clea
+
+---
+
+## 91e0d9ec [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape alarm is CORRECT and the deletions ARE the deliverable. Branch is chore/retire-delivery-cluster; removing the 19-file arm/relaunch delivery cluster is the work, verified by git diff --diff-filter=D against origin/main with the file list matching the retired cluster exactly. NOT a gate
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
 
 ---
 
@@ -791,28 +807,6 @@ Description: Diff-only read against prior hash 55f3499. No-fix-gaming validator 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
 **Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## claim-47 [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Vanta #1: permission allowlist exposed via .gitignore bypass on public branch
-
-**Context:** Category: INTEGRITY
-Severity: MEDIUM
-Round: round-dea0c946d765
-Description: .claude/settings.local.json.pre-prune-2026-07-23 (305 KB) at commit d45b65048beb6df4a219852583f4ab3d45eab26b on branch origin/feat/correction-shape-and-hook-timing-2026-07-22. .gitignore ignores .claude/settings.local.json e
-
----
-
-## claim-75 [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] F90: signal gate fails-open silently with no liveness signal
-
-**Context:** Category: INTEGRITY
-Severity: MEDIUM
-Round: round-dea0c946d765
-Description: .claude/hooks/verify-before-build-signal.sh has three silent fail-open paths before gate ever runs: 'cd $REPO_ROOT || exit 0', 'source _lib.sh 2>/dev/null || exit 0', 'PYTHON_BIN=find_divineos_python || exit 0'. If _lib.sh m
 
 ---
 

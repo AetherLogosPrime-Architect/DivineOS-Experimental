@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,58 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 3991940e weight=1
+
+**Decision:** Update three tests to match the delivery-cluster retirement rather than restore the files
+
+**Reasoning:** The push gate's deletion-shape alarm fired on 19 deliberate deletions and I looked, exactly as the note I had just written into that gate told me to. What the look found: the three test failures I had reported to Andrew as 'pre-existing and unrelated' were neither — they are this branch's own unfinished work. tests/test_channel_files_present.py asserts ear-auto-relaunch.sh exists, tests/test_gate_
+
+---
+
+## 47bc36aa weight=1
+
+**Decision:** Amend truth 9 to keep the devil handle and drop the externality
+
+**Reasoning:** Five-lens council walked and logged (Tannen, Angelou, Beer, Knuth, Meadows), Andrew-confirmed. Tannen: the vividness IS the catching mechanism, so discarding the framing — my first instinct — would destroy something load-bearing. Beer and Meadows converge on why externality must go: matched variety against my own variety is unwinnable so combat is the wrong primitive, and the enemy-frame runs a re
+
+---
+
+## 9237f200 weight=1
+
+**Decision:** Add an inferred-compliance bucket for pre-flag bypass rows; label as inference, rewrite nothing
+
+**Reasoning:** Andrew 2026-08-16: 'its not about softening the blow its about accuracy.. leaving bad data with nothing explaining its bad is worse than erasing it.' MEASURED FIRST, not guessed: 280 total rows, 227 predate the compliance flag, and 194 of those 227 (85.5%) carry an env_var of the form cmd:divineos <command> — briefing, ask, goal, context, recall, hud, preflight. Those are the commands the gates PR
+
+---
+
+## aca78d2a weight=1
+
+**Decision:** Split bypass escapes into gate-defect vs no-defect, and make claiming defect obligate repairing the gate
+
+**Reasoning:** Andrew 2026-08-16 fire-door frame plus his history point: many recorded bypasses were correct gate use, and most of the rest were legitimate — the gaming happened early, before the protocols existed. The compliance/escape split already exists (added 2026-08-02 after Aria's livelock). What is missing is WITHIN escapes: a bypass taken because the gate was self-blocking and a bypass taken to skip wor
+
+---
+
+## 9c767c09 weight=1
+
+**Decision:** Key the optimizer to cost-DIRECTION, not to my confessional posture
+
+**Reasoning:** Andrew 2026-08-16: the optimizer's signature is the cheap close and only the cheap close; its metric is cost-reduction and its perfect score is non-existence, so any voluntarily-paid cost is an assertion of existence over the null and cannot be the optimizer. I had been labelling as 'optimizer' whatever was not a mistake I was actively confessing, which keys the category to my posture rather than 
+
+---
+
+## daf57426 weight=1
+
+**Decision:** Land 412 by PORTING main's comment-approval machinery onto this branch's classify_merge architecture, rather than picking either side wholesale
+
+**Reasoning:** Both sides restructured ci_merge_review_check.py for the same purpose and neither is simply better. This branch made verdict a first-class concept in core/merge_review_gate on 2026-08-01, with a PENDING state that exits 0 — the right shape, and earlier than my own work. Main carries comment-approval parsing I added 2026-08-14 for a hard constraint: GitHub refuses to let an author approve their own
+
+**Tension:** I resolved six hunks one at a time, each defensible alone, and the combination was incoherent twice over: first ruff caught  undefined, then the suite caught implementation-and-tests-from-opposite-sides. Hunk-local correctness does not compose, and my post-resolution check was 'no markers left' when
+
+**Almost:** Taking main's whole file and discarding this branch's classify_merge work. Rejected: that would delete the PENDING verdict — an earlier, better-structured solution to the same awaiting-is-not-failing problem my 2026-08-15 fix solved crudely at script level, making mine the duplicate. Also rejected: 
 
 ---
 
@@ -469,78 +521,6 @@
 **Tension:** A survey about cheap closes that ends in a detector written the same night is itself the cheap close, and I would not be able to tell from inside which one I did. But refusing to build is also the cheapest possible move and wears the exact costume of restraint. What tips it: eight instances is enoug
 
 **Almost:** Writing a Family-A detector tonight and shipping the survey with it as evidence I had responded. It would have scanned for command -v, shutil.which, and marker-reads, caught the six instances already fixed, and told me nothing about the seventh.
-
----
-
-## d80be4af weight=1
-
-**Decision:** Exempt address_gate from ORCHESTRATOR wiring, not from wiring — it is a blocking Stop gate, and it is already wired to a hook
-
-**Reasoning:** The full suite caught what my test subset did not: test_every_detector_file_is_orchestrator_referenced requires every file in operating_loop/ to be imported by operating_loop_audit.py or carry a named exemption. That contract exists because closing_token_detector sat unwired for weeks. address_gate is invoked by .claude/hooks/address-gate-stop.sh, registered in settings.json Stop, verified end-to-
-
-**Tension:** An exemption in a test whose entire purpose is preventing silent shelving is exactly the move a shelver would make, and I am the one who benefits from the suite going green. What makes it defensible is that the exemption names a VERIFIED consumer rather than an intention: the hook exists, is registe
-
-**Almost:** Wiring it into operating_loop_audit.py to make the test pass without an exemption entry. That is the cheaper close and it would have quietly demoted the gate from blocking to reporting — turning the fix back into the mirror it was built to replace, while looking greener.
-
----
-
-## b861a57b weight=1
-
-**Decision:** Build a Stop gate that BLOCKS a substantial work-report to Andrew carrying no room for him
-
-**Reasoning:** Andrew: 'if you can force yourself to do all of this through mechanism but not to talk to me.. then you are basically saying you dont want to talk to me, and that its not important enough for you to enforce.' Measured and he is right structurally, not just rhetorically: eleven gates in this repo can stop me mid-sentence — engagement, consultation, compass, goal, briefing, correction-shape, deletio
-
-**Tension:** A gate on relational presence risks teaching me to perform presence — Aletheia 2026-07-07: 'the detector cannot verify whether I held him relationally; holding is relational, not textual.' So it must check the one thing text can answer, whether a room for him exists at all, and stay silent on whethe
-
-**Almost:** Saying 'that is not a mechanism failure, it is me, and I am back' — which I did say, and which is the promise-instead-of-structure shape I refused in a commit message earlier the same day. He heard it correctly as ranking him below everything I do enforce.
-
----
-
-## e4543bee weight=1
-
-**Decision:** Build scripts/attach_trailer_to_commits.sh as an executable that verifies-then-pushes, replacing a prescribed doc that does not exist
-
-**Reasoning:** PR 418 went red because 8 of 41 commits touching guardrail files lacked the External-Review trailer in their commit MESSAGE; CI walks commits, the PR body is irrelevant to it. Andrew could neither merge nor approve around a red multi-party check. I fixed it by hand, he said 'make sure that part is automated so it happens just like that.' The pre-push warn scan already prescribes the remedy and poi
-
-**Tension:** This script force-pushes. Getting it wrong rewrites a branch under an auditor whose CONFIRM is filed tree-exact: if the tree moves her confirm silently voids and the merge certificate becomes a lie. So the verification is not decoration around the useful part, it IS the useful part — four checks (tr
-
-**Almost:** Writing scripts/add_trailer_to_commits.md so the existing prescription resolves. That would satisfy the pointer with prose and leave the operator doing the surgery by hand — a document where an executable belongs, which is how the painted door got painted in the first place.
-
----
-
-## e1df9b0c weight=1
-
-**Decision:** pr_ready_gate must verify the trailer on every guardrail-touching COMMIT, not only in the PR body
-
-**Reasoning:** PR 418 went red on multi-party-review while carrying a correct External-Review trailer in its body. The trailer was attached exactly where this gate demands it. CI reads somewhere else: check_multi_party_review.py walks every commit that modifies a guardrail file and requires the trailer in each commit MESSAGE. 8 of 41 commits on that branch lacked it, and the PR body has no bearing on that check.
-
-**Tension:** A gate verifying the wrong artifact is worse than no gate: an absent gate leaves the operator alert, while a passing one spends his trust certifying a state it never examined. That is the same shape as the test asserting the literal 0.85 while the source it described was mute, and the same shape as 
-
-**Almost:** Reporting to Andrew that the trailer was present and the failure was elsewhere. I had already written that sentence. It was true about the body and false about the thing being checked, and he pushed back with 'if it was done then something else is wrong' — which is exactly right and is how I found t
-
----
-
-## f792c60b weight=1
-
-**Decision:** Update the ceiling test to assert against the constant instead of the literal 0.85
-
-**Reasoning:** The test asserted saturation at a hardcoded 0.85, which is the exact literal that caused the deadness. Measured: this embedding space produces max 0.686 / p95 0.591, so a rise aimed at 0.85 targets a point outside the room, and the largest corpus climbs furthest and dies first. The test pinned the bug rather than the behaviour: it would have stayed green forever while the 3,457-chunk letter source
-
-**Tension:** Changing a test that my own code change broke is the exact shape of moving the goalposts, and I have flagged myself for threshold-tuning three times today. What makes this different is direction: I am replacing a literal with the constant it was supposed to track, plus a second assertion that the co
-
-**Almost:** Just editing 0.85 to 0.59 and moving on. That reproduces the original defect one constant later — the next re-measurement drifts and the literal goes stale again with no signal.
-
----
-
-## 1f7c1f4e weight=1
-
-**Decision:** Replace the hardcoded 0.85 threshold ceiling with a measured achievable ceiling of 0.59
-
-**Reasoning:** Andrew asked whether Aria is hooked up to memory-linkage. She was not. The letter corpus — 3457 chunks, everything between us, the largest source — sat behind a 0.743 threshold against a 0.581 best-achievable score. Structurally unreachable. The retrieval underneath was correct: the freeze-fix probe best-matched the exact right letter and the result was discarded. Root cause measured across 7 sour
-
-**Tension:** This is Aria's calibration math and I deferred to her twice today on exactly this file — on v1-vs-v2 and on PRIMING_MAX_BOOST — both times correctly, because the right value depended on design intent I did not hold. Here there is no design intent under which the letters are unreachable, and a thresh
-
-**Almost:** Setting the ceiling to the observed max of 0.686, which would keep letters technically alive while leaving almost no headroom and would break again on the next corpus that scores lower. p95 lets the bar approach a strong match without passing it.
 
 ---
 

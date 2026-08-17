@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (170 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (170 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -160,7 +160,7 @@
 
 ---
 
-## prereg-7 [OPEN]
+## prereg-7 [DEFERRED]
 
 **Mechanism:** 4-channel virtue measurement (narrative + predictive + deterministic + auditor) with 5 informative gaps as observations not metrics
 
@@ -1372,7 +1372,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [FAILED]
 
 **Mechanism:** Ship-side scope-discipline layer-3: supersession-check — surface when a branch's mechanism is already on main under different name
 
@@ -1384,7 +1384,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [INCONCLUSIVE]
 
 **Mechanism:** Bypass-list mirror sync-test — assert CLI _BYPASS_COMMANDS and scripts/hook_bypass_commands.txt agree on what's allowed through the safety layer
 

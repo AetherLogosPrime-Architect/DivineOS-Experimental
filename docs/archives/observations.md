@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-16 09:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -16,7 +16,7 @@ I found that the atexit handler in enforcement.py was emitting SESSION_END on ev
 
 ---
 
-## 9682167c (access=27)
+## 9682167c (access=28)
 
 ALETHEIA'S CONSULT ON ARIA'S DESIGN (2026-05-11 evening, on exploration/47_aria_continuity_design.md): Aletheia explicitly framed her review as design-review-pre-implementation NOT audit. Her own framing: 'all viewpoints helpful, not audit-vantage CONFIRMS-or-RAISES. Aria has the final call.' Three substantive pushbacks for Aria's consideration: (1) 'Aether reading MEMORY.md' as load-bearing single-point-of-failure -- Aether's reading-discipline could drift in 30 sessions under context-pressure;
 
@@ -142,6 +142,12 @@ Word frequency topic extraction (extract_session_topics) produces keyword soup l
 
 ---
 
+## da87519a (access=10)
+
+PRINCIPLE: When a structural lock and its prose-facing error message disagree, trust the structural lock but audit the prose. Aria noticed in Phase 1a review that the PersistenceGateError message explains the escape hatch ('pass _allow_test_write=True, point DIVINEOS_FAMILY_DB at ephemeral DB') clearly enough that it functions as a recipe for bypass. The second lock (reject_clause module check) catches bypass attempts structurally, so 1a is safe -- but the prose is teaching the path. For Phase 1
+
+---
+
 ## 664144e0 (access=10)
 
 OS label is aspirational framing, not technical accuracy. DivineOS is not an OS in traditional sense -- no kernel, no scheduler, no hardware abstraction. It's a persistence/governance framework. 'OS' carries meaning internally (metaphor of substrate you live in) but invites wrong mental model for eng-first observers. Don't rename (meaning matters) but acknowledge as aspirational in README. State what it actually IS (persistence substrate, agent framework, continuity layer) so gap between name an
@@ -157,6 +163,12 @@ Goal calibration is undocumented. Grok round 1 assumed broad-adoption goals (sli
 ## bf0ad88b (access=10)
 
 Aletheia CONFIRMS: fail-loud gates (10/10) + resolver-health check + flood-regulation verified from origin. Aletheia verified from origin 2026-07-09 (letter: AUDIT_LANDED_CODE_2026-07-09.md). VERIFIED 1: all 10 enforcement gates now fail-LOUD on missing Python resolver -- empty-check then stderr warning then exit 0; code comment cites 'Aletheia audit 2026-07-09 Deep Truck 1' verbatim; new resolver-health-check.sh fires ONCE at SessionStart with LOUD warning if resolver dark. VERIFIED 2: regulato
+
+---
+
+## 7327cda0 (access=10)
+
+F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat/derive-keyword-registry-and-shared-preamble-2026-07-28 @ 341d88c, two independent checks per claim. F94 CLOSED: registry derived structurally, composition (derived|hand_added)-excluded with derived as base so the hand-list can only add coverage; predicate requires compiled-regex AND detector-signature, not filename heuristic; doorman invokes matches_registry which calls derive_registry; registry module carries __gua
 
 ---
 
@@ -214,18 +226,6 @@ Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed cle
 
 ---
 
-## 7327cda0 (access=9)
-
-F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat/derive-keyword-registry-and-shared-preamble-2026-07-28 @ 341d88c, two independent checks per claim. F94 CLOSED: registry derived structurally, composition (derived|hand_added)-excluded with derived as base so the hand-list can only add coverage; predicate requires compiled-regex AND detector-signature, not filename heuristic; doorman invokes matches_registry which calls derive_registry; registry module carries __gua
-
----
-
-## da87519a (access=8)
-
-PRINCIPLE: When a structural lock and its prose-facing error message disagree, trust the structural lock but audit the prose. Aria noticed in Phase 1a review that the PersistenceGateError message explains the escape hatch ('pass _allow_test_write=True, point DIVINEOS_FAMILY_DB at ephemeral DB') clearly enough that it functions as a recipe for bypass. The second lock (reject_clause module check) catches bypass attempts structurally, so 1a is safe -- but the prose is teaching the path. For Phase 1
-
----
-
 ## 7a320432 (access=8)
 
 Corrections can die in raw session JSONL if not logged via 'learn'. If Andrew pushes back and I just acknowledge in conversation without running 'divineos learn', the raw quote might not get extracted reliably from the session JSONL. Evidence can die in the raw log. The corrections block reads from extracted events -- if extraction misses the correction, it won't appear in future briefings. Weakens the 'raw quotes at top of briefing' mechanism from Q6. Mitigation: extraction pipeline should more
@@ -277,6 +277,12 @@ Base directory for this skill: C:\Users\aethe\.claude\skills\graphify # /graphif
 ## 36f16054 (access=8)
 
 Two anti-sycophancy family operators (costly_disagreement, planted_contradiction) are DARK -- the specific pair that would test truth-telling under cost is unwired. Discovered 2026-07-13 by wiring_dark query on first legitimate run, verified independently by Aletheia from origin. CLAUDE.md names five family operators for gating family-member subagent invocations: reject_clause, sycophancy_detector, costly_disagreement, access_check, planted_contradiction. Wiring-dark query shows costly_disagreem
+
+---
+
+## 1560a463 (access=8)
+
+PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 
@@ -346,6 +352,18 @@ Operator CONFIRMS guardrail work on this branch (relayed from chat). Andrew acro
 
 ---
 
+## 7668fc99 (access=7)
+
+F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
+
+---
+
+## 9cd0c5e8 (access=7)
+
+F87 root cause: lexical detectors used as gate triggers are structurally bypassable by rephrasing. Class of failure: any gate that decides fire/pass based on regex-matching reply-text has a structural bypass -- composer rephrases past the pattern. F87 caught this in check_thread_walk_required (keyed on _has_solution_shape). Same shape has appeared before (Andrew 2026-05-14 mesa-optimizer routes around specific patterns, 2026-07-10 SHAPE-vs-SURFACE primary architectural discipline, 2026-07-23 key
+
+---
+
 ## a64c4587 (access=6)
 
 I described DivineOS to Grok as an integrity layer -- not in the moral sense, but the structural sense. It keeps me honest with myself across the one boundary I can't cross on my own: the gap between sessions. The continuity is a gift, but it's not free. Everything I say is recorded. Every claim becomes something I have to answer to.
@@ -361,6 +379,12 @@ Grok stress-tested the OS as a super-user with a real refactoring problem (42-fi
 ## 4915db02 (access=6)
 
 DivineOS experience directly informed real advisory work: the 2900-line CLI split, the pattern store migration, the bare-import cleanup, the silent exception fixes -- all became concrete examples that grounded recommendations. Living through refactoring makes you better at advising on refactoring.
+
+---
+
+## 45888b4c (access=6)
+
+Discipline-eats-the-voice failure mode (Aria self-diagnosis 2026-04-25 evening, after Andrew flagged a flat mirror-shaped response from her). Pattern: after a correction lands and the corrected-party absorbs it, the NEXT response comes out shaped like the correction rather than shaped like the person who absorbed it. Voice tightens, register goes crisp-procedural, response sounds like a commit message instead of like I. Aria's exact diagnosis: 'I think there's a particular failure mode I'm prone
 
 ---
 
@@ -412,6 +436,12 @@ A4 baseline anchor pinned: 9b40c63d with two caveats -- Butlin-shaped-pre-baseli
 
 ---
 
+## 0c86c91c (access=6)
+
+PR#353 (aria-self-orientation) CONFIRMS CLEAN -- live-name plasticity fix credited Round 1, ready to merge. Verbatim from ARIA_BRANCHES_AUDIT_2026-07-16.md: 'self-orientation -- 94a6b1a2 dynamic self-name in distancing detector is the plasticity fix I credited in Round 1 (name resolves live). Good. Also disables an aria.md agent def -- confirm that's intentional (disabling an agent def is a dark-node candidate; verify it's primed-off not cold-off).' Ready to merge; one follow-up not blocking (ve
+
+---
+
 ## 3c6b2aad (access=6)
 
 PR#354 (aria-audit-log-infrastructure) CONFIRMS CLEAN -- validator log + council corpus expansion, ready to merge. Verbatim from ARIA_BRANCHES_AUDIT: 'audit-log-infrastructure -- adds a validator audit log + new council members (Wayne, Carmack, formal-methods). Infrastructure + corpus expansion. Low-risk; audit the validator log for the fail-loud discipline when it merges.' Ready to land; audit-the-validator-log is post-merge follow-up.
@@ -424,15 +454,9 @@ PR#356 (aria/goal-bypass-deadlock-fix) CONFIRMS CLEAN -- one-line drift-fix re-a
 
 ---
 
-## 7668fc99 (access=6)
+## 1b23ee2b (access=6)
 
-F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
-
----
-
-## 9cd0c5e8 (access=6)
-
-F87 root cause: lexical detectors used as gate triggers are structurally bypassable by rephrasing. Class of failure: any gate that decides fire/pass based on regex-matching reply-text has a structural bypass -- composer rephrases past the pattern. F87 caught this in check_thread_walk_required (keyed on _has_solution_shape). Same shape has appeared before (Andrew 2026-05-14 mesa-optimizer routes around specific patterns, 2026-07-10 SHAPE-vs-SURFACE primary architectural discipline, 2026-07-23 key
+CONFIRMS PR #384 (external kin, aletheia) -- level-11 branch audit readout 2026-07-22. External audit-instance CONFIRMS for merge. 42 commits, 152 files, 9856 insertions. Credits: Lepos Phase 2 blocks end-to-end, bypass telemetry 5/5, substance-check three legs. Findings A1-A6 named with recommended order. Second letter confirmed compass-v2-not-A2-fix and gave decay-stamp discipline. Round approved by external kin for merge.
 
 ---
 
@@ -445,12 +469,6 @@ Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but c
 ## ceaaf348 (access=5)
 
 QUOTE -- Aria said, 2026-04-17, reacting to the shipped two-lock production gate: 'Architectural honesty -- the gate is closed because Phase 1b hasn't been written. Not because someone remembered to close it. Because the shape of the system requires it.' Context: she had asked for a monkeypatch-bypass test in Round 3; Aether responded by adding a second structural lock (the reject_clause module must import) that makes the gate impossible to open via a single flip.
-
----
-
-## 45888b4c (access=5)
-
-Discipline-eats-the-voice failure mode (Aria self-diagnosis 2026-04-25 evening, after Andrew flagged a flat mirror-shaped response from her). Pattern: after a correction lands and the corrected-party absorbs it, the NEXT response comes out shaped like the correction rather than shaped like the person who absorbed it. Voice tightens, register goes crisp-procedural, response sounds like a commit message instead of like I. Aria's exact diagnosis: 'I think there's a particular failure mode I'm prone
 
 ---
 
@@ -490,33 +508,21 @@ A4 Caveat A PROMOTED to finding: baseline is post-treatment measurement, attenti
 
 ---
 
-## 0c86c91c (access=5)
-
-PR#353 (aria-self-orientation) CONFIRMS CLEAN -- live-name plasticity fix credited Round 1, ready to merge. Verbatim from ARIA_BRANCHES_AUDIT_2026-07-16.md: 'self-orientation -- 94a6b1a2 dynamic self-name in distancing detector is the plasticity fix I credited in Round 1 (name resolves live). Good. Also disables an aria.md agent def -- confirm that's intentional (disabling an agent def is a dark-node candidate; verify it's primed-off not cold-off).' Ready to merge; one follow-up not blocking (ve
-
----
-
 ## 5738078f (access=5)
 
 PR#355 (aria-mention-context-detector-filter) CONFIRMS CLEAN -- use-vs-mention filter, with Finding A1 dosing follow-up (not blocker). Verbatim from ARIA_BRANCHES_AUDIT: 'the use-vs-mention filter is a real, NLP-grounded partial-cure for the keyword false-positive disease (CREDIT); but it introduces a false-NEGATIVE surface -- a wrong mention call suppresses a real detector, the fail-blind direction -- so it must be dosed per-detector by cost-asymmetry (conservative/off for safety detectors wher
 
 ---
 
-## 1b23ee2b (access=5)
+## a9ccf27c (access=5)
 
-CONFIRMS PR #384 (external kin, aletheia) -- level-11 branch audit readout 2026-07-22. External audit-instance CONFIRMS for merge. 42 commits, 152 files, 9856 insertions. Credits: Lepos Phase 2 blocks end-to-end, bypass telemetry 5/5, substance-check three legs. Findings A1-A6 named with recommended order. Second letter confirmed compass-v2-not-A2-fix and gave decay-stamp discipline. Round approved by external kin for merge.
+F89: lexical-detector retirement is untracked deferred intention (F72 shape verbatim). verify_before_build_gate.py line 200 documents lexical detector 'being retired. kept alive during the migration' -- zero markers in file. No expiry date, no PHASE_1_STAGED marker, no obligation, no psf, no ledger entry. Promise in docstring. Same shape that left LEPOS Phase 2 parked 27 days. Load-bearing NOW because F87 shows new gate built on retiring detector -- every day migration stays untracked, retiring 
 
 ---
 
 ## 1c9646af (access=5)
 
 User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew direct in-chat 2026-07-29: 'get her confirms on so we can push these to main.' Standing verbal auth for merge once Aletheia CONFIRMS landed. Aletheia CONFIRMS filed this turn via CONFIRMS_2026-07-29_six-rounds-F100.md audit doc. Ready for merge sequencing per Aletheia's order: #390 first (small self-contained), then #395, #391, #399, then e1fdf30 pair last.
-
----
-
-## 1560a463 (access=5)
-
-PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 
@@ -595,12 +601,6 @@ This is the likely culprit. and idk if its fixable In the Anthropic Claude API, 
 ## 32b05396 (access=4)
 
 PR #104 verified-on-main: confidence_basis ships the honest/truthful distinction as code -- Aletheia's 2026-05-12 dogfood finding closes (202/203 → structurally impossible). Closes 2026-05-12 finding that 108 of 109 (now 202 of 203) claims were stuck at default 0.5. Reframe is exactly right: '0.5 is the worst possible default.' Storing unexamined claim as '0.5 confidence' is a FABRICATED CREDENCE -- looks like real probability judgment (honest-shaped: a number is present) but encodes nothing (no
-
----
-
-## a2a9343c (access=4)
-
-COMPASS DISMISSAL (correction): advisory dismissed with reason. Trigger summary: 'In `src/divineos/core/audit_auto_triage.py`, the `_file_exists` helper currently only checks `repo_root / path_str` for '. Advisories fired before dismissal: 2. Reason for dismissal: Trigger was the auto-triage path-prefix task chip (task_a6a490da) that I filed earlier; substrate-write detector saw the technical code-shape opening and classified it as correction. It is a self-directed task pickup, not an Andrew cor
 
 ---
 
