@@ -96,6 +96,51 @@ def _tree_is_covered(head_tree: str, confirmed: set[str]) -> bool:
     return any(h.startswith(t) or t.startswith(h) for t in confirmed if t)
 
 
+_BASE_BRANCH = "origin/main"
+
+
+def _commits_behind_base() -> tuple[int, str]:
+    """(commits_behind, reason_it_could_not_be_determined).
+
+    Returns ``(n, "")`` when the answer is known and ``(0, why)`` when it is
+    not. The two are kept apart because a caller that collapses them ends up
+    reporting a cause it never established -- which is how the first version
+    of this preflight came to blame a branch for a missing shell.
+
+    Straight git, no shell. The freshness logic is `fetch` plus `rev-list
+    --count`, and shelling out to a .sh for it introduced a dependency on
+    which `bash` happens to be first on PATH. On this box that is WSL's, which
+    cannot see the Windows filesystem and failed with an execvpe error that
+    said nothing about branches. Two commands inline have no such surface.
+    """
+    try:
+        fetch = subprocess.run(
+            ["git", "fetch", "--quiet", "origin", "main"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            check=False,
+        )
+        if fetch.returncode != 0:
+            return 0, f"could not fetch {_BASE_BRANCH}: {fetch.stderr.strip()[:80]}"
+        count = subprocess.run(
+            ["git", "rev-list", "--count", f"HEAD..{_BASE_BRANCH}"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+            check=False,
+        )
+        if count.returncode != 0:
+            return 0, f"rev-list failed: {count.stderr.strip()[:80]}"
+        return int(count.stdout.strip() or 0), ""
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        return 0, f"{type(exc).__name__}: {exc}"
+
+
 def _round_by_id(round_id: str):
     """The round record, or None. Lookup by id, never by position."""
     from divineos.core.watchmen.store import list_rounds
@@ -242,6 +287,73 @@ def register(cli: click.Group) -> None:
         # look at, certifying nothing, which is the failure this module's
         # own header warns about.
         from divineos.core.push_ready import PushReadyError, run_push_ready
+
+        # PREFLIGHT BEFORE REWRITING. run_push_ready amends every
+        # guardrail-touching commit to carry the trailer, which rewrites their
+        # identities, and only THEN tries to push. So a push that was never
+        # going to be accepted still costs a full history rewrite -- and leaves
+        # the branch diverged from origin with the PR body unwritten, which is
+        # a half-finished state that looks like nothing happened until the next
+        # ordinary push is refused for reasons that have nothing to do with
+        # what the person was doing at the time.
+        #
+        # Observed 2026-08-17 on PR #412: seven commits amended, then
+        # "[freshness-check] BLOCKED: branch is 2 commit(s) behind
+        # origin/main". Every individual step was correct. The ORDER was not.
+        #
+        # This module already holds the principle -- "Order is load-bearing: a
+        # failure between the two leaves a draft carrying a valid trailer,
+        # which is recoverable" -- and simply had not extended it past the
+        # body/ready pair to the rewrite itself. Whether the push will be
+        # refused is knowable in advance: it is a comparison against a ref.
+        #
+        # The check is read-only (fetch + merge-base) and exits 0 for safe,
+        # 1 for blocked, so it can be asked without committing to anything.
+        #
+        # RUNS IN DRY-RUN TOO. The first version of this preflight skipped it
+        # under --dry-run, reasoning that a dry run rewrites nothing so there
+        # is nothing to protect. That gets the purpose backwards: a dry run
+        # exists to say what WOULD happen, and one that reports a clean
+        # preview of an operation that would actually be refused is a
+        # confident wrong answer -- the exact class this session kept finding.
+        behind, why = _commits_behind_base()
+        if why:
+            # COULD NOT CHECK is not the same as WOULD BE REFUSED, and saying
+            # the wrong one is its own bug. The first version of this preflight
+            # shelled out to the freshness script and printed "the branch
+            # cannot be pushed as it stands" whenever that returned non-zero --
+            # including when it had not run at all. Dogfooding it produced
+            # exactly that: `bash` resolved to WSL's bash, which could not find
+            # /bin/bash, and the refusal blamed the branch for a shell that was
+            # never there.
+            #
+            # That is the same misattribution repaired in build_flow's station
+            # 8 earlier the same day, rewritten by me hours later. Refusing on
+            # an unreadable check is right -- this guards a destructive rewrite
+            # and unknown must not read as safe -- but the MESSAGE has to say
+            # which of the two happened.
+            click.secho(
+                f"[!] Not stamping: could not determine whether this branch is\n"
+                f"    behind {_BASE_BRANCH} ({why}). Stamping rewrites history, so an\n"
+                "    unreadable check is treated as unsafe rather than as fine.",
+                fg="red",
+            )
+            click.secho("    Nothing was changed.", fg="bright_black")
+            raise click.exceptions.Exit(1)
+        if behind:
+            click.secho(
+                f"[!] Not stamping: this branch is {behind} commit(s) behind "
+                f"{_BASE_BRANCH},\n"
+                "    so the push would be refused -- and stamping rewrites history\n"
+                "    BEFORE it finds that out, leaving the branch diverged with the\n"
+                "    PR body unwritten.",
+                fg="red",
+            )
+            click.secho(
+                f"    Nothing was changed. Merge {_BASE_BRANCH}, then re-run.",
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
 
         try:
             pr_result = run_push_ready(
