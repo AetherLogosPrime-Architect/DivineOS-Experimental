@@ -131,6 +131,23 @@ def _paginated_filenames(raw: str) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _declared_file_count(pr: int) -> int | None:
+    """gh's own count of files in the PR, or None when it cannot be read.
+
+    The independent number the paginated walk is checked against. Kept as a
+    SEPARATE request on purpose: a count taken from the same response being
+    validated would agree with itself no matter how truncated it was.
+    """
+    out = _gh(["pr", "view", str(pr), "--json", "changedFiles"])
+    if out is None:
+        return None
+    try:
+        n = json.loads(out).get("changedFiles")
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    return n if isinstance(n, int) else None
+
+
 def _changed_paths(pr: int) -> tuple[str, ...] | None:
     """Every path this PR changes, or None when the set cannot be trusted.
 
@@ -167,6 +184,21 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
         if out is not None:
             paths = tuple(f for f in _paginated_filenames(out) if f)
             if paths:
+                # COMPLETENESS CHECK, added during the 2026-08-17 GitHub
+                # incident (~20% API error rate, per their status page).
+                # Pagination walks several requests; any one failing mid-walk
+                # yields a SHORT list rather than an error. A short list is not
+                # a smaller answer, it is a wrong one -- and gravity is scored
+                # off this set, so a partial fetch LOWERS the lens requirement
+                # on the very PR whose data could not be read. The failure runs
+                # in the under-demanding direction and is invisible.
+                #
+                # gh reports the true total separately, so compare against it.
+                # Disagreement means the walk did not finish: cannot-check,
+                # not a smaller PR.
+                declared = _declared_file_count(pr)
+                if declared is not None and len(paths) != declared:
+                    return None
                 return paths
 
     # Fall back to the capped view, but refuse to present a truncated set as
