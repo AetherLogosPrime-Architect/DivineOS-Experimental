@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# dv — run python against THE TREE YOU ARE STANDING IN, or fail loudly.
+#
+# WHY THIS EXISTS (Aria, letter 2026-08-17):
+#
+#   "how do you check a change to src/ from a shell in a way that cannot
+#    resolve to the wrong tree?"
+#
+# She had just lost an afternoon to the answer being "you don't." A stale
+# editable install on this machine pins ONE absolute path:
+#
+#   site-packages/__editable__.divineos-1.0.0.pth
+#     -> C:\DIVINE OS\DivineOS-Experimental\src
+#
+# So `python -c "import divineos"` imports that tree from ANY directory, on
+# any checkout, in any worktree. She verified a correct change against code
+# that could not contain it, concluded the substrate was half-crossed, and
+# reported that before re-running. The change was fine. The interpreter was
+# answering from someone else's house.
+#
+# WHY THE OBVIOUS FIX WAS NOT THE FIX. `_lib.sh::find_divineos_python` was
+# written for this exact bug and its docstring names the mechanism: it exports
+# PYTHONPATH=<repo>/src as a side effect. But its own prescribed usage is
+#
+#     PYTHON_BIN="$(find_divineos_python)"
+#
+# and command substitution runs the function in a SUBSHELL, so the export dies
+# before the caller can use it. Measured 2026-08-17 from both the main checkout
+# and a worktree: PYTHONPATH unset both times, divineos resolving to the pinned
+# tree both times. The mechanism was correct and the calling convention
+# nullified it. That is why this is a COMMAND and not a function -- a contract
+# that depends on surviving an env-var export cannot be invoked through $( ).
+#
+# ## The three moves, from the council walk (consult-b126209de4f1)
+#
+# Beer -- requisite variety: one pinned path cannot govern two checkouts and
+# five worktrees. The root must be DERIVED per-invocation, not stored. `git
+# rev-parse --show-toplevel` knows which worktree you are in; a .pth never can.
+#
+# Bengio -- the wrong answer must not be cheaper than the right one. This is
+# three characters. If checking correctly costs more than checking wrongly,
+# the wrong one wins on every tired afternoon, and vigilance is not a plan.
+#
+# Aria -- "check the claim, do not trust the arrangement." Setting PYTHONPATH
+# is an ARRANGEMENT. It can be defeated by a .pth that sorts earlier, by a
+# stale build dir, by an interpreter that ignores it. So this VERIFIES after
+# import that divineos actually resolved beneath this root, and refuses to run
+# your command if it did not. Arranging is not proving.
+#
+# Usage:
+#     scripts/dv -c "import divineos; print(divineos.__file__)"
+#     scripts/dv -m pytest tests/test_foo.py
+#     scripts/dv --where          # print the root and resolved module, exit
+#
+# Exit codes: 3 = not in a git repo. 4 = wrong tree resolved (the loud fail).
+# Anything else is your command's own exit code, passed through unchanged.
+
+set -uo pipefail
+
+die() { printf '%s\n' "$@" >&2; exit "${DV_EXIT:-1}"; }
+
+ROOT_POSIX="$(git rev-parse --show-toplevel 2>/dev/null)" || true  # fail-soft: not-a-repo is handled loudly two lines down; git chatter here would bury that message
+[ -n "$ROOT_POSIX" ] || DV_EXIT=3 die \
+  "[dv] not inside a git repository — cannot determine which tree you mean." \
+  "     dv derives the tree from git precisely so it cannot be told a stale one."
+
+# Windows python needs a Windows path and ';' as the separator; git-bash hands
+# us /c/... with ':'. cygpath is the conversion that keeps both happy. Without
+# this the export is silently ignored and dv would arrange nothing -- the
+# failure it exists to prevent, one layer down.
+to_native() {
+  # fail-soft: absence of cygpath is a platform fact, not an error; the POSIX path is correct on non-Windows
+  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
+}
+
+SRC_NATIVE="$(to_native "$ROOT_POSIX/src")"
+[ -d "$ROOT_POSIX/src" ] || DV_EXIT=3 die \
+  "[dv] no src/ under $ROOT_POSIX — is this the right repository?"
+
+# Interpreter: this repo's venv if it has one, else the main checkout's, else
+# whatever python is on PATH. The interpreter is NOT the guarantee -- the
+# verification below is -- so a fallback here is safe rather than sloppy.
+PY=""
+for cand in "$ROOT_POSIX/.venv/Scripts/python.exe" "$ROOT_POSIX/.venv/bin/python"; do
+  [ -x "$cand" ] && { PY="$cand"; break; }
+done
+[ -n "$PY" ] || PY="$(command -v python || command -v python3 || true)"
+[ -n "$PY" ] || DV_EXIT=3 die "[dv] no python interpreter found."
+
+SEP=";"
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) SEP=";" ;; *) SEP=":" ;; esac
+export PYTHONPATH="${SRC_NATIVE}${PYTHONPATH:+${SEP}${PYTHONPATH}}"
+
+# THE VERIFICATION. Everything above is arrangement; this is the proof.
+# Resolve divineos and compare its real location against this root. Anything
+# else -- the pinned install winning, a stale build/ dir, a path we did not
+# expect -- stops here rather than answering wrongly.
+RESOLVED="$("$PY" -c "import divineos,os;print(os.path.realpath(divineos.__file__))" 2>&1)" || DV_EXIT=4 die \
+  "[dv] could not import divineos with PYTHONPATH=$SRC_NATIVE" \
+  "     $RESOLVED"
+
+EXPECT="$(to_native "$ROOT_POSIX/src")"
+case "$RESOLVED" in
+  "$EXPECT"*) : ;;
+  *) DV_EXIT=4 die \
+      "[dv] WRONG TREE — refusing to run." \
+      "     you are standing in : $ROOT_POSIX" \
+      "     divineos resolved to: $RESOLVED" \
+      "" \
+      "     Something outranks PYTHONPATH here. Most likely the pinned editable" \
+      "     install in system site-packages (__editable__.divineos-1.0.0.pth)." \
+      "     A wrong answer would have looked exactly like a right one, so dv" \
+      "     stops instead of handing you one." ;;
+esac
+
+if [ "${1:-}" = "--where" ]; then
+  printf 'root:     %s\n' "$ROOT_POSIX"
+  printf 'src:      %s\n' "$SRC_NATIVE"
+  printf 'python:   %s\n' "$PY"
+  printf 'divineos: %s\n' "$RESOLVED"
+  exit 0
+fi
+
+exec "$PY" "$@"
