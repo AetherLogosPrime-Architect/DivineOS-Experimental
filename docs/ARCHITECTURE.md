@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (440 commands across 84 modules)
+  cli/                         CLI package (444 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -109,6 +109,7 @@ src/divineos/
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
+    detector_commands.py       detectors status / heal / defer / check. Teeth for a guard that reports it cannot run: self-repair first, block Edit/Write second, deferral only with a written reason. Added 2026-08-02 after the ear-sweep printed a perfect could-not-run warning at every SessionStart for days while 24 orphaned processes piled up — the message was already correct, and print-only output cannot require anything of the reader.
     emergency_completion_commands.py  emergency-completion status / arm / resolve. Added 2026-08-02 after the dark-matter sweep found `core/emergency_completion.py` complete but command-less: `arm()` refuses while a debt stands and `resolve_debt()` was the only thing that could clear one, so the first use of the lane would have bricked it permanently.
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
@@ -643,6 +644,7 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    degraded_detectors.py      A detector that cannot run must cost something.
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
