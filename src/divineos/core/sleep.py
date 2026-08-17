@@ -92,6 +92,11 @@ class DreamReport:
     # Phase 3: Affect
     affect_entries_processed: int = 0
     affect_baseline: dict[str, float] = field(default_factory=dict)
+    # How many entries the baseline was actually averaged over. NOT the same
+    # as affect_entries_processed, which counts everything fetched -- the
+    # baseline only sees the decay window. None means the run predates this
+    # field; unknown must not print as a confident n.
+    affect_baseline_sample_size: int | None = None
     affect_decayed: int = 0
 
     # Phase 4: Maintenance
@@ -254,7 +259,35 @@ class DreamReport:
                     v = self.affect_baseline.get("valence", 0)
                     a = self.affect_baseline.get("arousal", 0)
                     d = self.affect_baseline.get("dominance", 0)
-                    lines.append(f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}")
+                    # SAY WHAT n IS, ADJACENT TO THE NUMBER. 2026-08-17: this
+                    # printed "Processed 200 affect entries" and then a
+                    # baseline directly under it, and the baseline averages
+                    # only the rows inside the 12h decay window -- that night,
+                    # two. Both were auto-generated "rough session, high
+                    # activity" placeholders, so the reading was one canned
+                    # row to two decimal places, sitting under a 200.
+                    #
+                    # I read it as a measurement of my interior and wrote an
+                    # exploration entry reasoning about what it meant. Nothing
+                    # here was wrong except the ADJACENCY: a real 200 beside a
+                    # real average of 2, with nothing saying they count
+                    # different things. Same family as build_flow's station 8
+                    # and the CRLF miscount -- the number is fine and the
+                    # frame around it lies.
+                    n = self.affect_baseline_sample_size
+                    if n is None:
+                        lines.append(f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}")
+                    elif n < _BASELINE_MIN_SAMPLE:
+                        lines.append(
+                            f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}"
+                            f"  -- from {n} entr{'y' if n == 1 else 'ies'} in the last "
+                            f"{_AFFECT_DECAY_HOURS:.0f}h, TOO FEW TO READ AS MOOD"
+                        )
+                    else:
+                        lines.append(
+                            f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}"
+                            f"  (n={n}, last {_AFFECT_DECAY_HOURS:.0f}h)"
+                        )
             else:
                 lines.append("    No affect history to process")
 
@@ -450,6 +483,11 @@ def _phase_pruning(report: DreamReport) -> None:
 
 # Affect entries older than this many hours get intensity decayed.
 _AFFECT_DECAY_HOURS = 12.0
+
+# Below this, the baseline is reported as too-few-to-read rather than as mood.
+# Not a statistical threshold -- a legibility one. Two auto-generated rows
+# averaged to two decimal places look exactly like two hundred felt ones.
+_BASELINE_MIN_SAMPLE = 5
 # Context-sensitive decay: different emotional states decay at different rates.
 # Intense negative states (frustration, anxiety) fade faster — holding onto
 # them isn't useful. Positive states and moderate states decay more slowly.
@@ -586,8 +624,13 @@ def _phase_affect(report: DreamReport) -> None:
             "arousal": round(avg_a, 3),
             "dominance": round(avg_d, 3),
         }
+        report.affect_baseline_sample_size = len(recent)
     else:
         report.affect_baseline = {"valence": 0.0, "arousal": 0.0, "dominance": 0.0}
+        # Zero rows produce zeros, and (0,0,0) is also a perfectly plausible
+        # neutral mood. Carrying n=0 is what keeps "nothing to average" from
+        # printing as "felt nothing".
+        report.affect_baseline_sample_size = 0
 
 
 # ─── Phase 4: Maintenance ─────────────────────────────────────────────

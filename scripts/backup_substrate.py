@@ -198,7 +198,15 @@ def verify_bundle_restores(dest: Path, expected_commits: int) -> dict:
         got = int(run("git", "rev-list", "--all", "--count", cwd=mirror).strip())
         refs = len(run("git", "for-each-ref", "--format=%(refname)", cwd=mirror).splitlines())
     finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+        # NOT ignore_errors. A git process can hold a packfile handle briefly
+        # after exit on Windows, and a raised WinError 32 here would report the
+        # BACKUP as failed when it is complete and verified -- but a swallowed
+        # one leaves a temp dir nobody ever hears about. Say it and carry on:
+        # the finding is the verification result, not the cleanup.
+        try:
+            shutil.rmtree(scratch)
+        except OSError as exc:
+            print(f"[backup] could not remove {scratch}: {exc}", file=sys.stderr)
 
     # THE REAL CHECK, and it is a different question from the count above.
     #
@@ -227,9 +235,7 @@ def verify_bundle_restores(dest: Path, expected_commits: int) -> dict:
     # Exclusions arrive on stdin as ^sha lines: 897 of them as argv overflows
     # the Windows command-line limit.
     exclude = "".join(f"^{h}\n" for h in heads)
-    unreachable = run(
-        "git", "rev-list", "--all", "--stdin", cwd=REPO_ROOT, stdin=exclude
-    ).strip()
+    unreachable = run("git", "rev-list", "--all", "--stdin", cwd=REPO_ROOT, stdin=exclude).strip()
     if unreachable:
         missing = unreachable.splitlines()
         raise SystemExit(

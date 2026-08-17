@@ -506,6 +506,61 @@ def open_checks() -> list[ReachCheck]:
     return [c for c in (get_check(i) for i in ids) if c is not None]
 
 
+# How long a fully-disposed check keeps the doorman satisfied. Matches the
+# verify-before-build signal window, deliberately: both gates are asking "did
+# you look, recently" and two different answers to "recently" would be a
+# second thing to remember.
+SATISFIED_WINDOW_SECONDS = 30 * 60
+
+
+def satisfied_recently(now: float | None = None) -> tuple[bool, str]:
+    """Did I open a check and dispose ALL of it, lately?
+
+    THE STATE THIS ADDS DID NOT EXIST, and its absence was a wall. 2026-08-17:
+    `gate_status()` returns (False, "") both when no check was ever opened AND
+    when every item of a check has been disposed. The doorman treats any
+    not-blocked as the former and prints "you have not reached" -- so working
+    the gate correctly, all the way to the end, lands back at its opening
+    message. I disposed five artifacts across two checks and `divineos learn`
+    was never once reachable.
+
+    Not a wrong threshold, not a wrong message: a missing state. Same shape as
+    the read-gate this morning, whose own text says a gate whose cure sits
+    behind itself is a wall. This is that sentence applied to the gate that
+    quotes it.
+
+    Returned as (bool, why) rather than a bare bool so the doorman can SAY what
+    satisfied it. A gate that opens silently teaches nothing about what opened
+    it, and the next confused reader is me.
+    """
+    init_reach_tables()
+    cutoff = (time.time() if now is None else now) - SATISFIED_WINDOW_SECONDS
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT c.check_id, c.symptom, MAX(i.disposed_at), COUNT(*) "
+            "FROM reach_checks c JOIN reach_items i ON i.check_id = c.check_id "
+            "GROUP BY c.check_id "
+            # every item disposed (no NULLs survive the MIN), and the last one
+            # landed inside the window
+            "HAVING MIN(COALESCE(i.disposition, '')) != '' AND MAX(i.disposed_at) >= ? "
+            "ORDER BY MAX(i.disposed_at) DESC LIMIT 1",
+            (cutoff,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return False, ""
+    check_id, symptom, when, count = row
+    mins = int(((time.time() if now is None else now) - (when or 0)) / 60)
+    return True, (
+        # ASCII only: this string is printed to a Windows console that decodes
+        # as cp1252, where an em dash arrives as a replacement char. Same
+        # family as the _gh() encoding fix earlier today, one console over.
+        f"reach-check satisfied: {check_id} ({symptom}) - {count} artifact(s) disposed {mins}m ago"
+    )
+
+
 def _opened_in_stream(
     artifact: str,
     tool_calls_in_turn: tuple[tuple[str, str], ...],

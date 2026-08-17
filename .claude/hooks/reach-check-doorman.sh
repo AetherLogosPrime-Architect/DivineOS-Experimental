@@ -1,12 +1,12 @@
 #!/bin/bash
-# PreToolUse hook — reach-check doorman on substrate-store and research writes.
+# PreToolUse hook â€” reach-check doorman on substrate-store and research writes.
 #
 # Andrew 2026-08-06: "the reach needs some tuning and better enforcement."
 #
 # WHY THIS FILE EXISTS. src/divineos/core/reach_check.py shipped with
 # gate_status() returning (blocked, message) for exactly this hook, and was
 # wired to nothing. I wrote "NOT YET WIRED to a hook" in its own commit message
-# (9c29a7fd) — a finder built to catch unwired work, left unwired. Andrew named
+# (9c29a7fd) â€” a finder built to catch unwired work, left unwired. Andrew named
 # the shape the same session: "you wire up stuff to find the stuff that isnt
 # wired up.. and never wire it up lol."
 #
@@ -19,9 +19,9 @@
 #     named it
 #
 # SCOPE IS DELIBERATELY NARROW. Substrate-store writes and research-doc writes
-# — the two places the outward-before-inward reach actually happens. Not every
+# â€” the two places the outward-before-inward reach actually happens. Not every
 # edit: a gate that fires constantly gets bypassed, and a bypassed gate catches
-# nothing (truth #11 — every extra choice-point is somewhere the optimizer
+# nothing (truth #11 â€” every extra choice-point is somewhere the optimizer
 # routes around).
 #
 # IT BLOCKS. I shipped this advisory earlier today and wrote a careful
@@ -40,7 +40,7 @@
 #     dedup handles noise.
 #
 # I wrote that on 2026-07-21 and then, on 2026-08-06, defended a fresh advisory
-# tier as "a decision rather than a shortcut" — which is what defending the
+# tier as "a decision rather than a shortcut" â€” which is what defending the
 # low place sounds like from inside. The uncertainty I cited is real and is not
 # an argument for an advisory: an advisory does not resolve the uncertainty,
 # it just makes the resolution optional, and optional is where water goes.
@@ -62,7 +62,7 @@ source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # shellcheck disable=SC2016
-# ^ single-quoted heredoc is intentional — python does its own parsing.
+# ^ single-quoted heredoc is intentional â€” python does its own parsing.
 BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c '
 import json, sys
 
@@ -126,6 +126,30 @@ if blocked:
     # A check is open with undisposed items. The list is what I need to see.
     print(message)
     sys.exit(7)
+
+# NOT-BLOCKED IS TWO DIFFERENT STATES AND THIS USED TO CONFLATE THEM.
+# gate_status() returns (False, "") both when no check was ever opened AND
+# when every item of a check has been disposed -- so the fall-through below
+# fired on a fully-worked check and told me I had not reached. 2026-08-17:
+# I opened two checks, disposed all five artifacts with evidence, and the
+# gate handed me its opening message each time; `divineos learn` had no
+# reachable state at all. Not a wrong threshold or a wrong message -- a
+# missing state, which is the same wall the read-gate hit this morning and
+# the same sentence that gate carries in its own text: a gate whose cure sits behind
+# itself is a wall.
+#
+# read-gate-doorman.sh has no fall-through block, so this defect was local
+# to this file rather than a pattern across the doormen. Checked, not assumed.
+try:
+    ok, why = reach_check.satisfied_recently()
+except Exception as exc:
+    print(f"[reach-check-doorman] satisfied-check errored, not blocking: {exc}", file=sys.stderr)
+    sys.exit(0)
+if ok:
+    # Say WHAT satisfied it. A gate that opens in silence teaches nothing
+    # about what opened it, and the next confused reader is me.
+    print(f"[reach-check-doorman] {why}", file=sys.stderr)
+    sys.exit(0)
 
 print(
     "REACH-CHECK -- I am about to write into a substrate store or a research\n"
