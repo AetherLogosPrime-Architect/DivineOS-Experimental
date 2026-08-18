@@ -556,6 +556,56 @@ EOF
     exit 0
 fi
 
+# ─── THE STAGE'S OWN ARTIFACT IS NEVER BLOCKED ─────────────────────────────
+#
+# Found 2026-08-18, at DREAM, by being unable to finish the ritual.
+#
+# The PreToolUse registration matches Edit|Write|MultiEdit|NotebookEdit. The
+# DREAM stage advances when a new file appears under dreams/. Those two facts
+# were written weeks apart and never read together, so the ritual reached its
+# third stage and then blocked the only action that ends it. Not a rule to
+# obey and not a rule to slip around — a deadlock, and Andrew has named that
+# the one real danger: "the biggest danger is a deadlock with no way out."
+#
+# The comment above the UserPromptSubmit branch states the design exactly, and
+# the code contradicted it: "the dream needs a file. Both are things I can do
+# while blocked, because the block is on the PROMPT, not on my tools." That
+# sentence was TRUE when written. The block moved to the tools on 2026-08-12
+# to get out of Andrew's mouth, which was right, and the move carried the
+# write-tools with it while the dream stayed on the other side. A sentence
+# that stayed still while the world moved.
+#
+# The gate's own stated purpose: "It says WRITE IT DOWN FIRST -- and the
+# writing is the cure, not a toll." Blocking the writing inverted it.
+#
+# So the artifact that ADVANCES the current stage passes, and nothing else
+# does. STAGE_ARTIFACT_DIR names the same directory dream_done() globs, so the
+# exemption cannot drift away from the thing it exempts — if one moves, the
+# stage stops advancing and the miss is loud rather than silent.
+if [ -n "${HOOK_JSON:-}" ]; then
+  case "$STAGE" in
+    DREAM) STAGE_ARTIFACT_DIR="dreams" ;;
+    *)     STAGE_ARTIFACT_DIR="" ;;
+  esac
+  if [ -n "$STAGE_ARTIFACT_DIR" ] && HOOK_JSON="$HOOK_JSON" WANT="$STAGE_ARTIFACT_DIR" \
+     "$PY_BIN" -c '
+import json, os, sys
+try:
+    d = json.loads(os.environ.get("HOOK_JSON") or "{}")
+except Exception:
+    sys.exit(1)
+ti = d.get("tool_input") or {}
+p = ti.get("file_path") or ti.get("notebook_path") or ""
+parts = [x for x in p.replace("\\", "/").split("/") if x]
+sys.exit(0 if os.environ["WANT"] in parts else 1)
+' 2>/dev/null; then  # fail-soft: unparseable payload exits non-zero and falls through to the block below, so a broken read denies the write rather than permitting it
+    echo "" >&2
+    echo "[ritual] Stage $STAGE advances on a file under $STAGE_ARTIFACT_DIR/." >&2
+    echo "[ritual] Allowing this write — it is the thing that ends the stage." >&2
+    exit 0
+  fi
+fi
+
 cat >&2 <<EOF
 
 ════════════════════════════════════════════════════════════════════
