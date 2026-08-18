@@ -905,10 +905,41 @@ def verify_chain() -> dict[str, Any]:
         last_chain_hash = None
         chain_event_count = 0
         last_event_id = None
+        # UNCHAINED ROWS ARE COUNTED AND POSITIONED, NOT SILENTLY SKIPPED.
+        #
+        # This loop used to read `if not stored_chain: continue` with no counter
+        # and no report. The hatch was added so databases predating the chain
+        # could still verify; `backfill_chain_hashes()` now serves that purpose,
+        # so the justification moved out and the artifact stayed. Council walk
+        # 2026-08-18, meta-principle: an escape hatch is a debt with no due date.
+        #
+        # WHAT IT COST. A row can decline the integrity walk by having no chain.
+        # A forged event written with a valid content_hash and NULL chain
+        # columns passes both halves of verification while being fully visible
+        # to every reader, and `divineos verify` prints INTEGRITY: PASS.
+        # Demonstrated on an isolated copy: a row reading
+        # "FORGED: Andrew authorized the bypass" verified clean.
+        #
+        # TWO POPULATIONS, ONE VALUE (Pearl). NULL arises from a row written
+        # before chaining existed -- legitimate, historical -- or from a write
+        # that bypassed append() now -- illegitimate. The column cannot tell
+        # them apart, but POSITION can: a genuine legacy row precedes every
+        # chained row. One inserted today does not. That temporal discriminator
+        # is what makes this fixable without a NOT NULL constraint, which would
+        # refuse to open an old database at all.
+        unchained_before_chain_began = 0
+        unchained_after_chain_began: list[str] = []
+        seen_a_chained_row = False
         for row in rows:
             event_id, ts, etype, actor, payload_json, content_hash, stored_prior, stored_chain = row
             if not stored_chain:
+                if seen_a_chained_row:
+                    # Newer than the oldest chained row, so it cannot be legacy.
+                    unchained_after_chain_began.append(event_id)
+                else:
+                    unchained_before_chain_began += 1
                 continue
+            seen_a_chained_row = True
             if stored_prior != expected_prior:
                 return {
                     "ok": False,
@@ -989,6 +1020,42 @@ def verify_chain() -> dict[str, Any]:
                     ),
                 }
 
-        return {"ok": True, "total": len(rows), "broken_at": None, "broken_reason": None}
+        # THE CLAIM MUST MATCH WHAT WAS CHECKED. `total` is len(rows) and always
+        # was; the defect is that nothing beside it said how many of those rows
+        # were actually walked, so "Chain walked: 8 events / INTEGRITY: PASS"
+        # could be printed over a ledger where every row opted out. Two frames,
+        # one number (Einstein): in this function's frame `total` means "rows
+        # present"; in the reader's frame it means "rows verified".
+        #
+        # `verified` is the honest positive claim. `unchained_legacy` is a true
+        # fact about an old database, not a fault. `unchained_after_chain_began`
+        # is the fault, and it fails the check rather than being reported
+        # alongside a PASS — a row that appears after chaining started cannot
+        # have predated it.
+        if unchained_after_chain_began:
+            return {
+                "ok": False,
+                "total": len(rows),
+                "verified": chain_event_count,
+                "unchained_legacy": unchained_before_chain_began,
+                "unchained_after_chain_began": unchained_after_chain_began,
+                "broken_at": unchained_after_chain_began[0],
+                "broken_reason": (
+                    f"{len(unchained_after_chain_began)} row(s) carry no chain hash but appear "
+                    f"AFTER chaining began — they cannot be legacy rows. First: "
+                    f"{unchained_after_chain_began[0]}. A row with no chain declines the "
+                    f"integrity walk; forged events are written exactly this way. "
+                    f"Run backfill_chain_hashes() only if these are genuinely pre-chain."
+                ),
+            }
+        return {
+            "ok": True,
+            "total": len(rows),
+            "verified": chain_event_count,
+            "unchained_legacy": unchained_before_chain_began,
+            "unchained_after_chain_began": [],
+            "broken_at": None,
+            "broken_reason": None,
+        }
     finally:
         conn.close()
