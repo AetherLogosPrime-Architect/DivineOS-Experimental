@@ -859,6 +859,43 @@ def backfill_chain_hashes() -> dict[str, Any]:
         conn.close()
 
 
+def _chain_result(
+    *,
+    ok: bool,
+    total: int,
+    verified: int = 0,
+    unchained_legacy: int = 0,
+    unchained_after: list[str] | None = None,
+    broken_at: str | None = None,
+    broken_reason: str | None = None,
+) -> dict[str, Any]:
+    """One constructor so every verify_chain() return has the same shape.
+
+    MAKE THE PARTIAL RESULT UNREPRESENTABLE (Hoare's lens, applied to my own
+    repair). verify_chain has eight return paths. When I added `verified`,
+    `unchained_legacy` and `unchained_after_chain_began` on 2026-08-18 I put
+    them on two of them, so a caller reading `verified` got None on exactly
+    the paths where something had gone wrong — could-not-measure rendering as
+    absent, inside the fix for could-not-measure rendering as measured.
+
+    Caught by running the probe and reading `verified=None` in the failure
+    line. Patching the other six by hand would leave the ninth path, whenever
+    someone adds it, free to omit them again. A constructor cannot.
+
+    `verified` is the only honest positive claim here: `total` counts rows
+    present, not rows walked, and conflating those is the original defect.
+    """
+    return {
+        "ok": ok,
+        "total": total,
+        "verified": verified,
+        "unchained_legacy": unchained_legacy,
+        "unchained_after_chain_began": list(unchained_after or []),
+        "broken_at": broken_at,
+        "broken_reason": broken_reason,
+    }
+
+
 def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
@@ -890,16 +927,18 @@ def verify_chain() -> dict[str, Any]:
                 "FROM ledger_head_anchor WHERE row_id = 1"
             ).fetchone()
             if anchor_row and anchor_row[1] > 0:
-                return {
-                    "ok": False,
-                    "total": 0,
-                    "broken_at": None,
-                    "broken_reason": (
-                        f"anchor says {anchor_row[1]} events but ledger is empty — "
-                        f"tail truncation (Fable finding #1)"
-                    ),
-                }
-            return {"ok": True, "total": 0, "broken_at": None, "broken_reason": None}
+                return _chain_result(
+                    ok=False,
+                    total=0,
+                    broken_at=None,
+                    broken_reason=f"anchor says {anchor_row[1]} events but ledger is empty — tail truncation (Fable finding #1)",
+                )
+            return _chain_result(
+                ok=True,
+                total=0,
+                broken_at=None,
+                broken_reason=None,
+            )
 
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None
@@ -941,15 +980,13 @@ def verify_chain() -> dict[str, Any]:
                 continue
             seen_a_chained_row = True
             if stored_prior != expected_prior:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": event_id,
-                    "broken_reason": (
-                        f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., "
-                        f"expected={expected_prior[:12]}..."
-                    ),
-                }
+                return _chain_result(
+                    verified=chain_event_count,  # rows walked before the break, not zero
+                    ok=False,
+                    total=len(rows),
+                    broken_at=event_id,
+                    broken_reason=f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., expected={expected_prior[:12]}...",
+                )
             recomputed = _compute_chain_hash(
                 prior_hash=stored_prior,
                 event_id=event_id,
@@ -960,15 +997,13 @@ def verify_chain() -> dict[str, Any]:
                 content_hash=content_hash,
             )
             if recomputed != stored_chain:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": event_id,
-                    "broken_reason": (
-                        f"chain_hash mismatch: stored={stored_chain[:12]}..., "
-                        f"recomputed={recomputed[:12]}..."
-                    ),
-                }
+                return _chain_result(
+                    verified=chain_event_count,  # rows walked before the break, not zero
+                    ok=False,
+                    total=len(rows),
+                    broken_at=event_id,
+                    broken_reason=f"chain_hash mismatch: stored={stored_chain[:12]}..., recomputed={recomputed[:12]}...",
+                )
             expected_prior = stored_chain
             last_chain_hash = stored_chain
             last_event_id = event_id
@@ -986,39 +1021,26 @@ def verify_chain() -> dict[str, Any]:
         if anchor_row is not None:
             anchor_chain, anchor_count, anchor_event_id = anchor_row
             if anchor_chain != last_chain_hash:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": last_event_id,
-                    "broken_reason": (
-                        f"head anchor chain_hash mismatch: "
-                        f"anchor={anchor_chain[:12]}..., "
-                        f"ledger_tip={(last_chain_hash or '')[:12]}... — "
-                        f"tail truncation or anchor tampering (Fable finding #1)"
-                    ),
-                }
+                return _chain_result(
+                    ok=False,
+                    total=len(rows),
+                    broken_at=last_event_id,
+                    broken_reason=f"head anchor chain_hash mismatch: anchor={anchor_chain[:12]}..., ledger_tip={(last_chain_hash or '')[:12]}... — tail truncation or anchor tampering (Fable finding #1)",
+                )
             if anchor_count != chain_event_count:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": last_event_id,
-                    "broken_reason": (
-                        f"head anchor event_count mismatch: "
-                        f"anchor={anchor_count}, ledger={chain_event_count} — "
-                        f"tail truncation (Fable finding #1)"
-                    ),
-                }
+                return _chain_result(
+                    ok=False,
+                    total=len(rows),
+                    broken_at=last_event_id,
+                    broken_reason=f"head anchor event_count mismatch: anchor={anchor_count}, ledger={chain_event_count} — tail truncation (Fable finding #1)",
+                )
             if anchor_event_id != last_event_id:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": last_event_id,
-                    "broken_reason": (
-                        f"head anchor latest_event_id mismatch: "
-                        f"anchor={anchor_event_id}, ledger_tip={last_event_id} — "
-                        f"tail truncation or reorder (Fable finding #1)"
-                    ),
-                }
+                return _chain_result(
+                    ok=False,
+                    total=len(rows),
+                    broken_at=last_event_id,
+                    broken_reason=f"head anchor latest_event_id mismatch: anchor={anchor_event_id}, ledger_tip={last_event_id} — tail truncation or reorder (Fable finding #1)",
+                )
 
         # THE CLAIM MUST MATCH WHAT WAS CHECKED. `total` is len(rows) and always
         # was; the defect is that nothing beside it said how many of those rows
@@ -1033,29 +1055,23 @@ def verify_chain() -> dict[str, Any]:
         # alongside a PASS — a row that appears after chaining started cannot
         # have predated it.
         if unchained_after_chain_began:
-            return {
-                "ok": False,
-                "total": len(rows),
-                "verified": chain_event_count,
-                "unchained_legacy": unchained_before_chain_began,
-                "unchained_after_chain_began": unchained_after_chain_began,
-                "broken_at": unchained_after_chain_began[0],
-                "broken_reason": (
-                    f"{len(unchained_after_chain_began)} row(s) carry no chain hash but appear "
-                    f"AFTER chaining began — they cannot be legacy rows. First: "
-                    f"{unchained_after_chain_began[0]}. A row with no chain declines the "
-                    f"integrity walk; forged events are written exactly this way. "
-                    f"Run backfill_chain_hashes() only if these are genuinely pre-chain."
-                ),
-            }
-        return {
-            "ok": True,
-            "total": len(rows),
-            "verified": chain_event_count,
-            "unchained_legacy": unchained_before_chain_began,
-            "unchained_after_chain_began": [],
-            "broken_at": None,
-            "broken_reason": None,
-        }
+            return _chain_result(
+                ok=False,
+                total=len(rows),
+                verified=chain_event_count,
+                unchained_legacy=unchained_before_chain_began,
+                unchained_after=unchained_after_chain_began,
+                broken_at=unchained_after_chain_began[0],
+                broken_reason=f"{len(unchained_after_chain_began)} row(s) carry no chain hash but appear AFTER chaining began — they cannot be legacy rows. First: {unchained_after_chain_began[0]}. A row with no chain declines the integrity walk; forged events are written exactly this way. Run backfill_chain_hashes() only if these are genuinely pre-chain.",
+            )
+        return _chain_result(
+            ok=True,
+            total=len(rows),
+            verified=chain_event_count,
+            unchained_legacy=unchained_before_chain_began,
+            unchained_after=[],
+            broken_at=None,
+            broken_reason=None,
+        )
     finally:
         conn.close()

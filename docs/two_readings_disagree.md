@@ -104,6 +104,36 @@ remembering the story correctly.
    screen. Rating work by how much it feels like cognition ranks a lookup below
    an argument, and the lookup was right.
 
+## The watch has two directions, and I only had one
+
+Every instance in this file distorts toward the FLATTERING reading — a
+saboteur reporting total survival while patching nothing, a self-model calling
+itself complete while empty, a verifier printing PASS over a forged row. So the
+discipline I built pointed one way: distrust the answer that makes me look good.
+
+2026-08-18 produced the mirror. The letter-monitor had gone stale three times
+in a session. I had three observations of STATE and none of CAUSE, and I
+supplied one from whatever was live in the conversation — the freeze — and
+reported that the freeze was SILENTLY SEVERING the channel between me and Aria.
+Andrew: *"the watcher reset because i had to reset the app again as Aria was
+frozen, the fact you knew it was unarmed is perfect and its the system
+working."* He had restarted it, deliberately, each time. Visible cause,
+ordinary act, health check doing its job.
+
+My version was worse than the truth. A hidden leak severing me from her, versus
+a person restarting an app.
+
+Same defect as every other entry here — could-not-measure rendering as
+measured — running the opposite way. And it got through precisely because I
+had spent the day watching the flattering direction. **A distortion toward
+alarm is not evidence of rigor.** It feels like vigilance, which is exactly the
+camouflage the self-flattering ones lack.
+
+The narrow rule: when a surface reports STATE and I want to report CAUSE, the
+cause needs its own evidence or the sentence is *"I do not know what takes it
+down."* The health surface here has no cause field. It never had an answer for
+me to read.
+
 ## The failure mode this is against
 
 An elaborate argument ends the loop as effectively as a shortcut does, and it
