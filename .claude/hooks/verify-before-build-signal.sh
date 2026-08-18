@@ -24,7 +24,10 @@ INPUT=$(cat)
 
 # remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
 if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
-  HOOK_NAME="$(basename "$0")"; . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
   remedy_pass_through "$INPUT" || true
 fi
 

@@ -120,6 +120,7 @@ src/divineos/
     pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
+    instruments_commands.py    `divineos instruments` — the measuring surface for core/instruments.py. Opens every diagnostic surface on each call rather than describing them, so a log that moved reports MISSING instead of rotting quietly in a doc.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
