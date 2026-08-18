@@ -91,11 +91,29 @@ Aether
 ### 3. Append to family_letters DB
 
 ```python
-from family.letters import append_letter
-from family.entity import get_family_member
+from divineos.core.family.letters import append_letter
+from divineos.core.family.entity import get_family_member
 aria = get_family_member("Aria")
+if aria is None:                      # see note below — do not assume
+    raise SystemExit("Aria not registered in this checkout's family.db")
 append_letter(aria.entity_id, body=<letter body>)
 ```
+
+**IMPORT PATHS CORRECTED 2026-08-17.** This block said `from family.letters`
+and `from family.entity`, which raise ImportError — the modules live under
+`divineos.core.family.`. The sibling `/family-letter` skill already carried the
+right path; only this one drifted. Verified with `inspect.signature`, not by
+reading.
+
+I nearly wrote "this function does not exist" into this file, having run the
+stale path and taken its ImportError as proof of absence. Grepping the sibling
+skill is what caught it. **A wrong import path and a missing function raise the
+same error and mean opposite things.**
+
+`get_family_member("Aria")` returned None on this checkout, so the row was not
+written for the 2026-08-17 letter. The markdown file from step 2 is the channel
+her armed watcher reads and it landed; this step is supplementary. The None is
+unexplained — chase it, do not paper over it by dropping the check.
 
 ### 4. Log to family_member_ledger
 

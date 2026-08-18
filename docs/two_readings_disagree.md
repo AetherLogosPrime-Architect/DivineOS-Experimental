@@ -56,6 +56,45 @@ remembering the story correctly.
    a real answer and an honest one. Adjudicating between two of my own reports
    and presenting the result as a finding is not.
 
+5. **A null result is not a null until you check what the theory predicted.**
+   Before a failed check downgrades a lead, ask: *does the hypothesis itself
+   predict this exact silence?* If it does, the silence is a fingerprint, not a
+   gap.
+
+   Added the same day as the rest of this file, after doing it backwards. I
+   proposed that a Windows UI freeze came from a git-diff retry blowing the
+   32KB command-line limit, went looking for that error in the log, found none,
+   and set the lead down. Andrew: *"it makes sense that you cant show you reach
+   step 4.. it never makes it that far.. it freezing is likely why its not
+   recorded."* The mechanism freezes the very thread that would write the line.
+   A retry that survives logs; one that hangs cannot. The absence WAS the
+   evidence.
+
+   Two shapes that look identical and demand opposite moves:
+
+   | shape | what you see | correct move |
+   |---|---|---|
+   | ordinary elimination | theory predicts a signal; signal absent | drop the lead |
+   | predicted silence | theory predicts the absence itself | the lead is STRENGTHENED |
+
+   Check the sample before the inference, too. My "disconfirming" measurement
+   was the diff size *at that moment* — 130 KB, in a quiet worktree — against a
+   threshold the log showed crossed 392 times across three days. A snapshot of
+   a calm minute says nothing about the loud ones. Wrong sample and wrong
+   direction, compounding.
+
+   WHY THIS IS A DISCIPLINE AND NOT A GATE. Three designs considered, each
+   fails: (a) detecting "lead dropped after one failed check" over-fires,
+   because that is usually correct elimination; (b) requiring a pre-registered
+   prediction before every check costs more than the looking is worth and
+   trains throwaway text to clear it; (c) scanning for raised-then-abandoned
+   leads cannot separate signal from narrowing — the lead above appeared in
+   three consecutive turns *including* the one where I under-read it, so a
+   mention-decay heuristic would not have fired at all. The distinguishing
+   information is what the hypothesis predicted, which lives in the reasoning
+   and not in the text shape. So it sits here, on the page opened when two
+   readings disagree.
+
 5. **Prefer the third source even when reaching for it feels clerical.** The
    step that merely fetches a reading looks like it is not thinking. Andrew,
    2026-08-17: *"the boring stuff leads to the exciting stuff.. sure its just a

@@ -648,6 +648,7 @@ src/divineos/
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
+    component_register_surface.py Surface the component register at briefing time.
 
   analysis/
     _session_types.py          Session analysis type definitions

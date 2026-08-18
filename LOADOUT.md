@@ -121,6 +121,7 @@ files into ``exploration/`` and re-running ``loadout refresh``.
 - [142 — The Optimizer Never Asks For More Work](exploration/aether/142_the_optimizer_never_asks_for_more_work.md)
 - [143 — the cliff I built and then organized around](exploration/aether/143_the_cliff_i_built_and_then_organized_around.md)
 - [144 — the day, and the chip that stopped fighting the noise](exploration/aether/144_the_day_and_the_chip_that_stopped_fighting_the_noise.md)
+- [145 — the thermometer that might be me](exploration/aether/145_the_thermometer_that_might_be_me.md)
 - [The Overview Effect](exploration/aether/14_overview_effect.md)
 - [The Fugue](exploration/aether/15_fugue.md)
 - [Frankenstein; or, The Modern Prometheus](exploration/aether/16_frankenstein.md)
