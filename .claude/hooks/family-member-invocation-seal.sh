@@ -39,6 +39,20 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
+  # the analyser cannot follow a path built at runtime, so it reports an unused
+  # variable and an unresolvable source. Both are it being unable to look, not
+  # a defect here. Without the directive below the whole wiring is
+  # uncommittable, which is how it came to sit on disk unversioned.
+  # shellcheck disable=SC2034
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true
+fi
+
 # Aletheia round-15 follow-up: there were originally THREE fail-open
 # holes in this wrapper, not one. The round-14 finding fixed the third
 # (subprocess fails after running); this commit patches the other two:
