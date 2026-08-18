@@ -50,6 +50,17 @@ def _guess_context_pct() -> float:
     "below threshold, don't fire." Fail-safe direction matches the
     old behavior so the change doesn't cause unexpected firing when
     the snapshot fails.
+
+    UNPINNED READINGS ARE REFUSED (Andrew correction #452, 2026-08-18).
+    A snapshot with ``pinned=False`` was resolved by newest-mtime rather
+    than by session id, so it may be another session's number entirely —
+    on 2026-08-18 that path returned 96.1% from a transcript abandoned
+    sixty-nine days earlier. This function's number decides whether the
+    compaction ritual fires, and the ritual is the ONE thing token count
+    is allowed to decide. Spending a stranger's number on it would fire
+    the pipeline mid-work for no reason. Refusing costs at most a missed
+    ritual in a harness that publishes no session id; accepting costs a
+    ritual fired on fiction.
     """
     try:
         from divineos.core.context_tokens import get_context_snapshot
@@ -58,6 +69,8 @@ def _guess_context_pct() -> float:
     try:
         snap = get_context_snapshot()
     except Exception:  # noqa: BLE001 - observability boundary
+        return 0.0
+    if not getattr(snap, "pinned", False):
         return 0.0
     total = getattr(snap, "total_tokens", 0) or 0
     if not total:
