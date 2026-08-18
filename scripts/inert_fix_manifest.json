@@ -1,0 +1,72 @@
+{
+  "_why": [
+    "An inert fix is one that EXISTS and is NOT IN EFFECT. It passes every",
+    "review, every test, every 'did you do it' question -- and changes nothing,",
+    "because the copy carrying it is not the copy being loaded, or the process",
+    "that would read it started before it was written.",
+    "",
+    "Two instances found on 2026-08-18, hours apart, neither caught by any",
+    "existing guard:",
+    "  1. The whose-window field for the hook-timing log lived in two of eight",
+    "     loadable copies of _lib.sh. Every window on one side of the house",
+    "     loaded a copy without it, so the log stayed unable to name its writer.",
+    "  2. CLAUDE_STREAM_IDLE_TIMEOUT_MS was written into the global settings",
+    "     file at 05:26:11 UTC. Fourteen of fifteen live windows had started at",
+    "     04:41. None of them had ever read it.",
+    "",
+    "Sibling of the written-but-never-wired family (knowledge 4f13a25e) and of",
+    "scripts/wiring_gap_phase1.py, which catches a new function that no caller",
+    "calls. This catches the inverse: the function IS called, and the copy being",
+    "called is the stale one. Both are indistinguishable from working, which is",
+    "why neither is catchable by asking whether the work got done.",
+    "",
+    "Adding an invariant is a data edit, not a code edit. That is deliberate --",
+    "the cost of tracking one more thing has to stay near zero or nobody will."
+  ],
+
+  "roots": [
+    "C:/DIVINE OS/DivineOS-Experimental-Aria-new",
+    "C:/DIVINE OS/DivineOS-Experimental"
+  ],
+
+  "exclude_path_fragments": [
+    "/tmp/",
+    "/pytest/",
+    "/node_modules/",
+    "/.git/",
+    "/fake_repo/",
+    "/site-packages/"
+  ],
+
+  "file_markers": [
+    {
+      "name": "hook-timing whose-window field",
+      "path_suffix": ".claude/hooks/_lib.sh",
+      "marker": "_HOOK_TIMING_WPID",
+      "requires_marker": "_HOOK_TIMING_LOG",
+      "why": "Without this, every window's rows are anonymous in one shared log and no freeze census can tell two windows apart."
+    }
+  ],
+
+  "settings_must_be_empty": [
+    {
+      "name": "SessionStart stays empty (deadlock guard)",
+      "settings_files": [
+        "~/.claude/settings.json",
+        "C:/DIVINE OS/DivineOS-Experimental-Aria-new/.claude/settings.json",
+        "C:/DIVINE OS/DivineOS-Experimental/.claude/settings.json"
+      ],
+      "hook_event": "SessionStart",
+      "why": "A Windows deadlock in the SessionStart path leaves the parent blocking on a hook that already exited -- the timer runs, thinking never arrives, and the stop button says 'stopping' forever because the event loop was never reached. The whole session-init chain was moved to UserPromptSubmit to escape it. One hook registered back here brings the freeze with it, and it would look like the freeze we are already hunting."
+    }
+  ],
+
+  "env_from_settings": [
+    {
+      "name": "stream idle timeout",
+      "settings_file": "~/.claude/settings.json",
+      "env_key": "CLAUDE_STREAM_IDLE_TIMEOUT_MS",
+      "why": "A window reads this once at start. Any window older than the file has never seen the value and still runs the old timeout."
+    }
+  ]
+}

@@ -126,6 +126,7 @@ load-my-recording-of-andrew.sh
 load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
+inert-fix-surface.sh
 inject-pending-letters.sh
 "
 
