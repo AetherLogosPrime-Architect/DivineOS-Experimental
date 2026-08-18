@@ -34,6 +34,12 @@ _pre_log() {
 }
 
 INPUT=$(cat)
+
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  HOOK_NAME="$(basename "$0")"; . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true
+fi
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 # fail-soft: cd suppression by design — pre_log captures the failure below; hook exits cleanly rather than blocking
 cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }

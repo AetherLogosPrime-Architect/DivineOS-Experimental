@@ -29,6 +29,12 @@ fi
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  HOOK_NAME="$(basename "$0")"; . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true
+fi
+
 PY_STDERR=$(mktemp)
 RESULT=$(echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys

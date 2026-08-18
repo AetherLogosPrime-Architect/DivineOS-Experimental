@@ -483,7 +483,6 @@ src/divineos/
 —   ——— feature_storage.py    # Feature result DB storage
 —   ——— session_analyzer.py   # Signal detection (corrections, encouragements)
 ——— agent_integration/        # Outcome measurement, memory monitor, learning cycles
-——— clarity_enforcement/      # Clarity system
 ——— clarity_system/           # Clarity rules and violation tracking
 ——— event/                    # Event types and dispatch
 ——— hooks/                    # Git hook integration

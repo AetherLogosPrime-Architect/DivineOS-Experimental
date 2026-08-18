@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (~440 commands across 84 modules)
+  cli/                         CLI package (444 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -53,7 +53,6 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
-    instruments_commands.py    divineos instruments — survey the diagnostic surfaces
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
@@ -110,6 +109,7 @@ src/divineos/
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
+    detector_commands.py       detectors status / heal / defer / check. Teeth for a guard that reports it cannot run: self-repair first, block Edit/Write second, deferral only with a written reason. Added 2026-08-02 after the ear-sweep printed a perfect could-not-run warning at every SessionStart for days while 24 orphaned processes piled up — the message was already correct, and print-only output cannot require anything of the reader.
     emergency_completion_commands.py  emergency-completion status / arm / resolve. Added 2026-08-02 after the dark-matter sweep found `core/emergency_completion.py` complete but command-less: `arm()` refuses while a debt stands and `resolve_debt()` was the only thing that could clear one, so the first use of the lane would have bricked it permanently.
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
@@ -304,7 +304,6 @@ src/divineos/
     compass_constants.py       Shared constants (RUDDER_ACK_TAG, JUSTIFICATION_WINDOW_SECONDS) for moral_compass + compass_rudder
     user_ratings.py            External validation — user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
-    instruments.py             Instruments index — what I can measure, and whether it answers
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
     attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
@@ -488,6 +487,7 @@ src/divineos/
       thresholds.py              Threshold constants for operating-loop detectors.
       authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE of evidence (PR #217, prereg-95f7e5c7c2db).
       shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
+      transcript_tail.py         Bounded transcript reading — the last 4 MB, with a truncated flag so a caller holding a partial view can say so. Built 2026-08-03 as "the freeze fix", found to have zero callers 2026-08-09, and not on main at all until 2026-08-18. NOT the freeze fix — that diagnosis was refuted; measured worth is ~1s/turn on a 67 MB transcript and nothing on a small one.
       deep_engagement_detector.py Deep-engagement detector — catches substantive-output-without-grounded-consult per prereg-43b1d1ba2df3.
       closure_initiation_detector.py Closure-initiation detector — Aria's three-state model: user-signaled OR extract/sleep allowed; else closure-language + landmark fires HIGH, closure-language alone fires MEDIUM.
       temporal_displacement_detector.py Temporal-displacement detector — catches fake-clock references (tonight/tomorrow/calling-it-a-night) in agent output. Same first-person presence discipline as writer-presence at a different surface; phase A observational per prereg-221edeaceee3.
@@ -630,6 +630,7 @@ src/divineos/
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+    command_parsing.py         Strips `cd x &&`, `env`, and `NAME=value` off a shell command so gates match what was actually run. One home, after three sites learned it separately and two got it wrong (Aletheia F70 shape, 2026-08-18).
     auto_goal.py               Auto-goal derivation from user prompts.
     mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
     mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
@@ -645,10 +646,13 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    degraded_detectors.py      A detector that cannot run must cost something.
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
+    branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
     component_register_surface.py Surface the component register at briefing time.
+    instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
 
   analysis/
     _session_types.py          Session analysis type definitions

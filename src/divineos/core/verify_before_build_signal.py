@@ -33,17 +33,12 @@ hook. Stage 3 retires the lexical detector.
 
 from __future__ import annotations
 
-import re
-import shlex
 import sys
 import time
 
-_CHECK_ERRORS = (OSError, TypeError, ValueError, KeyError)
+from divineos.core.command_parsing import resolve_command_head
 
-# Env-var-prefix pattern per bash grammar: NAME=value at start of tokens.
-# Used to strip leading env assignments so `env FOO=bar git commit` and
-# `FOO=bar git commit` both resolve to `git commit`.
-_ENV_ASSIGN_RE = re.compile(r"^[A-Z_][A-Z0-9_]*=")
+_CHECK_ERRORS = (OSError, TypeError, ValueError, KeyError)
 
 # Substrate-mutating Bash command-heads. Matched as EXACT resolved-command
 # (after env-prefix stripping), not substring — otherwise argument text
@@ -69,42 +64,28 @@ more-recent, they win (max-of-three).
 
 
 def _resolve_command_head(bash_command: str) -> str:
-    """Return the "real" command head after stripping leading env-var
-    assignments per bash grammar.
+    """Return the "real" command head after stripping leading noise.
 
     Handles:
       - `git commit`                       → "git commit"
       - `env FOO=bar git commit`           → "git commit"
       - `FOO=bar BAZ=qux git commit -m x`  → "git commit"
-
-    Returns first two tokens joined (or single token if only one exists).
-    Empty string if command is empty or all-whitespace or shlex fails.
+      - `cd /some/path && git commit`      → "git commit"
 
     Per Aria's 2026-07-25 review: fixes Bug 1 (substring-match) by
     exact-matching against the resolved command-head, not any substring
     in the raw command text (which would false-fire on arguments like
     `authorize-bypass --command "divineos decide"`).
+
+    The stripping itself moved to `divineos.core.command_parsing` on
+    2026-08-18, after a third site in this repo rebuilt it wrong — the
+    shared remedy allowlist, where a leading env assignment made a gate's
+    own prescribed remedy invisible and deadlocked the gate against
+    itself. This name stays because it is the vocabulary two years of
+    findings use; the logic has one home now, and the `cd` handling is
+    new here as a consequence.
     """
-    if not bash_command:
-        return ""
-    try:
-        tokens = shlex.split(bash_command, posix=True)
-    except ValueError:
-        # Malformed quoting — fall back to whitespace split so we never
-        # crash the gate. Fail-permissive on parse ambiguity.
-        tokens = bash_command.strip().split()
-    # Skip leading `env` invocation and env-var assignments
-    idx = 0
-    if tokens and tokens[0].lower() == "env":
-        idx = 1
-    while idx < len(tokens) and _ENV_ASSIGN_RE.match(tokens[idx]):
-        idx += 1
-    real = tokens[idx:]
-    if not real:
-        return ""
-    if len(real) >= 2:
-        return f"{real[0].lower()} {real[1].lower()}"
-    return real[0].lower()
+    return resolve_command_head(bash_command)
 
 
 def _is_substrate_mutating(

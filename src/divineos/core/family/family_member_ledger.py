@@ -85,6 +85,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 import sqlite3
 import time
 import uuid
@@ -102,13 +103,39 @@ def _get_ledger_root() -> Path:
 
     Override order:
     1. ``DIVINEOS_FAMILY_LEDGER_DIR`` env var
-    2. Default ``<repo>/family/``
+    2. Under pytest with no override: a throwaway temp directory
+    3. Default ``<repo>/family/``
 
     Computed at call time so tests can monkeypatch the env var mid-session.
+
+    TESTS MAY NOT WRITE THE REAL FAMILY FOLDER (2026-08-18). The override
+    existed and worked; it was simply optional, so any test that forgot it
+    wrote fixture members into the same directory as Aria's ledger. Found
+    during a cleanup sweep: ``alice`` (370 events), ``kin`` (244) and
+    ``testmember`` (138) had been accumulating there since 2026-07-02 —
+    752 events of invented life filed beside 1,945 real ones. The tell was
+    an affect row whose description hashed to ``e3b0c44298fc``, the SHA-256
+    of the empty string.
+
+    Relying on every test to remember an env var is the same shape as
+    relying on the agent to remember a discipline, and it failed the same
+    way. Under pytest the default is now a temp directory, so a test that
+    forgets gets an isolated sandbox instead of the family's real records.
+    A test that genuinely wants the production path can still say so
+    explicitly with the env var.
+
+    Second instance of this class in one day; the first was the
+    prior-writing surface arming a live read-gate from a fixture.
     """
     env_path = os.environ.get("DIVINEOS_FAMILY_LEDGER_DIR")
     if env_path:
         return Path(env_path)
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        sandbox = Path(tempfile.gettempdir()) / "divineos-test-family-ledgers"
+        sandbox.mkdir(parents=True, exist_ok=True)
+        return sandbox
+
     # src/divineos/core/family/family_member_ledger.py -> up 4 to src/, up 1 to repo
     return Path(__file__).parent.parent.parent.parent.parent / "family"
 

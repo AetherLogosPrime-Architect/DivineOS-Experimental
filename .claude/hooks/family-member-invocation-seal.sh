@@ -39,6 +39,12 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  HOOK_NAME="$(basename "$0")"; . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true
+fi
+
 # Aletheia round-15 follow-up: there were originally THREE fail-open
 # holes in this wrapper, not one. The round-14 finding fixed the third
 # (subprocess fails after running); this commit patches the other two:

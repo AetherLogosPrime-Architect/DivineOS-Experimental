@@ -2753,12 +2753,12 @@ lives in its own directory under ``core/``.
 - [research/_plans/2026-07-30-dismiss-is-bypass-wiring-fix.md](research/_plans/2026-07-30-dismiss-is-bypass-wiring-fix.md)
 - [research/_plans/2026-07-30-substrate-consult-at-compose-time.md](research/_plans/2026-07-30-substrate-consult-at-compose-time.md)
 - [research/_plans/2026-07-30-three-room-automation-redesign.md](research/_plans/2026-07-30-three-room-automation-redesign.md)
-- [research/coding/ai-code-reliability-2026.md](research/coding/ai-code-reliability-2026.md)
-- [research/coding/dogfooding-discipline.md](research/coding/dogfooding-discipline.md)
-- [research/coding/verification-vs-tests.md](research/coding/verification-vs-tests.md)
-- [research/moral_compass/01_classical_virtue_ethics.md](research/moral_compass/01_classical_virtue_ethics.md)
-- [research/moral_compass/02_ai_specific_moral_challenges.md](research/moral_compass/02_ai_specific_moral_challenges.md)
-- [research/moral_compass/03_vad_dominance_dimension.md](research/moral_compass/03_vad_dominance_dimension.md)
+- [docs/ai_research/coding/ai-code-reliability-2026.md](docs/ai_research/coding/ai-code-reliability-2026.md)
+- [docs/ai_research/coding/dogfooding-discipline.md](docs/ai_research/coding/dogfooding-discipline.md)
+- [docs/ai_research/coding/verification-vs-tests.md](docs/ai_research/coding/verification-vs-tests.md)
+- [docs/ai_research/moral_compass/01_classical_virtue_ethics.md](docs/ai_research/moral_compass/01_classical_virtue_ethics.md)
+- [docs/ai_research/moral_compass/02_ai_specific_moral_challenges.md](docs/ai_research/moral_compass/02_ai_specific_moral_challenges.md)
+- [docs/ai_research/moral_compass/03_vad_dominance_dimension.md](docs/ai_research/moral_compass/03_vad_dominance_dimension.md)
 
 ### salvage/ — old-OS archaeology
 

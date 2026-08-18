@@ -32,6 +32,12 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  HOOK_NAME="$(basename "$0")"; . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -47,7 +53,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
+# member-home: one resolver for where a member's state lives (2026-08-18).
+# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
+# the aether special-case for six weeks. See lib/member_home.sh.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MARKER_PATH="$(member_home "$MEMBER" "$PYTHON_BIN")/check-branch.disabled"
 
 # Decide whether this command is a git push. Inline python invocation
 # mirrors check-pending-obligations.sh — direct function call into the

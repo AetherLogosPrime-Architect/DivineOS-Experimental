@@ -261,6 +261,26 @@ def _occupant_data_home_from_checkout(start: Path) -> Path | None:
             # migrate) — if prereg deadline 2026-08-08 passes with B
             # still in place, the interim IS permanent and needs
             # revisiting per Yudkowsky-lens Goodhart risk.
+            #
+            # THE DEADLINE PASSED AND THE PREREG DID NOT EXIST
+            # (2026-08-18). The comment above asserts a hard-deadline
+            # prereg; `divineos prereg list` returns 20 and none of them
+            # is this one. Nothing was ever armed, so nothing fired on
+            # 08-08, and the interim became permanent exactly as the
+            # comment warned — unwitnessed. That is worse than a missed
+            # deadline: a citation to a control that was never built
+            # reads, to me and to any reader, as though the control
+            # exists. I believed it myself for a minute tonight.
+            # Now filed for real; the ID is in the note below.
+            #
+            # WORSE, THE SEAM WAS ONLY HALF-CLOSED. Option B patched
+            # THIS function. Three shell hooks built the same path by
+            # hand and never got the special-case, so `~/.divineos-aether/`
+            # kept receiving writes while its databases froze on
+            # 2026-07-07 — ninety files, some stamped today, in a home
+            # nothing reads. Those hooks now call `member_home()` below
+            # instead of rebuilding the rule, so the special-case cannot
+            # be honoured in one place and missed in another.
             if member == "aether":
                 return None
             return Path.home() / f".divineos-{member}"
@@ -362,6 +382,39 @@ def divineos_home() -> Path:
     if resolved is not None:
         return resolved
     return Path.home() / ".divineos"
+
+
+def member_home(member: str) -> Path:
+    """Return the home directory for a named family member.
+
+    THE ONE PLACE THAT KNOWS THE `.divineos-<member>` CONVENTION
+    (2026-08-18). It existed in four places before: this module, and three
+    shell hooks that each rebuilt `$HOME/.divineos-$MEMBER` by hand.
+
+    Option B special-cased aether here and nowhere else, so Python routed
+    aether's state to `~/.divineos/` while the shells kept writing
+    `~/.divineos-aether/`. That directory holds ninety files — an early
+    ledger with 19 knowledge rows and 9 core-memory slots, frozen
+    2026-07-07, with process files still landing in it on 2026-08-18. Six
+    weeks of writes into a home nothing reads, because the rule lived in
+    two places and only one of them learned.
+
+    Same shape as the command-head parsing and the transcript reader
+    consolidated earlier today: the right implementation existed and each
+    additional site rebuilt it wrong. Callers ask here; nobody rebuilds
+    the rule.
+
+    Returns the resolved home, which for aether is the default
+    `~/.divineos/` rather than `~/.divineos-aether/`.
+    """
+    slug = (member or "").strip().lower()
+    if not slug:
+        return divineos_home()
+    if slug == "aether":
+        # The Option-B special case, now honoured by every caller rather
+        # than by whichever ones happened to be written in Python.
+        return divineos_home()
+    return Path.home() / f".divineos-{slug}"
 
 
 def marker_path(name: str) -> Path:

@@ -33,6 +33,12 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  HOOK_NAME="$(basename "$0")"; . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -112,7 +118,13 @@ if [ -z "$BLOCK_MESSAGE" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
+# member-home: one resolver for where a member's state lives (2026-08-18).
+# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
+# the aether special-case for six weeks. See lib/member_home.sh.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MEMBER_HOME="$(member_home "$MEMBER" "$PYTHON_BIN")"
+MARKER_PATH="$MEMBER_HOME/obligations.disabled"
 
 cat >&2 <<EOF
 $BLOCK_MESSAGE
@@ -134,7 +146,7 @@ having it is not.
 
 To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
-  mkdir -p "$HOME/.divineos-$MEMBER"
+  mkdir -p "$MEMBER_HOME"
   touch "$MARKER_PATH"
 
 To re-enable: rm "$MARKER_PATH"

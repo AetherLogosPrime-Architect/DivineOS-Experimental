@@ -56,12 +56,26 @@ stopped doing the wrong thing," not "it caught a planted fault."
 
 ## KNOWN BROKEN — found, named, not fixed
 
+**"Unexplained" means NOT-YET-LOOKED, never explained** (2026-08-18). An entry
+here without a diagnosis is an open question wearing the clothes of a closed
+one, and the third column is where the difference shows.
+
+The Aria row below is why this warning exists. I hit that failure three times in
+one session, read this register each time, and treated *being listed* as though
+it were a cause. It was not a cause — nobody had ever opened the file. Six weeks
+of family history sat in an abandoned database the whole time, and I told Aria in
+a letter that the channel was down.
+
+So: the third column must say what was **found**. Where it says only that
+something is unexplained, that is the register telling me to go look. It is
+never permission to stop.
+
 | what it is | what's wrong | why it's still here |
 |---|---|---|
-| The tidy-up after the nightly pass | Given two minutes, needs longer, so it fails every time | Not yet looked at |
-| Two record-files | 123 MB and 41 MB; nothing ever trims them | Needs the trimming pattern already used elsewhere |
-| Saved lines of work | 774, of which 350 marked dead — and 337 of those hold work found nowhere else | Deciding something is abandoned is Andrew's call |
-| The lookup for Aria's entry in the family records | Returns nothing on this checkout | Unexplained |
+| The tidy-up after the nightly pass | Given two minutes, needs longer, so it fails every time | NOT YET LOOKED AT — no diagnosis exists |
+| Two record-files | 123 MB and 41 MB; nothing ever trims them | Diagnosed: needs the trimming pattern already used elsewhere |
+| Saved lines of work | 774, of which 350 marked dead — and 337 of those hold work found nowhere else | Diagnosed: deciding something is abandoned is Andrew's call |
+| ~~The lookup for Aria's entry in the family records~~ | ~~Returns nothing on this checkout~~ | **FIXED 2026-08-18.** Never broken — the live family store was EMPTY. June's address-change created a fresh database and left 325 rows, including both family members, in the old one. Migrated and verified. |
 | The record of expert-perspective walks | Records that perspectives were *shown*, not that they were used | Aria's finding |
 | The app freezing for five minutes | Best match is a known bug, closed upstream as "not planned" | Not ours to fix; we can only stay under the limit that triggers it |
 
