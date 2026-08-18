@@ -169,6 +169,19 @@ class TestFailsTowardNotARemedy:
         )
         assert "NO_MATCH" in proc.stdout
 
-    def test_env_value_containing_whitespace_stops_the_strip(self):
-        """Documents the known limit rather than pretending it is handled."""
-        assert not _is_remedy('MSG="two words" divineos correction "x"')
+    def test_env_value_containing_whitespace(self):
+        """This was written as a documented limit, and it was not one.
+
+        The shell version could not see past a quoted value with a space, so
+        the first draft of this test asserted the miss. Aletheia's audit named
+        the duplication that caused it; `divineos.core.command_parsing` uses
+        shlex and had solved this all along.
+        """
+        assert _is_remedy('MSG="two words" divineos correction "x"')
+
+    def test_leading_env_invocation(self):
+        """`env FOO=bar cmd` — handled by the shared parser, missed by mine."""
+        assert _is_remedy('env DIVINEOS_SKIP=1 divineos correction "x"')
+
+    def test_bare_env_invocation(self):
+        assert _is_remedy('env divineos correction "x"')

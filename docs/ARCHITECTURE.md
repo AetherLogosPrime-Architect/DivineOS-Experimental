@@ -629,6 +629,7 @@ src/divineos/
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+    command_parsing.py         Strips `cd x &&`, `env`, and `NAME=value` off a shell command so gates match what was actually run. One home, after three sites learned it separately and two got it wrong (Aletheia F70 shape, 2026-08-18).
     auto_goal.py               Auto-goal derivation from user prompts.
     mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
     mansion_tasting_room.py    The mansion tasting room — semantic palate storage.

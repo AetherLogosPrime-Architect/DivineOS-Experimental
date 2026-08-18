@@ -87,41 +87,27 @@ _REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:s
 # up next. These loops are a floor, not a proof. If a fourth prefix appears the
 # answer is to parse the command, not to add a fourth loop.
 remedy_pass_through() {
-  local input="$1" cmd next stripped
+  local input="$1" cmd
+  # One python call does both jobs: pull the command out of the hook payload
+  # and hand it to the shared stripper. Doing the stripping in shell here is
+  # how this file got it wrong — a regex over a language with quoting cannot
+  # see that `MSG="two words" divineos correction` is a remedy, and shlex can.
+  # A failed import falls back to the raw command, which fails toward
+  # not-a-remedy and leaves the calling gate exactly as it is today.
   cmd=$(printf '%s' "$input" | python -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
-print((d.get('tool_input') or {}).get('command', '') or '')
+raw = (d.get('tool_input') or {}).get('command', '') or ''
+try:
+    from divineos.core.command_parsing import stripped_command
+    print(stripped_command(raw))
+except Exception:
+    print(raw)
 " 2>/dev/null)
   [ -z "$cmd" ] && return 1
-
-  # Alternate the two strippers until neither moves. The prefixes interleave:
-  # `cd x && VAR=1 divineos ...` and `VAR=1 cd x && divineos ...` are both
-  # things I actually type, so one pass of each is not enough.
-  while : ; do
-    next="$cmd"
-
-    while printf '%s' "$next" | grep -qE '^[[:space:]]*cd[[:space:]]'; do
-      stripped=$(printf '%s' "$next" | sed -E 's/^[[:space:]]*cd[[:space:]][^&]*&&[[:space:]]*//')
-      [ "$stripped" = "$next" ] && break
-      next="$stripped"
-    done
-
-    # Leading `NAME=value ` assignments. A value containing whitespace stops the
-    # strip, which fails toward not-a-remedy and leaves the calling gate behaving
-    # exactly as it does today.
-    while printf '%s' "$next" | grep -qE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]'; do
-      stripped=$(printf '%s' "$next" | sed -E 's/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+//')
-      [ "$stripped" = "$next" ] && break
-      next="$stripped"
-    done
-
-    [ "$next" = "$cmd" ] && break
-    cmd="$next"
-  done
 
   if printf '%s' "$cmd" | grep -qE "$_REMEDY_PATTERNS"; then
     # Allow, and leave a trace. A silent allowlist rots into an unexamined
