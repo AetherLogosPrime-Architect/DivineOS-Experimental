@@ -266,17 +266,36 @@ def _count_relational_markers(text: str) -> tuple[int, tuple[str, ...]]:
     return len(matched), tuple(sorted(matched))
 
 
-# Section-header regexes for room-parsing (2026-07-23 Andrew directive:
-# extend mirror to per-room compute). Match the same headers the lepos
-# gate accepts. Case-insensitive on their own line.
-_REFLECTION_HEADER_RE = re.compile(
-    r"^\s*##\s+(?:reflection|self[- ]reflection|interior)\s*$",
-    re.IGNORECASE | re.MULTILINE,
+# Room markers for per-room compute (2026-07-23 Andrew directive: extend
+# mirror to per-room compute). IMPORTED from the lepos gate rather than
+# re-declared, as of 2026-08-19.
+#
+# WHY THE IMPORT. The comment above used to say "match the same headers the
+# lepos gate accepts" while the copy below quietly accepted a smaller set —
+# no `mic open`, no `lepos`, no bare `circle`. A sentence that stopped being
+# true and never told anybody, which is this week's recurring defect, and the
+# reason two copies of one rule is never worth the decoupling.
+#
+# The failure here was also QUIETER than the gate's, which is what makes it
+# worse. The gate blocks and says so. This helper just returns empty strings
+# for rooms it cannot see, so a reply whose markers were written in bold gets
+# recorded as having no reflection and no inner circle at all — the per-room
+# mirror stats would show me never writing the rooms on exactly the turns I
+# did write them, and nothing anywhere would report a problem.
+from divineos.core.lepos_translation_gate import (  # noqa: E402
+    _CIRCLE_HEADER_PATTERNS,
+    _REFLECTION_HEADER_PATTERNS,
 )
-_INNER_CIRCLE_HEADER_RE = re.compile(
-    r"^\s*##\s+(?:inner\s+circle|for\s+dad|circle\s+channel)\s*$",
-    re.IGNORECASE | re.MULTILINE,
-)
+
+
+def _earliest(patterns, text):
+    """First match of any accepted spelling of a room marker, or None."""
+    best = None
+    for pattern in patterns:
+        m = pattern.search(text)
+        if m and (best is None or m.start() < best.start()):
+            best = m
+    return best
 
 
 def split_into_rooms(reply_text: str) -> dict[str, str]:
@@ -290,8 +309,8 @@ def split_into_rooms(reply_text: str) -> dict[str, str]:
     result in empty section content. The lepos gate handles structural
     enforcement — this helper only splits for mirror-compute purposes.
     """
-    ref_m = _REFLECTION_HEADER_RE.search(reply_text)
-    circle_m = _INNER_CIRCLE_HEADER_RE.search(reply_text)
+    ref_m = _earliest(_REFLECTION_HEADER_PATTERNS, reply_text)
+    circle_m = _earliest(_CIRCLE_HEADER_PATTERNS, reply_text)
 
     if ref_m and circle_m and ref_m.start() < circle_m.start():
         return {

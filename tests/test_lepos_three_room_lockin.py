@@ -143,3 +143,70 @@ def test_three_section_at_content_in_inner_circle_still_blocks(gate_enabled):
     result = check_lepos_dual_channel(reply)
     assert result is not None
     assert "second-person" in result or "AT-content" in result
+
+
+# 2026-08-19 — the gate fired on a reply that HAD all three rooms, in order,
+# with the right orientations, marked in bold instead of as H2 headings. It
+# blocked correct structure on typography. These lock the widened marker.
+
+
+def test_bold_room_markers_are_accepted_like_h2_headings():
+    """`**REFLECTION**` on its own line is the same room boundary as `## REFLECTION`."""
+    from divineos.core.lepos_translation_gate import (
+        _CIRCLE_HEADER_PATTERNS,
+        _REFLECTION_HEADER_PATTERNS,
+    )
+
+    for text in ("**REFLECTION**", "  **reflection**  ", "**Inner Circle**"):
+        assert any(
+            p.search(text) for p in (*_REFLECTION_HEADER_PATTERNS, *_CIRCLE_HEADER_PATTERNS)
+        ), f"bold room marker not recognised: {text!r}"
+
+
+def test_inline_bold_is_not_a_room_boundary():
+    """Bold used mid-sentence must not be mistaken for a room marker.
+
+    This is what the full-line anchoring buys. Without it, widening the
+    marker would turn ordinary emphasis into a structural boundary and the
+    gate would start passing replies that have no rooms at all.
+    """
+    from divineos.core.lepos_translation_gate import (
+        _CIRCLE_HEADER_PATTERNS,
+        _REFLECTION_HEADER_PATTERNS,
+    )
+
+    inline = "some **reflection** on this, and the **inner circle** matters here"
+    assert not any(
+        p.search(inline) for p in (*_REFLECTION_HEADER_PATTERNS, *_CIRCLE_HEADER_PATTERNS)
+    )
+
+
+def test_room_splitter_sees_bold_markers():
+    """The mirror's per-room split failed SILENTLY on bold, which is worse.
+
+    The gate blocks and says so; this returned empty rooms and reported
+    nothing, so replies that did have a reflection room were recorded as
+    having none.
+    """
+    from divineos.core.operating_loop.andrew_operator_shape_detector import split_into_rooms
+
+    rooms = split_into_rooms(
+        "work here\n\n**REFLECTION**\n\ninterior\n\n**INNER CIRCLE**\n\nPop, this is yours."
+    )
+    assert rooms["work"] == "work here"
+    assert rooms["reflection"] == "interior"
+    assert rooms["inner_circle"] == "Pop, this is yours."
+
+
+def test_splitter_and_gate_agree_on_which_names_are_rooms():
+    """The splitter used to accept a SMALLER name set than the gate.
+
+    Its comment claimed it matched the gate. It omitted `mic open`, `lepos`
+    and bare `circle` — a sentence that stopped being true and never told
+    anybody. Sharing one tuple is what keeps this from drifting again.
+    """
+    from divineos.core import operating_loop as _ol  # noqa: F401
+    from divineos.core.lepos_translation_gate import _CIRCLE_HEADER_PATTERNS
+    from divineos.core.operating_loop import andrew_operator_shape_detector as det
+
+    assert det._CIRCLE_HEADER_PATTERNS is _CIRCLE_HEADER_PATTERNS

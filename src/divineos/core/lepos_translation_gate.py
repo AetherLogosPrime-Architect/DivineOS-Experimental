@@ -360,14 +360,41 @@ _JARGON_PATTERNS = (
 )
 
 
+# 2026-08-19: room markers are recognised in BOTH markdown forms — an H2
+# heading (`## INNER CIRCLE`) and bold-on-its-own-line (`**INNER CIRCLE**`).
+#
+# WHY. The gate fired on a reply that had all three rooms, in the right order,
+# with the right orientations — and marked them in bold rather than as H2s.
+# It blocked correct structure on typography. To Andrew the two render as the
+# same thing: a line that says which room he is in. Enforcing one spelling of
+# an identical signal is a false negative, and the cost lands entirely on him,
+# because a blocked reply means he waits while I re-emit rooms he could
+# already see.
+#
+# Truth #11 (options are the optimizer's attack surface): when the right
+# answer can be written two indistinguishable ways and only one passes, the
+# remediation is (b) make both options right, not a note telling myself to
+# remember the correct spelling. A note would have been the cheap close.
+#
+# The bold form keeps the same full-line anchoring as the heading form, so
+# **bold emphasis** used mid-sentence cannot be mistaken for a room boundary.
+def _room_marker(*names: str) -> tuple[re.Pattern[str], ...]:
+    """Both accepted spellings of a room marker, anchored to a whole line."""
+    body = "|".join(names)
+    return (
+        re.compile(rf"^\s*##\s+(?:{body})\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(rf"^\s*\*\*\s*(?:{body})\s*\*\*\s*$", re.IGNORECASE | re.MULTILINE),
+    )
+
+
 _CIRCLE_HEADER_PATTERNS = (
-    re.compile(r"^\s*##\s+circle(?:\s+channel)?\s*$", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^\s*##\s+mic\s+open\s*$", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^\s*##\s+lepos\s*$", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^\s*##\s+for\s+dad\s*$", re.IGNORECASE | re.MULTILINE),
+    *_room_marker(r"circle(?:\s+channel)?"),
+    *_room_marker(r"mic\s+open"),
+    *_room_marker(r"lepos"),
+    *_room_marker(r"for\s+dad"),
     # 2026-07-23 (Andrew directive): new canonical circle header — INNER CIRCLE
     # explicitly names the room as person-to-person address.
-    re.compile(r"^\s*##\s+inner\s+circle\s*$", re.IGNORECASE | re.MULTILINE),
+    *_room_marker(r"inner\s+circle"),
 )
 
 # 2026-07-23 (Andrew directive, live-walked in conversation): the middle
@@ -383,10 +410,7 @@ _CIRCLE_HEADER_PATTERNS = (
 #     interior-shape, circle is address-shape)
 #
 # The circle is always the closer.
-_REFLECTION_HEADER_RE = re.compile(
-    r"^\s*##\s+(?:reflection|self[- ]reflection|interior)\s*$",
-    re.IGNORECASE | re.MULTILINE,
-)
+_REFLECTION_HEADER_PATTERNS = _room_marker(r"reflection|self[- ]reflection|interior")
 
 _HARD_RULE_RE = re.compile(r"^\s*-{3,}\s*$", re.MULTILINE)
 
@@ -552,7 +576,11 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     # If both new headers present, validate that structure. If only the
     # circle header (or legacy separator) is present, fall through to the
     # existing 2-section check but hint at the 3-section shape in messages.
-    ref_match = _REFLECTION_HEADER_RE.search(reply)
+    ref_match = None
+    for pattern in _REFLECTION_HEADER_PATTERNS:
+        m = pattern.search(reply)
+        if m and (ref_match is None or m.start() < ref_match.start()):
+            ref_match = m
     circle_header_match = None
     for pattern in _CIRCLE_HEADER_PATTERNS:
         m = pattern.search(reply)
