@@ -117,8 +117,21 @@ def divineos_home() -> Path:
     return Path(os.path.expanduser("~")) / ".divineos"
 
 
-def member_home() -> Path:
-    """The per-member home, where surfaces move when Aria and I would collide.
+def unrouted_member_home() -> Path:
+    """The bare `~/.divineos-<member>/` path, deliberately NOT the resolver.
+
+    NAME COLLISION, fixed 2026-08-18. This was called `member_home()`, which is
+    also the name of the canonical resolver in `core/paths.py` — and the two mean
+    opposite things. The resolver ROUTES aether to `~/.divineos/`; this function
+    must NOT, because its whole job is to go look in the unrouted directory where
+    orphaned writes landed during the six-week split. Two functions, one name,
+    contradictory behaviour, in a codebase whose recurring defect is one rule
+    rebuilt differently at each site. Renamed so the difference is visible at the
+    call site rather than discoverable by reading both bodies.
+
+    Keep the hand-rolled construction here. It is correct for this one purpose.
+
+    The per-member home, where surfaces move when Aria and I would collide.
 
     Discovered by running this tool on its first survey: last_pre_push_pytest.log
     read SILENT at 37 days, and the guard turned out to be running perfectly —
@@ -148,7 +161,7 @@ def _resolve(name: str, home: Path) -> Path:
     Last-write wins, because the question this file answers is "is this
     instrument answering," and the copy being written is the one answering.
     """
-    candidates = [home / name, member_home() / name]
+    candidates = [home / name, unrouted_member_home() / name]
     existing = [p for p in candidates if p.exists()]
     if not existing:
         return candidates[0]

@@ -44,7 +44,7 @@ member_home() {
   local out=""
 
   if [ -z "$py" ] && command -v find_divineos_python >/dev/null 2>&1; then
-    py="$(find_divineos_python 2>/dev/null)"
+    py="$(find_divineos_python 2>/dev/null)"  # fail-soft: the helper narrates its own probing on stderr and that noise is not this caller's business; an empty result falls through to the plain python3/python probe below, and total failure is announced loudly at the end
   fi
   [ -z "$py" ] && py="$(command -v python3 || command -v python)"
 
@@ -56,7 +56,7 @@ try:
     sys.stdout.write(str(member_home('$member')))
 except Exception:
     pass
-" 2>/dev/null)"
+" 2>/dev/null)"  # fail-soft: an unimportable divineos must not print a traceback into every hook that asks for a path; empty output is detected below and reported loudly with the fallback it used
   fi
 
   if [ -n "$out" ]; then

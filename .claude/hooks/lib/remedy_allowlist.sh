@@ -106,7 +106,7 @@ try:
     print(stripped_command(raw))
 except Exception:
     print(raw)
-" 2>/dev/null)
+" 2>/dev/null)  # fail-soft: a traceback from the parser would land in the gate's own stderr and read as the gate failing; the empty-result case is caught on the next line and returns not-a-remedy, which is the safe direction
   [ -z "$cmd" ] && return 1
 
   if printf '%s' "$cmd" | grep -qE "$_REMEDY_PATTERNS"; then
@@ -116,7 +116,7 @@ except Exception:
     mkdir -p "$HOME/.divineos" 2>/dev/null
     printf '%s\t%s\t%s\n' \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${HOOK_NAME:-unknown}" "${cmd:0:160}" \
-      >> "$HOME/.divineos/remedy_passthrough.log" 2>/dev/null
+      >> "$HOME/.divineos/remedy_passthrough.log" 2>/dev/null  # fail-soft: an unwritable audit log must not turn a permitted remedy into a block; losing one trace line is strictly better than deadlocking the gate it exists to unblock
     exit 0
   fi
   return 1

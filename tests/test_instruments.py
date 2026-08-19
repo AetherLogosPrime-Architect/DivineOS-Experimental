@@ -23,7 +23,7 @@ def home(tmp_path, monkeypatch):
     member = tmp_path / ".divineos-testmember"
     member.mkdir()
     monkeypatch.setenv("DIVINEOS_MEMBER", "testmember")
-    monkeypatch.setattr(instruments, "member_home", lambda: member)
+    monkeypatch.setattr(instruments, "unrouted_member_home", lambda: member)
     d = tmp_path / ".divineos"
     d.mkdir()
     return d
@@ -77,7 +77,7 @@ def test_resolve_prefers_the_fresher_copy_not_the_member_home(home, monkeypatch)
     """
     import os
 
-    member = instruments.member_home()
+    member = instruments.unrouted_member_home()
     shared_file = home / "bypass_events.jsonl"
     member_file = member / "bypass_events.jsonl"
     shared_file.write_text('{"fresh":1}\n', encoding="utf-8")
@@ -95,7 +95,9 @@ def test_resolve_prefers_the_fresher_copy_not_the_member_home(home, monkeypatch)
 
 def test_resolve_finds_a_surface_that_moved_to_the_member_home(home):
     """The other half: a writer that relocated must still be found."""
-    (instruments.member_home() / "last_pre_push_pytest.log").write_text("ok\n", encoding="utf-8")
+    (instruments.unrouted_member_home() / "last_pre_push_pytest.log").write_text(
+        "ok\n", encoding="utf-8"
+    )
     r = instruments.read_instrument("last_pre_push_pytest.log", "q", home)
     assert r.status == "LIVE"
 

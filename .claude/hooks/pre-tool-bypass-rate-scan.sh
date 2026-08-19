@@ -29,7 +29,7 @@ if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
   HOOK_NAME="$(basename "$0")"
   # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
   . "$(dirname "$0")/lib/remedy_allowlist.sh"
-  remedy_pass_through "$INPUT" || true
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
