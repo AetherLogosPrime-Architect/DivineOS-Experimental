@@ -654,6 +654,7 @@ src/divineos/
     branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
     component_register_surface.py Surface the component register at briefing time.
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
+    log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
 
   analysis/
     _session_types.py          Session analysis type definitions

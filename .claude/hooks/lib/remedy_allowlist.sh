@@ -61,7 +61,26 @@
 # Union of every remedy any gate names in its block message. Anchored to the
 # start of the command, so `divineos goal add` matches while a mention of it
 # inside a larger argument does not.
-_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|ask|recall|context|decide|council)|python[[:space:]]+.*clear_correction_marker\.py)'
+# `prereg assess` added 2026-08-19, found by walking into the deadlock.
+#
+# The overdue-pre-registration gate blocks ALL substantive tool use — Bash,
+# Edit, Write — until an overdue pre-reg is assessed, and names `divineos
+# prereg assess` as the single way out. The obligations gate then blocked that
+# exact command as a substrate-write. Gate A's only exit was gate B's blocked
+# action, and gate B's exits (the kill-switch marker; a command referencing an
+# open obligation) both needed a shell that gate A had already closed.
+#
+# The principle was already canon and already written down. pre_tool_use_gate.py
+# carries it verbatim at the read-only-probe carve-out — Andrew 2026-06-29: "no
+# gate should ever be blocking you from using what you need to clear the gate" —
+# added after two pre-regs were recorded DEFERRED with "CANNOT-LOOK" for no
+# reason but that gate. That fix was applied to the gate it was discovered in
+# and never carried across to this list. Same rule, one site, again.
+#
+# `prereg file` is deliberately NOT here: filing a NEW pre-registration is
+# ordinary substrate-writing and is nobody's prescribed remedy. Only the two
+# commands that CLEAR the overdue gate are exempt.
+_REMEDY_PATTERNS='^[[:space:]]*(divineos[[:space:]]+(briefing|preflight|goal[[:space:]]+add|reach[[:space:]]+(open|dispose)|learn|correction|corrections[[:space:]]+integrate|andrew-correction[[:space:]]+(integrate|defer)|compass-ops[[:space:]]+(observe|dismiss)|prereg[[:space:]]+(assess|overdue)|ask|recall|context|decide|council)|python[[:space:]]+.*clear_correction_marker\.py)'
 
 # Exit 0 (allow, silently) if the command being gated is somebody's remedy.
 #

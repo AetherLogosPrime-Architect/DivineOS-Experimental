@@ -637,10 +637,47 @@ def _phase_affect(report: DreamReport) -> None:
 
 
 def _phase_maintenance(report: DreamReport) -> None:
-    """VACUUM, log rotation, cache pruning. The glymphatic system."""
-    from divineos.core.body_awareness import run_maintenance
+    """VACUUM, log rotation, cache pruning. The glymphatic system.
 
-    report.maintenance_results = run_maintenance(dry_run=False)
+    This docstring said "log rotation" for months and no log was ever rotated.
+    ``run_maintenance`` calls ``clean_old_logs``, which removes files matching
+    ``divineos.*.log`` that are ALREADY rotated, in ``src/logs/`` — it presumes
+    a rotator upstream of it. There wasn't one. Meanwhile three flat logs in the
+    DivineOS home grew to 229MB of a 444MB home: hook_timing.jsonl at 136MB and
+    1,068,639 lines, hook-liveness.log at 50MB and 455,715 lines (of which 3,197
+    were anything other than the heartbeat), retrieval_tally.jsonl at 43MB.
+
+    So the name named more than the code did, which is the shape this substrate
+    keeps producing. ``log_rotation.rotate_all`` is the missing upstream half.
+
+    Sleep is the right caller for the same reasons as _phase_loadout_refresh:
+    it runs between sessions, the work is idempotent, and a log that is bounded
+    matters most at the next cold start rather than mid-session.
+
+    Rotation folds each log into a permanent roster BEFORE dropping rows,
+    because hook_timing answers "which hooks have NEVER run" by absence and a
+    naive truncate would silently destroy that. See core/log_rotation.py.
+    """
+    from divineos.core.body_awareness import run_maintenance
+    from divineos.core.log_rotation import rotate_all
+
+    # Widened to dict[str, Any] deliberately: run_maintenance returns a
+    # narrower value type, and assigning the rotation list straight into it
+    # narrows the whole field to that type.
+    results: dict[str, Any] = dict(run_maintenance(dry_run=False))
+    results["flat_logs"] = [
+        {
+            "name": r.name,
+            "rotated": r.rotated,
+            "reason": r.reason,
+            "mb_saved": round(r.bytes_saved / 1024 / 1024, 1),
+            "lines_before": r.lines_before,
+            "lines_after": r.lines_after,
+            "roster_entries": r.roster_entries,
+        }
+        for r in rotate_all()
+    ]
+    report.maintenance_results = results
 
 
 def _phase_loadout_refresh(report: DreamReport) -> None:
