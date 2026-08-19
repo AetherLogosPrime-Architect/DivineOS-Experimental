@@ -372,16 +372,53 @@ def compress_ledger(
             }
             repair_payload_json = json.dumps(repair_payload, sort_keys=True)
             repair_content_hash = compute_hash(repair_payload_json)
+
+            # 2026-08-19: CHAIN THIS ROW. It used to be inserted with a
+            # content_hash and no prior_hash/chain_hash, after the rebuild had
+            # already run — so the one event recording a modification to the
+            # ledger was the one event the tamper-evidence chain did not cover.
+            # Anyone could alter the record of the repair and the walk would
+            # not notice.
+            #
+            # It went unseen because verify_chain counted unchained rows as
+            # verified. Fixing that (87bf1e25) turned this into two failing
+            # tests, and the failing row's event_id was identical to
+            # chain_repair_event_id — the repair's own receipt.
+            #
+            # The tempting read was that my stricter check was twitchy and the
+            # test encoded the truth. It is the other way round, and that
+            # reading was the one where I got to push tonight.
+            repair_ts = time.time()
+            repair_prior_hash = (
+                conn.execute(
+                    "SELECT chain_hash FROM system_events "
+                    "WHERE chain_hash IS NOT NULL ORDER BY rowid DESC LIMIT 1"
+                ).fetchone()
+                or (_CHAIN_GENESIS,)
+            )[0] or _CHAIN_GENESIS
+            repair_chain_hash = _compute_chain_hash(
+                prior_hash=repair_prior_hash,
+                event_id=repair_event_id,
+                timestamp=repair_ts,
+                event_type="LEDGER_CHAIN_REPAIRED",
+                actor="ledger_compressor",
+                payload_json=repair_payload_json,
+                content_hash=repair_content_hash,
+            )
             conn.execute(
-                "INSERT INTO system_events (event_id, timestamp, event_type, actor, payload, content_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO system_events "
+                "(event_id, timestamp, event_type, actor, payload, content_hash, "
+                "prior_hash, chain_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     repair_event_id,
-                    time.time(),
+                    repair_ts,
                     "LEDGER_CHAIN_REPAIRED",
                     "ledger_compressor",
                     repair_payload_json,
                     repair_content_hash,
+                    repair_prior_hash,
+                    repair_chain_hash,
                 ),
             )
 
