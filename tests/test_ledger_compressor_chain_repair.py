@@ -124,7 +124,7 @@ def test_compressor_breaks_chain_without_repair_would_be(scratch_ledger):
 
     backfill_chain_hashes()
     # After backfill with new timestamps, chain should be healthy
-    assert verify_chain()["ok"] is True
+    assert verify_chain()["ok"] is True, verify_chain()
 
     from divineos.core.ledger_compressor import compress_ledger
 
@@ -243,7 +243,7 @@ def test_tamper_detection_preserved_after_repair(scratch_ledger):
     from divineos.core.ledger_compressor import compress_ledger
 
     compress_ledger(retention_days=30, dry_run=False)
-    assert verify_chain()["ok"] is True
+    assert verify_chain()["ok"] is True, verify_chain()
 
     # Tamper with a surviving USER_INPUT row's payload
     conn = sqlite3.connect(str(scratch_ledger))
