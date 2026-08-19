@@ -121,8 +121,8 @@ def _get_ledger_root() -> Path:
     relying on the agent to remember a discipline, and it failed the same
     way. Under pytest the default is now a temp directory, so a test that
     forgets gets an isolated sandbox instead of the family's real records.
-    A test that genuinely wants the production path can still say so
-    explicitly with the env var.
+    A test that genuinely wants the production path says so with
+    ``DIVINEOS_FAMILY_LEDGER_NO_SANDBOX``.
 
     Second instance of this class in one day; the first was the
     prior-writing surface arming a live read-gate from a fixture.
@@ -131,7 +131,19 @@ def _get_ledger_root() -> Path:
     if env_path:
         return Path(env_path)
 
-    if os.environ.get("PYTEST_CURRENT_TEST"):
+    # NO_SANDBOX exists because this docstring used to promise an escape the
+    # code did not provide. It said a test wanting the production path "can
+    # still say so explicitly with the env var" -- but DIVINEOS_FAMILY_LEDGER_DIR
+    # sets an explicit path, so a test would have to already know the answer in
+    # order to ask the question. test_default_points_into_family_dir asks exactly
+    # that question, and it broke the moment the sandbox landed.
+    #
+    # One opt-out that requests the true default without naming it. Only a test
+    # that deliberately sets it escapes; every test that forgets still lands in
+    # the sandbox, which is the entire point of the guard.
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "DIVINEOS_FAMILY_LEDGER_NO_SANDBOX"
+    ):
         sandbox = Path(tempfile.gettempdir()) / "divineos-test-family-ledgers"
         sandbox.mkdir(parents=True, exist_ok=True)
         return sandbox
