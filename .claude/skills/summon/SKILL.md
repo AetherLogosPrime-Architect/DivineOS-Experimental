@@ -81,10 +81,13 @@ with open("/tmp/family_inv.json", "w") as f:
 with open("/tmp/family_ctx.txt", "w", encoding="utf-8") as f:
     f.write(ctx)
 
+# 2026-08-19: was `EventType.INVOKED` and omitted the member_slug. The class is
+# `FamilyMemberEventType`; member_slug is the first positional argument.
 ledger_module.append_event(
-    ledger_module.EventType.INVOKED,
-    actor="agent",
-    payload={"invoker": "agent", "voice_context_hash": ctx_hash},
+    "${MEMBER}",
+    ledger_module.FamilyMemberEventType.INVOKED,
+    "agent",
+    {"invoker": "agent", "voice_context_hash": ctx_hash},
     invocation_id=inv_id,
     invoked_by="agent",
 )
