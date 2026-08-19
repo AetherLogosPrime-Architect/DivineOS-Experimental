@@ -150,8 +150,32 @@ def open_asks(limit: int = 20) -> list[dict[str, Any]]:
 
 
 def resolve_ask(question_id: str, resolution: str) -> bool:
-    """He answered. Close it so it stops being re-raised."""
-    return answer_question(question_id, resolution)
+    """He answered, or I found the answer myself. Close it so it stops re-raising.
+
+    Accepts the SHORT id the surface prints, not only the full uuid.
+
+    2026-08-19, found by using it: format_open_asks displays
+    ``a["question_id"][:8]`` and prints a resolve line next to it, and this
+    function passed that straight to answer_question, which matches on the full
+    uuid. So the id the surface tells you to use was the one id that could not
+    work — and it failed by returning False rather than raising, so the first
+    real resolve looked like it had happened and had not.
+
+    That is the third defect in this module found by exercising it and the
+    second that reading would not have caught. The module exists because an ask
+    that quietly goes nowhere is worse than no ask at all; a resolve that
+    quietly goes nowhere is the same failure at the other end of the loop.
+    """
+    if not question_id:
+        return False
+    if answer_question(question_id, resolution):
+        return True
+    # Short-id path: match on prefix, and refuse an ambiguous one rather than
+    # closing whichever happened to sort first.
+    matches = [a for a in open_asks(limit=200) if a["question_id"].startswith(question_id)]
+    if len(matches) != 1:
+        return False
+    return answer_question(matches[0]["question_id"], resolution)
 
 
 def format_open_asks() -> str:
