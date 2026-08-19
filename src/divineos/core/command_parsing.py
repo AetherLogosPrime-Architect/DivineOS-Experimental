@@ -118,3 +118,46 @@ def stripped_command(bash_command: str) -> str:
     ``compass-ops dismiss``, which a two-token head cannot express.
     """
     return " ".join(strip_command_prefixes(bash_command))
+
+
+# 2026-08-19 (Aletheia F114). A caller that must run a QUOTE-AWARE check on what
+# is left after the prefixes cannot use stripped_command(): that re-joins shlex
+# tokens, which drops the quoting. A semicolon inside an evidence string comes
+# back out naked, so a chain-shape check on the re-joined text would reject a
+# perfectly legitimate remedy.
+#
+# So this returns the ORIGINAL TEXT with only the leading prefixes removed,
+# byte-for-byte from the first real token onward.
+_RAW_PREFIX_PATTERNS = (
+    re.compile(r"""^\s*cd\s+(?:"[^"]*"|'[^']*'|\S+)\s*&&\s*"""),
+    re.compile(r"""^\s*env\s+"""),
+    re.compile(r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+"""),
+)
+
+
+def strip_prefixes_raw(bash_command: str) -> str:
+    """The command with leading ``cd <path> &&`` / ``env`` / ``NAME=value``
+    removed and everything after preserved verbatim.
+
+    Use this when the remainder still has to be inspected AS SHELL TEXT --
+    quote-aware chain detection, for instance. Use stripped_command() when the
+    remainder only needs comparing token-wise.
+
+    Removing the ``cd ... &&`` prefix does not weaken a chain check applied to
+    the result: what gets removed is provably just a directory change, and any
+    OTHER chain operator survives into the returned string. So
+    ``cd X && divineos correction "y" && rm -rf ~`` still returns text
+    containing ``&& rm -rf ~`` and is still caught.
+    """
+    if not bash_command:
+        return ""
+    text = bash_command
+    changed = True
+    while changed:
+        changed = False
+        for pattern in _RAW_PREFIX_PATTERNS:
+            new_text = pattern.sub("", text, count=1)
+            if new_text != text:
+                text = new_text
+                changed = True
+    return text.strip()

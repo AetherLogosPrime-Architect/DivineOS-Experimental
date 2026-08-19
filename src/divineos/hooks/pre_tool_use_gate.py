@@ -59,6 +59,8 @@ import re
 import sys
 from typing import Any
 
+from divineos.core.command_parsing import strip_prefixes_raw
+
 
 # Chain-shape metacharacters that indicate shell-chain composition.
 # Used by _is_safe_remedy_invocation to reject exemption when a remedy
@@ -159,12 +161,34 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     """
     if not cmd:
         return False
+
+    # 2026-08-19 (Aletheia F114). This gate is where "the head of a command is
+    # not its first character" has bitten most often — `cd X && divineos Y`
+    # rejected while bare `divineos Y` passed, twice in July and again on 08-18.
+    # The shared home for that rule existed and this module, its largest
+    # consumer, was not importing it.
+    #
+    # Her prescribed fix was "import it and delete the local copy." That alone
+    # does not close it, and the reason is worth keeping: there were TWO
+    # barriers, not one. The head check rejected the command, AND the
+    # chain-shape check rejected it independently, because `cd X && ...`
+    # genuinely IS a chain. Fixing only the head leaves the gate still wrong.
+    #
+    # Nor can the chain check simply run on stripped_command(): that re-joins
+    # shlex tokens and loses the quoting, so a semicolon inside an evidence
+    # string comes back out naked and a legitimate remedy gets rejected.
+    # Hence strip_prefixes_raw — prefixes off, quoting preserved — and BOTH
+    # checks then run against the same real command.
+    real = strip_prefixes_raw(cmd)
+    if not real:
+        return False
     # Split on pipe once — remedy must be the first pipeline segment.
-    head_segment = re.split(r"\|", cmd, maxsplit=1)[0].strip()
+    head_segment = re.split(r"\|", real, maxsplit=1)[0].strip()
     if not any(head_segment.startswith(h) for h in allowed_heads):
         return False
-    # Chain-shape check on the FULL cmd, quote-aware.
-    if _has_unquoted_chain_shape(cmd):
+    # Chain-shape check, quote-aware, on the command with only the directory
+    # change removed. Any other chain operator survives into `real`.
+    if _has_unquoted_chain_shape(real):
         return False
     return True
 
