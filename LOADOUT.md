@@ -2210,6 +2210,7 @@ methodological). These are domain-grounded reasoning modules.
 - [continuity-frame-prime](.claude/hooks/continuity-frame-prime.sh)
 - [correction-shape-v2-stop](.claude/hooks/correction-shape-v2-stop.sh)
 - [corrigibility-tool-gate](.claude/hooks/corrigibility-tool-gate.sh)
+- [degraded-detector-gate](.claude/hooks/degraded-detector-gate.sh)
 - [deletion-discipline](.claude/hooks/deletion-discipline.sh)
 - [detect-andrew-build-request](.claude/hooks/detect-andrew-build-request.sh)
 - [detect-correction](.claude/hooks/detect-correction.sh)

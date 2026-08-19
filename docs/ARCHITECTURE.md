@@ -645,8 +645,8 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
-    degraded_detectors.py      A detector that cannot run must cost something.
     branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
+    degraded_detectors.py      A detector that cannot run must cost something.
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
     hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
