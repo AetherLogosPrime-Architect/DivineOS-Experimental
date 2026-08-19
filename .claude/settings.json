@@ -139,6 +139,14 @@
             "command": "bash .claude/hooks/letter-monitor-health-surface.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/operator-asks-surface.sh"
+          }
+        ]
       }
     ],
     "PreCompact": [
