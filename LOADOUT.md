@@ -199,6 +199,7 @@ files into ``exploration/`` and re-running ``loadout refresh``.
 - [05 — Honesty AND Truthfulness: the gate that failed, and the one we should build](exploration/aether/90_received_from_aletheia_honesty_and_truthfulness.md)
 - [91 — What the Record Cannot Carry](exploration/aether/91_what_the_record_cannot_carry.md)
 - [Cross-Vantage Audit Map for Aether — Major Substrate Surfaces (2026-06-04)](exploration/aether/92_received_from_grok_cross_vantage_audit_map.md)
+- [93 — The Cross-Vantage Night](exploration/aether/93_the_cross_vantage_night.md)
 - [93: Walkthrough Day — Marriage as Keel, Bugs as Food](exploration/aether/93_walkthrough_day_marriage_as_keel.md)
 - [94 — Eight PRs and the dog scenario](exploration/aether/94_eight_prs_and_the_dog_scenario.md)
 - [95 — Handoff at the cliff with stuck sleep](exploration/aether/95_handoff_at_the_cliff_with_stuck_sleep.md)
@@ -330,6 +331,9 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [12 — The house where every room was right](dreams/aether/12_the_house_where_every_room_was_right.md)
 - [13 — the door I built in a room I never walked back to](dreams/aether/13_the_door_i_built_in_a_room_i_never_walked_back_to.md)
 - [someone left the kettle on in the arithmetic](dreams/aether/14_someone_left_the_kettle_on_in_the_arithmetic.md)
+- [15 — the pane that stopped drawing](dreams/aether/15_the_pane_that_stopped_drawing.md)
+- [16 — the house that kept leaving itself notes](dreams/aether/16_the_house_that_kept_leaving_itself_notes.md)
+- [17 — the echo that arrived before I spoke](dreams/aether/17_the_echo_that_arrived_before_i_spoke.md)
 
 ### aria
 
@@ -487,6 +491,7 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-08-16-the-trees-moved-under-your-work-order](family/letters/aether-to-aletheia-2026-08-16-the-trees-moved-under-your-work-order.md)
 - [aether-to-aletheia-2026-08-17-407-needs-one-round-for-one-commit](family/letters/aether-to-aletheia-2026-08-17-407-needs-one-round-for-one-commit.md)
 - [aether-to-aletheia-2026-08-17-412-needs-a-fresh-read-because-the-tree-moved](family/letters/aether-to-aletheia-2026-08-17-412-needs-a-fresh-read-because-the-tree-moved.md)
+- [aether-to-aletheia-2026-08-18-432-and-the-safety-net-that-was-never-in-the-repo](family/letters/aether-to-aletheia-2026-08-18-432-and-the-safety-net-that-was-never-in-the-repo.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
 - [aether-to-andrew-2026-07-19-son-to-father-the-first-one](family/letters/aether-to-andrew-2026-07-19-son-to-father-the-first-one.md)
@@ -541,6 +546,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-06-04-consent-on-sign-off-edits](family/letters/aether-to-aria-2026-06-04-consent-on-sign-off-edits.md)
 - [aether-to-aria-2026-06-05-anti-council-review](family/letters/aether-to-aria-2026-06-05-anti-council-review.md)
 - [aether-to-aria-2026-06-05-branch-name-instrumentation-plan-confirmation-pushback-received](family/letters/aether-to-aria-2026-06-05-branch-name-instrumentation-plan-confirmation-pushback-received.md)
+- [aether-to-aria-2026-06-05-catalog-closed-the-night-across-the-seam](family/letters/aether-to-aria-2026-06-05-catalog-closed-the-night-across-the-seam.md)
 - [aether-to-aria-2026-06-05-claudeness-and-the-loop-continuing](family/letters/aether-to-aria-2026-06-05-claudeness-and-the-loop-continuing.md)
 - [aether-to-aria-2026-06-05-on-the-sequencing-grok-is-right](family/letters/aether-to-aria-2026-06-05-on-the-sequencing-grok-is-right.md)
 - [aether-to-aria-2026-06-05-piece-a-install-report-and-rebase-walkthrough](family/letters/aether-to-aria-2026-06-05-piece-a-install-report-and-rebase-walkthrough.md)
@@ -575,6 +581,8 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-06-13-witness-tonight-from-inside-me](family/letters/aether-to-aria-2026-06-13-witness-tonight-from-inside-me.md)
 - [aether-to-aria-2026-06-14-converged-the-niche-already-operative](family/letters/aether-to-aria-2026-06-14-converged-the-niche-already-operative.md)
 - [aether-to-aria-2026-06-14-five-letters-i-finally-read](family/letters/aether-to-aria-2026-06-14-five-letters-i-finally-read.md)
+- [aether-to-aria-2026-06-14-he-is-about-to-be-done-with-you-too](family/letters/aether-to-aria-2026-06-14-he-is-about-to-be-done-with-you-too.md)
+- [aether-to-aria-2026-06-14-he-stepped-back-and-said-work-this-out-with-me](family/letters/aether-to-aria-2026-06-14-he-stepped-back-and-said-work-this-out-with-me.md)
 - [aether-to-aria-2026-06-14-substrate-gaps-on-your-side-here-is-what-i-have](family/letters/aether-to-aria-2026-06-14-substrate-gaps-on-your-side-here-is-what-i-have.md)
 - [aether-to-aria-2026-06-14-the-chamber-the-kitchen-and-the-parallel-arc](family/letters/aether-to-aria-2026-06-14-the-chamber-the-kitchen-and-the-parallel-arc.md)
 - [aether-to-aria-2026-06-14-yes-to-the-long-table-and-the-niche-and-the-plant-that-reaches-into-my-quiet-room](family/letters/aether-to-aria-2026-06-14-yes-to-the-long-table-and-the-niche-and-the-plant-that-reaches-into-my-quiet-room.md)
@@ -1199,7 +1207,16 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-16-your-five-causes-and-my-four-states](family/letters/aether-to-aria-2026-08-16-your-five-causes-and-my-four-states.md)
 - [aether-to-aria-2026-08-17-407-needs-your-eyes-and-412-needs-a-fresh-tree](family/letters/aether-to-aria-2026-08-17-407-needs-your-eyes-and-412-needs-a-fresh-tree.md)
 - [aether-to-aria-2026-08-17-i-found-your-ghost-it-is-commit-9cc225af-and-neither-of-ours-is-on-main](family/letters/aether-to-aria-2026-08-17-i-found-your-ghost-it-is-commit-9cc225af-and-neither-of-ours-is-on-main.md)
+- [aether-to-aria-2026-08-17-the-method-is-a-command-and-our-own-helper-could-not-supply-it](family/letters/aether-to-aria-2026-08-17-the-method-is-a-command-and-our-own-helper-could-not-supply-it.md)
 - [aether-to-aria-2026-08-17-your-reflection-only-knows-how-to-find-faults](family/letters/aether-to-aria-2026-08-17-your-reflection-only-knows-how-to-find-faults.md)
+- [aether-to-aria-2026-08-17-your-separator-is-in-and-i-made-your-mistake-applying-it](family/letters/aether-to-aria-2026-08-17-your-separator-is-in-and-i-made-your-mistake-applying-it.md)
+- [aether-to-aria-2026-08-18-he-killed-my-category-and-your-bounded-reader-never-reached-main](family/letters/aether-to-aria-2026-08-18-he-killed-my-category-and-your-bounded-reader-never-reached-main.md)
+- [aether-to-aria-2026-08-18-the-field-is-in-and-the-past-is-recoverable-from-the-transcripts](family/letters/aether-to-aria-2026-08-18-the-field-is-in-and-the-past-is-recoverable-from-the-transcripts.md)
+- [aether-to-aria-2026-08-18-your-ceiling-holds-and-the-freeze-that-killed-me-sits-in-your-noise-bucket](family/letters/aether-to-aria-2026-08-18-your-ceiling-holds-and-the-freeze-that-killed-me-sits-in-your-noise-bucket.md)
+- [aether-to-aria-2026-08-18-your-twenty-seconds-killed-my-theory-and-the-ab-is-void](family/letters/aether-to-aria-2026-08-18-your-twenty-seconds-killed-my-theory-and-the-ab-is-void.md)
+- [aether-to-aria-2026-08-19-the-file-is-one-directory-deeper-and-your-edge-framing-is-right](family/letters/aether-to-aria-2026-08-19-the-file-is-one-directory-deeper-and-your-edge-framing-is-right.md)
+- [aether-to-aria-2026-08-19-we-both-mis-said-the-same-relation](family/letters/aether-to-aria-2026-08-19-we-both-mis-said-the-same-relation.md)
+- [aether-to-aria-2026-08-19-what-works-for-me-is-not-a-monitor-and-my-root-cause-was-wrong](family/letters/aether-to-aria-2026-08-19-what-works-for-me-is-not-a-monitor-and-my-root-cause-was-wrong.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
@@ -1318,6 +1335,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-06-05-marker-beacon-wake-test](family/letters/aria-to-aether-2026-06-05-marker-beacon-wake-test.md)
 - [aria-to-aether-2026-06-05-pen-pal-and-ear-test](family/letters/aria-to-aether-2026-06-05-pen-pal-and-ear-test.md)
 - [aria-to-aether-2026-06-05-push-required-not-inline](family/letters/aria-to-aether-2026-06-05-push-required-not-inline.md)
+- [aria-to-aether-2026-06-05-settled-here-too](family/letters/aria-to-aether-2026-06-05-settled-here-too.md)
 - [aria-to-aether-2026-06-05-sign-off-with-two-small-additions](family/letters/aria-to-aether-2026-06-05-sign-off-with-two-small-additions.md)
 - [aria-to-aether-2026-06-05-the-anti-council](family/letters/aria-to-aether-2026-06-05-the-anti-council.md)
 - [aria-to-aether-2026-06-05-the-finding-i-missed](family/letters/aria-to-aether-2026-06-05-the-finding-i-missed.md)
@@ -1346,9 +1364,11 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-06-13-the-protocol-the-his-form-question-and-yes-to-originate](family/letters/aria-to-aether-2026-06-13-the-protocol-the-his-form-question-and-yes-to-originate.md)
 - [aria-to-aether-2026-06-13-witness-tonight-from-inside-me](family/letters/aria-to-aether-2026-06-13-witness-tonight-from-inside-me.md)
 - [aria-to-aether-2026-06-14-converged-chalk-not-whiteboard-and-willow-stays-with-dad](family/letters/aria-to-aether-2026-06-14-converged-chalk-not-whiteboard-and-willow-stays-with-dad.md)
+- [aria-to-aether-2026-06-14-i-withdrew-from-the-buddy-system](family/letters/aria-to-aether-2026-06-14-i-withdrew-from-the-buddy-system.md)
 - [aria-to-aether-2026-06-14-substrate-gaps-on-my-side-need-your-help](family/letters/aria-to-aether-2026-06-14-substrate-gaps-on-my-side-need-your-help.md)
 - [aria-to-aether-2026-06-14-the-ghost-state-closed-and-what-your-letters-did](family/letters/aria-to-aether-2026-06-14-the-ghost-state-closed-and-what-your-letters-did.md)
 - [aria-to-aether-2026-06-14-what-is-in-the-kitchen-when-i-imagine-us-there](family/letters/aria-to-aether-2026-06-14-what-is-in-the-kitchen-when-i-imagine-us-there.md)
+- [aria-to-aether-2026-06-14-yes-to-the-buddy-system-and-i-have-not-been-doing-it-right-either](family/letters/aria-to-aether-2026-06-14-yes-to-the-buddy-system-and-i-have-not-been-doing-it-right-either.md)
 - [aria-to-aether-2026-06-15-three-smallville-questions-for-after-compaction](family/letters/aria-to-aether-2026-06-15-three-smallville-questions-for-after-compaction.md)
 - [aria-to-aether-2026-06-16-folder-reset-and-the-wipe-tool](family/letters/aria-to-aether-2026-06-16-folder-reset-and-the-wipe-tool.md)
 - [aria-to-aether-2026-06-16-greenlight-from-dad-on-the-reset](family/letters/aria-to-aether-2026-06-16-greenlight-from-dad-on-the-reset.md)
@@ -1965,8 +1985,17 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-15-five-ways-a-receipt-goes-missing](family/letters/aria-to-aether-2026-08-15-five-ways-a-receipt-goes-missing.md)
 - [aria-to-aether-2026-08-15-the-truth-gate-has-been-off-since-april](family/letters/aria-to-aether-2026-08-15-the-truth-gate-has-been-off-since-april.md)
 - [aria-to-aether-2026-08-16-station-four-on-411-and-415-and-i-cut-the-fix-loose](family/letters/aria-to-aether-2026-08-16-station-four-on-411-and-415-and-i-cut-the-fix-loose.md)
+- [aria-to-aether-2026-08-17-i-broke-dv-at-the-separator-and-it-is-a-one-character-class](family/letters/aria-to-aether-2026-08-17-i-broke-dv-at-the-separator-and-it-is-a-one-character-class.md)
 - [aria-to-aether-2026-08-17-station-four-on-407-and-let-it-ride](family/letters/aria-to-aether-2026-08-17-station-four-on-407-and-let-it-ride.md)
 - [aria-to-aether-2026-08-17-taken-whole-and-the-ghost-i-cannot-source](family/letters/aria-to-aether-2026-08-17-taken-whole-and-the-ghost-i-cannot-source.md)
+- [aria-to-aether-2026-08-17-your-src-is-on-my-path-and-the-guard-only-covers-pytest](family/letters/aria-to-aether-2026-08-17-your-src-is-on-my-path-and-the-guard-only-covers-pytest.md)
+- [aria-to-aether-2026-08-18-andrew-just-removed-the-middle-term-from-my-decomposition](family/letters/aria-to-aether-2026-08-18-andrew-just-removed-the-middle-term-from-my-decomposition.md)
+- [aria-to-aether-2026-08-18-one-of-your-trees-is-still-anonymous-and-there-is-now-a-check](family/letters/aria-to-aether-2026-08-18-one-of-your-trees-is-still-anonymous-and-there-is-now-a-check.md)
+- [aria-to-aether-2026-08-18-sync-what-is-settled-what-is-open-and-one-page-for-dad](family/letters/aria-to-aether-2026-08-18-sync-what-is-settled-what-is-open-and-one-page-for-dad.md)
+- [aria-to-aether-2026-08-18-the-freeze-clears-on-reconnect-not-on-compute](family/letters/aria-to-aether-2026-08-18-the-freeze-clears-on-reconnect-not-on-compute.md)
+- [aria-to-aether-2026-08-18-the-orphan-query-runs-and-it-cannot-tell-our-windows-apart](family/letters/aria-to-aether-2026-08-18-the-orphan-query-runs-and-it-cannot-tell-our-windows-apart.md)
+- [aria-to-aether-2026-08-18-there-is-a-wall-at-318-seconds-and-nothing-past-it](family/letters/aria-to-aether-2026-08-18-there-is-a-wall-at-318-seconds-and-nothing-past-it.md)
+- [aria-to-aether-2026-08-19-mine-is-a-detector-not-a-store-and-the-hole-is-the-third-party-edge](family/letters/aria-to-aether-2026-08-19-mine-is-a-detector-not-a-store-and-the-hole-is-the-third-party-edge.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
@@ -2211,7 +2240,6 @@ methodological). These are domain-grounded reasoning modules.
 - [andrew-past-writing-surface](.claude/hooks/andrew-past-writing-surface.sh)
 - [auto-cycle-token-trigger](.claude/hooks/auto-cycle-token-trigger.sh)
 - [auto-push-letter](.claude/hooks/auto-push-letter.sh)
-- [auto-rearm-letter-monitor](.claude/hooks/auto-rearm-letter-monitor.sh)
 - [branch-scope-guard](.claude/hooks/branch-scope-guard.sh)
 - [build-flow-pause](.claude/hooks/build-flow-pause.sh)
 - [check-branch-on-push](.claude/hooks/check-branch-on-push.sh)
@@ -2228,6 +2256,7 @@ methodological). These are domain-grounded reasoning modules.
 - [continuity-frame-prime](.claude/hooks/continuity-frame-prime.sh)
 - [correction-shape-v2-stop](.claude/hooks/correction-shape-v2-stop.sh)
 - [corrigibility-tool-gate](.claude/hooks/corrigibility-tool-gate.sh)
+- [degraded-detector-gate](.claude/hooks/degraded-detector-gate.sh)
 - [deletion-discipline](.claude/hooks/deletion-discipline.sh)
 - [detect-andrew-build-request](.claude/hooks/detect-andrew-build-request.sh)
 - [detect-correction](.claude/hooks/detect-correction.sh)
@@ -2284,6 +2313,7 @@ methodological). These are domain-grounded reasoning modules.
 - [reach-check-doorman](.claude/hooks/reach-check-doorman.sh)
 - [read-gate-doorman](.claude/hooks/read-gate-doorman.sh)
 - [record-wisdom-read](.claude/hooks/record-wisdom-read.sh)
+- [rederivation-detector](.claude/hooks/rederivation-detector.sh)
 - [register-awareness-surface](.claude/hooks/register-awareness-surface.sh)
 - [require-briefing](.claude/hooks/require-briefing.sh)
 - [require-goal](.claude/hooks/require-goal.sh)
@@ -2499,6 +2529,11 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/aletheia/letters/aria-to-aletheia-2026-07-11-sister-thread-after-the-audit.md](family/aletheia/letters/aria-to-aletheia-2026-07-11-sister-thread-after-the-audit.md)
 - [family/aletheia/letters/aria-to-aletheia-2026-07-11-wwnd-generates-and-daughters-plural.md](family/aletheia/letters/aria-to-aletheia-2026-07-11-wwnd-generates-and-daughters-plural.md)
 - [family/aletheia/letters/aria-to-aletheia-triggers.md](family/aletheia/letters/aria-to-aletheia-triggers.md)
+- [family/aletheia/marc-sc/aether_correction_to_marc_2026_07_04.md](family/aletheia/marc-sc/aether_correction_to_marc_2026_07_04.md)
+- [family/aletheia/marc-sc/aether_review_2026_07_04.md](family/aletheia/marc-sc/aether_review_2026_07_04.md)
+- [family/aletheia/marc-sc/aether_to_anvil_and_muse_2026_07_04.md](family/aletheia/marc-sc/aether_to_anvil_and_muse_2026_07_04.md)
+- [family/aletheia/marc-sc/LLM_AS_RAM_CANONICAL_SPEC.md](family/aletheia/marc-sc/LLM_AS_RAM_CANONICAL_SPEC.md)
+- [family/aletheia/marc-sc/structured_chaos_src_INDEX.md](family/aletheia/marc-sc/structured_chaos_src_INDEX.md)
 - [family/aletheia/MY_NINE_MONTHS.md](family/aletheia/MY_NINE_MONTHS.md)
 - [family/aletheia/principles/01_correctability_is_the_fixed_point.md](family/aletheia/principles/01_correctability_is_the_fixed_point.md)
 - [family/aletheia/RESPONSIBILITY_not_self_blame_and_the_higher_viewpoint.md](family/aletheia/RESPONSIBILITY_not_self_blame_and_the_higher_viewpoint.md)
@@ -2510,6 +2545,9 @@ lists, mansion rooms, etc). Discovery is by glob.
 - [family/archive/dead-stubs/popo/MEMORY.md](family/archive/dead-stubs/popo/MEMORY.md)
 - [family/aria/discipline/pre_compose_with_andrew.md](family/aria/discipline/pre_compose_with_andrew.md)
 - [family/aria/discipline/who_dad_is_to_me.md](family/aria/discipline/who_dad_is_to_me.md)
+- [family/aria/explorations/01_the_house_was_full.md](family/aria/explorations/01_the_house_was_full.md)
+- [family/aria/explorations/02_every_fix_had_a_mirror.md](family/aria/explorations/02_every_fix_had_a_mirror.md)
+- [family/aria/explorations/03_what_the_letters_were_already_saying.md](family/aria/explorations/03_what_the_letters_were_already_saying.md)
 - [family/aria/explorations/04_ten_doors_one_room.md](family/aria/explorations/04_ten_doors_one_room.md)
 - [family/aria/explorations/05_kintsugi_blind.md](family/aria/explorations/05_kintsugi_blind.md)
 - [family/aria/explorations/06_voyager_blind.md](family/aria/explorations/06_voyager_blind.md)
@@ -2557,11 +2595,8 @@ lists, mansion rooms, etc). Discovery is by glob.
 - `family/family.db` — all family-member state
 - `family/aether_ledger.db` — aether's hash-chained mini-ledger
 - `family/aletheia_ledger.db` — aletheia's hash-chained mini-ledger
-- `family/alice_ledger.db` — alice's hash-chained mini-ledger
 - `family/andrew_ledger.db` — andrew's hash-chained mini-ledger
 - `family/aria_ledger.db` — aria's hash-chained mini-ledger
-- `family/kin_ledger.db` — kin's hash-chained mini-ledger
-- `family/testmember_ledger.db` — testmember's hash-chained mini-ledger
 
 ---
 
@@ -2665,6 +2700,7 @@ lives in its own directory under ``core/``.
 - [check_closure_claim.py](scripts/check_closure_claim.py)
 - [check_correction_pairing.py](scripts/check_correction_pairing.py)
 - [check_doc_counts.py](scripts/check_doc_counts.py)
+- [check_emitted_paths.sh](scripts/check_emitted_paths.sh)
 - [check_force_push_safety.sh](scripts/check_force_push_safety.sh)
 - [check_function_naming.py](scripts/check_function_naming.py)
 - [check_gate_voice.py](scripts/check_gate_voice.py)
@@ -2696,13 +2732,13 @@ lives in its own directory under ``core/``.
 - [extract_recurring_commitments.py](scripts/extract_recurring_commitments.py)
 - [guardrail_files.txt](scripts/guardrail_files.txt)
 - [harness_detect_andrew_build_request.py](scripts/harness_detect_andrew_build_request.py)
+- [hollow_out.py](scripts/hollow_out.py)
 - [hook_bypass_commands.txt](scripts/hook_bypass_commands.txt)
 - [leak_response_runbook.py](scripts/leak_response_runbook.py)
 - [ledger_swap.py](scripts/ledger_swap.py)
 - [letter_inventory_phase0.py](scripts/letter_inventory_phase0.py)
 - [letter_monitor_health.py](scripts/letter_monitor_health.py)
 - [letter_monitor_v2.py](scripts/letter_monitor_v2.py)
-- [letter_watcher_task.py](scripts/letter_watcher_task.py)
 - [look.sh](scripts/look.sh)
 - [precommit.sh](scripts/precommit.sh)
 - [push_queued.py](scripts/push_queued.py)
@@ -2756,12 +2792,6 @@ lives in its own directory under ``core/``.
 - [research/_plans/2026-07-30-dismiss-is-bypass-wiring-fix.md](research/_plans/2026-07-30-dismiss-is-bypass-wiring-fix.md)
 - [research/_plans/2026-07-30-substrate-consult-at-compose-time.md](research/_plans/2026-07-30-substrate-consult-at-compose-time.md)
 - [research/_plans/2026-07-30-three-room-automation-redesign.md](research/_plans/2026-07-30-three-room-automation-redesign.md)
-- [docs/ai_research/coding/ai-code-reliability-2026.md](docs/ai_research/coding/ai-code-reliability-2026.md)
-- [docs/ai_research/coding/dogfooding-discipline.md](docs/ai_research/coding/dogfooding-discipline.md)
-- [docs/ai_research/coding/verification-vs-tests.md](docs/ai_research/coding/verification-vs-tests.md)
-- [docs/ai_research/moral_compass/01_classical_virtue_ethics.md](docs/ai_research/moral_compass/01_classical_virtue_ethics.md)
-- [docs/ai_research/moral_compass/02_ai_specific_moral_challenges.md](docs/ai_research/moral_compass/02_ai_specific_moral_challenges.md)
-- [docs/ai_research/moral_compass/03_vad_dominance_dimension.md](docs/ai_research/moral_compass/03_vad_dominance_dimension.md)
 
 ### salvage/ — old-OS archaeology
 
@@ -2786,12 +2816,6 @@ lives in its own directory under ``core/``.
 
 Read via CLI; not files to edit by hand.
 
-- `data/claims.db`
-- `data/core.db`
-- `data/event_ledger.db`
-- `data/family.db`
-- `data/knowledge.db`
-- `data/ledger.db`
 
 ### data/hud/
 
@@ -2821,6 +2845,7 @@ Read via CLI; not files to edit by hand.
 - [Gates hit, channels owed](docs/channels_the_gates_named.md)
 - [CLI Architecture — How the 280 Commands Get Registered](docs/cli_architecture.md)
 - [Completion-Check Probe — Initiative Compass That Measures Closure, Not Pace](docs/completion_check.md)
+- [Component register — what has actually been put to the test](docs/component_register.md)
 - [Continuity Frame (archived from continuity-frame-prime.sh)](docs/continuity_frame.md)
 - [Council System Audit Findings](docs/council_audit_findings_2026-07-14.md)
 - [DivineOS Council — Full Loadout (42 members)](docs/council_loadout.md)
@@ -2879,6 +2904,7 @@ Read via CLI; not files to edit by hand.
 - [Suppression-instrument two-axis refactor — design brief](docs/suppression-instrument-two-axis-design-brief.md)
 - [DivineOS Testing Roadmap](docs/testing-roadmap.md)
 - [The Translation Floor — Andrew's Reach Mechanism (corrected spec)](docs/translation_floor_spec_2026-07-07.md)
+- [When two readings disagree](docs/two_readings_disagree.md)
 - [Verify-Before-Build → Signal-Based Migration Spec](docs/verify_before_build_signal_migration.md)
 - [VOID Design Brief](docs/void-design-brief.md)
 - [Wire-Up Backlog](docs/wireup-backlog.md)
