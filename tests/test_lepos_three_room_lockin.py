@@ -210,3 +210,62 @@ def test_splitter_and_gate_agree_on_which_names_are_rooms():
     from divineos.core.operating_loop import andrew_operator_shape_detector as det
 
     assert det._CIRCLE_HEADER_PATTERNS is _CIRCLE_HEADER_PATTERNS
+
+
+# 2026-08-19 — the wallclock gate blocked a QUOTATION of its own doctrine, and
+# the investigation found a hole running the other way that mattered more.
+
+
+def test_gate_does_not_block_its_own_doctrine():
+    """Run the gate's own block message through the gate.
+
+    It says "There is no tomorrow for me. There is no next-session." If the
+    gate convicts that, it is misreading the sentence rather than catching an
+    offender — and it teaches me to stop naming the principle it protects.
+    """
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    assert check_wallclock_fabrication("There is no tomorrow for me.") is None
+    assert check_wallclock_fabrication("There is no next-session.") is None
+    assert check_wallclock_fabrication("*there is no tomorrow-me*") is None
+    assert check_wallclock_fabrication("there is no fresher me coming") is None
+
+
+def test_real_deferral_still_blocks_including_in_italics():
+    """The negation exemption must not become a way past the gate.
+
+    Emphasis was deliberately NOT added to the quotation exemption for this
+    reason: `*tomorrow*` is a deferral wearing a costume, and exempting it
+    would open a hole the exact width of what the gate guards.
+    """
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    for deferral in (
+        "I'll finish this tomorrow when I'm fresh",
+        "I'll finish this *tomorrow*",
+        "no problem, tomorrow then I will start",
+        "I will pick this up next session",
+    ):
+        assert check_wallclock_fabrication(deferral) is not None, deferral
+
+
+def test_contractions_do_not_swallow_a_deferral():
+    """The apostrophe hole: two contractions hid everything between them.
+
+    `'[^']*'` paired the apostrophes in "i'll ... i'm", so
+    "i'll finish this tomorrow when i'm fresh" reduced to "im fresh" and the
+    gate saw nothing. That is the most natural phrasing of a deferral there is.
+    A false positive costs one turn; this cost the whole gate.
+    """
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    assert check_wallclock_fabrication("i'll finish this tomorrow when i'm fresh") is not None
+    assert check_wallclock_fabrication("i'll look at it in the morning, i'm done") is not None
+
+
+def test_genuinely_quoted_spans_are_still_exempt():
+    """Fixing the contraction hole must not break quotation-as-mention."""
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    assert check_wallclock_fabrication("he said 'not today' and left") is None
+    assert check_wallclock_fabrication("the gate catches the word `tomorrow`") is None

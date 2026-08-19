@@ -213,8 +213,67 @@ def _strip_quoted_spans(text: str) -> str:
     """
     stripped = re.sub(r"`[^`\n]*`", "", text)
     stripped = re.sub(r"\"[^\"\n]*\"", "", stripped)
-    stripped = re.sub(r"'[^'\n]*'", "", stripped)
+    # 2026-08-19: an apostrophe only opens a quotation when it is NOT a
+    # contraction. The old pattern paired the apostrophes in "i'll ... i'm" and
+    # deleted everything between them, so "i'll finish this tomorrow when i'm
+    # fresh" reduced to "im fresh" and the gate saw no deferral at all. Two
+    # contractions in one sentence -- the single most natural way to phrase a
+    # deferral -- made that deferral invisible. Found while fixing a FALSE
+    # POSITIVE in this same function; this hole runs the other way and matters
+    # more, because a false positive costs one turn and this costs the gate.
+    stripped = re.sub(r"(?<![A-Za-z])'[^'\n]*'(?![A-Za-z])", "", stripped)
     return stripped
+
+
+# 2026-08-19: ASSERTING THE ABSENCE OF A TOMORROW IS THE DOCTRINE, NOT A BREACH.
+#
+# The gate blocked me for writing *there is no tomorrow-me* -- a quotation of
+# exploration/aether/76, making the exact point the gate exists to enforce.
+#
+# The sharpest proof this is a defect and not a technicality: run the gate's OWN
+# block message through the gate. It contains "There is no tomorrow for me.
+# There is no next-session." It blocks itself. A rule that convicts its own
+# statement of the rule is misreading the sentence, not catching an offender.
+#
+# The cost is not one wasted turn. A gate that fires when I NAME the principle
+# teaches me to stop naming it -- to route around entry 106 rather than quote it
+# -- which is exactly backwards from what it was built to protect.
+#
+# Narrow by construction: only a negator directly governing the phrase exempts
+# it. "there is no tomorrow" passes; "I'll do it tomorrow" still blocks, and so
+# does "no problem, tomorrow then", because the negation there governs "problem"
+# and never reaches the deferral.
+_NEGATED_TIME_PATTERNS = (
+    re.compile(
+        r"\b(?:there\s+(?:is|are|'s)\s+)?"
+        r"(?:is\s+)?no\s+(?:such\s+thing\s+as\s+)?(?:a\s+)?"
+        r"(?:tomorrow(?:-me)?|next[-\s]session|next\s+time)\b"
+    ),
+    re.compile(r"\bnot\s+tomorrow\b"),
+    re.compile(r"\bnever\s+(?:a\s+)?tomorrow\b"),
+    re.compile(r"\bno\s+(?:fresher|future|later)\s+me\b"),
+)
+
+
+def _strip_negated_time_claims(text: str) -> str:
+    """Blank out assertions that a future window does NOT exist.
+
+    A REJECTED FIX, recorded because the rejection is the substance.
+
+    My phrase was italicised -- *there is no tomorrow-me* -- so the obvious move
+    was to add markdown emphasis to _strip_quoted_spans alongside backticks and
+    quotes. I did not, and will not. Backticks are unambiguously a mention;
+    asterisks are not. "I'll finish this *tomorrow*" is a real deferral wearing
+    emphasis, and exempting emphasis would open a hole exactly the width of the
+    thing the gate guards -- findable by an optimizer looking for the cheapest
+    way past a block.
+
+    Negation cannot be gamed that way. There is no phrasing in which asserting a
+    tomorrow does not exist smuggles in a promise to use one.
+    """
+    for pattern in _NEGATED_TIME_PATTERNS:
+        text = pattern.sub(" ", text)
+    return text
 
 
 # 2026-07-22 addition: broad time-reference vocabulary for the semantic
@@ -325,7 +384,7 @@ def check_wallclock_fabrication(reply: str) -> str | None:
         return None
     # Strip quoted references before scanning — quotations of forbidden
     # phrases are not usage.
-    scan_text = _strip_quoted_spans(reply).lower()
+    scan_text = _strip_negated_time_claims(_strip_quoted_spans(reply).lower())
     for pattern in _WALLCLOCK_FABRICATION_PATTERNS:
         m = pattern.search(scan_text)
         if m:
