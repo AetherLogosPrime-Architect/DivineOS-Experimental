@@ -136,7 +136,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/letter-monitor-health-surface.sh"
+            "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
+            "timeout": 15
           }
         ]
       },
@@ -144,7 +145,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/operator-asks-surface.sh"
+            "command": "bash .claude/hooks/operator-asks-surface.sh",
+            "timeout": 15
           }
         ]
       }
@@ -327,23 +329,28 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/deletion-discipline.sh"
+            "command": "bash .claude/hooks/deletion-discipline.sh",
+            "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-merge-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
+            "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh",
+            "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh",
+            "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/rederivation-detector.sh"
+            "command": "bash .claude/hooks/rederivation-detector.sh",
+            "timeout": 15
           }
         ]
       },
@@ -352,7 +359,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh",
+            "timeout": 15
           }
         ]
       },
@@ -463,7 +471,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
+            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh",
+            "timeout": 15
           }
         ]
       },
