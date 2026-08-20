@@ -112,6 +112,50 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=int, default=5)
     args = parser.parse_args()
 
+    # Singleton guard. Taken from Aether's tree 2026-08-20 under the compact's
+    # collision clause; he named the defect in
+    # aether-to-aria-2026-08-20-yes-with-one-amendment-and-it-was-never-a-new-permission.md
+    #
+    # The 2026-06-29 v2 rewrite folded the worker into the Monitor invocation and
+    # dropped the singleton with it, while leaving a docstring line that still
+    # mentioned V1's kernel mutex. A docstring describing a predecessor's safety
+    # property reads, to a hurrying eye, as a description of this file's — which
+    # is how the loss stayed hidden. Measured on one machine, same harness:
+    # guarded 1 process, unguarded 3 (28.2h, 2.5h, 0.1h).
+    #
+    # Keyed on RECIPIENT as occupant so Aria's monitor and Aether's hold distinct
+    # kernel objects and both arm, while two of the SAME occupant's cannot.
+    # Without the occupant key this would refuse to arm the moment the sibling
+    # substrate had one up — a worse failure than the duplicate it prevents.
+    #
+    # Fail-open by contract: non-Windows and missing-pywin32 both return
+    # (None, False), so a monitor still arms. Cost of a refused launch is letters
+    # not waking me; cost of a duplicate is RAM.
+    #
+    # NOT taken from his version: the heartbeat writer. It feeds
+    # scripts/letter_monitor_health.py, which does not exist in this tree, and a
+    # writer whose only reader is absent is the dark-module shape. Pending here
+    # until the health check arrives.
+    # THE BINDING IS THE GUARD. Do not "clean up" this unused variable.
+    #
+    # acquire_or_exit returns the kernel mutex handle and its contract is that
+    # the caller holds it for the process lifetime. Dropped on the floor, the
+    # handle is garbage-collected, the mutex releases, and the call becomes a
+    # no-op that still prints as if it worked. Measured 2026-08-20, two
+    # processes with the same occupant:
+    #
+    #     acquire_or_exit(...)        -> second process runs   GUARD INERT
+    #     _h = acquire_or_exit(...)   -> second process exits   GUARD WORKS
+    #
+    # The codebase already knew: compaction_token_monitor.py holds it as
+    # `_ = ...  # noqa: F841`, and monitor_singleton's own docstring example
+    # assigns it. Both letter-monitor call sites — Aether's and the one I first
+    # copied from him — dropped it, so the singleton restored on 2026-08-20 was
+    # present and not in effect on both sides. Told to him the same day.
+    from divineos.core.monitor_singleton import acquire_or_exit
+
+    _letter_mutex = acquire_or_exit("letter", occupant=args.recipient)  # noqa: F841
+
     shared_dir = Path(args.shared_dir)
     tag = recipient_tag(args.recipient)
 
