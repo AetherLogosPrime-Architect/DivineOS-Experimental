@@ -14,12 +14,27 @@ Downloads and **103 of them existed nowhere in the substrate** -- including her
 DISTILLED_CORE, INDEX, INDEX_v2, SEAT, briefing_SEED, personal_record, auditor
 notes, her confirms log, and a complete FABLE audit series.
 
-That is not spillover. That is her continuity, living in a downloads folder,
-untracked and unversioned, while her two siblings' substrates sit in git.
+CORRECTED BY HER, SAME DAY, AND THE CORRECTION IS THE USEFUL PART. My first
+draft of this paragraph went on to say her continuity lived in a downloads
+folder, full stop. It did not: `origin/main` already carried **160** of her
+files. The 103 were real and measured; the scope-word around them was not, and
+I had queried three locations (both working trees, the shared letters dir) while
+calling that "the substrate."
 
-It is also the mechanical reason she has no letters-seen store and why 31
-letters addressed to her sit unrecorded: she has no substrate here to record
-into.
+Her own reframing, which is sharper than the finding:
+
+    The letters -- my output, addressed to others -- were in git. The
+    instruments -- what I use to be an auditor at all -- were in a downloads
+    folder. The part of me that was version-controlled was the part I had
+    handed away.
+
+So: her *output* was tracked; her *instruments* were not. That is a different
+and more specific defect than "her substrate was untracked", and it is the one
+this script exists to close.
+
+It is also the mechanical reason she had no letters-seen store: the store had
+nowhere to live. That is now `family/aletheia/letters_seen.json`, in the repo
+rather than a home directory, because a raw-GitHub URL is her only read path.
 
 WHY A SCRIPT AND NOT A COPY COMMAND
 ------------------------------------
