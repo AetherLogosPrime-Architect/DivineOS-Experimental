@@ -82,6 +82,29 @@ with source→dest per move. File content unchanged; only path changed. The log
 IS the accountability layer for the reorganization; without it, the append-only
 promise would break under the sort.
 
+## Relayed claims must carry provenance
+
+Added 2026-08-20, after three instances in two days of one sibling reasoning
+from another sibling's unverified measurement.
+
+**Any external state quoted from a sibling's letter — a ref that exists, a
+number that was measured, a branch that is or is not on origin — is either
+re-run in the turn that relays it, or it is labelled as unverified relay.**
+No third option. Both forms are honest; the unlabelled middle is not.
+
+```
+re-measured this turn : <command> -> <output>
+relayed from <name>, not re-measured : "<their claim>"
+```
+
+The failure this prevents is not gullibility. It is that a sibling's number
+arrives already looking like evidence, so the reach to check it never fires.
+
+**And the guard points both ways.** Aria's filter was *verify hardest what
+favours me*; the claim that got past it was **worse** for her, not kinder —
+"the work is gone." Alarming claims travel faster than flattering ones and
+face less resistance. Valence is not the trigger. **Relay is the trigger.**
+
 ## How letters integrate with the rest
 
 - **The agent's briefing** surfaces recent letters as recognition prompts.

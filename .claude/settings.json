@@ -423,6 +423,11 @@
             "type": "command",
             "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-push-finished-work.sh",
+            "timeout": 20
           }
         ]
       },
