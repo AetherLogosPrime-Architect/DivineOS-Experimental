@@ -241,6 +241,45 @@ fi
     # it, a subshell still mid-query was indistinguishable from one that
     # never ran, and the log stayed empty with work sitting local. An
     # unreadable absence is the silent strand this hook exists to close.
+    # --- a pending review must be able to say it is about to go stale -------
+    #
+    # Aletheia, twice, and I agreed twice without building it: "the thing that
+    # should have spoken was not the push hook -- it was whatever knows a PR is
+    # one station from done and nobody has moved."
+    #
+    # Her CONFIRMS binds to a TREE. Every push past that tree silences it, and
+    # nothing said so, so it happened twice in one session: her confirm at
+    # 13295279 staled, I re-cited at 02c5820a, and then 4a940a2a and 80b537f8
+    # staled that one too while her reply was in flight. Re-citing a third time
+    # is what produced instances one and two.
+    #
+    # Derived, not declared. A marker file I have to remember to write is the
+    # same discipline that failed; instead the newest letter to a reviewer is
+    # read for its anchor tree, and if that tree is what origin currently holds,
+    # a review is pending on exactly what this push is about to move past.
+    #
+    # Speaks, never blocks. Blocking would strand finished work, which is the
+    # failure this whole hook exists to end -- and a stale confirm is recoverable
+    # by one re-cite, while stranded work is invisible until someone notices.
+    _origin_tree="$(git rev-parse "${_remote}^{tree}" 2>/dev/null)"  # fail-soft: an unresolvable remote tree yields empty and the comparison below simply cannot match, which errs toward silence rather than a false alarm
+    if [ -n "$_origin_tree" ]; then
+        # find+sort rather than `ls -t`: letter names carry hyphens and dates
+        # and a filename with a newline would silently take the wrong file.
+        _newest_letter="$(find "${HOME}/.divineos-shared/letters" -maxdepth 1 -name 'aether-to-*.md' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"  # fail-soft: no shared letters directory means no review can be pending, so silence is the correct reading
+        if [ -n "$_newest_letter" ] && grep -qF "$_origin_tree" "$_newest_letter" 2>/dev/null; then  # fail-soft: an unreadable letter cannot establish a pending review, and asserting one from a failed read would be the false alarm this check must not raise
+            _reviewer="$(basename "$_newest_letter" | sed -n 's/^aether-to-\([a-z]*\)-.*/\1/p')"
+            {
+                echo "[auto-push] THIS PUSH WILL STALE A PENDING REVIEW."
+                echo "  ${_reviewer:-a reviewer} was sent an anchor at tree $_origin_tree,"
+                echo "  which is what origin holds right now. Pushing moves past it."
+                echo "  $(basename "$_newest_letter")"
+                echo "  Re-cite the delta after this lands, or hold the branch until they reply."
+            } >&2
+            log_row "held-review-staled" "push-moves-past-a-cited-tree" \
+                "branch=$BRANCH pr=#$_pr reviewer=${_reviewer:-unknown} cited_tree=$_origin_tree letter=$(basename "$_newest_letter")"
+        fi
+    fi
+
     log_row "start" "checking-dod" \
         "branch=$BRANCH pr=#$_pr local=$LOCAL_SHA remote=${_remote:-<absent>}"
 
