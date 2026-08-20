@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (23 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (23 rows). **Exported:** 2026-08-20 05:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 1b0746b8 (access=51)
+## 1b0746b8 (access=52)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: mixed with 3 corrections and 82 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 

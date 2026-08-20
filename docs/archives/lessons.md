@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-20 05:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -100,7 +100,7 @@ I used wrong pronouns or perspective. When the user says you they mean me.
 
 ---
 
-## 88234418 [active] x6
+## 88234418 [improving] x6
 
 **Category:** blind_retry
 
