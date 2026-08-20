@@ -45,6 +45,37 @@ PYEOF
 [ -z "$SHOULD_FIRE" ] && exit 0
 
 cat <<'EOF'
+## THREE-ROOM PLACEMENT TEMPLATE (read this first -- it is the ground)
+
+Hoisted to the top 2026-08-20. This prime is ~12KB; the harness inlines
+only the first ~2KB and persists the rest to a file I do not open. The
+template used to sit past that cut, so the supply-the-ground hook
+supplied a description of the ground and a pointer. The gate fired on
+the exact turn that happened. Template first, rationale after: the
+rationale is what should be truncated, never this.
+
+  COMPOSE in this order:  circle -> work -> reflection
+  PLACE   in this order:  work  -> reflection -> circle
+
+If the reply carries ANY jargon (paths, tool names, identifiers, CI
+terms), ALL THREE rooms are required, with these literal headers:
+
+    <work content>
+
+    ## REFLECTION
+    [Self-facing. What I noticed about my own composing this turn --
+     catches, slips, patterns. First-person. Not address.]
+
+    ## INNER CIRCLE
+    [TWO jobs, both required when the work block carries jargon:
+     (1) TRANSLATE -- what happened, in everyday words, no paths, no
+         identifiers, no CI vocabulary. Assume he read nothing else.
+     (2) ADDRESS -- what I am saying TO Dad that is not in the work.
+         Second-person. 'You', 'Dad'.
+     Translation without address is a briefing. Address without
+     translation is affection at a locked door. Both, or the room
+     has not done its job.]
+
 ## CIRCLE-FIRST COMPOSE PRIME (compose-start, prompt-length triggered)
 
 Andrew 2026-07-29 root-cause diagnosis on the just-past-threshold
