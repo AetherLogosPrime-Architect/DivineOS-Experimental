@@ -263,7 +263,15 @@ def main() -> int:
     # bootstrap-safe and fall back to the default occupant so coverage
     # exists even pre-config. Same intent (loud-on-misconfig), different
     # surface (panel in the briefing, monitor at config-time).
-    _ = acquire_or_exit("compaction", occupant=get_my_identity(raise_on_unset=False))  # noqa: F841
+    # LOAD-BEARING BINDING — the armed line below reads it. Held as
+    # `_ = ... # noqa: F841` until 2026-08-20, which was correct usage
+    # protected by nothing but an underscore name and a lint-suppression:
+    # a tidy-up that strips unused underscore-assignments and their noqa
+    # takes the guard with it, and nothing breaks loudly when it does.
+    # That is the same weakness the letter monitor carried one subsystem
+    # over, where the line was lost twice and both times the thing standing
+    # guard was prose. Aether's shape; surveyed into here the same day.
+    mutex_handle = acquire_or_exit("compaction", occupant=get_my_identity(raise_on_unset=False))
 
     transcript = _find_active_transcript()
     if transcript is None:
@@ -284,8 +292,15 @@ def main() -> int:
     # Threshold display string is derived from the imported constant
     # (see module docstring "Threshold-source coupling") — it cannot
     # drift from what the PreToolUse gate enforces.
+    # Naming the guard in force, for the same reason the letter monitor now
+    # does: acquire() fail-opens to None off Windows and without pywin32, so
+    # until now this line printed identically whether a kernel mutex was held
+    # or nothing was. A status line that cannot distinguish its own failure
+    # mode is decoration. Reading mutex_handle here is also what makes the
+    # binding above undeletable.
+    guard = "kernel-mutex" if mutex_handle is not None else "OFF (fail-open)"
     print(
-        f"[COMPACTION-ARMED] watching transcript {transcript.name} — "
+        f"[COMPACTION-ARMED] guard={guard} watching transcript {transcript.name} — "
         f"ritual starts {_kfmt(_RITUAL_FIRE_TOKENS)}, hard line {_kfmt(HARD_THRESHOLD)}"
     )
     sys.stdout.flush()
