@@ -8,6 +8,7 @@ are about the roster surviving, not about bytes.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -171,3 +172,44 @@ def test_missing_file_is_not_an_error(home):
 def test_rotate_all_reports_one_result_per_policy(home):
     results = lr.rotate_all(home=home, min_bytes=0)
     assert [r.name for r in results] == [p.filename for p in lr.POLICIES]
+
+
+def test_keep_bytes_bounds_a_log_that_is_inside_its_line_budget(home):
+    """A line budget is not a size budget.
+
+    Regression for 2026-08-20: retrieval_tally.jsonl sat at 24.4MB while
+    INSIDE its 2,000-line budget, because each row embeds whole surfaced-path
+    lists. Rotation reported success and freed 480KB. Wide rows are the case
+    keep_bytes exists for, so the fixture builds wide rows.
+    """
+    path = home / "hook_timing.jsonl"
+    rows = _timing_rows("wide.sh", 20)
+    for row in rows:
+        row["pad"] = "x" * 5_000  # wide payloads are the case keep_bytes exists for
+    _write(path, rows)
+    assert path.stat().st_size > 200_000, "fixture must exceed the byte budget to test it"
+
+    policy = replace(lr.POLICIES[0], keep_lines=1_000, keep_bytes=50_000)
+    result = lr.rotate_log(policy, home=home, min_bytes=0)
+
+    assert result.rotated is True
+    # The line budget alone would have kept all 40 rows and changed nothing.
+    assert result.lines_before == 40
+    assert result.lines_after < 40
+    assert path.stat().st_size <= 50_000
+    # Newest rows survive; the oldest are the ones folded into the roster.
+    remaining = path.read_text(encoding="utf-8")
+    assert rows[-1]["id"] in remaining
+    assert rows[0]["id"] not in remaining
+
+
+def test_keep_bytes_unset_leaves_line_budget_behaviour_unchanged(home):
+    """The byte bound is opt-in: policies without it behave exactly as before."""
+    path = home / "hook_timing.jsonl"
+    _write(path, _timing_rows("narrow.sh", 20))
+
+    policy = replace(lr.POLICIES[0], keep_lines=1_000)
+    assert policy.keep_bytes is None
+    result = lr.rotate_log(policy, home=home, min_bytes=0)
+
+    assert result.lines_after == 40, "no byte bound means the line budget decides alone"

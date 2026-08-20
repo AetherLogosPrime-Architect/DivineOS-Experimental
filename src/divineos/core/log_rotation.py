@@ -165,6 +165,11 @@ class LogPolicy:
     fold: Callable[[dict[str, Any], dict[str, Any]], None]
     cumulative: bool = False  # True when roster entries are summed across rotations
     keep_lines: int = DEFAULT_KEEP_LINES
+    # A line budget is not a size budget. Set this when rows carry payloads
+    # whose width varies, so a policy cannot sit inside its stated line budget
+    # and still be enormous. See the note in rotate_log for the instance that
+    # produced it.
+    keep_bytes: int | None = None
     keep_if: Callable[[dict[str, Any]], bool] | None = None
     note: str = ""
 
@@ -186,6 +191,7 @@ POLICIES: tuple[LogPolicy, ...] = (
         filename="retrieval_tally.jsonl",
         fold=_fold_rowcount,
         keep_lines=2_000,
+        keep_bytes=4_000_000,
         note="rows embed whole surfaced-path lists; the volume is per-row, not per-line",
     ),
 )
@@ -312,6 +318,26 @@ def rotate_log(
             kept.append(stripped)
             if len(kept) > policy.keep_lines:
                 kept.pop(0)
+
+    # Line count is not size. Bound bytes too, or a policy can hold its stated
+    # line budget and still be enormous.
+    #
+    # Found 2026-08-20: retrieval_tally.jsonl sat at 24.4MB while INSIDE its
+    # 2,000-line budget, because each row embeds whole surfaced-path lists at
+    # roughly 12KB apiece. A rotation run reported success and freed 480KB.
+    # The policy's own note already read "the volume is per-row, not per-line"
+    # -- so the defect was named in the file while the bound stayed by line,
+    # and the comment described the problem the code kept causing.
+    if policy.keep_bytes is not None:
+        trimmed: list[str] = []
+        total = 0
+        for line in reversed(kept):  # newest first, so the tail is what survives
+            cost = len(line.encode("utf-8", errors="replace")) + 1
+            if total + cost > policy.keep_bytes and trimmed:
+                break
+            trimmed.append(line)
+            total += cost
+        kept = list(reversed(trimmed))
 
     rpath = roster_path(home, policy.filename)
     merger = _merge_timing if policy.cumulative else _merge_counter
