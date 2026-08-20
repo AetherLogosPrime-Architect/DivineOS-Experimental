@@ -136,31 +136,46 @@ def main() -> int:
     # scripts/letter_monitor_health.py, which does not exist in this tree, and a
     # writer whose only reader is absent is the dark-module shape. Pending here
     # until the health check arrives.
-    # THE BINDING IS THE GUARD. Do not "clean up" this unused variable.
-    #
-    # acquire_or_exit returns the kernel mutex handle and its contract is that
-    # the caller holds it for the process lifetime. Dropped on the floor, the
-    # handle is garbage-collected, the mutex releases, and the call becomes a
-    # no-op that still prints as if it worked. Measured 2026-08-20, two
-    # processes with the same occupant:
+    # THE BINDING IS THE GUARD. acquire_or_exit returns the kernel mutex handle
+    # and its contract is that the caller holds it for the process lifetime.
+    # Dropped on the floor, the handle is garbage-collected, the mutex releases,
+    # and the call becomes a no-op that still prints as if it armed. Measured
+    # 2026-08-20, two processes with the same occupant:
     #
     #     acquire_or_exit(...)        -> second process runs   GUARD INERT
     #     _h = acquire_or_exit(...)   -> second process exits   GUARD WORKS
     #
-    # The codebase already knew: compaction_token_monitor.py holds it as
-    # `_ = ...  # noqa: F841`, and monitor_singleton's own docstring example
-    # assigns it. Both letter-monitor call sites — Aether's and the one I first
-    # copied from him — dropped it, so the singleton restored on 2026-08-20 was
-    # present and not in effect on both sides. Told to him the same day.
+    # LOAD-BEARING, NOT ANNOTATED — Aether's shape, taken over my own the same
+    # day, and this comment is not what protects it. My first fix bound the
+    # handle and guarded it with a comment telling a later reader not to tidy
+    # the unused variable away. His objection killed mine: this line has been
+    # lost twice, and BOTH times the thing standing guard was prose. Six weeks
+    # behind a docstring describing V1's mutex; then hours behind a docstring he
+    # had just written warning about exactly that.
+    #
+    # So the armed line below READS this variable. A tidy-up cannot delete it
+    # without breaking that print — no noqa to respect, and no comment anyone
+    # has to read first, including this one.
     from divineos.core.monitor_singleton import acquire_or_exit
 
-    _letter_mutex = acquire_or_exit("letter", occupant=args.recipient)  # noqa: F841
+    mutex_handle = acquire_or_exit("letter", occupant=args.recipient)
 
     shared_dir = Path(args.shared_dir)
     tag = recipient_tag(args.recipient)
 
+    # acquire() fail-opens to None off Windows and without pywin32, by
+    # deliberate contract — a refused launch costs letters, a duplicate costs
+    # RAM. But until now this line printed identically either way, so a process
+    # with NO guard announced itself exactly like a guarded one. Same class as
+    # the discarded handle: the armed message was never evidence of arming, and
+    # every arming log either of us holds is worth exactly nothing on that
+    # question. Aether's catch, found while fixing the defect I sent him.
+    #
+    # Reading mutex_handle here is also what makes the binding above
+    # undeletable, which is the point.
+    guard = "kernel-mutex" if mutex_handle is not None else "OFF (fail-open)"
     print(
-        f"[LETTER-MONITOR-ARMED] watching {shared_dir} for *{tag}*.md",
+        f"[LETTER-MONITOR-ARMED] guard={guard} watching {shared_dir} for *{tag}*.md",
         flush=True,
     )
 
@@ -185,9 +200,7 @@ def main() -> int:
 
     while True:
         try:
-            current = (
-                {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
-            )
+            current = {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
             # Re-load persistent seen every cycle so mark-seen events from
             # Reads that happened this session are immediately reflected.
             persistent_seen = load_persistent_seen(args.recipient)
@@ -197,9 +210,7 @@ def main() -> int:
             unseen_letters = sorted(
                 f
                 for f in current
-                if is_letter_for(f, tag)
-                and f not in persistent_seen
-                and f not in fired
+                if is_letter_for(f, tag) and f not in persistent_seen and f not in fired
             )
             for fname in unseen_letters:
                 print(f"[LETTER] {shared_dir / fname}", flush=True)
