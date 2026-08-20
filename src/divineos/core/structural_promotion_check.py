@@ -61,6 +61,47 @@ _RULE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bthe\s+only\s+\w{2,30}\s+is\b", re.IGNORECASE),
 )
 
+
+def _knowledge_content(knowledge_id: str) -> str | None:
+    """The stored content for an id, or None when it cannot be read.
+
+    None is not "" — an entry that cannot be read must not be treated as an
+    entry that no longer looks like a rule. See the re-evaluation pass in
+    verify_recent: unknown stays owed.
+    """
+    if not knowledge_id:
+        return None
+    try:
+        from divineos.core.knowledge._base import get_connection
+
+        row = (
+            get_connection()
+            .execute(
+                "SELECT content FROM knowledge WHERE knowledge_id = ?",
+                (knowledge_id,),
+            )
+            .fetchone()
+        )
+    except Exception:  # noqa: BLE001 — an unreadable store leaves the debt standing
+        return None
+    return None if row is None else str(row[0] or "")
+
+
+def _is_mention(text: str, position: int, match_length: int) -> bool:
+    """True when the match is quoted, coded, or a named concept rather than a claim.
+
+    Fail-toward-flagging: if the check cannot run, the match counts as a real
+    rule. This gate exists because rule-shape follow-through measured zero
+    percent over 78 days, so a broken filter must not quietly empty the board.
+    """
+    try:
+        from divineos.core.operating_loop.mention_context import is_mention_context
+
+        return is_mention_context(text, position, match_length)
+    except Exception:  # noqa: BLE001 — an unavailable filter must not clear the gate
+        return False
+
+
 # Keywords whose presence indicates the entry already addresses the
 # structural-promotion question — no need to emit again.
 _STRUCTURAL_KEYWORDS: frozenset[str] = frozenset(
@@ -99,9 +140,28 @@ def looks_like_rule(text: str) -> tuple[bool, list[str]]:
             return False, []
     triggers: list[str] = []
     for pat in _RULE_PATTERNS:
-        m = pat.search(text)
-        if m:
+        for m in pat.finditer(text):
+            # USE vs MENTION. A rule-shape phrase inside a quotation, a code
+            # span, or a named concept is not a promise I made -- it is a
+            # promise, a teaching, or a citation I am RECORDING.
+            #
+            # Measured 2026-08-20: this gate stood at 10 against a block
+            # threshold of 5 and was refusing substrate writes. Reading the ten
+            # entries, most were Andrew quoted back to me ("when ive corrected
+            # you a ton of times and you never fixed it"), a cited paper's
+            # commitment ("emergence never authored"), or the name of one of
+            # his own frames ("Always-in-the-bubble"). Bare substring matching
+            # cannot tell those from a commitment, so the board filled with
+            # things nobody had promised and the real ones sat among them.
+            #
+            # The filter for this already existed at
+            # operating_loop/mention_context.py and four other detectors used
+            # it. This one did not. Wiring rather than loosening: the patterns
+            # are unchanged and a rule stated in my own voice still fires.
+            if _is_mention(text, m.start(), len(m.group(0))):
+                continue
             triggers.append(m.group(0))
+            break
     return bool(triggers), triggers
 
 
@@ -303,13 +363,42 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
             follow_ups.append(q)
         else:
             no_follow_ups.append(q)
+
+    # RE-EVALUATE against the CURRENT detector before reporting a debt.
+    #
+    # These questions were emitted at learn-time, so the board reflects
+    # whatever the detector believed on the day each entry was filed. When the
+    # detector improves, the old verdicts do not — and the operator is asked to
+    # discharge debts the current logic would never have raised.
+    #
+    # Measured 2026-08-20: the board stood at 10 against a threshold of 5 and
+    # was refusing substrate writes. Wiring the use-vs-mention filter into
+    # looks_like_rule fixed new filings and moved the board by zero, because
+    # nothing re-read the old ones. Present and not in effect.
+    #
+    # The events are NOT deleted — the ledger is append-only and a question
+    # that fired really did fire. They are reclassified: a stored question
+    # whose knowledge entry no longer looks like a rule is a retired false
+    # positive, not an outstanding promise.
+    retired: list[dict] = []
+    still_owed: list[dict] = []
+    for q in no_follow_ups:
+        content = _knowledge_content(q.get("knowledge_id") or "")
+        if content is None:
+            # Cannot read the entry, so cannot clear it. Unknown is not clean.
+            still_owed.append(q)
+            continue
+        fires_now, _ = looks_like_rule(content)
+        (still_owed if fires_now else retired).append(q)
+
     return {
         "window_seconds": window_seconds,
         "total_fired": len(fired),
         "with_follow_up": len(follow_ups),
-        "without_follow_up": len(no_follow_ups),
+        "without_follow_up": len(still_owed),
+        "retired_false_positives": len(retired),
         "follow_up_rate": (len(follow_ups) / len(fired) if fired else None),
-        "recent_unanswered": no_follow_ups[:10],
+        "recent_unanswered": still_owed[:10],
     }
 
 
