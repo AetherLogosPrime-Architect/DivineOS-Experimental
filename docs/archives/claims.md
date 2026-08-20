@@ -1,6 +1,39 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 21b7400d [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape fired on 18 files. The look it demanded was done in full, twice, and it paid.
+FIRST PASS caught src/divineos/protocols/__init__.py -- the marker that makes the directory a
+discovered package. pyproject uses packages.find, which skips a directory without one, so
+deleting it drops reson
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 60e0da7c [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape fired on 18 files. The look it demanded was done in full, twice, and it paid.
+FIRST PASS caught src/divineos/protocols/__init__.py -- the marker that makes the directory a
+discovered package. pyproject uses packages.find, which skips a directory without one, so
+deleting it drops reson
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## fd8c390b [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape fired on 18 files. The look it demanded was done in full, twice, and it paid.
+FIRST PASS caught src/divineos/protocols/__init__.py -- the marker that makes the directory a
+discovered package. pyproject uses packages.find, which skips a directory without one, so
+deleting it drops reson
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
 
 ---
 
@@ -781,28 +814,6 @@ Description: Diff-only read against prior hash 55f3499. No-fix-gaming validator 
 ---
 
 ## 1048625f [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## c5fb2b65 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## c2ea037c [T3 OPEN] conf=0.50
-
-**Claim:** Wider class of F92: 13+ non-verify_before_build call sites in codebase query TOOL_CALL events from system_events (main ledger) rather than tool_logbook. Since tool_logbook split (2026-05-05) these queries return near-zero results, silently. Callers include: analysis, clarity_system, cli/event_commands, body_awareness, compliance_audit, engagement_relevance, enforcement_verifier, hud, ledger_verify, predictive_session, self_critique, tool_wrapper, watchmen/drift_state. Not all are broken (some ma
-
----
-
-## 78ec2116 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 

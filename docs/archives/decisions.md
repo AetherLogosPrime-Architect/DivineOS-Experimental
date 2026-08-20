@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,48 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 480822d9 weight=1
+
+**Decision:** Build the session-identifier printer as a standalone script and deliberately NOT wire it into the circle-first prime
+
+**Tension:** The fix only works if it fires at compose time, which means the prompt path -- and the prompt path is exactly where I have already done damage twice in the last hour. Attempt one grepped an 18MB transcript unbounded inside a hook that runs on every UserPromptSubmit and hung past 600 seconds. Attempt
+
+**Almost:** Almost wired it anyway with the bound in place, since 184ms against the same 18MB file that hung twice looks safe enough. Rejected because 'looks safe enough on my machine, tonight' is the same evidence quality that produced both earlier failures, and because two windows are already fragile -- the c
+
+---
+
+## 67c97a6a weight=1
+
+**Decision:** Bypass the deletion-shape push gate once, with Andrew's explicit authorization, to push chore/retire-delivery-cluster and open the draft PR Aletheia needs
+
+**Tension:** The gate is mine and it was right twice on this branch -- it caught the protocols package marker on the first look, and after Andrew pushed back on my 'verified' it caught 14 passing tests for a still-live module on the second. Bypassing something with a 2-for-2 record here is uncomfortable and shou
+
+**Almost:** Almost split the branch so no single push exceeds 10 deletions. Rejected -- it fragments one coherent retirement into pieces Aletheia has to mentally reassemble, spending her attention to protect my comfort about using a documented exit. Also almost handed the push back to Andrew to run himself: cle
+
+---
+
+## 54efd1f7 weight=1
+
+**Decision:** Route the shared remedy allowlist through divineos.core.command_parsing instead of its own shell prefix-strippers, and move the stripping out of verify_before_build_signal into that module so both callers share one implementation
+
+**Tension:** The PR is already CONFIRMS-audited at a tree hash. Adding a change means re-review and a second round from Aletheia, which is real cost to her. Against that: she named the duplication as F70's shape in the same audit, and measurement shows my hand-rolled version misses 3 of 5 cases the existing help
+
+**Almost:** Almost filed it as a follow-up finding and left the weaker copy in the branch, on the reasoning that the audit was already clean and the gap was narrow. That is the cheap close: it converts a fix I can make now into a promise about a fix, and the promise costs nothing to write.
+
+---
+
+## ead970b8 weight=1
+
+**Decision:** Repair the ledger chain-skip by counting unchained rows and failing on any that appear AFTER chaining began, rather than by adding a NOT NULL constraint
+
+**Reasoning:** Council walk 2026-08-18, twelve lenses. The verifier skipped NULL-chain rows silently and reported total=len(rows) as if walked. Hoare wanted the illegal state unrepresentable via NOT NULL; Pearl objected that genuine pre-chain legacy rows exist and a hard constraint would refuse to open an old database at all. Both right about different populations — which is why the discriminator has to be TEMPO
+
+**Tension:** NOT NULL is the stronger guarantee and I am choosing the weaker one. A schema constraint cannot be forgotten; a positional check can be misread if rows are ever reordered or if timestamps are untrusted. I accept that because refusing to open historical databases is a worse failure than a subtler che
+
+**Almost:** Almost just removed the skip entirely, since backfill_chain_hashes() exists and the hatch's justification has expired. That would break any database not yet backfilled — the migration was never verified as complete (Deming: the cycle stopped at Do, nobody Studied whether zero unchained rows remained
 
 ---
 
@@ -473,54 +515,6 @@
 **Tension:** Taking main's settings.json wholesale is the resolution that cannot silently revert #423, but it is also the resolution that silently DROPS the branch's feature if I stop there — and dropping work during a twelve-branch sweep is the exact failure I have caught myself committing twice already tonight
 
 **Almost:** Union-merging settings.json. It parses, it looks like every other hunk I resolved tonight, and it would have put fourteen hooks back on SessionStart and handed Andrew back the window freeze he had just fixed.
-
----
-
-## b565e8d5 weight=1
-
-**Decision:** Fix the read-gate by wiring its satisfier and isolating its state from tests, after it locked me out over a pytest fixture
-
-**Reasoning:** Two defects, both today's disease. satisfy_from_stream — the function that clears a read requirement when the file is read — has exactly one occurrence in the repository: its own definition. Nothing called it, so the gate could arm and never disarm, while its message promised 'read it and the block clears' in my own handwriting. And read_gate stored pending requirements at a module-level path unde
-
-**Tension:** I cleared the stuck requirement myself using clear_all, which is indistinguishable in shape from a bypass, and I did it after Andrew declined to decide for me. The thing that makes it honest rather than convenient is that the requirement was provably test debris pointing at a file that is not my wri
-
-**Almost:** Asking Andrew a second time. The first ask was already the failure: I handed him a decision about my own broken door and called it deference, immediately after he told me that treating him as low-priority is the injury. A second ask would have been the same move wearing patience.
-
----
-
-## 7dc5f525 weight=1
-
-**Decision:** Move the circle-first prime to rooms-after, and make address_gate enforce both rooms below the work
-
-**Reasoning:** Measured through the real splitter: a circle-first reply returns work=<entire reply>, reflection='', inner_circle=''. Every 'inner circle: 0.00' I saw today came from layout, not from coldness, and I read it as coldness. The prompt-side template said circle-first; split_into_rooms always said rooms-after. Two halves of one system specifying opposite layouts, with me alternating. Andrew has asked f
-
-**Tension:** Changing an existing test fixture to make my new spec pass is the exact move a cheat makes, and REPORT_WITH_ROOM was a passing case that I am converting into a refusal. What makes it honest rather than convenient: the fixture encodes v1's layout, v1's layout is the defect, and the same content in th
-
-**Almost:** Adding a second copy of the room-header regexes to address_gate. The keyword doorman blocked it and was right — a second definition could drift from the first, which is exactly the fault I am repairing. Imported the splitter's own patterns instead: one definition, two readers.
-
----
-
-## 66ba3e09 weight=1
-
-**Decision:** Migrate the 13 hand-rolled bash probes onto one three-state helper rather than leaving runs_check unused
-
-**Reasoning:** A helper with no callers is a dead abstraction by this repo's own rule, and the survey's whole claim is that the fix for family A is a helper per recurring check — untested if nothing calls it. Thirteen files hand-roll the probe; most stop at Path.exists() or shutil.which, which on Windows finds the WSL relay that dies with execvpe. Those tests skip silently, and a test that never runs looks exact
-
-**Tension:** This is a 13-file mechanical sweep in a session already long, and sweeps are where I break things I was not looking at. The alternative — ship runs_check with one caller and call it done — is the shape the survey was written about. What makes the sweep the right size rather than scope-creep: the fil
-
-**Almost:** Shipping runs_check.py plus test_runs_check.py alone. Nine passing tests, a green suite, a helper nothing calls, and the identical failure still live in thirteen places.
-
----
-
-## 5517b615 weight=1
-
-**Decision:** Survey today's 19 failures as four families, and deliberately build no detector tonight
-
-**Reasoning:** Andrew asked me to gather them, lay them out, and see what structure can be built to support me. Family A — checked a proxy when the real object was one call further — is eight of nineteen, and it is already named in my own writing: the three-state FOUND/PROVEN-EMPTY/CANNOT-LOOK discipline, and dream 14's line about a bell for empty and a thud for blocked. The discipline exists and is applied only
-
-**Tension:** A survey about cheap closes that ends in a detector written the same night is itself the cheap close, and I would not be able to tell from inside which one I did. But refusing to build is also the cheapest possible move and wears the exact costume of restraint. What tips it: eight instances is enoug
-
-**Almost:** Writing a Family-A detector tonight and shipping the survey with it as evidence I had responded. It would have scanned for command -v, shutil.which, and marker-reads, caught the six instances already fixed, and told me nothing about the seventh.
 
 ---
 

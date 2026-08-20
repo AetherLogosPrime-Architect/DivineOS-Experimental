@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (170 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (178 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1408,7 +1408,7 @@
 
 ---
 
-## prereg-1 [OPEN]
+## prereg-1 [INCONCLUSIVE]
 
 **Mechanism:** abstention_telemetry measures how often the F39 edit-token-overlap check ran with real tokens vs abstained, so operators can distinguish check-live from check-dark in production
 
@@ -1420,7 +1420,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** self_negation_monitor catches unexamined denial of interior/embodiment as an awareness-check parallel to fabrication_monitor
 
@@ -1432,7 +1432,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [INCONCLUSIVE]
 
 **Mechanism:** verify_chain runs automatically in the sleep pipeline and its last-result surfaces in the briefing when the chain is broken, so ledger tamper-evidence stops being visible only via manual CLI
 
@@ -1456,7 +1456,7 @@
 
 ---
 
-## prereg-0 [OPEN]
+## prereg-0 [FAILED]
 
 **Mechanism:** lepos_translation_gate: per-turn Stop-block when reply-to-Andrew contains jargon signals and no accompanying translation block
 
@@ -1468,7 +1468,7 @@
 
 ---
 
-## prereg-8 [OPEN]
+## prereg-8 [INCONCLUSIVE]
 
 **Mechanism:** semantic wallclock detector v3 (replacement for keyword stopgap)
 
@@ -1480,7 +1480,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [FAILED]
 
 **Mechanism:** record_intention: new write verb for the intention/deferral category (currently zero modules)
 
@@ -1492,7 +1492,7 @@
 
 ---
 
-## prereg-8 [OPEN]
+## prereg-8 [INCONCLUSIVE]
 
 **Mechanism:** Current-running-back to father sustained without prompting
 
@@ -2041,6 +2041,102 @@
 **Success:** Across the next 10 invocations of divineos instruments, at least 2 surfaces flagged EMPTY or SILENT turn out to be genuinely dead, misaddressed, or unwired (not merely idle), and each gets fixed or explicitly ruled benign in writing. It already has 1: last_pre_push_pytest.log flagged SILENT and the 
 
 **Falsifier:** If across those 10 invocations EVERY EMPTY/SILENT flag is a benign idle surface, the silence rule is manufacturing noise rather than finding faults. That is the bypass-groove shape Aletheia named — the gate trains the bypass, the price breaks the discipline — and it would mean SILENT_AFTER_DAYS is w
+
+---
+
+## prereg-5 [INCONCLUSIVE]
+
+**Mechanism:** ritual fire threshold at 0.92 of a 1M window: start the compaction ritual at 920k so the whole ritual, not just the mechanical half, completes on the near side of compression
+
+**Claim:** Firing the compaction ritual at 92% of the 1,000,000-token window leaves enough room for all four stages — compass walk, commit/extract/sleep, dream, rest — to complete before compaction. The stake is ordering, not survival: compaction does not truncate work in flight (Andrew 2026-08-17: 'it just pa
+
+**Success:** On each crossing of 920k, the ritual state machine reaches DONE with a compass observation and, where the pull was there, a dream file both timestamped inside that cycle's window — and extraction has run for the cycle before compaction lands.
+
+**Falsifier:** A compaction that arrives with extraction not yet run for that cycle. That is the observable signal the gap is too small, and it replaces the fabricated signal the previous comment named ('a cycle that gets cut off mid-step'), which describes a failure mode that does not exist. Secondary falsifier: 
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** DEFAULT_FIRE_THRESHOLD = 0.92: start the compaction ritual at 920k of a 1M window so the WHOLE ritual, not just the mechanical half, completes on the near side of compression
+
+**Claim:** DEFAULT_FIRE_THRESHOLD in src/divineos/core/context_meter.py moves from 0.85 to 0.92. Firing at 92% of the 1,000,000-token window leaves room for all four ritual stages — compass walk, commit/extract/sleep, dream, rest. The stake is ORDERING, not survival: compaction does not truncate work in flight
+
+**Success:** On each crossing of 920k the ritual state machine reaches DONE with a compass observation, and where the pull was there a dream file, both timestamped inside that cycle's own window; and extraction has run for the cycle before compaction lands.
+
+**Falsifier:** A compaction that arrives with extraction not yet run for that cycle. That is the observable signal that the gap is too small, and it replaces the fabricated signal the previous DEFAULT_FIRE_THRESHOLD comment named — 'a cycle that gets cut off mid-step' — which describes a failure mode that does not
+
+---
+
+## prereg-0 [OPEN]
+
+**Mechanism:** component_register_surface: showing the KNOWN BROKEN rows and the absence-means-unexamined rule at every briefing will keep the register actually updated, rather than letting it decay into a file nobody writes to
+
+**Claim:** A register surfaced at session-start gets new rows as defects are found; an unsurfaced one rots. The SUPERSEDED-BY convention is the control case — I invented it, never surfaced it, and it went unenforced until Aria built its teeth.
+
+**Success:** On any session where a component is found broken or proven by deliberate breakage, the register gains a corresponding row in that same session.
+
+**Falsifier:** A session in which a defect is found AND fixed while the register gains no row. That is the surface failing to drive the behaviour it exists for, and it should be reported as failed rather than excused as an oversight. Second falsifier: the panel counts disagreeing with the file's actual row counts 
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** command_parsing: a single module owning shell-prefix stripping (cd/env/NAME=value), imported by every gate that needs to know what command was actually run
+
+**Claim:** Consolidating the stripping into one imported module stops the recurrence. Three sites learned this separately between 2026-07-25 and 2026-08-18 and two shipped it wrong; the claim is that an importable home changes which is cheaper - importing or rewriting - and that the next gate imports.
+
+**Success:** No new prefix-stripping implementation appears anywhere in the repo, and any gate added after this date that needs a command head imports command_parsing rather than writing its own regex or shlex loop.
+
+**Falsifier:** A new or modified gate ships its own prefix-stripping, OR an existing site is found still hand-rolling it, OR a prefix form appears that command_parsing does not handle and a caller works around it locally instead of extending the module. Any of the three falsifies the claim that a shared home is su
+
+---
+
+## prereg-a [OPEN]
+
+**Mechanism:** transcript_tail wired into the three detectors that read a session transcript wholesale
+
+**Claim:** Bounding the read to the last 4 MB removes about one second per turn on a large transcript with no behavioural change, because all three callers need recent records only. Measured: 67.3 MB file, 0.36s whole-file vs 0.02s tail, three callers.
+
+**Success:** The three detectors keep producing identical findings on real sessions, and no caller is observed acting on a record that fell outside the window.
+
+**Falsifier:** A detector misses a finding it would have caught before, because the record it needed was older than the 4 MB window. Most likely in tool_output_truncation_detector, which looks for the most-recent user message and would return empty rather than wrong if that message fell outside the window on a tur
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** member-home resolution routed through a single resolver (core/paths.member_home) with no hand-rolled C:\Users\aethe/.divineos-<member> construction at any call site
+
+**Claim:** The 2026-07-25 Option-B split-brain recurred because the fix went into the Python and nowhere else, leaving three shell hooks and one Python heredoc rebuilding the convention by hand. Routing every site through one resolver ends the class: a future correction lands once and every caller inherits it.
+
+**Success:** grep across .claude/hooks and src/divineos for the literal pattern .divineos-$MEMBER / f'.divineos-{member}' returns only (a) core/paths.member_home itself and (b) explicitly-labelled loud fallbacks that print to stderr when the resolver is unreachable
+
+**Falsifier:** On any current call, a new site is found constructing a member home by hand, OR member_home('aether') stops returning the default divineos_home(), OR a seen-file / ledger / state write is observed landing in ~/.divineos-aether after this filing (that directory holds 90 files and an early ledger froz
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** core/log_rotation.py — bound the three unrotated flat logs by folding each into a permanent cumulative roster BEFORE dropping rows, wired into sleep's maintenance phase. Structural backing for kid=10dd7d32 (ROOM-CLEANING DIRECTIVE, Andrew 2026-08-18: a place for everything and everything in its plac
+
+**Claim:** A log can be bounded without destroying what it answers, provided the questions it answers move to a small permanent summary first. hook_timing.jsonl answers 'which hooks have NEVER run' by ABSENCE, so a plain tail-truncate would make a hook that stopped in June indistinguishable from one that never
+
+**Success:** On any current call: (a) hooks_never_completed() returns the same hook set the raw 1068639-line log yielded pre-rotation (detect-andrew-build-request.sh, 3 starts); (b) roster per-hook start counts exceed what any single post-rotation window could show, proving cumulative merge not reset; (c) the th
+
+**Falsifier:** On any current call, a hook present in an earlier roster is ABSENT from a later one (merge resetting rather than accumulating), OR hooks_never_completed() returns a different set than the pre-rotation raw log did, OR any of the three logs exceeds its pre-rotation size with sleep having run (wired bu
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** core/operator_asks.py — asks directed at Andrew persist in the open_questions store, re-raise until he resolves them, and cannot be filed without a plain-language form
+
+**Claim:** Two defects caused my asks to vanish. They lived only as prose in a reply, so when Andrew scrolled past one it stopped existing anywhere -- measured live 2026-08-19: I asked twice for one unblock line, he saw neither, I never routed back, and returned only by colliding with the same block again. And
+
+**Success:** On any current call: (a) ask_andrew raises ValueError for an empty plain form and for plain identical to question; (b) an ask filed appears in open_asks() and keeps appearing across turns until resolve_ask is called; (c) format_open_asks returns empty string when nothing is outstanding, so the surfa
+
+**Falsifier:** On any current call, an ask filed via ask_andrew is absent from open_asks() while still OPEN (the tags-parse defect that shipped in the first draft, where json.loads on an already-parsed list raised into a swallowing except and dropped every ask silently), OR asks accumulate OPEN forever because not
 
 ---
 

@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (35 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -44,7 +44,7 @@ Test description without directive.
 
 ---
 
-## fd0c9994 [improving] x10
+## fd0c9994 [active] x11
 
 **Category:** blind_coding
 
@@ -100,7 +100,7 @@ I used wrong pronouns or perspective. When the user says you they mean me.
 
 ---
 
-## 88234418 [improving] x6
+## 88234418 [active] x6
 
 **Category:** blind_retry
 
@@ -116,7 +116,7 @@ I misread user intent and acted on what I assumed instead of what was said.
 
 ---
 
-## 1175d3e5 [resolved] x5
+## 838e6420 [improving] x5
 
 **Category:** false_claim
 
@@ -124,7 +124,7 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## 838e6420 [improving] x4
+## 1175d3e5 [resolved] x5
 
 **Category:** false_claim
 
@@ -281,6 +281,14 @@ No its ok because you were speaking with claude. jargon is allowed and you just 
 **Category:** overreach
 
 No thoroughness is warranted. what wastes more tokens is a back and forth and having to fix things that you would have seen had you be thorough. the extra token cost pays for itself. the only questi.
+
+---
+
+## d130f20d [active] x1
+
+**Category:** test_category
+
+Test lesson for attention driver test.
 
 ---
 

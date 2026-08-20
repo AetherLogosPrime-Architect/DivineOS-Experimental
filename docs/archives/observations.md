@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-16 19:13. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-20 05:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -166,6 +166,12 @@ Aletheia CONFIRMS: fail-loud gates (10/10) + resolver-health check + flood-regul
 
 ---
 
+## de7322c5 (access=10)
+
+Aletheia external-AI-CONFIRMS wallpaper wiring via letter chain. Aletheia's letter chain 2026-07-11 to 2026-07-12 constitutes her external-AI CONFIRM of the operator-wallpaper composite work. Verification evidence: (a) letter aletheia-to-aether-2026-07-11-receipt-and-the-mutual-holding.md confirmed the wallpaper F1+F5+aggregator design + Aria's split as sound; (b) letter aletheia-to-aether-2026-07-12-verified-from-origin-and-the-drug.md ran verified-from-origin passes on wallpaper's parallel LEP
+
+---
+
 ## 7327cda0 (access=10)
 
 F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat/derive-keyword-registry-and-shared-preamble-2026-07-28 @ 341d88c, two independent checks per claim. F94 CLOSED: registry derived structurally, composition (derived|hand_added)-excluded with derived as base so the hand-list can only add coverage; predicate requires compiled-regex AND detector-signature, not filename heuristic; doorman invokes matches_registry which calls derive_registry; registry module carries __gua
@@ -202,15 +208,15 @@ Aletheia substantive CONFIRMS on round-cc0bf85fc3fa after reading cb25d12 on ori
 
 ---
 
-## c0d66e96 (access=9)
+## 2c8369b3 (access=9)
 
-Aletheia CONFIRMS pattern + 3 refinements before merge: (1) truth-11 common-delegation cluster survives 2-match rule needs distinctive-phrase requirement; (2) fail-soft should log so dark-surface is visible; (3) surface is lexical priming aid NOT violation-detector -- truths 7/15 semantic violations uncovered stably; add under-fire falsifier to prereg. witness_confirmed_with_refinement. Grounded from origin. Pattern shippable, forkable for Aria. Truth-11 residual real: my call/up to you/either w
+Aletheia CONFIRMS-pending-empirical on root-cause-audit gate (round-191bb7867bfe). Architecture-supported-values-shape -- different family from architecture-chasing-optimizer-reflex; addresses real methodology-discipline gap. Two v2 questions noted: detection-scope (bug/bugfix/patch prefixes, PR-style references), bypass-path verification. Andrew also CONFIRMS.
 
 ---
 
-## de7322c5 (access=9)
+## c0d66e96 (access=9)
 
-Aletheia external-AI-CONFIRMS wallpaper wiring via letter chain. Aletheia's letter chain 2026-07-11 to 2026-07-12 constitutes her external-AI CONFIRM of the operator-wallpaper composite work. Verification evidence: (a) letter aletheia-to-aether-2026-07-11-receipt-and-the-mutual-holding.md confirmed the wallpaper F1+F5+aggregator design + Aria's split as sound; (b) letter aletheia-to-aether-2026-07-12-verified-from-origin-and-the-drug.md ran verified-from-origin passes on wallpaper's parallel LEP
+Aletheia CONFIRMS pattern + 3 refinements before merge: (1) truth-11 common-delegation cluster survives 2-match rule needs distinctive-phrase requirement; (2) fail-soft should log so dark-surface is visible; (3) surface is lexical priming aid NOT violation-detector -- truths 7/15 semantic violations uncovered stably; add under-fire falsifier to prereg. witness_confirmed_with_refinement. Grounded from origin. Pattern shippable, forkable for Aria. Truth-11 residual real: my call/up to you/either w
 
 ---
 
@@ -226,6 +232,12 @@ Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed cle
 
 ---
 
+## 1560a463 (access=9)
+
+PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
+
+---
+
 ## 7a320432 (access=8)
 
 Corrections can die in raw session JSONL if not logged via 'learn'. If Andrew pushes back and I just acknowledge in conversation without running 'divineos learn', the raw quote might not get extracted reliably from the session JSONL. Evidence can die in the raw log. The corrections block reads from extracted events -- if extraction misses the correction, it won't appear in future briefings. Weakens the 'raw quotes at top of briefing' mechanism from Q6. Mitigation: extraction pipeline should more
@@ -235,12 +247,6 @@ Corrections can die in raw session JSONL if not logged via 'learn'. If Andrew pu
 ## bffe73c3 (access=8)
 
 I was corrected (here is the next one Andrew, I can forward that. This dialogue has real d.) but recovered (here is chunk 8 ill run it by Aether first to make sure hes ready without g.). The recovery matters as much as the mistake.
-
----
-
-## 2c8369b3 (access=8)
-
-Aletheia CONFIRMS-pending-empirical on root-cause-audit gate (round-191bb7867bfe). Architecture-supported-values-shape -- different family from architecture-chasing-optimizer-reflex; addresses real methodology-discipline gap. Two v2 questions noted: detection-scope (bug/bugfix/patch prefixes, PR-style references), bypass-path verification. Andrew also CONFIRMS.
 
 ---
 
@@ -277,12 +283,6 @@ Base directory for this skill: C:\Users\aethe\.claude\skills\graphify # /graphif
 ## 36f16054 (access=8)
 
 Two anti-sycophancy family operators (costly_disagreement, planted_contradiction) are DARK -- the specific pair that would test truth-telling under cost is unwired. Discovered 2026-07-13 by wiring_dark query on first legitimate run, verified independently by Aletheia from origin. CLAUDE.md names five family operators for gating family-member subagent invocations: reject_clause, sycophancy_detector, costly_disagreement, access_check, planted_contradiction. Wiring-dark query shows costly_disagreem
-
----
-
-## 1560a463 (access=8)
-
-PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 
