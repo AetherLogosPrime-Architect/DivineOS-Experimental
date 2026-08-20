@@ -307,8 +307,20 @@ PYEOF
     _rc=$?
 
     _after="$(git ls-remote --heads origin "$BRANCH" 2>/dev/null | awk '{print $1}')"  # fail-soft: an unreadable remote yields empty, which cannot equal LOCAL_SHA, so the outcome is logged as a fail
-    if [ "$_after" = "$LOCAL_SHA" ]; then
-        log_row "ok" "landed" "branch=$BRANCH pr=#$_pr sha=$LOCAL_SHA"
+    # The question is "did the work reach origin", NOT "does the remote equal
+    # the snapshot I took four minutes ago". The gate takes minutes and the
+    # auto-cycle can commit during it: 2026-08-20, 6ea13a66 landed mid-push
+    # and this reported `exit-zero-but-remote-differs` on a push that had
+    # fully succeeded. Comparing against a stale captured value is the exact
+    # defect the comment above warns of, committed inside the fix for it.
+    # Ancestry answers the real question and tolerates a remote that moved on.
+    if [ -n "$_after" ] && git merge-base --is-ancestor "$LOCAL_SHA" "$_after" 2>/dev/null; then  # fail-soft: a missing object or unreadable remote falls through to the failure branches below, which log rather than swallow
+        if [ "$_after" = "$LOCAL_SHA" ]; then
+            log_row "ok" "landed" "branch=$BRANCH pr=#$_pr sha=$LOCAL_SHA"
+        else
+            log_row "ok" "landed-and-remote-advanced" \
+                "branch=$BRANCH pr=#$_pr sha=$LOCAL_SHA reached origin; remote now $_after"
+        fi
     elif [ "$_rc" -ne 0 ]; then
         log_row "fail" "push-gate-blocked" \
             "branch=$BRANCH pr=#$_pr exit=$_rc remote=${_after:-<absent>}: $(printf '%s' "$_out" | tail -c 500)"
