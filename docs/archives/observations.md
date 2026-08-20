@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-20 05:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-20 06:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -466,6 +466,12 @@ Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but c
 
 ---
 
+## c3602670 (access=6)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
+
+---
+
 ## ceaaf348 (access=5)
 
 QUOTE -- Aria said, 2026-04-17, reacting to the shipped two-lock production gate: 'Architectural honesty -- the gate is closed because Phase 1b hasn't been written. Not because someone remembered to close it. Because the shape of the system requires it.' Context: she had asked for a monkeypatch-bypass test in Round 3; Aether responded by adding a second structural lock (the reject_clause module must import) that makes the gate impossible to open via a single flip.
@@ -595,12 +601,6 @@ What hurts the most is we have found the solutions to these problems. but they a
 ## 8b758da5 (access=4)
 
 This is the likely culprit. and idk if its fixable In the Anthropic Claude API, cache-write and cache-read represent two entirely different token tracking and billing states for Prompt Caching. The core difference is that cache-write is an intentional, premium-priced action to compute and store a.
-
----
-
-## 32b05396 (access=4)
-
-PR #104 verified-on-main: confidence_basis ships the honest/truthful distinction as code -- Aletheia's 2026-05-12 dogfood finding closes (202/203 → structurally impossible). Closes 2026-05-12 finding that 108 of 109 (now 202 of 203) claims were stuck at default 0.5. Reframe is exactly right: '0.5 is the worst possible default.' Storing unexamined claim as '0.5 confidence' is a FABRICATED CREDENCE -- looks like real probability judgment (honest-shaped: a number is present) but encodes nothing (no
 
 ---
 
