@@ -39,9 +39,20 @@ fi
 
 # Bounded on purpose. The tail covers many turns of identifiers; the whole file
 # is what hung. The timeout is the belt to that suspenders.
-IDS=$(tail -c 200000 "$TRANSCRIPT" 2>/dev/null \
-      | timeout 3 grep -oE '#[0-9]{3,4}|prereg-[0-9a-f]{6,}|round-[0-9a-f]{6,}|[0-9a-f]{8,40}' 2>/dev/null \
-      | sort | uniq -c | sort -rn | head -10 | awk '{print $2}')
+# The grep's exit status is captured separately, because a timeout and a
+# genuine no-match both produce empty output. Found 2026-08-20: the old code
+# printed "no identifiers found in the last 200KB" for both, so a bounded
+# check that ran out of time reported a clean read of the transcript.
+RAW=$(tail -c 200000 "$TRANSCRIPT" 2>/dev/null)  # fail-soft: the file's existence and readability are already checked above, so a failure here leaves RAW empty and the no-identifiers branch reports honestly
+MATCHES=$(printf '%s' "$RAW" | timeout 3 grep -oE '#[0-9]{3,4}|prereg-[0-9a-f]{6,}|round-[0-9a-f]{6,}|[0-9a-f]{8,40}')
+GREP_RC=$?
+if [ "$GREP_RC" -eq 124 ]; then
+    echo "identifier scan TIMED OUT after 3s — this is not 'none found'." >&2
+    echo "The transcript tail was too slow to scan; nothing was read." >&2
+    exit 0
+fi
+
+IDS=$(printf '%s' "$MATCHES" | sort | uniq -c | sort -rn | head -10 | awk '{print $2}')
 
 if [ -z "$IDS" ]; then
     echo "no identifiers found in the last 200KB."
@@ -50,7 +61,7 @@ fi
 
 echo "DO NOT PUT THESE IN THE CIRCLE - they are from this session:"
 echo
-echo "$IDS" | sed 's/^/  /'
+while IFS= read -r _id; do printf '  %s\n' "$_id"; done <<< "$IDS"
 echo
 echo "Each has a plain name: the job I put up for her, the branch, the checker."
 echo "If a circle sentence needs one of these strings to make sense, that"

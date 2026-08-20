@@ -38,7 +38,19 @@ if [ ! -f "$LETTER" ]; then
     exit 2
 fi
 
-git fetch -q origin 2>/dev/null
+# NOT silent. Same defect as audit_anchor.sh:41, found the same way on
+# 2026-08-20, and sharper here: every OK / NOT-ON-ORIGIN verdict below is
+# computed against `origin/<branch>` refs. If the fetch fails -- offline, auth
+# expired -- those refs are whatever was last fetched, so this script can call
+# a citation reachable when it is not, or unreachable when it is. A checker
+# that silently grades against stale data is worse than no checker, because
+# its verdict is trusted.
+if ! FETCH_ERR=$(git fetch -q origin 2>&1); then
+    echo "  FETCH FAILED — verdicts below are computed against stale refs." >&2
+    echo "  git fetch origin: ${FETCH_ERR:-<no message>}" >&2
+    echo "  Do not trust an OK from this run until a fetch succeeds." >&2
+    echo >&2
+fi
 
 # Hex runs of 7+ that are plausibly object ids. Prefixed ids (round-, prereg-)
 # are store records, not git objects, and are deliberately excluded -- claiming
@@ -54,7 +66,7 @@ fi
 
 STATUS=0
 for H in $HASHES; do
-    if ! git cat-file -e "$H^{}" 2>/dev/null; then
+    if ! git cat-file -e "$H^{}" 2>/dev/null; then  # fail-soft: this IS the existence test, and a failure is reported loudly as MISSING with STATUS=1, so nothing is swallowed
         echo "  MISSING   $H — not an object in this repository at all."
         STATUS=1
         continue
@@ -69,11 +81,19 @@ for H in $HASHES; do
     for B in "${BRANCHES[@]}"; do
         # A tree is not an ancestor of anything, so check both shapes: is it
         # the branch's own tree, or is it a commit in the branch's history.
-        if [ "$(git rev-parse "origin/$B^{tree}" 2>/dev/null)" = "$(git rev-parse "$H" 2>/dev/null)" ]; then
+        # Both sides are captured before comparing, because comparing two
+        # command substitutions directly means a failure on BOTH sides yields
+        # "" = "" and claims a match. Currently unreachable -- $H passed
+        # `cat-file -e` above, so it resolves -- but that invariant lives
+        # three lines away in another loop, and an empty-equals-empty trap
+        # guarded by a distant invariant is a bug waiting for a refactor.
+        BRANCH_TREE=$(git rev-parse "origin/$B^{tree}" 2>/dev/null)  # fail-soft: an absent origin branch yields empty, and the non-empty guard below stops empty from matching empty
+        HASH_OBJ=$(git rev-parse "$H" 2>/dev/null)  # fail-soft: an unresolvable hash yields empty, and the non-empty guard below stops empty from matching empty
+        if [ -n "$BRANCH_TREE" ] && [ "$BRANCH_TREE" = "$HASH_OBJ" ]; then
             FOUND="$B (tree)"
             break
         fi
-        if git merge-base --is-ancestor "$H" "origin/$B" 2>/dev/null; then
+        if git merge-base --is-ancestor "$H" "origin/$B" 2>/dev/null; then  # fail-soft: this IS the membership test; a false result means not-in-history, which the NOT-ON-ORIGIN reporting below handles explicitly
             FOUND="$B (in history)"
             break
         fi
@@ -95,7 +115,7 @@ for H in $HASHES; do
     # the whole value of the line.
     LOCAL_ONLY=""
     for B in "${BRANCHES[@]}"; do
-        if git merge-base --is-ancestor "$H" "$B" 2>/dev/null; then
+        if git merge-base --is-ancestor "$H" "$B" 2>/dev/null; then  # fail-soft: this IS the local-membership test, and its result decides which of two very different messages the reader gets
             LOCAL_ONLY="$B"
             break
         fi

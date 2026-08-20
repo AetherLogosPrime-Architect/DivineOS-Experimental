@@ -38,14 +38,26 @@ if [ "$#" -eq 0 ]; then
     exit 2
 fi
 
-git fetch -q origin 2>/dev/null
+# NOT silent, and this was a real defect found 2026-08-20 while writing a
+# justification for every silent swallow in this file. The redirect used to be
+# bare. If the fetch fails -- offline, auth expired, remote renamed -- then
+# `origin/<branch>` still resolves to whatever was last fetched, and every tip
+# and tree printed below is presented as authoritative while being arbitrarily
+# old. That is exactly the stale-anchor failure this script exists to prevent,
+# occurring inside the script that prevents it.
+if ! FETCH_ERR=$(git fetch -q origin 2>&1); then
+    echo "  FETCH FAILED — the anchors below may be stale." >&2
+    echo "  git fetch origin: ${FETCH_ERR:-<no message>}" >&2
+    echo "  Do not cite these to an auditor until a fetch succeeds." >&2
+    echo >&2
+fi
 
 STATUS=0
 
 for BRANCH in "$@"; do
     echo "=== $BRANCH ==="
 
-    if ! REMOTE_TIP=$(git rev-parse --verify -q "origin/$BRANCH" 2>/dev/null); then
+    if ! REMOTE_TIP=$(git rev-parse --verify -q "origin/$BRANCH" 2>/dev/null); then  # fail-soft: this IS the test, and its failure is reported loudly by the UNREACHABLE block below with STATUS=1, so nothing is swallowed
         echo "  UNREACHABLE — no such branch on origin."
         echo "  An auditor cannot anchor to this. If a push was run, the push's"
         echo "  exit code is not the check; read the remote back:"
@@ -61,16 +73,31 @@ for BRANCH in "$@"; do
     echo "  tree: $REMOTE_TREE"
 
     # Is there local work that would move this anchor the moment it is pushed?
-    if LOCAL_TIP=$(git rev-parse --verify -q "$BRANCH" 2>/dev/null); then
+    #
+    # `-q` already suppresses the message; the redirect is belt-and-braces, and
+    # a missing local branch is an ordinary state (auditing a ref you have not
+    # checked out). But the ELSE branch was silent, and that was the second
+    # defect found 2026-08-20: with no local copy the moving-target check is
+    # skipped, so the ABSENCE of a MOVING TARGET warning read as "not a moving
+    # target" when it actually meant "not checked". Silence indistinguishable
+    # from all-clear is the failure this whole file is about.
+    if LOCAL_TIP=$(git rev-parse --verify -q "$BRANCH" 2>/dev/null); then  # fail-soft: no local branch is an ordinary state, and the else-branch below reports that the check was skipped rather than passing
         if [ "$LOCAL_TIP" != "$REMOTE_TIP" ]; then
-            AHEAD=$(git rev-list --count "origin/$BRANCH..$BRANCH" 2>/dev/null || echo "?")
-            BEHIND=$(git rev-list --count "$BRANCH..origin/$BRANCH" 2>/dev/null || echo "?")
+            # `|| echo "?"` is deliberate and its result is PRINTED: a count
+            # that cannot be computed shows as ? in the line below, so the
+            # reader sees an unknown rather than a confident zero.
+            AHEAD=$(git rev-list --count "origin/$BRANCH..$BRANCH" 2>/dev/null || echo "?")  # fail-soft: an uncomputable count prints as ? in the MOVING TARGET line, so the reader sees unknown rather than a confident zero
+            BEHIND=$(git rev-list --count "$BRANCH..origin/$BRANCH" 2>/dev/null || echo "?")  # fail-soft: an uncomputable count prints as ? in the MOVING TARGET line, so the reader sees unknown rather than a confident zero
             echo "  MOVING TARGET — local is +$AHEAD/-$BEHIND vs origin."
             echo "  The anchor above is true right now and false the moment those"
             echo "  commits land. Either push first and re-run, or say plainly in"
             echo "  the letter that N commits are being held back deliberately."
             STATUS=1
         fi
+    else
+        echo "  moving-target check SKIPPED — no local branch '$BRANCH' here."
+        echo "  This is not a clean result. It means unpushed local work on"
+        echo "  another checkout cannot be seen from this one."
     fi
     echo
 done

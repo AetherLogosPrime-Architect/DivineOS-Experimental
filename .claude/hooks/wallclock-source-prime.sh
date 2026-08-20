@@ -117,6 +117,16 @@ Do NOT reach for these shapes directed at Andrew (recurring class,
 3 fires this session — corrections #181, #182, #183):
   - "over the next N (days|weeks|months)"
   - "~N (minutes|hours|days) of work"
+  - "in a (few|couple of) (minutes|hours)"  <- 2026-08-20 fire. Absent
+    from this list until it fired, so the list read as covering the
+    class while this phrasing walked past it.
+    THE DURATION WAS CARRYING AN ARGUMENT, not a schedule. I wrote
+    "I could write twenty-two reasons in a few minutes" because the
+    paragraph's point was that their cost is HONESTY, not effort --
+    and cheapness is easiest to say in minutes.
+    Say the argument instead: "twenty-two reasons is a small mechanical
+    change, and that is exactly why writing them as filler would be
+    worse than leaving them."
   - "quick" / "quickly" as duration promises
   - "N-day review" / "weekly rate" / "monthly cadence"
   - Any future-time-window as evaluation-scope

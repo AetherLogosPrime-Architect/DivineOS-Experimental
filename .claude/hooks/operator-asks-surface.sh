@@ -39,18 +39,29 @@ try:
 except (AttributeError, OSError):
     pass
 
+# NOT silent on failure. This surface carries a promise Andrew asked me to
+# keep -- 'if you ask me something, and i ignore it, you continue to ask until
+# i resolve it, because i miss it in the walls of text sometimes'. If the
+# import or the formatter breaks, the old code exited 0 and printed nothing,
+# which is byte-identical to 'no asks are waiting'. My open asks would stop
+# being re-raised and neither of us would know the surface had died. A broken
+# promise-keeper that fails silently is worse than one that fails loudly.
 try:
     from divineos.core.operator_asks import format_open_asks
-except ImportError:
+except ImportError as exc:
+    print(f'[operator-asks] SURFACE DOWN (import): {exc}', file=sys.stderr)
+    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.', file=sys.stderr)
     sys.exit(0)
 
 try:
     text = format_open_asks()
-except Exception:
+except Exception as exc:
+    print(f'[operator-asks] SURFACE DOWN ({type(exc).__name__}): {exc}', file=sys.stderr)
+    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.', file=sys.stderr)
     sys.exit(0)
 
 if text:
     print(text)
-" 2>/dev/null
+"
 
 exit 0
