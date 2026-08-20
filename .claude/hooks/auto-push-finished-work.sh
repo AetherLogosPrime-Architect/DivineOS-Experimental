@@ -128,6 +128,21 @@ for r in stuck[-3:]:
     print(f"  {r.get('outcome','?').upper():5} {r.get('reason','?')} :: {(r.get('detail') or '')[:160]}")
 PYEOF
 )"
+    # Fire on CHANGE, not on state. Repeating the same stuck-work report on
+    # every Bash call is how a true signal becomes furniture -- the failure
+    # build-flow-pause.sh already names via Dekker, and solves the same way:
+    # fingerprint the picture, speak only when it differs. Measured here
+    # 2026-08-20, when the reporter printed on a fire the debounce had
+    # already suppressed. A report I stop reading protects nothing.
+    _CARRY_FP="${HOME}/.divineos/auto-push-work.carry.fp"
+    _fp="$(printf '%s' "$_carry" | python -c "import hashlib,sys; print(hashlib.sha256(sys.stdin.read().encode()).hexdigest()[:16])" 2>/dev/null || echo "")"  # fail-soft: an unhashable carry yields empty, which differs from the stored fp and so errs toward reporting
+    _last_fp="$(cat "$_CARRY_FP" 2>/dev/null || echo "")"  # fail-soft: an unreadable fingerprint errs toward reporting, which is the loud direction
+    if [ -n "$_carry" ] && [ "$_fp" = "$_last_fp" ]; then
+        _carry=""   # unchanged since last report; already said, still true
+    elif [ -n "$_carry" ]; then
+        printf '%s\n' "$_fp" > "$_CARRY_FP" 2>/dev/null || true  # fail-soft: an unwritable fp costs a repeated report, never a blocked tool call
+    fi
+
     if [ -n "$_carry" ]; then
         {
             echo "[auto-push] work is NOT on origin from a previous fire:"
@@ -147,10 +162,40 @@ if [ -z "$CMD" ] && [ -n "$_HOOK_INPUT" ]; then
     log_row "abort" "cmd-extract-failed" "hook input non-empty but command did not parse"
     exit 0
 fi
+# A git commit through the Bash tool checks immediately. Anything else
+# checks only once the debounce has expired.
+#
+# WHY THE SECOND PATH EXISTS (2026-08-20, found by this hook missing a
+# real commit within an hour of being written). The auto-cycle commits
+# through direct Python calls, not through the Bash tool, so no
+# PostToolUse hook ever fires for them. `33245ebd auto-commit
+# (pre-extract): substrate checkpoint` swept up a monitor_cleanup fix
+# and sat local and invisible, while this hook -- whose whole purpose is
+# that work does not sit local and invisible -- had no idea it existed.
+#
+# Triggering on the commit alone assumed every commit passes through a
+# tool call. The commits most likely to carry unreported work are
+# precisely the ones that do not. So the trigger is now "a commit
+# happened OR enough time has passed since the last look", and the
+# second clause is what makes the guarantee hold regardless of who did
+# the committing.
+_DEBOUNCE_FILE="${HOME}/.divineos/auto-push-work.debounce"
+_DEBOUNCE_SECS=600
+
 case "$CMD" in
     *"git commit"*) ;;
-    *) exit 0 ;;
+    *)
+        if [ -f "$_DEBOUNCE_FILE" ]; then
+            _now="$(date +%s 2>/dev/null || echo 0)"  # fail-soft: an unreadable clock yields 0, which fails toward checking rather than skipping
+            _then="$(cat "$_DEBOUNCE_FILE" 2>/dev/null || echo 0)"  # fail-soft: an unreadable marker yields 0, which fails toward checking rather than skipping
+            if [ "$_now" -gt 0 ] && [ "$_then" -gt 0 ] && [ "$((_now - _then))" -lt "$_DEBOUNCE_SECS" ]; then
+                exit 0
+            fi
+        fi
+        ;;
 esac
+mkdir -p "$(dirname "$_DEBOUNCE_FILE")" 2>/dev/null || true  # fail-soft: an unwritable state dir costs repeated checks, never a blocked tool call
+date +%s > "$_DEBOUNCE_FILE" 2>/dev/null || true  # fail-soft: an unwritable marker costs repeated checks, never a blocked tool call
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"  # fail-soft: no branch is a real state (detached HEAD) and is logged as an abort two lines down, not swallowed
 case "$BRANCH" in
