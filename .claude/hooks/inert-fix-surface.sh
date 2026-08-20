@@ -41,8 +41,9 @@ CHECK="$REPO_ROOT/scripts/check_inert_fixes.py"
 if ! OUT="$(python "$CHECK" --quiet --warn-only 2>&1)"; then
     LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
     mkdir -p "$(dirname "$LOG")" 2>/dev/null || true  # fail-soft: cannot create the log dir, and refusing to run over that would be worse than the missing line
+    TS="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"  # fail-soft: a date call that cannot produce a timestamp must still let the liveness line be written, because the line existing at all is the signal
     printf '{"ts":"%s","hook":"inert-fix-surface.sh","reason":"check_failed_to_run","detail":"%s"}\n' \
-        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" \
+        "$TS" \
         "$(printf '%s' "$OUT" | tr -d '"' | tr '\n' ' ' | cut -c1-300)" \
         >> "$LOG" 2>/dev/null || true  # fail-soft: an unwritable liveness log must not turn a reporting hook into a blocking one
     exit 0

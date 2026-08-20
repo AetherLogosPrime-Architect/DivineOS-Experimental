@@ -619,6 +619,73 @@ def dispose(
     return item
 
 
+# 2026-08-20 (Aria): a check that surfaced NOTHING gave no credit at all.
+# gate_status() only blocks on undisposed items, but the doorman hook's
+# final branch fired unconditionally when nothing was open — so a topic
+# with genuinely no prior art could never satisfy the gate, no matter how
+# many times I asked. Ask, get "NOT FOUND", get blocked, ask again. That
+# is a wall, and the hook's own header says a wall is the failure mode it
+# was written to avoid ("THE REMEDY IS EXEMPT, or this is a wall").
+#
+# An empty answer is an answer. What it is not is a blank cheque for every
+# later write, so the credit is scoped to the topic: the recent check has
+# to share real words with what I am about to write. Recency alone would
+# let one check about monitors wave through an unrelated affect entry,
+# which is the reach-failure wearing the gate's own badge.
+_TOPIC_STOPWORDS = frozenset(
+    """about above after again against because been before being below between both
+    could does doing down during each from further have having here into itself more
+    most only other over same some such than that their them then there these they
+    this those through under until very were what when where which while with would
+    your""".split()
+)
+
+TOPIC_MATCH_MIN = 2
+RECENT_CHECK_WINDOW_S = 1800.0
+
+
+def _topic_words(text: str) -> set[str]:
+    """Content words, lowercased. Short words and stopwords carry no topic."""
+    return {
+        w for w in re.findall(r"[a-z_][a-z0-9_]{3,}", text.lower()) if w not in _TOPIC_STOPWORDS
+    }
+
+
+def satisfied_by_recent_check(
+    write_text: str,
+    *,
+    within_seconds: float = RECENT_CHECK_WINDOW_S,
+    now: float | None = None,
+) -> str | None:
+    """Return the check_id that already asked about this topic, else None.
+
+    Credit is granted whether or not the check surfaced prior art — an
+    empty answer is an answer — but only when the check's symptom and the
+    pending write share at least TOPIC_MATCH_MIN content words.
+    """
+    words = _topic_words(write_text)
+    if len(words) < TOPIC_MATCH_MIN:
+        return None
+    cutoff = (time.time() if now is None else now) - within_seconds
+    try:
+        init_reach_tables()
+        rows = (
+            _get_connection()
+            .execute(
+                "SELECT check_id, symptom FROM reach_checks WHERE opened_at >= ? "
+                "ORDER BY opened_at DESC",
+                (cutoff,),
+            )
+            .fetchall()
+        )
+    except _REACH_ERRORS:
+        return None
+    for check_id, symptom in rows:
+        if len(_topic_words(symptom) & words) >= TOPIC_MATCH_MIN:
+            return str(check_id)
+    return None
+
+
 def gate_status() -> tuple[bool, str]:
     """(blocked, message) for a PreToolUse hook.
 
