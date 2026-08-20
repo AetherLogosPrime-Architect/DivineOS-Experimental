@@ -9,9 +9,9 @@ module surfaces and (with explicit consent) sweeps them.
 
 A Monitor process is an orphan if it matches ANY of:
 
-- Runs ``scripts/letter_monitor.py`` or ``scripts/compaction_token_monitor.py``
-  BUT a sibling with the same script-name has a newer process creation
-  time. The newer one is the live mutex-holder; older ones are stale.
+- Runs a letter-monitor script BUT a sibling with the same script-name
+  has a newer process creation time. The newer one is the live
+  mutex-holder; older ones are stale.
 - Runs the LEGACY bash inline command (matches ``aria-to-aether-``
   with name=bash.exe) — these predate the mutex design and the
   singleton-guard cannot retroactively catch them.
@@ -51,10 +51,34 @@ def _scan_processes() -> list[MonitorProcess]:
 
     # PowerShell delimits fields with TAB so we don't have to parse
     # quoted CSV. Each row: pid<TAB>name<TAB>creation<TAB>cmdline
+    #
+    # KEY ON THE ROLE-SHAPE, NOT ON A SCRIPT FILENAME (2026-08-20).
+    #
+    # monitor_singleton keys its mutex on the ROLE, which its docstring
+    # calls role-stable precisely so a rename cannot break sibling
+    # detection. This scan keyed on the script FILENAME, which is not
+    # stable -- so a rename left the singleton working and the sweep
+    # blind, with no symptom on either side.
+    #
+    # That is what had happened. `letter_monitor\.py` required a literal
+    # `.py` immediately after the name, and the live script is
+    # `letter_monitor_v2.py`. Measured against the running process's
+    # command line: the old pattern returned False, `letter_monitor.*\.py`
+    # returned True, and two letter monitors were live at the time that
+    # the sweep could not see. The role whose orphans this exists to
+    # catch was the one role it could not match.
+    #
+    # The `compaction` pattern is removed rather than repaired:
+    # scripts/compaction_token_monitor.py is deleted on this branch and
+    # nothing here spawns it, so the entry could match nothing, forever,
+    # and report nothing wrong -- a check that cannot fire is
+    # indistinguishable from a check that fires and finds all clean.
+    # Aletheia F118, 2026-08-20. The role name survives in MonitorProcess
+    # and in the CLI's _ROLES; if a compaction monitor is reintroduced,
+    # add a pattern keyed on its role-shape and not on its filename.
     ps_cmd = r"""
 $pats = @(
-  @{role='letter';            name='python.exe'; pat='letter_monitor\.py'},
-  @{role='compaction';        name='python.exe'; pat='compaction_token_monitor\.py'},
+  @{role='letter';            name='python.exe'; pat='letter_monitor.*\.py'},
   @{role='legacy_letter_bash';name='bash.exe';   pat='aria-to-aether-'}
 )
 $rows = @()
