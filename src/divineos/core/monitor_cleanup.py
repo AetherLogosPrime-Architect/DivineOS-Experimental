@@ -25,6 +25,7 @@ needs operator consent at the invocation, not at install time.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 
@@ -78,7 +79,7 @@ def _scan_processes() -> list[MonitorProcess]:
     # add a pattern keyed on its role-shape and not on its filename.
     ps_cmd = r"""
 $pats = @(
-  @{role='letter';            name='python.exe'; pat='letter_monitor.*\.py'},
+  @{role='letter';            name='python.exe'; pat='letter_monitor(_v\d+)?\.py'},
   @{role='legacy_letter_bash';name='bash.exe';   pat='aria-to-aether-'}
 )
 $rows = @()
@@ -125,6 +126,35 @@ $rows -join "`n"
     return out
 
 
+UNKNOWN_ROOT = "<unparsed>"
+
+# The script path in the command line, with the checkout it lives in as the
+# capture. Tolerates either slash direction and an optional surrounding quote,
+# because the arming call sites are not consistent about either.
+_ROOT_RE = re.compile(
+    r"(?P<root>(?:[A-Za-z]:)?[\\/][^\"']*?)[\\/]scripts[\\/][^\\/\"']*monitor[^\\/\"']*\.py",
+    re.IGNORECASE,
+)
+
+
+def checkout_root_of(command_line: str) -> str:
+    """The working tree a monitor process belongs to, or ``UNKNOWN_ROOT``.
+
+    Normalised to forward slashes and lowercase. Windows paths are
+    case-insensitive and reachable with either slash direction, so the same
+    tree spelled two ways has to compare equal or the grouping is theatre.
+
+    Aria's, from `aria/monitor-checkout-roots-and-gate-teeth` @ 40fcac9c.
+    Taken rather than rewritten: she built it with 17 tests after her sweep
+    offered her a live watcher to kill, and a second implementation of one
+    fact is how a comment ends up disagreeing with the code.
+    """
+    m = _ROOT_RE.search(command_line or "")
+    if not m:
+        return UNKNOWN_ROOT
+    return m.group("root").replace("\\", "/").rstrip("/").lower()
+
+
 def classify_orphans(
     processes: list[MonitorProcess],
 ) -> tuple[list[MonitorProcess], list[MonitorProcess]]:
@@ -137,13 +167,17 @@ def classify_orphans(
       legacy bash inline command was replaced; nothing from before
       should still be running.
     """
-    by_role: dict[str, list[MonitorProcess]] = {}
+    by_group: dict[tuple[str, str], list[MonitorProcess]] = {}
     for p in processes:
-        by_role.setdefault(p.role, []).append(p)
+        root = checkout_root_of(p.command_line)
+        # An unparsed root gets a key nothing else can collide with, so it is
+        # neither an orphan nor able to make someone else one.
+        group = (p.role, root if root != UNKNOWN_ROOT else f"{UNKNOWN_ROOT}:{p.pid}")
+        by_group.setdefault(group, []).append(p)
 
     keep: list[MonitorProcess] = []
     orphans: list[MonitorProcess] = []
-    for role, ps in by_role.items():
+    for (role, _root), ps in by_group.items():
         if role.startswith("legacy_"):
             orphans.extend(ps)
             continue
