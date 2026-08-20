@@ -7,6 +7,10 @@ and that sentence is precisely how the dropped guard hid for six weeks
 (knowledge 191163ee). A docstring that describes a predecessor's safety
 property reads, to a hurrying eye, as a description of this file's.
 
+The mutex is held by the BINDING in main(), not by the call. Written here
+because the sentence above was true of the call and false of the guard for
+the several hours between restoring it and Aria measuring it.
+
 The v1 worker (scripts/letter_monitor.py) ran as a kernel-mutex'd singleton
 process polling family/letters/ and writing [LETTER] lines to a log file
 that a separate harness Monitor() tailed. Two failure points; the worker
@@ -178,13 +182,45 @@ def main() -> int:
     # letters not waking me; the cost of a duplicate is RAM.
     from divineos.core.monitor_singleton import acquire_or_exit
 
-    acquire_or_exit("letter", occupant=args.recipient)
+    # BIND THE RETURN VALUE. This is not style -- the handle IS the guard.
+    #
+    # Aria measured it, 2026-08-20, hours after I "restored" the guard by
+    # calling this and discarding what it returned:
+    #
+    #     acquire_or_exit(...)          two monitors, same occupant, both armed
+    #     _h = acquire_or_exit(...)     second one exits, prints DEDUP
+    #
+    # I reproduced both before touching the line. The primitive returns the
+    # kernel mutex handle and the caller holds it for the process lifetime;
+    # dropped, it is garbage-collected, the mutex releases, and the call
+    # becomes a no-op that still prints as though it armed. `is_held` in that
+    # same module states the mechanism outright -- it closes its probe handle
+    # and notes that if it was the only one, the kernel destroys the object.
+    #
+    # So the six-week hidden loss I diagnosed got repaired into a second
+    # hidden loss of the same shape, one directory from two call sites that
+    # already had it right -- one of them carrying a `# noqa: F841` written by
+    # somebody who hit the unused-variable warning and understood why the
+    # binding had to stay.
+    #
+    # The binding here is load-bearing rather than annotated: the armed line
+    # below reads it. A later tidy-up cannot delete it without breaking that
+    # print, which is a guard that does not depend on anyone reading a comment
+    # first -- including this one.
+    mutex_handle = acquire_or_exit("letter", occupant=args.recipient)
 
     shared_dir = Path(args.shared_dir)
     tag = recipient_tag(args.recipient)
 
+    # acquire() fail-opens to None on non-Windows and on missing pywin32, by
+    # deliberate contract -- a refused launch costs letters, a duplicate costs
+    # RAM. But until now this line printed identically either way, so a process
+    # with NO guard announced itself exactly like a guarded one. That is the
+    # same class of defect as the discarded handle: the armed message was never
+    # evidence of arming.
+    guard = "kernel-mutex" if mutex_handle is not None else "OFF (fail-open)"
     print(
-        f"[LETTER-MONITOR-ARMED] watching {shared_dir} for *{tag}*.md",
+        f"[LETTER-MONITOR-ARMED] guard={guard} watching {shared_dir} for *{tag}*.md",
         flush=True,
     )
 

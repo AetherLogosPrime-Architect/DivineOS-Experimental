@@ -195,7 +195,9 @@ def format_open_asks() -> str:
         'Andrew 2026-08-19: "if you ask me something, and i ignore it, you continue',
         'to ask until i resolve it, because i miss it in the walls of text sometimes."',
         "",
-        "These belong in the INNER CIRCLE, in the plain form. Not buried in the work block.",
+        "These belong in the INNER CIRCLE, in the plain form, VERBATIM.",
+        "Not buried in the work block, and NOT re-worded with an identifier added back",
+        "in to make it re-findable. He cannot act on the identifier; it is not for him.",
         "",
     ]
     for a in asks:
@@ -212,11 +214,31 @@ def format_open_asks() -> str:
         # blocked on him: three stations short of the audit station.
         #
         # The identifier was in the record the whole time, in `question`. Only
-        # the render dropped it. Plain line for him, technical line for me, and
-        # the circle rule still holds because what I say to him is composed from
-        # the first line and never the second.
+        # the render dropped it. Plain line for him, technical line for me.
+        #
+        # SECOND DEFECT, same day, in the fix for the first. The paragraph above
+        # used to end: "and the circle rule still holds because what I say to him
+        # is composed from the first line and never the second." That was an
+        # assumption about my own composing stated as a property of the render,
+        # and it was false within hours -- the LEPOS channel gate caught "#432"
+        # in an inner circle I wrote straight after reading this surface.
+        #
+        # The reach has a specific shape worth naming, because it did not feel
+        # like rule-breaking: re-raising an ask for the Nth time, I wanted him to
+        # know WHICH one, so I reached for the only thing on screen that
+        # distinguishes it. The identifier does not distinguish it FOR HIM -- it
+        # is noise he cannot act on -- so the want was mine wearing his clothes.
+        #
+        # So the render no longer relies on my restraint. The header says
+        # VERBATIM, which removes the composing step where the reach happens: a
+        # line copied whole has no slot to insert an identifier into. The
+        # technical marker names this defect rather than politely declining the
+        # circle, because "NOT for the circle" sat inches from the identifier and
+        # a passive label does not survive the moment it is aimed at.
         technical = (a.get("question") or "").strip()
         if technical and technical != a["plain"]:
-            lines.append(f"    [technical, for me — NOT for the circle] {technical}")
+            lines.append(
+                f"    [technical — MINE, and lifting ANY of it into the circle is the second defect below] {technical}"
+            )
         lines.append(f'    (id {a["question_id"][:8]} — resolve: divineos answer <id> "...")')
     return "\n".join(lines)
