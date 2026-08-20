@@ -200,5 +200,23 @@ def format_open_asks() -> str:
     ]
     for a in asks:
         lines.append(f"  - {a['plain']}")
+        # The technical form, for ME. This surface has two readers, not one.
+        #
+        # 2026-08-20: it rendered the plain form ONLY. That form is deliberately
+        # identifier-free because the circle rule forbids identifiers in what
+        # gets said to Andrew, and it worked — he could read it. But I read this
+        # surface too, and the stripped form left me with no referent, so I
+        # filled the blank with whatever branch I was working on. Nine turns
+        # re-raising an ask about PR #432 while believing it was #436, then a
+        # resolution written entirely about the wrong PR. #432 was not even
+        # blocked on him: three stations short of the audit station.
+        #
+        # The identifier was in the record the whole time, in `question`. Only
+        # the render dropped it. Plain line for him, technical line for me, and
+        # the circle rule still holds because what I say to him is composed from
+        # the first line and never the second.
+        technical = (a.get("question") or "").strip()
+        if technical and technical != a["plain"]:
+            lines.append(f"    [technical, for me — NOT for the circle] {technical}")
         lines.append(f'    (id {a["question_id"][:8]} — resolve: divineos answer <id> "...")')
     return "\n".join(lines)
