@@ -119,6 +119,51 @@ verdict, confidence, reason = classify(last_text)
 if verdict != 'fire':
     sys.exit(0)
 
+# FALSE-POSITIVE SUPPRESSION (Aria 2026-08-17).
+#
+# This gate was STATELESS: it re-classified the streamed reply on every
+# Stop and had no record of anything. So the false-positive path it
+# advertises --
+#
+#     python scripts/clear_correction_marker.py --reason "..."
+#
+# -- could never work here. That script clears the correction-UNLOGGED
+# marker, a different mechanism with a different file. Running exactly
+# the prescribed command returned "No correction marker present.
+# Nothing to clear." The refusal named a door that was not attached to
+# this room, and on a genuine false positive there was no way out at all
+# except to stop saying the thing.
+#
+# Found while auditing seventeen failures Andrew counted across five
+# replies -- the third printed door in that set, and the only one whose
+# advertised remedy targeted an entirely different gate.
+#
+# The fix gives the gate the state its own remedy assumed it had: a
+# per-text hash. On fire, record the hash of the classified text; on a
+# later fire, skip if that exact text was already attributed. Text-keyed
+# rather than time-keyed, so clearing one reply cannot silence the next.
+#
+# Fail-soft on every path: a suppression store that errors must not
+# suppress, and must not break the gate either.
+try:
+    import hashlib
+    from divineos.core.paths import divineos_home
+
+    _home = divineos_home()
+    _digest = hashlib.sha256(last_text.encode('utf-8', 'replace')).hexdigest()
+    _cleared = _home / 'correction_shape_v2_cleared.json'
+    if _cleared.exists():
+        _seen = json.loads(_cleared.read_text(encoding='utf-8') or '[]')
+        if _digest in _seen:
+            sys.exit(0)
+    _home.mkdir(parents=True, exist_ok=True)
+    (_home / 'correction_shape_v2_last_fire.json').write_text(
+        json.dumps({'digest': _digest, 'reason': reason}),
+        encoding='utf-8',
+    )
+except Exception:
+    pass
+
 # Fired — emit enforcement message.
 print(f"""CORRECTION-SHAPE-V2 GATE (Layer 2) — my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so the class does not recur.
 

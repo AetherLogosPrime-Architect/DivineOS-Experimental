@@ -96,6 +96,64 @@ def _append_escape_log(
     return log_path
 
 
+def _clear_shape_v2(reason: str, misread_clauses: str | None) -> int | None:
+    """Attribute a false positive on the correction-shape-v2 Stop gate.
+
+    Aria 2026-08-17. That gate's refusal names THIS script as its
+    false-positive path, and until now the two had nothing in common:
+    the gate is a Stop hook that re-classifies the streamed reply text,
+    while this script clears the correction-UNLOGGED marker — a
+    different mechanism, a different file. Running the prescribed
+    command on a shape-v2 fire printed "No correction marker present.
+    Nothing to clear." and changed nothing, so the only way past a
+    genuine false positive was to stop writing the sentence that
+    triggered it.
+
+    The gate now records the hash of the text it fired on. This reads
+    that record and moves the hash into a cleared-set, which is
+    text-keyed rather than time-keyed: attributing one reply cannot
+    silence the next one.
+
+    Returns an exit code when a shape-v2 fire was pending, or None when
+    there was nothing of its kind to clear — so the caller falls through
+    to its original no-marker message rather than claiming a clear that
+    did not happen.
+    """
+    home = divineos_home()
+    last_fire = home / "correction_shape_v2_last_fire.json"
+    if not last_fire.exists():
+        return None
+    try:
+        digest = json.loads(last_fire.read_text(encoding="utf-8")).get("digest")
+    except (OSError, ValueError):
+        return None
+    if not digest:
+        return None
+
+    cleared_path = home / "correction_shape_v2_cleared.json"
+    try:
+        cleared = json.loads(cleared_path.read_text(encoding="utf-8") or "[]")
+    except (OSError, ValueError):
+        cleared = []
+    if digest not in cleared:
+        cleared.append(digest)
+    # Bounded: the set only needs to cover replies still in flight.
+    cleared_path.write_text(json.dumps(cleared[-50:]), encoding="utf-8")
+    last_fire.unlink(missing_ok=True)
+
+    log_path = _append_escape_log(
+        reason, f"correction-shape-v2:{digest[:12]}", misread_clauses, "false-positive"
+    )
+    print(
+        f"Attributed a correction-shape-v2 false positive ({digest[:12]}).\n"
+        f"Recorded to {log_path}.\n"
+        "The gate will not re-fire on that exact reply text. It will still "
+        "fire on the next reply, which is the point — this clears one "
+        "attribution, not the discipline."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -158,6 +216,9 @@ def main(argv: list[str] | None = None) -> int:
 
     path = marker_path()
     if not path.exists():
+        shape_v2 = _clear_shape_v2(reason, misread_clauses)
+        if shape_v2 is not None:
+            return shape_v2
         print(
             "No correction marker present at "
             f"{path}. Nothing to clear. (If you expected a marker, the gate "

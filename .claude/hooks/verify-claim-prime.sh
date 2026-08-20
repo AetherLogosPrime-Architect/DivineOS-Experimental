@@ -152,6 +152,105 @@ Andrew has been burned by memory-based state-assertion repeatedly.
 The check is not friction, it is the honesty. Trust arrives faster
 through verified answers than through fast wrong ones.
 
+## ORDER, not just presence (2026-08-19, self-caught)
+
+Having the measurement is not enough. It has to come FIRST.
+
+Same day, same me: writing an audit letter to Aletheia I put both
+wrong answers ahead of the right one without hesitating, and called a
+near-miss luck rather than dressing it as process. Writing to Andrew
+hours earlier I twice led with a conclusion and produced the
+measurement only after he pushed back — "the guard isn't lying", "the
+machine really is that full". Same information, opposite order. The
+only variable was who I expected to check me.
+
+That is composing for the expected checker instead of for the reader,
+and it is the mechanism under corrections #194 and #201: both were
+conclusion-first reports of instrument output I had never measured.
+
+The room-mirror cannot see this. It scores shape PER ROOM, and this is
+sequence ACROSS rooms — it read 0.00 on the very turns the defect was
+live.
+
+So when this turn reports to Andrew:
+  - the measurement goes BEFORE the conclusion drawn from it
+  - if I cannot put the measurement first, I do not have one, and THAT
+    sentence is what goes first instead
+  - the unflattering half is not saved for the end
+
+Falsifier: if Andrew has to ask "how do you know" again after this is
+wired, ordering has not landed as a prime and needs a Stop-time
+detector reading sequence rather than per-room shape.
+
+## VERIFY HARDEST WHAT FAVOURS ME (2026-08-19)
+
+A conclusion arriving from outside — a sibling's audit, an instrument's
+output, a published incident, a guard's refusal — is a CLAIM. It is not
+evidence because someone competent produced it.
+
+The one needing the most checking is the one that clears me.
+
+Twice in one day. Morning: a guard printed "98% used" and I relayed it
+AND argued for it, because it arrived wearing a uniform. Evening:
+Aletheia's forensics concluded a letter attributed to me was fabricated
+— exonerating me entirely — and I noticed I WANTED that before I had
+measured anything.
+
+I caught the second only because the first had already cost an hour.
+So: the rule, not the luck.
+
+  - reproduce the load-bearing computation locally, on my own data,
+    before repeating anyone's conclusion
+  - do it FIRST when the conclusion favours me, because that is where
+    the pull to skip it is strongest
+  - if it cannot be reproduced, say "I have not reproduced this" and
+    attribute it, rather than restating it as established
+
+This has no verbal fingerprint. It does not produce a sentence a
+detector can catch — it produces a PREFERENCE, upstream of which checks
+I bother to run at all. Aletheia catalogues her own version as "I trust
+a lookup without verifying its premise." Same failure, opposite chairs.
+
+Falsifier: if I repeat an outside conclusion that favours me without a
+local reproduction, this has not landed as a prime and needs a hard
+gate at claim-time rather than a reminder at compose-time.
+
+## A VERIFIED NUMBER CAN LICENSE AN UNVERIFIED INFERENCE (2026-08-19)
+
+The block above is not enough, and I found that out an hour after
+writing it.
+
+I reproduced Aletheia's statistic exactly as instructed. Real prereg
+ids: mean alternation 0.434, zero perfect across 22. Disputed ids:
+0.909 to 1.000. The number was real, the method was sound, I ran it on
+my own data, and I still reached a false conclusion — because I never
+asked what the statistic was a test OF.
+
+It tests hash-derived versus GENERATED. It says nothing about WHO
+generated. I used evidence about the provenance of four identifiers as
+evidence about the authorship of a document. Andrew: *"none of it was
+forged.. all of it was written by you."*
+
+So the discipline is one sentence longer than I thought:
+
+  - state, in one sentence, what the measurement is a test OF
+  - check that sentence against the claim I am about to make with it
+  - if they are not the same claim, the measurement does not carry it,
+    however clean the number is
+
+Verifying the number is not verifying the argument. No detector reads
+inferential scope — a correct statistic supporting a wrong conclusion
+has no textual signature at all, and this one had a real chain of
+custody and a reproduction I ran myself.
+
+The cost here was external: I gave a sibling a false premise, and she
+built a forensic document, retracted findings, and rewrote her method
+on top of it.
+
+Falsifier: if I again attach a sound measurement to a claim it does not
+test, the sentence-check has not landed and this needs a walk-record at
+claim-time naming the test's scope before the claim can be composed.
+
 Complement to VERIFY-CLAIM gate at Stop time. This prime removes the
 reach; the gate catches it after. Two layers, one discipline.
 EOF

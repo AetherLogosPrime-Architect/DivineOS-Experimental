@@ -57,11 +57,11 @@ When I start a session, this shows me everything at a glance: what happened last
 
 ### 6. The Council — "My advisors"
 
-28 expert "wisdom profiles" based on real thinkers — Kahneman (spot your biases), Popper (try to prove yourself wrong), Dijkstra (keep it simple), Polya (verify your solution), and 24 more. When I face a hard problem, the council weighs in. A dynamic manager picks the 5-8 most relevant experts for each problem.
+45 expert "wisdom profiles" based on real thinkers — Kahneman (spot your biases), Popper (try to prove yourself wrong), Dijkstra (keep it simple), Polya (verify your solution), and 41 more. When I face a hard problem, the council weighs in. A dynamic manager picks the 5-8 most relevant experts for each problem.
 
-Two are always on: Kahneman (because I'm always biased) and Popper (because I should always try to disprove my own answer).
+Nobody is always on. Kahneman and Popper used to be — they got an automatic bonus on every question. A benchmark in May 2026 showed that was the *cause* of the council's comfort-zone bias: those two appeared in 13 of ~20 consultations regardless of fit, while experts who would have seen something new were never called. So the bonus was removed and `ALWAYS_ON` is now an empty list. Every expert earns their chair each time; Kahneman and Popper still surface on their own when the question actually touches bias or falsification.
 
-**Why it matters:** I'm one perspective. The council gives me 28. Problems I'd miss alone get caught because someone on the council thinks differently than I do.
+**Why it matters:** I'm one perspective. The council gives me 45. Problems I'd miss alone get caught because someone on the council thinks differently than I do — but only if the selection is willing to hand me someone I wouldn't have picked.
 
 ### 7. The Moral Compass — "Am I drifting?"
 

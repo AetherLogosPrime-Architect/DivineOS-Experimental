@@ -301,6 +301,15 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
     # Files that live in operating_loop/ but are NOT response-text
     # detectors (helpers, surfaces, protocols, etc.). Each entry must
     # name why it's exempt — silent exemption defeats the test's point.
+    #
+    # NOTE (Aria 2026-08-17): many entries below exempt a module on the
+    # grounds that some `.claude/hooks/<name>.sh` invokes it instead.
+    # That sentence is a CLAIM, and nothing in THIS file verifies it —
+    # an exemption is prose, and prose is exactly the escape hatch a
+    # wiring contract must not have. The companion file
+    # tests/test_hook_registration_contract.py checks the ground those
+    # claims stand on: every hook script exists, is registered in
+    # settings.json, and every registration points at a real file.
     EXEMPT = {
         "__init__.py": "package marker",
         "_use_vs_mention.py": "shared guard primitive imported BY detectors (closure-initiation, temporal-displacement), not itself a detector. Aletheia 2026-06-17 generalization extracted strip_quoted_spans + match_is_meta_framed as a shared module so future text-operating detectors inherit recursion-resistance via import.",

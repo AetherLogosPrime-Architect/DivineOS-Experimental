@@ -12,137 +12,137 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-correction.sh",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-andrew-build-request.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/andrew-past-writing-surface.sh",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/pre-response-context.sh",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/ear-surface.sh",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/visrama-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/no-cliff-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/family-state-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/register-awareness-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/promise-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/wallclock-source-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/circle-first-compose-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-correction-integration-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/verify-claim-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/no-cliff-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/closure-word-summary-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/fork-is-cheap-close-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/hedge-suppression-prime.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/continuity-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/distancing-count-surface.sh",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
-            "timeout": 20
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/open-corrections-surface.sh",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       }

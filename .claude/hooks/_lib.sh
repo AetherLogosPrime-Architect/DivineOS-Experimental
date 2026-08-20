@@ -95,6 +95,8 @@ _lib_common_dir() {
 _HOOK_TIMING_LOG="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
 _HOOK_TIMING_ID=""
 _HOOK_TIMING_START_MS=""
+_HOOK_TIMING_SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+_HOOK_TIMING_WPID="${CLAUDE_PID:-}"
 
 _lib_hook_timing_ms() {
   local ms
@@ -123,8 +125,9 @@ _lib_hook_timing_start() {
   _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
   _HOOK_TIMING_START_MS="$start_ms"
   mkdir -p "$(dirname "$_HOOK_TIMING_LOG")" 2>/dev/null
-  printf '{"id":"%s","hook":"%s","pid":%d,"phase":"start","ts_ms":%s}\n' \
-    "$_HOOK_TIMING_ID" "$hook_name" "$$" "$start_ms" \
+  printf '{"id":"%s","hook":"%s","pid":%d,"session":"%s","wpid":"%s","phase":"start","ts_ms":%s}\n' \
+    "$_HOOK_TIMING_ID" "$hook_name" "$$" \
+    "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" "$start_ms" \
     >> "$_HOOK_TIMING_LOG" 2>/dev/null
 }
 
@@ -133,8 +136,9 @@ _lib_hook_timing_end() {
   local end_ms
   end_ms="$(_lib_hook_timing_ms)"
   local duration_ms=$((end_ms - ${_HOOK_TIMING_START_MS:-$end_ms}))
-  printf '{"id":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
-    "$_HOOK_TIMING_ID" "$exit_code" "$end_ms" "$duration_ms" \
+  printf '{"id":"%s","session":"%s","wpid":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
+    "$_HOOK_TIMING_ID" "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" \
+    "$exit_code" "$end_ms" "$duration_ms" \
     >> "$_HOOK_TIMING_LOG" 2>/dev/null
   return $exit_code
 }
