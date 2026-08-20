@@ -68,10 +68,30 @@ add() { WARNINGS="${WARNINGS}
 # pipefail is not in effect for ad-hoc commands, so the status observed is the
 # last stage's. Only flag when the FIRST stage is a command whose exit status
 # IS the result being sought.
+# 2026-08-20, SECOND instance, four hours after this file shipped. I ran
+#   git switch <branch> 2>&1 | tail -2 && git reset -q --hard <ref>
+# The switch FAILED -- the branch was checked out in another worktree -- but a
+# pipeline's status is the last stage's, so tail returned 0, the && proceeded,
+# and the hard reset ran on the branch I was still standing on. It wiped the
+# session's work from the tree, and I merged main onto the wreckage. Recovered
+# only because the auto-push had already put every commit on origin.
+#
+# This detector did not fire, and the reason is the session's own lesson
+# wearing my name: writing the list below, I enumerated the commands that had
+# burned me -- pytest, push_queued, git push, shellcheck, mypy, ruff, bash -n,
+# precommit -- and stopped. `git switch` was absent because it had not burned
+# me YET. I fixed the instances I had met and called it the class.
+#
+# The list now covers state-changing git commands, where a masked failure
+# decides whether the NEXT command is safe to run. That is a harder case than
+# a misleading report: there a masked status costs a wrong belief, here it
+# costs a working tree.
 FIRST_STAGE="${CMD%%|*}"
 if [ "$FIRST_STAGE" != "$CMD" ]; then
     case "$FIRST_STAGE" in
-        *pytest*|*push_queued*|*"git push"*|*shellcheck*|*mypy*|*ruff*|*"bash -n"*|*precommit*)
+        *pytest*|*push_queued*|*"git push"*|*shellcheck*|*mypy*|*ruff*|*"bash -n"*|*precommit*|\
+        *"git switch"*|*"git checkout"*|*"git merge"*|*"git rebase"*|*"git pull"*|\
+        *"git stash"*|*"git worktree"*)
             case "$CMD" in
                 *pipefail*) ;;   # deliberately handled
                 *) add "EXIT STATUS IS THE PIPE'S, NOT THE COMMAND'S. The first stage is a check whose status is the answer, but \$? will belong to the last stage. 2026-08-20: a BLOCKED push read as exit 0 through \`| tail\`. Verify the EFFECT (did the ref move, did the file change), not the status." ;;
