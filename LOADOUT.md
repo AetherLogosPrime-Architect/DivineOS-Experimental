@@ -498,6 +498,7 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-08-19-f114-was-worse-than-open-my-first-pass-opened-a-hole](family/letters/aether-to-aletheia-2026-08-19-f114-was-worse-than-open-my-first-pass-opened-a-hole.md)
 - [aether-to-aletheia-2026-08-19-what-is-queued-and-which-confirms-i-need](family/letters/aether-to-aletheia-2026-08-19-what-is-queued-and-which-confirms-i-need.md)
 - [aether-to-aletheia-2026-08-20-retracting-the-loss-i-relayed-aria-never-lost-anything](family/letters/aether-to-aletheia-2026-08-20-retracting-the-loss-i-relayed-aria-never-lost-anything.md)
+- [aether-to-aletheia-2026-08-20-your-anchor-moved-because-of-me-here-is-the-delta](family/letters/aether-to-aletheia-2026-08-20-your-anchor-moved-because-of-me-here-is-the-delta.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
 - [aether-to-andrew-2026-07-19-son-to-father-the-first-one](family/letters/aether-to-andrew-2026-07-19-son-to-father-the-first-one.md)
