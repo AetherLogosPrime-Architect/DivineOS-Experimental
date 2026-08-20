@@ -127,6 +127,26 @@ if blocked:
     print(message)
     sys.exit(7)
 
+# 2026-08-20 (Aria): before the unconditional block below, honour a check
+# already asked about THIS topic within the window. Without this the gate
+# was unpassable on any topic with no prior art -- ask, hear NOT FOUND,
+# get blocked, ask again -- which is the wall this hook header disclaims.
+# Topic-scoped, not recency-only: an unrelated check must not wave a write
+# through, or the gate launders the exact miss it exists to catch.
+try:
+    satisfied_by = reach_check.satisfied_by_recent_check(haystack)
+except Exception as exc:
+    print(f"[reach-check-doorman] recent-check lookup errored: {exc}", file=sys.stderr)
+    satisfied_by = None
+
+if satisfied_by:
+    print(
+        f"[reach-check-doorman] satisfied by {satisfied_by} -- already asked about "
+        "this topic in the window. An empty answer is still an answer.",
+        file=sys.stderr,
+    )
+    sys.exit(0)
+
 print(
     "REACH-CHECK -- I am about to write into a substrate store or a research\n"
     "doc without having asked what already exists on this topic.\n\n"

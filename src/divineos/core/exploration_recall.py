@@ -354,17 +354,37 @@ def surface_for_context(
     #
     # Fail-open and silent here: this is a surface, and a surface that cannot
     # arm its gate must still deliver its text.
-    try:
-        from divineos.core import read_gate
+    # ONLY from the real corpus. An injected ``root`` means the caller
+    # supplied its own corpus -- which only tests do -- and a test corpus
+    # must never arm a requirement against the live substrate.
+    #
+    # 2026-08-14 this fired for real: the surface ran under pytest with a
+    # tmp_path root, armed "prior-writing" at
+    # tmp/pytest/.../test_surface_fires_only_on_tag0/tagged.md, pytest
+    # deleted the directory, and every mutating tool afterwards demanded a
+    # file that no longer existed. The fix made then was downstream --
+    # gate_status now drops a requirement whose file has vanished
+    # (tests/test_read_gate_vanished_target.py) -- and it holds, but it only
+    # covers the vanished case. 2026-08-20 the same arming happened and the
+    # tmpdir was still on disk, so the gate blocked on a four-line fixture
+    # ("# Symmetric standards / body") presented as my own prior writing.
+    # A gate that hands me garbage teaches me to skim it, which costs more
+    # than the block did.
+    #
+    # So the cause gets closed here rather than the symptom downstream: no
+    # injected corpus, no live requirement. Aria 2026-08-20.
+    if root is None:
+        try:
+            from divineos.core import read_gate
 
-        if not read_gate.has_pending("prior-writing"):
-            read_gate.require_read(
-                "prior-writing",
-                str(tagged[0].path),
-                f"top prior-writing match: {tagged[0].title}",
-            )
-    except _GATE_ARM_ERRORS:
-        pass
+            if not read_gate.has_pending("prior-writing"):
+                read_gate.require_read(
+                    "prior-writing",
+                    str(tagged[0].path),
+                    f"top prior-writing match: {tagged[0].title}",
+                )
+        except _GATE_ARM_ERRORS:
+            pass
 
     return "\n".join(lines)
 
