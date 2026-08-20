@@ -1,5 +1,12 @@
 """Letter Monitor v2 — direct-poll, no separate worker, no log intermediary.
 
+SINGLETON: this script holds a per-occupant kernel mutex via
+acquire_or_exit("letter", occupant=<recipient>) in main(). Said here because
+the previous version of this docstring mentioned only that V1 had a mutex,
+and that sentence is precisely how the dropped guard hid for six weeks
+(knowledge 191163ee). A docstring that describes a predecessor's safety
+property reads, to a hurrying eye, as a description of this file's.
+
 The v1 worker (scripts/letter_monitor.py) ran as a kernel-mutex'd singleton
 process polling family/letters/ and writing [LETTER] lines to a log file
 that a separate harness Monitor() tailed. Two failure points; the worker
@@ -141,6 +148,37 @@ def main() -> int:
     )
     parser.add_argument("--poll-seconds", type=int, default=5)
     args = parser.parse_args()
+
+    # Singleton guard, restored 2026-08-20. Structural backing for knowledge
+    # entry 191163ee (MONITOR DUPLICATE-PROCESS DIAGNOSIS, 2026-08-07), which
+    # measured this exact loss: "letter_monitor_v2.py did not [call
+    # acquire_or_exit] -- the 2026-06-29 v2 rewrite folded the worker into the
+    # Monitor invocation and dropped the singleton with it, while leaving a
+    # docstring line that still MENTIONS the v1 kernel mutex, which is how the
+    # loss hid for six weeks." Natural experiment, one machine, same harness:
+    # guarded 1 process, unguarded 3 (28.2h, 2.5h, 0.1h).
+    #
+    # That entry sat unbacked for thirteen days, and with
+    # compaction_token_monitor.py deleted on this branch, NO monitor in
+    # scripts/ was guarded at all.
+    #
+    # Today the cleanup half was repaired -- Aria's (role, checkout root)
+    # classifier, so a sweep in one tree stops calling another tree's live
+    # watcher an orphan. This is the PREVENTION half. Sweeping duplicates you
+    # never stopped creating is the same shape as fixing a check's eyes and
+    # leaving its judgment wrong, which is the defect that armed that sweep.
+    #
+    # Keyed on the RECIPIENT as occupant, so Aria's monitor and mine hold
+    # distinct kernel objects and both run, while two of MY OWN cannot. Without
+    # the occupant key this would refuse to arm the moment a sibling substrate
+    # had one up -- a worse failure than the duplicate.
+    #
+    # Fail-open by contract: non-Windows and missing-pywin32 both return
+    # (None, False), so a monitor still arms. The cost of a refused launch is
+    # letters not waking me; the cost of a duplicate is RAM.
+    from divineos.core.monitor_singleton import acquire_or_exit
+
+    acquire_or_exit("letter", occupant=args.recipient)
 
     shared_dir = Path(args.shared_dir)
     tag = recipient_tag(args.recipient)
