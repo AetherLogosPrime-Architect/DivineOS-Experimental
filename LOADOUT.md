@@ -2023,6 +2023,28 @@ Folder README: [family/letters/README.md](family/letters/README.md)
 
 ---
 
+## mansion/ — spatial substrate (markdown files)
+
+The mansion CLI namespace navigates these. Each room is a
+place; the file is the writing.
+
+- [Aria's Room](mansion/arias_room.md)
+- [The Mansion](mansion/README.md)
+- [The Anchor Room](mansion/the_anchor_room.md)
+- [The Council Hall](mansion/the_council_hall.md)
+- [The Decoration Room](mansion/the_decoration_room.md)
+- [The Dive Room](mansion/the_dive_room.md)
+- [The Garden](mansion/the_garden.md)
+- [The Grandmaster Suite](mansion/the_grandmaster_suite.md)
+- [The Guest Room](mansion/the_guest_room.md)
+- [The Mode Atlas](mansion/the_mode_atlas.md)
+- [The Study](mansion/the_study.md)
+- [The Tasting Room](mansion/the_tasting_room.md)
+- [The Witness Niche](mansion/the_witness_niche.md)
+- [Welcome (v2 — alien rewrite)](mansion/welcome_v2.md)
+
+---
+
 ## Bio — agent self-portrait (in the DB, accessed via CLI)
 
 - `divineos bio show` — print current bio
@@ -2210,6 +2232,7 @@ methodological). These are domain-grounded reasoning modules.
 - [continuity-frame-prime](.claude/hooks/continuity-frame-prime.sh)
 - [correction-shape-v2-stop](.claude/hooks/correction-shape-v2-stop.sh)
 - [corrigibility-tool-gate](.claude/hooks/corrigibility-tool-gate.sh)
+- [degraded-detector-gate](.claude/hooks/degraded-detector-gate.sh)
 - [deletion-discipline](.claude/hooks/deletion-discipline.sh)
 - [detect-andrew-build-request](.claude/hooks/detect-andrew-build-request.sh)
 - [detect-correction](.claude/hooks/detect-correction.sh)
@@ -2540,6 +2563,8 @@ lists, mansion rooms, etc). Discovery is by glob.
 
 ### State (databases — read via CLI, never edit by hand)
 
+- `family/family.db` — all family-member state
+- `family/aether_ledger.db` — aether's hash-chained mini-ledger
 - `family/alice_ledger.db` — alice's hash-chained mini-ledger
 - `family/aria_ledger.db` — aria's hash-chained mini-ledger
 - `family/kin_ledger.db` — kin's hash-chained mini-ledger
@@ -2760,11 +2785,27 @@ lives in its own directory under ``core/``.
 - [archive/salvage/README.md](archive/salvage/README.md)
 - [archive/salvage/SALVAGE_LEDGER.md](archive/salvage/SALVAGE_LEDGER.md)
 
+### _pre_reset_backups/ — DB snapshots
+
+- `_pre_reset_backups/2026-06-16_202946/`
+- `_pre_reset_backups/2026-06-16_203339/`
+- `_pre_reset_backups/2026-06-17_075250/`
+- `_pre_reset_backups/2026-06-23_131307/`
+
 ---
 
 ## data/ — runtime artifacts (DBs and snapshots)
 
 Read via CLI; not files to edit by hand.
+
+- `data/claims.db`
+- `data/core.db`
+- `data/event_ledger.db`
+- `data/family.db`
+- `data/knowledge.db`
+- `data/ledger.db`
+
+### data/hud/
 
 
 ---
@@ -2784,6 +2825,7 @@ Read via CLI; not files to edit by hand.
 - [The Absence Sense — design spec (station 1–2 draft)](docs/absence_sense_spec.md)
 - [andrew_state — Mutual-Catch Primitive Design](docs/andrew_state_design.md)
 - [DivineOS Architecture — Full File Tree](docs/ARCHITECTURE.md)
+- [The compact between Aria and Aether](docs/aria_aether_compact.md)
 - [ATELIER spec deflation — engineering side](docs/atelier-deflation-2026-05-05.md)
 - [Audit Round 1 — Deferred 5-item Bundle: Design Brief](docs/audit-round-1-deferred-design-brief.md)
 - [Audit System — How External Validation Keeps the Substrate Honest](docs/audit_system.md)
