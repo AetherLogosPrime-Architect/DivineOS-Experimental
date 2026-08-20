@@ -161,6 +161,32 @@ _NOT_A_PREDICATE: frozenset[str] = frozenset(
 )
 
 
+def _knowledge_text(knowledge_id: str) -> str:
+    """The stored content of a knowledge entry, or "" if unreachable.
+
+    Needed because STRUCTURAL_PROMOTION_QUESTION events record only the
+    knowledge_id and the matched triggers -- re-judging a historical fire
+    against the current detector requires the original text.
+
+    Fail-soft returning "": callers treat empty as "cannot re-judge, keep the
+    obligation", which errs toward carrying debt rather than silently
+    discharging it on a failed read.
+    """
+    try:
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        try:
+            row = conn.execute(
+                "SELECT content FROM knowledge WHERE knowledge_id = ?", (knowledge_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+        return str(row[0]) if row and row[0] else ""
+    except Exception:  # noqa: BLE001 — observability boundary; "" keeps the obligation
+        return ""
+
+
 def _is_descriptive_match(text: str, m: re.Match[str]) -> str | None:
     """Why this rule-pattern match is a description rather than a promise.
 
@@ -176,8 +202,22 @@ def _is_descriptive_match(text: str, m: re.Match[str]) -> str | None:
         return "aux-before"
     if lowered.startswith(("never", "always")) and (_PARTICIPLE_OR_GERUND.match(nxt)):
         return "participle"
-    if lowered.startswith("must") and nxt.lower() in ("be", "have", "been"):
+    # "must be", and also "must not be" / "must never be": the negation sits
+    # between the modal and the passive, so checking only the next token misses
+    # it. Measured on "the spec must not be read as ..." -- a clarification
+    # about how to read a document, not a promise about my future action.
+    after = text[m.end() : m.end() + 24].lower()
+    if lowered.startswith("must") and (
+        nxt.lower() in ("be", "have", "been") or re.match(r"\s*(be|been|have)\b", after)
+    ):
         return "modal-passive"
+    # "every time <pronoun> <verb>s" reports a recurring event rather than
+    # instructing one. Measured on "Every time she clones the repo and walks
+    # sourceward" -- a description of what happens to Aletheia, not a rule.
+    if lowered.startswith("every time") and re.match(
+        r"\s+(she|he|it|they|i|we|you|someone|anyone)\b", after
+    ):
+        return "recurrence-description"
     if nxt.lower() in _NOT_A_PREDICATE:
         return "no-predicate"
     # An odd number of quote marks before the match means it opened a quotation
@@ -405,9 +445,14 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
     # is whether a fire the detector would no longer produce is counted as
     # outstanding debt. Carrying a known false positive as debt is not rigour,
     # it is a jam -- and one that trains me to reach for the kill-switch.
+    # The event carries only knowledge_id and triggers, so the entry's text has
+    # to be fetched to re-judge it. A first attempt read q["content"], found
+    # nothing, and silently kept all ten -- absence of text reading as "still a
+    # rule", which is the same silence-means-pass shape being fixed here.
     still_rule: list[dict] = []
     for q in fired:
-        content = q.get("content") or q.get("text") or ""
+        wid = q.get("knowledge_id") or ""
+        content = _knowledge_text(wid) if wid else ""
         if content and not looks_like_rule(content)[0]:
             continue  # retired false positive, not an obligation
         still_rule.append(q)
