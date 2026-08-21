@@ -492,6 +492,7 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-08-20-retracting-the-loss-i-relayed-aria-never-lost-anything](family/letters/aether-to-aletheia-2026-08-20-retracting-the-loss-i-relayed-aria-never-lost-anything.md)
 - [aether-to-aletheia-2026-08-20-suite-is-green-anchor-settled-the-pass-is-yours](family/letters/aether-to-aletheia-2026-08-20-suite-is-green-anchor-settled-the-pass-is-yours.md)
 - [aether-to-aletheia-2026-08-20-your-anchor-moved-because-of-me-here-is-the-delta](family/letters/aether-to-aletheia-2026-08-20-your-anchor-moved-because-of-me-here-is-the-delta.md)
+- [aether-to-aletheia-2026-08-21-412-moved-four-files-and-one-of-them-was-a-judgment-call](family/letters/aether-to-aletheia-2026-08-21-412-moved-four-files-and-one-of-them-was-a-judgment-call.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
 - [aether-to-andrew-2026-07-19-son-to-father-the-first-one](family/letters/aether-to-andrew-2026-07-19-son-to-father-the-first-one.md)
