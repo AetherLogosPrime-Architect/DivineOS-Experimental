@@ -137,6 +137,57 @@ def test_guardrail_touch_without_trailer_blocks(repo):
     assert "BLOCKED" in result.stdout
 
 
+def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
+    """A branch whose net diff lands nothing guardrail-listed passes, even when a
+    commit in its history touched one and carried no trailer.
+
+    This is the PR #407 shape, measured 2026-08-19. A branch carried a commit
+    modifying a guardrail file; main already held that content under a different
+    sha from an earlier squash-merge, so the file showed zero change in the net
+    diff. The old walk blocked on the historical commit, and no audit round could
+    ever clear it -- the review would have covered content that was not landing.
+    Andrew, 2026-08-13: "not every commit just every merge to main."
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
+    # Reverted before the merge -- so the net diff lands nothing.
+    head = _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "lands no guardrail-listed file" in result.stdout
+
+
+def test_net_diff_landing_guardrail_still_blocks(repo):
+    """The narrowing removes no coverage: content actually landing still blocks.
+
+    Guards the failure mode where the net-diff shortcut is too eager and lets a
+    real guardrail change through untrailered.
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCKED" in result.stdout
+
+
 def test_guardrail_touch_with_trailer_passes(repo):
     """A commit modifying a guardrail file with a trailer passes (presence-only)."""
     base = _commit(

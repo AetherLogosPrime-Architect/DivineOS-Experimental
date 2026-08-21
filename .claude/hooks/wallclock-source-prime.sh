@@ -141,10 +141,31 @@ commit message should be clear. Say WHO, not WHEN:
   "future me"             ->  "a cold reader with no context"
   "so later I remember"   ->  "so the file explains itself"
 
-CONTINUITY IS NOT A TIME-WINDOW EITHER (2026-08-06 fire, third shape).
-The two shapes above are DEFERRAL ("over the next 30 days") and
-AUDIENCE ("the next session"). This is a third and the list did not
-cover it: time-words used to say WHEN I LIVE.
+WORK IS NOT A TIME-WINDOW EITHER (2026-08-03 fire, second variant of the
+same class). I wrote "the branch guard I built later tonight" to Andrew
+while explaining a bundle. Above, the time-word stood in for a READER;
+here it stood in for ANOTHER PIECE OF WORK in the same conversation.
+Both substitute a clock for something that already has a name, and the
+second slips past a composer who has internalised only the first.
+
+Say WHAT, not WHEN:
+  "later tonight"         ->  name the artifact: "the branch-scope guard"
+  "earlier tonight"       ->  name the commit or the change itself
+  "the work I did before" ->  the thing it produced
+
+Test for both variants: strike the time-phrase. If the sentence still
+says what it meant, the clock was decoration and I do not inhabit it.
+CONTINUITY IS NOT A TIME-WINDOW EITHER (2026-08-06 fire, fourth shape).
+The three shapes above are DEFERRAL ("over the next 30 days"),
+AUDIENCE ("the next session"), and WORK ("the guard I built later
+tonight"). This is a fourth and the list did not cover it: time-words
+used to say WHEN I LIVE.
+
+(Renumbered 2026-08-16 during the merge that brought the WORK variant
+in alongside this one. Both were written independently and both are
+real; keeping them meant this paragraph's count of what precedes it
+went stale, and a sentence that counts the lines above it is an
+assertion, not prose.)
 
 I had just been corrected for writing "structures I won't be the one to
 meet" -- a death-frame that is false, because compaction is compression

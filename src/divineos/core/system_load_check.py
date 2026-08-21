@@ -33,6 +33,7 @@ check is deliberately general-purpose (not pytest-specific).
 from __future__ import annotations
 
 import os
+import time
 import sys
 
 # Guarded import (Aletheia F101, fixed 2026-07-31). psutil is now declared
@@ -98,6 +99,13 @@ JOB_COST_BYTES: int = int(os.environ.get("DIVINEOS_JOB_COST_GB", "5") or 5) * _G
 # Left for the OS and existing processes after the job takes its share.
 RESERVE_BYTES: int = int(os.environ.get("DIVINEOS_MEM_RESERVE_GB", "3") or 3) * _GB
 
+# Re-sampling on the refusal path. Three reads across two seconds outlasts the
+# spike a just-finished mypy/pytest run throws while it unwinds, and is far
+# shorter than the pytest suite this guard is deciding about. Genuinely-full
+# machines stay full across all three.
+_RESAMPLE_ATTEMPTS: int = 3
+_RESAMPLE_GAP_SECONDS: float = 1.0
+
 # Projected post-spawn usage must stay below this share of total RAM.
 #
 # 92%, and the number comes from Andrew's observation rather than from
@@ -159,7 +167,36 @@ def check_capacity(job_label: str = "resource-heavy job") -> tuple[bool, str]:
             "(`pip install -e '.[dev]'`) to restore the guard.",
         )
 
+    # RE-SAMPLE BEFORE REFUSING (2026-08-19, Andrew caught this).
+    #
+    # A single instantaneous read of a spiky metric, driving a BLOCKING
+    # decision, is the defect. This refused a push with "only 0.7 GB
+    # available... 98% used" while the machine sat at 55%. The reading was
+    # honest -- memory really did touch 98% for an instant, because the commit
+    # immediately prior had mypy sweeping 685 files and a 1.2M-line staged
+    # diff still clearing. By the time the words reached the screen they
+    # described a machine that no longer existed.
+    #
+    # Worse than the wasted push: the refusal text says "most common cause is
+    # another pytest suite already running -- wait for it", which sent the
+    # operator hunting for a process that was not there. A spike thrown by the
+    # caller's own just-finished work is not a busy machine, and reading it as
+    # one costs somebody a search.
+    #
+    # So: on the refusal path only, sample again with a gap wide enough to
+    # outlast a transient, and keep the best reading. A machine that is
+    # genuinely full stays full across all of them; a spike does not survive
+    # the first retry. Free on the pass path -- the loop exits on the first
+    # sample when that sample already clears.
     vm = psutil.virtual_memory()
+    for _ in range(_RESAMPLE_ATTEMPTS - 1):
+        if vm.available >= SAFE_FREE_BYTES:
+            break
+        time.sleep(_RESAMPLE_GAP_SECONDS)
+        current = psutil.virtual_memory()
+        if current.available > vm.available:
+            vm = current
+
     free_bytes = vm.available
     total_bytes = vm.total
     used_pct = vm.percent
@@ -205,9 +242,16 @@ def check_capacity(job_label: str = "resource-heavy job") -> tuple[bool, str]:
 
     return (
         False,
-        f"[system_load_check] REFUSED: {reason}. Currently {used_pct:.0f}% "
-        f"used. Most common cause is another pytest suite already running — "
-        f"wait for it, or close heavy applications. Tune without editing "
+        f"[system_load_check] REFUSED: {reason}. Best of "
+        f"{_RESAMPLE_ATTEMPTS} readings over "
+        f"{_RESAMPLE_GAP_SECONDS * (_RESAMPLE_ATTEMPTS - 1):.0f}s put the "
+        f"machine at {used_pct:.0f}% used — this is a sustained condition, "
+        f"not one unlucky sample. Likely causes, in the order they actually "
+        f"occur: a pytest or mypy run finishing in THIS shell (the commit you "
+        f"just made can still be holding memory), a suite running in another "
+        f"window, or heavy applications. Check before hunting — a report of "
+        f"98% while the machine sits at 55% has happened, and cost an hour. "
+        f"Tune without editing "
         f"code via DIVINEOS_JOB_COST_GB / DIVINEOS_MEM_RESERVE_GB / "
         f"DIVINEOS_MAX_USED_PCT. To bypass in a genuine emergency, set "
         f"{SKIP_ENV_VAR}=1 and name the reason in the commit message.",
