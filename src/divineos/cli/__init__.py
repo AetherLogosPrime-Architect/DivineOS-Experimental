@@ -347,6 +347,7 @@ from divineos.cli import (  # noqa: E402
     corrigibility_commands,
     detector_commands,
     emergency_completion_commands,
+    hook_map_commands,
     council_required_commands,
     decision_commands,
     directive_commands,
@@ -508,6 +509,7 @@ cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
 detector_commands.register(cli)
 emergency_completion_commands.register(cli)
+hook_map_commands.register(cli)
 council_required_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)

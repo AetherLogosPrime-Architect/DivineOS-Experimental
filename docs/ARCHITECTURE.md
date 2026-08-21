@@ -111,6 +111,7 @@ src/divineos/
     corrigibility_commands.py  mode show / set / history — the off-switch
     detector_commands.py       detectors status / heal / defer / check. Teeth for a guard that reports it cannot run: self-repair first, block Edit/Write second, deferral only with a written reason. Added 2026-08-02 after the ear-sweep printed a perfect could-not-run warning at every SessionStart for days while 24 orphaned processes piled up — the message was already correct, and print-only output cannot require anything of the reader.
     emergency_completion_commands.py  emergency-completion status / arm / resolve. Added 2026-08-02 after the dark-matter sweep found `core/emergency_completion.py` complete but command-less: `arm()` refuses while a debt stands and `resolve_debt()` was the only thing that could clear one, so the first use of the lane would have bricked it permanently.
+    hook_map_commands.py       `divineos hook-map show` — the attendance sheet for the hook layer, read from ~/.divineos/hook_timing.jsonl rather than from settings.json. Config is the roster; this is who actually turned up. Three states so an unobservable hook cannot pass as an idle one.
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
@@ -644,11 +645,12 @@ src/divineos/
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
+    branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
     degraded_detectors.py      A detector that cannot run must cost something.
     engagement_monitor.py      Engagement as a measurement, not a toll gate.
+    hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
-    branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
 
   analysis/
     _session_types.py          Session analysis type definitions
