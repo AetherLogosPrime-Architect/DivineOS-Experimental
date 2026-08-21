@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-21 13:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-21 14:17. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -36,6 +36,14 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
+## fd0c9994 [active] x12
+
+**Category:** blind_coding
+
+I edited files without reading them first. I must read before I edit.
+
+---
+
 ## 4a31827d [resolved] x12
 
 **Category:** test_no_dir_xyz
@@ -44,15 +52,7 @@ Test description without directive.
 
 ---
 
-## fd0c9994 [improving] x11
-
-**Category:** blind_coding
-
-I edited files without reading them first. I must read before I edit.
-
----
-
-## f1deb6f0 [resolved] x10
+## f1deb6f0 [active] x11
 
 **Category:** upset_user
 
