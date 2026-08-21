@@ -66,3 +66,19 @@ failure that produced the 31k map. It simply has not been run.
 
 A good map of the shared architecture and a stale map of my branch. Read it for
 the system; do not read it for anything I built this week.
+
+---
+
+## The graph files themselves are no longer tracked (2026-08-21)
+
+`graph.json` (51MB), `.graphify_analysis.json` (4.4MB) and `manifest.json`
+were removed from version control while resolving PR 406. They were 54 of the
+54.2MB that PR added, and a file that size is why GitHub reported the PR as
+CONFLICTING with zero changed files for three weeks — its diff engine gives up,
+and the reason is invisible from the PR page. The same defect had already been
+fixed once for `graphify-out/`; this directory survived because main never had
+it, so the merge carried it through unconflicted.
+
+This file and the README stay because they are hand-written: they record whose
+map it was and what it could not show me. The map itself is machine-emitted and
+regenerable by re-running graphify against the corpus named above.
