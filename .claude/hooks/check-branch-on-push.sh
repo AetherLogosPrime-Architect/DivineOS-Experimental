@@ -53,7 +53,45 @@ INPUT=$(cat)
 # matcher below must stay the only thing making real decisions.
 case "$INPUT" in
     *push*) ;;
-    *) exit 0 ;;
+    *)
+        # RECORD THE BAIL BEFORE TAKING IT. Added 2026-08-21, hours after the
+        # bail itself, because the bail made this hook INVISIBLE rather than
+        # fast.
+        #
+        # The timing instrumentation lives in _lib.sh, sourced below. Exiting
+        # here wrote no start row and no end row, so every cheap run vanished
+        # from hook_timing.jsonl. The hook did get faster -- 1010ms to 61ms on
+        # an irrelevant command, measured in isolation against a working
+        # control -- and what survived in the log was only the expensive path,
+        # so this hook's RECORDED median ROSE by 945ms while the hook
+        # improved. Caught when hook_budget.py, which reads that same log,
+        # produced a before/after comparison contradicting a measurement I
+        # trusted.
+        #
+        # That is the defect this whole session has been about, built into the
+        # repair for it: silence reading as absence rather than as speed. It
+        # is the SILENT-versus-UNOBSERVED distinction hook_firing_map.py draws
+        # for whole hooks, one level down -- a bailed path can report, so its
+        # quiet must not be mistaken for not-running.
+        #
+        # Pure builtins, deliberately. Sourcing _lib.sh for its logger would
+        # reintroduce the cost this bail exists to avoid, so the row is
+        # written inline. The duplication is the price of the measurement
+        # being free; a shared helper here would cost more than the thing it
+        # records.
+        _bail_ms="${EPOCHREALTIME:-}"
+        case "$_bail_ms" in
+            *.*) _bail_s="${_bail_ms%%.*}"; _bail_f="${_bail_ms#*.}"; _bail_ms="${_bail_s}${_bail_f:0:3}" ;;
+            *)   _bail_ms=0 ;;
+        esac
+        _bail_log="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
+        if [ -d "${_bail_log%/*}" ]; then
+            printf '{"id":"check-branch-on-push.sh-%s-%s","hook":"check-branch-on-push.sh","pid":%s,"session":"%s","wpid":"%s","phase":"bailed","ts_ms":%s,"duration_ms":0,"reason":"command-cannot-contain-a-push"}\n' \
+                "$$" "$_bail_ms" "$$" "${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}" "${CLAUDE_PID:-}" "$_bail_ms" \
+                >> "$_bail_log" 2>/dev/null  # fail-soft: a log append that cannot write must never block a tool call, and the bail is correct whether or not the record lands
+        fi
+        exit 0
+        ;;
 esac
 
 # remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
