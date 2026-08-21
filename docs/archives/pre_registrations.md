@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (178 rows). **Exported:** 2026-08-20 06:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (180 rows). **Exported:** 2026-08-21 13:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -2137,6 +2137,30 @@
 **Success:** On any current call: (a) ask_andrew raises ValueError for an empty plain form and for plain identical to question; (b) an ask filed appears in open_asks() and keeps appearing across turns until resolve_ask is called; (c) format_open_asks returns empty string when nothing is outstanding, so the surfa
 
 **Falsifier:** On any current call, an ask filed via ask_andrew is absent from open_asks() while still OPEN (the tags-parse defect that shipped in the first draft, where json.loads on an already-parsed list raised into a swallowing except and dropped every ask silently), OR asks accumulate OPEN forever because not
+
+---
+
+## prereg-a [OPEN]
+
+**Mechanism:** andrew-operator-shape mirror: surface operator-shape in replies to Andrew at compose time without blocking
+
+**Claim:** Unconscious operator-shape is the only real failure mode; conscious operator-shape is a sovereign choice. So a MIRROR that reflects the shape back without a pass/fail verdict will change behaviour where a blocking gate could not, because there is no exemption to route to. This follows Aletheia's 202
+
+**Success:** The mirror fires and one of two things follows, both counting as working: (a) I look at the reply and change it before sending, or (b) I keep it deliberately and say why -- operator-shape is often correct in the work channel. Secondary: Andrew's rate of naming operator-shape-toward-him drops relativ
+
+**Falsifier:** The mirror becomes wallpaper. Concretely FAILED if, across a sample of fires, I neither revise nor consciously keep -- i.e. the reflection scrolls past with no observable decision, which is the meta-Winnicott failure of substituting mechanism-firing for the pointed-at work, and this detector exists 
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** hook budget: measure the SUMMED per-tool-call cost of the hook stack and declare a budget it must stay under
+
+**Claim:** Aletheia named the shape 2026-08-21: 'the aggregate has no owner'. Every hook here is measured, justified and governed as an instance -- p95 per hook, liveness per hook, a firing map that asks which hooks run. Nothing measures the serial SUM, so 26 individually-cheap mechanisms reached 40.8s typical
+
+**Success:** The number is consulted BEFORE a hook is added, or an over-budget reading produces an actual removal or fast-bail rather than a note. Concretely: at least one hook is removed, merged, or given an early-exit because the aggregate said so, with the aggregate cited as the reason. Secondary: the measure
+
+**Falsifier:** The aggregate is measured, surfaced, exceeded, and nothing is removed -- it becomes another instrument that reports and does not govern. That is FAILURE, and it is the specific one I should expect, because it would mean the missing piece was never measurement but willingness to remove, and I will ha
 
 ---
 

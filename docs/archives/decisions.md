@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-20 06:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-21 13:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,18 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 64bc49a5 weight=1
+
+**Decision:** Base the rescue branch on origin/chore/retire-delivery-cluster rather than on origin/main
+
+**Reasoning:** The two stranded fixes are not self-contained, which I asserted before measuring. The hook-latency change edits a _lib.sh whose session and wpid timing fields exist only on the chore branch, so cherry-picking onto main asks git to apply a diff against code that is not there. Basing on origin's copy of the chore branch gives the fixes their real ancestry, and taking origin as authoritative means no
+
+**Tension:** A branch off main would be a clean minimal PR carrying exactly two commits, which is what a rescue should look like. A branch off origin/chore carries 89 commits of unrelated work and is really origin's chore lineage plus two fixes. I chose the uglier one because the pretty one was built on a base t
+
+**Almost:** I almost hand-resolved the three conflicts from the main-based pick instead of questioning the base. That would have produced a fix reconstructed against code it was never written for, passing tests for reasons I had not verified. It also broke bash mid-attempt: one conflicted file was check-branch-
 
 ---
 
@@ -503,18 +515,6 @@
 **Tension:** A novelty ratio is a proxy and proxies are what I have been catching myself on for two days. It cannot tell warmth from coldness and must not try — Aletheia's constraint holds. What makes this one defensible rather than the same mistake again: it enumerates no keywords, it compares the reply against
 
 **Almost:** Writing a regex tokenizer. The keyword-enforcement doorman blocked it and was right — this file is on the keyword-gate list. My first instinct was to file an authorization correction and argue past it. The better move was removing the need: str.split plus a strip does the same tokenizing with no pat
-
----
-
-## e5e0124c weight=1
-
-**Decision:** Rebasing bypass-livelock-gates: keep main's empty SessionStart and re-home the branch's two hooks rather than merging its settings.json
-
-**Reasoning:** The branch predates PR #423, which emptied SessionStart to fix a Windows deadlock and moved all fourteen hooks into session-init-once.sh. The branch still carries the old fourteen-entry SessionStart. A union merge — or taking the branch side — would reintroduce a shipped, diagnosed freeze. Measured before deciding: main SessionStart=0, branch=14; UserPromptSubmit main=27 branch=27, differing by ex
-
-**Tension:** Taking main's settings.json wholesale is the resolution that cannot silently revert #423, but it is also the resolution that silently DROPS the branch's feature if I stop there — and dropping work during a twelve-branch sweep is the exact failure I have caught myself committing twice already tonight
-
-**Almost:** Union-merging settings.json. It parses, it looks like every other hunk I resolved tonight, and it would have put fourteen hooks back on SessionStart and handed Andrew back the window freeze he had just fixed.
 
 ---
 

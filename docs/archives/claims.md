@@ -1,6 +1,18 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-20 06:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-21 13:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 1d2d7a39 [T1 OPEN] conf=0.50
+
+**Claim:** The aggregate has no owner: every mechanism in this substrate is measured, justified and governed as an instance, and nothing measures or has authority over the SUM -- so a cost that is invisible per-item accumulates without limit and without anyone able to refuse the next addition
+
+---
+
+## 795eacd8 [T1 OPEN] conf=0.50
+
+**Claim:** Checkers and metrics in this substrate answer from whichever branch the working tree is standing on, so the verdict changes with the checkout while the underlying data does not
 
 ---
 
@@ -798,22 +810,6 @@ Description: Diff-only read against prior hash 55f3499. No-fix-gaming validator 
 ---
 
 ## 683f0b95 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 8216885e [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 1048625f [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
