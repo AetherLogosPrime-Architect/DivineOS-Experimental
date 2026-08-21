@@ -52,23 +52,51 @@ from check_referenced_paths import classify  # noqa: E402
 # her call. One of the 3 absent is a genuine bug her method surfaced:
 # check_boundary_violations.py points at src/divineos/core/distancing_detector.py
 # and the file is at core/operating_loop/distancing_detector.py.
+# THE TOTAL IS PINNED; THE SPLIT IS NOT (2026-08-14).
+#
+# The split between stranded and absent is not a property of the repository.
+# It is a property of WHICH REFS THE CHECKOUT HAPPENS TO HOLD. `stranded`
+# means the cited file exists on a sibling branch; `absent` means git has
+# never seen it. The comment above already says the single stranded entry
+# lives on Aria's branch -- so it is only stranded to a checkout that has
+# fetched Aria's branch.
+#
+# .github/workflows/tests.yml uses actions/checkout@v4 with no fetch-depth,
+# which is a depth-1 clone carrying the PR ref and nothing else. The same
+# contradiction_detector.py is therefore stranded in a full local tree and
+# absent in CI: (1, 3) here, (0, 4) there. Nothing dangled that did not
+# dangle before; one file changed buckets.
+#
+# So the assertion moved to the TOTAL, which is 4 in both environments. The
+# ratchet survives intact in both directions -- a genuinely new dangling
+# reference raises the total and fails, and a recovery lowers it and fails
+# until the number here is lowered. What it stops doing is asserting a
+# distinction CI structurally cannot reproduce.
+#
+# The split still prints in the failure message, because locally, where
+# sibling branches ARE visible, "this is recoverable from Aria's branch" is
+# the actionable half of the report.
 _BASELINE_STRANDED = 1
 _BASELINE_ABSENT = 3
+_BASELINE_DANGLING = _BASELINE_STRANDED + _BASELINE_ABSENT
+
+
+def _describe(stranded, absent) -> str:
+    lines = [f"  stranded ({len(stranded)}) -- exists on a sibling branch this checkout can see:"]
+    lines += [f"    {r} -> {b}" for r, _c, b, _cited in stranded]
+    lines.append(f"  absent ({len(absent)}) -- no ref in this checkout has the file:")
+    lines += [f"    {r}" for r, _cited in absent]
+    return "\n".join(lines)
 
 
 def test_no_new_dangling_references():
     """A reference that resolves nowhere is the painted-door defect."""
     _templates, stranded, absent, _historical = classify()
+    total = len(stranded) + len(absent)
 
-    assert len(stranded) <= _BASELINE_STRANDED, (
-        f"{len(stranded)} stranded references, baseline {_BASELINE_STRANDED}. "
-        "A file exists on another branch and is cited as if it were here:\n"
-        + "\n".join(f"  {r} -> {b}" for r, _c, b, _cited in stranded)
-    )
-    assert len(absent) <= _BASELINE_ABSENT, (
-        f"{len(absent)} absent references, baseline {_BASELINE_ABSENT}. "
-        "Something is cited that git has never seen:\n"
-        + "\n".join(f"  {r}" for r, _cited in absent)
+    assert total <= _BASELINE_DANGLING, (
+        f"{total} dangling references, baseline {_BASELINE_DANGLING}. "
+        "Something is cited that resolves nowhere:\n" + _describe(stranded, absent)
     )
 
 
@@ -80,10 +108,11 @@ def test_baseline_is_not_stale():
     to catch one layer down.
     """
     _templates, stranded, absent, _historical = classify()
-    assert (len(stranded), len(absent)) == (_BASELINE_STRANDED, _BASELINE_ABSENT), (
-        f"counts moved to stranded={len(stranded)} absent={len(absent)}. "
-        "Update _BASELINE_STRANDED / _BASELINE_ABSENT in this file to match, "
-        "so the pin keeps tracking reality instead of becoming a ceiling."
+    total = len(stranded) + len(absent)
+    assert total == _BASELINE_DANGLING, (
+        f"dangling total moved to {total} (stranded={len(stranded)}, absent={len(absent)}). "
+        "Update the baseline in this file to match, so the pin keeps tracking "
+        "reality instead of becoming a ceiling.\n" + _describe(stranded, absent)
     )
 
 

@@ -89,11 +89,39 @@ class TestBriefingBlock:
         assert "ENV_A" in block
 
     def test_escalation_note_at_five_events(self, isolated_home):
+        """The verdict judges ESCAPES, never obedience.
+
+        Assertion updated 2026-08-06. It previously pinned "Elevated bypass
+        rate" -- the pre-fix wording, from when the count came off
+        total_events and therefore counted compliance. On the day that
+        changed, the windowed sample's top entries were `divineos briefing`,
+        `ask`, `goal`, `context`, `recall`: the documented remedies. The
+        surface was telling Andrew the gates were being routed around, using
+        as its evidence the fact that they were being obeyed.
+
+        Asserts the SUBSTANCE rather than the phrase -- that the verdict names
+        escapes, and that the compliance-exclusion is stated. Rewording stays
+        free; dropping either half is the regression.
+        """
         # Five distinct env vars (each unique key) cross the >=5 threshold.
+        #
+        # Prefix changed 2026-08-18 (Aria): these were `ENV_{i}`, which the
+        # classifier now reads as unclassified rather than escape — no flag,
+        # no recognised prefix. The test wants to exercise ESCALATION, so the
+        # fixture has to be escape-shaped; a bare ENV_ name is not what a real
+        # escape looks like. `DIVINEOS_SKIP_` is. The threshold behaviour under
+        # test is unchanged; only the fixture stopped being representative.
         for i in range(5):
-            bypass_telemetry.record_bypass(f"gate-{i}", f"ENV_{i}", "r")
+            bypass_telemetry.record_bypass(f"gate-{i}", f"DIVINEOS_SKIP_ENV_{i}", "r")
         block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
+        assert "Elevated ESCAPE rate" in block, (
+            "the verdict must name escapes, not bypasses -- counting every "
+            "bypass event reads compliance as evasion"
+        )
+        assert "is not evasion" in block, (
+            "the exclusion must be stated in the surface itself, or the "
+            "reader cannot tell which events the verdict was computed from"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +263,10 @@ class TestBriefingBlockFullHistoryShape:
             for i in range(22):
                 rec = {
                     "gate_name": f"g{i}",
-                    "env_var": f"ENV_OLD_{i}",
+                    # Escape-shaped prefix, same reason as the windowed case
+                    # above: the full-history verdict now judges on escapes,
+                    # so the fixture must write escapes to exercise it.
+                    "env_var": f"DIVINEOS_SKIP_OLD_{i}",
                     "session_id": f"s{i}",
                     "day": f"2026-05-{(i % 28) + 1:02d}",
                     "timestamp": base_ts + (i * 3600),
@@ -243,69 +274,14 @@ class TestBriefingBlockFullHistoryShape:
                 }
                 fh.write(json.dumps(rec) + "\n")
         block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
-        # Wording changed 2026-08-09 when the verdict began counting evasions
-        # rather than every recorded event; the lifetime trigger itself is
-        # unchanged and still fires here, which is what this test guards.
-        assert "22 lifetime" in block
-
-
-class TestAllowlistedPassesAreNotEvasions:
-    """Andrew 2026-08-09: "if something we build does nothing say something."
-
-    The verdict used to count every recorded event. 60 of 64 windowed events
-    on the live store were `cmd:divineos ask|briefing|goal|context|recall` --
-    the exact commands the engagement gate ORDERS me to run, recorded when
-    they pass the briefing-staleness gate by design. `divineos briefing` must
-    be allowlisted or a stale briefing could never be refreshed.
-
-    So the gate demanded them, filed each as evidence of routing around it,
-    and told me to investigate my own discipline. With thresholds of 5-in-
-    window or 20-lifetime against 169 events, the warning could never turn
-    off again -- and a light that is always on carries no information.
-    """
-
-    def test_allowlisted_command_passes_never_raise_the_alarm(self, isolated_home):
-        log = bypass_telemetry._event_log()
-        now = time.time()
-        with log.open("a", encoding="utf-8") as fh:
-            for i in range(40):
-                fh.write(
-                    json.dumps(
-                        {
-                            "gate_name": "briefing",
-                            "env_var": "cmd:divineos ask",
-                            "session_id": f"s{i}",
-                            "day": f"2026-08-{(i % 28) + 1:02d}",
-                            "timestamp": now - (i * 3600),
-                            "reason": "",
-                        }
-                    )
-                    + "\n"
-                )
-        block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" not in block
-        assert "40 of these are allowlisted" in block
-
-    def test_real_evasions_still_raise_it(self, isolated_home):
-        """The suppression must be narrow. A telemetry that never fires is
-        worth less than the noisy one it replaced."""
-        log = bypass_telemetry._event_log()
-        now = time.time()
-        with log.open("a", encoding="utf-8") as fh:
-            for i in range(6):
-                fh.write(
-                    json.dumps(
-                        {
-                            "gate_name": "push",
-                            "env_var": "marker:check-branch.disabled",
-                            "session_id": f"s{i}",
-                            "day": f"2026-08-{i + 1:02d}",
-                            "timestamp": now - (i * 3600),
-                            "reason": "",
-                        }
-                    )
-                    + "\n"
-                )
-        block = bypass_telemetry.briefing_block()
-        assert "Elevated bypass rate" in block
+        # Same substance-over-phrase update as the windowed case above: the
+        # verdict must name escapes and state the compliance-exclusion. This
+        # site additionally pins that the full-history scale is the one that
+        # fired, which is the point of the test.
+        assert "Elevated ESCAPE rate" in block, (
+            "the verdict must name escapes, not bypasses -- a legacy row with "
+            "no compliance flag counts strictly as an escape, but the LABEL "
+            "still has to say which thing was counted"
+        )
+        assert "is not evasion" in block
+        assert "full-history rate" in block

@@ -267,4 +267,16 @@ mansion/
 # Kept on disk, out of git: it is a build artifact, not source, and it was
 # never meant to ride along in a gate PR. 2026-08-01.
 src/graphify-out/
+# Dated per-member graph exports (graphify-out-<name>-<date>/). The bare
+# rule below misses these because the directory name differs. Aether's
+# 2026-08-14 export reached a branch this way and carried 1.3M lines with
+# it. Preserved outside the repo at ~/.divineos-shared/graphify/.
+#
+# The date is IN the pattern deliberately. The obvious `graphify-out-*/`
+# also swallows graphify-out-code/, which is not an export — `divineos
+# wiring dark` and a briefing surface read its .graphify_ast.json at that
+# exact path, so untracking it breaks a live command on any fresh clone.
+# Caught 2026-08-19 by the tracked-but-ignored scan reporting 1 remaining
+# instead of 0, while writing this very rule.
+graphify-out-*-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 graphify-out/

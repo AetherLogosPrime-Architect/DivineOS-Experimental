@@ -8,12 +8,27 @@ from divineos.core.ear_sweep import SweepResult, sweep_stale_watchers
 
 
 class TestSweepStaleWatchers:
-    def test_no_processes_no_op(self):
+    def test_no_processes_says_it_ran(self):
+        """A clean sweep must SAY it swept.
+
+        This asserted ``note == ""`` until 2026-08-06. The code was changed
+        deliberately to speak on the success path, with the reason in its own
+        comment: a clean run that printed nothing made "found nothing",
+        "crashed", and "never ran" three states that looked identical from
+        outside. The ScanUnavailable branch had already been fixed for exactly
+        that ambiguity; it survived on the success path where nobody looked.
+
+        So the code is right and the expectation was stale. Asserting silence
+        here would have re-armed the defect the change exists to kill.
+        """
         with patch("divineos.core.ear_sweep._find_ear_watch_pids", return_value=[]):
             result = sweep_stale_watchers()
             assert result.reaped == 0
             assert result.found_pids == []
-            assert result.note == ""
+            assert "no orphaned watchers" in result.note
+            assert result.note != "", (
+                "a clean run must be distinguishable from a run that never happened"
+            )
 
     def test_finds_and_kills(self):
         with (

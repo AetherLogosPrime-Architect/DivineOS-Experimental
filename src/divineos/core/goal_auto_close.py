@@ -221,32 +221,49 @@ def auto_close_from_message(
         threshold: minimum overlap_ratio to count as a match.
         goals: optional pre-loaded goal list (for testing).
         message_time: unix timestamp of the commit this message came from.
-            Goals added after it are skipped. When omitted, no ordering
-            check runs -- the pre-2026-08-12 behaviour.
+            Goals added after it are skipped -- see the causality note below.
+            ``None`` means the caller COULD NOT DETERMINE it, and no time
+            filtering happens. That is UNKNOWN, not "all goals are eligible";
+            callers that can know should pass it. (Name is main's, kept so the
+            two independent fixes converge on one API; the unknown-vs-eligible
+            distinction is this branch's and is the sharper reading.)
 
     Returns:
         ``AutoCloseResult`` with the goals that were closed and the
         ones that were considered but fell below threshold.
 
-    Causality guard (Andrew 2026-08-12). A commit can only complete work
-    that existed to be done when it was made. This reads HEAD's message,
-    which is frequently older than the goal being tested, and had no
-    ordering check -- so a goal added AFTER a commit got closed BY that
-    commit, at birth, before any work happened under it.
+    THE TIME-TRAVEL DEFECT — found twice, independently, and fixed the same
+    way both times. ``divineos goal auto-close`` with no ``--message`` reads
+    ``git log -1``, and every CLI command is a lifecycle checkpoint that can
+    fire it. So the SAME head commit was re-matched against every open goal,
+    over and over, including goals created long after that commit existed.
 
-    That deadlocked the goal gate. ``has_session_fresh_goal()`` needs a
-    goal that is both recent and active; any fresh goal whose wording
-    overlapped the last commit was marked done within seconds, so no
-    fresh-and-active goal could exist and the gate's own prescribed
-    remedy could not clear it. Observed live: two goals closed 92s and
-    161s after creation, the only surviving active goal ~20h old, and
-    the gate refusing Bash, Write and Edit alike.
+    Result was a livelock: the goal doorman refuses substrate edits without a
+    session-fresh goal; I set one; the next command re-ran auto-close against
+    a stale HEAD whose message shared enough tokens; the goal was marked done
+    seconds after creation; the doorman refused again. The gate demanding a
+    goal was fed by the mechanism destroying it — the same shape as the bypass
+    livelock Aria demonstrated the same day, where running a gate's prescribed
+    remedy filed the obligation that blocked her checkpoint.
 
-    The guard is an ordering relation, not an age threshold -- per the
-    standing no-durations rule, this asks "was the goal already open when
-    that commit landed" rather than measuring an elapsed gap. A grace
-    period would still close a genuinely-finished young goal and still
-    miss an old one the commit really did complete.
+    TWO SEPARATE OBSERVATIONS, kept because they are different evidence and a
+    merge that dropped either would thin the record:
+      - 2026-08-02 (this branch): six goals died in 26 minutes, the last within
+        98 seconds of being set, none of them actually finished.
+      - 2026-08-12 (Andrew, on main): two goals closed 92s and 161s after
+        creation, the only surviving active goal ~20h old, and the gate
+        refusing Bash, Write and Edit alike.
+
+    A commit cannot complete work that did not exist when it was written. That
+    is not a heuristic, it is causality, so it is checked rather than tuned.
+    Raising the overlap threshold was the tempting fix and would only have made
+    the livelock rarer instead of impossible.
+
+    The guard is an ORDERING RELATION, not an age threshold — per the standing
+    no-durations rule, it asks "was the goal already open when that commit
+    landed" rather than measuring an elapsed gap. A grace period would still
+    close a genuinely-finished young goal and still miss an old one the commit
+    really did complete. Both fixes reached that conclusion separately.
     """
     msg_tokens = _tokenize(message)
     if not msg_tokens:
@@ -267,13 +284,27 @@ def auto_close_from_message(
 
     for goal in goals:
         goal_text = goal.get("text", "")
+        # Causality, not heuristics: a commit cannot have completed work that
+        # did not exist when it was written. Without this, one stale HEAD
+        # closed every newly-set goal that happened to share its vocabulary.
+        #
+        # SKIP SILENTLY, and the merge resolved this on evidence rather than
+        # taste. Both sides guarded correctly; they disagreed on whether the
+        # skip should be recorded. This branch appended (goal, -1.0) to mark
+        # "not evaluated" as distinct from "scored low". Main skipped without
+        # recording. The consumer decides it: hud_commands prints only
+        # len(result.skipped) as "N goal(s) considered (below threshold)" and
+        # never reads the score, so the -1.0 sentinel is invisible and a
+        # causality-skipped goal renders as considered-and-below-threshold —
+        # which is false, it was never considered. A distinction the display
+        # cannot carry is a distinction that becomes a lie in the output.
+        #
+        # Placement is this branch's: before _tokenize, so a goal the commit
+        # provably predates costs no tokenizing at all.
+        if message_time is not None and float(goal.get("added_at", 0) or 0) > message_time:
+            continue
         goal_tokens = _tokenize(goal_text)
         if not goal_tokens:
-            continue
-        # Causality: this commit predates the goal, so it cannot have
-        # completed it. Skip silently rather than counting it as
-        # considered-but-below-threshold, which it never was.
-        if message_time is not None and goal.get("added_at", 0) > message_time:
             continue
         overlap = len(goal_tokens & msg_tokens) / len(goal_tokens)
         if overlap >= threshold:

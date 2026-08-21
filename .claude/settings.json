@@ -205,6 +205,26 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-briefing.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/degraded-detector-gate.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/m3-discipline-hierarchy.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
           {
@@ -231,6 +251,10 @@
             "type": "command",
             "command": "bash .claude/hooks/check-pending-obligations.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
           }
         ]
       },

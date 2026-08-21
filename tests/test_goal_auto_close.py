@@ -214,6 +214,18 @@ class TestCausality:
     surviving active goal ~20h old, and the gate refusing Bash, Write and
     Edit alike -- including the edits that fixed it.
 
+    FOUND TWICE, INDEPENDENTLY. This branch hit the same defect on
+    2026-08-02: six goals died in 26 minutes, the last within 98 seconds of
+    being set, none of them finished. Andrew hit it again on main 2026-08-12
+    with two goals closed 92s and 161s after creation. Both incidents kept —
+    a merge that dropped either would thin the evidence, and two separate
+    observations of one defect is the strongest argument that the guard is
+    causality rather than tuning.
+
+    This class is main's, kept over this branch's equivalent for a concrete
+    reason: it stubs complete_goal in an autouse fixture, so the tests never
+    touch the live goal file. The branch's version wrote to it.
+
     The guard is an ordering relation, not an age threshold. A grace
     period would still close a genuinely-finished young goal and still
     miss an old one the commit really did complete.

@@ -95,11 +95,27 @@ class TestCheckGatesCoalesces:
         decision = pre_tool_use_gate._check_gates()
         assert decision is not None
         reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
-        # One deny carrying ALL THREE — not just the first.
+        # One deny carrying every BLOCKING soft gate — not just the first.
         assert "engagement checks" in reason
         assert "No goal set" in reason
-        assert "42 code actions" in reason
         assert "6 responses without consulting" in reason
+
+        # The engagement COUNTER no longer contributes a deny. Demoted to a
+        # recorder on 2026-08-03 (Andrew authorized) because it measured which
+        # of thirteen command names was typed, out of 156 -- filing a claim or
+        # a correction registered as nothing -- and it fired 84 times in one
+        # session at an occupant continuously inside the OS, who then cleared
+        # it ~30 times by running a command purely to make the recognised
+        # noise.
+        #
+        # This assertion is INVERTED rather than deleted, deliberately. A
+        # deleted assertion records nothing; an inverted one pins the new
+        # contract and fails loudly if the block ever creeps back without the
+        # decision being re-made.
+        assert "42 code actions" not in reason, (
+            "the engagement counter is a monitor now, not a blocker -- if this "
+            "string is back, the demotion was reverted"
+        )
 
     def test_single_soft_gate_message_unchanged(self, isolate):
         # Only goal fails; engagement + consultation pass.
