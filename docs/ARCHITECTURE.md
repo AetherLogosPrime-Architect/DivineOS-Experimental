@@ -651,6 +651,7 @@ src/divineos/
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
     branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
+    andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
 
   analysis/
     _session_types.py          Session analysis type definitions
