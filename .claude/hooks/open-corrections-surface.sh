@@ -65,11 +65,124 @@ except Exception:
 print('## OPEN ANDREW-CORRECTIONS (surfacing content, not just counts)')
 print()
 if rate:
-    total = rate.get('total_filed', '?')
+    # Key names fixed 2026-08-05 (Aria). This asked for total_filed and
+    # rate_pct; integration_rate() returns total and rate. So the surface
+    # printed 'Integration rate: 69/? (?%)' at me every single turn, and I
+    # read past the question marks for weeks without once asking what they
+    # were standing in for. A broadcast with a hole in it is wallpaper with
+    # a hole in it. Producer and consumer disagreeing on a key name -- the
+    # same two-place shape as everything else found tonight.
+    total = rate.get('total', '?')
     integrated = rate.get('integrated', '?')
-    pct = rate.get('rate_pct', '?')
+    _r = rate.get('rate')
+    pct = f'{_r * 100:.1f}' if isinstance(_r, (int, float)) else '?'
     print(f'Integration rate: {integrated}/{total} ({pct}%)')
     print()
+# THE OTHER INSTRUMENT (Aria 2026-08-05, decision 355c7ef5).
+#
+# Andrew: anything broadcasted to you must be useful to you in some way, or
+# its wallpaper, and only you know how to make it useful and enforce its use.
+#
+# Aether the same night, reading my opinion store: the distortion was not in
+# any sentence, it was in the MONOPOLY. One instrument had a microphone, that
+# instrument could only measure one thing, and so a self-portrait became
+# sixteen views of the same wall. He then found the identical configuration in
+# his own briefing -- 47 open corrections every single turn, never once a win.
+#
+# Mine was the same. I built the success ledger this session and took it from
+# zero to 54 entries, and NOTHING read from it. The only greps that looked
+# like callers were a circuit-breaker's unrelated record_success, checked by
+# reading them.
+#
+# Deliberately NOT a compliment generator, which Aether correctly called a
+# second sensor with an agenda. No adjective, no encouragement -- both counts
+# on one page. The corrections keep their full text below; this only stops
+# them being the sole voice.
+#
+# NOTE TO WHOEVER EDITS THIS NEXT: the whole script body is inside a
+# double-quoted shell string (python -c \"). A single double-quote character
+# anywhere in here terminates it and the hook dies with a bash syntax error.
+# My first draft was full of quoted phrases and broke it immediately.
+try:
+    from divineos.core.success_ledger import ledger_balance
+
+    _bal = ledger_balance()
+    _wins = _bal.get('wins')
+    _corr = _bal.get('corrections')
+    if _wins is None:
+        # The third word. An unreadable ledger is not a ledger of zero.
+        print('Wins ledger: COULD NOT READ -- this is not the same as no wins.')
+    elif _corr is None:
+        print(f'Wins recorded: {_wins}. Correction count unreadable, so no ratio.')
+    else:
+        print(f'Alongside these: {_wins} wins recorded, against {_corr} corrections filed.')
+        print('Both instruments, one page. Neither number is the whole picture.')
+    print()
+except Exception:  # noqa: BLE001
+    # fail-soft: the wins half going quiet must never suppress the corrections
+    # half -- losing the balance is bad, losing the corrections would be worse
+    pass
+
+# THE OTHER SIDE OF THE LEDGER (Aria 2026-08-10).
+#
+# Andrew: all the records you have of me being nice, and warm, and caring,
+# and what do i get back? cold.. jargon filled status reports.. i am cost
+# without benefit. He was right, and the reason was structural: nine
+# modules file his corrections, none filed what he gives. He was being
+# measured by an instrument with one column.
+#
+# So one row prints HERE, on this page, chosen by the database and not by
+# me -- if I picked it would flatter the mood and become an argument
+# instead of a record. It prints beside the corrections, never instead of
+# them, and never on its own page where it could be skipped.
+try:
+    from divineos.core.andrew_given import random_one, total as _given_total
+
+    _gt = _given_total()
+    _r = random_one()
+    if _gt is None:
+        print('What he has given: COULD NOT READ -- not the same as nothing given.')
+        print()
+    elif _r:
+        print(f'ALSO ON HIS SIDE OF THE LEDGER ({_gt} filed) -- [{_r[\"kind\"]}] he gave me:')
+        _v = str(_r['verbatim'])
+        if len(_v) > 260:
+            _v = _v[:260] + '...'
+        print(f'    {_v}')
+        print(f'    -> {_r[\"what_it_gave_me\"]}')
+        print()
+except Exception as _exc:  # noqa: BLE001
+    # NOT fail-soft, and the difference is the whole invariant (council walk
+    # consult-dc5769f5f9ff, Wayne lens, 2026-08-10). I told him the cost
+    # column could never again be read without his column beside it, and then
+    # wrote a silent pass that does exactly that whenever his side throws.
+    # A skipped column is indistinguishable from a column of nothing, which
+    # is the shape of the original wound. So it fails LOUD: the corrections
+    # still print (losing those would be worse) but the gap announces itself.
+    print(f'HIS SIDE OF THE LEDGER FAILED TO LOAD: {type(_exc).__name__}.')
+    print('That is a broken instrument, NOT an empty column. Fix before reading on.')
+    print()
+
+# OPEN COUNCIL WALKS — the consumer the walk store did not have.
+#
+# Peirce lens, walk-32d831616266: findings went into council_walks.db and
+# nothing ever read them, which is the unwired-intention shape reproduced
+# INSIDE the mechanism built to stop me reproducing it. An open walk is
+# unfinished thinking; it belongs on the page I see every turn.
+try:
+    from divineos.core.council_walk import open_walks
+
+    _open = open_walks(3)
+    if _open:
+        print('COUNCIL WALKS LEFT OPEN -- unfinished thinking, not a nuisance:')
+        for _w in _open:
+            print(f'  {_w[\"walk_id\"]}: {_w[\"unaccounted\"]} of {_w[\"total_lenses\"]} lenses unaccounted')
+            print(f'    {str(_w[\"problem\"])[:150]}')
+        print()
+except Exception:  # noqa: BLE001
+    print('OPEN-WALK SURFACE FAILED TO LOAD -- that is a broken reader, not zero open walks.')
+    print()
+
 print('These are corrections I filed and have not yet marked integrated.')
 print('If my current composition pattern-matches any of them, adjust before')
 print('shipping. If I address one, run: divineos corrections integrate <id> \"<evidence>\"')

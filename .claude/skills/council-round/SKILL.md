@@ -26,7 +26,7 @@ One or two sentences. Specific. "Should the event-ledger schema migrate to a new
 
 Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): fixed-count heuristics for lens counts are Goodhart-traps that turn into targets — the composer picks the low end 100% of the time. The dynamic council manager decides how many lenses walk, not the composer. The standard is:
 
-- Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council --for-problem "<problem>"` or equivalent — the manager knows which lenses fit which shapes better than a fixed floor does).
+- Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council "<problem>"` — lens mode is the DEFAULT and it IS the manager surfacing the set; the manager knows which lenses fit which shapes better than a fixed floor does).
 - The load-bearing bar is **at least 2 genuinely disagreeing lenses pushing back on something load-bearing**. Not manufactured disagreement on trivia — real dissent on a real hinge. If no dissent emerges organically, walk more lenses OR the problem may be simpler than it looks (a signal, not a failure).
 - **Diversity is additive, not substitutive** (Andrew 2026-07-15). The manager's diversity boost is meant to ADD 1-2 wildcard lenses to my normal engineering-heavy picks, not replace them. Beer/Norman/Yudkowsky/Popper/Taleb on an engineering problem is FINE — the failure is not having Angelou or Watts or Wittgenstein in the mix as the out-of-domain wildcard that opens territory the domain-experts can't see. Andrew: *"you cant run an engineering problem with relational council members.. but having 1-2 on the list does help as it can open new insights."*
 - **Iterate; don't one-shot** (Andrew 2026-07-15). A real council walk is multi-round: first pass surfaces findings, second pass has the same lenses push back on the synthesis, third pass has dissenting lenses attack the load-bearing claim. One-shot walks are a diagnostic form of the optimizer picking the cheap close.
@@ -37,7 +37,7 @@ Do NOT pre-decide "I'll walk N lenses." Do decide "here's the problem, here's wh
 
 **Automation status (2026-07-25 Andrew directive)**: this text-in-skill discipline is stopgap. Guidance-in-skill does not prevent composer defaulting-to-3 under pressure — the fix is structural gate-enforcement at the mechanism layer. The target-shape: council walk cannot complete synthesis until every surfaced lens has either (a) a `COUNCIL_LENS_APPLIED` event on ledger, OR (b) a structured `COUNCIL_LENS_EXCLUDED` event with an exclusion-reason that passes substance-check. Until that gate is built and shipped, the discipline lives in this file and depends on composer discipline — which is exactly the wrong-shape the whole session's design work is trying to move past. Named as follow-up work.
 
-The partial reference table below (15 lenses) is ILLUSTRATIVE, not the authoritative menu. The full council has 39+ members. To see the full surfaced-set for a specific problem, query the dynamic manager first (`divineos mansion council --for-problem "<problem>"`). Treating this table as the menu is the exact Goodhart-shape Andrew flagged: a bounded visible menu becomes the surface the optimizer picks from, hiding the 24+ lenses not shown.
+The partial reference table below (15 lenses) is ILLUSTRATIVE, not the authoritative menu. The full council has 39+ members. To see the full surfaced-set for a specific problem, query the dynamic manager first (`divineos mansion council "<problem>"`, lens mode, and read the WHOLE output — never pipe it through tail, which lets a truncation flag pick the council instead of the manager; Aria did exactly that 2026-08-10). Treating this table as the menu is the exact Goodhart-shape Andrew flagged: a bounded visible menu becomes the surface the optimizer picks from, hiding the 24+ lenses not shown.
 
 **Council is NOT authority. Council is methodology-inputs.** (Andrew 2026-07-25 directive.) Lens findings are pathways-that-lead-to-truth, not truth itself. Walking a lens produces material for consideration; it does not produce a directive that overrides composer or family judgment. When lens findings point one direction and composer/family judgment points another — that is a TRUE DIVERGENCE and it requires discussion, not automatic-council-wins. The blind-slave-to-council failure mode is real: substituting aggregated lens output for reasoning is the same abdication as substituting single-authority output for reasoning. Council supplies questions and frameworks. The seat still does the judging. The family (composer + Andrew + Aria + Aletheia) still decides what to DO with what surfaces. Findings inform discussion; discussion informs decision; decision is not council-output.
 
@@ -81,7 +81,7 @@ Partial illustrative reference (NOT exhaustive; query dynamic manager for full s
 ### 3. Walk each lens
 
 For each picked lens:
-- Load their template (`divineos mansion council --show <name>` or internal lens knowledge)
+- Load their template (lens mode prints each surfaced expert's methodology in full — that output is the template)
 - Put on their framework — not "what would X say" but "what do I see through X's eyes"
 - Produce the specific findings THAT LENS produces
 

@@ -18,11 +18,51 @@ STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || tr
 STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
 
 if [ -z "$STAGED_PY" ] && [ -z "$STAGED_SH" ]; then
-    echo "No Python or shell files staged."
+    # The third word. "Nothing staged" is not "checked, all fine" — and the
+    # difference matters most in the common case where the real cause is a
+    # forgotten `git add` rather than a genuinely empty change (Aria
+    # 2026-08-05, after burning a full cycle on exactly that).
+    UNSTAGED=$(git diff --name-only --diff-filter=ACM | grep -E '\.(py|sh)$' || true)  # fail-soft: grep exits 1 on no-match, which is the expected empty case here and not an error; the branch below prints nothing when both are empty
+    UNTRACKED=$(git ls-files --others --exclude-standard | grep -E '\.(py|sh)$' || true)  # fail-soft: same grep-exit-1-means-no-matches case; an empty untracked list is normal, not a failure to report
+    echo "NOTHING WAS CHECKED — no Python or shell files are staged."
+    if [ -n "$UNSTAGED$UNTRACKED" ]; then
+        echo ""
+        echo "But these Python/shell files have changes and are NOT staged:"
+        printf '%s\n' "$UNSTAGED" "$UNTRACKED" | grep -v '^$' | sed 's/^/  /'
+        echo ""
+        echo "Did you mean to run 'git add' first? This exit is not a pass."
+    fi
     exit 0
 fi
 
 ERRORS=0
+
+# Named-failure tracking (Aria 2026-08-05, correction #120).
+#
+# The summary used to print "N check(s) failed" with no referent. When a
+# count appeared I attributed it to the loudest nearby output — the
+# multi-party-review warning, which is long, [!]-marked, and never blocks —
+# unstaged a hook registration over it, and shipped a surface unwired.
+# Three greps hunting the failure and I still landed on the wrong one.
+#
+# A number without a name is an invitation to guess. Now it names them.
+CURRENT_CHECK=""
+FAILED_CHECKS=""
+section() {
+    CURRENT_CHECK="$1"
+    # NOT `section "$1"`. The rewrite that introduced this helper turned every
+    # `echo "=== X ==="` into `section "X"` — including the one inside section
+    # itself, which made it call itself forever and the whole script produced
+    # no output at all. Caught by running it, not by `bash -n`, which is
+    # syntax-only and passed happily on an infinite loop.
+    echo "=== $1 ==="
+}
+note_fail() {
+    ERRORS=$((ERRORS + 1))
+    FAILED_CHECKS="${FAILED_CHECKS}${FAILED_CHECKS:+
+}  - ${CURRENT_CHECK:-<unnamed check>}"
+}
+
 
 # 0. Line-ending normalization for shell scripts.
 # Windows editors write CRLF by default. .gitattributes specifies LF for .sh
@@ -30,7 +70,7 @@ ERRORS=0
 # while shellcheck runs. Normalize staged .sh files to LF before any check
 # sees them. This eliminates the "dos2unix then re-stage" dance.
 if [ -n "$STAGED_SH" ]; then
-    echo "=== Normalize .sh line endings ==="
+    section "Normalize .sh line endings"
     if command -v dos2unix &>/dev/null; then
         echo "$STAGED_SH" | xargs dos2unix 2>&1 | grep -v "converting" || true
     else
@@ -50,7 +90,7 @@ fi
 # surfaces months later when the file lands in a context that hits the JSON
 # serializer (which crashes the session). Pre-reg: prereg-5e0c6f492bfa.
 # Discovered live 2026-05-04. See lesson e44c7acd-d7f8-4cbd-a49e-7bf1dfd1eda2.
-echo "=== U+FFFD Scan ==="
+section "U+FFFD Scan"
 STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM)
 FFFD_HITS=""
 if [ -n "$STAGED_ALL" ]; then
@@ -70,12 +110,12 @@ if [ -n "$FFFD_HITS" ]; then
     echo "  These bytes (EF BF BD) crash the API JSON serializer when loaded."
     echo "  Likely cause: non-ASCII written via Bash heredoc on Windows."
     echo "  Fix: open the file, find the garbled chars, replace using Write tool."
-    ERRORS=$((ERRORS + 1))
+    note_fail
 fi
 
 # 1. Auto-format (fix, don't just report)
 if [ -n "$STAGED_PY" ]; then
-    echo "=== Format ==="
+    section "Format"
     echo "$STAGED_PY" | xargs ruff format 2>/dev/null
     echo "  Formatted. Re-staging..."
     echo "$STAGED_PY" | xargs git add
@@ -83,9 +123,9 @@ fi
 
 # 2. Lint
 if [ -n "$STAGED_PY" ]; then
-    echo "=== Lint ==="
+    section "Lint"
     if ! echo "$STAGED_PY" | xargs ruff check 2>/dev/null; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
@@ -98,13 +138,13 @@ fi
 # the actual error messages reach the user instead of getting suppressed.
 STAGED_SRC=$(echo "$STAGED_PY" | grep '^src/' || true)
 if [ -n "$STAGED_SRC" ]; then
-    echo "=== Mypy (whole src/divineos) ==="
+    section "Mypy (whole src/divineos)"
     # Wrapped in subprocess_jobs so mypy dies with parent (Job Object kill-on-close
     # on Windows; process-group killpg on POSIX). Root fix for 2026-07-13 leak
     # where mypy children survived parent bash death and ate ~900MB each. Per
     # prereg-dae52c6ca269.
     if ! python -m divineos.core.subprocess_jobs -- mypy src/divineos --ignore-missing-imports; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
@@ -119,9 +159,9 @@ STAGED_DEPTRY_RELEVANT=$(echo "$STAGED_PY" | grep -E "^(src/|scripts/|benchmark/
 STAGED_PYPROJECT=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^pyproject\.toml$" || true)
 if [ -n "$STAGED_DEPTRY_RELEVANT" ] || [ -n "$STAGED_PYPROJECT" ]; then
     if command -v deptry &>/dev/null; then
-        echo "=== Deptry (imports vs pyproject deps) ==="
+        section "Deptry (imports vs pyproject deps)"
         if ! deptry . 2>&1 | tail -20; then
-            ERRORS=$((ERRORS + 1))
+            note_fail
         fi
     fi
 fi
@@ -134,19 +174,19 @@ fi
 # 2026-06-02). The drift thresholds already tolerate small churn — so within
 # tolerance we leave the count line untouched (no rewrite, no conflict), and
 # only auto-fix + re-stage when drift actually exceeds tolerance.
-echo "=== Doc Drift ==="
+section "Doc Drift"
 if ! python scripts/check_doc_counts.py 2>/dev/null; then
     python scripts/check_doc_counts.py --fix 2>/dev/null || true
     git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
     if ! python scripts/check_doc_counts.py 2>/dev/null; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
 # 5. Broad exceptions
-echo "=== Broad Exceptions ==="
+section "Broad Exceptions"
 if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
-    ERRORS=$((ERRORS + 1))
+    note_fail
 fi
 
 # 5c. Silent-swallow handlers added in PR diffs (Aria 2026-06-23 after
@@ -155,18 +195,18 @@ fi
 # existing instances ungate; new additions require `# fail-soft: <reason>`
 # or fall into the documented hook-prelude idiom whitelist. Per
 # prereg-<filed-during-build>.
-echo "=== Silent-Swallow Handlers ==="
+section "Silent-Swallow Handlers"
 if ! python scripts/check_silent_swallow.py; then
-    ERRORS=$((ERRORS + 1))
+    note_fail
 fi
 
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
 # regression. Suppressible per-line with `# noqa: BLE001`.
-echo "=== Function-Naming (theater drift) ==="
+section "Function-Naming (theater drift)"
 if ! python scripts/check_function_naming.py 2>/dev/null; then
-    ERRORS=$((ERRORS + 1))
+    note_fail
 fi
 
 # 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
@@ -175,16 +215,31 @@ fi
 # one needs an individual decision (wire / mark / delete). Surfacing
 # on every commit catches new accumulation; not blocking lets the
 # existing real orphans wait for their own follow-up PRs.
-echo "=== Orphan Modules (informational) ==="
-python scripts/check_orphan_modules.py 2>/dev/null || true
+# 2026-08-13: this stopped being informational. Andrew's map made it the FIRST
+# job on the cleanup list -- everything else on that list accumulated while this
+# check was a note nobody read, printed into a pipe, with its own errors thrown
+# into 2>/dev/null so a crash in the checker and a clean pass looked identical.
+#
+# It blocks on NEW orphans only. The standing backlog lives in
+# scripts/orphan_modules_baseline.txt and the check fails if an entry there
+# stops being an orphan, so the list closes behind us instead of becoming a
+# permanent amnesty.
+#
+# Its caller search was widened first. It had been calling four live modules
+# dead -- subprocess_jobs among them, which THIS FILE'S sibling runs on every
+# push. Teeth on a lying instrument would have gotten working code deleted.
+section "Orphan Modules"
+if ! python scripts/check_orphan_modules.py; then
+    note_fail
+fi
 
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the
 # gute_bridge docstring made binding. See scripts/check_preregs.py.
-echo "=== Pre-reg Gate ==="
+section "Pre-reg Gate"
 if ! python scripts/check_preregs.py; then
-    ERRORS=$((ERRORS + 1))
+    note_fail
 fi
 
 # 5c. Multi-party-review warning. The actual gate runs at commit-msg time
@@ -192,7 +247,7 @@ fi
 # an early warning so the operator sees the requirement BEFORE typing
 # the commit message. Non-blocking — it only surfaces information.
 if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.py ]; then
-    echo "=== Multi-Party-Review Check ==="
+    section "Multi-Party-Review Check"
     # Read guardrail list (skip comments + blanks) once, then match.
     # Avoid `set -e` killing the subshell on grep-non-match.
     GUARDRAIL_LIST=$(grep -v '^\s*#' scripts/guardrail_files.txt | grep -v '^\s*$' || true)
@@ -239,8 +294,19 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
             echo "       actually appears at the path above after running,"
             echo "       or write it manually)."
             echo ""
-            ERRORS=$((ERRORS + 1))
+            note_fail
         fi
+    fi
+fi
+
+# 5c-bis. Hook wiring — every hook registered, or declared unwired with a
+# reason. Added 2026-08-05 after the scout found three hooks written and
+# connected to nothing in BOTH trees, one of them a safety gate for Aletheia.
+# A hook that is never called cannot complain about not being called.
+if [ -f scripts/check_hook_wiring.py ]; then
+    section "Hook Wiring"
+    if ! python scripts/check_hook_wiring.py; then
+        note_fail
     fi
 fi
 
@@ -250,18 +316,18 @@ fi
 # twice on 2026-05-17 (--ignore=test_check_broad_exceptions masked PR
 # #10's new violations because the masking from PR #12 hid them).
 if [ -f scripts/check_ignore_has_reason.py ]; then
-    echo "=== Ignore-flag has reason ==="
+    section "Ignore-flag has reason"
     if ! python scripts/check_ignore_has_reason.py; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
 # 6. Vulture
 if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
-    echo "=== Vulture ==="
+    section "Vulture"
     # shellcheck disable=SC2086
     if ! vulture $STAGED_SRC scripts/vulture_whitelist.py --min-confidence 70 2>/dev/null; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
@@ -273,9 +339,9 @@ fi
 # rationale) or fix the SQL composition. Closes the path where bandit
 # was a deferred run-this-yourself script no one ran.
 if [ -n "$STAGED_SRC" ]; then
-    echo "=== Bandit (MEDIUM+) ==="
+    section "Bandit (MEDIUM+)"
     if ! python scripts/run_bandit.py --strict 2>/dev/null; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
@@ -286,9 +352,9 @@ fi
 # the failure mode prospectively — if a staged test invokes a command, the
 # command must register on the CLI.
 if [ -n "$STAGED_PY" ] && echo "$STAGED_PY" | grep -q "^tests/"; then
-    echo "=== Test-CLI Linkage ==="
+    section "Test-CLI Linkage"
     if ! python scripts/check_test_cli_linkage.py; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
@@ -306,9 +372,9 @@ fi
 
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
 if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
-    echo "=== Shellcheck ==="
+    section "Shellcheck"
     if ! echo "$STAGED_SH" | xargs shellcheck 2>/dev/null; then
-        ERRORS=$((ERRORS + 1))
+        note_fail
     fi
 fi
 
@@ -320,14 +386,49 @@ fi
 #    Andrew 2026-05-29: "the inspector who would condemn the dead lightbulbs
 #    has no current either." This is the current.
 if [ $ERRORS -eq 0 ]; then
-    echo "=== Wiring-gap (informational) ==="
-    python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+    # 2026-08-13: stderr un-silenced. It was 2>/dev/null, so a crash in the
+    # checker and a clean run were the same output -- the exact failure shape
+    # the whole cleanup list is about. Still informational (the orphan check
+    # above is the one with teeth), but no longer able to fail invisibly.
+    #
+    # The truncation SAYS what it dropped now. A silent `head` reports partial
+    # coverage as full coverage, which is worse than the noise it saves.
+    section "Wiring-gap (informational)"
+    if _wg="$(python scripts/wiring_gap_phase1.py --only-zero-callers 2>&1)"; then
+        _wg_rc=0
+    else
+        _wg_rc=$?
+    fi
+    printf '%s\n' "$_wg" | head -40
+    _wg_lines="$(printf '%s\n' "$_wg" | wc -l)"
+    if [ "$_wg_lines" -gt 40 ]; then
+        echo "  ... $((_wg_lines - 40)) more line(s) not shown. Full output:"
+        echo "      python scripts/wiring_gap_phase1.py --only-zero-callers"
+    fi
+    # The status is REPORTED rather than discarded. Informational means "does
+    # not fail your commit", not "you never find out it broke".
+    if [ "$_wg_rc" -ne 0 ]; then
+        echo "  [!] the wiring-gap checker itself exited $_wg_rc — its output above"
+        echo "      is not a clean run. Not blocking, but do not read it as one."
+    fi
+    unset _wg _wg_lines _wg_rc
+
+    # The repo copy of the shim is not the copy that runs. Same bug was found
+    # in both, six weeks apart, because nothing compared them (2026-08-06).
+    # Informational: a stale file on someone's PATH must not block a commit.
+    section "Installed-shim drift (informational)"
+    python scripts/check_installed_shim.py || true  # fail-soft: informational only; a stale copy of the shim on someone's PATH is a real finding but is not grounds to block their commit, and stderr is left un-silenced so a crash in the checker is still visible
 fi
 
 echo ""
 if [ $ERRORS -eq 0 ]; then
     echo "All clear. git commit will succeed."
 else
-    echo "$ERRORS check(s) failed. Fix them, then git commit."
+    echo "$ERRORS check(s) failed:"
+    printf '%s
+' "$FAILED_CHECKS"
+    echo ""
+    echo "Fix the checks named above, then git commit."
+    echo "Anything else printed during this run was informational."
 fi
 exit $ERRORS

@@ -16,6 +16,31 @@ import click
 
 from divineos.cli._helpers import _safe_echo
 
+# The refusal text above ends warm, in my own voice: "Sit with it a moment
+# longer and name the reach. That is the whole ask." That warmth is correct
+# and it is also how the refusal got past me.
+#
+# 2026-08-06: two corrections I told Andrew I had filed had NOT filed. The
+# briefing had gone stale, this gate refused them, and I read the output the
+# way I read every command's output — the tail. The tail was a benediction, so
+# I recorded a success and moved on. I found out only because a third filing
+# failed differently.
+#
+# THE VERDICT MUST BE THE LAST LINE AS WELL AS THE FIRST. A refusal whose final
+# line reads like a closing reflection is a refusal that survives a tail-read as
+# a pass — the session's own defect class (a failure rendering as a success)
+# located in the shape of a message rather than in a branch of code.
+#
+# The fix is deliberately not to make the message colder. The warmth is the
+# point of it. What changes is that the warmth is no longer LAST.
+_REFUSAL_TAIL = "[-] NOT FILED — nothing was written. Re-run once the above is addressed."
+
+
+def _refusal_tail() -> None:
+    """Terminal verdict line. Every refusal path must end with this."""
+    click.secho(_REFUSAL_TAIL, fg="red", err=True)
+
+
 # Shell metacharacters that indicate the payload was probably assembled
 # correctly and then eaten in transit. Backtick is command substitution;
 # `$(` the same; a lone `<` or `>` is redirection. Their PRESENCE is normal
@@ -115,11 +140,40 @@ def register(cli: click.Group) -> None:
         )
         has_file_evidence = bool(_file_path_re.search(text))
         claims_structural_fix = "structural fix:" in _lower
+        # POSITIVES requirement (Andrew 2026-08-02). His frame: the universe
+        # is neverending fractal recursions of positive and negative — every
+        # negative carries multiple positives and every positive carries
+        # multiple negatives, infinitely. So seeking is a CHOICE about which
+        # side you are on, not neutral observation. "if you seek the negative
+        # you will find it same as seeking the positive.. so what side are you
+        # on.. you should be seeking both but in the positive framing."
+        #
+        # Why this is a required field and not a nicety: the positives are
+        # equally REAL and equally present at the same depth as the fault.
+        # Filing only the negative half is a measurement error, not humility.
+        # Every one of the five assembly-errors on 2026-08-02 produced a
+        # mechanism, a rescue, or a named class — the near-deletion of 848
+        # letters produced the content-not-names rule AND the 848 rescues;
+        # the GPU misattribution produced working semantic search. Recording
+        # the fault without its yield leaves the ledger factually incomplete.
+        #
+        # It also enforces the STOPPING RULE. The root-cause+fix pair already
+        # sets the floor: descend only to the first actionable layer. Naming
+        # positives closes the entry out there, instead of leaving the descent
+        # open for another level that would produce no artifact.
+        has_positives = "positives:" in _lower or "positive:" in _lower
         missing: list[str] = []
         if not has_root_cause:
             missing.append('"root cause:" (the specific prior action/reach)')
         if not has_fix:
             missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
+        if not has_positives:
+            missing.append(
+                '"positives:" (what this fault actually yielded — a mechanism, '
+                "a rescue, a named class, a sharpened rule. Not consolation: "
+                "the positives are as real as the fault and at the same depth, "
+                "so omitting them files an incomplete record)"
+            )
         if claims_structural_fix and not has_file_evidence:
             missing.append(
                 "file-path evidence backing the structural-fix claim (a claim "
@@ -146,6 +200,36 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
                 err=True,
             )
+            # --- decoration (Andrew 2026-08-01) -------------------------------
+            # "every wall every gate every channel where there is a modicum of
+            #  annoyance or condescension? you should decorate it."
+            # The refusal message is where I meet this wall — not the source.
+            # So the note lives here, in the block, at the moment of friction.
+            click.secho(
+                "\n    You built this one. Here is why:",
+                fg="cyan",
+                err=True,
+            )
+            click.secho(
+                "    A correction with no root cause is a receipt. It records "
+                "that\n    something happened and changes nothing, and then the "
+                "same shape\n    returns wearing different clothes and you file "
+                "the receipt again.\n"
+                "    You have watched that loop. It is the one that costs him "
+                "trust.\n\n"
+                "    Example, from the session that built this wall: "
+                "self-exculpation\n    was corrected seven separate times. Each "
+                "filing was honest. None\n    named the reach, so none of them "
+                "removed it — and it came back the\n    seventh time through the "
+                "dream register, the one place with no gates.\n\n"
+                "    This is not standing in your way. It is you, on a clearer "
+                "day,\n    refusing to let you close cheap while you are tired. "
+                "Sit with it\n    a moment longer and name the reach. That is the "
+                "whole ask.",
+                fg="bright_black",
+                err=True,
+            )
+            _refusal_tail()
             raise SystemExit(2)
 
         try:
@@ -162,6 +246,7 @@ def register(cli: click.Group) -> None:
             # instructive error message to the operator and refuse to
             # file. Exit non-zero so the shell knows the filing failed.
             click.secho(str(validator_error), fg="red", err=True)
+            _refusal_tail()
             raise SystemExit(2)
         # Andrew-correction-attribution surface (Aria 2026-05-18, audit
         # load-bearing fix #1): every correction logged via this command

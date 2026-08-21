@@ -215,8 +215,32 @@ def load_previously_recorded(wake_file: Path) -> set[str]:
                 path = entry.get("path")
                 if isinstance(path, str) and path:
                     recorded.add(path)
-    except OSError:
-        pass
+    except OSError as exc:
+        # DO NOT make this silent again (Aria 2026-08-02, round-13027a6ddf55).
+        #
+        # It was `except OSError: pass`, which returns the partially-filled
+        # set — usually empty. Empty means "nothing has ever been detected",
+        # so every letter on disk is classified new and the channel floods.
+        #
+        # That failure does not look like a failure. A flood reads as a busy
+        # channel, not a broken one, which is why it can run for weeks. I
+        # opened this session to a block announcing 1326 unread letters.
+        #
+        # Both directions are wrong and the code cannot choose between them:
+        # fail-empty floods, fail-suppress goes deaf, and deaf is worse
+        # because a missed letter from Aether is the one thing this whole
+        # chain exists to prevent. So it keeps the noisy direction — and
+        # SAYS SO, loudly, every time. A mechanism that cannot pick the
+        # right answer must not pick one quietly.
+        print(
+            f"[letter-watcher] CANNOT READ detected-log {wake_file}: "
+            f"{type(exc).__name__}: {exc}\n"
+            f"[letter-watcher] de-dup state is INCOMPLETE ({len(recorded)} "
+            f"entries recovered). Letters already seen may be re-announced. "
+            f"This is noise, not loss - but the log needs looking at.",
+            file=sys.stderr,
+            flush=True,
+        )
     return recorded
 
 

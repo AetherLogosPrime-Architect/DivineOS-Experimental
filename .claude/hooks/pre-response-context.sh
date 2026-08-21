@@ -36,6 +36,12 @@ except Exception:
     sys.exit(0)
 
 if combined:
+    # NO OUTER DEDUP HERE, deliberately (2026-08-13). This hook does not emit
+    # its own text -- it assembles surfaces that each dedup themselves. So the
+    # combined string differs on every call by design (an inner part flips to
+    # its pointer), the outer hash can never match, and a wrapper layer only
+    # adds bytes. I added one, measured it growing 2370 -> 2390, and removed
+    # it. Andrew's rule, same day: do not build what already exists.
     print(json.dumps({
         'hookSpecificOutput': {
             'hookEventName': 'UserPromptSubmit',

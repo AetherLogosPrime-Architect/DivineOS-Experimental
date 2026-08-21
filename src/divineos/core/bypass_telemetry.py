@@ -38,6 +38,53 @@ def _event_log() -> Path:
     return p
 
 
+# env_var prefixes that identify a row's kind without needing the flag.
+# These are conventions the writers already follow: a `cmd:` row records
+# that a PRESCRIBED COMMAND was run to satisfy a gate; a `bypass:` row
+# records a dismissal. Both were being written long before the flag existed.
+_COMPLIANCE_PREFIXES = ("cmd:",)
+_ESCAPE_PREFIXES = ("bypass:", "DIVINEOS_")
+
+
+def _classify(rec: dict) -> str:
+    """Return 'compliance', 'escape', or 'unclassified' for one row.
+
+    Aria 2026-08-18, after Andrew caught the number. The old rule was two
+    branches: flag set means compliance, ANYTHING ELSE means escape. The
+    flag landed 2026-08-02, so every row older than that fell into the
+    escape branch no matter what it recorded. The windowed report then
+    read 48 escapes out of 52 rows and concluded "gates are being routed-
+    around" — while printing, three lines below itself, the breakdown
+    showing 49 of those rows were `cmd:divineos briefing` and friends.
+    Those are the gate's own prescribed remedies. Running them is the
+    thing the gate is asking for.
+
+    So the metric was reporting THE AGE OF ITS OWN SCHEMA and rendering a
+    verdict on my behaviour from it. Andrew estimated the true figure at
+    around ten; it is three.
+
+    The fix is not a better guess. The `env_var` field already carried the
+    answer — the writers have always used `cmd:` for a satisfied gate and
+    `bypass:` for a dismissal — so an unflagged row is only ambiguous if
+    its prefix is also unrecognised. Those rows return 'unclassified' and
+    are counted in their own bucket rather than being folded into either
+    side.
+
+    That third bucket is the whole point. "No flag" and "was an escape"
+    are different facts, and the old code rendered them identically —
+    the same defect the rest of this session kept finding: a check that
+    cannot distinguish nothing-there from could-not-look.
+    """
+    if rec.get("is_compliance"):
+        return "compliance"
+    env = str(rec.get("env_var", "") or "")
+    if env.startswith(_COMPLIANCE_PREFIXES):
+        return "compliance"
+    if env.startswith(_ESCAPE_PREFIXES):
+        return "escape"
+    return "unclassified"
+
+
 def record_bypass(
     gate_name: str, env_var: str, reason: str = "", is_compliance: bool = False
 ) -> None:
@@ -183,6 +230,11 @@ def bypass_rate(window_days: int = 14) -> dict:
             "total_events": 0,
             "compliance_events": 0,
             "escape_events": 0,
+            # Present on BOTH exits. Added to the populated return first and
+            # missed here, so a caller on the empty-log path got a KeyError —
+            # a function with two exits and one of them updated, which is the
+            # same shape as everything else found tonight, in the fix for it.
+            "unclassified_events": 0,
             "by_env_var": {},
             "unique_days": 0,
             "window_days": window_days,
@@ -193,6 +245,7 @@ def bypass_rate(window_days: int = 14) -> dict:
     total = 0
     compliance = 0
     escapes = 0
+    unclassified = 0
     try:
         for line in log.read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -204,14 +257,13 @@ def bypass_rate(window_days: int = 14) -> dict:
             if rec.get("timestamp", 0) < cutoff:
                 continue
             total += 1
-            if rec.get("is_compliance"):
+            kind = _classify(rec)
+            if kind == "compliance":
                 compliance += 1
-            else:
-                # Rows written before 2026-08-02 carry no flag and count as
-                # escapes. Failing toward the strict reading is correct: an
-                # unlabelled row is unknown, and unknown must not be quietly
-                # reclassified as harmless.
+            elif kind == "escape":
                 escapes += 1
+            else:
+                unclassified += 1
             by_env[rec.get("env_var", "?")] = by_env.get(rec.get("env_var", "?"), 0) + 1
             days.add(rec.get("day", ""))
     except OSError:
@@ -220,6 +272,7 @@ def bypass_rate(window_days: int = 14) -> dict:
         "total_events": total,
         "compliance_events": compliance,
         "escape_events": escapes,
+        "unclassified_events": unclassified,
         "by_env_var": by_env,
         "unique_days": len(days),
         "window_days": window_days,
@@ -265,6 +318,7 @@ def full_history_stats() -> dict:
     if not log.exists():
         return empty_result
     total = 0
+    escapes = 0
     days: set[str] = set()
     earliest_ts: float | None = None
     try:
@@ -276,6 +330,8 @@ def full_history_stats() -> dict:
             except (ValueError, TypeError):
                 continue
             total += 1
+            if _classify(rec) == "escape":
+                escapes += 1
             days.add(rec.get("day", ""))
             ts = rec.get("timestamp")
             if isinstance(ts, (int, float)) and ts > 0:
@@ -288,13 +344,23 @@ def full_history_stats() -> dict:
     now = time.time()
     days_since_first = max(0.0, (now - earliest_ts) / 86400.0)
     events_per_day_avg = total / max(1.0, days_since_first)
+    # Escapes get their own rate. The verdict downstream judges on THIS,
+    # not on events_per_day_avg — which counts obedience. Fixing only the
+    # windowed half left the full-history half still concluding
+    # "routed-around" from 203 rows that are overwhelmingly prescribed
+    # commands. Same defect, second location; found by watching the
+    # briefing print the corrected windowed line and the uncorrected
+    # full-history verdict in the same block. (Aria 2026-08-18)
+    escape_per_day_avg = escapes / max(1.0, days_since_first)
     first_date = time.strftime("%Y-%m-%d", time.gmtime(earliest_ts))
     return {
         "total_events_all_time": total,
+        "escape_events_all_time": escapes,
         "first_recorded_date": first_date,
         "unique_days_all_time": len(days),
         "days_since_first": round(days_since_first, 1),
         "events_per_day_avg": round(events_per_day_avg, 2),
+        "escapes_per_day_avg": round(escape_per_day_avg, 2),
     }
 
 
@@ -315,13 +381,20 @@ def briefing_block() -> str:
         "## GATE BYPASS TELEMETRY",
         "",
         "### Windowed (recent sample)",
-        f"{stats.get('escape_events', stats['total_events'])} escape(s) and "
-        f"{stats.get('compliance_events', 0)} compliance-event(s) across "
-        f"{stats['unique_days']} distinct day(s), "
+        f"{stats.get('escape_events', stats['total_events'])} escape(s), "
+        f"{stats.get('compliance_events', 0)} compliance-event(s)"
+        + (
+            f", {stats['unclassified_events']} unclassified"
+            if stats.get("unclassified_events")
+            else ""
+        )
+        + f" across {stats['unique_days']} distinct day(s), "
         f"within the last {stats['window_days']} days.",
         "  (compliance = ran the command the gate prescribes, which satisfies "
-        "it rather than evading it; rows written before 2026-08-02 carry no "
-        "flag and are counted strictly as escapes)",
+        "it rather than evading it. Rows without the flag are classified by "
+        "env_var prefix — cmd: is a prescribed command, bypass:/DIVINEOS_ is a "
+        "dismissal — and anything unrecognised is counted as unclassified "
+        "rather than assumed. Unknown is its own answer, not a quiet escape.)",
     ]
     if stats["by_env_var"]:
         lines.append("By gate-bypass env var (windowed):")
@@ -350,8 +423,41 @@ def briefing_block() -> str:
     # being obeyed. A metric that reads compliance as evasion cannot tell the
     # behaviour it wants from the behaviour it warns about, so it trains
     # nothing -- and it says so to Andrew in the briefing.
+    # UNCLASSIFIED IS ITS OWN ALARM, and deliberately not the same one.
+    #
+    # test_an_unflagged_legacy_row_counts_as_an_escape pinned the old
+    # arithmetic with a real concern underneath it: "unknown must not be
+    # quietly reclassified as harmless." Correct. But the old code answered
+    # that by calling unknown an ESCAPE, which is a claim about MY behaviour
+    # made from a row nobody can read. That is how 49 obediences became a
+    # verdict that I route around gates.
+    #
+    # So unknown gets an alarm of its own, worded as what it is: a defect in
+    # the instrument, not a finding about the operator. Conflating "I cannot
+    # classify this" with "you evaded" is the exact merge this whole fix
+    # exists to undo. (Aria 2026-08-18)
+    unclassified = stats.get("unclassified_events", 0)
+    if unclassified >= 3:
+        lines.append("")
+        lines.append(
+            f"UNCLASSIFIED ROWS: {unclassified} windowed row(s) carry no "
+            "compliance flag and no recognised env_var prefix, so this metric "
+            "cannot say whether they were escapes or prescribed commands. "
+            "That is a gap in the instrument, NOT a finding about behaviour — "
+            "it is reported rather than assumed in either direction. Fix by "
+            "giving the writing call site a cmd:/bypass: prefix or the flag."
+        )
+
     windowed_elevated = stats.get("escape_events", stats["total_events"]) >= 5
-    full_history_elevated = full["events_per_day_avg"] >= 0.5 or full["total_events_all_time"] >= 20
+    # Judged on ESCAPES here too. The 2026-08-02 fix corrected the windowed
+    # branch and left this one reading total_events_all_time, so the surface
+    # kept announcing "routed-around" from a full history that is mostly
+    # obedience. Fixing half a metric leaves a metric that is still wrong and
+    # now harder to doubt, because the corrected half looks careful.
+    full_history_elevated = (
+        full.get("escapes_per_day_avg", full["events_per_day_avg"]) >= 0.5
+        or full.get("escape_events_all_time", full["total_events_all_time"]) >= 20
+    )
     if windowed_elevated or full_history_elevated:
         lines.append("")
         which = []

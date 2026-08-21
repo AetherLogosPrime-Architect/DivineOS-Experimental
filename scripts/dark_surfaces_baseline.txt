@@ -1,0 +1,41 @@
+# BRIEFING SURFACES THAT ARE REGISTERED NOWHERE
+#
+# Each of these can speak into my briefing -- they expose format_for_briefing()
+# -- and none is registered with surface_registry. Recorded 2026-08-13.
+#
+# MOST OF THEM STILL REACH ME. They are hand-soldered into the briefing command
+# file one import at a time, which works and is why this was never noticed.
+# The two that are wired NOWHERE are marked below.
+#
+# WHY THIS LIST EXISTS RATHER THAN A FIX. surface_registry was built 2026-08-02
+# to end the hand-soldering, and its own docstring names the trap: switch the
+# router on without migrating the existing wiring and there are TWO wiring
+# systems where there was one, which is worse than one. That migration is a
+# decision shared with Aether. This file is the visibility half -- the thing
+# that was actually missing -- and new darkness now blocks.
+#
+# A dark surface is indistinguishable from a surface with nothing to say.
+# That is why nobody was careless and it happened anyway.
+ablation_summary
+compass_dismissal_briefing_surface   # WIRED NOWHERE
+corrections
+council_balance_surface
+council_walks
+engagement_disclosure_surface
+exploration_reader
+failure_diagnostics
+family_queue_surface
+foundations_briefing_surface
+goal_outcome_surface
+identity_load   # WIRED NOWHERE
+in_flight_branches
+module_inventory
+open_claims_surface
+operating_loop_briefing_surface
+orientation_prelude
+presence_memory
+scaffold_invocations
+scaffolding_map
+session_start_diagnostics
+theater_observation_surface
+upstream_freshness

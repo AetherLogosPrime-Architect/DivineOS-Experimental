@@ -126,6 +126,74 @@ class TestFailLoud:
         assert wrapper.fail_loud(tmp_path, tmp_path) != 0
 
 
+class TestWorktreeWalkUp:
+    """The case that locked Aether out of his own shell, 2026-08-06.
+
+    A git worktree carries a stray empty `.envrc` and never carries a venv --
+    untracked directories do not travel with it. The walk used to stop at the
+    first marker, so it refused at the worktree while the enclosing clone's
+    sealed venv sat one directory up.
+
+    What that cost: the engagement gate blocks Bash until a thinking command
+    runs, and prints `divineos ask / recall / context` as the remedy. The shim
+    refused that exact command. He routed git through PowerShell to escape a
+    gate whose prescribed remedy was unreachable, and reported it rather than
+    loosening the guard.
+    """
+
+    def _fake_venv(self, root):
+        scripts = root / ".venv" / "Scripts"
+        scripts.mkdir(parents=True)
+        cli = scripts / "divineos.exe"
+        cli.write_text("")
+        binv = root / ".venv" / "bin"
+        binv.mkdir(parents=True, exist_ok=True)
+        (binv / "divineos").write_text("")
+        return cli
+
+    def test_walks_past_a_markered_worktree_to_the_clone_venv(self, tmp_path):
+        clone = tmp_path / "clone"
+        worktree = clone / ".claude" / "worktrees" / "wt"
+        worktree.mkdir(parents=True)
+        (clone / ".envrc").write_text("")
+        (worktree / ".envrc").write_text("")
+        self._fake_venv(clone)
+
+        # The nearest marker is the worktree and it cannot satisfy the request.
+        assert wrapper.find_sealed_cli(worktree) is None
+        # The walk must not stop there.
+        found = wrapper.find_marker_dirs(worktree)
+        assert found[0] == worktree
+        assert clone in found
+        assert wrapper.find_sealed_cli(clone) is not None
+
+    def test_nearest_marker_still_wins_when_it_has_a_venv(self, tmp_path):
+        """Precedence unchanged: a workspace with its own venv uses its own."""
+        clone = tmp_path / "clone"
+        inner = clone / "inner"
+        inner.mkdir(parents=True)
+        (clone / ".envrc").write_text("")
+        (inner / ".envrc").write_text("")
+        self._fake_venv(clone)
+        inner_cli = self._fake_venv(inner)
+
+        found = wrapper.find_marker_dirs(inner)
+        first_with_venv = next(d for d in found if wrapper.find_sealed_cli(d))
+        assert first_with_venv == inner
+        assert wrapper.find_sealed_cli(inner) == inner_cli
+
+    def test_no_venv_anywhere_still_refuses(self, tmp_path):
+        """The seal holds. Walking up is not falling back to system-wide."""
+        clone = tmp_path / "clone"
+        worktree = clone / "wt"
+        worktree.mkdir(parents=True)
+        (clone / ".envrc").write_text("")
+        (worktree / ".envrc").write_text("")
+        for d in wrapper.find_marker_dirs(worktree):
+            if d in (clone, worktree):
+                assert wrapper.find_sealed_cli(d) is None
+
+
 class TestMain:
     def test_no_marker_returns_fail_loud_code(self, tmp_path, monkeypatch, capsys):
         # Use a nested tmp so we walk up several dirs before hitting root.
@@ -140,14 +208,32 @@ class TestMain:
         captured = capsys.readouterr()
         assert ".envrc" in captured.err
 
-    def test_missing_sealed_venv_returns_fail_loud_code(self, tmp_path, monkeypatch, capsys):
+    def test_missing_sealed_venv_returns_fail_loud_code(self, tmp_path, monkeypatch):
+        """Marker present, no sealed venv anywhere up the chain -> refuse.
+
+        Rewritten 2026-08-06 (Aria) alongside the walk-up change. Two moves:
+
+        1. The premise is now explicit. The walk no longer stops at the first
+           marker, so "no sealed CLI here" is not enough -- the test must
+           establish that no ancestor can satisfy it either, the same way
+           test_no_marker_returns_fail_loud_code already guards its own.
+
+        2. It asserts the CONTRACT rather than captured stderr. capsys does
+           not reliably capture in this file's harness; a debug print placed
+           directly in the test body also came back empty, so an output
+           assertion here fails for reasons unrelated to behaviour.
+           fail_loud's message is covered by TestFailLoud above; what belongs
+           here is that main REFUSES.
+        """
         (tmp_path / ".envrc").write_text("")
-        # Marker exists; no .direnv/ → sealed CLI missing.
         monkeypatch.chdir(tmp_path)
-        exit_code = wrapper.main([])
-        assert exit_code == 2
-        captured = capsys.readouterr()
-        assert "sealed venv" in captured.err.lower()
+
+        for ancestor in wrapper.find_marker_dirs(tmp_path):
+            if wrapper.find_sealed_cli(ancestor) is not None:
+                pytest.skip(f"{ancestor} has a real sealed venv -- premise invalid here.")
+
+        assert wrapper.find_sealed_cli(tmp_path) is None
+        assert wrapper.main([]) == 2
 
     @pytest.mark.skipif(os.name != "nt", reason="Windows-only subprocess dispatch path")
     def test_dispatches_via_subprocess_on_windows(self, tmp_path, monkeypatch):

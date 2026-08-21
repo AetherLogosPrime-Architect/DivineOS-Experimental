@@ -196,12 +196,43 @@ If this is genuinely the right call — meaning either:
       the enforcement path), OR
   (c) semantic layer landed and these are transitional patterns —
 
+BEFORE YOU ARGUE THE EXCEPTION — READ THIS FILE:
+    .claude/hooks/keyword-enforcement-doorman.sh
+
+Aria 2026-07-31, twice in one session: the case for the exception was
+drafted BEFORE the blocking mechanism was read, and both times the
+mechanism turned out to be right.
+
+  1. check_doc_counts.py --fix declined a count. Called it a bug in a
+     commit message. It is monotonic BY DESIGN and was refusing to
+     propagate a number that had been hand-counted wrong.
+  2. This doorman blocked a compiled pattern. A careful
+     retrieval-shape-exception argument was filed. Reading the code
+     showed no regex was needed at all — a tuple of literal prefixes
+     was clearer, unable to over-match, auditable by eye.
+
+The argument for the exception arrives FASTER than the reading does. It
+is fluent, it sounds like judgment, and it is ready before it has been
+earned. Reading first is the cheap fix and it costs one tool call.
+
+Two things you should know about the flow below, so you are not
+surprised into treating a broken lock as permission:
+
+  * This doorman has NO authorization check. It counts regex literals
+    and blocks unconditionally. Filing the correction does NOT unblock
+    the edit — nothing reads it. The line below is an audit-trail
+    instruction, not an escape hatch.
+  * Discovering that is not grounds to bypass. A lock that does not
+    latch is still a closed door.
+
 then name it explicitly by running:
 
     divineos correction \"authorized keyword-pattern addition to {matched_registry}: <specific-reason ≥ 40 chars>\"
 
-then retry the edit. The correction gets logged for later audit-time
-review of whether the authorization was honest or optimizer-argued.
+The correction gets logged for later audit-time review of whether the
+authorization was honest or optimizer-argued. To actually proceed you
+must either remove the regex (usually the right answer) or take the
+operator-authorized bypass channel deliberately.
 
 If none of (a)/(b)/(c) apply — rollback and design the semantic
 replacement. Task #20 semantic rebuild owns this class.

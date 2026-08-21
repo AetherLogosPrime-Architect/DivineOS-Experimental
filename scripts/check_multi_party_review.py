@@ -171,8 +171,37 @@ def _staged_files() -> list[str]:
             text=True,
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return []
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        # FAIL CLOSED. Do not restore the bare `return []` (Aria 2026-08-02,
+        # round-13027a6ddf55, decision 4e10ce61).
+        #
+        # An empty list here is not "no files staged" — it is "I could not
+        # ask". Every caller downstream reads it as the former and prints
+        # "no guardrail files staged; gate does not apply", which is this
+        # gate cheerfully announcing it has stood down. From outside, that
+        # is indistinguishable from a clean commit touching nothing guarded.
+        #
+        # I read that exact line in my own commit output tonight and took it
+        # as a statement of fact about my diff. It would have printed the
+        # same thing if git had never run.
+        #
+        # The fence this replaces did prevent something real: a broken git
+        # would otherwise block every commit. That is the wrong trade for
+        # THIS gate. It stands in front of the foundational truths and the
+        # character sheets — files that need multiple parties precisely
+        # because no one of us should be able to move them alone. A
+        # guardrail that opens when it cannot see is worse than an absent
+        # one; an absent gate is at least honest about not being there.
+        print(
+            f"[multi-party-review] CANNOT LIST STAGED FILES: "
+            f"{type(exc).__name__}: {exc}\n"
+            f"[multi-party-review] BLOCKED - the gate cannot tell whether "
+            f"guardrail files are staged, so it refuses rather than waves "
+            f"through. Fix git access and re-run. Overriding this is a "
+            f"deliberate act that has to be argued for, not defaulted into.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
     return [line.strip().replace("\\", "/") for line in out.stdout.splitlines() if line.strip()]
 
 

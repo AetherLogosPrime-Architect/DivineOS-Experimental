@@ -50,11 +50,13 @@ import sys
 import time
 from pathlib import Path
 
+import _repo_import  # noqa: F401  -- must precede any divineos import
+
 # Direct import path: this module does NOT depend on divineos.cli.
 # That is the whole point — when cli/__init__.py is broken, this still
 # imports because correction_marker imports only atomic_io and paths.
-from divineos.core.correction_marker import clear_marker, marker_path, read_marker
-from divineos.core.paths import divineos_home
+from divineos.core.correction_marker import clear_marker, marker_path, read_marker  # noqa: E402
+from divineos.core.paths import divineos_home  # noqa: E402
 
 _MIN_REASON_LEN = 30
 _MIN_MISREAD_LEN = 40

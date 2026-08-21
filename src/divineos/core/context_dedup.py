@@ -119,6 +119,7 @@ def should_emit(
     source_id: str,
     content: str,
     semantic_key: object | None = None,
+    residual: str | None = None,
 ) -> tuple[bool, str | None]:
     """Check whether this content should be emitted in full or as a pointer.
 
@@ -137,10 +138,23 @@ def should_emit(
             semantic_key ensures ANY change to the state produces a new
             hash and forces a full re-emit.
 
+        residual: a few lines that survive suppression, appended to the
+            pointer. Added by Aria 2026-08-17 after a LEPOS gate fire:
+            dedup was replacing the whole circle-first prime with a hash
+            line on every turn but the first, which meant the binding
+            constraints it carries — draft the circle FIRST, 2+
+            paragraphs AND 400+ chars — were absent from every
+            subsequent compose. Suppressing repeated *explanation* is
+            the win Andrew measured; suppressing the *constraint* along
+            with it deletes the discipline to save the tokens that
+            describe it. Emitters carrying a hard floor should pass it
+            here. Keep it to a few lines — a residual that grows into
+            the full content defeats the dedup it rides on.
+
     Returns:
         (True, None) — emit the full content (new, changed, or TTL-expired).
         (False, pointer) — emit the short pointer instead (byte-identical
-            semantic key or content within TTL).
+            semantic key or content within TTL), with any residual appended.
     """
     if not content.strip():
         return True, None
@@ -167,6 +181,8 @@ def should_emit(
             f"(unchanged, hash {h}; re-emit suppressed — "
             "content is byte-identical to earlier this session)"
         )
+        if residual and residual.strip():
+            pointer = pointer + "\n" + residual.rstrip()
         _log_savings(source_id, len(content), len(pointer))
         return False, pointer
     state[source_id] = {"hash": h, "ts": now}
