@@ -545,6 +545,60 @@ class TestLogRetentionAgeBased:
         assert result["freed_mb"] == 0.0
 
 
+class TestScansSurviveFilesVanishingMidScan:
+    """A sort key that can raise takes the whole caller down with it.
+
+    Four parallel-only failures this session traced here. These scans run
+    against LIVE directories — the log dir while other processes rotate it,
+    pytest's own run- dirs while other xdist workers create and tear them
+    down — so a file disappearing between the listing and the sort is
+    ordinary. A bare stat() in the sort key raised FileNotFoundError, which
+    propagated out of run_maintenance, which then returned nothing at all,
+    so callers asserting result["logs"] found no such key.
+
+    Both removal loops in the module already guarded the identical stat()
+    call. Only the sort keys were bare, twenty lines apart.
+    """
+
+    def test_mtime_or_zero_returns_zero_for_a_vanished_path(self, tmp_path):
+        import divineos.core.body_awareness as ba
+
+        assert ba.mtime_or_zero(tmp_path / "never_existed") == 0.0
+
+    def test_mtime_or_zero_returns_the_real_mtime_when_present(self, tmp_path):
+        import divineos.core.body_awareness as ba
+
+        f = tmp_path / "real.log"
+        f.write_text("x")
+        assert ba.mtime_or_zero(f) == f.stat().st_mtime
+
+    def test_clean_old_logs_survives_a_file_deleted_between_glob_and_sort(self, tmp_path):
+        """The exact reproduction: unlink one file after the glob returns and
+        before the sort reads its mtime. Before the fix this raised
+        FileNotFoundError; the assertion below is the one that was failing."""
+        from unittest.mock import patch
+
+        import divineos.core.body_awareness as ba
+
+        victim = tmp_path / "divineos.2026-01-01_x.log"
+        (tmp_path / "divineos.2026-01-02_a.log").write_text("x")
+        (tmp_path / "divineos.2026-01-03_b.log").write_text("x")
+        victim.write_text("x")
+
+        real_glob = Path.glob
+
+        def racing_glob(self, pattern):
+            files = list(real_glob(self, pattern))
+            victim.unlink(missing_ok=True)
+            return iter(files)
+
+        with patch.object(Path, "glob", racing_glob):
+            result = ba.clean_old_logs(dry_run=True, log_dir=tmp_path)
+
+        assert "removed_count" in result
+        assert "freed_mb" in result
+
+
 class TestRunMaintenance:
     """Full maintenance run."""
 
