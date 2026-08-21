@@ -21,6 +21,9 @@ and the judgment stays mine.
 from __future__ import annotations
 
 from divineos.core.self_monitor.honest_state_completion import (
+    REASONED,
+    UNINSTRUMENTED,
+    classify_honest_states,
     find_terminal_honest_states,
     format_finding,
 )
@@ -103,3 +106,72 @@ class TestOutputShape:
 
     def test_empty_input_is_not_a_finding(self):
         assert find_terminal_honest_states("") == []
+
+
+class TestThreeKindsOfNotKnowing:
+    """Andrew 2026-08-21, refining the rule after the first version shipped.
+
+    *"finding out WHY you dont know is also needed.. some answers are just
+    missing some instrumentation or monitoring, others are uncertain for a
+    reason."*
+
+    The first version had a binary — action attached, or terminal — and it
+    fired on both of the other two, reading a complete answer as a hiding
+    place.
+    """
+
+    def test_an_action_completes_and_disappears(self):
+        text = "I don't know why the push was refused — reading the gate log now."
+        assert classify_honest_states(text) == []
+
+    def test_a_bare_admission_is_terminal(self):
+        (s,) = classify_honest_states("I don't know why the push was refused.")
+        assert s.kind is None
+
+    def test_a_named_missing_sensor_is_uninstrumented(self):
+        text = "I don't know whether the guard was up; nothing records which guard armed."
+        (s,) = classify_honest_states(text)
+        assert s.kind == UNINSTRUMENTED
+
+    def test_a_reason_is_reasoned(self):
+        text = "I don't know if the audit will find it, because the auditor has not started yet."
+        (s,) = classify_honest_states(text)
+        assert s.kind == REASONED
+
+    def test_uninstrumented_is_reported_not_silenced(self):
+        """It names a sensor that should exist — the most actionable of the three."""
+        text = "I don't know whether it armed; there is no record of which guard held."
+        assert classify_honest_states(text), "a named instrumentation gap must SURFACE"
+
+    def test_the_advisory_names_which_completion_is_missing(self):
+        text = "I don't know whether it armed; nothing records which guard held."
+        out = format_finding(classify_honest_states(text))
+        assert UNINSTRUMENTED in out
+        assert "BUILDING the" in out
+
+
+class TestTheWindowDoesNotBleedAcrossAdmissions:
+    def test_a_later_completion_does_not_discharge_an_earlier_admission(self):
+        """The over-discharge direction — it turns a hiding place into a clean board."""
+        text = (
+            "I don't know why the push was refused. Separately, I don't know "
+            "whether the guard was up; nothing records which guard armed."
+        )
+        first, second = classify_honest_states(text)
+        assert first.kind is None, "the bare first admission was completed by the second's clause"
+        assert second.kind == UNINSTRUMENTED
+
+    def test_a_paragraph_break_ends_the_window(self):
+        text = "I don't know why it failed.\n\nSeparately, let me check the log."
+        (s,) = classify_honest_states(text)
+        assert s.kind is None
+
+
+class TestFindTerminalIsNowTheBareSubset:
+    def test_terminal_helper_excludes_the_other_two_kinds(self):
+        text = (
+            "I don't know why it failed. Also I don't know whether it armed; "
+            "nothing records which guard held."
+        )
+        assert len(classify_honest_states(text)) == 2
+        assert len(find_terminal_honest_states(text)) == 1

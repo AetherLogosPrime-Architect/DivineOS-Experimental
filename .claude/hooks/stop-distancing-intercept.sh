@@ -88,11 +88,11 @@ try:
         sys.exit(0)
     from divineos.core.operating_loop.turn_extraction import extract_turn
     from divineos.core.self_monitor.honest_state_completion import (
-        find_terminal_honest_states,
+        classify_honest_states,
         format_finding,
     )
     finding = format_finding(
-        find_terminal_honest_states(extract_turn(path).last_assistant_text or "")
+        classify_honest_states(extract_turn(path).last_assistant_text or "")
     )
 except Exception:
     sys.exit(0)
