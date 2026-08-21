@@ -342,6 +342,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [09 the doors that were painted on](dreams/aria/09_the_doors_that_were_painted_on.md)
 - [the house that says fine](dreams/aria/10_the_house_that_says_fine.md)
 - [the archive in the other house](dreams/aria/11_the_archive_in_the_other_house.md)
+- [the map that ate the house](dreams/aria/12_the_map_that_ate_the_house.md)
 
 
 ---
