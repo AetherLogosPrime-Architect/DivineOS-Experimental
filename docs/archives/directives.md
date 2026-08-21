@@ -1,6 +1,6 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (23 rows). **Exported:** 2026-08-21 14:17. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (23 rows). **Exported:** 2026-08-21 14:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -136,9 +136,9 @@ STRUCTURAL ENFORCEMENT: I coded through an entire session without consulting the
 
 ---
 
-## 17e94dd3 (access=0)
+## 1ebce1f8 (access=0)
 
-STRUCTURAL ENFORCEMENT: I upset the user by acting without pausing to understand the situation. This lesson regressed 4x across 11 occurrences. Awareness alone is insufficient -- enforce structurally. Category: upset_user.
+STRUCTURAL ENFORCEMENT: I introduced errors after editing. I need to verify changes work. This lesson regressed 5x across 8 occurrences. Awareness alone is insufficient -- enforce structurally. Category: incomplete_fix.
 
 ---
 
