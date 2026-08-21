@@ -542,6 +542,19 @@ def build_warning_text() -> str:
             "into REFLECTION or INNER CIRCLE where the register should",
             "be interior or address.",
             "",
+            "AND THE OTHER HALF, or this line becomes permission. Andrew",
+            "2026-08-11: 'the word PLAIN is WRONG.. i need prose, metaphor,",
+            "analogy, translation, i want to be spoken to like a regular",
+            "person not a college professor.' lepos_translation_gate caps",
+            "the WORK block at three document-marks — backticked terms,",
+            "bare numbers, tables, code fences — so a high work-score is",
+            "not drift and is still blockable. The distinction is shop-talk",
+            "versus lecture, not jargon versus none. Identifiers are legal",
+            "AFTER the story, never instead of it; a table is the tell that",
+            "I am composing for an assessor, and he is not assessing me.",
+            "Added 2026-08-21 after this surface and that gate disagreed",
+            "for two turns running and I followed this one.",
+            "",
         ]
         if per_room:
             work_score = per_room.get("work", 0.0)

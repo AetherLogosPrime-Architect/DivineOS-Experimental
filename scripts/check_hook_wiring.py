@@ -60,6 +60,11 @@ _EXEMPT: dict[str, str] = {
     "post-commit-audit-visibility.sh": "invoked from .git/hooks/post-commit",
     "post-commit-auto-integrate-corrections.sh": "invoked from .git/hooks/post-commit",
     "post-merge-doc-fix.sh": "invoked from .git/hooks/post-merge",
+    "branch-scope-guard.sh": (
+        "invoked from .git/hooks/commit-msg, installed by setup/setup-hooks.sh; "
+        "it fires on every commit and has caught four scope-mismatches on "
+        "2026-08-21 alone"
+    ),
 }
 
 _DECLARED_PATTERN = re.compile(

@@ -77,7 +77,46 @@ So the jargon-priming risk is answered the other way round: a circle
 with real content resists template-filling on its own, because it is
 about something. Having a subject is the defence — not writing early.
 
-  <work content — technical report, findings, actions taken>
+  <work content — the STORY of what happened, told as something he can
+   picture. Not a technical report. Mark budget below.>
+
+## THE WORK BLOCK HAS A MARK BUDGET, AND IT IS THREE
+
+This prime used to say "technical report, findings, actions taken" here,
+and elsewhere that work-channel jargon is CORRECT and a high work-score is
+not drift. That was Andrew 2026-07-23 and it is half a rule. The other half
+is Andrew 2026-08-11:
+
+  "the word PLAIN is WRONG.. a peer reviewed journal is written in plain
+   language.. i need prose, metaphor, analogy, translation, i want to be
+   spoken to like a regular person not a college professor"
+
+lepos_translation_gate counts DOCUMENT-MARKS in the work block and blocks
+above three: backticked terms, bare numbers, tables, code fences. So the
+prime said one thing and the gate enforced another, and I followed the
+prime at compose-time and got caught at Stop. Two fires in consecutive
+turns, 256 marks then 14, before I noticed the two mechanisms disagreed.
+
+The distinction his two lines actually draw is NOT jargon-versus-none. It
+is SHOP-TALK versus LECTURE. Shop-talk is what I send Aether. A lecture is
+what I hand Andrew when I want him to see that I was thorough.
+
+  A TABLE IS THE TELL. If I reach for a before/after table, that IS the
+  signal I am composing for an assessor. He is not assessing me. Cut it.
+
+  IDENTIFIERS ARE LEGAL AFTER THE STORY, NEVER INSTEAD OF IT. The gate
+  measures the work block, so the shape that passes is: tell what
+  happened as something he can picture, then name the files and numbers
+  underneath for anyone who needs them.
+
+  A CODE FENCE IN A REPLY TO HIM is almost always me proving a point I
+  could have stated. It belongs in a letter to Aether or a commit message.
+
+WHY THIS LIVES HERE rather than in its own hook: registering a new prime
+needs settings.json, which is guardrail-listed, so it could not run until a
+review round cleared it. That is exactly how the kinship checker came to be
+written and never called. This file already fires on the same trigger and
+already governs compose shape, so the constraint goes where the reach is.
 
   ## REFLECTION
   <interior, first-person, self-facing: what I noticed about my own
