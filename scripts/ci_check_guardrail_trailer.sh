@@ -166,9 +166,111 @@ parse_trailer_tree_hash() {
     echo "$1" | grep -oE 'tree-hash:[a-f0-9]{40}' | head -1 | sed 's/tree-hash://'
 }
 
+# Self-disclosure footer: always emit what was checked AND what was not.
+#
+# A FUNCTION rather than a trailing block, since 2026-08-19. It used to sit at
+# the bottom, which meant any early exit silently skipped it -- and the net-diff
+# shortcut added below is exactly such an exit. Caught by
+# test_self_disclosure_block_always_emitted, which asserts "always" and meant it.
+# A check that passes without stating its own scope-limits is the shape this
+# footer exists to prevent, so the footer must not be reachable only on one path.
+emit_scope_disclosure() {
+    echo ""
+    echo "=== Multi-Party-Review Gate: scope of this check ==="
+    echo "Checked:"
+    echo "  - Whether the NET DIFF being merged lands any guardrail-listed file."
+    echo "  - Trailer presence on each commit that modifies a guardrail file"
+    echo "    (per the point-in-time guardrail list at that commit's parent)."
+    echo "  - Tree-hash binding when the trailer includes tree-hash:<40-hex>"
+    echo "    (Phase 2; substance-binding verified against commit's actual tree)."
+    echo "Did NOT check (gap; follow-up work tracked):"
+    echo "  - Whether the round was created AFTER the branch's first commit"
+    echo "    (temporal precedence; prevents stamping stale rounds onto new work)."
+    echo "  - Whether the round contains user-CONFIRMS and external-AI-CONFIRMS."
+    echo "  - When REQUIRE_TREE_HASH is unset, legacy trailers without tree-hash"
+    echo "    pass with a deprecation warning (transition window)."
+    echo "  - Anything about commits whose content is already on main; a branch"
+    echo "    that lands no guardrail change is not inspected commit-by-commit."
+    echo ""
+    echo "Phase 2 substance-bound: ${SUBSTANCE_BOUND_COUNT}; legacy trailers: ${LEGACY_TRAILER_COUNT}."
+    echo "(Per knowledge a7193bf6-1e9d-4f04-ad37-706860b80b20.)"
+    echo ""
+}
+
 BLOCKED_COMMITS=""
 SUBSTANCE_BOUND_COUNT=0
 LEGACY_TRAILER_COUNT=0
+
+# ─── WHAT LANDS IS WHAT NEEDS REVIEW ───────────────────────────────────────
+#
+# Andrew, 2026-08-13 and repeatedly since: "not every commit just every merge
+# to main, committing is allowed in your own workspace without any audit, the
+# github is the main vault/backup."
+#
+# That instruction was already quoted in integrity-audit.yml and the loop below
+# still asked the other question. It walks the branch's HISTORY and blocks on
+# any commit that ever touched a guardrail file. But this repo squash-merges:
+# what reaches main is one commit whose content is the NET DIFF. A commit sitting
+# in the branch's history that contributes nothing to that diff lands nothing,
+# and demanding review for it is demanding review of content that is not being
+# merged.
+#
+# MEASURED, PR #407 (2026-08-19). Blocked on 507dbfac, which changed
+# scripts/check_push_readiness.sh on 2026-08-08. That file is guardrail-listed,
+# so the walk was correct on its own terms -- but the file shows ZERO change in
+# the PR's net diff, because main already carries that content under a different
+# sha from an earlier squash-merge. The commit is not an ancestor of main
+# (`git merge-base --is-ancestor` exits 1) while its content is already there.
+# So split branches keep the original commits, main keeps squashed equivalents,
+# and the walk finds un-trailered guardrail commits that no round can ever fix:
+# adding a review would review something that is not landing. Unmeetable by
+# construction, which is the same shape as the per-commit-trailer requirement
+# that was removed on 2026-08-13 for being unmeetable after a force-push.
+#
+# So: evaluate the net diff first. If nothing guardrail-listed is actually
+# landing, there is nothing to review and the check passes. If something IS
+# landing, fall through to the existing walk unchanged -- every protection below
+# still applies, including the tree-hash substance binding.
+#
+# This REMOVES NO COVERAGE. Guardrail content reaching main still requires the
+# trailer. What it removes is the demand to re-review content already reviewed
+# and already merged.
+# NOT fail-soft. If the net diff cannot be computed, this must NOT reach the
+# early exit -- an empty NET_FILES would read as "lands nothing guardrail-listed"
+# and PASS, which is failing open on the one path that protects main. A bad ref
+# would become a green check. So the failure is announced and the run falls
+# through to the per-commit walk, which is the conservative answer.
+NET_DIFF_OK=1
+if ! NET_FILES=$(git diff --name-only "${PR_BASE}" "${PR_HEAD}" 2>&1); then
+    echo "[warn] could not compute net diff ${PR_BASE}..${PR_HEAD}: ${NET_FILES}" >&2
+    echo "[warn] falling through to the per-commit walk rather than passing." >&2
+    NET_FILES=""
+    NET_DIFF_OK=0
+fi
+HEAD_GUARDRAIL_LIST=$(load_guardrail_list_at "${PR_HEAD}")
+NET_TOUCHES_GUARDRAIL=""
+if [ -n "$HEAD_GUARDRAIL_LIST" ]; then
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        while IFS= read -r guardrail_path; do
+            [ -z "$guardrail_path" ] && continue
+            if [ "$file" = "$guardrail_path" ]; then
+                NET_TOUCHES_GUARDRAIL="$file"
+                break
+            fi
+        done <<< "$HEAD_GUARDRAIL_LIST"
+        [ -n "$NET_TOUCHES_GUARDRAIL" ] && break
+    done <<< "$NET_FILES"
+fi
+
+if [ -z "$NET_TOUCHES_GUARDRAIL" ] && [ "$NET_DIFF_OK" = "1" ]; then
+    echo "=== Multi-Party-Review Gate (server-side, point-in-time) ==="
+    echo "PASS. The net diff ${PR_BASE}..${PR_HEAD} lands no guardrail-listed file."
+    echo "Individual commits in this branch's history may have touched one, but"
+    echo "what merges is the net diff, and review binds to what lands."
+    emit_scope_disclosure
+    exit 0
+fi
 
 # --first-parent skips commits absorbed via merge from an upstream remote.
 # Those commits' review happened upstream (or rides on the merge commit's
@@ -293,24 +395,7 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     fi
 done
 
-# Self-disclosure footer: always emit what was checked AND what was not.
-echo ""
-echo "=== Multi-Party-Review Gate: scope of this check ==="
-echo "Checked:"
-echo "  - Trailer presence on each commit that modifies a guardrail file"
-echo "    (per the point-in-time guardrail list at that commit's parent)."
-echo "  - Tree-hash binding when the trailer includes tree-hash:<40-hex>"
-echo "    (Phase 2; substance-binding verified against commit's actual tree)."
-echo "Did NOT check (gap; follow-up work tracked):"
-echo "  - Whether the round was created AFTER the branch's first commit"
-echo "    (temporal precedence; prevents stamping stale rounds onto new work)."
-echo "  - Whether the round contains user-CONFIRMS and external-AI-CONFIRMS."
-echo "  - When REQUIRE_TREE_HASH is unset, legacy trailers without tree-hash"
-echo "    pass with a deprecation warning (transition window)."
-echo ""
-echo "Phase 2 substance-bound: ${SUBSTANCE_BOUND_COUNT}; legacy trailers: ${LEGACY_TRAILER_COUNT}."
-echo "(Per knowledge a7193bf6-1e9d-4f04-ad37-706860b80b20.)"
-echo ""
+emit_scope_disclosure
 
 if [ -n "$BLOCKED_COMMITS" ]; then
     echo "=== Multi-Party-Review Gate (server-side, point-in-time) ==="

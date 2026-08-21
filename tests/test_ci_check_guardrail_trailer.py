@@ -137,6 +137,57 @@ def test_guardrail_touch_without_trailer_blocks(repo):
     assert "BLOCKED" in result.stdout
 
 
+def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
+    """A branch whose net diff lands nothing guardrail-listed passes, even when a
+    commit in its history touched one and carried no trailer.
+
+    This is the PR #407 shape, measured 2026-08-19. A branch carried a commit
+    modifying a guardrail file; main already held that content under a different
+    sha from an earlier squash-merge, so the file showed zero change in the net
+    diff. The old walk blocked on the historical commit, and no audit round could
+    ever clear it -- the review would have covered content that was not landing.
+    Andrew, 2026-08-13: "not every commit just every merge to main."
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
+    # Reverted before the merge -- so the net diff lands nothing.
+    head = _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "lands no guardrail-listed file" in result.stdout
+
+
+def test_net_diff_landing_guardrail_still_blocks(repo):
+    """The narrowing removes no coverage: content actually landing still blocks.
+
+    Guards the failure mode where the net-diff shortcut is too eager and lets a
+    real guardrail change through untrailered.
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCKED" in result.stdout
+
+
 def test_guardrail_touch_with_unbound_trailer_now_blocks(repo):
     """2026-08-01: REQUIRE_TREE_HASH default flipped 0 -> 1.
 
@@ -145,6 +196,19 @@ def test_guardrail_touch_with_unbound_trailer_now_blocks(repo):
     safe -- an unbound trailer has no content check, so if these could
     still pass, removing the clock would open a real hole. The two changes
     are coupled on purpose.
+
+    MERGE NOTE 2026-08-21. This function arrived here as a conflict between
+    #412 and #433, and the resolution is semantic rather than textual. Both
+    branches added tests directly above this shared body. #433's side ended
+    with `test_guardrail_touch_with_trailer_passes`, whose docstring says a
+    presence-only trailer PASSES -- which is precisely the behaviour this
+    branch flips. Taking git's glue as offered would have bolted the old
+    name onto assertions that now demand returncode 1 and "tree-hash
+    binding": a test whose name claims the opposite of what it checks, which
+    is the same read-past-it defect class as a docstring describing a
+    predecessor's safety property. The old name is dropped because this
+    branch supersedes it; #433's two genuinely-new net-diff tests are kept
+    above, untouched.
     """
     base = _commit(
         repo,
