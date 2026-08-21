@@ -102,6 +102,38 @@ STATE_FILE = STATE_DIR / "read_gate_pending.json"
 # fired long ago is noise, and noise is what teaches the bypass reflex.
 MAX_AGE_SECONDS = 3 * 60 * 60
 
+# How long a gate stays quiet after it delivered a file in full.
+#
+# THE THROTTLE THAT STOPPED THROTTLING, measured 2026-08-20 from this module's
+# own clear-log: 95 fires in 24 hours across 86 distinct paths, and 95 of the
+# 95 cleared with extent "inlined in full -- delivery is the read". Not one was
+# cleared by an actual Read. Seven to nine blocked-and-retried commands per
+# hour, each injecting up to _INLINE_MAX_CHARS.
+#
+# ``has_pending`` was built to prevent exactly this and says so: "at most one
+# requirement per gate is ever live." It still runs, still returns the right
+# answer, and no longer throttles anything -- because delivery now clears the
+# requirement inside the same fire, so by the next turn there is nothing
+# pending and the surface arms a fresh match.
+#
+# Two correct changes made a defect neither of them contains. Inlining (08-16)
+# removed the cost of fetching. Delivery-is-the-read (08-17) removed the
+# redundant Read demand. Both right; together they turned a once-per-gate
+# blocker into a per-turn one, and the guard against that outcome was already
+# in the file, still passing its tests, guarding nothing.
+#
+# So the throttle has to survive the clear, which means living somewhere other
+# than the pending list. Keyed on the GATE, not the path: the existing
+# same-path guard (_record_rearm_after_read) never fired here because 86
+# distinct paths in a day means the path is different every time.
+#
+# 20 minutes is a starting value, not a measured one. It takes the observed
+# 7-9/hour to roughly 3/hour -- still often enough that prior writing surfaces
+# repeatedly in a working session, quiet enough that it is not attached to
+# every other command. If the clear-log shows the reads getting skimmier as
+# they get rarer, this is the number to move.
+GATE_COOLDOWN_SECONDS = 20 * 60
+
 
 @dataclass
 class ReadRequirement:
@@ -209,6 +241,49 @@ def _record_rearm_after_read(gate_id: str, path: str) -> bool:
         return False
 
 
+COOLDOWN_FILE = STATE_DIR / "read_gate_cooldown.json"
+
+
+def _record_delivery(gate_id: str) -> None:
+    """Stamp when a gate last handed over a file in full.
+
+    Separate from the pending list on purpose: the pending list is emptied by
+    the delivery, and a throttle stored inside the thing the event deletes is
+    the defect this closes. Fails silent -- a throttle that cannot write must
+    degrade to the old always-arm behaviour, never to a block.
+    """
+    try:
+        data: dict[str, float] = {}
+        if COOLDOWN_FILE.exists():
+            raw = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                data = {str(k): float(v) for k, v in raw.items()}
+        data[gate_id] = time.time()
+        COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        COOLDOWN_FILE.write_text(json.dumps(data), encoding="utf-8")
+    except (OSError, ValueError, TypeError):
+        pass
+
+
+def cooldown_remaining(gate_id: str) -> float:
+    """Seconds left before ``gate_id`` may arm again. 0.0 when it may.
+
+    Reads as fail-open: any unreadable or malformed state returns 0.0, so a
+    corrupt file makes the gate MORE willing to fire rather than less. A
+    throttle that could jam itself shut would be a wall, which is the one thing
+    this module promises it is not.
+    """
+    try:
+        raw = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
+        last = float(raw[gate_id]) if isinstance(raw, dict) and gate_id in raw else 0.0
+    except (OSError, ValueError, TypeError, KeyError):
+        return 0.0
+    elapsed = time.time() - last
+    if elapsed < 0:  # clock moved backwards; treat as expired rather than trust it
+        return 0.0
+    return max(0.0, GATE_COOLDOWN_SECONDS - elapsed)
+
+
 def is_pytest_scratch(target: Path) -> bool:
     """True when a path lives in pytest's temp tree.
 
@@ -258,6 +333,14 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     # gets one cheap guard rather than slow erosion.
     if is_pytest_scratch(target):
         return False, f"pytest scratch, not registering: {path}"
+
+    # The gate is quiet for a while after it delivered. Checked BEFORE the
+    # already-pending test because it is the broader condition: the pending
+    # list is empty by construction at this point in the cycle, which is
+    # precisely why the pending-based throttle stopped working.
+    waiting = cooldown_remaining(gate_id)
+    if waiting > 0:
+        return False, f"gate cooling down, {int(waiting)}s left, not registering: {path}"
 
     reqs = _load()
     if any(r.gate_id == gate_id and r.path == str(target) for r in reqs):
@@ -569,6 +652,9 @@ def _mark_satisfied(path_str: str, extent: str) -> list[str]:
         if rp == wanted or (tail and Path(req.path).name == tail):
             cleared.append(req.gate_id)
             record_clear(req.gate_id, req.path, extent)
+            # Start the quiet period HERE, at the delivery that empties the
+            # pending list, so the throttle outlives the thing it throttles.
+            _record_delivery(req.gate_id)
         else:
             remaining.append(req)
     if cleared:

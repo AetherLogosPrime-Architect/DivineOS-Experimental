@@ -32,6 +32,30 @@
 
 INPUT=$(cat)
 
+# FAST BAIL. Measured 2026-08-20, after Andrew narrowed the freezing to tool
+# use: 20 PreToolUse hooks fire on EVERY Bash call at ~0.65s each -- 12.9s
+# before the command even starts, and this one was the most expensive at
+# 1.01s. A read-gate fire doubles it, because the command is blocked and
+# retried. That is the freeze he sat and watched. Nothing hangs; it is twenty
+# medium costs in series.
+#
+# The order was backwards. Each gate sourced two libraries, ran git
+# rev-parse, started Python and imported divineos, and only THEN looked at
+# the command to find out it was irrelevant. `echo hi` cannot be a push, and
+# it paid a full second to discover that.
+#
+# Safe by construction rather than by judgement: the real matcher is anchored
+# on `git push` (core/push_detection.py), so any command it could ever fire
+# on MUST contain the substring "push". Bailing when "push" is absent cannot
+# produce a false negative -- it only skips work already guaranteed to be
+# wasted. Deliberately a dumb substring and not a cleverer pattern: every
+# narrowing here is a chance to silently disarm the gate, and the anchored
+# matcher below must stay the only thing making real decisions.
+case "$INPUT" in
+    *push*) ;;
+    *) exit 0 ;;
+esac
+
 # remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
 if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
   # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
