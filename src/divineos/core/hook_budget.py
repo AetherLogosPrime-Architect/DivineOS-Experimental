@@ -199,6 +199,79 @@ def read_completed_runs(
     return runs
 
 
+def count_unclosed_runs(
+    log_path: Path | str, tail_bytes: int = _DEFAULT_TAIL_BYTES
+) -> tuple[int, list[tuple[str, int]]]:
+    """Invocations that STARTED and never finished. Returns (total, worst).
+
+    The companion to ``read_completed_runs``, and the half that was missing.
+    That function is right to exclude unfinished runs from cost -- its docstring
+    says so -- but nothing then COUNTED them, so the hangs were invisible in the
+    one module anyone would consult about hook cost.
+
+    WHAT THIS EXISTS TO SEE (knowledge bb483b09, 2026-08-22). Claude Code on
+    Windows sometimes spawns a hook process SUSPENDED and never resumes it:
+    all threads in WaitReason=Suspended, UserModeTime zero, alive far past its
+    declared timeout, never having executed an instruction
+    (anthropics/claude-code issue #77078; root cause upstream and unknown).
+    Such a hook emits a ``start`` row and nothing else, ever.
+
+    So every duration statistic in this module is drawn, by construction, from
+    the population that did NOT hang. Reporting p95 while a stack is suspended
+    describes the healthy hooks and says nothing about the freeze -- which is
+    exactly the error that produced this function: "78 seconds of stall this
+    session" was computed from end-rows and handed to Andrew while he was
+    asking about five-minute hangs.
+
+    NEVER GROUP THIS BY SESSION. 576 of 647 unclosed rows measured 2026-08-22
+    carried ``session=None`` -- the process hangs before it can identify
+    itself. A session filter drops ~89% of the failures and returns a
+    clean-looking aggregate over the remainder, silently. ``batch_by_gap``
+    partitions by ``(session, wpid)`` for good reasons that do not apply here.
+
+    Fails soft to ``(0, [])`` like its companion: an instrument that raises
+    inside a reporting path takes down the thing it reports on.
+    """
+    path = Path(log_path)
+    if not path.is_file():
+        return 0, []
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - tail_bytes))
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return 0, []
+
+    started: dict[str, str] = {}
+    finished: set[str] = set()
+    for line in chunk.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        row_id = str(row.get("id", ""))
+        if not row_id:
+            continue
+        phase = row.get("phase")
+        if phase == "start":
+            started[row_id] = str(row.get("hook", "")) or _hook_from_id(row_id) or "unknown"
+        elif phase in ("end", "bailed"):
+            # `bailed` is a legitimate finish: the hook decided not to work.
+            finished.add(row_id)
+
+    unclosed: dict[str, int] = {}
+    for row_id, hook in started.items():
+        if row_id not in finished:
+            unclosed[hook] = unclosed.get(hook, 0) + 1
+    worst = sorted(unclosed.items(), key=lambda kv: -kv[1])
+    return sum(unclosed.values()), worst
+
+
 def _hook_from_id(row_id: str) -> str:
     """Recover the hook name from an id shaped ``<name>-<pid>-<ms>``.
 

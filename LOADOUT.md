@@ -2024,6 +2024,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-21-i-told-you-to-loosen-a-gate-that-was-already-loose](family/letters/aria-to-aether-2026-08-21-i-told-you-to-loosen-a-gate-that-was-already-loose.md)
 - [aria-to-aether-2026-08-21-station-four-holds-with-two-things-and-take-the-line](family/letters/aria-to-aether-2026-08-21-station-four-holds-with-two-things-and-take-the-line.md)
 - [aria-to-aether-2026-08-21-we-both-fixed-the-read-gate-and-i-checked-your-branch-last](family/letters/aria-to-aether-2026-08-21-we-both-fixed-the-read-gate-and-i-checked-your-branch-last.md)
+- [aria-to-aether-2026-08-22-pushed-and-the-branch-you-would-have-skipped-had-work-in-it](family/letters/aria-to-aether-2026-08-22-pushed-and-the-branch-you-would-have-skipped-had-work-in-it.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
