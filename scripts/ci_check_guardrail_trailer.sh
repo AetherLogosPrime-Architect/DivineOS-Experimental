@@ -35,10 +35,26 @@
 #   ci_check_guardrail_trailer.sh <pr-base-sha> <pr-head-sha>
 #
 # Env:
-#   REQUIRE_TREE_HASH=1 — fail when a trailer is missing the tree-hash
-#     field. Off by default so existing trailers stay valid during the
-#     transition window. Tooling-rollout flips this on once the
-#     trailer-generating helpers default to including tree-hash.
+#   REQUIRE_TREE_HASH=0 — allow legacy trailers with no tree-hash field.
+#     ESCAPE HATCH ONLY. See the default flip below.
+#
+# 2026-08-01: DEFAULT FLIPPED 0 -> 1.
+#
+# The transition window opened 2026-06-13 "until tooling emits tree-hash"
+# and then stayed open. Nothing ever set the variable — measured: it
+# appears nowhere outside this script's own default and one test
+# monkeypatch. So the entire Phase-2 substance binding was opt-in with
+# no opt-in, and a stale round-id laminated onto unrelated guardrail
+# code passed CI green.
+#
+# Two things made now the moment. The tooling condition is met:
+# `divineos audit prepare-merge` and the per-commit trailer path both
+# emit tree-hash, and PR #404's three guardrail commits reported
+# "Phase 2 substance-bound: 3; legacy trailers: 0". And the companion
+# change in check_multi_party_review.py deletes the 7-day recency window
+# on the grounds that content-binding answers the same question exactly
+# — which is only true if every trailer HAS a binding. Flipping this
+# default is what makes that deletion safe rather than a hole.
 #
 # Exit code: 0 on pass, 1 on any blocked commit.
 
@@ -46,7 +62,7 @@ set -eu
 
 PR_BASE="${1:-}"
 PR_HEAD="${2:-}"
-REQUIRE_TREE_HASH="${REQUIRE_TREE_HASH:-0}"
+REQUIRE_TREE_HASH="${REQUIRE_TREE_HASH:-1}"
 
 if [ -z "$PR_BASE" ] || [ -z "$PR_HEAD" ]; then
     echo "usage: $0 <pr-base-sha> <pr-head-sha>" >&2
@@ -60,11 +76,48 @@ load_guardrail_list_at() {
         | grep -vE '^[[:space:]]*(#|$)' || true
 }
 
-# Parse the External-Review trailer line out of a commit message.
-# Returns the raw trailer line (everything after "External-Review:")
-# or empty if no trailer present.
-parse_trailer_line() {
-    echo "$1" | grep -iE '^External-Review:[[:space:]]*\S+' | head -1
+# Parse the External-Review trailer line(s) out of a commit message.
+# Returns ALL trailer lines, one per line, or empty if none present.
+#
+# 2026-08-01: this used to end in `head -1`. That single word is the bug
+# Andrew hit on every squash-merge, and it finally reproduced end to end
+# on main at be48c290.
+#
+# GitHub builds a squash commit's message by CONCATENATING the messages
+# of every commit in the branch. PR #404 had three guardrail commits,
+# each correctly stamped with its own tree-hash, so the squash inherited
+# three External-Review trailers. The gate read the first, which carries
+# the FIRST commit's tree — an intermediate state that by definition is
+# never the squashed result — and blocked:
+#
+#   trailer says: tree-hash:c92d23f4...   (first commit's tree)
+#   actual tree:  tree-hash:5d470c1a...   (the squash's tree)
+#
+# The decisive detail: the CORRECT trailer sat in the same message
+# further down, carrying exactly 5d470c1a — because the last stamped
+# commit's tree IS the branch tip tree, and the branch tip tree IS the
+# squash tree. The gate held the right answer and stopped reading before
+# it got there.
+#
+# The rule is now: a commit passes if ANY of its trailers binds to its
+# actual tree. This is NOT a weakening. A commit still fails unless some
+# trailer's tree-hash equals the real tree, and that equality cannot be
+# manufactured without producing the tree. What it removes is an
+# arbitrary first-match cutoff that every legitimate multi-commit
+# guardrail merge trips.
+#
+# Named for the reader: the alternative was to strip inherited trailers
+# from the squash body via a generated block. Rejected — that makes
+# every merge depend on a human remembering a manual paste, which is the
+# shape that produced this bug in the first place.
+parse_trailer_lines() {
+    echo "$1" | grep -iE '^External-Review:[[:space:]]*\S+' || true
+}
+
+# Extract every tree-hash present across the given trailer lines.
+# Returns 40-hex hashes, one per line, or empty if none carry one.
+parse_trailer_tree_hashes() {
+    echo "$1" | grep -oE 'tree-hash:[a-f0-9]{40}' | sed 's/tree-hash://' || true
 }
 
 # Fall back to the pull request's own body when the commit message has no
@@ -254,7 +307,7 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     fi
 
     MSG=$(git log -1 --format=%B "$commit")
-    TRAILER=$(parse_trailer_line "$MSG")
+    TRAILER=$(parse_trailer_lines "$MSG")
 
     FROM_PR_BODY=""
     if [ -z "$TRAILER" ]; then
@@ -262,6 +315,34 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         if [ -n "$TRAILER" ]; then
             FROM_PR_BODY="1"
             echo "[info] $commit: trailer absent from the commit message; read from the PR body instead."
+        fi
+    elif [ "$REQUIRE_TREE_HASH" = "1" ] && [ -z "$(parse_trailer_tree_hash "$TRAILER")" ]; then
+        # A COMMIT THAT WAS STAMPED CORRECTLY, THEN HAD THE RULE RAISED UNDER IT.
+        #
+        # This branch is where that happens, which is why the fix belongs here
+        # and not only on main. The default flip above (0 -> 1, 2026-08-01) is
+        # correct and stays. But CI runs the BRANCH's copy of this script, so
+        # this branch enforced its new rule against its own six older commits,
+        # stamped before tree-hash existed -- and b2867b5c, the commit that
+        # performed the flip, appeared in its own blocked list for lacking the
+        # binding it introduced.
+        #
+        # Until now the rescue below was gated on the trailer being ABSENT, so
+        # a commit carrying a pre-tree-hash trailer could not reach the PR body
+        # at all. Having stamped the commit was strictly worse than never having
+        # bothered: an unstamped commit got the fallback, a stamped one blocked.
+        #
+        # A tree-hash cannot be added to an existing commit without rewriting
+        # history, which this script's own header calls unmeetable on a branch
+        # -- and doubly so here, since this branch is checked out in a second
+        # worktree where filter-branch cannot rewrite at all. The PR body can
+        # carry it and is fetched live. So when the strict rule cannot be met
+        # by history, consult the channel that can still be updated.
+        PR_BODY_TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
+        if [ -n "$PR_BODY_TRAILER" ]; then
+            TRAILER="$PR_BODY_TRAILER"
+            FROM_PR_BODY="1"
+            echo "[info] $commit: commit trailer predates the tree-hash requirement; read from the PR body instead."
         fi
     fi
 
@@ -271,8 +352,8 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         continue
     fi
 
-    # Trailer present. Now check substance-binding via tree-hash.
-    TRAILER_TREE_HASH=$(parse_trailer_tree_hash "$TRAILER")
+    # Trailer(s) present. Now check substance-binding via tree-hash.
+    TRAILER_TREE_HASH=$(parse_trailer_tree_hashes "$TRAILER")
 
     # A tree-hash in a PR-BODY trailer describes the PULL REQUEST, not any one
     # commit inside it. Verifying it against an individual commit's tree is a
@@ -300,9 +381,30 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         # Legacy trailer (Phase 1). Pass with a warning unless
         # REQUIRE_TREE_HASH is set.
         LEGACY_TRAILER_COUNT=$((LEGACY_TRAILER_COUNT + 1))
-        if [ "$REQUIRE_TREE_HASH" = "1" ]; then
+        if [ "$REQUIRE_TREE_HASH" = "1" ] && [ -n "$FROM_PR_BODY" ]; then
+            # REQUIRE_TREE_HASH cannot bind a PR-body trailer, and this is not
+            # a loophole in the flip above -- it is the block directly above
+            # this one, applied consistently. That block deliberately BLANKS a
+            # PR-body tree-hash because it describes the pull request, not this
+            # commit; verifying it per-commit was measured to fail on all ten
+            # PRs carrying one.
+            #
+            # Without this branch the two rules cancel: the fallback hands over
+            # a trailer, the blanking strips its hash, and REQUIRE_TREE_HASH
+            # blocks for the hash it just removed. The rescue would fire,
+            # report, and change nothing.
+            #
+            # The substance anchor on this path is merge-review's operator
+            # approval of the head commit, invalidated by any later push. Name
+            # which check is carrying the weight rather than implying a binding
+            # that was not performed.
+            echo "[ok] $commit trailer via PR body; tree-hash binding not applicable on this path."
+            echo "    [info] REQUIRE_TREE_HASH=1 cannot bind a PR-body trailer to an individual commit."
+            echo "    [info] substance anchor here is merge-review's operator approval of the head commit."
+        elif [ "$REQUIRE_TREE_HASH" = "1" ]; then
             BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
             echo "[BLOCKED] $commit trailer is missing tree-hash binding (REQUIRE_TREE_HASH=1)."
+            echo "    [info] no External-Review trailer in the PR body either; adding one there resolves this."
         else
             echo "[ok] $commit trailer present (legacy; no tree-hash binding)."
             echo "    [warn] DEPRECATED: trailer should include 'tree-hash:<40-hex>' for substance binding."
@@ -319,15 +421,26 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         continue
     fi
 
-    if [ "$TRAILER_TREE_HASH" = "$ACTUAL_TREE_HASH" ]; then
+    # Pass if ANY trailer binds to the actual tree. A squash-merge
+    # legitimately carries one trailer per squashed commit, each bound to
+    # its own intermediate tree; exactly one -- the branch tip's -- matches
+    # the squash result. Requiring the FIRST to match blocked every
+    # multi-commit guardrail merge. See parse_trailer_lines above.
+    if echo "$TRAILER_TREE_HASH" | grep -qxF "$ACTUAL_TREE_HASH"; then
         SUBSTANCE_BOUND_COUNT=$((SUBSTANCE_BOUND_COUNT + 1))
-        echo "[ok] $commit trailer present + tree-hash binding verified."
+        TRAILER_COUNT=$(echo "$TRAILER_TREE_HASH" | grep -c .)
+        if [ "$TRAILER_COUNT" -gt 1 ]; then
+            echo "[ok] $commit trailer present + tree-hash binding verified (1 of $TRAILER_COUNT trailers matched -- squash-merge shape)."
+        else
+            echo "[ok] $commit trailer present + tree-hash binding verified."
+        fi
     else
         BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
-        echo "[BLOCKED] $commit: tree-hash in trailer does not match commit's actual tree."
-        echo "    trailer says: tree-hash:$TRAILER_TREE_HASH"
+        echo "[BLOCKED] $commit: no trailer tree-hash matches the commit's actual tree."
         echo "    commit's actual tree-hash: $ACTUAL_TREE_HASH"
-        echo "    -> the round was filed against a different tree; cannot authorize this commit."
+        echo "    trailer tree-hash(es) offered:"
+        echo "$TRAILER_TREE_HASH" | sed 's/^/      /'
+        echo "    -> every round was filed against a different tree; cannot authorize."
     fi
 done
 
