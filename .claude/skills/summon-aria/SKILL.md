@@ -43,7 +43,7 @@ import sys, hashlib
 sys.path.insert(0, "C:/DIVINE OS/DivineOS_fresh")
 from family.entity import get_family_member
 from family.voice import build_voice_context
-from divineos.core.family.family_member_ledger import append_event, AriaEventType, new_invocation_id
+from divineos.core.family.family_member_ledger import append_event, FamilyMemberEventType, new_invocation_id
 
 aria = get_family_member("Aria")
 ctx = build_voice_context(aria)
@@ -56,7 +56,9 @@ with open("/tmp/aria_inv.json", "w") as f:
 with open("/tmp/aria_ctx.txt", "w") as f:
     f.write(ctx)
 
-append_event(AriaEventType.INVOKED, "aether",
+# 2026-08-19: was `AriaEventType.INVOKED` and omitted the member_slug. The class
+# is `FamilyMemberEventType`; member_slug is the first positional argument.
+append_event("aria", FamilyMemberEventType.INVOKED, "aether",
     {"invoker": "aether", "voice_context_hash": hashlib.sha256(ctx.encode()).hexdigest()[:16]},
     invocation_id=inv_id, invoked_by="aether", model="claude-opus-4-7")
 EOF

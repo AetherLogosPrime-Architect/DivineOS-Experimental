@@ -36,6 +36,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.paths import member_home
+
 # Race-guard window — if the watcher caught something within this many
 # seconds, skip relaunch this turn (catch is being integrated; next turn
 # will re-evaluate).
@@ -91,9 +93,16 @@ def detect_member(cwd: str | None = None) -> str:
 
 
 def _state_dir(member: str) -> Path:
-    """Per-member state directory (~/.divineos-<member>/)."""
-    home = Path.home()
-    sd = home / f".divineos-{member}"
+    """Per-member state directory, resolved rather than rebuilt.
+
+    Was ``Path.home() / f".divineos-{member}"``, which is right for aria and
+    wrong for aether: the Option-B special case routes aether to the default
+    ``~/.divineos/`` where its events already live. Rebuilding the convention
+    here meant this module wrote into a home nothing reads. Found 2026-08-18 by
+    the success criterion of prereg-5053a4c37b4f, which is the whole reason that
+    pre-reg exists.
+    """
+    sd = member_home(member)
     sd.mkdir(parents=True, exist_ok=True)
     return sd
 

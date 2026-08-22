@@ -59,7 +59,17 @@ def test_should_fire_defers_exhausted_fires_regardless_of_active_work():
 
 
 def test_should_fire_defer_counter_increments_in_reason():
-    _, reason = should_fire(context_pct=0.9, has_active_goal_progress=True, defers_used=1)
+    # Above the threshold RELATIVE TO THE CONSTANT, not a hardcoded 0.9.
+    # This test broke on 2026-08-17 when TRIGGER_THRESHOLD moved 0.82 -> 0.92
+    # (Andrew: start the ritual at 920k so it finishes before the window
+    # fills at 1M). The literal 0.9 had silently meant "above threshold" and
+    # became "below" without the test's intent changing at all — it is about
+    # the defer counter, not about any particular fullness. Deriving from the
+    # constant keeps the intent and removes the rot.
+    from divineos.core.auto_cycle import TRIGGER_THRESHOLD
+
+    above = min(TRIGGER_THRESHOLD + 0.03, 0.99)
+    _, reason = should_fire(context_pct=above, has_active_goal_progress=True, defers_used=1)
     assert "2/3" in reason  # (defers_used + 1) / MAX_DEFERS
 
 
@@ -107,7 +117,7 @@ def test_reset_defer_state_no_file_no_raise(tmp_path, monkeypatch):
 def test_run_phase1_dry_run_records_all_steps_would_run():
     result = run_phase1(context_pct=0.85, dry_run=True)
     assert isinstance(result, Phase1Result)
-    assert set(result.steps.keys()) == {"commit", "extract", "sleep"}
+    assert set(result.steps.keys()) == {"archive", "commit", "extract", "sleep"}
     for step in result.steps.values():
         assert step.ran is False  # dry-run
         assert step.succeeded is True  # would succeed
@@ -138,7 +148,7 @@ def test_write_and_read_handshake_marker_roundtrip(tmp_path, monkeypatch):
     assert payload["cycle_id"] == result.cycle_id
     assert payload["trigger_context_pct"] == 0.85
     assert payload["session_id"] == "test-session"
-    assert set(payload["steps"].keys()) == {"commit", "extract", "sleep"}
+    assert set(payload["steps"].keys()) == {"archive", "commit", "extract", "sleep"}
     # Per Aria's schema-confirm: both optional fields must be present.
     for step in payload["steps"].values():
         assert "duration_sec" in step

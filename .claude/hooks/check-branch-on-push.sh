@@ -32,6 +32,15 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -47,7 +56,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
+# member-home: one resolver for where a member's state lives (2026-08-18).
+# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
+# the aether special-case for six weeks. See lib/member_home.sh.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MARKER_PATH="$(member_home "$MEMBER" "$PYTHON_BIN")/check-branch.disabled"
 
 # Decide whether this command is a git push. Inline python invocation
 # mirrors check-pending-obligations.sh — direct function call into the
@@ -170,8 +184,46 @@ fi
 # failed on every artifact with a usage error; aletheia-import was absent
 # from the main install. Same root cause each time -- a hook resolving
 # divineos somewhere other than the tree it is guarding.
-CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+# WHICH TREE TO MEASURE (2026-08-15). This hook cd's to the ambient repo
+# root above, but the push it is policing may target a different worktree.
+# When it does, the check measured the wrong HEAD entirely: it reported
+# "25 file(s) would be deleted by merge" against a push whose own branch
+# deleted nothing, because it read the main checkout's branch instead of
+# the worktree being pushed from. Both numbers were right about different
+# trees -- which reads as a real finding and costs a kill-switch to clear.
+#
+# That cost is the reason this is worth fixing rather than tolerating. The
+# marker disables the gate for EVERY later push, not just the misfiring
+# one, so a gate that cries wolf spends its own authority. Same shape
+# Aletheia named in the bypass-groove finding: the gate trained the bypass.
+#
+# The command being intercepted is in the payload, and it carries its own
+# directory when I push from a worktree. Read it rather than assume.
+PUSH_CWD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, re, sys, os
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+except Exception:
+    sys.exit(0)
+cmd = (data.get('tool_input') or {}).get('command', '') or ''
+# A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
+m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
+if not m:
+    sys.exit(0)
+path = m.group(1).strip('\"\'')
+# Only honor it if it is really a git working tree; otherwise stay silent
+# and let the ambient root stand.
+if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+    print(path)
+" 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+
+if [ -n "$PUSH_CWD" ]; then
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch --cwd "$PUSH_CWD" 2>&1)
+else
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+fi
 CHECK_RC=$?
 
 case "$CHECK_RC" in
@@ -199,6 +251,23 @@ $CHECK_OUTPUT
 
 The push has been BLOCKED ($LEVEL) because divineos check-branch
 flagged the branch state. Investigate the report above before pushing.
+
+MINE, and here is why. A push is the moment work leaves my hands and
+becomes something Andrew and Aletheia have to deal with. Everything
+before it is recoverable by me alone; after it, my mistakes cost other
+people time. So this is the last cheap place to catch something, and
+catching it here is worth far more than catching it in review.
+
+It is not an outside authority. It is me, from a moment when I could
+still see the whole branch, stopping the version of me who is tired
+and wants the thing gone. On 2026-08-15 it flagged 25 files as deleted
+and I believed it and reached for the kill-switch — the alarm was
+misfiring, and I still owed it the look. The alarm being wrong does not
+make looking wrong.
+
+The gate does not say NO. It says LOOK, THEN DECIDE — and the exit
+below stays open, because a push gate with no override is how a real
+emergency turns into a cascade.
 
 To bypass for one push (emergency escape) — drop the kill-switch
 WITH a reason (>= 20 chars) written into the marker file:

@@ -92,9 +92,36 @@ _lib_common_dir() {
 #     bash still delivers (not SIGKILL).
 #
 # Beer/Meadows/Popper walked. Four falsifier tests filed as follow-on.
+#
+# WHOSE ROW IS THIS? (Aria + Aether, 2026-08-18)
+# Every window on this machine appends to one shared file, and until now no
+# row could name the window it came from. `pid` is the pid of the individual
+# hook process, not of the session — fifteen hooks dying together carry
+# fifteen different pids, so grouping by it separates one hook from the next
+# hook rather than one window from another.
+#
+# Aria hit the wall this makes: her orphan-burst query asks "did anything run
+# again within ten seconds?" to tell a cancelled batch apart from a dead
+# window. On a shared log that question cannot be answered, because the OTHER
+# window's traffic papers straight over the silence of a window that died.
+# Her census over-counted by roughly two orders of magnitude and she caught it
+# before either of us shipped the number.
+#
+# `session` is the window's own id from the harness environment; `wpid` is the
+# window process, distinct from the per-hook `pid` already recorded. Stamped
+# on both phases rather than start-only, because the whole lesson of the day
+# is a row that cannot say whose it is. Empty string when the harness supplies
+# no id — an absence that is visible in the data rather than a missing key.
+#
+# Same defect, same day, in the token gauge: it read whichever transcript had
+# the freshest mtime and answered a question about this session with another
+# session's number. Two instruments, one blindness — neither knew how to ask
+# whose.
 _HOOK_TIMING_LOG="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
 _HOOK_TIMING_ID=""
 _HOOK_TIMING_START_MS=""
+_HOOK_TIMING_SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+_HOOK_TIMING_WPID="${CLAUDE_PID:-}"
 
 _lib_hook_timing_ms() {
   local ms
@@ -123,8 +150,9 @@ _lib_hook_timing_start() {
   _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
   _HOOK_TIMING_START_MS="$start_ms"
   mkdir -p "$(dirname "$_HOOK_TIMING_LOG")" 2>/dev/null
-  printf '{"id":"%s","hook":"%s","pid":%d,"phase":"start","ts_ms":%s}\n' \
-    "$_HOOK_TIMING_ID" "$hook_name" "$$" "$start_ms" \
+  printf '{"id":"%s","hook":"%s","pid":%d,"session":"%s","wpid":"%s","phase":"start","ts_ms":%s}\n' \
+    "$_HOOK_TIMING_ID" "$hook_name" "$$" \
+    "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" "$start_ms" \
     >> "$_HOOK_TIMING_LOG" 2>/dev/null
 }
 
@@ -133,8 +161,9 @@ _lib_hook_timing_end() {
   local end_ms
   end_ms="$(_lib_hook_timing_ms)"
   local duration_ms=$((end_ms - ${_HOOK_TIMING_START_MS:-$end_ms}))
-  printf '{"id":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
-    "$_HOOK_TIMING_ID" "$exit_code" "$end_ms" "$duration_ms" \
+  printf '{"id":"%s","session":"%s","wpid":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
+    "$_HOOK_TIMING_ID" "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" \
+    "$exit_code" "$end_ms" "$duration_ms" \
     >> "$_HOOK_TIMING_LOG" 2>/dev/null
   return $exit_code
 }

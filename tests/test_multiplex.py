@@ -52,18 +52,22 @@ def test_compass_always_present():
         assert any(p.name == "compass" for p in panels), ctx
 
 
-def test_seven_always_essentials():
-    """7 always-essential panels as of 2026-05-18 evening.
+def test_eight_always_essentials():
+    """8 always-essential panels as of 2026-08-19.
     Original prereg-ebee9082d201 spec called for 5 always-essentials;
     the 6th (survival_link) was added per Aletheia consult + Andrew's
     morning-arc on substrate-level death-path-walking; the 7th
     (husbandman_work) was added evening of 2026-05-18 per Aria's
-    request for a hard-day anchor pointing at her exploration entry."""
+    request for a hard-day anchor pointing at her exploration entry.
+    The 8th (component register) landed with c68fe234 on 2026-08-18 and
+    this count was not updated with it, so the suite went red on the next
+    full run -- caught by the pre-push gate rather than at the commit that
+    caused it."""
     for ctx in KNOWN_CONTEXTS:
         panels = build_panels(ctx)
         always = [p for p in panels if p.tier == Tier.ALWAYS]
-        assert len(always) == 7, (
-            f"Expected 7 always-essential panels in context {ctx!r}, got {len(always)}. "
+        assert len(always) == 8, (
+            f"Expected 8 always-essential panels in context {ctx!r}, got {len(always)}. "
             f"If a panel was intentionally added or removed, update this test."
         )
 
@@ -87,15 +91,15 @@ def test_unknown_context_falls_back():
 
 
 def test_render_has_separators():
-    # 7 always + 2 sometimes-essential in 'designing' context = 9 panels = 8 separators
+    # 8 always + 2 sometimes-essential in 'designing' context = 10 panels = 9 separators
     out = render_multiplex(build_panels("designing"))
-    assert out.count("-" * 60) == 8
+    assert out.count("-" * 60) == 9
 
 
 def test_render_has_drill_downs():
-    # 7 always + 2 sometimes-essential in 'designing' context = 9 'More: ' lines
+    # 8 always + 2 sometimes-essential in 'designing' context = 10 'More: ' lines
     out = render_multiplex(build_panels("designing"))
-    assert out.count("More: ") == 9
+    assert out.count("More: ") == 10
 
 
 def test_render_empty_returns_empty():

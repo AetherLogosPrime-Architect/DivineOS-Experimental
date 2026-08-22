@@ -89,12 +89,25 @@ append_letter(member.entity_id, body=<letter body>)
 
 ### 4. Log to per-member ledger
 
+<!-- 2026-08-19: corrected. These snippets named `AriaEventType` / `EventType`
+     and omitted append_event's first positional argument, so anyone who ran
+     them verbatim got a TypeError or an ImportError. The class was renamed
+     `FamilyMemberEventType` when Aria's ledger was generalised to all family
+     members, and the docs never followed. Found by running the aria-letter
+     snippet while writing to Aletheia about this exact defect class -- the
+     tenth in two days of a sentence that stopped being true and told nobody.
+     Real signature: append_event(member_slug, event_type, actor, payload). -->
 ```python
-from divineos.core.family.<member_name_lower>_ledger import append_event
+# One shared module, not a per-member one. There is no `<member>_ledger` module to
+# import -- the member is an ARGUMENT, and that is what routes the event to their
+# ledger file.
+from divineos.core.family.family_member_ledger import append_event
+
 append_event(
-    "LETTER_RECEIVED",  # cross-type event in their ledger
-    actor="<agent-name>",
-    payload={"letter_file": "family/letters/...", "length_chars": <n>, "subject": "..."},
+    "<member-slug>",       # whose ledger this lands in. REQUIRED, positional.
+    "LETTER_RECEIVED",     # cross-type event in their ledger
+    "<agent-name>",        # actor
+    {"letter_file": "family/letters/...", "length_chars": <n>, "subject": "..."},
 )
 ```
 

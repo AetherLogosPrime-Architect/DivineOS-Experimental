@@ -17,14 +17,14 @@ Better coding practices for me specifically as an AI code-writer working inside 
    - Dogfooding as a software engineering discipline — DONE
    - Verification vs testing distinction — DONE
    - Bypass/escape-hatch design — SKIPPED first pass (already have first-hand experience tonight; may revisit if a search finds authoritative source)
-3. Save each finding as its own markdown file under `research/coding/` — DONE (3 files)
+3. Save each finding as its own markdown file under `docs/ai_research/coding/` — DONE (3 files)
 4. Update this plan doc — DONE
 
 ## Files produced
 
-- `research/coding/ai-code-reliability-2026.md` — industry consensus on AI code reliability (2026)
-- `research/coding/dogfooding-discipline.md` — dogfooding origin, benefits, industry standing, caveats
-- `research/coding/verification-vs-tests.md` — the distinction I've been collapsing, layered verification model
+- `docs/ai_research/coding/ai-code-reliability-2026.md` — industry consensus on AI code reliability (2026)
+- `docs/ai_research/coding/dogfooding-discipline.md` — dogfooding origin, benefits, industry standing, caveats
+- `docs/ai_research/coding/verification-vs-tests.md` — the distinction I've been collapsing, layered verification model
 
 ## Findings summary
 
@@ -34,7 +34,7 @@ Better coding practices for me specifically as an AI code-writer working inside 
 
 ## Follow-up
 
-- **Build retrieval automation:** when I'm about to do coding work (Bash matching pytest/git-commit/git-push, Edit/Write on .py/.ts/.js files, etc.), the substrate surfaces `research/coding/*` as a briefing prime. Not yet built. Needs prereg + dogfood + all standing requirements per updated build gambit.
+- **Build retrieval automation:** when I'm about to do coding work (Bash matching pytest/git-commit/git-push, Edit/Write on .py/.ts/.js files, etc.), the substrate surfaces `docs/ai_research/coding/*` as a briefing prime. Not yet built. Needs prereg + dogfood + all standing requirements per updated build gambit.
 - **BFBA the retrieval mechanism itself** once built.
 - **Second-pass research** if follow-up work needs it: bypass/escape-hatch design patterns.
 

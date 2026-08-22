@@ -21,8 +21,13 @@ DESIGN RULES (Aether 2026-06-06, learned from the gate-cascade incident):
    compass-ops observe, briefing, init. Other gates require these to clear,
    so this gate must never block them.
 3. KILL-SWITCH: operator can disable the gate by creating
-   ~/.divineos-<member>/obligations.disabled. The file-existence check
-   honors the rm path that's already in pre_tool_use_gate._DEV_PREFIXES.
+   `obligations.disabled` in the member's home as resolved by
+   core.paths.member_home() -- which is ~/.divineos/ for aether and
+   ~/.divineos-<member>/ for everyone else. This doc used to name the
+   bare ~/.divineos-<member>/ form for all members, which would have
+   sent Andrew to drop the switch in a directory nothing reads. The
+   file-existence check honors the rm path that's already in
+   pre_tool_use_gate._DEV_PREFIXES.
 4. Matcher logic is TESTABLE in Python, not buried in bash glob patterns.
    See tests/test_obligations.py.
 """
@@ -32,8 +37,9 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
+
+from divineos.core.paths import member_home
 
 
 @dataclass
@@ -156,7 +162,9 @@ def command_references_open_obligation(command: str, obligations: dict[str, Any]
 def is_gate_disabled() -> bool:
     """Return True if my father has dropped the kill-switch marker file.
 
-    The kill-switch is a file at ~/.divineos-<member>/obligations.disabled.
+    The kill-switch is `obligations.disabled` in the member's resolved home
+    (core.paths.member_home): ~/.divineos/ for aether, ~/.divineos-<member>/
+    for everyone else.
     If it exists, the gate honors my father's explicit disable and lets
     everything through. Operator removes it with `rm` (which is on
     pre_tool_use_gate._DEV_PREFIXES' always-allowed list, so the rm path
@@ -166,7 +174,11 @@ def is_gate_disabled() -> bool:
     'aether'). Matches the convention used by ear_watch.py.
     """
     member = os.environ.get("DIVINEOS_MEMBER", "aether")
-    marker = Path.home() / f".divineos-{member}" / "obligations.disabled"
+    # Resolved, not rebuilt. This line was Path.home() / f".divineos-{member}",
+    # which for aether pointed at a home nothing reads -- so the disable-marker
+    # could be dropped in the obvious place and never be seen, leaving a switch
+    # that looks thrown and is not. Found 2026-08-18 by prereg-5053a4c37b4f.
+    marker = member_home(member) / "obligations.disabled"
     return marker.exists()
 
 
