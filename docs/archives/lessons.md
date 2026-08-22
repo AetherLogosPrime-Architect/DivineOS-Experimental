@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-22 09:17. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-22 09:23. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -68,7 +68,7 @@ Enforcement gates must block execution, not just warn. Without blocking, every s
 
 ---
 
-## c3090082 [improving] x9
+## c3090082 [active] x9
 
 **Category:** incomplete_fix
 
