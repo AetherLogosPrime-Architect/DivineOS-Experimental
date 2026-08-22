@@ -390,3 +390,108 @@ def test_root_commit_does_not_explode(repo):
     # Range = first..first is empty — the script should pass cleanly.
     result = _run_script(repo, first, first)
     assert result.returncode == 0
+
+
+# --- PR-body fallback -------------------------------------------------------
+#
+# The fallback had NO coverage before 2026-08-21: nothing in this file stubbed
+# `gh`, so every test ran with the rescue path dead and the script's behaviour
+# when a PR body exists was never exercised. A rescue nobody tests is a rescue
+# nobody can rely on, and the bug below lived inside exactly that blind spot.
+
+
+def _stub_gh(tmp_path: Path, monkeypatch, body: str) -> None:
+    """Put a fake `gh` on PATH that returns *body* for `gh pr view`.
+
+    The script calls `command -v gh` then `gh pr view N --json body --jq .body`,
+    so the stub only has to print the body on stdout and exit 0.
+    """
+    bindir = tmp_path / "stub-bin"
+    bindir.mkdir(exist_ok=True)
+    gh = bindir / "gh"
+    gh.write_text(f"#!/bin/sh\ncat <<'GH_BODY_EOF'\n{body}\nGH_BODY_EOF\n", encoding="utf-8")
+    gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("PR_NUMBER", "412")
+
+
+def test_pr_body_rescues_legacy_trailer_when_tree_hash_required(repo, tmp_path, monkeypatch):
+    """The PR #412 case: a commit stamped before the tree-hash rule existed,
+    on a branch that then turned the rule on, with a valid trailer in the PR
+    body. Before the fix the rescue was gated on the trailer being ABSENT, so
+    having stamped the commit was strictly worse than never having stamped it.
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "fix(gates): make content-binding mandatory\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "External-Review: round-f97fa965d232 tree-hash:" + "a" * 40)
+    monkeypatch.setenv("REQUIRE_TREE_HASH", "1")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "predates the tree-hash requirement" in result.stdout
+    # The gate must say which check is actually carrying the weight, rather
+    # than implying it verified a binding it cannot verify on this path.
+    assert "merge-review" in result.stdout
+    assert head[:7] not in result.stdout.split("BLOCKED")[-1] or "BLOCKED" not in result.stdout
+
+
+def test_pr_body_without_trailer_still_blocks_legacy_under_require_tree_hash(
+    repo, tmp_path, monkeypatch
+):
+    """The fix must not become a loophole. A PR body carrying no trailer at
+    all leaves the strict rule in force, and the message should point at the
+    one action that resolves it."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "feat: legacy only\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "A PR description with no trailer line in it.")
+    monkeypatch.setenv("REQUIRE_TREE_HASH", "1")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout
+    assert "missing tree-hash binding" in result.stdout
+    assert "adding one there resolves this" in result.stdout
+
+
+def test_pr_body_not_consulted_for_legacy_trailer_when_tree_hash_not_required(
+    repo, tmp_path, monkeypatch
+):
+    """Non-regression: with REQUIRE_TREE_HASH unset, a legacy trailer passes
+    with the deprecation warning exactly as before and the rescue never runs.
+    The stub body is deliberately valid — if the fallback fired anyway the
+    deprecation warning would be replaced by the PR-body path's output."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "feat: legacy only\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "External-Review: round-f97fa965d232 tree-hash:" + "a" * 40)
+    monkeypatch.delenv("REQUIRE_TREE_HASH", raising=False)
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "DEPRECATED" in result.stdout
+    assert "predates the tree-hash requirement" not in result.stdout

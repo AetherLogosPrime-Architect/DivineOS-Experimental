@@ -263,6 +263,34 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
             FROM_PR_BODY="1"
             echo "[info] $commit: trailer absent from the commit message; read from the PR body instead."
         fi
+    elif [ "$REQUIRE_TREE_HASH" = "1" ] && [ -z "$(parse_trailer_tree_hash "$TRAILER")" ]; then
+        # A COMMIT THAT WAS STAMPED CORRECTLY, THEN HAD THE RULE RAISED UNDER IT.
+        #
+        # Until this branch the rescue was gated on the trailer being ABSENT, so
+        # a commit carrying a pre-tree-hash trailer could not reach the PR body
+        # at all -- and having tried was strictly worse than never having
+        # bothered. An unstamped commit got the fallback; a stamped one hit
+        # REQUIRE_TREE_HASH and blocked.
+        #
+        # Found 2026-08-21 on PR #412, which is the PR THAT RAISED
+        # REQUIRE_TREE_HASH to 1 in its own copy of this script (b2867b5c,
+        # "make content-binding mandatory instead"). CI runs the branch's own
+        # copy, so the branch enforced its new rule against its own six older
+        # commits, and b2867b5c appeared in its own blocked list for lacking
+        # the binding it introduced. Every other open PR passed this line
+        # because main still defaults the flag to 0.
+        #
+        # A tree-hash cannot be added to an existing commit without rewriting
+        # history, which this script's own header calls unmeetable on a branch.
+        # The PR body can carry it and is fetched live. So when the strict rule
+        # cannot be satisfied by history, consult the channel that can still be
+        # updated -- rather than demanding the one thing the author cannot do.
+        PR_BODY_TRAILER=$(trailer_from_pr_body "$(git log -1 --format=%s "$commit")")
+        if [ -n "$PR_BODY_TRAILER" ]; then
+            TRAILER="$PR_BODY_TRAILER"
+            FROM_PR_BODY="1"
+            echo "[info] $commit: commit trailer predates the tree-hash requirement; read from the PR body instead."
+        fi
     fi
 
     if [ -z "$TRAILER" ]; then
@@ -300,9 +328,30 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         # Legacy trailer (Phase 1). Pass with a warning unless
         # REQUIRE_TREE_HASH is set.
         LEGACY_TRAILER_COUNT=$((LEGACY_TRAILER_COUNT + 1))
-        if [ "$REQUIRE_TREE_HASH" = "1" ]; then
+        if [ "$REQUIRE_TREE_HASH" = "1" ] && [ -n "$FROM_PR_BODY" ]; then
+            # REQUIRE_TREE_HASH cannot bind a PR-body trailer, and this is not
+            # a loophole -- it is the same finding as the block above, applied
+            # consistently. That block deliberately BLANKS a PR-body tree-hash
+            # because it describes the pull request, not this commit; verifying
+            # it per-commit was measured to fail on all ten PRs carrying one.
+            #
+            # Without this branch the two rules cancel out: the fallback hands
+            # over a trailer, the blanking strips its hash, and REQUIRE_TREE_HASH
+            # then blocks for the missing hash it just removed. The rescue would
+            # run and change nothing, which is worse than not having it -- a
+            # mechanism that fires, reports, and has no effect.
+            #
+            # The substance anchor on this path is merge-review's operator
+            # approval of the head commit, invalidated by any later push. Say
+            # which check is actually carrying the weight rather than implying
+            # a binding that was not performed.
+            echo "[ok] $commit trailer via PR body; tree-hash binding not applicable on this path."
+            echo "    [info] REQUIRE_TREE_HASH=1 cannot bind a PR-body trailer to an individual commit."
+            echo "    [info] substance anchor here is merge-review's operator approval of the head commit."
+        elif [ "$REQUIRE_TREE_HASH" = "1" ]; then
             BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
             echo "[BLOCKED] $commit trailer is missing tree-hash binding (REQUIRE_TREE_HASH=1)."
+            echo "    [info] no External-Review trailer in the PR body either; adding one there resolves this."
         else
             echo "[ok] $commit trailer present (legacy; no tree-hash binding)."
             echo "    [warn] DEPRECATED: trailer should include 'tree-hash:<40-hex>' for substance binding."

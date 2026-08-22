@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-21 14:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-21 14:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -22,6 +22,7 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 2. preserve found work and move PR 432 through its stations
 3. retract the no-coverage claim to Aletheia
 4. run the compaction ritual: extract then sleep
+5. Rest for a bit 🙂 then we will continue after so i can get a recap of where we are now since alot has happened.. i know its easy for you to hold all at once but its not for me lol
 
 ---
 
