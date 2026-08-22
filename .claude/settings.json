@@ -255,6 +255,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/venv-python-gate.sh",
+            "timeout": 10
           }
         ]
       },

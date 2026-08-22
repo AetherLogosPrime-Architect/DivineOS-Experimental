@@ -373,8 +373,31 @@ def surface_for_context(
         # Checking existence at ARM time rather than at fire time, because a
         # requirement that was satisfiable when written is the only kind worth
         # writing down.
+        #
+        # AND THE TARGET MUST BE INSIDE THE REAL CORPUS. Aria 2026-08-21, blocked
+        # mid-work by
+        #   tmp/pytest/run-35768/popen-gw6/test_surface_fires_only_on_tag0/tagged.md
+        # whose entire body is the word "body". Same class as the 2026-08-14 fire
+        # above and NOT closed by that fix: the existence check passed, because a
+        # background `pytest -n auto` was running and the fixture was still on
+        # disk. The gate then demanded I open a four-line stub as prior writing.
+        #
+        # The mechanism is that tests call this function with root=tmp_path, and
+        # the arm below wrote REAL on-disk gate state pointing into a synthetic
+        # corpus. A test run should not be able to arm a production gate. The
+        # family store has `_allow_test_write` for exactly this and this path had
+        # nothing.
+        #
+        # Containment rather than a pytest-env check, because the true statement
+        # is what should be enforced: this gate exists to point me at MY OWN
+        # writing, so a target outside the exploration corpus is wrong no matter
+        # who produced it. A surface that offers me a fixture as my own work
+        # spends the credibility the gate runs on.
         top = tagged[0]
-        if not read_gate.has_pending("prior-writing") and Path(top.path).exists():
+        top_path = Path(top.path).resolve()
+        real_root = _find_exploration_root()
+        inside_corpus = real_root is not None and real_root.resolve() in top_path.parents
+        if inside_corpus and not read_gate.has_pending("prior-writing") and top_path.exists():
             read_gate.require_read(
                 "prior-writing",
                 str(top.path),
