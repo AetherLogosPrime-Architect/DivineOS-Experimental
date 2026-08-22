@@ -83,6 +83,20 @@ printf '%s' "$CMD" | grep -q 'divineos' || exit 0
 # inspection contains the STRING "$PYTHON_BIN", which must not expand here.
 printf '%s' "$CMD" | grep -qE '\.venv/|\.venv\\|\$PYTHON_BIN|divineos_wrapper' && exit 0
 
+# PYTEST IS ALREADY ROUTED, AND BLOCKING IT WOULD BE THE WORST KIND OF WRONG.
+#
+# pyproject.toml sets `pythonpath` to force THIS worktree's src/ ahead of any
+# installed copy, for the same reason this gate exists — its own comment says
+# "closes the false-verification" gap. Verified: `python -m pytest` from this
+# repo imports my tree.
+#
+# This exemption is not a softening. It was measured the first time the gate
+# fired: it blocked `python -m pytest`, which is the ONLY way the suite runs
+# here (the sealed venv has no pytest installed). A gate standing in front of
+# the normal way of running tests is the shape that teaches routing-around —
+# truth #11 — and it would have taught it on its first day.
+printf '%s' "$CMD" | grep -qE '(python3?|py) +-m +pytest|(^|[;&|] *)pytest ' && exit 0
+
 # A bare `python` / `python3` word at the start of the command or after a
 # shell separator. Deliberately not matching `/usr/bin/python` or any path.
 printf '%s' "$CMD" | grep -qE '(^|[;&|]|&&|\|\||\$\()[[:space:]]*python3?[[:space:]]' || exit 0

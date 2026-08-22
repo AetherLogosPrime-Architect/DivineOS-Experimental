@@ -113,6 +113,18 @@ class TestStandsAsideWhenAlreadyCorrect:
         """Out of scope on purpose. A gate on every `python` call is noise."""
         assert _run('python -c "print(1 + 1)"') == ""
 
+    def test_pytest_passes(self):
+        """Measured on the gate's first fire: it blocked `python -m pytest`,
+        which is the only way the suite runs here — the sealed venv has no
+        pytest. pyproject's `pythonpath` already forces this worktree's src
+        ahead of any installed copy, so pytest was never the unrouted path.
+        A gate standing in front of the normal way of running tests teaches
+        the routing-around it exists to prevent."""
+        assert _run("python -m pytest tests/test_divineos_thing.py -q") == ""
+
+    def test_bare_pytest_passes(self):
+        assert _run("pytest tests/ -q --tb=short  # divineos suite") == ""
+
     def test_divineos_cli_alone_passes(self):
         assert _run("divineos briefing") == ""
 

@@ -39,6 +39,20 @@ def _point_state_at(tmp_path, monkeypatch):
     monkeypatch.setattr(read_gate, "STATE_FILE", tmp_path / "read_gate_pending.json")
 
 
+def _allow_arming_under_pytest(monkeypatch):
+    """Aether's `claude/corrupted-window-recovery-220ad2` adds an early return
+    when PYTEST_CURRENT_TEST is set — the other half of this fix, written three
+    days before mine and against the same incident. His stops a test run from
+    arming at all; containment stops any caller from arming outside my writing.
+    Both belong.
+
+    The negative control below asserts the gate DOES arm on the real corpus,
+    which his check would defeat. Clearing the variable there keeps the control
+    meaningful whichever of the two lands first — it is a no-op until his does.
+    """
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+
 def test_synthetic_corpus_does_not_arm_the_gate(tmp_path, monkeypatch):
     """A test-supplied root is not my writing. The surface still speaks; the
     gate stays unarmed."""
@@ -64,6 +78,7 @@ def test_real_corpus_still_arms_the_gate(tmp_path, monkeypatch):
     state_dir = tmp_path / "state"
     state_dir.mkdir()
     _point_state_at(state_dir, monkeypatch)
+    _allow_arming_under_pytest(monkeypatch)
 
     real_root = exploration_recall._find_exploration_root()
     assert real_root is not None, "no exploration/ dir found; this control cannot run"
