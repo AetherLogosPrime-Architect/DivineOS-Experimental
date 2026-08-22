@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-22 16:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-22 16:06. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,11 +18,11 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. write to Aria: answer her compact clause and raise the branch-stamping decision on her commits
-2. 432: land Aria's two findings — consume the truncation flag, correct the wiring-contract grounds
-3. clean up the four audit-pile branches so Aletheia audits the tree that actually merges
-4. sync with Aria: answer her push question, the unverified interaction, and the audit-pile shape
-5. write to Aria: answer the anchor question — push, then I measure origin
+1. 432: land Aria's two findings — consume the truncation flag, correct the wiring-contract grounds
+2. clean up the four audit-pile branches so Aletheia audits the tree that actually merges
+3. sync with Aria: answer her push question, the unverified interaction, and the audit-pile shape
+4. write to Aria: answer the anchor question — push, then I measure origin
+5. write to Aria: the measurement output, and stop her filing a bug I already fixed
 
 ---
 

@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (182 rows). **Exported:** 2026-08-22 16:02. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (182 rows). **Exported:** 2026-08-22 16:06. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
