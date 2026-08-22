@@ -58,6 +58,7 @@ remain open as the empirical test of whether this is fuel or decoration.
 from __future__ import annotations
 
 import json
+from divineos.core.operating_loop.transcript_tail import read_tail_records
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,24 +123,36 @@ class ShapeChasingFinding:
 
 
 def _read_transcript_records(transcript_path: Path) -> list[dict]:
-    """Parse the JSONL transcript into record dicts. Identical pattern to
-    addressee_misdirection_detector._read_transcript_records — kept local rather
-    than imported to avoid cross-detector coupling."""
-    records: list[dict] = []
+    """Recent transcript records, bounded.
+
+    This used to carry its own copy of the parse loop under the note "kept
+    local rather than imported to avoid cross-detector coupling". Avoiding
+    coupling by copying is how one correct implementation becomes several
+    drifting ones — the same reasoning produced three separate wrong copies of
+    shell-command parsing elsewhere in this repo (2026-08-18).
+
+    Bounded rather than whole-file because this detector walks newest-first
+    over a fixed window and never needed session history. Measured on a 67 MB
+    transcript: 0.36 s to read it all, 0.02 s to read the tail.
+
+    THE TRUNCATION FLAG IS DELIBERATELY UNUSED HERE, and the reason is a
+    property of what this detector wants rather than an oversight. It compares
+    the last three operator-addressed assistant turns. Those sit at the END of
+    the file, so a window that drops the front cannot drop them: truncation is
+    harmless by construction, not merely unlikely.
+
+    Contrast addressee_misdirection, which asks whether a family invocation
+    happened AT ALL. That evidence can sit arbitrarily far back, so absence
+    inside a window there is genuinely ambiguous and that module consumes the
+    flag by widening the read. Stated explicitly because Aria asked
+    2026-08-21 for either a consumer or a written reason, having found all
+    three callers binding it to an underscore and dropping it -- and a flag
+    left standing with no consumer and no explanation reads as a discipline
+    that stops at the module boundary.
+    """
     if not transcript_path.exists():
-        return records
-    try:
-        with open(transcript_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-    except _SC_ERRORS:
         return []
+    records, _truncated = read_tail_records(transcript_path)
     return records
 
 

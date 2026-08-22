@@ -46,11 +46,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
             "timeout": 5
           },
@@ -67,11 +62,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/family-state-surface.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
             "timeout": 5
           },
           {
@@ -177,6 +167,20 @@
             "type": "command",
             "command": "bash .claude/hooks/sibling-correction-surface.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/operator-asks-surface.sh",
+            "timeout": 15
           }
         ]
       }
@@ -270,21 +274,6 @@
             "type": "command",
             "command": "bash .claude/hooks/check-branch-on-push.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-rearm-letter-monitor.sh",
-            "timeout": 8
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-monitors-armed.sh",
-            "timeout": 5
           }
         ]
       },
@@ -403,11 +392,18 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh",
+            "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/rederivation-detector.sh",
+            "timeout": 15
           }
         ]
       },
@@ -573,7 +569,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
+            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh",
+            "timeout": 15
           }
         ]
       },

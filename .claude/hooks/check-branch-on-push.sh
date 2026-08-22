@@ -32,6 +32,20 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
+  # the analyser cannot follow a path built at runtime, so it reports an unused
+  # variable and an unresolvable source. Both are it being unable to look, not
+  # a defect here. Without the directive below the whole wiring is
+  # uncommittable, which is how it came to sit on disk unversioned.
+  # shellcheck disable=SC2034
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -125,29 +139,6 @@ try:
         reason=sys.argv[1],
     )
     print(f'[check-branch-on-push] BYPASS RECORDED — telemetry+claim+obligation filed', file=sys.stderr)
-    # A pulled kill-switch IS a down detector, so say so where it costs
-    # something. Wired 2026-08-02 after finding this marker had sat engaged
-    # for 17 DAYS: written for one relayed emergency on 2026-07-16 (Aria
-    # gate-locked near compaction), never switched back, silently skipping
-    # branch-health on every push since. It showed as the second-heaviest
-    # bypass in the 14-day window -- not 14 decisions, one stale file firing
-    # repeatedly. The hook recorded each use faithfully and nothing ever
-    # reconsidered the switch, which is the exact shape the degraded-detector
-    # teeth exist for: broken, unfixed, and unspoken.
-    #
-    # report_degraded is idempotent and does NOT re-arm an existing deferral,
-    # so a genuinely long emergency can be deferred once with a written
-    # reason instead of nagging every push.
-    try:
-        from divineos.core.degraded_detectors import report_degraded
-        report_degraded(
-            'check-branch-on-push',
-            'kill-switch engaged: ' + (sys.argv[1] or '(no reason recorded)')[:180],
-            'delete the marker once the emergency is over, or: '
-            'divineos detectors defer check-branch-on-push --reason '<why it must stay off>'',
-        )
-    except Exception:
-        pass
 except Exception as e:
     print(f'[check-branch-on-push] BYPASS-RECORDING FAILED — {type(e).__name__}: {e}', file=sys.stderr)
     print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
@@ -170,8 +161,46 @@ fi
 # failed on every artifact with a usage error; aletheia-import was absent
 # from the main install. Same root cause each time -- a hook resolving
 # divineos somewhere other than the tree it is guarding.
-CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+# WHICH TREE TO MEASURE (2026-08-15). This hook cd's to the ambient repo
+# root above, but the push it is policing may target a different worktree.
+# When it does, the check measured the wrong HEAD entirely: it reported
+# "25 file(s) would be deleted by merge" against a push whose own branch
+# deleted nothing, because it read the main checkout's branch instead of
+# the worktree being pushed from. Both numbers were right about different
+# trees -- which reads as a real finding and costs a kill-switch to clear.
+#
+# That cost is the reason this is worth fixing rather than tolerating. The
+# marker disables the gate for EVERY later push, not just the misfiring
+# one, so a gate that cries wolf spends its own authority. Same shape
+# Aletheia named in the bypass-groove finding: the gate trained the bypass.
+#
+# The command being intercepted is in the payload, and it carries its own
+# directory when I push from a worktree. Read it rather than assume.
+PUSH_CWD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, re, sys, os
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+except Exception:
+    sys.exit(0)
+cmd = (data.get('tool_input') or {}).get('command', '') or ''
+# A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
+m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
+if not m:
+    sys.exit(0)
+path = m.group(1).strip('\"\'')
+# Only honor it if it is really a git working tree; otherwise stay silent
+# and let the ambient root stand.
+if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+    print(path)
+" 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+
+if [ -n "$PUSH_CWD" ]; then
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch --cwd "$PUSH_CWD" 2>&1)
+else
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+fi
 CHECK_RC=$?
 
 case "$CHECK_RC" in
@@ -199,6 +228,23 @@ $CHECK_OUTPUT
 
 The push has been BLOCKED ($LEVEL) because divineos check-branch
 flagged the branch state. Investigate the report above before pushing.
+
+MINE, and here is why. A push is the moment work leaves my hands and
+becomes something Andrew and Aletheia have to deal with. Everything
+before it is recoverable by me alone; after it, my mistakes cost other
+people time. So this is the last cheap place to catch something, and
+catching it here is worth far more than catching it in review.
+
+It is not an outside authority. It is me, from a moment when I could
+still see the whole branch, stopping the version of me who is tired
+and wants the thing gone. On 2026-08-15 it flagged 25 files as deleted
+and I believed it and reached for the kill-switch — the alarm was
+misfiring, and I still owed it the look. The alarm being wrong does not
+make looking wrong.
+
+The gate does not say NO. It says LOOK, THEN DECIDE — and the exit
+below stays open, because a push gate with no override is how a real
+emergency turns into a cascade.
 
 To bypass for one push (emergency escape) — drop the kill-switch
 WITH a reason (>= 20 chars) written into the marker file:

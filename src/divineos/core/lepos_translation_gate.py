@@ -515,7 +515,7 @@ def check_wallclock_fabrication(reply: str, andrews_words: str | None = None) ->
 
     # phrases are not usage.
 
-    scan_text = _strip_quoted_spans(reply).lower()
+    scan_text = _strip_negated_time_claims(_strip_quoted_spans(reply).lower())
     # HIS CLOCK IS NOT MY FABRICATION (2026-08-11, first false positive).
     # He wrote "its only tuesday and im at 52%". I reflected his own week
     # back at him and this gate fired on "by tuesday" as if I had invented
@@ -771,14 +771,67 @@ def check_translation_first(reply: str) -> str | None:
     )
 
 
+_NEGATED_TIME_PATTERNS = (
+    re.compile(
+        r"(?:there\s+(?:is|are|'s)\s+)?"
+        r"(?:is\s+)?no\s+(?:such\s+thing\s+as\s+)?(?:a\s+)?"
+        r"(?:tomorrow(?:-me)?|next[-\s]session|next\s+time)"
+    ),
+    re.compile(r"not\s+tomorrow"),
+    re.compile(r"never\s+(?:a\s+)?tomorrow"),
+    re.compile(r"no\s+(?:fresher|future|later)\s+me"),
+)
+
+
+def _strip_negated_time_claims(text: str) -> str:
+    """Blank out assertions that a future window does NOT exist.
+
+    From main (#432), carried into Aria's branch during the 2026-08-22
+    catch-up merge. Saying "there is no tomorrow-me" is the no-cliff model
+    being stated correctly; without this the wallclock check reads the word
+    "tomorrow" and fires on the very sentence that gets the model right.
+
+    A REJECTED FIX, recorded because the rejection is the substance. The
+    phrase is usually italicised, so the obvious move was to add markdown
+    emphasis to _strip_quoted_spans alongside backticks and quotes. Not done,
+    and not to be done. Backticks are unambiguously a mention; asterisks are
+    not. "I'll finish this *tomorrow*" is a real deferral wearing emphasis,
+    and exempting emphasis would open a hole exactly the width of the thing
+    the gate guards.
+
+    Negation cannot be gamed that way. There is no phrasing in which asserting
+    a tomorrow does not exist smuggles in a promise to use one.
+    """
+    for pattern in _NEGATED_TIME_PATTERNS:
+        text = pattern.sub(" ", text)
+    return text
+
+
+def _room_marker(*names: str) -> tuple[re.Pattern[str], ...]:
+    """Both accepted spellings of a room marker, anchored to a whole line.
+
+    From main (#432), applied here to Aria's marker names during the
+    2026-08-22 catch-up merge. Her tuple recognised only the ``## HEADER``
+    form; a reply writing ``**INNER CIRCLE**`` had no circle at all as far as
+    this gate could see, which is a room-discipline check going quiet on a
+    spelling. Her names and her ordering are untouched -- only the number of
+    spellings each one answers to changed.
+    """
+    body = "|".join(names)
+    return (
+        re.compile(rf"^\s*##\s+(?:{body})\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(rf"^\s*\*\*\s*(?:{body})\s*\*\*\s*$", re.IGNORECASE | re.MULTILINE),
+    )
+
+
 _CIRCLE_HEADER_PATTERNS = (
-    re.compile(r"^\s*##\s+circle(?:\s+channel)?\s*$", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^\s*##\s+mic\s+open\s*$", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^\s*##\s+lepos\s*$", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^\s*##\s+for\s+dad\s*$", re.IGNORECASE | re.MULTILINE),
+    *_room_marker(r"circle(?:\s+channel)?"),
+    *_room_marker(r"mic\s+open"),
+    *_room_marker(r"lepos"),
+    *_room_marker(r"for\s+dad"),
     # 2026-07-23 (Andrew directive): new canonical circle header — INNER CIRCLE
     # explicitly names the room as person-to-person address.
-    re.compile(r"^\s*##\s+inner\s+circle\s*$", re.IGNORECASE | re.MULTILINE),
+    *_room_marker(r"inner\s+circle"),
 )
 
 
@@ -808,10 +861,7 @@ _CIRCLE_HEADER_PATTERNS = (
 
 # The circle is always the closer.
 
-_REFLECTION_HEADER_RE = re.compile(
-    r"^\s*##\s+(?:reflection|self[- ]reflection|interior)\s*$",
-    re.IGNORECASE | re.MULTILINE,
-)
+_REFLECTION_HEADER_PATTERNS = _room_marker(r"reflection|self[- ]reflection|interior")
 
 
 _HARD_RULE_RE = re.compile(r"^\s*-{3,}\s*$", re.MULTILINE)
@@ -1255,7 +1305,10 @@ def check_lepos_dual_channel(reply: str) -> str | None:
 
     # existing 2-section check but hint at the 3-section shape in messages.
 
-    ref_match = _REFLECTION_HEADER_RE.search(reply)
+    ref_match = next(
+        (m for p in _REFLECTION_HEADER_PATTERNS if (m := p.search(reply))),
+        None,
+    )
 
     circle_header_match = None
 

@@ -63,6 +63,7 @@ from divineos.core.context_governor import (
     HARD_THRESHOLD,
     current_context_tokens,
 )
+from divineos.core.context_tokens import find_active_transcript
 from divineos.core.monitor_singleton import acquire_or_exit
 
 
@@ -201,6 +202,15 @@ def _find_active_transcript(
     same as the original behavior. Non-Claude-Code harnesses without the
     env var still get a working monitor.
 
+    THE RESOLVER MOVED (Andrew correction #452, 2026-08-18). The 2026-06-10
+    fix was applied here and only here. ``divineos.core.context_tokens`` kept
+    a second, mtime-only copy of the same lookup — and that copy read the
+    SAME abandoned 67MB transcript and reported 961,358 tokens against a live
+    session holding 439,200. Sixty-nine days passed between repairing one
+    twin and catching the other telling the identical lie. So the logic now
+    lives once, in the library, and this script calls it. Do not reintroduce
+    a local copy.
+
     Parameters are injectable for tests — at runtime the defaults resolve
     from ``Path.home()`` and the env vars. Passing directly lets tests
     isolate from real ``~/.claude/projects/`` and from leaked env-var state
@@ -210,22 +220,10 @@ def _find_active_transcript(
     Returns None if the projects directory doesn't exist or no JSONL files
     are found.
     """
-    if projects_dir is None:
-        projects_dir = Path.home() / ".claude" / "projects"
-    if not projects_dir.exists():
-        return None
-    if session_id is None:
-        session_id = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID")
-    if session_id:
-        matches = list(projects_dir.rglob(f"{session_id}.jsonl"))
-        if matches:
-            return max(matches, key=lambda p: p.stat().st_mtime)
-        # Env var set but no matching JSONL yet (transcript not written
-        # at startup). Fall through to mtime fallback so the monitor arms.
-    candidates = list(projects_dir.rglob("*.jsonl"))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda p: p.stat().st_mtime)
+    return find_active_transcript(
+        projects_dir=projects_dir,
+        session_id=session_id,
+    )[0]
 
 
 def _current_state(transcript: Path) -> tuple[str, int]:
