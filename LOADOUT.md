@@ -2871,6 +2871,7 @@ Read via CLI; not files to edit by hand.
 - [The build flow](docs/build_flow.md)
 - [The build flow, v2 — DRAFT for council](docs/build_flow_v2_draft_2026-08-05.md)
 - [Gates hit, channels owed](docs/channels_the_gates_named.md)
+- [Why this repository has a wall of red CI badges](docs/ci_red_badge_history_2026-08-01.md)
 - [CLI Architecture — How the 280 Commands Get Registered](docs/cli_architecture.md)
 - [Completion-Check Probe — Initiative Compass That Measures Closure, Not Pace](docs/completion_check.md)
 - [Component register — what has actually been put to the test](docs/component_register.md)

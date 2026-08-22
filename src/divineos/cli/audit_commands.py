@@ -1339,7 +1339,6 @@ def register(cli: click.Group) -> None:
         Phase 3 (deferred): substrate-aware merge tooling that auto-attaches
         when a round is confirmed.
         """
-        import time as _time
 
         from divineos.core.watchmen.store import get_round, list_findings
 
@@ -1401,31 +1400,22 @@ def register(cli: click.Group) -> None:
             )
             raise click.exceptions.Exit(1)
 
-        # Validate recency. Use the same window as the gate (14 days).
-        _RECENCY_DAYS = 14
-        created_at = getattr(rnd, "created_at", None) or getattr(rnd, "timestamp", None) or 0
-        if isinstance(created_at, str):
-            try:
-                # ISO format fallback
-                import datetime as _dt
-
-                created_at = _dt.datetime.fromisoformat(
-                    created_at.replace("Z", "+00:00")
-                ).timestamp()
-            except Exception:  # noqa: BLE001
-                created_at = 0
-        age_days = (_time.time() - float(created_at)) / 86400.0 if created_at else 999.0
-        if age_days > _RECENCY_DAYS:
-            click.secho(
-                f"[!] Round '{round_id}' is {age_days:.1f} days old "
-                f"(recency window is {_RECENCY_DAYS} days).",
-                fg="red",
-            )
-            click.secho(
-                "    Stale rounds cannot authorize a new merge. File a fresh round.",
-                fg="bright_black",
-            )
-            raise click.exceptions.Exit(1)
+        # 2026-08-01: recency check REMOVED here, matching the deletion in
+        # scripts/check_multi_party_review.py.
+        #
+        # This copy said 14 days; the gate that actually blocks said 7. The
+        # comment even claimed "the same window as the gate". So merge-prep
+        # blessed rounds aged 8-14 days and stamped them, and the pre-push
+        # gate then rejected the result — the tooling built to prevent stale
+        # approvals was manufacturing them. Sweep finding rank 3.
+        #
+        # Andrew's rule is that day-windows are the wrong metric class: an
+        # untested week returns almost no data. Here the honest replacement
+        # is not an event count but nothing at all, because the question
+        # ("does this review cover this code?") is answered exactly by the
+        # tree-hash / diff-hash binding the gate already enforces. A round
+        # whose hash matches reviewed precisely this content, whatever its
+        # age; one whose hash does not is blocked regardless.
 
         # All validations pass. Compose the ready-to-paste message.
         focus = getattr(rnd, "focus", "") or ""
@@ -1441,10 +1431,14 @@ def register(cli: click.Group) -> None:
         click.echo()
         click.echo(title)
         click.echo()
+        # This line lands verbatim in the squash-merge commit on main, so it
+        # must not assert a recency window that no longer exists. What the
+        # gate actually verifies is two CONFIRMS from distinct actor types
+        # plus a content binding between the round and the code.
         click.echo(
             f"Reviewed via audit round {round_id} "
-            f"(operator-CONFIRMS + external-AI-CONFIRMS, age {age_days:.1f}d, "
-            f"within {_RECENCY_DAYS}d recency window)."
+            f"(operator-CONFIRMS + external-AI-CONFIRMS, "
+            f"content-bound to the reviewed tree)."
         )
         click.echo()
         # Phase 2 (2026-06-13): include tree-hash suffix so the server-side

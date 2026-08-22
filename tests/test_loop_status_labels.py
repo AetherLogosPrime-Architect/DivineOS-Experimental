@@ -138,7 +138,12 @@ class TestWatchmenLoopStatus:
         assert "drift" in label.lower() or "briefing" in label.lower()
         assert "routing" in label.lower()
         # Names what is still aspirational
-        assert "measuring" in label.lower() or "aspirational" in label.lower()
+        # 2026-08-01: the label now says "Still unmeasured:" rather than
+        # "still measuring". Same intent -- name the piece that is not
+        # yet closed -- so the accepted wording widens rather than the
+        # assertion being weakened or dropped.
+        low = label.lower()
+        assert "measur" in low or "aspirational" in low
 
     def test_label_names_drift_dimensions(self):
         """Readers should see that the surface is operation-based without

@@ -115,7 +115,16 @@ if matched_registry is None:
 # Catches re.compile(r'...'), re.match(r'...'), re.search(r'...'), and
 # bare pattern constants like PATTERN = r'...'. Length filter avoids
 # firing on trivial r'X' literals (like single-char delimiters).
-REGEX_PATTERN_RE = re.compile(r'''r[\"'][^\"']{8,}[\"']''')
+#
+# The inner class EXCLUDES newlines (2026-08-01). Without that exclusion
+# the match spanned source lines, so any identifier ending in the letter
+# r immediately before a closing quote -- the option name --out-dir is the
+# case that caught it twice -- pairs with a quote several lines later and
+# reads as a raw-string literal. Two false fires on that shape (corrections
+# #262, #269) before the span was measured rather than reasoned about.
+# A real raw-string literal does not contain a bare newline, so nothing
+# genuine is lost by refusing to cross one.
+REGEX_PATTERN_RE = re.compile(r'''r[\"'][^\"'\n]{8,}[\"']''')
 
 def count_regex_patterns(text):
     return len(REGEX_PATTERN_RE.findall(text or ''))

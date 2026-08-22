@@ -64,7 +64,16 @@ except Exception:
 
 if decision.blocked:
     print(decision.reason, file=sys.stderr)
-    sys.exit(1)
+    # Exit 2, NOT 1 (fixed 2026-08-01). A PreToolUse hook blocks the tool call
+    # only on exit 2; exit 1 is a non-blocking error — stderr is shown and the
+    # command runs anyway. This gate exited 1 for its whole life, so it had
+    # never once stopped a gh-pr-create. It printed a correct, well-written
+    # refusal into the void and the ready PR opened regardless, which is
+    # exactly what happened on PR #405.
+    #
+    # Every hook in this directory that does successfully block — the
+    # keyword doorman, the verify-before-build signal gate — uses 2.
+    sys.exit(2)
 sys.exit(0)
 "
 exit $?
