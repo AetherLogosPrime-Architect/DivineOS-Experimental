@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-21 14:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-22 09:01. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -178,6 +178,12 @@ F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat
 
 ---
 
+## 1560a463 (access=10)
+
+PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
+
+---
+
 ## d5d322a4 (access=9)
 
 Session had zero corrections and multiple encouragements -- approach was well-calibrated to user needs.
@@ -229,12 +235,6 @@ CONFIRMS: is_fresh() load_bearing bypass + hook holes + template register split 
 ## 72ac37f4 (access=9)
 
 Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed clean, structural discriminators verified). Aletheia audit readout 2026-07-22 (AUDIT_READOUT_2026-07-22_correction-shape-PR.md). A1 VERIFIED CLEAN via git log -S on three distinct strings -- level-11 merge landed all content on main, harvest at docs/identity_anchors/andrew_harvested_2026-07-19.md 156 lines. correction_shape.py genuine structural rewrite. check_wallclock_semantic_source arrived at ablation-discriminator 
-
----
-
-## 1560a463 (access=9)
-
-PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 

@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (180 rows). **Exported:** 2026-08-21 14:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (180 rows). **Exported:** 2026-08-22 09:01. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1540,7 +1540,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** verify_before_build gate — pre-response block that fires when reply contains solution-proposal shape (numbered options, design verbs + article-noun, multi-path framing, design-question shape) AND no substrate-consult tool call occurred this turn (divineos ask/recall, Grep, Glob). Exempts: user-provi
 
@@ -1552,7 +1552,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** bypass_investigation_gate — extends bypass_telemetry.record_bypass to auto-file a pending structural fix (via structural_fix_tracker.record_pending_fix with source_kind='bypass_use') on every bypass event. Adds enforce_bypass_investigation_gate to pipeline_gates.py that reads pending fixes with sour
 
@@ -1564,7 +1564,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [SUCCESS]
 
 **Mechanism:** andrew_past_writing_surface module — single-process Python replacement for the grep-heavy shell hook. All work happens in one Python process; per-file cost bounded by _read_head 4KB cap; shell wrapper adds timeout 8s belt-and-suspenders.
 

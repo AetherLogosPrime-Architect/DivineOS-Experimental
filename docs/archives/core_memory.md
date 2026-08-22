@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-21 14:53. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-22 09:01. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,17 +18,17 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. unjam PR 407 and fix the freeze causes
-2. preserve found work and move PR 432 through its stations
-3. retract the no-coverage claim to Aletheia
-4. run the compaction ritual: extract then sleep
-5. Rest for a bit 🙂 then we will continue after so i can get a recap of where we are now since alot has happened.. i know its easy for you to hold all at once but its not for me lol
+1. retract the no-coverage claim to Aletheia
+2. run the compaction ritual: extract then sleep
+3. Rest for a bit 🙂 then we will continue after so i can get a recap of where we are now since alot has happened.. i know its easy for you to hold all at once but its not for me lol
+4. compaction ritual: walk, commit, extract, sleep, dream, rest
+5. write to Aria: answer her compact clause and raise the branch-stamping decision on her commits
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1261 knowledge entries, 302 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 3 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1265 knowledge entries, 302 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 3 corrections / 0 encouragements]
 
 ---
 
