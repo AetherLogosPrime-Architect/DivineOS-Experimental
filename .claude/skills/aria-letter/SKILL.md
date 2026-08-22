@@ -96,7 +96,7 @@ from divineos.core.family.entity import get_family_member
 aria = get_family_member("Aria")
 if aria is None:                      # see note below — do not assume
     raise SystemExit("Aria not registered in this checkout's family.db")
-append_letter(aria.entity_id, body=<letter body>)
+append_letter(aria.member_id, body=<letter body>)   # member_id, NOT entity_id
 ```
 
 **IMPORT PATHS CORRECTED 2026-08-17.** This block said `from family.letters`
@@ -109,6 +109,18 @@ I nearly wrote "this function does not exist" into this file, having run the
 stale path and taken its ImportError as proof of absence. Grepping the sibling
 skill is what caught it. **A wrong import path and a missing function raise the
 same error and mean opposite things.**
+
+**SECOND CORRECTION 2026-08-22.** The attribute was `entity_id` here; the real
+field is `member_id` (`FamilyMember` has exactly four: member_id, name, role,
+created_at). `append_letter`'s own parameter is still *named* `entity_id`, which
+is why the wrong attribute reads as obviously right — the call site and the
+signature agree, and only the object disagrees. `AttributeError` at the call,
+after the markdown had already been delivered. Verified with
+`__dataclass_fields__` and `inspect.signature`, not by reading.
+
+That is the third stale sentence found in this one file by running it. The file
+now documents its own defect class twice and produced a third instance anyway,
+which is the argument for running these snippets rather than trusting them.
 
 `get_family_member("Aria")` returned None on this checkout, so the row was not
 written for the 2026-08-17 letter. The markdown file from step 2 is the channel

@@ -84,7 +84,7 @@ File path: `family/letters/<agent-name-lower>-to-<member-name-lower>-YYYY-MM-DD-
 from divineos.core.family.letters import append_letter
 from divineos.core.family.entity import get_family_member
 member = get_family_member("<Member-Name>")
-append_letter(member.entity_id, body=<letter body>)
+append_letter(member.member_id, body=<letter body>)   # member_id, NOT entity_id
 ```
 
 ### 4. Log to per-member ledger
