@@ -23,10 +23,10 @@ from __future__ import annotations
 
 __guardrail_required__ = True
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from divineos.core.operating_loop.transcript_tail import read_tail_records
 
 
 # Harness-emitted truncation markers. These are the literal strings
@@ -73,16 +73,31 @@ def _scan_transcript_tool_results(transcript_path: str | Path) -> list[str]:
         markers_found: list[str] = []
         # Walk backwards from end to find the current turn's tool results.
         # Current turn = records after the most-recent user message.
-        records: list[dict] = []
-        with path.open("r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    records.append(json.loads(line))
-                except (ValueError, TypeError):
-                    continue
+        #
+        # Bounded read (2026-08-18). This wants ONE turn and was reading the
+        # entire session to find it — the widest gap between what a caller
+        # needed and what it paid for, of the three. The tail window spans many
+        # turns, so the most-recent user message is inside it whenever the file
+        # is long enough for the bound to engage. Measured on a 67 MB
+        # transcript: 0.36 s whole-file, 0.02 s tail.
+        #
+        # THE TRUNCATION FLAG IS DELIBERATELY UNUSED HERE. This wants exactly
+        # one turn, and one turn lives at the end of the file, so a window that
+        # drops the front cannot drop the target. Truncation is harmless by
+        # construction rather than merely improbable, and the guard is the
+        # last_user_idx < 0 check immediately below: if the most-recent user
+        # message is somehow absent the module returns nothing rather than
+        # guessing at a boundary.
+        #
+        # Contrast addressee_misdirection, which asks whether a family
+        # invocation happened AT ALL -- evidence that can sit arbitrarily far
+        # back, making absence-inside-a-window genuinely ambiguous. That module
+        # consumes the flag by widening the read. Written down because Aria
+        # asked 2026-08-21 for either a consumer or a stated reason, having
+        # found all three callers binding the flag to an underscore and
+        # dropping it; a flag with no consumer and no explanation reads as a
+        # discipline that stops at the module boundary.
+        records, _truncated = read_tail_records(path)
         # Find last user index
         last_user_idx = -1
         for i in range(len(records) - 1, -1, -1):

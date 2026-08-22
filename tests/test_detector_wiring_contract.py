@@ -129,9 +129,29 @@ _CONTEXT_PARAM_NAMES = frozenset(
 # computing the value itself (full detection still runs, just slower).
 # Excluded from wiring-contract enforcement because the failure-mode
 # is performance, not capability loss.
+#
+# 2026-08-21, Aria: THE STATED GROUNDS STOPPED BEING TRUE and the exclusion
+# outlived them. "Falls back to computing the value itself" was accurate while
+# the fallback scanned the whole file. It no longer does. Since the bounded-read
+# change, the fallback computes an index into a TAIL WINDOW, so a caller passing
+# an index computed over the whole transcript would be indexing a different
+# array than the one the detector holds. That is not slower-but-correct; it is a
+# silently wrong offset.
+#
+# NOTHING PASSES IT TODAY -- operating_loop_audit calls detect_misdirection with
+# transcript_path only -- so the trap is armed, not sprung, and no live bug is
+# claimed here. It is kept rather than deleted because shape_chasing declares the
+# same parameter for signature parity and explicitly `del`s it unused; removing
+# the entry would surface that one instead. What is corrected is the REASON, so
+# the exclusion no longer reads as a promise that absence is merely slow.
+#
+# Any future caller that wants to pass this must compute the index against the
+# same window the detector reads, not against the file.
 _OPTIMIZATION_HINT_PARAMS = frozenset(
     {
-        "current_turn_start_idx",  # addressee_misdirection — index shortcut
+        # addressee_misdirection, shape_chasing — index shortcut. Frame-local:
+        # valid only against the detector's own bounded window.
+        "current_turn_start_idx",
     }
 )
 
@@ -312,6 +332,17 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         "registered_names.py": "name registry",
         "savoring_surface.py": "pre-response surfacer",
         "thresholds.py": "constants module",
+        # transcript_tail is the reason this test earned its keep. It landed
+        # 2026-08-03 as "the freeze fix", and the ONLY thing that ever noticed
+        # it had zero callers was this contract failing on it for an unrelated
+        # reason (Aria, 2026-08-09). Nothing was looking for it. It then turned
+        # out never to have reached main either — it survived on two unmerged
+        # branches, one of them a backup. Wired 2026-08-18 into the three
+        # detectors below, which is why this entry now describes a used helper
+        # rather than a dead one. The state is named here on purpose: an
+        # exemption reading "not a detector" and stopping there would have
+        # laundered a dead module into a tidy list.
+        "transcript_tail.py": "bounded transcript reader imported BY detectors (shape_chasing, addressee_misdirection, tool_output_truncation), not itself a detector",
         "turn_extraction.py": "transcript parser, called by audit but not a detector",
         "unknown_unknown_surface.py": "pre-response surfacer",
         # Note: harm_acknowledgment_loop is detector-shaped but lives outside

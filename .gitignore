@@ -28,8 +28,17 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the repo root (2026-08-18). These come from the stock Python
+# template, where they name build artefacts that only ever appear at the top
+# level. Unanchored, `lib/` matches a directory called lib at ANY depth — and
+# it silently swallowed `.claude/hooks/lib/`, so the shared remedy allowlist
+# that keeps sixteen gates' exits open lived on one machine's disk and was
+# never in the repo at all. A fresh clone would have had sixteen gates
+# sourcing a file that does not exist, failing quietly back to the deadlock
+# the file was written to end. Found by a test that could not see the library
+# it was testing.
+/lib/
+/lib64/
 parts/
 sdist/
 var/

@@ -46,6 +46,7 @@ def register(cli: click.Group) -> None:
                         "pct_used": (snap.total_tokens / cap * 100.0) if cap else 0.0,
                         "session_id": snap.session_id,
                         "transcript_path": snap.transcript_path,
+                        "pinned": snap.pinned,
                         "note": snap.note,
                     }
                 )
@@ -64,3 +65,9 @@ def register(cli: click.Group) -> None:
             f"input={snap.input_tokens:,}  "
             f"last_output={snap.output_tokens_last_turn:,}"
         )
+        # Whose number is this? Printed on the same screen as the number
+        # itself, because the 2026-08-18 failure was not a wrong count — it
+        # was a right count belonging to somebody else, read off a display
+        # that gave no hint the question had been answered about a stranger.
+        if not snap.pinned:
+            click.echo(f"  [!] {snap.note}")

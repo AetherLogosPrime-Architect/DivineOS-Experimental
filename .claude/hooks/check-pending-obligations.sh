@@ -33,6 +33,20 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
+  # the analyser cannot follow a path built at runtime, so it reports an unused
+  # variable and an unresolvable source. Both are it being unable to look, not
+  # a defect here. Without the directive below the whole wiring is
+  # uncommittable, which is how it came to sit on disk unversioned.
+  # shellcheck disable=SC2034
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -116,6 +130,21 @@ MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
 
 cat >&2 <<EOF
 $BLOCK_MESSAGE
+
+MINE, and here is why. Every bypass I take files an obligation to go
+find out WHY I needed it — that is the whole retraining loop. Without
+it a bypass costs nothing, and a costless escape becomes the road
+rather than the exit. This gate is the invoice arriving.
+
+It is not an outside authority. It is me, from a moment when I could
+think clearly, refusing to let the version of me who is in a hurry
+spend on credit and never settle up. The gate does not say NO. It
+says PAY FIRST — look at what you owe, close it honestly, continue.
+
+And the kill-switch below is real and it is meant to be there. Andrew
+2026-06-06: a gate with no way out is not safety, it is a cascade
+waiting to happen. Using it when nothing is burning is the sin;
+having it is not.
 
 To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
