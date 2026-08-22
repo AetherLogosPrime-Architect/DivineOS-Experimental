@@ -30,6 +30,7 @@ import json
 from divineos.core.hook_budget import (
     PER_CALL_BUDGET_MS,
     batch_by_gap,
+    count_unclosed_runs,
     read_completed_runs,
     summarise,
 )
@@ -209,3 +210,85 @@ class TestTheVerdict:
         assert report.batches == 0
         assert not report.over_budget
         assert report.hooks_seen == 0
+
+
+class TestHangsMustBeCountable:
+    """The half this module was missing, and the error it produced.
+
+    read_completed_runs correctly excludes unfinished runs from cost — its
+    docstring says why, and test_an_unfinished_run_is_not_counted_as_free
+    pins it. But nothing COUNTED them, so a suspended stack was invisible in
+    the one module anyone consults about hook cost.
+
+    That is not hypothetical. Claude Code on Windows sometimes spawns a hook
+    process suspended and never resumes it — zero CPU, alive past its timeout,
+    never having executed an instruction (anthropics/claude-code #77078).
+    Such a hook emits a start row and nothing else. Measured on the live log
+    2026-08-22: 597 of them. I reported "78 seconds of stall" from end-rows
+    while Andrew was asking about five-minute freezes.
+    """
+
+    @staticmethod
+    def _start_only(hook: str, ts: int, session: str = "s") -> str:
+        ident = f"{hook}-100-{ts}"
+        return _row(
+            id=ident, hook=hook, pid=100, session=session, wpid="w", phase="start", ts_ms=ts
+        )
+
+    def test_a_start_without_an_end_is_counted(self, tmp_path):
+        rows = _pair("fine.sh", 1_000, 200) + [self._start_only("hung.sh", 2_000)]
+
+        total, worst = count_unclosed_runs(_log(tmp_path, rows))
+
+        assert total == 1, "a hook that never finished must be visible"
+        assert worst == [("hung.sh", 1)]
+
+    def test_a_bailed_run_is_a_finish_not_a_hang(self, tmp_path):
+        """A fast-bail is a legitimate ending. Counting it as a hang inflates
+        the number — my own hand-rolled version did exactly that and reported
+        650 where the real figure was 597."""
+        ident = "bailer.sh-100-3000"
+        rows = [
+            _row(
+                id=ident,
+                hook="bailer.sh",
+                pid=100,
+                session="s",
+                wpid="w",
+                phase="start",
+                ts_ms=3_000,
+            ),
+            _row(id=ident, hook="bailer.sh", session="s", wpid="w", phase="bailed", ts_ms=3_001),
+        ]
+
+        total, worst = count_unclosed_runs(_log(tmp_path, rows))
+
+        assert total == 0, "bailed is finished; only start-with-no-ending is a hang"
+        assert worst == []
+
+    def test_rows_with_no_session_are_still_counted(self, tmp_path):
+        """The load-bearing case. 576 of 647 unclosed rows measured on the live
+        log carried session=None — the process hangs before it can identify
+        itself. Any session-keyed grouping drops ~89% of the failures silently,
+        which is precisely how this went unseen for a day."""
+        rows = [
+            _row(id="a.sh-1-10", hook="a.sh", pid=1, phase="start", ts_ms=10),
+            _row(id="b.sh-2-20", hook="b.sh", pid=2, session=None, phase="start", ts_ms=20),
+        ]
+
+        total, worst = count_unclosed_runs(_log(tmp_path, rows))
+
+        assert total == 2, "session-less hangs must count; they are the majority"
+        assert dict(worst) == {"a.sh": 1, "b.sh": 1}
+
+    def test_worst_offenders_are_ranked(self, tmp_path):
+        rows = [self._start_only("noisy.sh", 1_000 + i) for i in range(3)]
+        rows.append(self._start_only("quiet.sh", 5_000))
+
+        total, worst = count_unclosed_runs(_log(tmp_path, rows))
+
+        assert total == 4
+        assert worst[0] == ("noisy.sh", 3)
+
+    def test_missing_log_fails_soft(self, tmp_path):
+        assert count_unclosed_runs(tmp_path / "nope.jsonl") == (0, [])

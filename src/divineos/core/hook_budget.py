@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # Two consecutive hook runs closer than this belong to the same tool call.
@@ -109,10 +109,16 @@ class BudgetReport:
     over_budget_batches: int
     bailed_runs: int
     worst_offenders: list[tuple[str, int]]
+    unclosed_runs: int = 0
+    unclosed_offenders: list[tuple[str, int]] = field(default_factory=list)
 
     @property
     def over_budget(self) -> bool:
         return self.p95_ms > PER_CALL_BUDGET_MS
+
+    @property
+    def has_hangs(self) -> bool:
+        return self.unclosed_runs > 0
 
 
 def read_completed_runs(
@@ -229,6 +235,14 @@ def count_unclosed_runs(
     clean-looking aggregate over the remainder, silently. ``batch_by_gap``
     partitions by ``(session, wpid)`` for good reasons that do not apply here.
 
+    THE COUNT IS SCOPED TO THE TAIL WINDOW and scales with it -- 278 over the
+    default 4MB against 650 over the whole 7.4MB log, same file, same moment.
+    Neither is wrong; a reader comparing two runs at different ``tail_bytes``
+    without knowing that would take a window change for a real change. The
+    truncation is safe in the direction that matters: cutting a ``start`` away
+    from its surviving ``end`` cannot invent a hang, only hide one. The one
+    genuine over-count is a hook still legitimately running at read time.
+
     Fails soft to ``(0, [])`` like its companion: an instrument that raises
     inside a reporting path takes down the thing it reports on.
     """
@@ -321,7 +335,10 @@ def _percentile(values: list[int], fraction: float) -> int:
     return ordered[index]
 
 
-def summarise(batches: list[list[HookRun]]) -> BudgetReport:
+def summarise(
+    batches: list[list[HookRun]],
+    unclosed: tuple[int, list[tuple[str, int]]] = (0, []),
+) -> BudgetReport:
     """Per-call totals plus the hooks contributing most to them.
 
     The offenders are ranked by TOTAL contribution, not by worst single run.
@@ -350,7 +367,26 @@ def summarise(batches: list[list[HookRun]]) -> BudgetReport:
         over_budget_batches=sum(1 for t in totals if t > PER_CALL_BUDGET_MS),
         bailed_runs=bailed_runs,
         worst_offenders=worst,
+        unclosed_runs=unclosed[0],
+        unclosed_offenders=list(unclosed[1]),
     )
+
+
+def analyse(log_path: Path | str, tail_bytes: int = _DEFAULT_TAIL_BYTES) -> BudgetReport:
+    """The whole picture from one call: what finished, and what never did.
+
+    This exists because the two halves came apart once. ``read_completed_runs``
+    drops unfinished runs on purpose -- unknown cost is not zero cost -- but for
+    a day nothing counted the drops, so a stack full of suspended processes read
+    as a stack that was merely slow. I reported 78 seconds of measured stall
+    while Andrew was sitting through five-minute freezes, and the gap was
+    entirely rows my reader was structurally unable to see.
+
+    Callers should reach for this rather than for ``summarise`` directly, so
+    that omitting the hang count stops being something a caller can do.
+    """
+    runs = read_completed_runs(log_path, tail_bytes=tail_bytes)
+    return summarise(batch_by_gap(runs), count_unclosed_runs(log_path, tail_bytes=tail_bytes))
 
 
 def format_report(report: BudgetReport) -> str:
@@ -376,7 +412,21 @@ def format_report(report: BudgetReport) -> str:
     if report.worst_offenders:
         lines += ["", "  biggest contributors (by TOTAL cost, not worst single run):"]
         lines += [f"    {total:>8,} ms  {hook}" for hook, total in report.worst_offenders]
+    if report.unclosed_offenders:
+        lines += ["", "  never finished (start row, no end -- cost unknown, not zero):"]
+        lines += [f"    {count:>8,}     {hook}" for hook, count in report.unclosed_offenders]
     lines += [""]
+    if report.has_hangs:
+        lines += [
+            f"  [!] {report.unclosed_runs:,} HOOK RUNS NEVER FINISHED (within the tail read).",
+            "      None of them appear in any number above; a run with no end row",
+            "      has no duration to sum, so the timings describe only the stack's",
+            "      healthy half. On Windows, Claude Code sometimes spawns a hook",
+            "      process suspended and never resumes it -- zero CPU, alive well",
+            "      past its declared timeout (anthropics/claude-code#77078). That",
+            "      looks exactly like this, and it is felt as a freeze, not as cost.",
+            "",
+        ]
     if report.over_budget:
         lines += [
             f"  [!] OVER BUDGET — p95 is {report.p95_ms:,}ms against a {PER_CALL_BUDGET_MS:,}ms budget.",
