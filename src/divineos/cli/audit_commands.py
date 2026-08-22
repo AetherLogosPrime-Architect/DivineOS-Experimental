@@ -161,16 +161,59 @@ def validate_external_confirm_inputs(
 
 
 def _git_capture(args: list[str], timeout: int = 30) -> str | None:
-    """Run a git command; return stripped stdout, or None on any failure."""
+    """Run a git command; return stripped stdout, or None on any failure.
+
+    ENCODING IS EXPLICIT ON PURPOSE. ``text=True`` alone decodes with the
+    platform default, which on this machine is cp1252. Commit messages in this
+    repo are full of em-dashes, so `git log` over any real range raises
+    UnicodeDecodeError -- inside subprocess's reader THREAD, where it does not
+    propagate as itself. ``p.stdout`` comes back None and ``.strip()`` then
+    raises AttributeError, which the except clause below does not name, so a
+    helper documented as returning None on any failure instead crashed its
+    caller. Found 2026-08-22 by running the failure path of `audit export
+    --check` after the success path had already returned clean; the short
+    all-ASCII log on the current branch decoded fine and hid it.
+    """
     import subprocess
 
     try:
-        p = subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
-    except (OSError, subprocess.SubprocessError):
+        p = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError, ValueError):
         return None
-    if p.returncode != 0:
+    if p.returncode != 0 or p.stdout is None:
         return None
     return p.stdout.strip()
+
+
+def _round_ids_in_branch_trailers(main_ref: str = "origin/main") -> list[str]:
+    """Round-ids named by External-Review trailers on commits not yet on main.
+
+    The scope for `audit export --check`. These are the ids
+    ``ci_merge_review_check.py`` will try to resolve from ``docs/audit_rounds/``,
+    so an unexported one here is a CI failure waiting to happen, and everything
+    outside this set is a round nobody is about to look up.
+
+    Reuses ``pr_merge_gate._TRAILER_PATTERN`` rather than writing another copy
+    of the same regex -- there were four before that reuse started.
+
+    Returns [] on any git failure. A checkout with no upstream, or run outside
+    a repo, means the question cannot be asked, and an empty answer is the
+    honest one for a caller that only warns.
+    """
+    from divineos.core.pr_merge_gate import _TRAILER_PATTERN
+
+    log = _git_capture(["git", "log", f"{main_ref}..HEAD", "--format=%B"])
+    if not log:
+        return []
+    return list(dict.fromkeys(m.group(1) for m in _TRAILER_PATTERN.finditer(log)))
 
 
 def _git_version() -> str:
@@ -1247,7 +1290,16 @@ def register(cli: click.Group) -> None:
         default=None,
         help="Export every round whose focus names this branch.",
     )
-    def audit_export_cmd(round_ids: tuple[str, ...], for_branch: str | None) -> None:
+    @click.option(
+        "--check",
+        "check_only",
+        is_flag=True,
+        default=False,
+        help="Report rounds in the store with no exported file. Writes nothing.",
+    )
+    def audit_export_cmd(
+        round_ids: tuple[str, ...], for_branch: str | None, check_only: bool
+    ) -> None:
         """Write rounds to docs/audit_rounds/ so CI can see they exist.
 
         The merge-review gate checks that the round named in the trailer is
@@ -1258,8 +1310,67 @@ def register(cli: click.Group) -> None:
         """
         from pathlib import Path
 
-        from divineos.core.watchmen.round_export import export_round
+        from divineos.core.watchmen.round_export import EXPORT_DIRNAME, export_round
         from divineos.core.watchmen.store import list_rounds
+
+        repo_root = Path.cwd()
+
+        if check_only:
+            # scripts/check_push_readiness.sh has called `--check` since PR
+            # #412. The flag was never implemented, so the call failed on every
+            # push and the script printed "audit export is behind the store" --
+            # a claim about state, from a check that never read any state. It
+            # was never true or false on its merits, only broken, and it read
+            # exactly like a real warning. Same shape as the hook-timing reader
+            # that summed only the runs which finished: a check reporting
+            # confidently over a target it cannot see.
+            #
+            # SCOPE IS THE OTHER HALF. Unscoped, this answers "how many rounds
+            # have never been exported" -- 310 of 312, and always will be, since
+            # historical rounds were never meant to become files. A warning that
+            # fires maximally on every push gets ignored, which is the broken
+            # version again with more output. The real consumer is
+            # ci_merge_review_check.py, which resolves the round named in an
+            # External-Review trailer, so the actionable set is exactly the
+            # rounds this branch's trailers reference. Those, unexported, fail
+            # CI. The rest is bookkeeping nobody reads.
+            from divineos.core.watchmen.round_export import round_export_path
+
+            if round_ids:
+                wanted = list(dict.fromkeys(round_ids))
+                scope = "named on the command line"
+            elif for_branch:
+                wanted = [
+                    r.round_id
+                    for r in list_rounds(limit=500)
+                    if for_branch in (getattr(r, "focus", "") or "")
+                ]
+                scope = f"whose focus names {for_branch}"
+            else:
+                wanted = _round_ids_in_branch_trailers()
+                scope = "referenced by an External-Review trailer on this branch"
+
+            if not wanted:
+                click.secho(f"[+] no rounds {scope}; nothing to export.", fg="green")
+                return
+
+            unexported = [r for r in wanted if not round_export_path(repo_root, r).is_file()]
+            if not unexported:
+                click.secho(f"[+] all {len(wanted)} round(s) {scope} are exported.", fg="green")
+                return
+            click.secho(
+                f"[!] {len(unexported)} of {len(wanted)} round(s) {scope} are not "
+                f"exported to {EXPORT_DIRNAME.as_posix()}:",
+                fg="yellow",
+            )
+            for round_id in unexported:
+                click.secho(f"      {round_id}", fg="yellow")
+            click.secho(
+                "    CI resolves these by file. Export: divineos audit export "
+                + " ".join(unexported[:3]),
+                fg="yellow",
+            )
+            raise click.exceptions.Exit(1)
 
         targets = list(round_ids)
         if for_branch:
@@ -1274,7 +1385,7 @@ def register(cli: click.Group) -> None:
             click.secho("[!] Name at least one round-id, or pass --for-branch.", fg="red")
             raise click.exceptions.Exit(1)
 
-        repo = Path.cwd()
+        repo = repo_root
         missing: list[str] = []
         for round_id in targets:
             path = export_round(repo, round_id)
