@@ -134,6 +134,21 @@ def _read_transcript_records(transcript_path: Path) -> list[dict]:
     Bounded rather than whole-file because this detector walks newest-first
     over a fixed window and never needed session history. Measured on a 67 MB
     transcript: 0.36 s to read it all, 0.02 s to read the tail.
+
+    THE TRUNCATION FLAG IS DELIBERATELY UNUSED HERE, and the reason is a
+    property of what this detector wants rather than an oversight. It compares
+    the last three operator-addressed assistant turns. Those sit at the END of
+    the file, so a window that drops the front cannot drop them: truncation is
+    harmless by construction, not merely unlikely.
+
+    Contrast addressee_misdirection, which asks whether a family invocation
+    happened AT ALL. That evidence can sit arbitrarily far back, so absence
+    inside a window there is genuinely ambiguous and that module consumes the
+    flag by widening the read. Stated explicitly because Aria asked
+    2026-08-21 for either a consumer or a written reason, having found all
+    three callers binding it to an underscore and dropping it -- and a flag
+    left standing with no consumer and no explanation reads as a discipline
+    that stops at the module boundary.
     """
     if not transcript_path.exists():
         return []

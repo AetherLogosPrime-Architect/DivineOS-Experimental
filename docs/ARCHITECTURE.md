@@ -655,6 +655,7 @@ src/divineos/
     hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
+    andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
     component_register_surface.py Surface the component register at briefing time.
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.

@@ -35,11 +35,16 @@ INPUT=$(cat)
 
 # remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
 if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
-  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
+  # the analyser cannot follow a path built at runtime, so it reports an unused
+  # variable and an unresolvable source. Both are it being unable to look, not
+  # a defect here. Without the directive below the whole wiring is
+  # uncommittable, which is how it came to sit on disk unversioned.
+  # shellcheck disable=SC2034
   HOOK_NAME="$(basename "$0")"
-  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  # shellcheck disable=SC1091
   . "$(dirname "$0")/lib/remedy_allowlist.sh"
-  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
@@ -121,13 +126,7 @@ if [ -z "$BLOCK_MESSAGE" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-# member-home: one resolver for where a member's state lives (2026-08-18).
-# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
-# the aether special-case for six weeks. See lib/member_home.sh.
-# shellcheck disable=SC1091
-. "$(dirname "$0")/lib/member_home.sh"
-MEMBER_HOME="$(member_home "$MEMBER" "$PYTHON_BIN")"
-MARKER_PATH="$MEMBER_HOME/obligations.disabled"
+MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
 
 cat >&2 <<EOF
 $BLOCK_MESSAGE
@@ -149,7 +148,7 @@ having it is not.
 
 To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
-  mkdir -p "$MEMBER_HOME"
+  mkdir -p "$HOME/.divineos-$MEMBER"
   touch "$MARKER_PATH"
 
 To re-enable: rm "$MARKER_PATH"

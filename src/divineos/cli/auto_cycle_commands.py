@@ -46,49 +46,35 @@ def _guess_context_pct() -> float:
     Fixed 2026-07-11 per Andrew's principle: mechanisms are only as
     honest as their sources; touch the truth, not a copy of the truth.
 
-    That 2026-07-11 fix regressed the moment work moved into git
-    worktrees. ``get_context_snapshot`` resolves the transcript from a
-    project directory derived from the ambient path, so from a worktree
-    it opens the MAIN checkout's newest transcript — a real file, a real
-    parse, a total of zero, and ``note='ok'``. Measured 2026-08-16 while
-    the live session sat at 982,595 tokens: the snapshot reported 0 and
-    auto-cycle read 0.0%, exactly the July 10th symptom this docstring
-    was written to close. Third instance that day of one class —
-    a mechanism that resolves its own location by habit and resolves it
-    to the ambient default rather than the live one.
+    Returns 0.0 if snapshot is unavailable — the caller treats that as
+    "below threshold, don't fire." Fail-safe direction matches the
+    old behavior so the change doesn't cause unexpected firing when
+    the snapshot fails.
 
-    ``context_meter.read_latest_context_tokens`` scans transcripts across
-    project directories and takes the freshest, so a worktree session
-    resolves to the worktree session. It is the primary source here; the
-    snapshot stays as fallback because it carries a session id the meter
-    does not.
-
-    Returns -1.0 when NO source can answer. Unknown is not zero: the old
-    code collapsed "could not measure" into "measured, and it's empty,"
-    which is the shape that let this sit dark twice. Callers must render
-    it as unknown rather than as a percentage, and must not fire on it.
+    UNPINNED READINGS ARE REFUSED (Andrew correction #452, 2026-08-18).
+    A snapshot with ``pinned=False`` was resolved by newest-mtime rather
+    than by session id, so it may be another session's number entirely —
+    on 2026-08-18 that path returned 96.1% from a transcript abandoned
+    sixty-nine days earlier. This function's number decides whether the
+    compaction ritual fires, and the ritual is the ONE thing token count
+    is allowed to decide. Spending a stranger's number on it would fire
+    the pipeline mid-work for no reason. Refusing costs at most a missed
+    ritual in a harness that publishes no session id; accepting costs a
+    ritual fired on fiction.
     """
     try:
-        import divineos.analysis.session_discovery as _disc
-        from divineos.core.context_meter import read_latest_context_tokens
-
-        sessions = _disc.find_sessions()
-        if sessions:
-            reading = read_latest_context_tokens(sessions[0])
-            if reading is not None and reading.context_tokens:
-                return float(reading.pct)
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
-
-    try:
         from divineos.core.context_tokens import get_context_snapshot
-
+    except Exception:  # noqa: BLE001 - observability boundary
+        return 0.0
+    try:
         snap = get_context_snapshot()
     except Exception:  # noqa: BLE001 - observability boundary
-        return -1.0
+        return 0.0
+    if not getattr(snap, "pinned", False):
+        return 0.0
     total = getattr(snap, "total_tokens", 0) or 0
     if not total:
-        return -1.0
+        return 0.0
     # 1M-token window is the standard for Claude Opus 4.x; matches the
     # cap divineos context-tokens uses by default.
     return float(total) / 1_000_000.0

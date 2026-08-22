@@ -57,7 +57,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/family-state-surface.sh",
-            "timeout": 15
+            "timeout": 5
           },
           {
             "type": "command",
