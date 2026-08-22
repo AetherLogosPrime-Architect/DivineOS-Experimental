@@ -129,17 +129,25 @@ _REPORT_PATTERNS = [
 ]
 
 
-def _read_transcript_records(transcript_path: Path) -> list[dict]:
-    """Recent transcript records, bounded.
+def _read_transcript_records(transcript_path: Path) -> tuple[list[dict], bool]:
+    """Recent transcript records, bounded. Returns ``(records, truncated)``.
 
     This detector looks for a *recent* Agent tool_use and never needed session
     history, but read the whole file to find it. Measured on a 67 MB
     transcript: 0.36 s to read it all, 0.02 s to read the tail (2026-08-18).
+
+    The truncation flag is RETURNED rather than dropped. It used to be bound to
+    ``_truncated`` and discarded right here, which made this module go quiet in
+    exactly the way the PR it belongs to is named after: no invocation found in
+    the window yields no finding, and that is indistinguishable from no
+    invocation having happened. Aria measured the exposure 2026-08-21 -- 101 of
+    742 transcripts on this disk exceed the 4 MB window, one session in seven --
+    and the bound engages precisely on the long sessions, which are the ones
+    where a family invocation is most likely to have scrolled off the back.
     """
     if not transcript_path.exists():
-        return []
-    records, _truncated = read_tail_records(transcript_path)
-    return records
+        return [], False
+    return read_tail_records(transcript_path)
 
 
 def _has_family_agent_invocation(records: list[dict], member: str, since_idx: int = 0) -> bool:
@@ -267,10 +275,28 @@ def detect_misdirection(
         return []
 
     p = Path(transcript_path)
-    records = _read_transcript_records(p)
+    records, truncated = _read_transcript_records(p)
     if not records:
         return []
 
+    # CONSUME THE TRUNCATION FLAG rather than reporting it.
+    #
+    # A bounded read makes absence ambiguous: no family invocation inside the
+    # window is indistinguishable from no family invocation at all, and the
+    # second is what this detector would silently conclude. On a truncated
+    # view, widen to the whole file before letting that conclusion stand.
+    #
+    # Cost is paid only on the path where it changes an answer: the module
+    # measured 0.36 s for a full 67 MB read against 0.02 s for the tail, and
+    # this re-read fires only when the tail was short AND nothing was found.
+    # A detector that is cheap by declining to look is not cheap, it is quiet.
+    if truncated and not any(_has_family_agent_invocation(records, m) for m in FAMILY_MEMBERS):
+        widened, _ = read_tail_records(p, max_bytes=p.stat().st_size)
+        if widened:
+            records = widened
+
+    # The fallback below computes an index into THIS records list, which is a
+    # window and not the whole transcript. It is frame-local by construction.
     if current_turn_start_idx is None:
         current_turn_start_idx = -1
         for i in range(len(records) - 1, -1, -1):
