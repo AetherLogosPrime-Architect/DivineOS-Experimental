@@ -29,8 +29,10 @@ import json
 
 from divineos.core.hook_budget import (
     PER_CALL_BUDGET_MS,
+    analyse,
     batch_by_gap,
     count_unclosed_runs,
+    format_report,
     read_completed_runs,
     summarise,
 )
@@ -292,3 +294,56 @@ class TestHangsMustBeCountable:
 
     def test_missing_log_fails_soft(self, tmp_path):
         assert count_unclosed_runs(tmp_path / "nope.jsonl") == (0, [])
+
+
+class TestAnalyseKeepsTheHalvesTogether:
+    """The entry point exists so the two halves cannot be used apart.
+
+    Duration statistics come only from runs that finished. Counting the
+    unfinished ones is a separate call. A caller who makes the first and
+    forgets the second gets a confident report about the healthy half of a
+    hanging stack -- which is the error this whole class descends from.
+    """
+
+    def test_a_hang_reaches_the_report_without_the_caller_asking(self, tmp_path):
+        rows = _pair("fine.sh", 1_000, 100) + [
+            _row(id="hung.sh-9-2000", hook="hung.sh", pid=9, phase="start", ts_ms=2_000)
+        ]
+        report = analyse(_log(tmp_path, rows))
+
+        assert report.has_hangs
+        assert report.unclosed_runs == 1
+        assert report.unclosed_offenders == [("hung.sh", 1)]
+
+    def test_the_hang_is_visible_in_the_rendered_text(self, tmp_path):
+        """Present in the dataclass is not the same as present on the page.
+
+        Anyone diagnosing a freeze reads format_report, not the object.
+        """
+        rows = _pair("fine.sh", 1_000, 100) + [
+            _row(id="hung.sh-9-2000", hook="hung.sh", pid=9, phase="start", ts_ms=2_000)
+        ]
+        text = format_report(analyse(_log(tmp_path, rows)))
+
+        assert "NEVER FINISHED" in text
+        assert "hung.sh" in text
+
+    def test_a_clean_log_does_not_cry_hang(self, tmp_path):
+        report = analyse(_log(tmp_path, _pair("fine.sh", 1_000, 100)))
+
+        assert not report.has_hangs
+        assert "NEVER FINISHED" not in format_report(report)
+
+    def test_summarise_still_defaults_to_no_hang_data(self, tmp_path):
+        """The old two-call path must not start reporting hangs it never read.
+
+        Zero-because-unmeasured and zero-because-none are different facts;
+        analyse() is what distinguishes them, and summarise() alone cannot.
+        """
+        rows = _pair("fine.sh", 1_000, 100) + [
+            _row(id="hung.sh-9-2000", hook="hung.sh", pid=9, phase="start", ts_ms=2_000)
+        ]
+        report = summarise(batch_by_gap(read_completed_runs(_log(tmp_path, rows))))
+
+        assert report.unclosed_runs == 0
+        assert not report.has_hangs

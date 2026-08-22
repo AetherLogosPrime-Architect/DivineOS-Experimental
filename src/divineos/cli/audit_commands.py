@@ -1308,12 +1308,12 @@ def register(cli: click.Group) -> None:
         approved what. Exporting puts the round where the gate can read it --
         and in the PR diff, where the operator reads it before approving.
         """
-        from pathlib import Path
-
-        from divineos.core.watchmen.round_export import EXPORT_DIRNAME, export_round
+        from divineos.core.watchmen.export import (
+            DEFAULT_OUT_DIR,
+            exported_round_exists,
+            export_rounds,
+        )
         from divineos.core.watchmen.store import list_rounds
-
-        repo_root = Path.cwd()
 
         if check_only:
             # scripts/check_push_readiness.sh has called `--check` since PR
@@ -1334,8 +1334,6 @@ def register(cli: click.Group) -> None:
             # External-Review trailer, so the actionable set is exactly the
             # rounds this branch's trailers reference. Those, unexported, fail
             # CI. The rest is bookkeeping nobody reads.
-            from divineos.core.watchmen.round_export import round_export_path
-
             if round_ids:
                 wanted = list(dict.fromkeys(round_ids))
                 scope = "named on the command line"
@@ -1354,13 +1352,13 @@ def register(cli: click.Group) -> None:
                 click.secho(f"[+] no rounds {scope}; nothing to export.", fg="green")
                 return
 
-            unexported = [r for r in wanted if not round_export_path(repo_root, r).is_file()]
+            unexported = [r for r in wanted if not exported_round_exists(r)]
             if not unexported:
                 click.secho(f"[+] all {len(wanted)} round(s) {scope} are exported.", fg="green")
                 return
             click.secho(
                 f"[!] {len(unexported)} of {len(wanted)} round(s) {scope} are not "
-                f"exported to {EXPORT_DIRNAME.as_posix()}:",
+                f"exported to {DEFAULT_OUT_DIR}:",
                 fg="yellow",
             )
             for round_id in unexported:
@@ -1385,15 +1383,36 @@ def register(cli: click.Group) -> None:
             click.secho("[!] Name at least one round-id, or pass --for-branch.", fg="red")
             raise click.exceptions.Exit(1)
 
-        repo = repo_root
+        # WRITES THE ARTIFACT CI READS, which until 2026-08-22 it did not.
+        # Two export modules landed together in PR #412: watchmen/export.py
+        # writes <id>.md, watchmen/round_export.py writes <id>.json. The CLI --
+        # the only entry point, the one CLAUDE.md and the merge docs prescribe
+        # -- was wired to the JSON writer, while ci_merge_review_check.py
+        # resolves rounds through exported_round_exists(), which looks for the
+        # markdown. So running the documented remedy produced a file the gate
+        # does not read, and the gate went on reporting the round unverifiable.
+        # On disk when this was found: 276 .md against 2 .json.
+        #
+        # That is the same joint Aria hit in her reach-check doorman hours
+        # earlier -- the remedy was exempted so it could RUN, and running it was
+        # never wired to opening the door. Two properties, one assumed from the
+        # other.
+        from divineos.core.watchmen.store import get_round, list_findings
+
         missing: list[str] = []
+        records = []
+        findings_for: dict[str, list] = {}
         for round_id in targets:
-            path = export_round(repo, round_id)
-            if path is None:
+            record = get_round(round_id)
+            if record is None:
                 missing.append(round_id)
                 click.secho(f"[!] {round_id}: not in the local store; nothing to export.", fg="red")
                 continue
-            click.secho(f"[+] {round_id} -> {path.relative_to(repo)}", fg="green")
+            records.append(record)
+            findings_for[round_id] = list_findings(round_id=round_id, limit=500)
+
+        for path in export_rounds(records, findings_for):
+            click.secho(f"[+] {path.stem} -> {path.as_posix()}", fg="green")
 
         if missing:
             # A partial export that exits 0 would read as "all exported" to

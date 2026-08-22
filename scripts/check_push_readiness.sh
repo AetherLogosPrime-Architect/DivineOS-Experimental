@@ -532,13 +532,33 @@ fi
 # design: a stale export is a bookkeeping lapse, not a corrupt tree, and
 # blocking the push would be the same over-firing this session spent
 # deleting. Loud is the requirement; blocking is not.
+# `--check` was called here from PR #412 onward without ever having been
+# implemented, so this block fired on EVERY push and printed "audit export is
+# behind the store" -- a claim about state, from a check that read no state.
+# It was never true or false on its merits, only broken, and it looked exactly
+# like a real warning. Implemented and scoped 2026-08-22.
+#
+# The distinction the old message erased: COULD NOT RUN is not BEHIND. Exit 1
+# means rounds are genuinely unexported; anything else means the check itself
+# failed and has no standing to report on the store at all.
 if [[ "${DIVINEOS_SKIP_EXPORT_FRESHNESS:-0}" != "1" ]]; then
-    if ! divineos audit export --check >/dev/null 2>&1; then
+    _export_out=$(divineos audit export --check 2>&1)
+    _export_rc=$?
+    if [[ $_export_rc -eq 1 ]]; then
         echo "" >&2
         echo "[push-readiness] WARNING — audit export is behind the store." >&2
-        divineos audit export --check 2>&1 | sed 's/^/[push-readiness]   /' >&2 || true
+        printf '%s
+' "$_export_out" | sed 's/^/[push-readiness]   /' >&2
         echo "[push-readiness]   Pushing anyway; the review for those rounds" >&2
         echo "[push-readiness]   is not readable on GitHub until you export." >&2
+        echo "" >&2
+    elif [[ $_export_rc -ne 0 ]]; then
+        echo "" >&2
+        echo "[push-readiness] NOTE — the export freshness check could not run" >&2
+        echo "[push-readiness]   (exit $_export_rc). This says nothing about" >&2
+        echo "[push-readiness]   whether the export is current." >&2
+        printf '%s
+' "$_export_out" | sed 's/^/[push-readiness]   /' >&2
         echo "" >&2
     fi
 fi

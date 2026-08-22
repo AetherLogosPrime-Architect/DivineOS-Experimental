@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (444 commands across 84 modules)
+  cli/                         CLI package (448 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -53,6 +53,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
@@ -346,7 +347,8 @@ src/divineos/
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
       merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
       shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
-      round_export.py          Exports rounds to docs/audit_rounds/<id>.json so CI can confirm a round exists. merge-review looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
+      export.py                Exports rounds to docs/audit_rounds/<id>.md — THE artifact CI reads. ci_merge_review_check resolves a round via exported_round_exists(); merge-review previously looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
+      round_export.py          UNUSED as of 2026-08-22. Writes <id>.json, which nothing reads. Landed alongside export.py in PR #412 and the CLI was wired to this one by mistake, so `divineos audit export` produced a file the gate ignores while reporting success — 276 .md against 2 .json on disk when found. CLI rewired to export.py; this module is kept only until someone decides whether JSON has a consumer
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
