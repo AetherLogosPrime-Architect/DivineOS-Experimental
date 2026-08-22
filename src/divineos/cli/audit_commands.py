@@ -258,6 +258,8 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
             ["git", "diff", base, branch_ref],  # default context; NEVER -U0
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=30,
         )
@@ -268,6 +270,8 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
             input=diff.stdout,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=30,
         )
@@ -358,6 +362,8 @@ def register(cli: click.Group) -> None:
                     ["git", "rev-parse", "--verify", f"refs/remotes/origin/{source_ref}"],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                 )
                 ref_on_origin = result.returncode == 0
@@ -367,6 +373,8 @@ def register(cli: click.Group) -> None:
                         ["git", "rev-parse", "--verify", source_ref],
                         capture_output=True,
                         text=True,
+                        encoding="utf-8",
+                        errors="replace",
                         check=False,
                     )
                     if alt.returncode != 0:
@@ -426,6 +434,8 @@ def register(cli: click.Group) -> None:
                                 ["git", "log", ref, "--format=%T"],
                                 capture_output=True,
                                 text=True,
+                                encoding="utf-8",
+                                errors="replace",
                                 check=False,
                                 timeout=30,
                             )
@@ -560,6 +570,8 @@ def register(cli: click.Group) -> None:
                     ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=10,
                 )
@@ -584,6 +596,8 @@ def register(cli: click.Group) -> None:
                 ["git", "rev-list", rev_range],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
                 timeout=15,
             )
@@ -621,6 +635,8 @@ def register(cli: click.Group) -> None:
                 ["git", "rev-list", f"{remote_branch}..HEAD"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
                 timeout=15,
             )
@@ -676,6 +692,8 @@ def register(cli: click.Group) -> None:
                                 ["git", "log", "--format=%s", "-n", "1", sha],
                                 capture_output=True,
                                 text=True,
+                                encoding="utf-8",
+                                errors="replace",
                                 check=False,
                                 timeout=5,
                             )
@@ -720,6 +738,8 @@ def register(cli: click.Group) -> None:
                     ],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=10,
                 )
@@ -731,6 +751,8 @@ def register(cli: click.Group) -> None:
                     ["git", "log", "--format=%s", "-n", "1", sha],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=5,
                 )
@@ -752,6 +774,8 @@ def register(cli: click.Group) -> None:
                     ["git", "log", "--format=%s", "-n", "1", sha],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=5,
                 )
@@ -924,6 +948,8 @@ def register(cli: click.Group) -> None:
             [sys.executable, str(script_path), prior_tree_hash, "--quiet"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if result.returncode != 0:
@@ -936,6 +962,8 @@ def register(cli: click.Group) -> None:
                 [sys.executable, str(script_path), prior_tree_hash],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
             )
             click.echo(verbose.stdout)
@@ -1583,6 +1611,8 @@ def register(cli: click.Group) -> None:
                     ["git", "rev-parse", "HEAD^{tree}"],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=True,
                     timeout=5,
                 )
