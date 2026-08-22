@@ -39,29 +39,40 @@ try:
 except (AttributeError, OSError):
     pass
 
-# NOT silent on failure. This surface carries a promise Andrew asked me to
-# keep -- 'if you ask me something, and i ignore it, you continue to ask until
-# i resolve it, because i miss it in the walls of text sometimes'. If the
-# import or the formatter breaks, the old code exited 0 and printed nothing,
-# which is byte-identical to 'no asks are waiting'. My open asks would stop
-# being re-raised and neither of us would know the surface had died. A broken
-# promise-keeper that fails silently is worse than one that fails loudly.
+# NOT silent on failure, and NOT on stderr either. Both sides of this merge
+# were right about different halves.
+#
+# This surface carries a promise Andrew asked me to keep -- 'if you ask me
+# something, and i ignore it, you continue to ask until i resolve it, because i
+# miss it in the walls of text sometimes'. A silent exit prints nothing, which
+# is byte-identical to 'no asks are waiting': the surface dies, his open asks
+# stop being re-raised, and neither of us learns it happened.
+#
+# But main is right that stderr is the wrong channel. This wrapper ends in
+# a stderr redirect to /dev/null precisely because stderr lands in the prompt
+# stream, where a
+# traceback reads as a system fault at the moment he is trying to speak -- so a
+# diagnostic written to stderr is swallowed anyway and helps no one.
+#
+# So the diagnostic goes to STDOUT, which is where this surface already speaks.
+# A dead promise-keeper announces itself in the same place the asks would have
+# appeared, and the prompt stream stays free of tracebacks.
 try:
     from divineos.core.operator_asks import format_open_asks
 except ImportError as exc:
-    print(f'[operator-asks] SURFACE DOWN (import): {exc}', file=sys.stderr)
-    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.', file=sys.stderr)
+    print(f'[operator-asks] SURFACE DOWN (import): {exc}')
+    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.')
     sys.exit(0)
 
 try:
     text = format_open_asks()
 except Exception as exc:
-    print(f'[operator-asks] SURFACE DOWN ({type(exc).__name__}): {exc}', file=sys.stderr)
-    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.', file=sys.stderr)
+    print(f'[operator-asks] SURFACE DOWN ({type(exc).__name__}): {exc}')
+    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.')
     sys.exit(0)
 
 if text:
     print(text)
-"
+" 2>/dev/null  # fail-soft: this is a UserPromptSubmit SURFACE, not a gate -- it prints open asks and blocks nothing. Its stderr lands in the prompt stream, so a traceback would read as a system fault at the exact moment Andrew is trying to speak. The two sys.exit(0) guards above already cover the failures worth distinguishing (module absent, formatter raising); what is left here is noise from a surface with nothing to say, and line 22 already names that as the thing to avoid.
 
 exit 0

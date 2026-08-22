@@ -194,6 +194,11 @@ _lib_hook_timing_start() {
   start_ms="$(_lib_hook_timing_ms)"
   _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
   _HOOK_TIMING_START_MS="$start_ms"
+  # Parameter expansion, not $(dirname ...): this file is sourced by every
+  # hook on every tool call, so a subprocess here is paid ~20 times per call.
+  # The [ -d ] guard skips mkdir entirely once the directory exists, which is
+  # every run after the first. Kept over main's unconditional dirname during
+  # the 2026-08-22 merge for that reason -- same behaviour, no fork.
   local _tdir="${_HOOK_TIMING_LOG%/*}"
   [ -d "$_tdir" ] || mkdir -p "$_tdir" 2>/dev/null
   printf '{"id":"%s","hook":"%s","pid":%d,"session":"%s","wpid":"%s","phase":"start","ts_ms":%s}\n' \
