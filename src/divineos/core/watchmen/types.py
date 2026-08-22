@@ -55,6 +55,7 @@ class FindingCategory(str, Enum):
     PERFORMANCE = "PERFORMANCE"  # Speed, size, resource concerns
     LEARNING = "LEARNING"  # Lesson tracking, correction patterns
     IDENTITY = "IDENTITY"  # Self-model, continuity, voice concerns
+    OTHER = "OTHER"  # Unclassifiable, or a stored value this build cannot resolve
 
 
 class FindingStatus(str, Enum):
