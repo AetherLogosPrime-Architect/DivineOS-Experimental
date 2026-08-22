@@ -30,6 +30,15 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -40,6 +49,19 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 # shellcheck disable=SC2016
 BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c '
 import json, sys
+
+# The block message now carries the required file INLINE, and my explorations
+# are full of em-dashes. On this box stdout defaults to cp1252, so printing
+# them raised UnicodeEncodeError -- and the shell below reads an empty message
+# and exits 0. That is FAIL-OPEN: the gate would have gone silent on nearly
+# every file it protects, while still looking installed. Caught 2026-08-16 by
+# smoke-testing the hook end-to-end instead of trusting the unit tests, which
+# never touch this print. Reconfigure before anything can be written.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 try:
     data = json.loads(sys.stdin.read() or "{}")

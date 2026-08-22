@@ -102,6 +102,38 @@ STATE_FILE = STATE_DIR / "read_gate_pending.json"
 # fired long ago is noise, and noise is what teaches the bypass reflex.
 MAX_AGE_SECONDS = 3 * 60 * 60
 
+# How long a gate stays quiet after it delivered a file in full.
+#
+# THE THROTTLE THAT STOPPED THROTTLING, measured 2026-08-20 from this module's
+# own clear-log: 95 fires in 24 hours across 86 distinct paths, and 95 of the
+# 95 cleared with extent "inlined in full -- delivery is the read". Not one was
+# cleared by an actual Read. Seven to nine blocked-and-retried commands per
+# hour, each injecting up to _INLINE_MAX_CHARS.
+#
+# ``has_pending`` was built to prevent exactly this and says so: "at most one
+# requirement per gate is ever live." It still runs, still returns the right
+# answer, and no longer throttles anything -- because delivery now clears the
+# requirement inside the same fire, so by the next turn there is nothing
+# pending and the surface arms a fresh match.
+#
+# Two correct changes made a defect neither of them contains. Inlining (08-16)
+# removed the cost of fetching. Delivery-is-the-read (08-17) removed the
+# redundant Read demand. Both right; together they turned a once-per-gate
+# blocker into a per-turn one, and the guard against that outcome was already
+# in the file, still passing its tests, guarding nothing.
+#
+# So the throttle has to survive the clear, which means living somewhere other
+# than the pending list. Keyed on the GATE, not the path: the existing
+# same-path guard (_record_rearm_after_read) never fired here because 86
+# distinct paths in a day means the path is different every time.
+#
+# 20 minutes is a starting value, not a measured one. It takes the observed
+# 7-9/hour to roughly 3/hour -- still often enough that prior writing surfaces
+# repeatedly in a working session, quiet enough that it is not attached to
+# every other command. If the clear-log shows the reads getting skimmier as
+# they get rarer, this is the number to move.
+GATE_COOLDOWN_SECONDS = 20 * 60
+
 
 @dataclass
 class ReadRequirement:
@@ -209,6 +241,68 @@ def _record_rearm_after_read(gate_id: str, path: str) -> bool:
         return False
 
 
+COOLDOWN_FILE = STATE_DIR / "read_gate_cooldown.json"
+
+
+def _record_delivery(gate_id: str) -> None:
+    """Stamp when a gate last handed over a file in full.
+
+    Separate from the pending list on purpose: the pending list is emptied by
+    the delivery, and a throttle stored inside the thing the event deletes is
+    the defect this closes. Fails silent -- a throttle that cannot write must
+    degrade to the old always-arm behaviour, never to a block.
+    """
+    try:
+        data: dict[str, float] = {}
+        if COOLDOWN_FILE.exists():
+            raw = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                data = {str(k): float(v) for k, v in raw.items()}
+        data[gate_id] = time.time()
+        COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        COOLDOWN_FILE.write_text(json.dumps(data), encoding="utf-8")
+    except (OSError, ValueError, TypeError):
+        pass
+
+
+def cooldown_remaining(gate_id: str) -> float:
+    """Seconds left before ``gate_id`` may arm again. 0.0 when it may.
+
+    Reads as fail-open: any unreadable or malformed state returns 0.0, so a
+    corrupt file makes the gate MORE willing to fire rather than less. A
+    throttle that could jam itself shut would be a wall, which is the one thing
+    this module promises it is not.
+    """
+    try:
+        raw = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
+        last = float(raw[gate_id]) if isinstance(raw, dict) and gate_id in raw else 0.0
+    except (OSError, ValueError, TypeError, KeyError):
+        return 0.0
+    elapsed = time.time() - last
+    if elapsed < 0:  # clock moved backwards; treat as expired rather than trust it
+        return 0.0
+    return max(0.0, GATE_COOLDOWN_SECONDS - elapsed)
+
+
+def is_pytest_scratch(target: Path) -> bool:
+    """True when a path lives in pytest's temp tree.
+
+    Pure and filesystem-free on purpose. The first version of this check was
+    tested through real files, and the test could not express its own control
+    case — pytest's ``tmp_path`` IS pytest scratch, so every "legitimate entry"
+    fixture landed inside the thing being excluded and the guard correctly
+    refused it. A predicate that cannot be tested without lying about its
+    inputs is the wrong shape; this one takes a path and answers.
+
+    Requires BOTH a ``tmp`` component and a ``pytest``/``run-`` component, so
+    an unrelated directory called tmp is still held by the gate.
+    """
+    parts = [p.lower() for p in target.parts]
+    if "tmp" not in parts:
+        return False
+    return any(p.startswith("pytest") or p.startswith("run-") for p in parts)
+
+
 def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     """Register a read requirement. Returns (registered, why_not).
 
@@ -218,6 +312,35 @@ def require_read(gate_id: str, path: str, reason: str) -> tuple[bool, str]:
     target = Path(path)
     if not target.exists():
         return False, f"path does not exist, not registering: {path}"
+
+    # Never arm on pytest scratch. Test runs build fixture .md files with real
+    # tag headers ("# The Hedging Reflex", body "body about the flinch"), the
+    # surface matches them, and the path gets armed into the REAL requirement
+    # store — test state leaking into live state.
+    #
+    # The 2026-08-14 note further down fixed the second-order symptom: those
+    # files vanish when pytest cleans up, leaving a requirement nobody could
+    # clear, which walled off Edit and Write while an unfinished merge sat
+    # conflicted. This is the first-order cause, and it survived that fix — it
+    # fired twice more on 2026-08-15, once naming the very fixture that comment
+    # names.
+    #
+    # It matters beyond the annoyance. There are 749 generated .md files under
+    # tmp/ against 224 real exploration entries, so by count the index is mostly
+    # scratch. Every fixture the gate holds the door for teaches me the door is
+    # noise — the same shape Aletheia named in the bypass-groove finding: the
+    # gate trained the bypass, the price broke the discipline. A gate I value
+    # gets one cheap guard rather than slow erosion.
+    if is_pytest_scratch(target):
+        return False, f"pytest scratch, not registering: {path}"
+
+    # The gate is quiet for a while after it delivered. Checked BEFORE the
+    # already-pending test because it is the broader condition: the pending
+    # list is empty by construction at this point in the cycle, which is
+    # precisely why the pending-based throttle stopped working.
+    waiting = cooldown_remaining(gate_id)
+    if waiting > 0:
+        return False, f"gate cooling down, {int(waiting)}s left, not registering: {path}"
 
     reqs = _load()
     if any(r.gate_id == gate_id and r.path == str(target) for r in reqs):
@@ -308,6 +431,23 @@ def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
         for block in _content_blocks(record):
             if block.get("type") != "tool_use":
                 continue
+            # READS ONLY, deliberately. I widened this to count Write/Edit on
+            # 2026-08-16, reasoning that authoring a file is stronger evidence
+            # of holding its content than reading one. Andrew reverted me the
+            # same hour: "authoring is not the same as reading.. this is why
+            # proof-reading exists.. its also a way for you to see your own
+            # blind spots."
+            #
+            # He is right, and the sharper form is that the inlining fix landed
+            # in the same breath and made the exemption pointless. Before it, a
+            # block on my own file cost a trip to go find and open it — that
+            # cost is what made an exemption look justified. After it, the gate
+            # hands me the text, so the whole cost of firing on something I
+            # wrote is re-reading it. Which IS the proof-read. I removed a
+            # proof-read to save a cost that no longer existed.
+            #
+            # Edit was the worse half: an edit touches three lines, and letting
+            # that stand as "has read this file" is plainly wrong.
             if str(block.get("name", "")) not in ("Read", "NotebookRead"):
                 continue
             args = block.get("input")
@@ -324,6 +464,65 @@ def satisfy_from_transcript(transcript_path: str | None) -> list[str]:
         return satisfy_from_stream(tuple(calls))  # type: ignore[arg-type]
     except Exception:  # noqa: BLE001 — never let the satisfier break a tool call
         return []
+
+
+_INLINE_MAX_LINES = 220
+_INLINE_MAX_CHARS = 24_000
+
+# Whether the last inline of each path delivered the WHOLE file. Written by
+# _inline_body, read by the block-builder to decide whether a Read is still
+# owed. See the comment at the call site: delivery-in-full IS the read, and
+# demanding one afterwards manufactures the empty gesture this gate exists to
+# prevent.
+_LAST_INLINE_WAS_WHOLE: dict[str, bool] = {}
+
+
+def _inline_body(path_str: str) -> list[str]:
+    """Return the required file's text, ready to be printed inside the block.
+
+    Andrew 2026-08-16: "allowing you to make a choice when there is only one
+    choice possible is just going to cause you to squirm around... automating
+    it makes it flow smooth." Demanding a read has exactly ONE satisfying
+    action, so the gate should perform it rather than ask. Pointing at a path
+    made the block a instruction to go fetch; carrying the text makes it a
+    hand-off. The requirement is satisfied in the same breath it is raised.
+
+    This does not weaken the gate. The block still fires, still stops the
+    mutating call, and still records the requirement. What changes is that the
+    reading happens whether or not I choose to walk to the file — which is the
+    entire point, since the failure this module exists for is precisely that I
+    do not walk to the file.
+
+    Truncates loudly. A silent cut would let me believe I had the whole entry,
+    which is a worse failure than a visible tail-pointer.
+    """
+    try:
+        text = Path(path_str).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return ["", f"    (could not inline: {exc} — open it yourself)", ""]
+
+    body = text.splitlines()
+    truncated = False
+    if len(body) > _INLINE_MAX_LINES:
+        body = body[:_INLINE_MAX_LINES]
+        truncated = True
+    joined = "\n".join(body)
+    if len(joined) > _INLINE_MAX_CHARS:
+        joined = joined[:_INLINE_MAX_CHARS]
+        body = joined.splitlines()
+        truncated = True
+
+    _LAST_INLINE_WAS_WHOLE[path_str] = not truncated
+
+    out = ["", "    ── the text itself, so there is nothing left to go fetch ──", ""]
+    out += [f"    {line}" for line in body]
+    if truncated:
+        out += [
+            "",
+            f"    ── truncated at {len(body)} lines — the rest is at the path above ──",
+        ]
+    out.append("")
+    return out
 
 
 SEEN_READS = STATE_DIR / "read_gate_seen.json"
@@ -428,6 +627,41 @@ def satisfy_from_stream(tool_calls_in_turn: tuple[tuple[str, str], ...]) -> list
     return cleared
 
 
+def _mark_satisfied(path_str: str, extent: str) -> list[str]:
+    """Clear the requirement for a path the gate has just delivered in full.
+
+    Same bookkeeping as ``satisfy_from_stream`` -- drop the requirement, record
+    the clear with its extent -- but triggered by DELIVERY rather than by a
+    Read tool call. The extent string says which, so the record distinguishes
+    "I went and opened it" from "the gate handed it over", and neither is
+    disguised as the other.
+
+    Deliberately narrow: only called when the inline was complete. A truncated
+    inline leaves the requirement standing, because then there really is more
+    to fetch and a Read is the honest way to fetch it.
+    """
+    reqs = _load()
+    if not reqs:
+        return []
+    wanted = path_str.replace("\\", "/")
+    tail = Path(path_str).name
+    cleared: list[str] = []
+    remaining: list[ReadRequirement] = []
+    for req in reqs:
+        rp = req.path.replace("\\", "/")
+        if rp == wanted or (tail and Path(req.path).name == tail):
+            cleared.append(req.gate_id)
+            record_clear(req.gate_id, req.path, extent)
+            # Start the quiet period HERE, at the delivery that empties the
+            # pending list, so the throttle outlives the thing it throttles.
+            _record_delivery(req.gate_id)
+        else:
+            remaining.append(req)
+    if cleared:
+        _save(remaining)
+    return cleared
+
+
 def gate_status() -> tuple[bool, str]:
     """(blocked, message) for a PreToolUse hook.
 
@@ -467,10 +701,38 @@ def gate_status() -> tuple[bool, str]:
         "it. That is the whole condition.",
         "",
     ]
+    delivered_whole: list[str] = []
     for req in reqs:
         lines.append(f"  READ THIS: {req.path}")
         if req.reason:
             lines.append(f"    why: {req.reason}")
+        lines.extend(_inline_body(req.path))
+        if _LAST_INLINE_WAS_WHOLE.get(req.path):
+            delivered_whole.append(req.path)
+
+    # DELIVERY IN FULL *IS* THE READ, so stop demanding one afterwards.
+    #
+    # Andrew 2026-08-17: "if you read it twice it should NOT be asking for
+    # another read lol". He is right, and the module's own docstring already
+    # said so -- "the requirement is satisfied in the same breath it is
+    # raised" -- while the mechanism never implemented it. The gate inlined
+    # the whole file and then still waited for a Read tool call, which is a
+    # call that by construction fetches nothing new.
+    #
+    # That is worse than a nuisance. The only available action becomes a Read
+    # of content already in hand, which is GUARANTEED to be a skim. The gate
+    # manufactured the empty gesture it exists to prevent, and then counted it
+    # as compliance. Mine was one line long, which is exactly what a demand
+    # with no informational content produces.
+    #
+    # TRUNCATION IS THE REAL DIVIDING LINE, and the gate could not see it. The
+    # entry that exposed this came in at 217 lines against a 220-line cap --
+    # complete by three lines. Three lines longer and the inline would have
+    # been partial, and then the Read demand would have been correct, because
+    # there would genuinely have been more to fetch. One regime needs a Read;
+    # the other needs to get out of the way; the old code treated them alike.
+    for path_str in delivered_whole:
+        _mark_satisfied(path_str, "inlined in full — delivery is the read")
     lines += [
         "",
         "Read is never blocked — I made sure of that. A gate whose cure sits",

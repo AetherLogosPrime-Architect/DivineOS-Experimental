@@ -131,11 +131,38 @@ def build_self_model() -> dict[str, Any]:
             model[name] = {}
             logger.debug("Self-model section '%s' failed: %s", name, e)
 
+    # DID-NOT-RAISE IS NOT SUCCEEDED, and this field said otherwise. Every
+    # section below catches _SELF_MODEL_ERRORS internally and returns an empty
+    # default, so by the time control reaches here almost nothing CAN have
+    # raised -- `sources_failed` was measuring the narrow band of failures that
+    # escaped six caught exception types, which is nearly none.
+    #
+    # 2026-08-17, on a fresh database, this reported:
+    #
+    #     completeness: succeeded 8, failed [], complete True
+    #
+    # while identity was Unknown/Unknown/Unknown, strengths [], weaknesses [],
+    # active_concerns [], epistemic_balance {} -- and the model's own attention
+    # section said "Blind spot: identity - data source unavailable" in the same
+    # breath. One half of the module knew the data was missing; the field named
+    # `complete` reported everything fine.
+    #
+    # A self-model that cannot tell "I know nothing about myself" from "I am
+    # fully assembled" is worse than one that reports nothing, because the
+    # second is obviously unusable and the first is quietly trusted. Same
+    # unknown-is-not-zero rule as stamp-ready's preflight and sleep's baseline.
+    #
+    # `empty` is not a synonym for `failed` and is kept separate: no recorded
+    # skills is a true fact about a fresh substrate, not a fault. What is fixed
+    # is that neither one is allowed to read as `complete`.
+    empty_sections = sorted(k for k, v in model.items() if not v)
     model["completeness"] = {
         "total": len(sections),
-        "succeeded": len(sections) - len(sources_failed),
-        "failed": sources_failed,
-        "complete": len(sources_failed) == 0,
+        "raised": sources_failed,
+        "empty": empty_sections,
+        # populated = returned something. The only honest positive claim here.
+        "populated": len(sections) - len(sources_failed) - len(empty_sections),
+        "complete": not sources_failed and not empty_sections,
     }
 
     # Circuit 2: persist completeness so attention_schema can read gaps

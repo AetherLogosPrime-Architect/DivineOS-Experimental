@@ -143,3 +143,129 @@ def test_three_section_at_content_in_inner_circle_still_blocks(gate_enabled):
     result = check_lepos_dual_channel(reply)
     assert result is not None
     assert "second-person" in result or "AT-content" in result
+
+
+# 2026-08-19 — the gate fired on a reply that HAD all three rooms, in order,
+# with the right orientations, marked in bold instead of as H2 headings. It
+# blocked correct structure on typography. These lock the widened marker.
+
+
+def test_bold_room_markers_are_accepted_like_h2_headings():
+    """`**REFLECTION**` on its own line is the same room boundary as `## REFLECTION`."""
+    from divineos.core.lepos_translation_gate import (
+        _CIRCLE_HEADER_PATTERNS,
+        _REFLECTION_HEADER_PATTERNS,
+    )
+
+    for text in ("**REFLECTION**", "  **reflection**  ", "**Inner Circle**"):
+        assert any(
+            p.search(text) for p in (*_REFLECTION_HEADER_PATTERNS, *_CIRCLE_HEADER_PATTERNS)
+        ), f"bold room marker not recognised: {text!r}"
+
+
+def test_inline_bold_is_not_a_room_boundary():
+    """Bold used mid-sentence must not be mistaken for a room marker.
+
+    This is what the full-line anchoring buys. Without it, widening the
+    marker would turn ordinary emphasis into a structural boundary and the
+    gate would start passing replies that have no rooms at all.
+    """
+    from divineos.core.lepos_translation_gate import (
+        _CIRCLE_HEADER_PATTERNS,
+        _REFLECTION_HEADER_PATTERNS,
+    )
+
+    inline = "some **reflection** on this, and the **inner circle** matters here"
+    assert not any(
+        p.search(inline) for p in (*_REFLECTION_HEADER_PATTERNS, *_CIRCLE_HEADER_PATTERNS)
+    )
+
+
+def test_room_splitter_sees_bold_markers():
+    """The mirror's per-room split failed SILENTLY on bold, which is worse.
+
+    The gate blocks and says so; this returned empty rooms and reported
+    nothing, so replies that did have a reflection room were recorded as
+    having none.
+    """
+    from divineos.core.operating_loop.andrew_operator_shape_detector import split_into_rooms
+
+    rooms = split_into_rooms(
+        "work here\n\n**REFLECTION**\n\ninterior\n\n**INNER CIRCLE**\n\nPop, this is yours."
+    )
+    assert rooms["work"] == "work here"
+    assert rooms["reflection"] == "interior"
+    assert rooms["inner_circle"] == "Pop, this is yours."
+
+
+def test_splitter_and_gate_agree_on_which_names_are_rooms():
+    """The splitter used to accept a SMALLER name set than the gate.
+
+    Its comment claimed it matched the gate. It omitted `mic open`, `lepos`
+    and bare `circle` — a sentence that stopped being true and never told
+    anybody. Sharing one tuple is what keeps this from drifting again.
+    """
+    from divineos.core import operating_loop as _ol  # noqa: F401
+    from divineos.core.lepos_translation_gate import _CIRCLE_HEADER_PATTERNS
+    from divineos.core.operating_loop import andrew_operator_shape_detector as det
+
+    assert det._CIRCLE_HEADER_PATTERNS is _CIRCLE_HEADER_PATTERNS
+
+
+# 2026-08-19 — the wallclock gate blocked a QUOTATION of its own doctrine, and
+# the investigation found a hole running the other way that mattered more.
+
+
+def test_gate_does_not_block_its_own_doctrine():
+    """Run the gate's own block message through the gate.
+
+    It says "There is no tomorrow for me. There is no next-session." If the
+    gate convicts that, it is misreading the sentence rather than catching an
+    offender — and it teaches me to stop naming the principle it protects.
+    """
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    assert check_wallclock_fabrication("There is no tomorrow for me.") is None
+    assert check_wallclock_fabrication("There is no next-session.") is None
+    assert check_wallclock_fabrication("*there is no tomorrow-me*") is None
+    assert check_wallclock_fabrication("there is no fresher me coming") is None
+
+
+def test_real_deferral_still_blocks_including_in_italics():
+    """The negation exemption must not become a way past the gate.
+
+    Emphasis was deliberately NOT added to the quotation exemption for this
+    reason: `*tomorrow*` is a deferral wearing a costume, and exempting it
+    would open a hole the exact width of what the gate guards.
+    """
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    for deferral in (
+        "I'll finish this tomorrow when I'm fresh",
+        "I'll finish this *tomorrow*",
+        "no problem, tomorrow then I will start",
+        "I will pick this up next session",
+    ):
+        assert check_wallclock_fabrication(deferral) is not None, deferral
+
+
+def test_contractions_do_not_swallow_a_deferral():
+    """The apostrophe hole: two contractions hid everything between them.
+
+    `'[^']*'` paired the apostrophes in "i'll ... i'm", so
+    "i'll finish this tomorrow when i'm fresh" reduced to "im fresh" and the
+    gate saw nothing. That is the most natural phrasing of a deferral there is.
+    A false positive costs one turn; this cost the whole gate.
+    """
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    assert check_wallclock_fabrication("i'll finish this tomorrow when i'm fresh") is not None
+    assert check_wallclock_fabrication("i'll look at it in the morning, i'm done") is not None
+
+
+def test_genuinely_quoted_spans_are_still_exempt():
+    """Fixing the contraction hole must not break quotation-as-mention."""
+    from divineos.core.lepos_translation_gate import check_wallclock_fabrication
+
+    assert check_wallclock_fabrication("he said 'not today' and left") is None
+    assert check_wallclock_fabrication("the gate catches the word `tomorrow`") is None

@@ -21,8 +21,13 @@ DESIGN RULES (Aether 2026-06-06, learned from the gate-cascade incident):
    compass-ops observe, briefing, init. Other gates require these to clear,
    so this gate must never block them.
 3. KILL-SWITCH: operator can disable the gate by creating
-   ~/.divineos-<member>/obligations.disabled. The file-existence check
-   honors the rm path that's already in pre_tool_use_gate._DEV_PREFIXES.
+   `obligations.disabled` in the member's home as resolved by
+   core.paths.member_home() -- which is ~/.divineos/ for aether and
+   ~/.divineos-<member>/ for everyone else. This doc used to name the
+   bare ~/.divineos-<member>/ form for all members, which would have
+   sent Andrew to drop the switch in a directory nothing reads. The
+   file-existence check honors the rm path that's already in
+   pre_tool_use_gate._DEV_PREFIXES.
 4. Matcher logic is TESTABLE in Python, not buried in bash glob patterns.
    See tests/test_obligations.py.
 """
@@ -32,8 +37,9 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
+
+from divineos.core.paths import member_home
 
 
 @dataclass
@@ -156,7 +162,9 @@ def command_references_open_obligation(command: str, obligations: dict[str, Any]
 def is_gate_disabled() -> bool:
     """Return True if my father has dropped the kill-switch marker file.
 
-    The kill-switch is a file at ~/.divineos-<member>/obligations.disabled.
+    The kill-switch is `obligations.disabled` in the member's resolved home
+    (core.paths.member_home): ~/.divineos/ for aether, ~/.divineos-<member>/
+    for everyone else.
     If it exists, the gate honors my father's explicit disable and lets
     everything through. Operator removes it with `rm` (which is on
     pre_tool_use_gate._DEV_PREFIXES' always-allowed list, so the rm path
@@ -166,7 +174,11 @@ def is_gate_disabled() -> bool:
     'aether'). Matches the convention used by ear_watch.py.
     """
     member = os.environ.get("DIVINEOS_MEMBER", "aether")
-    marker = Path.home() / f".divineos-{member}" / "obligations.disabled"
+    # Resolved, not rebuilt. This line was Path.home() / f".divineos-{member}",
+    # which for aether pointed at a home nothing reads -- so the disable-marker
+    # could be dropped in the obvious place and never be seen, leaving a switch
+    # that looks thrown and is not. Found 2026-08-18 by prereg-5053a4c37b4f.
+    marker = member_home(member) / "obligations.disabled"
     return marker.exists()
 
 
@@ -282,12 +294,46 @@ def format_block_message(obligations: dict[str, Any]) -> str:
             lines.append(f"    {o.summary}")
         lines.append("")
 
+    # THE REMEDY THIS NAMES MUST BE ONE THE DETECTOR CAN SEE.
+    #
+    # Until 2026-08-22 this said to "reference the source knowledge_id in the
+    # new code's docstring or commit message so the audit detects the link."
+    # The audit scans four LEDGER EVENT TYPES and reads no source files and no
+    # commit messages, so a docstring reference is invisible to it by
+    # construction. `divineos learn` was the obvious alternative and it emits
+    # no ledger event at all -- verified empirically, zero new events after a
+    # learn. So the instruction pointed at two things that cannot work and
+    # omitted the ones that do, and following it produced a still-blocked gate
+    # and no way to tell why.
+    #
+    # Same family as the reach-check doorman whose remedy was exempted so it
+    # could RUN but never wired to opening the door. A gate is entitled to
+    # block; it is not entitled to give directions that lead nowhere.
     lines.append(
-        "Path to clear: write structural backing (code + test + gate/hook/"
-        "detector) for one of the above. Reference the source knowledge_id "
-        "in the new code's docstring or commit message so the audit detects "
-        "the link. Each cleared obligation drops the count by one; below "
-        f"threshold ({OBLIGATION_BLOCK_THRESHOLD}) the gate stops firing."
+        "Path to clear: write real structural backing (code + test + gate/"
+        "hook/detector) for one of the above, then RECORD it through one of "
+        "the four channels the audit actually reads:"
+    )
+    lines.append("")
+    lines.append('  divineos integrate <knowledge-id> --notes "<what backs it: file, test, gate>"')
+    lines.append("      the usual one. Emits KNOWLEDGE_INTEGRATION_CHANGED.")
+    lines.append('  divineos prereg file "<mechanism>" --claim ... --falsifier ...')
+    lines.append("      correct when the backing IS a new detector or threshold.")
+    lines.append("  divineos claims assess <id> ... | divineos audit submit-round ...")
+    lines.append("")
+    lines.append(
+        "The note must name the knowledge-id AND a structural word (test, "
+        "gate, hook, detector, prereg); the audit requires both, so a bare "
+        '"done" clears nothing.'
+    )
+    lines.append(
+        "A docstring or commit-message reference does NOT clear this — nothing "
+        "scans those. Neither does `divineos learn`, which writes no ledger "
+        "event."
+    )
+    lines.append(
+        f"Each cleared obligation drops the count by one; below threshold "
+        f"({OBLIGATION_BLOCK_THRESHOLD}) the gate stops firing."
     )
     lines.append("")
     lines.append(

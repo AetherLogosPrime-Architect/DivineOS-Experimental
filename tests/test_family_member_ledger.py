@@ -295,8 +295,16 @@ class TestPathResolution:
         assert expected.exists()
 
     def test_default_points_into_family_dir(self, monkeypatch):
-        """Default (no env var) resolves to <repo>/family/."""
+        """Default (no env var) resolves to <repo>/family/.
+
+        NO_SANDBOX is the deliberate opt-out. Since 2026-08-18 the default under
+        pytest is a temp sandbox, so that tests which forget to redirect cannot
+        write into the family's real records -- 752 fixture events had landed
+        beside 1,945 real ones. This test asks what the PRODUCTION default is,
+        which is a question the sandbox otherwise makes unanswerable.
+        """
         monkeypatch.delenv("DIVINEOS_FAMILY_LEDGER_DIR", raising=False)
+        monkeypatch.setenv("DIVINEOS_FAMILY_LEDGER_NO_SANDBOX", "1")
         path = fml.get_ledger_path(MEMBER)
         assert path.name == f"{MEMBER}_ledger.db"
         assert path.parent.name == "family"

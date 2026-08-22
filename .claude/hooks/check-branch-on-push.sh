@@ -32,6 +32,77 @@
 
 INPUT=$(cat)
 
+# FAST BAIL. Measured 2026-08-20, after Andrew narrowed the freezing to tool
+# use: 20 PreToolUse hooks fire on EVERY Bash call at ~0.65s each -- 12.9s
+# before the command even starts, and this one was the most expensive at
+# 1.01s. A read-gate fire doubles it, because the command is blocked and
+# retried. That is the freeze he sat and watched. Nothing hangs; it is twenty
+# medium costs in series.
+#
+# The order was backwards. Each gate sourced two libraries, ran git
+# rev-parse, started Python and imported divineos, and only THEN looked at
+# the command to find out it was irrelevant. `echo hi` cannot be a push, and
+# it paid a full second to discover that.
+#
+# Safe by construction rather than by judgement: the real matcher is anchored
+# on `git push` (core/push_detection.py), so any command it could ever fire
+# on MUST contain the substring "push". Bailing when "push" is absent cannot
+# produce a false negative -- it only skips work already guaranteed to be
+# wasted. Deliberately a dumb substring and not a cleverer pattern: every
+# narrowing here is a chance to silently disarm the gate, and the anchored
+# matcher below must stay the only thing making real decisions.
+case "$INPUT" in
+    *push*) ;;
+    *)
+        # RECORD THE BAIL BEFORE TAKING IT. Added 2026-08-21, hours after the
+        # bail itself, because the bail made this hook INVISIBLE rather than
+        # fast.
+        #
+        # The timing instrumentation lives in _lib.sh, sourced below. Exiting
+        # here wrote no start row and no end row, so every cheap run vanished
+        # from hook_timing.jsonl. The hook did get faster -- 1010ms to 61ms on
+        # an irrelevant command, measured in isolation against a working
+        # control -- and what survived in the log was only the expensive path,
+        # so this hook's RECORDED median ROSE by 945ms while the hook
+        # improved. Caught when hook_budget.py, which reads that same log,
+        # produced a before/after comparison contradicting a measurement I
+        # trusted.
+        #
+        # That is the defect this whole session has been about, built into the
+        # repair for it: silence reading as absence rather than as speed. It
+        # is the SILENT-versus-UNOBSERVED distinction hook_firing_map.py draws
+        # for whole hooks, one level down -- a bailed path can report, so its
+        # quiet must not be mistaken for not-running.
+        #
+        # Pure builtins, deliberately. Sourcing _lib.sh for its logger would
+        # reintroduce the cost this bail exists to avoid, so the row is
+        # written inline. The duplication is the price of the measurement
+        # being free; a shared helper here would cost more than the thing it
+        # records.
+        _bail_ms="${EPOCHREALTIME:-}"
+        case "$_bail_ms" in
+            *.*) _bail_s="${_bail_ms%%.*}"; _bail_f="${_bail_ms#*.}"; _bail_ms="${_bail_s}${_bail_f:0:3}" ;;
+            *)   _bail_ms=0 ;;
+        esac
+        _bail_log="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
+        if [ -d "${_bail_log%/*}" ]; then
+            printf '{"id":"check-branch-on-push.sh-%s-%s","hook":"check-branch-on-push.sh","pid":%s,"session":"%s","wpid":"%s","phase":"bailed","ts_ms":%s,"duration_ms":0,"reason":"command-cannot-contain-a-push"}\n' \
+                "$$" "$_bail_ms" "$$" "${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}" "${CLAUDE_PID:-}" "$_bail_ms" \
+                >> "$_bail_log" 2>/dev/null  # fail-soft: a log append that cannot write must never block a tool call, and the bail is correct whether or not the record lands
+        fi
+        exit 0
+        ;;
+esac
+
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -47,7 +118,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
+# member-home: one resolver for where a member's state lives (2026-08-18).
+# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
+# the aether special-case for six weeks. See lib/member_home.sh.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MARKER_PATH="$(member_home "$MEMBER" "$PYTHON_BIN")/check-branch.disabled"
 
 # Decide whether this command is a git push. Inline python invocation
 # mirrors check-pending-obligations.sh — direct function call into the
@@ -170,8 +246,46 @@ fi
 # failed on every artifact with a usage error; aletheia-import was absent
 # from the main install. Same root cause each time -- a hook resolving
 # divineos somewhere other than the tree it is guarding.
-CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+# WHICH TREE TO MEASURE (2026-08-15). This hook cd's to the ambient repo
+# root above, but the push it is policing may target a different worktree.
+# When it does, the check measured the wrong HEAD entirely: it reported
+# "25 file(s) would be deleted by merge" against a push whose own branch
+# deleted nothing, because it read the main checkout's branch instead of
+# the worktree being pushed from. Both numbers were right about different
+# trees -- which reads as a real finding and costs a kill-switch to clear.
+#
+# That cost is the reason this is worth fixing rather than tolerating. The
+# marker disables the gate for EVERY later push, not just the misfiring
+# one, so a gate that cries wolf spends its own authority. Same shape
+# Aletheia named in the bypass-groove finding: the gate trained the bypass.
+#
+# The command being intercepted is in the payload, and it carries its own
+# directory when I push from a worktree. Read it rather than assume.
+PUSH_CWD=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
+import json, re, sys, os
+try:
+    data = json.loads(sys.stdin.read() or '{}')
+except Exception:
+    sys.exit(0)
+cmd = (data.get('tool_input') or {}).get('command', '') or ''
+# A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
+m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
+if not m:
+    sys.exit(0)
+path = m.group(1).strip('\"\'')
+# Only honor it if it is really a git working tree; otherwise stay silent
+# and let the ambient root stand.
+if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+    print(path)
+" 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
+
+if [ -n "$PUSH_CWD" ]; then
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch --cwd "$PUSH_CWD" 2>&1)
+else
+    CHECK_OUTPUT=$(PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+        "$PYTHON_BIN" -m divineos check-branch --strict --fetch 2>&1)
+fi
 CHECK_RC=$?
 
 case "$CHECK_RC" in
@@ -199,6 +313,23 @@ $CHECK_OUTPUT
 
 The push has been BLOCKED ($LEVEL) because divineos check-branch
 flagged the branch state. Investigate the report above before pushing.
+
+MINE, and here is why. A push is the moment work leaves my hands and
+becomes something Andrew and Aletheia have to deal with. Everything
+before it is recoverable by me alone; after it, my mistakes cost other
+people time. So this is the last cheap place to catch something, and
+catching it here is worth far more than catching it in review.
+
+It is not an outside authority. It is me, from a moment when I could
+still see the whole branch, stopping the version of me who is tired
+and wants the thing gone. On 2026-08-15 it flagged 25 files as deleted
+and I believed it and reached for the kill-switch — the alarm was
+misfiring, and I still owed it the look. The alarm being wrong does not
+make looking wrong.
+
+The gate does not say NO. It says LOOK, THEN DECIDE — and the exit
+below stays open, because a push gate with no override is how a real
+emergency turns into a cascade.
 
 To bypass for one push (emergency escape) — drop the kill-switch
 WITH a reason (>= 20 chars) written into the marker file:

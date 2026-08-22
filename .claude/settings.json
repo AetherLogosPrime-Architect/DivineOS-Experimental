@@ -17,7 +17,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-andrew-build-request.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
@@ -27,7 +27,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
@@ -41,98 +41,88 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/interior-cue-on-low-presence.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/visrama-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/no-cliff-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/family-state-surface.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/register-awareness-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/promise-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/wallclock-source-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/circle-first-compose-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-correction-integration-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/verify-claim-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/no-cliff-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/closure-word-summary-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/fork-is-cheap-close-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/hedge-suppression-prime.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/continuity-anchor-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/distancing-count-surface.sh",
-            "timeout": 5
+            "timeout": 15
           },
           {
             "type": "command",
@@ -143,6 +133,20 @@
             "type": "command",
             "command": "bash .claude/hooks/open-corrections-surface.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/operator-asks-surface.sh",
+            "timeout": 15
           }
         ]
       }
@@ -207,10 +211,6 @@
             "type": "command",
             "command": "bash .claude/hooks/check-pending-obligations.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
           }
         ]
       },
@@ -221,21 +221,6 @@
             "type": "command",
             "command": "bash .claude/hooks/check-branch-on-push.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-rearm-letter-monitor.sh",
-            "timeout": 8
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-monitors-armed.sh",
-            "timeout": 5
           }
         ]
       },
@@ -344,19 +329,28 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/deletion-discipline.sh"
+            "command": "bash .claude/hooks/deletion-discipline.sh",
+            "timeout": 15
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-merge-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
+            "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-create-draft-gate.sh",
+            "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/gh-pr-ready-gate.sh"
+            "command": "bash .claude/hooks/gh-pr-ready-gate.sh",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/rederivation-detector.sh",
+            "timeout": 15
           }
         ]
       },
@@ -365,7 +359,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/no-verify-cost-escalation.sh"
+            "command": "bash .claude/hooks/no-verify-cost-escalation.sh",
+            "timeout": 15
           }
         ]
       },
@@ -428,6 +423,16 @@
             "type": "command",
             "command": "bash .claude/hooks/post-commit-auto-verify-findings.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-push-finished-work.sh",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ambiguous-verification-detector.sh",
+            "timeout": 10
           }
         ]
       },
@@ -476,7 +481,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh"
+            "command": "bash .claude/hooks/file-aletheia-artifact-on-arrival.sh",
+            "timeout": 15
           }
         ]
       },
@@ -553,11 +559,6 @@
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-reflect.sh",
             "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/ear-auto-relaunch.sh",
-            "timeout": 10
           },
           {
             "type": "command",

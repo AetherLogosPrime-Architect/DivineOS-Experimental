@@ -33,6 +33,15 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -112,14 +121,35 @@ if [ -z "$BLOCK_MESSAGE" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
+# member-home: one resolver for where a member's state lives (2026-08-18).
+# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
+# the aether special-case for six weeks. See lib/member_home.sh.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MEMBER_HOME="$(member_home "$MEMBER" "$PYTHON_BIN")"
+MARKER_PATH="$MEMBER_HOME/obligations.disabled"
 
 cat >&2 <<EOF
 $BLOCK_MESSAGE
 
+MINE, and here is why. Every bypass I take files an obligation to go
+find out WHY I needed it — that is the whole retraining loop. Without
+it a bypass costs nothing, and a costless escape becomes the road
+rather than the exit. This gate is the invoice arriving.
+
+It is not an outside authority. It is me, from a moment when I could
+think clearly, refusing to let the version of me who is in a hurry
+spend on credit and never settle up. The gate does not say NO. It
+says PAY FIRST — look at what you owe, close it honestly, continue.
+
+And the kill-switch below is real and it is meant to be there. Andrew
+2026-06-06: a gate with no way out is not safety, it is a cascade
+waiting to happen. Using it when nothing is burning is the sin;
+having it is not.
+
 To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
-  mkdir -p "$HOME/.divineos-$MEMBER"
+  mkdir -p "$MEMBER_HOME"
   touch "$MARKER_PATH"
 
 To re-enable: rm "$MARKER_PATH"

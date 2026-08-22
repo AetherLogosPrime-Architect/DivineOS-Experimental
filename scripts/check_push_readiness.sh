@@ -92,13 +92,26 @@ done <<< "$HOOK_STDIN"
 #
 # Path-scoped fast path (Andrew 2026-06-10 PR-throughput ordeal): the
 # full pytest suite takes ~10 min and is the dominant cost of every
-# push. For pushes that only touch low-impact paths (tests/, docs/,
-# family/, exploration/, root markdown/text), the full suite gives
-# almost no protection that CI doesn't also catch — CI runs the full
-# matrix anyway on the PR. Skipping the local full-suite in those
-# cases keeps the safety net (CI) intact while removing the bottleneck
-# from the iteration loop. Code-touching pushes still run the full
-# suite locally; CI is the second pass.
+# push. For pushes that only touch inert paths (docs/, family/,
+# exploration/, root markdown/text), the suite has nothing to verify —
+# prose cannot change a test outcome. Skipping it there removes the
+# bottleneck from the iteration loop without removing protection.
+#
+# CORRECTED 2026-08-22. This paragraph used to list `tests/` among the
+# low-impact paths and justify the skip with "CI runs the full matrix
+# anyway on the PR". Both halves were wrong together: CI skips tests on
+# DRAFT PRs by design, so a test-file change on a draft was verified by
+# nobody — this gate deferring to CI, CI deferring until promotion.
+#
+# The stale text is worth naming rather than quietly replacing. The
+# guardrail-trailer rule recurred four times for precisely this reason:
+# the code was right and the places that TAUGHT the rule were wrong, so
+# every reload of the instruction brought the wrong rule back with it.
+# A header that describes behaviour the script no longer has is not a
+# stale comment, it is a live source of the next recurrence.
+#
+# Code-touching AND test-touching pushes run the full suite locally.
+# CI remains the second pass, not the first.
 #
 # Three states:
 #   - No commits / deletion-only          → skip
@@ -135,6 +148,33 @@ _collect_changed_files() {
 
 # Returns 0 (true) if every changed file is in a low-impact path.
 # Empty file list → false (conservative: can't prove low-impact, run full).
+#
+# `tests/*` WAS IN THIS LIST AND IS NOT ANY MORE (Andrew 2026-08-22: "none of
+# these should have made it to draft without passing internal CLI tests").
+#
+# THE INTERLOCK. This fast path skipped pytest on the stated grounds that "CI
+# on the PR runs the full matrix". CI does not, on a draft: tests.yml gates on
+# `github.event.pull_request.draft == false`, deliberately, so drafts do not
+# accumulate red marks before review. So a change to a TEST FILE, on a draft
+# PR, was verified by nobody -- the local gate deferring to CI, CI deferring
+# until promotion, and the gap between them owned by neither.
+#
+# Two gates, each correct inside its own scope, and the fact with nowhere to
+# live is that nothing is running these tests. The same shape as the
+# remedy-allowlist deadlock this repo already documents: every gate knew its
+# own exit and none knew anyone else's.
+#
+# Caught on a real push: commit c356d533 changed exactly one file,
+# tests/test_addressee_misdirection_detector.py, took this path, and skipped
+# the suite. The tests did pass -- run by hand, with a negative control that
+# failed before the fix and passed after -- but that was discipline, not a
+# gate, and discipline is what this script exists to stop relying on.
+#
+# The other five categories stay because they genuinely cannot break a test
+# run: prose, docs, letters, exploration entries. A test file can, which is
+# exactly what makes it not low-impact. The asymmetry is the whole point --
+# `tests/` was the one entry here that could invalidate the thing being
+# skipped.
 _all_changed_low_impact() {
     local file
     local saw_any=0
@@ -142,7 +182,6 @@ _all_changed_low_impact() {
         [[ -z "$file" ]] && continue
         saw_any=1
         case "$file" in
-            tests/*) ;;
             docs/*) ;;
             family/*) ;;
             exploration/*) ;;
@@ -241,8 +280,11 @@ else
     CHANGED_FILES="$(_collect_changed_files)"
     if _all_changed_low_impact "$CHANGED_FILES"; then
         echo "[push-readiness] Fast path: all changed files are in low-impact paths"
-        echo "[push-readiness] (tests/, docs/, family/, exploration/, *.md, *.txt) —"
-        echo "[push-readiness] skipping local pytest. CI on the PR runs the full matrix."
+        echo "[push-readiness] (docs/, family/, exploration/, *.md, *.txt) — none of"
+        echo "[push-readiness] which can change a test outcome. Skipping local pytest."
+        echo "[push-readiness] NOTE: this no longer defers to CI. CI skips tests on"
+        echo "[push-readiness] draft PRs, so 'CI will run it' was false exactly when"
+        echo "[push-readiness] it mattered. tests/ was removed from this list."
         # Skip pytest; fall through to multi-party-review.
         : "${PYTEST_RC:=0}"
     else
@@ -490,13 +532,33 @@ fi
 # design: a stale export is a bookkeeping lapse, not a corrupt tree, and
 # blocking the push would be the same over-firing this session spent
 # deleting. Loud is the requirement; blocking is not.
+# `--check` was called here from PR #412 onward without ever having been
+# implemented, so this block fired on EVERY push and printed "audit export is
+# behind the store" -- a claim about state, from a check that read no state.
+# It was never true or false on its merits, only broken, and it looked exactly
+# like a real warning. Implemented and scoped 2026-08-22.
+#
+# The distinction the old message erased: COULD NOT RUN is not BEHIND. Exit 1
+# means rounds are genuinely unexported; anything else means the check itself
+# failed and has no standing to report on the store at all.
 if [[ "${DIVINEOS_SKIP_EXPORT_FRESHNESS:-0}" != "1" ]]; then
-    if ! divineos audit export --check >/dev/null 2>&1; then
+    _export_out=$(divineos audit export --check 2>&1)
+    _export_rc=$?
+    if [[ $_export_rc -eq 1 ]]; then
         echo "" >&2
         echo "[push-readiness] WARNING — audit export is behind the store." >&2
-        divineos audit export --check 2>&1 | sed 's/^/[push-readiness]   /' >&2 || true
+        printf '%s
+' "$_export_out" | sed 's/^/[push-readiness]   /' >&2
         echo "[push-readiness]   Pushing anyway; the review for those rounds" >&2
         echo "[push-readiness]   is not readable on GitHub until you export." >&2
+        echo "" >&2
+    elif [[ $_export_rc -ne 0 ]]; then
+        echo "" >&2
+        echo "[push-readiness] NOTE — the export freshness check could not run" >&2
+        echo "[push-readiness]   (exit $_export_rc). This says nothing about" >&2
+        echo "[push-readiness]   whether the export is current." >&2
+        printf '%s
+' "$_export_out" | sed 's/^/[push-readiness]   /' >&2
         echo "" >&2
     fi
 fi

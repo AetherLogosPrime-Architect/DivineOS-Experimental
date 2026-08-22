@@ -39,6 +39,15 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+fi
+
 # Aletheia round-15 follow-up: there were originally THREE fail-open
 # holes in this wrapper, not one. The round-14 finding fixed the third
 # (subprocess fails after running); this commit patches the other two:

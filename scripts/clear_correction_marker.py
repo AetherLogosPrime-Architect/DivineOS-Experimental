@@ -131,6 +131,16 @@ def main(argv: list[str] | None = None) -> int:
             "obviously USE-shape, the clear is a bypass on record."
         ),
     )
+    parser.add_argument(
+        "--cli-broken",
+        action="store_true",
+        help=(
+            "REQUIRED for CLI-broken escape (not for false-positive "
+            "attribution). Asserts the divineos CLI is genuinely "
+            "unreachable and the correction will be logged once it works. "
+            "Files a remediation debt against you."
+        ),
+    )
     args = parser.parse_args(argv)
 
     reason = args.reason.strip()
@@ -145,6 +155,50 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     misread_clauses = (args.misread_clauses or "").strip() or None
+
+    # MODE IS DECLARED, NEVER INFERRED FROM AN OMISSION.
+    #
+    # This read: mode = "false-positive" if misread_clauses else
+    # "cli-broken". Forgetting one flag therefore MEANT "the CLI is
+    # broken" -- a factual assertion about the machine, filed silently,
+    # carrying a remediation debt and a bypass-telemetry row.
+    #
+    # Measured 2026-08-22 across all 45 rows of cli_broken_escapes.jsonl:
+    # NOT ONE is a CLI-broken escape. About 35 are false-positive
+    # attributions and about 10 are defect-escapes where gates blocked each
+    # other. A file named for a category that has never once occurred, and
+    # 34 rows carrying a remediation debt nobody owed.
+    #
+    # A default is a guess. This one guessed wrong 45 times out of 45, and
+    # because it guessed silently nothing ever contradicted it.
+    if misread_clauses is None and not args.cli_broken:
+        print(
+            "REFUSED: name the mode; it is not inferred.",
+            file=sys.stderr,
+        )
+        print(
+            '  detector misfired      -> --misread-clauses "<the reply-clauses misread as USE>"',
+            file=sys.stderr,
+        )
+        print("  CLI truly unreachable  -> --cli-broken", file=sys.stderr)
+        print(
+            "Omitting both used to mean CLI-broken by default. Across all "
+            "45 historical rows that default was never once correct, and it "
+            "filed a remediation debt each time. If the fire was a "
+            "defect-escape (gates blocking each other -- not a false "
+            "positive, not a broken CLI), say so in --reason, and use "
+            "--cli-broken only if the CLI itself is genuinely down.",
+            file=sys.stderr,
+        )
+        return 2
+    if misread_clauses is not None and args.cli_broken:
+        print(
+            "REFUSED: --misread-clauses and --cli-broken are different "
+            "claims and cannot both be true. Either the detector misfired, "
+            "or the CLI was unreachable. Pick the one that happened.",
+            file=sys.stderr,
+        )
+        return 2
     mode = "false-positive" if misread_clauses is not None else "cli-broken"
     if misread_clauses is not None and len(misread_clauses) < _MIN_MISREAD_LEN:
         print(

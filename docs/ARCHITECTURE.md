@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (444 commands across 84 modules)
+  cli/                         CLI package (448 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -53,6 +53,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
@@ -121,6 +122,7 @@ src/divineos/
     pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
+    instruments_commands.py    `divineos instruments` — the measuring surface for core/instruments.py. Opens every diagnostic surface on each call rather than describing them, so a log that moved reports MISSING instead of rotting quietly in a doc.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -345,7 +347,8 @@ src/divineos/
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
       merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
       shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
-      round_export.py          Exports rounds to docs/audit_rounds/<id>.json so CI can confirm a round exists. merge-review looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
+      export.py                Exports rounds to docs/audit_rounds/<id>.md — THE artifact CI reads. ci_merge_review_check resolves a round via exported_round_exists(); merge-review previously looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
+      round_export.py          UNUSED as of 2026-08-22. Writes <id>.json, which nothing reads. Landed alongside export.py in PR #412 and the CLI was wired to this one by mistake, so `divineos audit export` produced a file the gate ignores while reporting success — 276 .md against 2 .json on disk when found. CLI rewired to export.py; this module is kept only until someone decides whether JSON has a consumer
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
@@ -489,6 +492,7 @@ src/divineos/
       thresholds.py              Threshold constants for operating-loop detectors.
       authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE of evidence (PR #217, prereg-95f7e5c7c2db).
       shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
+      transcript_tail.py         Bounded transcript reading — the last 4 MB, with a truncated flag so a caller holding a partial view can say so. Built 2026-08-03 as "the freeze fix", found to have zero callers 2026-08-09, and not on main at all until 2026-08-18. NOT the freeze fix — that diagnosis was refuted; measured worth is ~1s/turn on a 67 MB transcript and nothing on a small one.
       deep_engagement_detector.py Deep-engagement detector — catches substantive-output-without-grounded-consult per prereg-43b1d1ba2df3.
       closure_initiation_detector.py Closure-initiation detector — Aria's three-state model: user-signaled OR extract/sleep allowed; else closure-language + landmark fires HIGH, closure-language alone fires MEDIUM.
       temporal_displacement_detector.py Temporal-displacement detector — catches fake-clock references (tonight/tomorrow/calling-it-a-night) in agent output. Same first-person presence discipline as writer-presence at a different surface; phase A observational per prereg-221edeaceee3.
@@ -631,6 +635,7 @@ src/divineos/
     verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
     andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
     verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+    command_parsing.py         Strips `cd x &&`, `env`, and `NAME=value` off a shell command so gates match what was actually run. One home, after three sites learned it separately and two got it wrong (Aletheia F70 shape, 2026-08-18).
     auto_goal.py               Auto-goal derivation from user prompts.
     mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
     mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
@@ -652,6 +657,11 @@ src/divineos/
     hook_firing_map.py         What actually fires, read from observation rather than from config.
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
+    component_register_surface.py Surface the component register at briefing time.
+    instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
+    log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
+    operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
+    hook_budget.py             What the whole hook stack costs per tool call, which nothing else measures.
 
   analysis/
     _session_types.py          Session analysis type definitions

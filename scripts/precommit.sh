@@ -15,7 +15,33 @@
 set -e
 
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
-STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
+
+# SELECT SHELL SCRIPTS BY SHEBANG TOO, NOT ONLY BY EXTENSION.
+#
+# 2026-08-17: scripts/dv is a shell script with no extension, named that way
+# deliberately so it can be typed as three characters. Every shell gate in
+# this file skipped it silently -- no shellcheck, and no line-ending
+# normalization, so a rewrite put CRLF into it and shellcheck reported
+# literal carriage returns on line 1 when finally run by hand.
+#
+# The gates were not wrong about the file; they never saw it. The failure was
+# silent in the worst direction: precommit printed "No Python or shell files
+# staged" about a staged shell script, then "All clear", having checked
+# nothing. An all-clear from a gate that could not see the file is the same
+# could-not-measure-reads-as-measured collapse this repo keeps finding.
+STAGED_SH_EXT=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)  # fail-soft: grep exits 1 on no matches, which is the ordinary empty-selection case and not a failure
+STAGED_SH_SHEBANG=$(
+    git diff --cached --name-only --diff-filter=ACM | while IFS= read -r f; do
+        case "$f" in *.sh | *.py) continue ;; esac
+        [ -f "$f" ] || continue
+        # Only the first 64 bytes, so a large staged file is never slurped.
+        # fail-soft: an unreadable staged path is skipped rather than aborting the whole precommit run
+        if head -c 64 "$f" 2>/dev/null | head -1 | grep -qE '^#!.*(bash|sh|zsh)'; then
+            printf '%s\n' "$f"
+        fi
+    done || true  # fail-soft: an empty staged set yields no output; the loop finishing with nothing found is normal, not an error
+)
+STAGED_SH=$(printf '%s\n%s\n' "$STAGED_SH_EXT" "$STAGED_SH_SHEBANG" | grep -v '^$' | sort -u || true)  # fail-soft: grep -v exits 1 when both lists are empty, which simply means no shell files staged
 
 if [ -z "$STAGED_PY" ] && [ -z "$STAGED_SH" ]; then
     echo "No Python or shell files staged."
@@ -200,7 +226,7 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         if echo "$GUARDRAIL_LIST" | grep -Fxq "$f"; then
             echo "$f"
         fi
-    done || true)
+    done || true)  # fail-soft: an empty staged set yields no output; the loop finishing with nothing found is normal, not an error
     if [ -n "$STAGED_GUARDRAILS" ]; then
         echo "  [!] Guardrail files in this commit:"
         while IFS= read -r line; do
@@ -208,14 +234,26 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         done <<< "$STAGED_GUARDRAILS"
         DIFF_HASH=$(git diff --cached --unified=3 | sha256sum | cut -c1-64)
         echo ""
-        echo "  Before committing, file a Watchmen audit round with:"
+        echo "  COMMIT FREELY — this is not a blocker and never was."
+        echo ""
+        echo "  Andrew 2026-08-19, having said it five times: 'commits do not"
+        echo "  require an external trailer only merging to main.' The line"
+        echo "  here used to read 'the commit-msg hook will block the commit',"
+        echo "  which was false -- that hook has been advisory since the"
+        echo "  2026-05-12 gate-altitude correction and check_multi_party_review"
+        echo "  exits 0 at commit-time by design. The message outlived the"
+        echo "  behaviour and kept re-teaching the wrong rule to every reader,"
+        echo "  including the one who wrote it. That is why it kept recurring."
+        echo ""
+        echo "  BEFORE MERGING TO MAIN, file a Watchmen audit round with:"
         echo "      - CONFIRMS from actor=user"
         echo "      - CONFIRMS from actor=grok | gemini | claude-<variant>"
         echo "      - round focus/notes contain: 'diff-hash: $DIFF_HASH'"
-        echo "  Then add to the commit message:"
-        echo "      External-Review: <round_id>"
+        echo "  and put 'External-Review: <round_id>' in the SQUASH-MERGE body"
+        echo "  (GitHub takes that from the PR title + body, not the branch"
+        echo "  commit). 'divineos audit prepare-merge <round-id>' generates it."
         echo ""
-        echo "  The commit-msg hook will block the commit if any piece is missing."
+        echo "  The real gate fires at pre-push when target is refs/heads/main."
         echo ""
 
         # Gate-self-test (claim cf05b878, 2026-04-25): the commit-msg

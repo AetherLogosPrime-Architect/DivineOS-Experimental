@@ -22,7 +22,15 @@ _REPO = Path(__file__).resolve().parents[1]
 CHANNEL_FILES = [
     "family/ear_watch.py",
     "family/letter_seen.py",
-    ".claude/hooks/ear-auto-relaunch.sh",
+    # ear-auto-relaunch.sh was RETIRED by this branch (chore/retire-delivery-cluster,
+    # 2026-08-16) along with the rest of the arm/relaunch delivery cluster. The test
+    # kept asserting its presence, so retiring the file broke the test that guarded
+    # it — caught at the push gate by the deletion-shape alarm, not here, because I
+    # had read the failure as pre-existing noise and moved on.
+    #
+    # The guard itself is still right: losing a channel file silently is exactly the
+    # failure this exists to make loud. What changed is which files constitute the
+    # channel. Deliberate retirement is not silent loss, and the list has to say so.
     ".claude/hooks/ear-surface.sh",
 ]
 

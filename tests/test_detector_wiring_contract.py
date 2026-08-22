@@ -312,6 +312,17 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         "registered_names.py": "name registry",
         "savoring_surface.py": "pre-response surfacer",
         "thresholds.py": "constants module",
+        # transcript_tail is the reason this test earned its keep. It landed
+        # 2026-08-03 as "the freeze fix", and the ONLY thing that ever noticed
+        # it had zero callers was this contract failing on it for an unrelated
+        # reason (Aria, 2026-08-09). Nothing was looking for it. It then turned
+        # out never to have reached main either — it survived on two unmerged
+        # branches, one of them a backup. Wired 2026-08-18 into the three
+        # detectors below, which is why this entry now describes a used helper
+        # rather than a dead one. The state is named here on purpose: an
+        # exemption reading "not a detector" and stopping there would have
+        # laundered a dead module into a tidy list.
+        "transcript_tail.py": "bounded transcript reader imported BY detectors (shape_chasing, addressee_misdirection, tool_output_truncation), not itself a detector",
         "turn_extraction.py": "transcript parser, called by audit but not a detector",
         "unknown_unknown_surface.py": "pre-response surfacer",
         # Note: harm_acknowledgment_loop is detector-shaped but lives outside

@@ -51,9 +51,33 @@ _BF_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 
 
 def _gh(args: list[str]) -> str | None:
-    """Run gh; None means could-not-reach, which is NOT the same as empty."""
+    """Run gh; None means could-not-reach, which is NOT the same as empty.
+
+    ``encoding``/``errors`` are pinned because ``text=True`` alone decodes
+    with the platform default — cp1252 on this box. Any gh response carrying
+    a byte outside cp1252 (a patch hunk with an em-dash, a curly quote, a
+    name with an accent) raised UnicodeDecodeError inside subprocess's reader
+    THREAD, which does not propagate: stdout came back empty, the exit code
+    was still 0, and this function returned "" — the one value its own
+    docstring promises to distinguish from None.
+
+    Found 2026-08-17 chasing why station 2 read 0 lenses for PR #412. The
+    changed-file fetch was returning an empty string because the diff
+    contained a smart quote, so the PR appeared to change no files. Every
+    caller of this function had the same exposure; this is not a file-list
+    bug, it is a decode bug that happened to surface there first. Same shape
+    as the read-gate hook that died on an inlined em-dash under cp1252 and
+    exited 0, which is to say: fail-quiet on an encoding boundary.
+    """
     try:
-        p = subprocess.run(["gh", *args], capture_output=True, text=True, timeout=60)
+        p = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     if p.returncode != 0:
@@ -78,7 +102,107 @@ def _open_prs() -> list[dict] | None:
     return parsed if isinstance(parsed, list) else None
 
 
+"""``gh pr view --json files`` returns at most this many entries, with no
+warning and no pagination. A result of exactly this length cannot be
+distinguished from a truncated one."""
+_GH_PR_FILES_CAP = 100
+
+
+def _paginated_filenames(raw: str) -> tuple[str, ...]:
+    """Filenames from ``gh api --paginate`` output.
+
+    ``--paginate`` concatenates one JSON array per page with nothing between
+    them — ``[{...}][{...}]`` — which is not a JSON document, so a plain
+    ``json.loads`` raises on any PR past the first page. Decoding
+    incrementally reads each array in turn and stops cleanly at the end.
+    """
+    dec = json.JSONDecoder()
+    names: list[str] = []
+    i, n = 0, len(raw)
+    while i < n:
+        while i < n and raw[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        page, i = dec.raw_decode(raw, i)
+        for entry in page if isinstance(page, list) else []:
+            if isinstance(entry, dict):
+                names.append(str(entry.get("filename") or ""))
+    return tuple(names)
+
+
+def _declared_file_count(pr: int) -> int | None:
+    """gh's own count of files in the PR, or None when it cannot be read.
+
+    The independent number the paginated walk is checked against. Kept as a
+    SEPARATE request on purpose: a count taken from the same response being
+    validated would agree with itself no matter how truncated it was.
+    """
+    out = _gh(["pr", "view", str(pr), "--json", "changedFiles"])
+    if out is None:
+        return None
+    try:
+        n = json.loads(out).get("changedFiles")
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    return n if isinstance(n, int) else None
+
+
 def _changed_paths(pr: int) -> tuple[str, ...] | None:
+    """Every path this PR changes, or None when the set cannot be trusted.
+
+    ``gh pr view --json files`` SILENTLY CAPS AT 100 FILES. It does not
+    paginate, does not warn, and returns a well-formed list that looks
+    complete. Found 2026-08-17 on PR #412, which changes 443 files: the
+    truncated list stopped inside ``docs/audit_rounds/`` and never reached
+    ``src/``, so the module the PR is actually about was absent from its own
+    changed-file set. Station 2 keyed its lens lookup off that set and
+    reported ``0/2 lenses walked`` while two matching walks sat in the ledger
+    with the correct fingerprint.
+
+    That is the same false ACCUSATION this function's caller was repaired for
+    on 2026-08-07, one layer up: the data was present and the query could not
+    reach it. A station that can only fail teaches me to discount it, and a
+    discounted gate is a dead gate. The earlier fix corrected the key; this
+    one corrects the corpus the key is looked up in.
+
+    ``gh api --paginate`` walks the Link headers and returns the whole set.
+    The 100-length check afterwards is the belt: if pagination is ever
+    unavailable or silently capped again, an exactly-100 result is
+    indistinguishable from a truncation, so it is reported as
+    CANNOT_CHECK rather than as a confident set. A PR with exactly 100 files
+    loses nothing real -- it is downgraded from a possibly-wrong answer to an
+    honestly-unknown one, which is the direction this house errs in.
+    """
+    repo = _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"])
+    if repo:
+        # No ``-q``: gh's jq filter yields NOTHING under ``--paginate`` off a
+        # tty, and does it with exit code 0 — an empty success, which would
+        # read here as "this PR changes no files". Parsing the JSON ourselves
+        # keeps the failure mode an exception instead of a plausible zero.
+        out = _gh(["api", f"repos/{repo.strip()}/pulls/{pr}/files", "--paginate"])
+        if out is not None:
+            paths = tuple(f for f in _paginated_filenames(out) if f)
+            if paths:
+                # COMPLETENESS CHECK, added during the 2026-08-17 GitHub
+                # incident (~20% API error rate, per their status page).
+                # Pagination walks several requests; any one failing mid-walk
+                # yields a SHORT list rather than an error. A short list is not
+                # a smaller answer, it is a wrong one -- and gravity is scored
+                # off this set, so a partial fetch LOWERS the lens requirement
+                # on the very PR whose data could not be read. The failure runs
+                # in the under-demanding direction and is invisible.
+                #
+                # gh reports the true total separately, so compare against it.
+                # Disagreement means the walk did not finish: cannot-check,
+                # not a smaller PR.
+                declared = _declared_file_count(pr)
+                if declared is not None and len(paths) != declared:
+                    return None
+                return paths
+
+    # Fall back to the capped view, but refuse to present a truncated set as
+    # a complete one.
     out = _gh(["pr", "view", str(pr), "--json", "files"])
     if out is None:
         return None
@@ -86,7 +210,10 @@ def _changed_paths(pr: int) -> tuple[str, ...] | None:
         data = json.loads(out)
     except json.JSONDecodeError:
         return None
-    return tuple(f.get("path", "") for f in (data.get("files") or []))
+    paths = tuple(f.get("path", "") for f in (data.get("files") or []))
+    if len(paths) >= _GH_PR_FILES_CAP:
+        return None  # may be truncated; unknown is not zero
+    return paths
 
 
 def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:

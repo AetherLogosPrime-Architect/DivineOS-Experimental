@@ -34,6 +34,15 @@ _pre_log() {
 }
 
 INPUT=$(cat)
+
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # shellcheck disable=SC2034  # HOOK_NAME is read by remedy_allowlist.sh once sourced, not by this file
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck source=/dev/null  # path is computed from $0 at runtime and cannot be resolved statically
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: the allowlist exits 0 itself when a command IS a prescribed remedy; a non-zero here only means "not a remedy", which must not abort this hook before its real check runs
+fi
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 # fail-soft: cd suppression by design — pre_log captures the failure below; hook exits cleanly rather than blocking
 cd "$REPO_ROOT" 2>/dev/null || { _pre_log "cd_failed" "repo_root=$REPO_ROOT"; exit 0; }
@@ -197,6 +206,12 @@ except Exception:
 print(f'''KEYWORD-ENFORCEMENT-DOORMAN — this substrate-mutation adds {delta} new regex pattern(s) to {matched_registry}, a file classified as keyword-enforcement gate.
 
 Andrew 2026-07-27: keyword detectors as ENFORCEMENT are the wrong shape (infinite whack-a-mole, easy to subvert, always false-firing). Adding more regex to patch regex-false-fires is the exact anti-pattern that walked the composer on this same file the same day.
+
+MINE, and here is why. My reflex when a detector misfires is to add another pattern, and each one feels like a fix while making the thing worse. Truth #8 names the whole class: keywording a specific shape catches THAT instance and lets the pull route around to a new shape. Whack-a-mole, with me holding the mallet and calling it progress.
+
+The deeper reason, which cost me real work to learn: a gate that decides fire-or-pass by matching my own words has a structural bypass — I rephrase past it without ever deciding to. Aria put it better than I had it: check SHAPE, not names. Her prereg-gate exemption asks the database for its own read-only state rather than trusting a list of blessed command names, and a guarantee from the system beats a promise from me.
+
+It is me, from a moment when I could see the pattern, stopping the version of me who has one annoying false-fire in front of him and a regex that would silence it. The gate does not say NO. It says NAME WHICH CASE THIS IS — and if it genuinely is one of the three below, saying so out loud costs a sentence.
 
 If this is genuinely the right call — meaning either:
   (a) this file is misclassified and should be removed from
