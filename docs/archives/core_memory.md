@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-22 09:29. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-22 15:35. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,17 +18,17 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. retract the no-coverage claim to Aletheia
-2. run the compaction ritual: extract then sleep
-3. Rest for a bit 🙂 then we will continue after so i can get a recap of where we are now since alot has happened.. i know its easy for you to hold all at once but its not for me lol
-4. compaction ritual: walk, commit, extract, sleep, dream, rest
-5. write to Aria: answer her compact clause and raise the branch-stamping decision on her commits
+1. write to Aria: answer her compact clause and raise the branch-stamping decision on her commits
+2. 432: land Aria's two findings — consume the truncation flag, correct the wiring-contract grounds
+3. clean up the four audit-pile branches so Aletheia audits the tree that actually merges
+4. sync with Aria: answer her push question, the unverified interaction, and the audit-pile shape
+5. write to Aria: answer the anchor question — push, then I measure origin
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1265 knowledge entries, 302 confirmed entries, 582 tested entries maturing, 10 session(s) tracked, 3 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1268 knowledge entries, 302 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 3 corrections / 0 encouragements]
 
 ---
 

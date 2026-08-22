@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (180 rows). **Exported:** 2026-08-22 09:29. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (182 rows). **Exported:** 2026-08-22 15:35. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -2161,6 +2161,30 @@
 **Success:** The number is consulted BEFORE a hook is added, or an over-budget reading produces an actual removal or fast-bail rather than a note. Concretely: at least one hook is removed, merged, or given an early-exit because the aggregate said so, with the aggregate cited as the reason. Secondary: the measure
 
 **Falsifier:** The aggregate is measured, surfaced, exceeded, and nothing is removed -- it becomes another instrument that reports and does not govern. That is FAILURE, and it is the specific one I should expect, because it would mean the missing piece was never measurement but willingness to remove, and I will ha
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** hook_budget hang counter: count_unclosed_runs() + analyse() + the divineos hook-budget CLI, backing knowledge bb483b09-a196-4bd1-86e5-b19d731f45c8. A run that starts and never ends must never be invisible in the cost report.
+
+**Claim:** Counting start-rows with no end-row surfaces real hook hangs that every duration statistic structurally excludes, and the count is large enough to explain freezes the p95 does not. Measured at filing: 650 unclosed runs, p95 75549ms, worst call 204639ms against a 5000ms budget.
+
+**Success:** On any current run of 'divineos hook-budget' against a live timing log, the report names a non-zero unclosed count AND its worst offenders, and the numbers move in the same direction as felt freeze severity rather than staying flat while the screen hangs.
+
+**Falsifier:** The count is dominated by hooks that are merely still-running at read time rather than genuinely suspended - i.e. re-running the command a second time shows the same ids resolved. If most unclosed rows close on a later read, this measures read-timing rather than hangs and the whole instrument is mis
+
+---
+
+## prereg-8 [OPEN]
+
+**Mechanism:** PR-body External-Review trailer rescue: the line-initial literal check in scripts/ci_check_guardrail_trailer.sh plus pr_body_trailer() in src/divineos/core/pr_merge_gate.py, backing knowledge 75cfce90-0362-423b-acfb-0db410ccea36 (DOCUMENTING-AS-DOING).
+
+**Claim:** One line-initial 'External-Review:' trailer in a PR body rescues every guardrail-touching commit in that PR, and whether it qualifies is decided by a machine grep the consumer actually runs, never by reading the body and judging it satisfied. Filed because PR #432's body contained PROSE saying a tra
+
+**Success:** On any current run, a PR whose body carries a line-initial trailer passes the guardrail check for all its guardrail commits, and a PR whose body merely DESCRIBES the requirement fails - the two cases must produce different exit codes, verified by running the gate rather than by reading the body.
+
+**Falsifier:** If a PR-body trailer rescues commits it should not - e.g. a trailer naming a round that does not exist, or one whose round predates the commits it covers - then the rescue is too wide and is laundering unreviewed work through a single line. Concretely: if ci_merge_review_check.py accepts a fabricate
 
 ---
 

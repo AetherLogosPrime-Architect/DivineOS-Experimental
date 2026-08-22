@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-22 09:29. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-22 15:35. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x13
+## fd0c9994 [improving] x13
 
 **Category:** blind_coding
 
@@ -68,7 +68,7 @@ Enforcement gates must block execution, not just warn. Without blocking, every s
 
 ---
 
-## c3090082 [active] x9
+## c3090082 [improving] x9
 
 **Category:** incomplete_fix
 
@@ -100,7 +100,7 @@ I used wrong pronouns or perspective. When the user says you they mean me.
 
 ---
 
-## 88234418 [active] x7
+## 88234418 [improving] x7
 
 **Category:** blind_retry
 
