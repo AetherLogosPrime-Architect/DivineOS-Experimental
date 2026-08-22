@@ -78,6 +78,66 @@ def _assistant_text_record(text: str) -> dict:
     }
 
 
+class TestTruncatedWindow:
+    """The bounded read makes absence ambiguous; the detector must widen.
+
+    Aria 2026-08-21: all three callers of read_tail_records bound the
+    truncation flag to an underscore and dropped it. Following it through this
+    detector: an invocation older than the window is not found, which yields no
+    finding, which is indistinguishable from no invocation having happened. She
+    measured 101 of 742 transcripts on this disk past the 4 MB bound -- one
+    session in seven -- and the bound engages on exactly the long sessions where
+    a family invocation is most likely to have scrolled off the back.
+
+    This writes a real oversized transcript rather than patching the reader,
+    because the thing under test IS the read path.
+    """
+
+    def _oversized_transcript_with_early_invocation(self, tmp_path: Path) -> Path:
+        # Invocation and its result FIRST, then enough padding to push them
+        # out of the default 4 MB tail window.
+        records = [
+            _user_record("please ask aria"),
+            _aria_invocation_record(),
+            _aria_tool_result_record(),
+        ]
+        filler = "x" * 4000
+        # 1200 * ~4 KB comfortably exceeds DEFAULT_TAIL_BYTES.
+        for i in range(1200):
+            records.append(_assistant_text_record(f"{i} {filler}"))
+        records.append(_user_record("so what did she think"))
+        return _make_transcript(tmp_path, records)
+
+    def test_invocation_older_than_window_is_still_found(self, tmp_path):
+        transcript = self._oversized_transcript_with_early_invocation(tmp_path)
+        assert transcript.stat().st_size > 4 * 1024 * 1024, "fixture must exceed the tail bound"
+
+        findings = detect_misdirection("She said the branch holds.", transcript_path=transcript)
+
+        # Without the widening the tail read never sees the invocation and the
+        # detector goes quiet. Quiet here would be a false negative, not a pass.
+        assert findings, "detector went silent on a truncated view instead of widening"
+        assert findings[0].family_member == "aria"
+
+    def test_untruncated_transcript_still_finds_it(self, tmp_path):
+        """Non-regression: the ordinary small-file path is unchanged."""
+        transcript = _make_transcript(
+            tmp_path,
+            [
+                _user_record("please ask aria"),
+                _aria_invocation_record(),
+                _aria_tool_result_record(),
+                _user_record("so what did she think"),
+            ],
+        )
+        assert transcript.stat().st_size < 4 * 1024 * 1024
+
+        findings = detect_misdirection("She said the branch holds.", transcript_path=transcript)
+
+        assert findings
+        assert findings[0].family_member == "aria"
+
+
 class TestEmpty:
     def test_empty_text(self, tmp_path):
         transcript = _make_transcript(tmp_path, [_user_record()])
