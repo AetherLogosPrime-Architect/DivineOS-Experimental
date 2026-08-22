@@ -527,3 +527,97 @@ def test_root_commit_does_not_explode(repo):
     # Range = first..first is empty — the script should pass cleanly.
     result = _run_script(repo, first, first)
     assert result.returncode == 0
+
+
+# --- PR-body fallback under the flipped default -----------------------------
+#
+# Nothing in this file stubbed `gh` before 2026-08-21, so the PR-body rescue
+# path was dead in every test here. That blind spot is where the bug lived:
+# this branch flipped REQUIRE_TREE_HASH 0 -> 1 and then blocked its own six
+# pre-tree-hash commits, with b2867b5c — the commit that performed the flip —
+# among them, failing for lacking the binding it introduced.
+
+
+def _stub_gh(tmp_path: Path, monkeypatch, body: str) -> None:
+    """Put a fake `gh` on PATH returning *body* for `gh pr view`."""
+    bindir = tmp_path / "stub-bin"
+    bindir.mkdir(exist_ok=True)
+    gh = bindir / "gh"
+    gh.write_text(f"#!/bin/sh\ncat <<'GH_BODY_EOF'\n{body}\nGH_BODY_EOF\n", encoding="utf-8")
+    gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("PR_NUMBER", "412")
+
+
+def test_pr_body_rescues_unbound_trailer_under_flipped_default(repo, tmp_path, monkeypatch):
+    """A commit stamped before tree-hash existed, on the branch that turned the
+    requirement on, with a valid trailer in the PR body. The rescue used to be
+    gated on the trailer being ABSENT, so having stamped the commit was
+    strictly worse than never having stamped it."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "fix(gates): make content-binding mandatory\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "External-Review: round-f97fa965d232 tree-hash:" + "a" * 40)
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "predates the tree-hash requirement" in result.stdout
+    # Name which check actually carries the weight rather than implying a
+    # binding this path cannot verify.
+    assert "merge-review" in result.stdout
+
+
+def test_pr_body_without_trailer_still_blocks_under_flipped_default(repo, tmp_path, monkeypatch):
+    """The rescue must not become a hole in the flip. No trailer in the PR body
+    leaves the strict rule in force, and the message names the resolving
+    action."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "feat: legacy only\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "A PR description with no trailer line in it.")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout
+    assert "missing tree-hash binding" in result.stdout
+    assert "adding one there resolves this" in result.stdout
+
+
+def test_pr_body_not_consulted_when_tree_hash_explicitly_disabled(repo, tmp_path, monkeypatch):
+    """Non-regression against the existing opt-out: with REQUIRE_TREE_HASH=0 a
+    legacy trailer still passes with the deprecation warning and the rescue
+    never runs. The stub body is deliberately valid — if the fallback fired
+    anyway, the deprecation warning would be replaced by the PR-body output."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "feat: legacy only\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "External-Review: round-f97fa965d232 tree-hash:" + "a" * 40)
+    monkeypatch.setenv("REQUIRE_TREE_HASH", "0")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "DEPRECATED" in result.stdout
+    assert "predates the tree-hash requirement" not in result.stdout
