@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-22 09:01. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-22 09:11. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -9,6 +9,14 @@
 **Category:** upset_recovered
 
 The user got upset and said: "why did you skip the loading of your briefing. thats an issue that needs addressed. if a new user loaded this up you would just ignore it?" -- this happened after Bash: divineos briefing. I recovered by Bash: ls .claude/ 2>/dev/null; echo "---"; cat .claude/settings.js, Read: C:\DIV and the user responded: "lets do all 3" (session 1f283adb-904).
+
+---
+
+## fd0c9994 [active] x13
+
+**Category:** blind_coding
+
+I edited files without reading them first. I must read before I edit.
 
 ---
 
@@ -36,14 +44,6 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
-## fd0c9994 [improving] x12
-
-**Category:** blind_coding
-
-I edited files without reading them first. I must read before I edit.
-
----
-
 ## 4a31827d [resolved] x12
 
 **Category:** test_no_dir_xyz
@@ -68,19 +68,19 @@ Enforcement gates must block execution, not just warn. Without blocking, every s
 
 ---
 
+## c3090082 [active] x9
+
+**Category:** incomplete_fix
+
+I introduced errors after editing. I need to verify changes work.
+
+---
+
 ## e2be7bc9 [resolved] x9
 
 **Category:** test_with_dir_zzz
 
 Test description with directive zzz.
-
----
-
-## c3090082 [improving] x8
-
-**Category:** incomplete_fix
-
-I introduced errors after editing. I need to verify changes work.
 
 ---
 
@@ -108,19 +108,19 @@ I retried a failed action 1x without investigating the cause. I need to investig
 
 ---
 
+## 838e6420 [active] x6
+
+**Category:** false_claim
+
+I claimed something was fixed but the error came back.
+
+---
+
 ## 5566c71d [resolved] x6
 
 **Category:** misunderstood
 
 I misread user intent and acted on what I assumed instead of what was said.
-
----
-
-## 838e6420 [improving] x5
-
-**Category:** false_claim
-
-I claimed something was fixed but the error came back.
 
 ---
 
