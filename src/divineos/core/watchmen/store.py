@@ -628,6 +628,35 @@ def _enum_text(value: Any) -> str:
     return str(value or "").strip().upper()
 
 
+def _coerce_enum(enum_cls: Any, raw: Any, default: Any) -> Any:
+    """Read a stored enum value, tolerating case drift.
+
+    Found 2026-08-01 while exporting the store: 6 findings hold ``'info'``
+    and some hold ``'knowledge'`` where the enums define ``INFO`` and
+    ``KNOWLEDGE``. ``Severity('info')`` raises, so ANY read touching one of
+    those rows crashed â€” ``list_findings`` included. Six rows were enough to
+    make whole rounds unreadable, silently, for as long as they have existed.
+
+    Case is not meaning: ``'info'`` and ``'INFO'`` are the same severity, and
+    refusing to read one is a parser opinion, not data integrity. So case is
+    normalised, and a value that still does not resolve falls back to the
+    default rather than taking down the read â€” losing one field's precision
+    beats losing the entire finding, which is a real audit record.
+    """
+    if raw is None or raw == "":
+        return default
+    if isinstance(raw, enum_cls):
+        return raw
+    try:
+        return enum_cls(raw)
+    except ValueError:
+        pass
+    try:
+        return enum_cls(str(raw).strip().upper())
+    except ValueError:
+        return default
+
+
 def _row_to_finding(row: Any) -> Finding:
     """Convert a database row to a Finding dataclass."""
     tags = json.loads(row[12]) if row[12] else []

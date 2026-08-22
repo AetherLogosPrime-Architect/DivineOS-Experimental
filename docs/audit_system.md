@@ -141,7 +141,13 @@ The trailer must be on **two** commit messages, not just one:
 
 `divineos audit prepare-merge <round-id>` produces a ready-to-paste block for the squash-merge commit-message field. The helper:
 
-1. Validates the round (operator-CONFIRMS + external-AI-CONFIRMS + within the 14-day recency window).
+1. Validates the round (operator-CONFIRMS + external-AI-CONFIRMS + content-binding to the reviewed tree).
+
+   The 14-day recency window this step used to describe was **deleted** on
+   2026-08-01 (`46c3c62b`). Time is not a usable metric for a discontinuous
+   substrate — a round is either bound to the content that was reviewed or it
+   is not, and a clock says nothing about that either way. Content-binding by
+   tree-hash replaced it and is now mandatory rather than opt-in.
 2. Emits a markdown block that contains the External-Review trailer plus a short audit-summary suitable for the merge-commit body.
 
 Paste the output into the GitHub "Confirm squash and merge" message field BEFORE clicking confirm. The `audit-stamp-reminder` GitHub Action posts a sticky comment on every guardrail-touching PR with the same reminder.
