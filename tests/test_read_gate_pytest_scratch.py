@@ -41,8 +41,17 @@ from divineos.core import read_gate
         # Both paths that actually fired at me on 2026-08-15.
         "tmp/pytest/run-30364/popen-gw4/test_conversation_window_surfa0/18_hedging.md",
         "tmp/pytest/run-28336/popen-gw5/test_surface_fires_only_on_tag0/tagged.md",
-        # Windows separators, since that is the platform this runs on.
+        # Windows separators. The comment here used to read "since that is the
+        # platform this runs on" -- true of my machine, false of CI, which is
+        # ubuntu. This case passed locally and failed on the runner, because
+        # Path.parts on Linux treats the whole thing as ONE component and the
+        # predicate's tmp check could never match. The predicate now splits on
+        # both separators, so this asserts a host-independent property rather
+        # than a fact about where the suite happens to run.
         r"C:\DIVINE OS\DivineOS-Experimental\tmp\pytest\run-1\test_x0\f.md",
+        # POSIX-shaped absolute path, the mirror of the case above. Together
+        # they pin that neither separator style depends on the host.
+        "/home/runner/work/DivineOS/tmp/pytest/run-1/test_x0/f.md",
         # A run- dir without the literal "pytest" component.
         "tmp/run-99999/popen-gw1/fixture.md",
     ],
