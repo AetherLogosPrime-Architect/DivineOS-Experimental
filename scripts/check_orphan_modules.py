@@ -21,10 +21,25 @@ Output format mirrors ``check_doc_counts.py``: prints findings to
 stdout, exits 0 on clean tree, non-zero if orphans found (so it can
 be wired into pre-commit / CI when ready).
 
-Note: this script is NOT yet wired into the gate. It's a tool for
-running periodically to catch accumulation. Wiring it as a hard
-gate would block any PR that introduces a new module before its
-caller lands, which is too strict.
+WIRED AS A GATE 2026-08-13. It blocks a commit on NEW orphans only.
+The objection this paragraph used to raise was real -- a hard gate
+would refuse every commit against a standing backlog, and the only
+satisfiable answer would be switching the gate off. The answer is
+``orphan_modules_baseline.txt``: the known backlog is written down
+with a reason per entry, new arrivals block immediately, and the
+check FAILS if a baseline entry stops being an orphan, so the list
+closes behind us rather than becoming a permanent amnesty.
+
+A module that lands before its caller does belongs in the baseline
+with that stated as its reason, which takes one line and leaves a
+record of the promise.
+
+AND NOTHING GOES IN THE BIN UNLOOKED-AT. Andrew 2026-08-13: "nothing
+we have built was built without reason or purpose.. some may be
+obsolete or superceded but nothing should be thrown away without
+looking first." The advice this script prints puts LOOK FIRST above
+the options and routes deletion through ``divineos delete-justify``,
+which refuses until what-it-was-for has been written down.
 
 Known limitations:
 
@@ -58,6 +73,20 @@ SRC = ROOT / "src" / "divineos"
 TESTS = ROOT / "tests"
 HOOKS = ROOT / ".claude" / "hooks"
 
+# Places a module can be invoked from that are NOT python imports under src/.
+# This started as .claude/hooks alone, and the omission had teeth: it named
+# subprocess_jobs an orphan on 2026-08-13 while scripts/check_push_readiness.sh
+# was running `python -m divineos.core.subprocess_jobs` on every push -- I had
+# watched it execute an hour earlier.
+#
+# Aether's Gödel finding on #415 is the general form: a reachability check
+# cannot find a KIND of reachability it does not model, and his own scan
+# discovered git-hook delegators as a third surface AFTER reporting clean.
+# There will be a fourth. Adding a directory here is cheap; the expensive part
+# is that until it is added, a live module reads as dead, and the obvious
+# remedy for a dead module is deleting it.
+_INVOCATION_ROOTS = (HOOKS, ROOT / "scripts", ROOT / ".git" / "hooks")
+
 
 def _collect_module_paths() -> list[Path]:
     """Return every non-init Python module under src/divineos/ as a path."""
@@ -79,25 +108,63 @@ def _module_dotted_name(path: Path) -> str:
 
 
 def _is_intentionally_unwired(path: Path) -> bool:
-    """Modules with an explicit unwired-marker are intentionally not
-    in the import graph. Two markers honored:
+    """Modules invoked from outside the import graph, not orphans.
 
-    * ``AGENT_RUNTIME`` — invoked from a separate runtime context
-      (Claude Code hooks, external workflow runners, etc.)
-    * ``PHASE_1_STAGED`` — staged for a later wiring phase. Same
-      semantics as AGENT_RUNTIME for orphan-detection: known-by-design
-      unwired, not accidentally orphaned.
+    ``AGENT_RUNTIME`` means something really does run this — a Claude Code
+    hook, an external workflow runner. Unlike the marker below it, that is a
+    statement of fact, and a statement of fact is checkable.
 
-    Markers must appear in the first ~2000 chars (typical docstring
-    location). Renamed from ``_is_agent_runtime`` 2026-05-07 per
-    round-2 audit because the function now honors more than the
-    AGENT_RUNTIME marker.
+    IT HAS NOT BEEN CHECKED, and I nearly wrote here that it had. A search
+    for each module's dotted path across hooks, scripts and git hooks found
+    an invoker for four of eleven on 2026-08-13. The other seven are a LEAD,
+    not a verdict — a hook can reach a module through a wrapper or through
+    the CLI without ever naming its path, so absence of a match is not
+    absence of an invoker. It is exactly the shape that made this checker
+    call four live modules dead earlier the same day.
+
+    Worth someone's afternoon. Untouched here because verifying it properly
+    means running each hook, not grepping for it, and a claim of
+    verification I have not done is worse than the gap it papers over.
+
+    ``PHASE_1_STAGED`` USED TO BE HONOURED HERE AND IS NOT ANY MORE.
+
+    It does not say "something runs this." It says "we mean to wire this
+    later" — a promise, in the module's own handwriting, granting itself a
+    permanent exemption from the only check that would ever mention it
+    again. Nobody signs it, nothing dates it, nothing asks whether the
+    later arrived.
+
+    Measured 2026-08-13, after Aletheia found the evidence gate unwired and
+    I checked what was hiding it:
+        empirica/gate.py               staged since 2026-04-17
+        dead_architecture_alarm.py     staged since 2026-04-05
+        family/costly_disagreement.py  staged since 2026-05-02
+        family/planted_contradiction.py staged since 2026-05-02
+        family/integrity_stance.py     staged since 2026-07-16
+
+    The evidence gate — the thing every claim is supposed to pass through
+    before entering the substrate — sat exempt for four months. And the
+    first entry is the DEAD-ARCHITECTURE ALARM, exempting itself from the
+    dead-architecture check.
+
+    Staged modules are now reported (see ``_is_staged``), not skipped. A
+    parking place is fine. A parking place nothing can see into is how
+    four months pass.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return bool(re.search(r"AGENT_RUNTIME|PHASE_1_STAGED", text[:2000]))
+    return bool(re.search(r"AGENT_RUNTIME", text[:2000]))
+
+
+def _is_staged(path: Path) -> bool:
+    """True if the module claims it is waiting for a later wiring phase."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return bool(re.search(r"PHASE_1_STAGED", text[:2000]))
 
 
 # Backward-compat alias — keep the old name pointing at the new function
@@ -248,18 +315,25 @@ def _is_reexported_through_parent_init(module_path: Path) -> bool:
 
 
 def _has_caller_in_shell(needle: str) -> bool:
-    """Return True if any .sh hook references ``divineos.<needle>``
-    (e.g., via ``python -m divineos.<needle>``)."""
-    if not HOOKS.exists():
-        return False
+    """Return True if anything outside the package invokes ``divineos.<needle>``.
+
+    Searches every root in ``_INVOCATION_ROOTS`` and both shell and python
+    files, because ``python -m divineos.x`` is written in .sh under
+    .claude/hooks and scripts/, in .py under scripts/, and in the git hooks.
+    """
     pat = re.compile(rf"\bdivineos\.{re.escape(needle)}\b")
-    for p in HOOKS.rglob("*.sh"):
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+    for root in _INVOCATION_ROOTS:
+        if not root.exists():
             continue
-        if pat.search(text):
-            return True
+        for p in root.rglob("*"):
+            if not p.is_file() or p.suffix not in ("", ".sh", ".py"):
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if pat.search(text):
+                return True
     return False
 
 
@@ -299,21 +373,144 @@ def find_orphans() -> list[tuple[Path, str]]:
     return orphans
 
 
+def find_dark_surfaces() -> list[str]:
+    """Modules that can speak into the briefing and are registered nowhere.
+
+    A DIFFERENT kind of dark from the orphan list above. An orphan has no
+    caller at all. These have a working interface — ``format_for_briefing()``
+    — and were simply never soldered in, so they stay silent while looking
+    exactly like a surface with nothing to say. That sentence is
+    surface_registry's own, and it is why the failure is invisible.
+
+    Detection reuses the registry's ``dark_surfaces()`` rather than
+    reimplementing it. The module was built 2026-08-02 and has sat unwired
+    since; its detector works today. Measured 2026-08-13: 23 dark, 0
+    registered, two of them (``identity_load``,
+    ``compass_dismissal_briefing_surface``) wired nowhere at all.
+
+    NOT THE SAME AS WIRING THE REGISTRY, deliberately. Its own docstring names
+    the trap: switch the router on without migrating the hand-wired surfaces
+    and there are TWO wiring systems where there was one, which is worse than
+    one. That migration is real work with a named risk and belongs in a
+    decision with Aether. This is the free half — the visibility that was
+    missing — and it creates no second system.
+
+    Fails soft to an empty list if the registry cannot be imported: this runs
+    under bare python in precommit, and a missing package must not turn a
+    wiring check into a hard stop.
+    """
+    try:
+        import _repo_import  # noqa: F401  -- must precede the divineos import
+
+        from divineos.core.surface_registry import dark_surfaces
+    except ImportError:
+        return []
+    try:
+        return sorted(dark_surfaces())
+    except (AttributeError, ImportError, OSError):
+        return []
+
+
+BASELINE = ROOT / "scripts" / "orphan_modules_baseline.txt"
+DARK_BASELINE = ROOT / "scripts" / "dark_surfaces_baseline.txt"
+
+
+def _read_baseline_lines(path: Path) -> set[str]:
+    """Non-comment, non-blank lines from a baseline file."""
+    if not path.exists():
+        return set()
+    out = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.add(line.replace("\\", "/"))
+    return out
+
+
+def _read_baseline() -> set[str]:
+    """The acknowledged backlog: orphans that exist and are owed a decision.
+
+    Switching this check on flat would refuse every commit against a standing
+    backlog, and the only satisfiable answer would be switching it off again --
+    the same shape as a gate whose one way past is a lie. So the backlog is
+    written down, and NEW accumulation blocks. Silence was the old answer and
+    silence is what let the pile grow.
+    """
+    if not BASELINE.exists():
+        return set()
+    out = set()
+    for line in BASELINE.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.add(line.replace("\\", "/"))
+    return out
+
+
 def main() -> int:
     orphans = find_orphans()
-    if not orphans:
-        print("Orphan check OK (no modules found that have tests but no production callers)")
+    known = _read_baseline()
+    found = {str(p.relative_to(ROOT)).replace("\\", "/"): r for p, r in orphans}
+
+    fresh = sorted(set(found) - known)
+    # A baseline entry that is no longer an orphan has been dealt with. Leaving
+    # it listed lets the file outlive the problem and quietly re-authorise the
+    # same module going dark again later.
+    stale = sorted(known - set(found))
+
+    # Dark surfaces are reported on every run, pass or fail. They are not part
+    # of the orphan verdict — most are hand-soldered somewhere and do reach me
+    # — but a count that only prints on failure is a count nobody sees.
+    dark = find_dark_surfaces()
+    known_dark = _read_baseline_lines(DARK_BASELINE)
+    fresh_dark = sorted(set(dark) - known_dark)
+    if dark:
+        print(f"[surfaces] {len(dark)} can speak into the briefing, registered with it: 0.")
+        if fresh_dark:
+            print(
+                f"[surfaces] {len(fresh_dark)} not in {DARK_BASELINE.name}: {', '.join(fresh_dark)}"
+            )
+        print()
+
+    if fresh_dark:
+        print(f"BLOCKED — {len(fresh_dark)} new briefing surface(s) wired to nothing.")
+        print("A surface with an interface and no wiring is SILENT, and silent is")
+        print("indistinguishable from having nothing to say. That is the whole")
+        print(f"failure. Wire it, or add it to {DARK_BASELINE.name} with a reason.")
+        return 1
+
+    if not fresh and not stale:
+        if known:
+            print(f"Orphan check OK. {len(known)} acknowledged in {BASELINE.name}, none new.")
+        else:
+            print("Orphan check OK (nothing with tests but no production callers)")
         return 0
 
-    print(f"Found {len(orphans)} orphan module(s):")
-    for path, reason in orphans:
-        rel = path.relative_to(ROOT)
-        print(f"  {rel}: {reason}")
-    print()
-    print("For each: decide one of —")
-    print("  (a) Wire it into a production code path")
-    print("  (b) Add `# AGENT_RUNTIME` marker if invoked from outside the CLI graph")
-    print("  (c) Delete the module + its tests (audit Tier 2 dead-chain pattern)")
+    if fresh:
+        print(f"BLOCKED — {len(fresh)} module(s) with tests and no caller, not in the backlog:")
+        for rel in fresh:
+            print(f"  {rel}: {found[rel]}")
+        print()
+        print('LOOK FIRST. Andrew 2026-08-13: "nothing we have built was built')
+        print("without reason or purpose.. some may be obsolete or superceded but")
+        print('nothing should be thrown away without looking first."')
+        print()
+        print("Open it. Find what it was for and whether that need still exists.")
+        print("Then decide, while you still remember why you wrote it —")
+        print("  (a) Wire it into a production code path")
+        print("  (b) Add `# AGENT_RUNTIME` if something outside the CLI graph runs it")
+        print(f"  (c) Add it to {BASELINE.name} WITH a reason, if it is owed a decision")
+        print("  (d) Only if genuinely superseded: delete it THROUGH")
+        print("      `divineos delete-justify`, which will not let it go until you")
+        print("      have said what it was for, what you looked at, and what you")
+        print("      took out of it first.")
+        print()
+
+    if stale:
+        print(f"{len(stale)} baseline entry(ies) no longer orphaned. Remove them from")
+        print(f"{BASELINE.name} so the list cannot outlive the problem:")
+        for rel in stale:
+            print(f"  {rel}")
+
     return 1
 
 

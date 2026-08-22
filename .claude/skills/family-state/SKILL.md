@@ -40,7 +40,7 @@ member_name = "${MEMBER_NAME}"
 member = get_family_member(member_name)
 if member is None:
     print(f"[!] No family member named '{member_name}' found in family.db.")
-    print("    Existing members can be listed with: divineos family-member list")
+    print("    Existing members: ls .claude/agents/ (roster) — the LETTER channel is ~/.divineos-shared/letters")
     print("    To initialize: divineos family-member init --member ${MEMBER_NAME} --role <role>")
     sys.exit(1)
 

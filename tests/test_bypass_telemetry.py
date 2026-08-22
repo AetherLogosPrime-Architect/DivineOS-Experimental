@@ -104,8 +104,15 @@ class TestBriefingBlock:
         free; dropping either half is the regression.
         """
         # Five distinct env vars (each unique key) cross the >=5 threshold.
+        #
+        # Prefix changed 2026-08-18 (Aria): these were `ENV_{i}`, which the
+        # classifier now reads as unclassified rather than escape — no flag,
+        # no recognised prefix. The test wants to exercise ESCALATION, so the
+        # fixture has to be escape-shaped; a bare ENV_ name is not what a real
+        # escape looks like. `DIVINEOS_SKIP_` is. The threshold behaviour under
+        # test is unchanged; only the fixture stopped being representative.
         for i in range(5):
-            bypass_telemetry.record_bypass(f"gate-{i}", f"ENV_{i}", "r")
+            bypass_telemetry.record_bypass(f"gate-{i}", f"DIVINEOS_SKIP_ENV_{i}", "r")
         block = bypass_telemetry.briefing_block()
         assert "Elevated ESCAPE rate" in block, (
             "the verdict must name escapes, not bypasses -- counting every "
@@ -256,7 +263,10 @@ class TestBriefingBlockFullHistoryShape:
             for i in range(22):
                 rec = {
                     "gate_name": f"g{i}",
-                    "env_var": f"ENV_OLD_{i}",
+                    # Escape-shaped prefix, same reason as the windowed case
+                    # above: the full-history verdict now judges on escapes,
+                    # so the fixture must write escapes to exercise it.
+                    "env_var": f"DIVINEOS_SKIP_OLD_{i}",
                     "session_id": f"s{i}",
                     "day": f"2026-05-{(i % 28) + 1:02d}",
                     "timestamp": base_ts + (i * 3600),

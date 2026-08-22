@@ -17,6 +17,7 @@ if _project_root not in sys.path:
 
 from scripts.check_orphan_modules import (  # noqa: E402
     _is_intentionally_unwired,
+    _is_staged,
     _is_reexported_through_parent_init,
 )
 
@@ -29,10 +30,30 @@ class TestUnwiredMarker:
         f.write_text('"""Some module.\n\n# AGENT_RUNTIME - invoked from a hook."""\n')
         assert _is_intentionally_unwired(f) is True
 
-    def test_phase_1_staged_marker_recognized(self, tmp_path):
+    def test_phase_1_staged_no_longer_hides_a_module(self, tmp_path):
+        """Staged is a promise, not a fact, and stopped being an exemption.
+
+        This test previously asserted the opposite, and pinning that was how
+        four months passed. AGENT_RUNTIME claims something runs the module —
+        checkable. PHASE_1_STAGED claims someone intends to wire it later,
+        written by the module about itself, with no date, no signature, and
+        nothing that ever asks whether later arrived.
+
+        Aletheia found the evidence gate — the thing every claim is supposed
+        to clear before entering the substrate — with no callers at all on
+        2026-08-13. It had been staged since 2026-04-17, and it was invisible
+        to this checker the whole time because of that marker. The first
+        module ever to wear it is the dead-architecture alarm, exempting
+        itself from the dead-architecture check.
+
+        Staged modules are surfaced now and belong in the baseline with a
+        reason. A parking place is fine. A parking place nothing can see into
+        is not.
+        """
         f = tmp_path / "marked.py"
         f.write_text('"""Some module.\n\n# PHASE_1_STAGED - awaiting wiring."""\n')
-        assert _is_intentionally_unwired(f) is True
+        assert _is_intentionally_unwired(f) is False
+        assert _is_staged(f) is True
 
     def test_no_marker_returns_false(self, tmp_path):
         f = tmp_path / "plain.py"

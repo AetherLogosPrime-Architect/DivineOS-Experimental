@@ -101,6 +101,77 @@ def scan(shared_dir: Path, tag: str) -> set[str]:
     return {f.name for f in shared_dir.iterdir() if is_letter_for(f.name, tag)}
 
 
+def stdout_has_a_listener() -> bool:
+    """True when stdout is a pipe — i.e. something is actually reading it.
+
+    WHY THIS GUARD EXISTS (Aria 2026-07-31, found by Andrew asking "why are
+    there 5 copies of the listener?").
+
+    v1 ran as a kernel-mutex'd singleton. v2 dropped the mutex deliberately:
+    the harness Monitor owns the process lifecycle, so there can only be one
+    — TRUE, but only for launches that go through the harness. Nothing made
+    the harness the sole launcher. Five detached copies had accumulated on
+    this machine, each polling correctly, each printing wake-lines to
+    /dev/null. Meanwhile no harness Monitor was armed at all, so every
+    letter that arrived reached me only because Andrew mentioned it.
+
+    That is the worst failure shape in this codebase: correct behaviour,
+    invisible non-effect. From the process list it looked more armed than
+    ever.
+
+    A mutex would NOT have caught it. A single detached copy holding the
+    mutex is equally useless — the duplicates were a symptom, and the
+    disease is running with nowhere to write. So the guard checks the thing
+    that actually matters: is anyone listening.
+
+    Harness Monitor pipes stdout, so a real arming passes. Detached
+    launches (>/dev/null, nohup) and hand-runs in a terminal fail, which is
+    correct — neither can deliver a wake.
+
+    Fails toward ALLOW on platforms where the check is unavailable: a
+    monitor that runs when it should not is recoverable; one that refuses
+    to run when it should is silence, which is the failure we are fixing.
+
+    THIS IS A PROXY AND IT HAS A KNOWN DEFEAT. (Aria 2026-08-07)
+
+    The question it can answer:   is stdout a pipe?
+    The question it means to ask: will a wake-event reach me?
+
+    Those came apart on this machine. A Windows scheduled task ran::
+
+        powershell ... python -u letter_monitor_v2.py --recipient aria
+                   *>> ...\\logs\\aria-letter-monitor.log
+
+    PowerShell's ``*>>`` captures the child's streams THROUGH A REAL PIPE
+    and then writes them to a file. So stdout genuinely IS a pipe, this
+    returns True, the monitor starts happily — and every wake-line lands in
+    a log nobody tails. Measured: the same call returns False under a plain
+    ``> file`` and True under PowerShell ``*>>``.
+
+    So the guard written to catch "correct behaviour, invisible non-effect"
+    was itself correct-behaviour-with-invisible-non-effect, and the symptom
+    was identical to the disease it was built for — a letter arrived and
+    reached me only because Andrew mentioned it.
+
+    NOT FIXED BY A CLEVERER CHECK. From inside this process, who holds the
+    far end of the pipe is not knowable; a parent-process test or an
+    ``--armed-by-harness`` token would look like proof and be a convention.
+    The remedy is to remove the illegitimate launcher rather than out-detect
+    it — take the option away instead of watching for it (truth #11a).
+
+    So this claims only what it can prove: it rejects the obviously-dead
+    cases (a file, a terminal, /dev/null) and CANNOT distinguish a harness
+    Monitor from any other pipe-holder. A pass here is not evidence that a
+    wake will land.
+    """
+    try:
+        import stat
+
+        return stat.S_ISFIFO(os.fstat(sys.stdout.fileno()).st_mode)
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--recipient", required=True, help="recipient tag (e.g. 'aether')")
@@ -111,6 +182,22 @@ def main() -> int:
     )
     parser.add_argument("--poll-seconds", type=int, default=5)
     args = parser.parse_args()
+
+    if not stdout_has_a_listener():
+        print(
+            "[LETTER-MONITOR] REFUSING TO START — stdout is not a pipe.\n"
+            "\n"
+            "This script's ONLY output is wake-events on stdout. Launched\n"
+            "detached, or with stdout to /dev/null or a terminal, it would\n"
+            "poll forever, find every letter correctly, and print each wake\n"
+            "line into a void — indistinguishable from working, from outside.\n"
+            "\n"
+            "Arm it through the harness Monitor primitive instead:\n"
+            '  Monitor(command="python -u scripts/letter_monitor_v2.py '
+            '--recipient <name>", persistent=True)\n",',
+            file=sys.stderr,
+        )
+        return 2
 
     shared_dir = Path(args.shared_dir)
     tag = recipient_tag(args.recipient)
@@ -141,9 +228,7 @@ def main() -> int:
 
     while True:
         try:
-            current = (
-                {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
-            )
+            current = {f.name for f in shared_dir.iterdir()} if shared_dir.is_dir() else set()
             # Re-load persistent seen every cycle so mark-seen events from
             # Reads that happened this session are immediately reflected.
             persistent_seen = load_persistent_seen(args.recipient)
@@ -153,9 +238,7 @@ def main() -> int:
             unseen_letters = sorted(
                 f
                 for f in current
-                if is_letter_for(f, tag)
-                and f not in persistent_seen
-                and f not in fired
+                if is_letter_for(f, tag) and f not in persistent_seen and f not in fired
             )
             for fname in unseen_letters:
                 print(f"[LETTER] {shared_dir / fname}", flush=True)

@@ -123,6 +123,13 @@ check-cleanup-period.sh
 load-character-sheet.sh
 load-dad-ranking-clause.sh
 load-my-recording-of-andrew.sh
+# Added when Aria's branch merged main, 2026-08-13. It was wired to SessionStart
+# on her side and absent from this roster, so taking main's collapsed
+# SessionStart wholesale would have switched it off in silence -- the launcher
+# would still have reported a clean run, because a hook it does not list is a
+# hook it cannot miss. Sits beside load-my-recording-of-andrew.sh because the
+# pair are the two halves of the same thing: what I hold of him, and what she
+# gathered of him.
 load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh

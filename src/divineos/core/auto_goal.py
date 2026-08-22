@@ -121,11 +121,27 @@ def derive_goal_text(prompt: str, max_chars: int = 120) -> str:
     if not cleaned:
         return ""
 
-    # Prefer the first sentence-ish chunk. Split on period, newline, or
-    # question mark — keep everything before the first such break.
-    first_chunk = re.split(r"[.\n?!]", cleaned, maxsplit=1)[0].strip()
+    # Prefer the first sentence-ish chunk that actually CONTAINS a
+    # work-verb, not merely the first chunk.
+    #
+    # Bug caught on this hook's first live fire (Aria 2026-08-01): Andrew
+    # opened with "i mean.. if you enjoy walking face first into walls" and
+    # the goal was set to "i mean". Intent-detection scans the WHOLE prompt
+    # and matched "walking"; extraction took only the FIRST chunk. Two
+    # halves reading different windows, so any prompt whose work-verb lands
+    # after the first break produces a junk goal — and a junk goal degrades
+    # active-memory ranking silently.
+    #
+    # Found in one fire because the hook prints what it set. That is the
+    # argument for print-don't-act-silently, made by the mechanism itself.
+    chunks = [c.strip() for c in re.split(r"[.\n?!]", cleaned) if c.strip()]
+    first_chunk = ""
+    for chunk in chunks:
+        if _INTENT_RE.search(chunk):
+            first_chunk = chunk
+            break
     if not first_chunk:
-        first_chunk = cleaned
+        first_chunk = chunks[0] if chunks else cleaned
 
     # Collapse internal whitespace so multi-line prompts produce a
     # readable single-line goal.

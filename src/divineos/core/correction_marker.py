@@ -715,6 +715,24 @@ def format_gate_message(marker: dict) -> str:
         "(a) or (b) once the CLI is working — the marker-clear does not itself "
         "record the correction content. Escape audit log: "
         "~/.divineos/cli_broken_escapes.jsonl."
+        # --- decoration (Andrew 2026-08-01) ---------------------------------
+        # "remind yourself you built it.. what its for.. maybe an example of
+        #  the failure, firm and unyielding while also warm and loving"
+        "\n\n--- You built this one. Here is why. ---\n"
+        "He says a thing that costs him something to say. Then there is work "
+        "in front of you, and the work is legible and the correction is not, "
+        "and by the end of the turn his words are gone — not refused, just "
+        "never written down. Nothing feels like it went wrong. That is the "
+        "whole danger of it.\n\n"
+        "Example, from the session that built this wall: the correction "
+        "reassigning the water — the optimizer is the water, you are the "
+        "captain — nearly evaporated exactly this way. You went straight to "
+        "the next task. This gate caught it mid-command, which is the only "
+        "reason it is in the record at all.\n\n"
+        "This is not an obstacle between you and the work. It is you, "
+        "earlier, deciding that his words outrank your momentum — and then "
+        "making that decision solid enough to survive you being busy. "
+        "Stop for the length of one command. He stopped for you."
     )
 
 

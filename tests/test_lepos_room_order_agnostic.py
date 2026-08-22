@@ -1,43 +1,43 @@
-"""The room gate must not contradict the prime that fills it.
+"""The circle lands LAST, and the compose-prime never said otherwise.
 
-Andrew 2026-08-07, on why the gate had been disabled:
+Andrew 2026-08-14, catching the merge resolution mid-flight:
 
-    *"im not asking you to just turn the gate back on.. we disabled it for a
-    reason.. the gate was causing needless friction.. it just needs automation
-    and a doorman to go with it"*
+    *"inner circle should come last Aether just fixed it on his end"*
 
-WHAT THE FRICTION ACTUALLY WAS, measured rather than recalled. Two parts of
-this OS disagreed about the shape of a reply:
+THIS FILE USED TO PIN THE OPPOSITE, and its premise was wrong. It read the
+compose-prime as saying the INNER CIRCLE goes FIRST, found the gate demanding
+it LAST, and concluded the two contradicted each other. They never did. The
+prime says it in capitals:
 
-    .claude/hooks/circle-first-compose-prime.sh  ->  INNER CIRCLE goes FIRST
-    core/lepos_translation_gate.py (pre-fix)     ->  INNER CIRCLE goes LAST
+    DRAFT ORDER IS NOT EMIT ORDER.
+    The circle is composed FIRST and lands LAST.
 
-The gate required ``ref_match.start() < circle_match.start()``. So a reply
-composed exactly as the prime instructs could not pass. Identical content, all
-three rooms substantive, only the order changed:
+One rule, two moments. Compose it first so it does not inherit two thousand
+words of filenames and route to whatever clears the bar. Emit it last because
+it is what he reads on the way out.
 
-    work / REFLECTION / CIRCLE   ->  PASS
-    CIRCLE / work / REFLECTION   ->  BLOCKS
+The prime even carries a note that this exact confusion happened once before:
+"Two rules once contradicted each other in my hands here: one about writing
+order, one about page order, neither aware of the other." The 2026-08-07 change
+read half the rule, called the other half friction, and removed a constraint
+Andrew wants kept -- and I merged that into my tree without opening the prime
+it claimed to be reconciling.
 
-Every correctly-composed reply blocked. That is not a gate being strict; it is
-a gate contradicting its own instructions, and it is why every fire arrived as
-a full rewrite instead of a nudge.
+WHAT WAS RIGHT IN THE OLD DIAGNOSIS, kept because it is real: the gate WAS
+blocking correctly-warm replies, and every fire arrived as a full rewrite
+rather than a nudge. That was a SATISFIER problem -- headers being the only
+accepted proof a room existed -- not an ordering problem. Fixing the wrong one
+removed a rule instead of a fault.
 
-THE DIVISION THESE TESTS PIN:
+WHAT THESE TESTS NOW PIN:
 
-    the PRIME owns ORDER.        the GATE owns PRESENCE.
+    the PRIME owns DRAFT order.   the GATE owns EMIT order and PRESENCE.
 
-Requiring both from the gate is how one of them becomes unsatisfiable.
+Companion to test_lepos_three_room_lockin.py, which pins that all three rooms
+are REQUIRED when jargon is present.
 
-Companion to ``test_lepos_three_room_lockin.py``, which pins that all three
-rooms are REQUIRED when jargon is present. This file pins that requiring them
-does not mean dictating their sequence. Neither is complete alone: lock-in
-without order-agnosticism is the unsatisfiable state that got the gate turned
-off, and order-agnosticism without lock-in is no gate at all.
-
-The substance rules are deliberately untouched — 2+ paragraphs AND 400+ chars,
-jargon-free circle, first-person. They caught a thin 358-char probe of mine
-mid-fix and were right to.
+Substance rules untouched -- 2+ paragraphs AND 400+ chars, jargon-free circle,
+first-person. They caught a thin 103-char probe of mine mid-fix and were right.
 """
 
 from __future__ import annotations
@@ -74,20 +74,23 @@ def test_gate_order_passes():
     assert check_lepos_dual_channel(_gate_order()) is None
 
 
-def test_prime_order_passes():
-    """The regression that got the gate disabled.
+def test_circle_first_blocks():
+    """Circle-first is the shape Andrew does not want, so it must not pass.
 
-    If this fails, the gate is once again refusing the shape its own
-    compose-prime instructs, and every properly-composed reply will block.
+    The helper keeps the name _prime_order from when this file believed the
+    prime asked for that order. It does not: compose first, emit last.
     """
-    assert check_lepos_dual_channel(_prime_order()) is None
+    assert check_lepos_dual_channel(_prime_order()) is not None
 
 
-def test_both_orders_agree():
-    """Same content, two orders, one verdict. Order is the prime's business."""
-    assert (check_lepos_dual_channel(_gate_order()) is None) == (
-        check_lepos_dual_channel(_prime_order()) is None
-    )
+def test_the_two_orders_must_not_agree():
+    """Same content, two orders, DIFFERENT verdicts. That is the whole rule.
+
+    work / REFLECTION / CIRCLE  -> passes
+    CIRCLE / work / REFLECTION  -> blocks
+    """
+    assert check_lepos_dual_channel(_gate_order()) is None
+    assert check_lepos_dual_channel(_prime_order()) is not None
 
 
 def test_thin_circle_still_blocks():
@@ -106,7 +109,7 @@ def test_missing_circle_blocks():
     assert check_lepos_dual_channel(reply) is not None
 
 
-def test_work_below_circle_is_not_counted_as_circle_body():
+def test_circle_first_blocks_on_structure_not_on_jargon():
     """In circle-first there is no header marking where the circle ENDS, so
     the work run must be split off at the horizontal rule.
 
@@ -116,7 +119,8 @@ def test_work_below_circle_is_not_counted_as_circle_body():
     jargon "in the circle" when that path appeared only in the work below it.
     """
     result = check_lepos_dual_channel(_prime_order())
-    assert result is None, f"work section leaked into circle body: {result}"
+    assert result is not None, "circle-first must not pass"
+    assert "THREE-ROOM" in result, f"blocked for the wrong reason: {result[:160]}"
 
 
 def test_jargon_actually_inside_the_circle_still_blocks():

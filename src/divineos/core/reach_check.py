@@ -661,6 +661,62 @@ def gate_status() -> tuple[bool, str]:
     )
 
 
+# A check opened this long ago still counts as "I asked, this stretch of work".
+# Matched to the verify-before-build signal window rather than picked fresh, so
+# the two consultation gates agree about how long a consult stays warm.
+RECENT_CHECK_WINDOW_SECONDS = 30 * 60
+
+
+def recent_cleared_check(
+    window_seconds: float = RECENT_CHECK_WINDOW_SECONDS,
+    now: float | None = None,
+) -> ReachCheck | None:
+    """The newest fully-disposed check opened within the window, or None.
+
+    ## Why this exists
+
+    ``gate_status`` answers "is a check sitting open with unread artifacts",
+    and the doorman needed a different question: "did I ask at all". Both
+    "never opened a check" and "opened one and disposed every item" produce
+    zero open checks, so the doorman could not tell them apart and blocked
+    both. Measured 2026-08-22: with ``divineos reach gate`` reporting
+    "Reach-check clear", ``divineos claim`` was still refused — and so were
+    ``learn``, ``opinion`` and ``feel``, since the doorman gates all four.
+
+    That is the wall its own header forbids. Exempting the remedy is not
+    enough if completing the remedy does not open the door; the exemption only
+    made the remedy runnable, never satisfiable.
+
+    A zero-item check counts, per ``open_check``: NOT FOUND is a real outcome
+    and is not the same as NOT CHECKED.
+
+    ## What this does NOT check
+
+    It does not verify the check's symptom has anything to do with what is
+    being written. One reach check clears any store write for the window. That
+    is deliberate: topic-matching would need term overlap between a symptom
+    string and a claim body, and a consultation gate that misfires on wording
+    is one that gets routed around (truth #11). The discipline this enforces
+    is "ask before writing in this stretch of work", not per-sentence
+    provenance — and it should be read as exactly that much.
+    """
+    init_reach_tables()
+    cutoff = (time.time() if now is None else now) - window_seconds
+    conn = _get_connection()
+    ids = [
+        r[0]
+        for r in conn.execute(
+            "SELECT check_id FROM reach_checks WHERE opened_at >= ? ORDER BY opened_at DESC",
+            (cutoff,),
+        )
+    ]
+    for check_id in ids:
+        check = get_check(check_id)
+        if check is not None and check.clear:
+            return check
+    return None
+
+
 def as_json(check: ReachCheck) -> str:
     return json.dumps(
         {

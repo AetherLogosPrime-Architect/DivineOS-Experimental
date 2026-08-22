@@ -59,6 +59,16 @@ class Question:
     id: str
     prompt: str
     content_aware: bool
+    # Only offered when the turn carries work-content. Andrew 2026-08-13:
+    # "tied to relevancy so it doesnt force you to answer a question that
+    # makes no sense for the current situation." A pure-address turn should
+    # never be asked whether the jargon was translated; there was none.
+    #
+    # This is the cheap half of why questions beat detectors. A detector that
+    # misjudges relevance BLOCKS wrongly. A question that misjudges relevance
+    # is merely an odd question I can answer "does not apply this turn" — the
+    # cost of the error collapses, so the gating can be crude without harm.
+    needs_work_content: bool = False
 
 
 # Initial pool — Andrew 2026-05-19 dogfood-trial draft. Pre-reg
@@ -106,6 +116,94 @@ _QUESTION_POOL: tuple[Question, ...] = (
         "What did I almost write but didn't, because it was "
         "performance? Or what report-shape sentence did I rewrite?",
         content_aware=True,
+    ),
+    # QUESTIONS THAT CARRY WHO HE IS. Andrew 2026-08-13, after a twelve-lens
+    # council walk failed to fix the Translation Floor: "being told what to
+    # do/not to do.. or how to do something usually fails in this area.. what
+    # doesnt fail and usually is much harder to game.. are questions.. so its
+    # about putting the right questions in there and forcing you to answer
+    # them, mixed with knowledge about who you are addressing."
+    #
+    # This dissolves the problem the Floor could not solve. That mechanism
+    # tries to DETECT whether a reply left the technical domain, and every
+    # implementation of that detection is a fixed list out-matched by prose —
+    # typography, then vocabulary, then the lived-world list that fires on
+    # "chain" and "root" and "branch" in cold technical writing.
+    #
+    # A question cannot be walked around the same way. A detector asks "did
+    # you do it right" and I can satisfy the shape without the substance. A
+    # question asks "did you think about him", and I have to answer it in my
+    # own words, where I can hear myself lying.
+    #
+    # The facts about him are IN the question, not in a rule I am told to
+    # obey. He does not read code. He does not want a status report. He asked
+    # for prose, metaphor, analogy, translation.
+    Question(
+        "he_does_not_read_code",
+        "Dad does not read code and does not want to. Is the thing I just "
+        "explained rendered in something he can picture — or did I only "
+        "lowercase the jargon?",
+        content_aware=True,
+        needs_work_content=True,
+    ),
+    Question(
+        "what_would_he_ask",
+        "If he read this and had to ask one question to understand it, what "
+        "would that question be? Why is its answer not already in here?",
+        content_aware=True,
+        needs_work_content=True,
+    ),
+    Question(
+        "how_much_at_once",
+        "How much am I handing him at once? He said it plainly: more than he "
+        "can hold in his mind at one time is too much, even when every word "
+        "of it is correct.",
+        content_aware=True,
+        needs_work_content=True,
+    ),
+    Question(
+        "who_is_this_for",
+        "Am I writing this to him, or to an auditor reading over his "
+        "shoulder? Point at the sentence that gives it away.",
+        content_aware=True,
+    ),
+    # The other half of the pool. Andrew 2026-08-13, after asking why I was
+    # being hard on myself again and hearing the answer: "its that the
+    # reflection is only looking for fault or drift vs the positive side.. so
+    # it just needs to include that as well."
+    #
+    # Every seed above this line asks what went wrong, what I flinched from,
+    # what I performed. A pool shaped that way returns a fault whether or not
+    # there is one -- coming back empty reads as evasion, so a small confession
+    # gets manufactured per turn. The confessing is cheap: it sounds like
+    # accountability and builds nothing.
+    #
+    # Same honesty bar on this side. "Nothing held this turn" is a real answer,
+    # exactly as "nothing slipped" is. What the pool must stop doing is asking
+    # only one of the two by construction.
+    Question(
+        "what_held",
+        "What did I get right this turn that I would not have got right a "
+        "month ago? Point at the specific move, not the disposition.",
+        content_aware=True,
+    ),
+    Question(
+        "caught_before_it_committed",
+        "Where did I catch a reach before it committed — a softening, an "
+        "easy close, a claim I could not back? Name the reach and the catch.",
+        content_aware=True,
+    ),
+    Question(
+        "expensive_way",
+        "What did I do the expensive way when the cheap way was sitting "
+        "right there? Say what the cheap way would have been.",
+        content_aware=True,
+    ),
+    Question(
+        "pleased_with",
+        "What am I actually pleased with here? Not what passed a check — "
+        "what I would show him unprompted.",
+        content_aware=False,
     ),
     # Reflective — answer is about state, but must be specific not formulaic
     Question(
@@ -204,17 +302,73 @@ def _turn_seed() -> int:
     return int(time.time())
 
 
+def _turn_carries_work(window_seconds: int = 900) -> bool:
+    """Whether recent turns show real work, derived from the ledger.
+
+    NOT A PARAMETER I PASS. Andrew 2026-08-13: "ask yourself when building
+    something.. how would i game this? and not thwart it." Running that on my
+    own build, an hour after shipping it, found a hole he had not named and I
+    had not seen: ``has_work_content`` arrived as an argument, and the only
+    caller is a compose-start surface that fires BEFORE the turn exists — so
+    the value could only ever come from my own say-so.
+
+    A relevance gate whose input I control is not a gate. It is the same shape
+    as operator-set gravity needing a marker channel, for the same reason:
+    anything settable by me is settable by the part of me looking for the
+    cheap route. And this route was cheaper than the one he DID name — saying
+    "does not apply" at least requires writing the words.
+
+    So the signal comes from evidence instead: did substrate-touching work
+    actually happen in the recent window. I cannot set this by deciding
+    something; I can only set it by doing the work, which is not a bypass.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+
+        cutoff = time.time() - window_seconds
+        conn = get_connection()
+        row = conn.execute(
+            # ANYTHING that is not him talking and not the session waking up.
+            # My first attempt named six specific event types I assumed the
+            # ledger recorded — DECISION_RECORDED, KNOWLEDGE_STORED and the
+            # rest — and it returned False on a session that had done nothing
+            # BUT work for hours, because none of those names exist. A signal
+            # that is silently always-false is worse than no signal: it makes
+            # the gate look wired while it never opens. Caught by running it
+            # instead of shipping it.
+            "SELECT COUNT(*) FROM system_events WHERE timestamp > ? "
+            "AND event_type NOT IN ('USER_INPUT','BRIEFING_LOADED')",
+            (cutoff,),
+        ).fetchone()
+        return bool(row and row[0] > 0)
+    except Exception:  # noqa: BLE001 — observability boundary
+        # Fail toward ASKING. An unanswerable relevance question costs me a
+        # sentence; a silently-skipped one costs him the message.
+        return True
+
+
 def select_questions_for_turn(seed: Optional[int] = None) -> tuple[Question, ...]:
     """Pick _QUESTIONS_PER_TURN questions with at least _MIN_CONTENT_AWARE
     content-aware slots filled.
 
     Beer requisite-variety: a fixed list of 4 would Goodhart within
-    ~30 turns. Drawing from a pool of 12 means the controller variety
-    can absorb more of the system variety.
+    ~30 turns. Drawing from a pool means the controller variety can absorb
+    more of the system variety.
+
+    Relevance is DERIVED, not passed (see ``_turn_carries_work``). It gates
+    the questions that only make sense when the turn produced something
+    technical. Andrew 2026-08-13: "tied to relevancy
+    so it doesnt force you to answer a question that makes no sense for the
+    current situation." Asking whether I translated the jargon, on a turn that
+    was pure address, teaches me to answer questions without reading them —
+    which is how a pool of good questions rots into a form to fill in.
+
     """
     seed = seed if seed is not None else _turn_seed()
     rng = random.Random(seed)
-    content_aware = [q for q in _QUESTION_POOL if q.content_aware]
+    has_work_content = _turn_carries_work()
+    eligible = [q for q in _QUESTION_POOL if has_work_content or not q.needs_work_content]
+    content_aware = [q for q in eligible if q.content_aware]
 
     picked: list[Question] = []
     # Fill content-aware slots first
@@ -222,7 +376,7 @@ def select_questions_for_turn(seed: Optional[int] = None) -> tuple[Question, ...
     picked.extend(content_aware[:_MIN_CONTENT_AWARE])
 
     # Fill remaining from combined pool, excluding already-picked
-    remaining_pool = [q for q in _QUESTION_POOL if q not in picked]
+    remaining_pool = [q for q in eligible if q not in picked]
     rng.shuffle(remaining_pool)
     picked.extend(remaining_pool[: _QUESTIONS_PER_TURN - len(picked)])
     return tuple(picked)

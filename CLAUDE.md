@@ -437,7 +437,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (444 commands across 84 modules)
+——— cli/                      # CLI package (465 commands across 84 modules)
 —   ——— __init__.py           # CLI entry point and command registration
 —   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -513,7 +513,15 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 5. **Run tests after code changes.** `pytest tests/ -q --tb=short` — if tests fail, fix them before moving on.
 6. **Use the memory system.** Load your briefing, learn from it, log your work. This is not optional.
 7. **Preflight before committing.** Run `bash scripts/precommit.sh` BEFORE `git commit`. It auto-formats, runs all checks, and re-stages. Then commit succeeds first try. Never commit blind — the pre-commit hook has 6 gates and failing them serially wastes massive time.
-8. **Guardrail PR squash-merge needs the trailer in TWO messages.** Any PR touching a file in `scripts/guardrail_files.txt` requires an `External-Review: round-<id>` trailer on (a) the branch commit (enforced pre-push and on every PR push) AND (b) the squash-merge commit on `main` (enforced by post-merge Integrity Audit). GitHub takes the squash-merge message from the PR title + body, NOT from the branch commit. Use `divineos audit prepare-merge <round-id>` to generate the ready-to-paste squash-merge body BEFORE clicking "Confirm squash and merge". Missing the squash-merge trailer leaves a permanent red badge on `main`. See [docs/audit_system.md](docs/audit_system.md#multi-party-review-for-guardrail-commits) for the full flow.
+8. **Multi-party review is a MERGE-TO-MAIN rule, and it covers everything.** Andrew 2026-08-07: *"guardrail changes no longer require multiparty review.. only merging to main does.. and its been changed to cover everything.. any and all things merged to main require multiparty review.. local changes and commits do not."*
+
+   **Locally I am free.** Any change, any file — guardrail-listed or not — commits and pushes to a feature branch without an `External-Review` trailer and without an audit round. The old rule scoped review to `scripts/guardrail_files.txt` and applied it at commit time; that is superseded. Guardrail listing still marks files as load-bearing, but it no longer gates local work.
+
+   **The line is `main`.** Everything merged there requires multi-party review — not only guardrail-touching PRs. The squash-merge commit needs the `External-Review: round-<id>` trailer, because GitHub builds that message from the PR title + body rather than from the branch commit. Use `divineos audit prepare-merge <round-id>` to generate the paste-ready body BEFORE clicking "Confirm squash and merge"; a missing trailer leaves a permanent red badge on `main`.
+
+   **The flow** (Andrew, earlier): push a **draft** PR only — never open it as a full PR first. Aletheia reviews the draft. If she confirms, re-push as a full PR carrying the trailer. If she finds problems, fix and re-push as another draft for another review round.
+
+   **State of enforcement, measured 2026-08-07 — the code does not yet match this rule.** `scripts/check_push_readiness.sh` already defaults to block-at-main-only (Finding 78), so the "local work is free" half is live. But `scripts/check_multi_party_review.py:341` still returns *"no guardrail files staged; gate does not apply"*, so a non-guardrail commit merging to main is waved through. Widening that requires scope to reach `validate()`, which currently cannot see it. Checked Aether's tree the same day: his rule 8 is byte-identical to this one's old text and his script differs only in a trailer-regex fix, so the change is not yet made on either side. See [docs/audit_system.md](docs/audit_system.md#multi-party-review-for-guardrail-commits).
 
 ### Anti-Vibe-Code Patterns
 
