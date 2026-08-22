@@ -339,6 +339,7 @@ src/divineos/
       store.py                 CRUD with actor validation + review chains + chain-tier computation
       router.py                Route findings to knowledge/claims/lessons
       summary.py               Analytics, HUD integration, unresolved tracking
+      export.py                Write rounds to docs/audit_rounds/<id>.md so the review travels with the repo (the store is gitignored, so this is the only copy CI or a cold reader can see)
       drift_state.py           Data-as-metric surface: ops-count dimensions since last MEDIUM+ audit (replaces cadence.py 2026-04-21)
       tier_override_surface.py Briefing block for recent TIER_OVERRIDE events (closes Schneier Sch2 partial-theater finding)
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
