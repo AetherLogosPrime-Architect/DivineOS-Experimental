@@ -165,45 +165,54 @@ def test_deny_message_names_the_persisted_log_path(isolated_home, fake_pytest_fa
 
 @pytest.mark.skipif(_BASH is None, reason="bash not available")
 def test_low_impact_path_helper_classifies_correctly():
-    """Andrew 2026-06-10 PR-throughput fix — the fast path skips local
-    pytest when only low-impact paths (tests/, docs/, family/,
-    exploration/, root *.md, *.txt) are touched. Verify the helper:
+    """The fast path skips local pytest when only inert paths are touched.
 
-    - All-low-impact file list → returns true (skip pytest)
-    - Any src/ touched         → returns false (full pytest)
-    - Empty list               → returns false (conservative; can't
-                                  prove low-impact, so run full)
+    THIS TEST USED TO INLINE ITS OWN COPY of _all_changed_low_impact and run
+    that. It therefore verified a hand-written duplicate and never once
+    executed check_push_readiness.sh, so the shipped classifier could change
+    underneath it and the test would pass unchanged. It did exactly that:
+    `tests/` was removed from the real list on 2026-08-22 and the inlined copy
+    still carried it, docstring included. Found while making that change.
+    That is the same defect this file exists to catch, one level up -- a check
+    reporting clean over something it was not looking at. The function is now
+    SOURCED from the script.
+
+    WHY tests/ IS NO LONGER LOW-IMPACT (Andrew 2026-08-22: "none of these
+    should have made it to draft without passing internal CLI tests"). The
+    fast path skipped pytest on the stated grounds that "CI on the PR runs the
+    full matrix". CI does not, on a draft -- tests.yml gates on
+    `draft == false` so drafts do not accumulate red marks. A change to a TEST
+    FILE on a draft PR was therefore verified by nobody: the local gate
+    deferring to CI, CI deferring until promotion, the gap owned by neither.
+    The other five categories stay because prose cannot change a test outcome.
+    A test file can, which is precisely what disqualifies it.
     """
-    inline = (
-        "_all_changed_low_impact() {\n"
-        "    local file saw_any=0\n"
-        "    while IFS= read -r file; do\n"
-        '        [[ -z "$file" ]] && continue\n'
-        "        saw_any=1\n"
-        '        case "$file" in\n'
-        "            tests/*|docs/*|family/*|exploration/*|*.md|*.txt) ;;\n"
-        "            *) return 1 ;;\n"
-        "        esac\n"
-        '    done <<< "$1"\n'
-        '    [[ "$saw_any" == "1" ]]\n'
-        "}\n"
-        'low_input=$(printf "tests/a.py\\ndocs/b.md\\nfamily/c.md")\n'
-        'high_input=$(printf "src/divineos/foo.py\\ntests/a.py")\n'
-        'empty_input=""\n'
-        '_all_changed_low_impact "$low_input"   && echo LOW   || echo HIGH\n'
-        '_all_changed_low_impact "$high_input"  && echo LOW2  || echo HIGH2\n'
-        '_all_changed_low_impact "$empty_input" && echo EMPTY_LOW || echo EMPTY_HIGH\n'
+    # Source the REAL function out of the REAL script. sed-extracting the
+    # single function keeps the rest of the script (which pushes) from running.
+    harness = (
+        f'eval "$(sed -n \'/^_all_changed_low_impact()/,/^}}/p\' "{_SCRIPT}")"\n'
+        'probe() { _all_changed_low_impact "$1" && echo "LOW:$2" || echo "HIGH:$2"; }\n'
+        'probe "$(printf "docs/b.md\\nfamily/c.md\\nexploration/d.md")" inert\n'
+        'probe "tests/a.py" testfile\n'
+        'probe "tests/conftest.py" conftest\n'
+        'probe "$(printf "docs/b.md\\ntests/a.py")" mixed\n'
+        'probe "src/divineos/foo.py" source\n'
+        'probe "" empty\n'
     )
     result = subprocess.run(
-        [_BASH, "-c", inline],
+        [_BASH, "-c", harness],
         capture_output=True,
         text=True,
         timeout=10,
     )
     out = result.stdout
-    assert "LOW\n" in out, f"all-low-impact must return true. stdout: {out!r}"
-    assert "HIGH2\n" in out, f"src/ touch must return false. stdout: {out!r}"
-    assert "EMPTY_HIGH\n" in out, f"empty list must return false (conservative). stdout: {out!r}"
+    assert "LOW:inert\n" in out, f"docs/family/exploration must skip pytest. stdout: {out!r}"
+    # The load-bearing assertions: a test change must NOT skip the suite.
+    assert "HIGH:testfile\n" in out, f"tests/ must run pytest. stdout: {out!r}"
+    assert "HIGH:conftest\n" in out, f"conftest must run pytest. stdout: {out!r}"
+    assert "HIGH:mixed\n" in out, f"any test file in the set must run pytest. stdout: {out!r}"
+    assert "HIGH:source\n" in out, f"src/ touch must run pytest. stdout: {out!r}"
+    assert "HIGH:empty\n" in out, f"empty list must run pytest (conservative). stdout: {out!r}"
 
 
 @pytest.mark.skipif(_BASH is None, reason="bash not available")
