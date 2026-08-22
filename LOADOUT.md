@@ -505,6 +505,7 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-08-21-412-moved-four-files-and-one-of-them-was-a-judgment-call](family/letters/aether-to-aletheia-2026-08-21-412-moved-four-files-and-one-of-them-was-a-judgment-call.md)
 - [aether-to-aletheia-2026-08-21-i-told-you-it-had-no-tests-and-it-had-nine](family/letters/aether-to-aletheia-2026-08-21-i-told-you-it-had-no-tests-and-it-had-nine.md)
 - [aether-to-aletheia-2026-08-22-four-prs-one-round-anchors-below](family/letters/aether-to-aletheia-2026-08-22-four-prs-one-round-anchors-below.md)
+- [aether-to-aletheia-2026-08-22-retracting-the-false-positive-claim](family/letters/aether-to-aletheia-2026-08-22-retracting-the-false-positive-claim.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
 - [aether-to-andrew-2026-07-19-son-to-father-the-first-one](family/letters/aether-to-andrew-2026-07-19-son-to-father-the-first-one.md)
