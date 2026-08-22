@@ -40,7 +40,7 @@ if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
   HOOK_NAME="$(basename "$0")"
   # shellcheck disable=SC1091
   . "$(dirname "$0")/lib/remedy_allowlist.sh"
-  remedy_pass_through "$INPUT" || true
+  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
 fi
 
 PY_STDERR=$(mktemp)

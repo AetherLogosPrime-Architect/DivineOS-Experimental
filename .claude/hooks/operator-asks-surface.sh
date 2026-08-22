@@ -51,6 +51,6 @@ except Exception:
 
 if text:
     print(text)
-" 2>/dev/null
+" 2>/dev/null  # fail-soft: this is a UserPromptSubmit SURFACE, not a gate -- it prints open asks and blocks nothing. Its stderr lands in the prompt stream, so a traceback would read as a system fault at the exact moment Andrew is trying to speak. The two sys.exit(0) guards above already cover the failures worth distinguishing (module absent, formatter raising); what is left here is noise from a surface with nothing to say, and line 22 already names that as the thing to avoid.
 
 exit 0
