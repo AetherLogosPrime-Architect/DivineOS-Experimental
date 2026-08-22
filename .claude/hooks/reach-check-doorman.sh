@@ -127,6 +127,32 @@ if blocked:
     print(message)
     sys.exit(7)
 
+# NOT BLOCKED IS NOT THE SAME AS NOT ASKED, and until 2026-08-22 this file
+# treated them as the same thing. gate_status answers "is a check sitting open
+# with unread artifacts"; zero open checks is the answer BOTH when I never
+# opened one and when I opened one and disposed every item. The code fell
+# through to the block below in both cases, so completing the remedy did not
+# open the door — `divineos reach gate` printed "Reach-check clear" and
+# `divineos claim` was refused in the same breath. learn, opinion and feel too;
+# all four gate here.
+#
+# Which is the wall the header of this very file swears it is not. Exempting
+# `divineos reach` made the remedy RUNNABLE and never SATISFIABLE, and those
+# are different properties — I checked the first one and shipped believing I
+# had checked both.
+#
+# The advisory reasoning in that header still stands and none of it is being
+# softened: this remains a hard block from first fire. What changed is only
+# that a satisfied requirement now counts as satisfied.
+try:
+    cleared = reach_check.recent_cleared_check()
+except Exception as exc:
+    print(f"[reach-check-doorman] recency check errored, blocking: {exc}", file=sys.stderr)
+    cleared = None
+
+if cleared is not None:
+    sys.exit(0)
+
 print(
     "REACH-CHECK -- I am about to write into a substrate store or a research\n"
     "doc without having asked what already exists on this topic.\n\n"
