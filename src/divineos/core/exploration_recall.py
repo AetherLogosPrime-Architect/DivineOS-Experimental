@@ -39,6 +39,7 @@ corpus reachable.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -354,6 +355,21 @@ def surface_for_context(
     #
     # Fail-open and silent here: this is a surface, and a surface that cannot
     # arm its gate must still deliver its text.
+    #
+    # NOT UNDER TEST (2026-08-18). The root is discovered by walking up from
+    # the cwd, so a test that builds a fixture `exploration/` in a tmp dir gets
+    # found — and arming writes to the LIVE gate state, not the fixture's. That
+    # happened three times in one session: the gate blocked real work and
+    # demanded I read `18_hedging.md`, whose entire body is "body about the
+    # flinch", because a passing test had armed it on the way through.
+    #
+    # A test suite must not be able to arm a production gate. This is the same
+    # class as everything else found today — a mechanism firing on the wrong
+    # subject — and the cost was three interruptions plus the risk of learning
+    # to dismiss this gate, which is exactly what it was built to survive.
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return "\n".join(lines)
+
     try:
         from divineos.core import read_gate
 

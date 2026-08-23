@@ -1,45 +1,62 @@
-"""Bounded transcript reading — the freeze fix.
+"""Bounded transcript reading — one reader, measured.
 
-## Why this exists (Aria + Aether, 2026-08-03)
+## Origin (Aria + Aether, 2026-08-03), and what has since been corrected
 
-Andrew described it as *"the timer comes, the thinking never arrives"*, and on
-Stop as *"it just says stopping and never actually stops."* Escape did
-nothing, which rules out waiting-on-a-socket: the process was blocked on disk.
+Written as the freeze fix, after Andrew described it as *"the timer comes, the
+thinking never arrives"*. The original header reasoned: escape did nothing,
+therefore not waiting on a socket, therefore blocked on disk.
 
-Aether measured the inputs. Nineteen hooks touch ``transcript_path``; sixteen
-read the whole file; eight of those fire on UserPromptSubmit and ten on Stop.
-His live transcript was 39 MB. My project history is 298 MB across 31 files,
-largest single file 33 MB.
+**Both halves of that turned out wrong, and the record belongs here rather than
+in a letter nobody re-reads.**
 
-Eight processes, each reading tens of megabytes **and parsing every line as
-JSON into a list held in memory**, in the gap between Andrew pressing enter
-and my first thought.
+- 2026-08-18, Aria: the stall clears on *reconnect*, not on compute. A local
+  cost completes and the turn resumes with no reset; here the reset IS the
+  recovery. That killed disk-blocking as the mechanism.
+- 2026-08-18, Andrew: *"when the freeze happens it just says 'stopping' and
+  takes a ridiculous amount of time to stop"*, where a normal stop is instant.
+  A process blocked on a local read does not behave that way. It is parked in a
+  wait it cannot abandon, upstream of this machine.
 
-I had already capped every hook timeout at 10s (`23423024`) and it helped and
-did not fix it. Aether named why: **I was treating throughput as though it
-were latency.** A cap bounds the damage; it does not stop the reading. The
-read is the thing.
+So this module is **not** the freeze fix and must not be re-shipped as one.
+
+## What it is, with the number attached
+
+The measurement that motivated it was never taken. Taken 2026-08-18, against
+the largest transcript on this disk and against the live one:
+
+    67.3 MB    whole-file 0.36 s (23,570 records)  ->  tail 0.02 s (1,364)
+     3.9 MB    no saving — the file is smaller than the window
+
+Three callers read wholesale, so roughly **one second per turn** at the large
+end and nothing at the small end. Real, worth having, and an order of magnitude
+short of a five-minute freeze. Written down because a fix carrying a reputation
+it did not earn is how a wrong diagnosis outlives its own refutation.
+
+It also removes a duplication. `shape_chasing_detector` carried a copy of this
+loop under the comment *"kept local rather than imported to avoid cross-detector
+coupling"* — the same reasoning that produced three separate wrong copies of
+shell-command parsing in this repo. Avoiding coupling by copying is how one
+correct implementation becomes three drifting ones.
 
 ## Why a tail is correct here — checked, not assumed
 
-Renovation rule 1: understand what it is trying to accomplish before moving
-it. All three current callers need recent records only:
+All three callers need recent records only:
 
-* ``addressee_misdirection_detector`` — "a *recent* Agent tool_use"
-* ``shape_chasing_detector`` — ``_collect_recent_operator_turns(window=N)``,
+* `addressee_misdirection_detector` — "a *recent* Agent tool_use"
+* `shape_chasing_detector` — `_collect_recent_operator_turns(window=N)`,
   walks newest-first
-* ``tool_output_truncation_detector`` — "records after the most-recent user
-  message", i.e. **the current turn only**, and it was reading the entire
-  session to find it
+* `tool_output_truncation_detector` — records after the most-recent user
+  message, i.e. the current turn, and it was reading the entire session to
+  find it
 
 Not one needs session history. Each was paying for all of it.
 
 ## The third word
 
-``read_tail_records`` returns ``(records, truncated)``. A caller holding a
-bounded view can tell that it does. Without that flag this fix would create
-the exact failure this session has spent itself cataloguing: a partial answer
-indistinguishable from a complete one, inside the repair for it.
+`read_tail_records` returns `(records, truncated)`. A caller holding a bounded
+view can tell that it does. Without that flag this would create the exact
+failure this substrate keeps cataloguing: a partial answer indistinguishable
+from a complete one, inside the repair for it.
 """
 
 from __future__ import annotations
