@@ -167,3 +167,53 @@ class TestRegressionTheCaseThatFoundARealBug:
 @pytest.mark.parametrize("bad", ["", "   ", "# comment"])
 def test_empty_and_comment_lines_are_never_queries(bad):
     assert sweep.to_query(bad, Counter(), 10, 2) is None
+
+
+class TestFixturesResembleTheRealCorpus:
+    """A fixture that lies about frequency tests a codebase that does not exist.
+
+    TWICE while building this tool a test passed for the wrong reason, both
+    times because I invented fixture frequencies from intuition instead of
+    measuring the corpus in front of me:
+
+      - the regression fixture put four words in all 40 files, making every
+        identifier 95%-ubiquitous, and FAILED -- code correct, fixture wrong;
+      - the genericness fixture put `out`/`join` at 70-80%, and PASSED --
+        crediting the band rule with work it does not do, since both are
+        actually in the distinctive band.
+
+    Intuition about word frequency is the thing that was wrong both times, so
+    this measures instead of asserting. It does not check exact counts, which
+    would break on every commit; it checks the BAND each fixture identifier
+    belongs to, which is the only property the fixtures rely on.
+    """
+
+    @pytest.fixture(scope="class")
+    def real_df(self):
+        texts = sweep.corpus()
+        return sweep.doc_freq(texts), len(texts)
+
+    @pytest.mark.parametrize(
+        "ident,expected_band",
+        [
+            ("search", "distinctive"),
+            ("command", "distinctive"),
+            ("bool", "distinctive"),
+            ("out", "distinctive"),
+            ("join", "distinctive"),
+            ("return", "ubiquitous"),
+        ],
+    )
+    def test_fixture_identifiers_sit_in_the_band_the_fixtures_assume(
+        self, real_df, ident, expected_band
+    ):
+        df, n = real_df
+        freq = df.get(ident, 0)
+        band = "local" if freq <= 2 else ("ubiquitous" if freq >= n // 2 else "distinctive")
+        assert band == expected_band, (
+            f"{ident} is {freq}/{n} = {band} in the real corpus, but the "
+            f"fixtures above are written as though it were {expected_band}. "
+            "Fix the fixture, not this assertion -- a fixture that diverges "
+            "from the corpus is how both earlier tests passed for the wrong "
+            "reason."
+        )
