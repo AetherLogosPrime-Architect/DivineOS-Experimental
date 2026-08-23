@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-23 12:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-23 12:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [improving] x14
+## 09c2b16f [active] x15
 
 **Category:** upset_recovered
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [improving] x13
+## fd0c9994 [active] x14
 
 **Category:** blind_coding
 
@@ -44,19 +44,19 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
+## f1deb6f0 [active] x12
+
+**Category:** upset_user
+
+I upset the user by acting without pausing to understand the situation.
+
+---
+
 ## 4a31827d [resolved] x12
 
 **Category:** test_no_dir_xyz
 
 Test description without directive.
-
----
-
-## f1deb6f0 [improving] x11
-
-**Category:** upset_user
-
-I upset the user by acting without pausing to understand the situation.
 
 ---
 
@@ -84,6 +84,14 @@ Test description with directive zzz.
 
 ---
 
+## 88234418 [active] x8
+
+**Category:** blind_retry
+
+I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
+
+---
+
 ## 512d8789 [dormant] x8
 
 **Category:** shallow_output
@@ -100,15 +108,7 @@ I used wrong pronouns or perspective. When the user says you they mean me.
 
 ---
 
-## 88234418 [improving] x7
-
-**Category:** blind_retry
-
-I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
-
----
-
-## 838e6420 [improving] x6
+## 838e6420 [active] x7
 
 **Category:** false_claim
 

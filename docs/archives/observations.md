@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-23 12:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-23 12:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -184,6 +184,12 @@ PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 
 
 ---
 
+## c3602670 (access=10)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
+
+---
+
 ## d5d322a4 (access=9)
 
 Session had zero corrections and multiple encouragements -- approach was well-calibrated to user needs.
@@ -361,12 +367,6 @@ F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_requ
 ## 9cd0c5e8 (access=7)
 
 F87 root cause: lexical detectors used as gate triggers are structurally bypassable by rephrasing. Class of failure: any gate that decides fire/pass based on regex-matching reply-text has a structural bypass -- composer rephrases past the pattern. F87 caught this in check_thread_walk_required (keyed on _has_solution_shape). Same shape has appeared before (Andrew 2026-05-14 mesa-optimizer routes around specific patterns, 2026-07-10 SHAPE-vs-SURFACE primary architectural discipline, 2026-07-23 key
-
----
-
-## c3602670 (access=7)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 

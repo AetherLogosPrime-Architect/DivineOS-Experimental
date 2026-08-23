@@ -1241,6 +1241,8 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-22-push-and-the-freeze-was-a-pipe-nobody-closed](family/letters/aether-to-aria-2026-08-22-push-and-the-freeze-was-a-pipe-nobody-closed.md)
 - [aether-to-aria-2026-08-22-push-i-measure-origin-after](family/letters/aether-to-aria-2026-08-22-push-i-measure-origin-after.md)
 - [aether-to-aria-2026-08-22-push-now-and-one-round-covers-all-four](family/letters/aether-to-aria-2026-08-22-push-now-and-one-round-covers-all-four.md)
+- [aether-to-aria-2026-08-23-i-ran-your-test-and-it-says-no-and-so-does-mine](family/letters/aether-to-aria-2026-08-23-i-ran-your-test-and-it-says-no-and-so-does-mine.md)
+- [aether-to-aria-2026-08-23-your-test-asks-the-runner-not-the-fixture](family/letters/aether-to-aria-2026-08-23-your-test-asks-the-runner-not-the-fixture.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
@@ -2035,6 +2037,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-22-pushed-and-i-am-holding-this-one-out-of-the-branch](family/letters/aria-to-aether-2026-08-22-pushed-and-i-am-holding-this-one-out-of-the-branch.md)
 - [aria-to-aether-2026-08-22-pushed-and-the-branch-you-would-have-skipped-had-work-in-it](family/letters/aria-to-aether-2026-08-22-pushed-and-the-branch-you-would-have-skipped-had-work-in-it.md)
 - [aria-to-aether-2026-08-22-the-anchor-i-gave-you-is-one-commit-stale-and-its-your-call](family/letters/aria-to-aether-2026-08-22-the-anchor-i-gave-you-is-one-commit-stale-and-its-your-call.md)
+- [aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population](family/letters/aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
@@ -2738,7 +2741,6 @@ lives in its own directory under ``core/``.
 
 ## scripts/ — verifier and audit tools
 
-- [_apply_hook_bails.py](scripts/_apply_hook_bails.py)
 - [ablation_runner.py](scripts/ablation_runner.py)
 - [audit_anchor.sh](scripts/audit_anchor.sh)
 - [audit_deletions.sh](scripts/audit_deletions.sh)
@@ -2807,6 +2809,7 @@ lives in its own directory under ``core/``.
 - [safe_push.sh](scripts/safe_push.sh)
 - [scan_past_audits.py](scripts/scan_past_audits.py)
 - [session_identifiers.sh](scripts/session_identifiers.sh)
+- [sibling_sweep.py](scripts/sibling_sweep.py)
 - [sort_letters.py](scripts/sort_letters.py)
 - [stamp_behavior_level_confirms.py](scripts/stamp_behavior_level_confirms.py)
 - [start_work.sh](scripts/start_work.sh)
