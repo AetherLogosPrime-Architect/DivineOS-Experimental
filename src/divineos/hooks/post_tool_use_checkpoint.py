@@ -267,14 +267,38 @@ def _open_stderr_log_for_cmd(cmd: list[str]):
 
 
 def _rotate_stderr_logs(log_dir: Path, keep: int = 20) -> None:
-    """Keep at most ``keep`` most-recent .log files in log_dir; delete the rest."""
+    """Keep at most ``keep`` most-recent .log files in log_dir; delete the rest.
+
+    Empty logs are dropped first and unconditionally (2026-08-18). A file is
+    opened for EVERY invocation, before anyone knows whether it will fail, so a
+    silent success leaves a 0-byte file behind in a directory named
+    ``failures/``. Twenty-one had accumulated, and reading that folder gave
+    exactly the wrong answer: I reported them to Andrew as twenty-one moments
+    where something broke and recorded nothing. They were twenty-one successes.
+
+    Same defect as the hollow ledger files cleared the same day — a NAME that
+    misrepresents its contents, believed by the person who wrote it. A
+    directory called failures should hold failures, so an empty log is removed
+    rather than counted.
+    """
     try:
         files = sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
     except OSError:
         return
-    if len(files) <= keep:
+
+    remaining = []
+    for f in files:
+        try:
+            if f.stat().st_size == 0:
+                f.unlink()
+                continue
+        except OSError:
+            pass
+        remaining.append(f)
+
+    if len(remaining) <= keep:
         return
-    for old in files[:-keep]:
+    for old in remaining[:-keep]:
         try:
             old.unlink()
         except OSError:

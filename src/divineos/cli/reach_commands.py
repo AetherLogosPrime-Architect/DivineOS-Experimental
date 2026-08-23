@@ -103,19 +103,57 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--opened",
         multiple=True,
-        help="Path or command proving the artifact was opened this turn. Repeatable.",
+        help=(
+            "FALLBACK ONLY, and self-attested. Used when the harness transcript "
+            "cannot be read; the disposition is then recorded as testimony."
+        ),
     )
     def reach_dispose_cmd(
         item_id: str, disposition: str, reason: str, opened: tuple[str, ...]
     ) -> None:
-        """Dispose one surfaced artifact. Refused if it was never opened."""
+        """Dispose one surfaced artifact. Refused if it was never opened.
+
+        EVIDENCE COMES FROM THE TRANSCRIPT FIRST. `--opened` used to be the
+        only source, which made this gate self-attested: reach_check refuses a
+        disposition unless the action-stream proves the artifact was opened,
+        and then let me type the action-stream by hand. Andrew flagged it the
+        moment I reported it, 2026-08-17.
+
+        Worth naming how it got there. `dispose()` was written to RECEIVE an
+        action-stream, which is right, and nothing existed that could produce
+        one -- so the CLI filled the parameter from a flag. The architecture
+        was correct and the only available supplier was me. A gate is only as
+        honest as its cheapest source of evidence.
+
+        The transcript is written by the harness as tools fire, so a command
+        that never ran cannot appear in it. `--opened` survives only for when
+        the transcript genuinely cannot be read, it says so loudly, and the
+        stored evidence is marked -- so the record distinguishes proof from
+        testimony rather than quietly equating them.
+        """
+        stream, why_empty = reach_check.action_stream_from_transcript()
+        if stream:
+            calls = stream
+            texts = tuple(t for _, t in stream)
+            if opened:
+                click.echo("[i] --opened ignored: the transcript answered.", err=True)
+        else:
+            # Fail LOUD before falling back. A silent downgrade from evidence
+            # to testimony is the exact collapse this gate exists to prevent.
+            click.echo(
+                f"[!] no transcript source could answer ({why_empty or 'no tool calls in window'});"
+                " falling back to SELF-ATTESTED --opened.",
+                err=True,
+            )
+            calls = tuple(("self-attested", o) for o in opened)
+            texts = opened
         try:
             item = reach_check.dispose(
                 item_id,
                 disposition,
                 reason,
-                tool_calls_in_turn=tuple(("cli", o) for o in opened),
-                command_texts=opened,
+                tool_calls_in_turn=calls,
+                command_texts=texts,
             )
         except ReachCheckError as exc:
             raise click.ClickException(str(exc)) from exc

@@ -121,6 +121,7 @@ src/divineos/
     pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
+    instruments_commands.py    `divineos instruments` — the measuring surface for core/instruments.py. Opens every diagnostic surface on each call rather than describing them, so a log that moved reports MISSING instead of rotting quietly in a doc.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -655,6 +656,10 @@ src/divineos/
     reach_check.py             Knowing something and not reaching for it — the automatable half.
     read_gate.py               Primes that are gates — a surface can require proof it was opened.
     andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
+    component_register_surface.py Surface the component register at briefing time.
+    instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
+    log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
+    operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
 
   analysis/
     _session_types.py          Session analysis type definitions

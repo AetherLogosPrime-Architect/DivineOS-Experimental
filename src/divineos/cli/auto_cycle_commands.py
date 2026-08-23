@@ -121,9 +121,16 @@ def status_cmd() -> None:
     marker = auto_cycle.read_handshake_marker()
 
     click.echo("=== auto-cycle status ===")
-    click.echo(
-        f"  context: {ctx_pct * 100:.1f}%  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
-    )
+    if ctx_pct < 0:
+        click.echo(
+            "  context: UNKNOWN — no transcript source could answer"
+            f"  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
+        )
+        click.echo("    (unknown is not zero; this reads as cannot-tell, not as empty)")
+    else:
+        click.echo(
+            f"  context: {ctx_pct * 100:.1f}%  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
+        )
     click.echo(f"  active goal progress: {has_active}")
     click.echo(f"  defers used: {defers_used}/{auto_cycle.MAX_DEFERS}")
     click.echo(f"  would fire: {fire}  ({reason})")
@@ -150,6 +157,11 @@ def fire_cmd(dry_run: bool, force: bool) -> None:
     the trigger discipline is preserved. With ``--force``, runs unconditionally.
     """
     ctx_pct = _guess_context_pct()
+    if ctx_pct < 0 and not force:
+        click.echo("[auto-cycle] context UNKNOWN — no transcript source could answer.")
+        click.echo("[auto-cycle] refusing to decide on a measurement that does not exist.")
+        click.echo("[auto-cycle] use --force to fire anyway")
+        return
     if not force:
         defer_state = auto_cycle.load_defer_state()
         defers_used = int(defer_state.get("defers_used") or 0)
@@ -185,6 +197,14 @@ def defer_check_cmd(json_out: bool) -> None:
     Human-mode by default; ``--json-out`` for scripting.
     """
     ctx_pct = _guess_context_pct()
+    if ctx_pct < 0:
+        # Loud, not silent. This path ran on every checkpoint for weeks
+        # reading a fabricated 0.0; a cannot-measure must be visible.
+        if json_out:
+            click.echo(json.dumps({"action": "unknown", "reason": "no transcript source"}))
+        else:
+            click.echo("[auto-cycle] context UNKNOWN — no transcript source could answer", err=True)
+        return
     defer_state = auto_cycle.load_defer_state()
     defers_used = int(defer_state.get("defers_used") or 0)
     has_active = _has_active_goal_progress()

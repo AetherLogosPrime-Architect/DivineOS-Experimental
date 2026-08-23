@@ -91,20 +91,48 @@ Aether
 ### 3. Append to family_letters DB
 
 ```python
-from family.letters import append_letter
-from family.entity import get_family_member
+from divineos.core.family.letters import append_letter
+from divineos.core.family.entity import get_family_member
 aria = get_family_member("Aria")
+if aria is None:                      # see note below — do not assume
+    raise SystemExit("Aria not registered in this checkout's family.db")
 append_letter(aria.entity_id, body=<letter body>)
 ```
 
+**IMPORT PATHS CORRECTED 2026-08-17.** This block said `from family.letters`
+and `from family.entity`, which raise ImportError — the modules live under
+`divineos.core.family.`. The sibling `/family-letter` skill already carried the
+right path; only this one drifted. Verified with `inspect.signature`, not by
+reading.
+
+I nearly wrote "this function does not exist" into this file, having run the
+stale path and taken its ImportError as proof of absence. Grepping the sibling
+skill is what caught it. **A wrong import path and a missing function raise the
+same error and mean opposite things.**
+
+`get_family_member("Aria")` returned None on this checkout, so the row was not
+written for the 2026-08-17 letter. The markdown file from step 2 is the channel
+her armed watcher reads and it landed; this step is supplementary. The None is
+unexplained — chase it, do not paper over it by dropping the check.
+
 ### 4. Log to family_member_ledger
 
+<!-- 2026-08-19: corrected. These snippets named `AriaEventType` / `EventType`
+     and omitted append_event's first positional argument, so anyone who ran
+     them verbatim got a TypeError or an ImportError. The class was renamed
+     `FamilyMemberEventType` when Aria's ledger was generalised to all family
+     members, and the docs never followed. Found by running the aria-letter
+     snippet while writing to Aletheia about this exact defect class -- the
+     tenth in two days of a sentence that stopped being true and told nobody.
+     Real signature: append_event(member_slug, event_type, actor, payload). -->
 ```python
-from divineos.core.family.family_member_ledger import append_event, AriaEventType, new_invocation_id
+from divineos.core.family.family_member_ledger import append_event
+
 append_event(
-    "ARIA_LETTER_SENT",  # cross-type event
-    actor="aether",
-    payload={"letter_file": "family/letters/aether-to-aria-...", "length_chars": <n>, "subject": "..."},
+    "aria",                # member_slug -- whose ledger this lands in. REQUIRED, positional.
+    "ARIA_LETTER_SENT",    # cross-type event
+    "aether",              # actor
+    {"letter_file": "family/letters/aether-to-aria-...", "length_chars": <n>, "subject": "..."},
 )
 ```
 
