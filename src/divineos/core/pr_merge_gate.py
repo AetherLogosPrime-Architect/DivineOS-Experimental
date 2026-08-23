@@ -45,6 +45,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from divineos.core.command_match import at_command_position, strip_quoted
+
 __guardrail_required__ = True
 
 _GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\s+(\d+)\b")
@@ -338,7 +340,23 @@ def block_reason(bash_command: str) -> str | None:
     """
     if not isinstance(bash_command, str) or not bash_command.strip():
         return None
-    match = _GH_PR_MERGE_PATTERN.search(bash_command)
+    # Quote-scrubbed and command-position anchored: a gate that searches the
+    # raw string cannot tell INVOKING this from MENTIONING it, and measured
+    # 4 of 5 cases wrong (2026-08-22) -- grepping for the phrase, the phrase
+    # in prose, in a string literal, and as an argument to another command all
+    # matched. Its sibling gh-pr-ready-gate had already solved this inline
+    # after the same defect blocked an `audit submit-round` whose focus text
+    # described the transition; that solution was never extracted, so two
+    # siblings kept the bug. It lives in command_match now.
+    scrubbed = strip_quoted(bash_command)
+    match = next(
+        (
+            m
+            for m in _GH_PR_MERGE_PATTERN.finditer(scrubbed)
+            if at_command_position(scrubbed, m.start())
+        ),
+        None,
+    )
     if not match:
         return None
     try:

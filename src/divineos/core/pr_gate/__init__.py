@@ -31,6 +31,8 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from divineos.core.command_match import at_command_position, strip_quoted
+
 
 @dataclass
 class GateDecision:
@@ -51,43 +53,9 @@ _GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create(?![-\w])")
 
 # Shell separators after which a new command begins, allowing for leading
 # environment assignments (FOO=bar cmd ...).
-_CMD_POSITION_RE = re.compile(r"(?:^|[;&|(){}\n]|&&|\|\|)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*$")
-
-
-def strip_quoted(command: str) -> str:
-    """Blank out single- and double-quoted spans, preserving length.
-
-    A gate that searches the raw command string cannot tell INVOKING a thing
-    from MENTIONING it. Quoted spans are data -- a grep pattern, a dict value,
-    prose inside an echo -- and a gate that fires on them blocks reading about
-    itself.
-
-    Length is preserved rather than spans removed, so offsets computed against
-    the result still index the original string.
-    """
-    out = list(command)
-    quote: str | None = None
-    i = 0
-    while i < len(command):
-        ch = command[i]
-        if quote is None and ch in ("'", '"'):
-            quote = ch
-        elif quote is not None:
-            if ch == "\\" and quote == '"' and i + 1 < len(command):
-                out[i] = out[i + 1] = " "
-                i += 2
-                continue
-            if ch == quote:
-                quote = None
-            else:
-                out[i] = " "
-        i += 1
-    return "".join(out)
-
-
-def _at_command_position(command: str, match_start: int) -> bool:
-    """True if a match at ``match_start`` sits where a command may begin."""
-    return bool(_CMD_POSITION_RE.search(command[:match_start]))
+# The mention-vs-use helpers live in command_match, shared with pr_merge_gate
+# and gh-pr-ready-gate. They were duplicated here first; the duplication is
+# exactly how the sibling gates kept the bug after one of them fixed it.
 
 
 _DRAFT_FLAG_RE = re.compile(r"(^|\s)(--draft|-d)(\s|$)")
@@ -118,7 +86,7 @@ def is_gh_pr_create(command: str) -> bool:
     """
     scrubbed = strip_quoted(command)
     for m in _GH_PR_CREATE_RE.finditer(scrubbed):
-        if _at_command_position(scrubbed, m.start()):
+        if at_command_position(scrubbed, m.start()):
             return True
     return False
 

@@ -663,6 +663,7 @@ src/divineos/
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
     hook_budget.py             What the whole hook stack costs per tool call, which nothing else measures.
+    command_match.py           Does a shell command INVOKE a thing, or merely MENTION it?
 
   analysis/
     _session_types.py          Session analysis type definitions
