@@ -92,8 +92,28 @@ def is_gh_pr_create(command: str) -> bool:
 
 
 def has_draft_flag(command: str) -> bool:
-    """True if `command` has `--draft` or `-d` as a standalone flag."""
-    return bool(_DRAFT_FLAG_RE.search(command))
+    """True if `command` has `--draft` or `-d` as a standalone flag.
+
+    QUOTE-SCRUBBED, and the DIRECTION of the bug is why this matters more than
+    the one above it. `is_gh_pr_create` is an ENTRY: a mention read as a use
+    BLOCKS, which is noisy but safe. This is an ESCAPE: finding the flag makes
+    the gate STAND DOWN, so a mention read as a use is a FALSE NEGATIVE.
+
+    Measured 2026-08-22 with the guardrail lookup mocked:
+
+        gh pr create --title "see --draft docs"
+
+    carries no draft flag, the raw search found one, and the decision came
+    back blocked=False -- a guardrail-touching PR opening READY, which is
+    exactly the red audit badge on the public feed this gate exists to stop.
+
+    Found by sweeping for survivors of the shape removed from
+    `is_gh_pr_create` an hour earlier, IN THIS SAME FILE. The entry predicate
+    was repaired and the escape predicate was not, because nothing asked where
+    else that shape lived. scripts/sibling_sweep.py is that question, made
+    mechanical.
+    """
+    return bool(_DRAFT_FLAG_RE.search(strip_quoted(command)))
 
 
 def branch_files_changed(repo_root: str | None = None) -> list[str]:
