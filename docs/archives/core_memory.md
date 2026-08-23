@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-23 13:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-23 14:38. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,7 +28,7 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1271 knowledge entries, 304 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 6 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1271 knowledge entries, 304 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 4 corrections / 0 encouragements]
 
 ---
 
