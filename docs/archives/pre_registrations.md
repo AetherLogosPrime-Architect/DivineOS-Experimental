@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (183 rows). **Exported:** 2026-08-23 12:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (183 rows). **Exported:** 2026-08-23 13:20. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1588,7 +1588,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [FAILED]
 
 **Mechanism:** add Foucault as council expert lens covering discipline-produces-subject / panopticon-effect / power-knowledge-coupling angles
 

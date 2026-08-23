@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-23 12:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-23 13:20. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -112,6 +112,12 @@ Next-audit target flagged: feat/ship-guardrail-command / feat/audit-ship cluster
 
 ---
 
+## c3602670 (access=13)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
+
+---
+
 ## f509eb7f (access=11)
 
 Seven hardcoded thresholds in relationships.py bypassing constants. The _classify_relationship function in relationships.py contained seven hardcoded float thresholds (0.3, 0.35, 0.4, 0.5, 0.6) instead of using the named constants from constants.py. This meant the Dice coefficient recalibration only partially took effect -- the relationship classifier was still using pre-Dice thresholds. Recommendation: Replace all hardcoded thresholds with OVERLAP_* constants from constants.py. This was fixed i
@@ -181,12 +187,6 @@ F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat
 ## 1560a463 (access=10)
 
 PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
-
----
-
-## c3602670 (access=10)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
