@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-23 13:20. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-23 13:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [active] x15
+## 09c2b16f [improving] x15
 
 **Category:** upset_recovered
 
@@ -44,7 +44,7 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
-## f1deb6f0 [active] x12
+## f1deb6f0 [improving] x12
 
 **Category:** upset_user
 
@@ -60,19 +60,19 @@ Test description without directive.
 
 ---
 
+## c3090082 [active] x10
+
+**Category:** incomplete_fix
+
+I introduced errors after editing. I need to verify changes work.
+
+---
+
 ## a00a1d59 [improving] x10
 
 **Category:** wrong_scope
 
 Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
-
----
-
-## c3090082 [improving] x9
-
-**Category:** incomplete_fix
-
-I introduced errors after editing. I need to verify changes work.
 
 ---
 
@@ -108,7 +108,7 @@ I used wrong pronouns or perspective. When the user says you they mean me.
 
 ---
 
-## 838e6420 [active] x7
+## 838e6420 [improving] x7
 
 **Category:** false_claim
 
