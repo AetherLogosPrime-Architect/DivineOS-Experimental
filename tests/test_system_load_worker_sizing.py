@@ -73,14 +73,48 @@ class TestParallelFlag:
         assert "REFUSED" in reason
 
     def test_scales_down_instead_of_refusing(self, monkeypatch) -> None:
-        """13.7 GB free used to be a flat refusal. Now it runs, smaller."""
+        """13.7 GB free used to be a flat refusal. Now it runs, smaller.
+
+        The machine is faked as well as the memory, and it has to be. Aether
+        caught this failing on every CI run and passing on every local run
+        (2026-08-23): the test patched psutil and left ``os.cpu_count()`` live,
+        so what it actually asserted was *this host has more than seven cores*.
+
+        ``recommended_workers`` caps at the core count, and 13.7 GB supports
+        seven. Above seven cores memory binds and the flag is ``-n 7``; at or
+        below seven, cores bind, ``workers >= cpus`` holds, and ``-n auto`` is
+        the CORRECT answer. Sixteen here, two to four on a GitHub runner — same
+        code, opposite verdicts, and the docstring described only one of them.
+
+        Pinned high so memory is the binding constraint, which is the condition
+        the first sentence is actually about.
+        """
         monkeypatch.setattr(slc, "psutil", _FakePsutil(int(13.7 * GB)))
+        monkeypatch.setattr(slc.os, "cpu_count", lambda: 16)
         monkeypatch.delenv(slc.SKIP_ENV_VAR, raising=False)
         flag, reason = slc.pytest_parallel_flag("suite")
         assert flag is not None
         assert flag.startswith("-n ")
         assert flag != "-n auto"
         assert "memory-scaled" in reason
+        assert flag == f"-n {slc.recommended_workers(int(13.7 * GB), 16)}", (
+            "the count must be the one memory supports, not merely 'not auto'"
+        )
+
+    def test_auto_is_right_when_cores_bind_not_memory(self, monkeypatch) -> None:
+        """The other side of the case above, and the reason it is a pair.
+
+        On a small runner the same 13.7 GB supports at least as many workers as
+        there are cores, so ``-n auto`` is not a failure to scale down — there
+        is nothing to scale down to. Pinning only the sixteen-core case would
+        leave the shape that actually runs in CI untested, which is how the
+        original defect survived: every local run took the other branch.
+        """
+        monkeypatch.setattr(slc, "psutil", _FakePsutil(int(13.7 * GB)))
+        monkeypatch.setattr(slc.os, "cpu_count", lambda: 2)
+        monkeypatch.delenv(slc.SKIP_ENV_VAR, raising=False)
+        flag, _ = slc.pytest_parallel_flag("suite")
+        assert flag == "-n auto"
 
     def test_psutil_missing_is_conservative_not_wide_open(self, monkeypatch) -> None:
         monkeypatch.setattr(slc, "psutil", None)

@@ -158,6 +158,16 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-gravity-set.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
+            "timeout": 10
           }
         ]
       },
@@ -263,6 +273,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-rearm-letter-monitor.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-monitors-armed.sh",
             "timeout": 10
           }
         ]
