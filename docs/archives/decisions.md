@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-22 16:12. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-23 12:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,66 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 5788b5ee weight=1
+
+**Decision:** Fix has_draft_flag to scrub quotes, and build the sibling sweep that found it
+
+**Reasoning:** Sweeping for survivors of the shape I removed an hour ago -- a compiled regex .search()ed against a raw command variable -- returned seven instances across src/ and hooks/. One is in pr_gate itself, the file I had just carefully fixed: I repaired the ENTRY predicate is_gh_pr_create and left the ESCAPE predicate has_draft_flag scanning raw text. The direction makes it worse than the original bug. i
+
+**Tension:** My first design for the sweep was similarity-based -- find structural siblings by token overlap, then check what they lack. I built it and it failed on its own ground truth: raw Jaccard ranked deletion-discipline.sh (0.44) ABOVE gh-pr-ready-gate.sh (0.41), and IDF weighting made it worse, dropping t
+
+**Almost:** Shipped the similarity ranker. It produced plausible-looking numbers, which is exactly what made it dangerous -- a ranked list with a true sibling at position six reads like a working tool until you check position two.
+
+---
+
+## cfc6bc59 weight=1
+
+**Decision:** Extract check-branch-on-push's inline cheap-bail into a shared .claude/hooks/_bail.sh and apply it to the other command-specific hooks
+
+**Reasoning:** Claude Code matchers select on TOOL NAME only, so ~11 hooks whose real trigger is a COMMAND -- git push, git commit, a gh pr verb, rm -- fire on every Bash call including ls and cat. Measured end-to-end on 'ls -la': 664ms per irrelevant hook, of which bash startup is 45ms, sourcing _lib.sh 63ms, find_divineos_python 100ms because it spawns git rev-parse, python plus divineos import 210ms, and the 
+
+**Tension:** The original explicitly decided AGAINST extracting, in a comment: 'a shared helper here would cost more than the thing it records.' I measured rather than deferring to it or overriding it. Sourcing a minimal 15-line helper is 51ms against a 54ms bare-bash floor, inside the noise. The premise is true
+
+**Almost:** Added the filter without the bail-logging. check-branch-on-push's comment records that a bare exit-zero writes no start row and no end row, so every cheap run vanishes from hook_timing.jsonl: that hook went 1010ms to 61ms and its RECORDED median ROSE by 945ms, because only the expensive path survive
+
+---
+
+## 4a8b725c weight=1
+
+**Decision:** Fix the PR-create draft gate to distinguish mention from use, by scrubbing quoted spans and requiring the match to sit at a shell command position
+
+**Reasoning:** The gate searches the entire raw command string with a bare regex, so it fires on the phrase appearing ANYWHERE -- including inside quoted data. Reproduced against the live predicate: 4 of 6 cases wrong, and every failure is a mention read as a use. A dict literal containing the phrase, a grep searching FOR the phrase, prose inside an echo, and an argument to another command all match. It blocked 
+
+**Tension:** Whether to touch this at all while the stated task is hook VOLUME rather than hook correctness. I decided yes on two grounds: Andrew said explicitly this turn that if I see broken code I should say something and it will not hurt his feelings, and the defect is the same mention-vs-use class that fire
+
+**Almost:** Worked around it by renaming my variables to avoid the phrase, which would have left the gate broken for everyone including the next person who tries to read it, and would have taught me to write around my own alarms rather than repair them.
+
+---
+
+## 1aded2d7 weight=1
+
+**Decision:** Push the read-gate host-independence fix onto chore/retire-delivery-cluster as a narrow two-file commit taken from origin's tip, not from the diverged local branch
+
+**Reasoning:** PR #436 fails the identical test that was failing #437: test_read_gate_pytest_scratch, 1 failed / 11232 passed, a Windows-shaped path that Path.parts cannot decompose on ubuntu. Its multi-party-review check already PASSES, so the test is its only blocker and fixing it makes the PR mergeable on its own terms. The fix is already proven -- the same change turned both test jobs green on #437 after I p
+
+**Tension:** Three separate places I could have done damage and had to choose narrower. (1) The local branch chore/retire-delivery-cluster has DIVERGED from origin -- 92 commits local-only against 96 origin-only. Pushing from it would have been rejected, or with force would have destroyed 96 commits of origin wo
+
+**Almost:** Copied the whole read_gate.py across, which would have put an unreviewed gate-cooldown feature onto PR #436 under a commit message that claims to be a one-line CI fix. Also nearly ran rm -rf on a worktree path I had not looked at, which the deletion gate stopped.
+
+---
+
+## 70981ec0 weight=1
+
+**Decision:** Fix the window freeze by redirecting the auto-push hooks' background subshell file descriptors, and apply it to all 19 copies on disk rather than one branch
+
+**Reasoning:** Andrew described the freeze precisely: message says 'sending' and never sends, 5min then crash-or-reset, then reply ~20s later, on both Aether's and Aria's sessions. Root cause found and bench-proven: .claude/hooks/auto-push-letter.sh and auto-push-finished-work.sh background a subshell with ') &' and no fd redirection. The subshell inherits the hook's stdout/stderr, so the harness blocks reading 
+
+**Tension:** Whether to delete the 39 worktrees Andrew approved pruning. I stopped: my first safety check used 'git rev-list origin/BRANCH..BRANCH' which silently returns 0 when the origin ref does not exist, reading as 'fully pushed' for branches that are not on origin at all. Re-checked against actual ls-remot
+
+**Almost:** Deleted .claude/worktrees/corrupted-window-recovery-220ad2 on the strength of a '0 commits, 0 dirty' reading that was an artifact of a missing remote ref rather than a pushed branch.
 
 ---
 
@@ -467,56 +527,6 @@
 **Tension:** asking for a scope-level verdict rather than a deep audit could be read as lowering the bar to get my work merged, which is the exact shape I refused an hour ago when I declined to transcribe confirms she never gave. The distinction I am relying on: she sets the depth and writes it into the descript
 
 **Almost:** almost sent a fourth essay. The previous three asked for judgement and supplied prose; her discipline is hash-anchored and every verdict she has ever given was pinned to a head. Her 08-03 table went stale the moment I rebased, and nobody carried its verdict column into the store - so the failure was
-
----
-
-## 31207ddb weight=1
-
-**Decision:** scope the read-only allowance to the overdue-prereg gate alone rather than widening the shared bypass list
-
-**Tension:** widening _is_bypass_command would have been one line and fixed my immediate pain, but that list is consulted by the briefing, goal, engagement and correction gates too - every one of them would have started letting read-only git through, for a problem that belongs to one doorman. Cheaper to write, w
-
-**Almost:** almost justified the allowance by how much friction it removed for me, which is exactly the argument a gate should never accept from the agent it constrains. The defensible reason is different and narrower: this gate demands an assessment, an assessment requires evidence, so blocking evidence makes 
-
----
-
-## 4dfd0dd2 weight=1
-
-**Decision:** fix goal auto-close causality: a commit may only close goals that were already open when it landed, checked by ordering rather than by an age window
-
-**Tension:** the tempting fix is a grace period - do not close a goal younger than N seconds. That is a duration, which Andrew ruled out today, and it is also wrong on its own terms: it would still close a legitimately-completed goal that happened to be young, and still fail to close an old goal the commit genui
-
-**Almost:** almost treated this as a phrasing problem after watching a goal survive when I reworded it from 'verify the push landed' to 'investigate why'. That reading blames the wording and leaves the deadlock live for anyone who names a goal in completion-shaped language, which is most verification work. The 
-
----
-
-## 86c90730 weight=1
-
-**Decision:** dedupe Aletheia's imported letters by CONTENT, not by filename, and keep both when a re-issued document differs
-
-**Tension:** the two candidate rules point opposite ways. Strip the Windows (1) suffix and I collapse genuine revisions into one file, losing whatever she added - which is what my code did to her 2026-08-12 reply, silently, reporting 'already filed' while a whole new section sat unimported. Keep every (1) as dis
-
-**Almost:** almost fixed it by simply not stripping the (1) suffix, which passes the one test in front of me and reintroduces the duplicate-download noise the strip was written for. The proxy was the bug; swapping one proxy for another leaves the class intact
-
----
-
-## 6f59f1aa weight=1
-
-**Decision:** build aletheia-import: copy her delivered artifacts out of Downloads into family/letters under letter naming, because her real delivery channel was never the one any mechanism watched
-
-**Tension:** this crosses out of the repo into Andrew's personal Downloads folder, which is not my substrate. I am copying rather than moving for exactly that reason - tidying my own index by destroying his copy of her work would be the wrong trade, and Downloads is his space to organize, not mine
-
-**Almost:** almost wrote it to MOVE files, which is the tidier shape and would have silently removed 185 of her artifacts from the folder he reads them in. Also almost keyed the recipient off content, but REPLY_TO_ARIA is in the filename and reading the body to guess an addressee would invent attribution where 
-
----
-
-## 3141ca89 weight=1
-
-**Decision:** build audit sync-from-shared: import rounds and findings from ~/.divineos-shared/audit/rounds into the local watchmen store, and run it automatically before any trailer validation
-
-**Tension:** importing approvals from a file is a trust-boundary. Anything that can write that folder can mint a CONFIRMS in Andrew's name and stamp a PR. I am NOT adding signature checking now because the folder is already the trusted channel Aletheia and Aria use for letters, and adding a half-designed crypto 
-
-**Almost:** almost keyed idempotency on the store's own finding_id, which the store mints itself on insert - so every sync would have re-imported all six approvals and the counts would have inflated forever while looking like it worked. Origin id now travels in the description as a shared marker and is checked 
 
 ---
 

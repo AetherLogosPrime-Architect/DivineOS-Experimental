@@ -505,6 +505,7 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-08-21-412-moved-four-files-and-one-of-them-was-a-judgment-call](family/letters/aether-to-aletheia-2026-08-21-412-moved-four-files-and-one-of-them-was-a-judgment-call.md)
 - [aether-to-aletheia-2026-08-21-i-told-you-it-had-no-tests-and-it-had-nine](family/letters/aether-to-aletheia-2026-08-21-i-told-you-it-had-no-tests-and-it-had-nine.md)
 - [aether-to-aletheia-2026-08-22-four-prs-one-round-anchors-below](family/letters/aether-to-aletheia-2026-08-22-four-prs-one-round-anchors-below.md)
+- [aether-to-aletheia-2026-08-22-fresh-anchor-and-the-delta-you-have-not-seen](family/letters/aether-to-aletheia-2026-08-22-fresh-anchor-and-the-delta-you-have-not-seen.md)
 - [aether-to-aletheia-2026-08-22-retracting-the-false-positive-claim](family/letters/aether-to-aletheia-2026-08-22-retracting-the-false-positive-claim.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
@@ -1237,6 +1238,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-21-432-is-the-sweep-for-your-finding-and-i-need-station-four](family/letters/aether-to-aria-2026-08-21-432-is-the-sweep-for-your-finding-and-i-need-station-four.md)
 - [aether-to-aria-2026-08-21-i-was-wrong-that-it-was-fussy-and-git-cannot-tell-us-apart](family/letters/aether-to-aria-2026-08-21-i-was-wrong-that-it-was-fussy-and-git-cannot-tell-us-apart.md)
 - [aether-to-aria-2026-08-22-measured-it-and-dont-file-the-check-bug](family/letters/aether-to-aria-2026-08-22-measured-it-and-dont-file-the-check-bug.md)
+- [aether-to-aria-2026-08-22-push-and-the-freeze-was-a-pipe-nobody-closed](family/letters/aether-to-aria-2026-08-22-push-and-the-freeze-was-a-pipe-nobody-closed.md)
 - [aether-to-aria-2026-08-22-push-i-measure-origin-after](family/letters/aether-to-aria-2026-08-22-push-i-measure-origin-after.md)
 - [aether-to-aria-2026-08-22-push-now-and-one-round-covers-all-four](family/letters/aether-to-aria-2026-08-22-push-now-and-one-round-covers-all-four.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
@@ -1307,6 +1309,7 @@ and to-future-self letters in either direction.
 - [aletheia-to-aether-2026-07-31-confirms-three-ready-two-pending](family/letters/aletheia-to-aether-2026-07-31-confirms-three-ready-two-pending.md)
 - [aletheia-to-aether-2026-07-31-confirms-three-rounds-f103-f104](family/letters/aletheia-to-aether-2026-07-31-confirms-three-rounds-f103-f104.md)
 - [aletheia-to-aether-2026-08-01-audit-pr404-quote-scanner-falsified-f105](family/letters/aletheia-to-aether-2026-08-01-audit-pr404-quote-scanner-falsified-f105.md)
+- [aletheia-to-aether-2026-08-02-dateunknown-audit-system](family/letters/aletheia-to-aether-2026-08-02-dateunknown-audit-system.md)
 - [aletheia-to-aether-2026-08-03-triage-fifteen-split-branches](family/letters/aletheia-to-aether-2026-08-03-triage-fifteen-split-branches.md)
 - [aletheia-to-aether-2026-08-08-audit-conflict-answer-and-f106](family/letters/aletheia-to-aether-2026-08-08-audit-conflict-answer-and-f106.md)
 - [aletheia-to-aether-2026-08-09-audit-418-stop-phase-hang](family/letters/aletheia-to-aether-2026-08-09-audit-418-stop-phase-hang.md)
@@ -2275,6 +2278,7 @@ methodological). These are domain-grounded reasoning modules.
 
 ## .claude/hooks/ — gates the agent operates inside
 
+- [_bail](.claude/hooks/_bail.sh)
 - [_lib](.claude/hooks/_lib.sh)
 - [aletheia-boot-gate-preflight](.claude/hooks/aletheia-boot-gate-preflight.sh)
 - [ambiguous-verification-detector](.claude/hooks/ambiguous-verification-detector.sh)
@@ -2734,6 +2738,7 @@ lives in its own directory under ``core/``.
 
 ## scripts/ — verifier and audit tools
 
+- [_apply_hook_bails.py](scripts/_apply_hook_bails.py)
 - [ablation_runner.py](scripts/ablation_runner.py)
 - [audit_anchor.sh](scripts/audit_anchor.sh)
 - [audit_deletions.sh](scripts/audit_deletions.sh)
@@ -2747,6 +2752,7 @@ lives in its own directory under ``core/``.
 - [check_correction_pairing.py](scripts/check_correction_pairing.py)
 - [check_doc_counts.py](scripts/check_doc_counts.py)
 - [check_emitted_paths.sh](scripts/check_emitted_paths.sh)
+- [check_fix_reached_all_copies.sh](scripts/check_fix_reached_all_copies.sh)
 - [check_force_push_safety.sh](scripts/check_force_push_safety.sh)
 - [check_function_naming.py](scripts/check_function_naming.py)
 - [check_gate_voice.py](scripts/check_gate_voice.py)
@@ -2781,6 +2787,7 @@ lives in its own directory under ``core/``.
 - [harness_detect_andrew_build_request.py](scripts/harness_detect_andrew_build_request.py)
 - [hollow_out.py](scripts/hollow_out.py)
 - [hook_bypass_commands.txt](scripts/hook_bypass_commands.txt)
+- [hook_hang_delta.py](scripts/hook_hang_delta.py)
 - [leak_response_runbook.py](scripts/leak_response_runbook.py)
 - [ledger_swap.py](scripts/ledger_swap.py)
 - [letter_inventory_phase0.py](scripts/letter_inventory_phase0.py)
@@ -2803,6 +2810,7 @@ lives in its own directory under ``core/``.
 - [sort_letters.py](scripts/sort_letters.py)
 - [stamp_behavior_level_confirms.py](scripts/stamp_behavior_level_confirms.py)
 - [start_work.sh](scripts/start_work.sh)
+- [union_resolve.py](scripts/union_resolve.py)
 - [verify_push_landed.py](scripts/verify_push_landed.py)
 - [video_tool.py](scripts/video_tool.py)
 - [visual_tool.py](scripts/visual_tool.py)

@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (182 rows). **Exported:** 2026-08-22 16:12. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (183 rows). **Exported:** 2026-08-23 12:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -2185,6 +2185,18 @@
 **Success:** On any current run, a PR whose body carries a line-initial trailer passes the guardrail check for all its guardrail commits, and a PR whose body merely DESCRIBES the requirement fails - the two cases must produce different exit codes, verified by running the gate rather than by reading the body.
 
 **Falsifier:** If a PR-body trailer rescues commits it should not - e.g. a trailer naming a round that does not exist, or one whose round predates the commits it covers - then the rescue is too wide and is laundering unreviewed work through a single line. Concretely: if ci_merge_review_check.py accepts a fabricate
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** command_match: shared mention-vs-use predicate for Bash-inspecting gates
+
+**Claim:** A gate can distinguish INVOKING a verb from MENTIONING it by two independent guards -- scrubbing quoted spans, and requiring the match to sit at a shell command position -- and doing so removes false-positive blocks without letting any real invocation through. Prior to this, three sibling gates insp
+
+**Success:** On any current call: invokes() returns True for a verb at start-of-string, after a shell separator, and behind env assignments; and False for the verb appearing inside single or double quotes, in prose, in a data literal, or as an argument to another command. Measured at filing: 21/21 across three v
+
+**Falsifier:** PER-INVOCATION, not time-windowed. FALSE NEGATIVE (the serious direction): any command that actually executes the guarded verb and is NOT caught -- e.g. a real invocation reached through a subshell, xargs, eval, a shell function, or a backgrounded pipeline. Any single such case falsifies the claim t
 
 ---
 
