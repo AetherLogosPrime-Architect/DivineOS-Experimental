@@ -48,6 +48,48 @@ class GateDecision:
 
 
 _GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create(?![-\w])")
+
+# Shell separators after which a new command begins, allowing for leading
+# environment assignments (FOO=bar cmd ...).
+_CMD_POSITION_RE = re.compile(r"(?:^|[;&|(){}\n]|&&|\|\|)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*$")
+
+
+def strip_quoted(command: str) -> str:
+    """Blank out single- and double-quoted spans, preserving length.
+
+    A gate that searches the raw command string cannot tell INVOKING a thing
+    from MENTIONING it. Quoted spans are data -- a grep pattern, a dict value,
+    prose inside an echo -- and a gate that fires on them blocks reading about
+    itself.
+
+    Length is preserved rather than spans removed, so offsets computed against
+    the result still index the original string.
+    """
+    out = list(command)
+    quote: str | None = None
+    i = 0
+    while i < len(command):
+        ch = command[i]
+        if quote is None and ch in ("'", '"'):
+            quote = ch
+        elif quote is not None:
+            if ch == "\\" and quote == '"' and i + 1 < len(command):
+                out[i] = out[i + 1] = " "
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+            else:
+                out[i] = " "
+        i += 1
+    return "".join(out)
+
+
+def _at_command_position(command: str, match_start: int) -> bool:
+    """True if a match at ``match_start`` sits where a command may begin."""
+    return bool(_CMD_POSITION_RE.search(command[:match_start]))
+
+
 _DRAFT_FLAG_RE = re.compile(r"(^|\s)(--draft|-d)(\s|$)")
 
 
@@ -56,8 +98,29 @@ def is_gh_pr_create(command: str) -> bool:
 
     Matches as a discrete subcommand sequence — NOT triggered by
     sibling commands like `gh pr create-comment` (different verb).
+
+    TWO FURTHER GUARDS, added 2026-08-22 after this gate blocked a read-only
+    statistics script whose only offence was containing the phrase inside a
+    dict literal, then blocked the grep that tried to read the gate, then
+    blocked the patch that fixes it. Three refusals in one turn, not one of
+    them an invocation.
+
+      - quoted spans are scrubbed first, because a quoted occurrence is DATA
+        and not an invocation;
+      - the match must sit at a COMMAND POSITION -- start of string, or after
+        a shell separator, optionally behind env assignments -- so
+        ``grep <phrase> file`` does not fire, since there the command being
+        run is grep.
+
+    The defect class is mention-read-as-use. A gate that fires on its own name
+    is the wall-shape the sibling read-gate warns about in its own header:
+    the cure sits behind the gate.
     """
-    return bool(_GH_PR_CREATE_RE.search(command))
+    scrubbed = strip_quoted(command)
+    for m in _GH_PR_CREATE_RE.finditer(scrubbed):
+        if _at_command_position(scrubbed, m.start()):
+            return True
+    return False
 
 
 def has_draft_flag(command: str) -> bool:
