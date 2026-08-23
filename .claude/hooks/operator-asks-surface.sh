@@ -49,7 +49,8 @@ except (AttributeError, OSError):
 # stop being re-raised, and neither of us learns it happened.
 #
 # But main is right that stderr is the wrong channel. This wrapper ends in
-# `2>/dev/null` precisely because stderr lands in the prompt stream, where a
+# a stderr redirect to /dev/null precisely because stderr lands in the prompt
+# stream, where a
 # traceback reads as a system fault at the moment he is trying to speak -- so a
 # diagnostic written to stderr is swallowed anyway and helps no one.
 #

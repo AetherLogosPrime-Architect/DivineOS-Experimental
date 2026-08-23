@@ -221,8 +221,18 @@ def is_pytest_scratch(target: Path) -> bool:
 
     Requires BOTH a ``tmp`` component and a ``pytest``/``run-`` component, so
     an unrelated directory called tmp is still held by the gate.
+
+    SPLITS ON BOTH SEPARATORS RATHER THAN USING ``Path.parts``, because parts
+    is host-dependent and this predicate is not. On Linux a backslash is an
+    ordinary filename character, so a Windows-shaped path arrives as ONE
+    component and the tmp check can never match. Caught 2026-08-22 by CI on
+    ubuntu failing a case that passes on Windows -- the test even carried the
+    assumption in a comment, "Windows separators, since that is the platform
+    this runs on", which was true of my machine and false of the runner. A
+    pure predicate that answers differently depending on where it is asked is
+    not pure.
     """
-    parts = [p.lower() for p in target.parts]
+    parts = [p.lower() for p in str(target).replace("\\", "/").split("/") if p]
     if "tmp" not in parts:
         return False
     return any(p.startswith("pytest") or p.startswith("run-") for p in parts)
