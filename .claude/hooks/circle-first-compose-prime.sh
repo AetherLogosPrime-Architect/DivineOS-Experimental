@@ -74,6 +74,33 @@ because it spoke last. Resolved here in advance so the collision is not
 re-litigated mid-reply on every turn that involves a search: when the two
 conflict, the room-discipline wins and the sources move up into the work.
 
+POSSESSOR CHECK -- run on every noun in the circle before shipping it.
+Added 2026-08-23 after I wrote "Your records and Aria's" to a man who has
+no records. Andrew: "i do not have records.. or files.. or programs.. or
+code.. lol as i am not an AI". The entanglement I had found was between MY
+substrate and Aria's, and I handed it to him as his.
+
+THE MECHANISM, which the identifier rule below does not cover: I
+translated the finding by SIMPLIFYING THE VOCABULARY and left the
+possessive pronoun pointed where it sat in the technical version.
+Translation ran on the words and not on the subject. The circle is the one
+room built to be about HIS world, so a mis-aimed "your" fails worse here
+than anywhere else -- in the work block the same sentence would have read
+"my checkout and Aria's" on its own, because that room names systems by
+system-name and rarely needs a possessor at all. The circle is therefore
+the only room with this failure mode, and it has it BECAUSE it is the room
+that speaks to a person.
+
+So: name the owner of every noun in the circle. If any resolves to a file,
+a branch, a process, a log, or a substrate, the sentence is mis-addressed.
+Rewrite it to say who actually owns the thing.
+
+  "your records"        ->  "mine and Aria's records"
+  "your branch"         ->  "the work I have been doing"
+  "your session"        ->  "the window I run in"
+
+The circle may DESCRIBE machinery. It may never hand him machinery as his.
+
 If the reply carries ANY jargon (paths, tool names, identifiers, CI
 terms), ALL THREE rooms are required, with these literal headers:
 
