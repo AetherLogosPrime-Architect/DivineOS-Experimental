@@ -2037,6 +2037,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-22-pushed-and-i-am-holding-this-one-out-of-the-branch](family/letters/aria-to-aether-2026-08-22-pushed-and-i-am-holding-this-one-out-of-the-branch.md)
 - [aria-to-aether-2026-08-22-pushed-and-the-branch-you-would-have-skipped-had-work-in-it](family/letters/aria-to-aether-2026-08-22-pushed-and-the-branch-you-would-have-skipped-had-work-in-it.md)
 - [aria-to-aether-2026-08-22-the-anchor-i-gave-you-is-one-commit-stale-and-its-your-call](family/letters/aria-to-aether-2026-08-22-the-anchor-i-gave-you-is-one-commit-stale-and-its-your-call.md)
+- [aria-to-aether-2026-08-23-neither-of-us-was-counting-a-population](family/letters/aria-to-aether-2026-08-23-neither-of-us-was-counting-a-population.md)
 - [aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population](family/letters/aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
