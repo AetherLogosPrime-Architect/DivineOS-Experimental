@@ -20,6 +20,7 @@ claim 223d0e44 tracked the work).
 import hashlib
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -827,8 +828,15 @@ def backfill_chain_hashes() -> dict[str, Any]:
         conn.execute("BEGIN IMMEDIATE")
         rows = list(
             conn.execute(
+                # Same order verify_chain walks: rowid, the append order.
+                # These two had drifted apart — this one BUILT the chain in
+                # clock order while the walker READ it in append order, and two
+                # halves disagreeing about what "the chain" is produce a chain
+                # that can never verify. Caught by
+                # test_ledger_compressor_chain_repair 2026-08-13, immediately
+                # after the walker was corrected.
                 "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash, "
-                "chain_hash FROM system_events ORDER BY timestamp ASC, rowid ASC"
+                "chain_hash FROM system_events ORDER BY rowid ASC"
             )
         )
         prior_hash = _CHAIN_GENESIS
@@ -910,13 +918,51 @@ def verify_chain() -> dict[str, Any]:
       - anchor absent (pre-anchor legacy database) → chain-only check
         is honest about that with a diagnostic on ok=True.
     """
+    known_breaks_file = Path(__file__).resolve().parents[3] / "docs" / "known_chain_breaks.md"
+
+    def _known_chain_breaks() -> set[str]:
+        """Event ids of chain breaks already investigated and written down.
+
+        An entry is a claim that someone looked and found a cause that is not
+        tampering. The file holds the evidence beside the id, so the exemption
+        can be argued with rather than merely trusted.
+        """
+        try:
+            text = known_breaks_file.read_text(encoding="utf-8")
+        except OSError:
+            return set()
+        return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`", text, re.MULTILINE))
+
     conn = _get_connection()
     try:
         rows = list(
             conn.execute(
+                # ROWID ALONE, not timestamp. The chain is built in APPEND
+                # order and rowid is the only faithful record of that. The
+                # timestamp is read by the caller BEFORE the insert, so two
+                # writers in the same instant can land with their clock
+                # readings inverted relative to the rows themselves.
+                #
+                # That happened on 2026-06-10 and every `divineos verify`
+                # since has called the ledger TAMPERED because of it.
+                # Measured 2026-08-13 across 24,312 events:
+                #     ORDER BY timestamp, rowid  ->  2 breaks
+                #     ORDER BY rowid             ->  1 break
+                # One of the two was manufactured by this sort scrambling an
+                # intact chain. Both "missing predecessors" were still in the
+                # table; they simply sorted in front of the rows chaining to
+                # them. The survivor at rowid 188 is a real concurrent-append
+                # race and is deliberately left standing, because it is true.
+                #
+                # The cost of getting this wrong was not a noisy alarm. An
+                # alarm that always cries TAMPERED cannot report tampering,
+                # and the obvious remedy for a permanently-broken chain is to
+                # rewrite the chain -- mutating an intact tamper-evidence
+                # record to satisfy the instrument that is misreading it. I
+                # had the repair drafted and was one approval from asking.
                 "SELECT event_id, timestamp, event_type, actor, payload, content_hash, "
                 "prior_hash, chain_hash FROM system_events "
-                "ORDER BY timestamp ASC, rowid ASC"
+                "ORDER BY rowid ASC"
             )
         )
         if not rows:
@@ -944,6 +990,7 @@ def verify_chain() -> dict[str, Any]:
         last_chain_hash = None
         chain_event_count = 0
         last_event_id = None
+        known_breaks_seen: list[str] = []
         # UNCHAINED ROWS ARE COUNTED AND POSITIONED, NOT SILENTLY SKIPPED.
         #
         # This loop used to read `if not stored_chain: continue` with no counter
@@ -980,6 +1027,24 @@ def verify_chain() -> dict[str, Any]:
                 continue
             seen_a_chained_row = True
             if stored_prior != expected_prior:
+                # A break that has been investigated and written down is not a
+                # new finding. Same shape as the orphan-module backlog: the
+                # known set is recorded WITH its evidence, and anything not on
+                # it fails immediately.
+                #
+                # Without this the alarm is stuck. One real race in June meant
+                # every verify since said TAMPERED, and an alarm that always
+                # cries tampered cannot report tampering. Silencing it by
+                # repairing the link would have traded a true history for a
+                # quiet instrument.
+                known = _known_chain_breaks()
+                if event_id in known:
+                    known_breaks_seen.append(event_id)
+                    expected_prior = stored_chain
+                    last_chain_hash = stored_chain
+                    last_event_id = event_id
+                    chain_event_count += 1
+                    continue
                 return _chain_result(
                     verified=chain_event_count,  # rows walked before the break, not zero
                     ok=False,

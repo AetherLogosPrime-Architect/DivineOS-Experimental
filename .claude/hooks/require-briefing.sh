@@ -1,4 +1,17 @@
 #!/bin/bash
+
+# SUPERSEDED 2026-08-06 by the seven-doorbell router. Its judgment — the
+# bootstrap-command exemption, the staleness read, and which of the two block
+# messages to use — now lives in divineos.core.hook_surfaces.require_briefing_
+# surface, dispatched through doorbell-pre-tool-use.sh.
+#
+# The JSON permission-decision protocol is preserved exactly: the surface
+# carries json_deny=True, because a migration moves WHERE a decision is made
+# and must never change HOW it lands.
+#
+# Unregistered in the same commit; kept on disk as the behavioural reference
+# until the whole PreToolUse set has moved.
+
 # PreToolUse hook — require briefing before any tool use.
 #
 # Andrew 2026-05-14 night: hooks should point to the OS, not replace

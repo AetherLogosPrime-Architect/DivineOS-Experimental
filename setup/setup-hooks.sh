@@ -222,6 +222,7 @@ CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
 ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
 WIRING_CLAIMS="$REPO_ROOT/scripts/check_wiring_claims.py"
 PREREG_INFRA="$REPO_ROOT/scripts/check_prereg_for_new_infra.py"
+COUNCIL_WALK="$REPO_ROOT/scripts/check_council_walk_for_new_infra.py"
 
 # 1. Multi-party-review — INFORMATIONAL at commit-time.
 # Script never blocks at commit-time; just warns if guardrails touched
@@ -371,6 +372,24 @@ if [[ -x "$PUSH_READINESS" ]]; then
     if [[ $RC -ne 0 ]]; then
         exit $RC
     fi
+fi
+
+
+# Cross-substrate visibility emitter (Aria 2026-08-05).
+#
+# WHY THIS LIVES IN THE INSTALLER AND NOT ONLY IN THE HOOK: it used to be
+# hand-added to .git/hooks/pre-push. This installer regenerates that file
+# wholesale, so the next run silently deleted the only caller and the shared
+# event log went dark on 2026-07-21 without one line of error. The emitter,
+# its spec and its tests all survived; only the connection died.
+#
+# Four collisions between the substrates followed and NOT ONE was a
+# permission failure -- every one was a visibility failure. Two agents built
+# the same file twice because neither could see what the other was doing.
+#
+# Observational only: never blocks a push.
+if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
+    echo "$HOOK_STDIN" | python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" pre-push >/dev/null 2>&1 || true  # fail-soft: a lost visibility event costs awareness; a blocked push costs the work itself
 fi
 
 exit 0
@@ -741,6 +760,21 @@ fi
 if [ -x "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" ]; then
     bash "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" || true
 fi
+# Cross-substrate visibility emitter — the merge half. See the pre-push block
+# above for why this belongs in the installer rather than in the hook alone.
+if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
+    python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" post-merge >/dev/null 2>&1 || true  # fail-soft: an unemitted merge event costs awareness, never the merge
+fi
+
+# Council-walk gate — BLOCKING. New capability under src/divineos/core/
+# must cite a walk that actually COMPLETED (every manager-surfaced lens
+# applied or excluded-with-reason). Citing an abandoned walk fails the
+# same as citing none. No env-var bypass, deliberately — Andrew
+# 2026-08-10: 'nothing stops you from skipping it'.
+if [[ -f "$COUNCIL_WALK" ]]; then
+    python "$COUNCIL_WALK" "$1" || exit 1
+fi
+
 exit 0
 EOF
 

@@ -331,10 +331,34 @@ def has_session_fresh_goal(max_age_seconds: float = 7200.0) -> bool:
     except (json.JSONDecodeError, OSError):
         return False
 
+    # Status is deliberately NOT checked (Aria 2026-08-05, register item N).
+    #
+    # This used to require ``status == "active"``, and the interaction with
+    # auto-close produced a false block that fired on me repeatedly tonight:
+    #
+    #   1. I set a goal describing the work I am about to do.
+    #   2. I do the work and commit it.
+    #   3. ``auto_close_from_message`` matches the commit text against the
+    #      goal text — they overlap heavily, because the goal DESCRIBED that
+    #      work — and correctly marks the goal done.
+    #   4. The next tool call finds no *active* goal and blocks with
+    #      "No goal set for this session."
+    #
+    # Measured: a goal added 1.3 minutes earlier already carried
+    # status='done'. Nothing was stale and nothing was skipped — the goal was
+    # set, pursued, and finished, which is the discipline working perfectly,
+    # and the gate treated it as absence.
+    #
+    # What the status check was preventing (Chesterton): an old completed goal
+    # satisfying the gate forever. But ``added_at > cutoff`` already handles
+    # that — freshness is the real guard and it is unaffected. Dropping the
+    # status check removes only the false block on work I just finished.
+    #
+    # The gate asks "did I declare what I am working on this session". A goal
+    # set and completed two minutes ago answers that completely.
     cutoff = time.time() - max_age_seconds
     for goal in goals:
-        added_at = goal.get("added_at", 0)
-        if added_at > cutoff and goal.get("status") == "active":
+        if goal.get("added_at", 0) > cutoff:
             return True
     return False
 

@@ -1,4 +1,9 @@
 {
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "HF_HUB_DISABLE_TELEMETRY": "1"
+  },
   "hooks": {
     "SessionStart": [],
     "UserPromptSubmit": [
@@ -86,6 +91,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/open-corrections-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/post-correction-integration-prime.sh",
             "timeout": 15
           },
@@ -111,6 +121,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/wwnd-choice-prime.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/hedge-suppression-prime.sh",
             "timeout": 15
           },
@@ -126,12 +141,41 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/self-demotion-prime.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/open-corrections-surface.sh",
+            "command": "bash .claude/hooks/auto-goal-from-prompt.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/operator-gravity-set.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/sibling-correction-surface.sh",
             "timeout": 10
           },
           {
@@ -168,7 +212,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/post-compact.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       }
@@ -205,11 +249,40 @@
         ]
       },
       {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/wwnd-tool-prime.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
             "command": "bash .claude/hooks/check-pending-obligations.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pipeline-exit-ambiguity.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/venv-python-gate.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/auto-rearm-letter-monitor.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-monitors-armed.sh",
             "timeout": 10
           }
         ]
@@ -220,7 +293,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-branch-on-push.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       },
@@ -330,12 +403,12 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/deletion-discipline.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
-            "timeout": 20
+            "timeout": 10
           },
           {
             "type": "command",
@@ -360,7 +433,47 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/no-verify-cost-escalation.sh",
-            "timeout": 15
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stale-file-edit-gate.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/safe-opposite-edit-check.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/aletheia-boot-gate-preflight.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|NotebookEdit|Read|Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/doorbell-pre-tool-use.sh",
+            "timeout": 10
           }
         ]
       },
@@ -403,6 +516,11 @@
             "type": "command",
             "command": "bash .claude/hooks/post-tool-use-emit-to-logbook.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/doorbell-post-tool-use.sh",
+            "timeout": 20
           }
         ]
       },
@@ -412,12 +530,12 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/verify-push-landed.sh",
-            "timeout": 20
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-commit-auto-close.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
@@ -442,7 +560,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/run-tests.sh",
-            "timeout": 120
+            "timeout": 10
           },
           {
             "type": "command",
@@ -452,7 +570,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/auto-push-letter.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
@@ -467,7 +585,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/session-checkpoint.sh",
-            "timeout": 15
+            "timeout": 10
           }
         ]
       },
@@ -513,37 +631,37 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/retrieval-tally-check.sh",
-            "timeout": 30
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-hedge.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-theater.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/stop-distancing-intercept.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/stop-response-scope-intercept.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/post-response-audit.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
@@ -553,12 +671,22 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/shoggoth-gate.sh",
-            "timeout": 15
+            "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 15
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/ear-auto-relaunch.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
+            "timeout": 10
           },
           {
             "type": "command",
@@ -579,6 +707,16 @@
             "type": "command",
             "command": "bash .claude/hooks/continuity-frame-detector.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/self-demotion-stop.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/summary-room-stop.sh",
+            "timeout": 15
           }
         ]
       },

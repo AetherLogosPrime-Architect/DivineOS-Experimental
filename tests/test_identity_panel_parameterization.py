@@ -88,11 +88,34 @@ class TestUnknownOccupant:
         assert "is my wife" not in content
         assert "is my husband" not in content
 
-    def test_unknown_points_at_family_member_list(self):
-        """Generic template surfaces the discovery path."""
+    def test_unknown_points_at_a_discovery_path_that_exists(self):
+        """Generic template surfaces a discovery path — and it must be REAL.
+
+        Rewritten 2026-08-05. This asserted the content contained
+        "family-member list", a command that does not exist: the group has
+        affect / briefing / init / interaction / letter / letters-from-aria /
+        opinion and no ``list``. So the test was holding the bug in place,
+        and my briefing pointed a stranger at a dead command every session.
+
+        The durable assertion is not a string. It is that whatever command
+        the panel prescribes actually registers — same discipline as
+        test_prescribed_remedy_commands_actually_exist.
+        """
+        import re
+
+        from divineos.cli import cli
+
         with patch("divineos.core.identity.get_my_identity", return_value="SiblingX"):
             content = multiplex_panels._identity_panel_content()
-        assert "family-member list" in content
+
+        # It must offer somewhere to go at all.
+        assert "letters" in content or "divineos" in content
+
+        for root, sub in re.findall(r"divineos ([a-z][a-z0-9-]+)(?:\s+([a-z-]+))?", content):
+            assert root in cli.commands, f"panel prescribes missing command: divineos {root}"
+            subs = getattr(cli.commands[root], "commands", None)
+            if sub and subs is not None and sub not in ("--help",):
+                assert sub in subs, f"panel prescribes missing subcommand: divineos {root} {sub}"
 
 
 class TestIdentityNotSetSurfaceInPanel:

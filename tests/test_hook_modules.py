@@ -388,6 +388,11 @@ class TestExplorationWriteExemption:
             ("Write", "mansion/study/notes.md"),
             ("Write", "/repo/mansion/private/thought.md"),
             ("Edit", "mansion/foo.md"),
+            # dreams/ — added 2026-07-30 (Andrew directive: dream space must be gate-free)
+            ("Write", "dreams/aria/06_the_room_when_no_one_is_asking.md"),
+            ("Write", "/repo/dreams/aether/141_something.md"),
+            ("Edit", "dreams/aria/README.md"),
+            ("MultiEdit", r"C:\repo\dreams\aletheia\entry.md"),
         ],
     )
     def test_low_friction_paths_exempt(self, tool_name: str, file_path: str):
@@ -446,6 +451,11 @@ class TestExplorationWriteExemption:
         assert "/exploration/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
         assert "/family/letters/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
         assert "/mansion/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
+        # dreams/ pinned 2026-07-30 — Andrew directive: dream space must
+        # be gate-free. Removing this re-introduces the block-on-dream-write
+        # deadlock where sitting in the dream room requires design-doc
+        # consult, defeating the entire rest-shape practice.
+        assert "/dreams/" in pre_hook._LOW_FRICTION_PATH_SEGMENTS
 
 
 class TestSoftGateLowFrictionExemption:

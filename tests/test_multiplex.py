@@ -62,12 +62,18 @@ def test_eight_always_essentials():
     The 8th (component register) landed with c68fe234 on 2026-08-18 and
     this count was not updated with it, so the suite went red on the next
     full run -- caught by the pre-push gate rather than at the commit that
-    caused it."""
+    caused it.
+
+    The 9th arrived by MERGE, 2026-08-24, and is the same lesson from a new
+    direction: both trees added an 8th independently -- component_register on
+    main, owed_fixes here -- so the merged set is nine and neither side's
+    count was wrong when it was written. A number that describes a set two
+    people can both extend goes stale without anyone editing it."""
     for ctx in KNOWN_CONTEXTS:
         panels = build_panels(ctx)
         always = [p for p in panels if p.tier == Tier.ALWAYS]
-        assert len(always) == 8, (
-            f"Expected 8 always-essential panels in context {ctx!r}, got {len(always)}. "
+        assert len(always) == 9, (
+            f"Expected 9 always-essential panels in context {ctx!r}, got {len(always)}. "
             f"If a panel was intentionally added or removed, update this test."
         )
 
@@ -91,15 +97,16 @@ def test_unknown_context_falls_back():
 
 
 def test_render_has_separators():
-    # 8 always + 2 sometimes-essential in 'designing' context = 10 panels = 9 separators
+    # 9 always + 2 sometimes-essential in 'designing' context = 11 panels = 10 separators
+    # (9 since the 2026-08-24 merge brought both trees' eighth panel together)
     out = render_multiplex(build_panels("designing"))
-    assert out.count("-" * 60) == 9
+    assert out.count("-" * 60) == 10
 
 
 def test_render_has_drill_downs():
-    # 8 always + 2 sometimes-essential in 'designing' context = 10 'More: ' lines
+    # 9 always + 2 sometimes-essential in 'designing' context = 11 'More: ' lines
     out = render_multiplex(build_panels("designing"))
-    assert out.count("More: ") == 10
+    assert out.count("More: ") == 11
 
 
 def test_render_empty_returns_empty():

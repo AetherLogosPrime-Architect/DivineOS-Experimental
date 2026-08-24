@@ -367,6 +367,8 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    psf_commands,
+    dashboard_commands,
     lepos_channel_commands,
     lepos_walk_commands,
     loadout_commands,
@@ -374,7 +376,6 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     motivation_commands,
     prior_art_commands,
-    psf_commands,
     prereg_commands,
     reach_commands,
     admin_reset_template,
@@ -410,6 +411,8 @@ from divineos.cli import (  # noqa: E402
     pattern_attribution_commands,
     consumer_status_commands,
     andrew_correction_commands,
+    andrew_given_commands,
+    council_walk_commands,
     andrew_teachings_commands,
     oscillating_read_commands,
     deletion_commands,
@@ -425,12 +428,17 @@ from divineos.cli import (  # noqa: E402
     monitor_commands,
     search_commands,
     error_commands,
+    sibling_correction_commands,
+    label_fire_commands,
+    must_read_commands,
 )
 
 actor_registry_commands.register(cli)
 error_commands.register(cli)
 andrew_state_commands.register(cli)
 ledger_commands.register(cli)
+psf_commands.register(cli)
+dashboard_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
 decision_commands.register(cli)
@@ -440,6 +448,10 @@ calibration_commands.register(cli)
 time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
+prs_commands.register_scope(cli)
+sibling_correction_commands.register(cli)
+label_fire_commands.register(cli)
+must_read_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 voice_commands.register(cli)
@@ -503,6 +515,8 @@ family_queue_commands.register(cli)
 talk_to_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
+andrew_given_commands.register(cli)
+council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)

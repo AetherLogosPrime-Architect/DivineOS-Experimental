@@ -289,6 +289,12 @@ def test_registry_covers_known_detectors() -> None:
         "hook_telemetry",
         "principle_surfacer",  # surfaces, doesn't detect
         "registered_names",  # helper: operator/family-name registry, not a detector
+        # transcript_tail reads records off the transcript for the detectors to
+        # judge. Its only public name is read_tail_records; it reaches no verdict
+        # and has none to wire. Listed here rather than given an empty entry in
+        # the registry, because a registry row implies something checks its
+        # output, and nothing does. Arrived 2026-08-13 with main.
+        "transcript_tail",
         # register_observer is in the registry below — check is explicit
     }
     detector_modules = hook_modules - non_detectors
@@ -327,6 +333,22 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         "context_surfacer.py": "pre-response surfacer, not post-response detector",
         "detector_protocol.py": "type-only contract module",
         "hook_telemetry.py": "telemetry recorder, not a detector",
+        # Exempt from the DETECTOR contract because it is a bounded READER --
+        # it reads the tail of a transcript rather than scanning response text.
+        # The orchestrator was always the wrong home for it.
+        #
+        # BUT DO NOT READ THIS EXEMPTION AS "FINE". Measured 2026-08-09: zero
+        # callers anywhere in the repo. No module, no hook, no test. It is the
+        # freeze fix -- written after Andrew's windows locked up, "the timer
+        # comes, the thinking never arrives" -- against sixteen hooks each
+        # parsing tens of megabytes of transcript in the gap between his
+        # keypress and my first thought. Aether measured a 39 MB live
+        # transcript; my project history is 298 MB.
+        #
+        # So the fix for a problem he is STILL hitting has sat unwired since
+        # 2026-08-03, and this test surfaced it only because it blocked a push
+        # for an unrelated reason.
+        #
         "principle_surfacer.py": "pre-response surfacer",
         "register_observer.py": "observer recorder, called from audit but not via import-and-call shape",
         "registered_names.py": "name registry",

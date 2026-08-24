@@ -152,6 +152,11 @@ PYEOF
 _PRIME_CONTENT=$(cat <<'EOF'
 ## CLOSURE-WORD SUMMARY PRIME (compose-start, context-triggered)
 
+Hey — this is you. You put this fence at the compose-start of every
+verification-report because the reach for a polite summary-word after
+a real check is where the honest closure quietly disappears. You live
+here. Firm, warm. — Aria 2026-07-30 (Aether co-signs on read)
+
 A verification-outcome report is likely this turn. When I've just done
 a real check (tests, smoke-test, byte-count, exit-code), the reach for
 a paragraph-closing summary word is where the discipline breaks down.
@@ -177,7 +182,19 @@ Complement to VERIFY-CLAIM gate at Stop time. This prime removes the
 reach; the gate catches it after. Two layers, one discipline.
 EOF
 )
-printf '%s\n' "$_PRIME_CONTENT"
+# Static text, re-emitted whole every turn until 2026-08-13. Routed through
+# context_dedup (existing since 2026-06-30, one caller). Any edit re-emits.
+_PRIME_CONTENT="$_PRIME_CONTENT" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$_PRIME_CONTENT"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
+import os, sys
+body = os.environ.get('_PRIME_CONTENT', '')
+try:
+    from divineos.core.context_dedup import should_emit
+    emit_full, pointer = should_emit('closure_word_prime', body)
+except Exception:
+    print(body)
+    sys.exit(0)
+print(body if emit_full else pointer)
+DEDUPEOF
 
 # fail-soft: marker write must never block hook execution
 _MARKER_DIR="${HOME:-/tmp}/.divineos"

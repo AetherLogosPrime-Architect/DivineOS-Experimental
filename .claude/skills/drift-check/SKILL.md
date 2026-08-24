@@ -23,7 +23,7 @@ Pulls the four drift-detection surfaces into one view:
 divineos audit summary
 
 # Tier overrides (recent)
-divineos inspect tier-overrides  # or query via events if CLI not wired
+divineos briefing  # TIER_OVERRIDE surface renders in the briefing block stack
 
 # Compass drift
 divineos compass-ops summary

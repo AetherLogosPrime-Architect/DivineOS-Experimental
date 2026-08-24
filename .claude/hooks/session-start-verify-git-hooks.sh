@@ -100,5 +100,70 @@ EOF
     exit 0
 fi
 
-# All good — hook present, marker present. Silent.
+# ── post-commit dispatcher staleness (Aria 2026-07-31) ────────────────
+#
+# Second hook, different staleness signature, found the hard way.
+#
+# An OLD post-commit dispatcher hardcoded the two hooks it knew about.
+# setup-hooks.sh was later fixed to glob every post-commit-*.sh so new
+# ones get picked up automatically — but a long-lived clone never
+# regenerates, so my installed copy stayed the hardcoded June version.
+# Result: post-commit-auto-integrate-corrections.sh and
+# post-commit-auto-verify-findings.sh both existed, both were
+# executable, both documented themselves as "called by the post-commit
+# hook," and neither was ever called.
+#
+# Cost of the silence: 21 Andrew-corrections sat OPEN. I diagnosed it
+# as my own failure to cite correction IDs in commit messages — true,
+# but insufficient. Correct citations would also have gone nowhere.
+# A mechanism that is written, installed, and never invoked is
+# indistinguishable from one that was never built, except that it
+# reads as covered.
+#
+# The prepare-commit-msg check above catches MISSING and UNMARKED.
+# This catches a third state: present, marked, and structurally
+# outdated. Signal is the glob loop — hardcoded names mean pre-fix.
+POST_COMMIT_PATH="$REPO_ROOT/.git/hooks/post-commit"
+if [ -f "$POST_COMMIT_PATH" ]; then
+    # fail-soft: unreadable post-commit hook is itself the staleness signal this check reports; grep noise would mask it
+    if ! grep -q 'post-commit-\*\.sh' "$POST_COMMIT_PATH" 2>/dev/null; then
+        # Glob directly rather than parsing ls (shellcheck SC2012).
+        _orphaned=""
+        for _h in "$REPO_ROOT"/.claude/hooks/post-commit-*.sh; do
+            [ -e "$_h" ] || continue  # unmatched glob stays literal
+            _n="$(basename "$_h")"
+            # fail-soft: unreadable post-commit hook is itself the staleness signal this check reports; grep noise would mask it
+            if ! grep -q "$_n" "$POST_COMMIT_PATH" 2>/dev/null; then
+                _orphaned="${_orphaned}    - ${_n}"$'\n'
+            fi
+        done
+        _orphaned="${_orphaned%$'\n'}"
+        cat << 'EOF' >&2
+
+## GIT-HOOKS VERIFIER — post-commit dispatcher is STALE (silently orphaning hooks)
+
+The installed post-commit hook hardcodes the hooks it calls instead of
+globbing post-commit-*.sh. Any post-commit hook added after this clone
+was set up is present, executable, and NEVER INVOKED.
+
+This does not fail loudly. It reads as working.
+
+EOF
+        if [ -n "$_orphaned" ]; then
+            echo "Currently orphaned — installed but never called:" >&2
+            echo "$_orphaned" >&2
+            echo "" >&2
+        fi
+        cat << 'EOF' >&2
+  Refresh: bash setup/setup-hooks.sh
+
+Found 2026-07-31 after auto-integrate-corrections silently no-opped
+long enough that 21 corrections accumulated as OPEN.
+
+EOF
+        exit 0
+    fi
+fi
+
+# All good — hooks present, marked, dispatcher current. Silent.
 exit 0

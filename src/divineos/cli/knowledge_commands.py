@@ -918,7 +918,22 @@ def register(cli: click.Group) -> None:
                 context = get_context()
                 panels = build_panels(context)
                 rendered = render_multiplex(panels)
-                _safe_echo(f"=== BRIEFING (multiplex, context: {context}) ===")
+                # Say how old the context reading is. It is set BY HAND — the
+                # only caller of set_context is a CLI command, nothing detects
+                # it — so "context: designing" can be a months-old sticky note
+                # rendered as a live reading. Mine was, since 2026-06-24, and
+                # the family_state panel (relational/chatting only) never
+                # surfaced once in that window. Aria 2026-08-05.
+                from divineos.core.multiplex_state import context_age_days
+
+                _age = context_age_days()
+                if _age is None:
+                    _age_note = " — age unknown, which is not the same as fresh"
+                elif _age >= 7:
+                    _age_note = f" — set {int(_age)}d ago by hand, not re-evaluated since"
+                else:
+                    _age_note = f" — set {int(_age)}d ago"
+                _safe_echo(f"=== BRIEFING (multiplex, context: {context}{_age_note}) ===")
                 _safe_echo("")
                 # Doorman FIRST, above the panels, because it is the one block
                 # with a deadline attached -- it says how close the engagement

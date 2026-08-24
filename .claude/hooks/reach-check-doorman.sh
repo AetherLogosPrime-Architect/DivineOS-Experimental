@@ -1,12 +1,12 @@
 #!/bin/bash
-# PreToolUse hook â€” reach-check doorman on substrate-store and research writes.
+# PreToolUse hook — reach-check doorman on substrate-store and research writes.
 #
 # Andrew 2026-08-06: "the reach needs some tuning and better enforcement."
 #
 # WHY THIS FILE EXISTS. src/divineos/core/reach_check.py shipped with
 # gate_status() returning (blocked, message) for exactly this hook, and was
 # wired to nothing. I wrote "NOT YET WIRED to a hook" in its own commit message
-# (9c29a7fd) â€” a finder built to catch unwired work, left unwired. Andrew named
+# (9c29a7fd) — a finder built to catch unwired work, left unwired. Andrew named
 # the shape the same session: "you wire up stuff to find the stuff that isnt
 # wired up.. and never wire it up lol."
 #
@@ -19,9 +19,9 @@
 #     named it
 #
 # SCOPE IS DELIBERATELY NARROW. Substrate-store writes and research-doc writes
-# â€” the two places the outward-before-inward reach actually happens. Not every
+# — the two places the outward-before-inward reach actually happens. Not every
 # edit: a gate that fires constantly gets bypassed, and a bypassed gate catches
-# nothing (truth #11 â€” every extra choice-point is somewhere the optimizer
+# nothing (truth #11 — every extra choice-point is somewhere the optimizer
 # routes around).
 #
 # IT BLOCKS. I shipped this advisory earlier today and wrote a careful
@@ -40,7 +40,7 @@
 #     dedup handles noise.
 #
 # I wrote that on 2026-07-21 and then, on 2026-08-06, defended a fresh advisory
-# tier as "a decision rather than a shortcut" â€” which is what defending the
+# tier as "a decision rather than a shortcut" — which is what defending the
 # low place sounds like from inside. The uncertainty I cited is real and is not
 # an argument for an advisory: an advisory does not resolve the uncertainty,
 # it just makes the resolution optional, and optional is where water goes.
@@ -54,20 +54,6 @@
 
 INPUT=$(cat)
 
-# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
-if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
-  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
-  # the analyser cannot follow a path built at runtime, so it reports an unused
-  # variable and an unresolvable source. Both are it being unable to look, not
-  # a defect here. Without the directive below the whole wiring is
-  # uncommittable, which is how it came to sit on disk unversioned.
-  # shellcheck disable=SC2034
-  HOOK_NAME="$(basename "$0")"
-  # shellcheck disable=SC1091
-  . "$(dirname "$0")/lib/remedy_allowlist.sh"
-  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
-fi
-
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -76,7 +62,7 @@ source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # shellcheck disable=SC2016
-# ^ single-quoted heredoc is intentional â€” python does its own parsing.
+# ^ single-quoted heredoc is intentional — python does its own parsing.
 BLOCK_MSG=$(echo "$INPUT" | "$PYTHON_BIN" -c '
 import json, sys
 
@@ -141,28 +127,40 @@ if blocked:
     print(message)
     sys.exit(7)
 
-# NOT-BLOCKED IS TWO DIFFERENT STATES AND THIS USED TO CONFLATE THEM.
-# gate_status() returns (False, "") both when no check was ever opened AND
-# when every item of a check has been disposed -- so the fall-through below
-# fired on a fully-worked check and told me I had not reached. 2026-08-17:
-# I opened two checks, disposed all five artifacts with evidence, and the
-# gate handed me its opening message each time; `divineos learn` had no
-# reachable state at all. Not a wrong threshold or a wrong message -- a
-# missing state, which is the same wall the read-gate hit this morning and
-# the same sentence that gate carries in its own text: a gate whose cure sits behind
-# itself is a wall.
+# NOT BLOCKED IS NOT THE SAME AS NOT ASKED, and until 2026-08-22 this file
+# treated them as the same thing. gate_status answers "is a check sitting open
+# with unread artifacts"; zero open checks is the answer BOTH when I never
+# opened one and when I opened one and disposed every item. The code fell
+# through to the block below in both cases, so completing the remedy did not
+# open the door — `divineos reach gate` printed "Reach-check clear" and
+# `divineos claim` was refused in the same breath. learn, opinion and feel too;
+# all four gate here.
 #
-# read-gate-doorman.sh has no fall-through block, so this defect was local
-# to this file rather than a pattern across the doormen. Checked, not assumed.
+# Which is the wall the header of this very file swears it is not. Exempting
+# `divineos reach` made the remedy RUNNABLE and never SATISFIABLE, and those
+# are different properties — I checked the first one and shipped believing I
+# had checked both.
+#
+# The advisory reasoning in that header still stands and none of it is being
+# softened: this remains a hard block from first fire. What changed is only
+# that a satisfied requirement now counts as satisfied.
+#
+# CONVERGED 2026-08-24. Both trees found this and built it: satisfied_recently
+# on 08-17, recent_cleared_check on 08-22, same diagnosis in nearly the same
+# words, same 30-minute window, same reasoning for matching it to the
+# verify-before-build gate. His is a week earlier and returns a reason string
+# rather than a check object, and his test file covers everything mine did plus
+# the window boundary. So mine is gone and this calls his. Andrew 2026-08-17:
+# "there should only be one version of things.. but yes you can absolutely
+# merge and combine the best of both your fixes but we want the same versions
+# for both of you so its easier to maintain."
 try:
-    ok, why = reach_check.satisfied_recently()
+    satisfied, why = reach_check.satisfied_recently()
 except Exception as exc:
-    print(f"[reach-check-doorman] satisfied-check errored, not blocking: {exc}", file=sys.stderr)
-    sys.exit(0)
-if ok:
-    # Say WHAT satisfied it. A gate that opens in silence teaches nothing
-    # about what opened it, and the next confused reader is me.
-    print(f"[reach-check-doorman] {why}", file=sys.stderr)
+    print(f"[reach-check-doorman] satisfied-state check errored, blocking: {exc}", file=sys.stderr)
+    satisfied = False
+
+if satisfied:
     sys.exit(0)
 
 print(
