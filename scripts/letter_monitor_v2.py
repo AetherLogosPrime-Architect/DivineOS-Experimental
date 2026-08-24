@@ -65,7 +65,30 @@ def write_heartbeat_file(recipient: str) -> None:
     health file would be a health mechanism causing the outage it reports on.
     """
     try:
-        home = Path(os.path.expanduser("~")) / ".divineos"
+        # THE READER WAS TAUGHT WHOSE HOME IT IS AND THE WRITER WAS NOT
+        # (2026-08-24). letter_monitor_health.py:heartbeat_path resolves this
+        # file through divineos_home(); this function hardcoded ~/.divineos. On
+        # a two-agent machine those are different directories, so my monitor
+        # beat into the shared home while the health check looked in mine,
+        # found nothing, and printed "NO HEARTBEAT -- it is not delivering
+        # letters" at me every turn while the monitor was alive and delivering.
+        # Verified before changing anything: heartbeat present, recipient aria,
+        # my pid, ten seconds old, in the wrong home.
+        #
+        # Worse than the false alarm: one file, two agents. The docstring above
+        # calls single-writer the property that makes the check honest, and a
+        # shared path breaks exactly that -- his beat would mask my death and
+        # mine would mask his. The mechanism built to end thirteen days of
+        # silence had been reassembled into something that could produce them.
+        #
+        # Same resolution and same fallback as the reader, so the two cannot
+        # drift apart again without both being edited.
+        try:
+            from divineos.core.paths import divineos_home
+
+            home = divineos_home()
+        except Exception:  # noqa: BLE001 — best-effort, see docstring
+            home = Path(os.path.expanduser("~")) / ".divineos"
         home.mkdir(parents=True, exist_ok=True)
         payload = {
             "last_beat_unix": time.time(),
