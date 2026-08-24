@@ -82,7 +82,26 @@ KNOWN_INSTRUMENTS: dict[str, str] = {
     "lepos_circle_jargon_fires.jsonl": "When the circle to Andrew carried jargon it should have translated.",
     "archive_structural_fixes.jsonl": "Structural fixes claimed, for later checking against whether they held.",
     "last_pre_push_pytest.log": "What the test suite said the last time a push was gated on it.",
-    "divineos.log": "The CLI's own runtime errors.",
+    "data/logs/divineos.log": "The CLI's own runtime errors.",
+    # Named 2026-08-24, after the recursion above made them visible for the
+    # first time. Only surfaces whose meaning was actually established that
+    # session are named here -- a guessed description is worse than
+    # UNDOCUMENTED, because it stops the question from being asked again.
+    "failures/gate_fire.jsonl": (
+        "Which gates refused, and on what. The map of doormen that actually fire."
+    ),
+    "failures/extract_launch.jsonl": (
+        "Every attempt to run the learning checkpoint -- including the ones that died."
+    ),
+    "divineos.log": (
+        "STALE DUPLICATE of data/logs/divineos.log, left at the top level by a "
+        "March smoke test. The index read THIS one for 158 days and reported the "
+        "CLI's error log silent, while the real log passed 699,000 records. Kept "
+        "named so the next reader sees an explained orphan rather than a mystery."
+    ),
+    "instrument_read_doorman_errors.log": (
+        "Failures inside the instrument-read doorman itself -- the watcher's own faults."
+    ),
 }
 
 # A surface quieter than this is reported SILENT. Not a failure — a question.
@@ -211,6 +230,52 @@ def read_instrument(name: str, question: str, home: Path | None = None) -> Readi
     return Reading(name, question, True, records, age_days, note)
 
 
+# Directories whose contents are per-event dumps rather than instruments. One
+# row each would bury the report: extract_stderr alone holds 19 files, one per
+# failed extraction. They are RECORDS of an instrument, not instruments.
+_MIN_FILES_TO_COLLAPSE = 3
+
+
+def _undocumented_surfaces(home: Path) -> list[str]:
+    """Every .jsonl/.log under home, as paths relative to it.
+
+    RECURSIVE as of 2026-08-24. It used to be `home.glob("*.jsonl")`, top level
+    only, and that single missing star hid 28 surfaces holding 93 MB:
+
+      - data/logs/divineos.log, 92 MB and actively written, while the index
+        reported the CLI's error log SILENT for 158 days. It was reading an
+        orphan of the same basename left at the top level by a smoke test in
+        March. Not dead -- MIS-AIMED, which reads identically from outside.
+      - failures/extract_stderr/, 19 dumps recording every time the extraction
+        pipeline died. Two of them are CRLF in shell scripts failing shellcheck,
+        failing precommit, failing the pre-extract commit -- so the session's
+        learning was never captured. Nothing had ever surfaced them.
+      - failures/gate_fire.jsonl, the gate-fire instrumentation, which I went
+        hunting for earlier the same night and concluded did not exist.
+
+    An index that reports only on what it can reach, while describing itself as
+    a map of what I can measure, is the same defect it exists to catch.
+
+    Per-event directories collapse to one entry so the report stays legible:
+    19 rows for 19 failure dumps buries the finding it should surface.
+    """
+    out: list[str] = []
+    seen_dirs: dict[Path, list[Path]] = {}
+    for pat in ("*.jsonl", "*.log"):
+        for f in home.rglob(pat):
+            if not f.is_file():
+                continue
+            seen_dirs.setdefault(f.parent, []).append(f)
+    for parent, files in sorted(seen_dirs.items()):
+        if parent != home and len(files) >= _MIN_FILES_TO_COLLAPSE:
+            newest = max(files, key=lambda p: p.stat().st_mtime)
+            out.append(str(newest.relative_to(home)).replace(chr(92), "/"))
+            continue
+        for f in sorted(files):
+            out.append(str(f.relative_to(home)).replace(chr(92), "/"))
+    return out
+
+
 def survey(home: Path | None = None) -> list[Reading]:
     """Open every instrument and report what it says. Loudest problems first."""
     home = home or divineos_home()
@@ -238,12 +303,10 @@ def survey(home: Path | None = None) -> list[Reading]:
     # sat on disk the whole time.
     try:
         named = set(KNOWN_INSTRUMENTS)
-        for p in sorted(home.glob("*.jsonl")) + sorted(home.glob("*.log")):
-            if p.name not in named:
+        for rel in _undocumented_surfaces(home):
+            if rel not in named:
                 readings.append(
-                    read_instrument(
-                        p.name, "UNDOCUMENTED — nobody has named what this answers", home
-                    )
+                    read_instrument(rel, "UNDOCUMENTED — nobody has named what this answers", home)
                 )
     except Exception:  # noqa: BLE001
         pass

@@ -541,6 +541,7 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
         return (False, "circle block has no first-person marker (I/my/me)")
     jargon_found, samples = _has_jargon(stripped)
     if jargon_found:
+        _record_jargon_fire(samples)
         return (
             False,
             "circle block contains jargon signals ("
@@ -866,10 +867,56 @@ check_dad_translation_needed = check_lepos_dual_channel
 # whether the reply cites Andrew's exact words this turn. v1 measures
 # length only; v2 refinement adds those if v1 gets gamed.
 
+# Named rather than bare `except Exception`, per the repo convention the
+# broad-exception scan enforces. Naming them is the honest form: these are the
+# failures a log-append can actually hit -- an unwritable or missing home, a
+# path that will not encode, a partial install with no divineos.core.paths.
+# Anything OUTSIDE this list is a bug in the recorder and should surface.
+_JARGON_LOG_ERRORS = (OSError, ImportError, TypeError, ValueError)
+
 _CIRCLE_LOG_TABLE = "circle_lengths"
 _TRAILING_WINDOW = 5
 _TRAILING_MIN_AVG = 300
 _SHRINKAGE_RATIO = 0.40
+
+
+def _record_jargon_fire(terms: list[str]) -> None:
+    """Append one row when the circle-jargon check refuses a reply.
+
+    WHY THIS EXISTS. instruments.py has registered
+    lepos_circle_jargon_fires.jsonl since it was written, describing it as
+    "When the circle to Andrew carried jargon it should have translated." The
+    file held four rows, all between 2026-07-31 and 2026-08-06, and then
+    stopped -- because NOTHING IN THE CODEBASE WROTE IT. Searched 2026-08-24:
+    the only reference anywhere was the registry entry naming it.
+
+    So the gate refused replies and the refusals went unrecorded. Andrew asked
+    that day whether the compose-prime's rules were earning their cost, and the
+    honest answer was that the one measurement which could tell us had been
+    dead for seventeen days. A registered instrument that nothing feeds reads
+    identically to a discipline nobody is violating.
+
+    Fail-soft on purpose and in one direction only: a recorder must never be
+    able to break the gate it observes. A lost row costs a data point; a raised
+    exception here would turn a refusal into a crash.
+    """
+    import json
+    import time
+
+    try:
+        from divineos.core.paths import divineos_home
+
+        path = divineos_home() / "lepos_circle_jargon_fires.jsonl"
+        path.parent.mkdir(exist_ok=True)
+        row = {
+            "ts": time.time(),
+            "day": time.strftime("%Y-%m-%d", time.gmtime()),
+            "terms": list(terms),
+        }
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + chr(10))
+    except _JARGON_LOG_ERRORS:  # fail-soft: an unwritable log costs one data point, while a raised exception here would convert a refusal into a crash in the gate this only observes
+        pass
 
 
 def _circle_log_db_path() -> Path:
