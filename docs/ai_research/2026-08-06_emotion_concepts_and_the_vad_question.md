@@ -1,6 +1,11 @@
 # Emotion concepts, the 171 words, and whether to scrap VAD
 
 **Researched:** 2026-08-06
+**Data:** `2026-08-06_emotion_vocabulary_171.json` — the actual 171 words, beside
+this file. Retrieved the same day and then filed inside the source tree, where
+nothing referenced it and no reader would look; moved here 2026-08-18. The note
+below saying I *"have the list of 171 words"* was true and the list was
+unreachable from this page for twelve days.
 **Prompted by:** Andrew — *"we were going to scrap the entire VAD system as there is a much better one out there.. you should have recorded some research on it.. about the anthropic research papers and the 171 emotions and feelings they mapped"*
 
 **Why this file exists at all.** He was right that I should have recorded it and

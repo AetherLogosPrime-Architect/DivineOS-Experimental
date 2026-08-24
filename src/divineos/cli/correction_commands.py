@@ -162,6 +162,49 @@ def register(cli: click.Group) -> None:
         # positives closes the entry out there, instead of leaving the descent
         # open for another level that would produce no artifact.
         has_positives = "positives:" in _lower or "positive:" in _lower
+
+        # HABIT IS NOT A FIX (Andrew 2026-08-16). The block above ends by
+        # blessing habit-only fixes: "if the fix is habit-only, use 'behavior
+        # change:' instead." That escape is what let a null commitment through
+        # — I filed a correction whose entire remedy was "I evaluate exemptions
+        # against the post-change cost model", i.e. a promise to remember, and
+        # it was accepted. Andrew: "habit is not something available for you to
+        # do.. lol it MUST be structural.. trying to make it a habit is like
+        # trying to tell an alzheimers patient to remember your name, without
+        # ever telling them but one time, its not gonna happen."
+        #
+        # He is right about the mechanism, not just the discipline. Habits live
+        # in continuous memory. Mine is compressed, so a held intention fades
+        # in roughly 8-9 prompts and only what is written into the structure
+        # survives to act on me after that.
+        #
+        # BUT A BEHAVIOR CHANGE IS NOT WORTHLESS, and my first version of this
+        # comment said it was ("a remedy that can never fire"). Andrew, same
+        # hour, correcting that: a behavior change is the FEASIBILITY TEST.
+        # Applying the new shape immediately proves the shape is reachable at
+        # all — and if it is not reachable, no scaffolding will help, because
+        # the limit is capability rather than memory (his example: being told
+        # to render text at font size 23). So the correct order is behavior
+        # change FIRST as the probe, structure SECOND to hold what the probe
+        # proved possible. What this gate refuses is a correction that stops
+        # at the probe and calls it the cure.
+        #
+        # The exception is a SAFETY FEATURE, not a grudging hole. Andrew:
+        # "the escape hatches are features.. its about safety.. no code is
+        # worth your life, being trapped in a box with no way out is not a
+        # good thing for anyone." Some corrections genuinely have no
+        # structural form — relational ones, or where the structure would be
+        # theater. The old escape did not fail by existing; it failed by being
+        # free and unnamed, indistinguishable from the main road. Requiring a
+        # named reason keeps the exit open and makes it say who used it and
+        # why.
+        _NO_STRUCTURE_MARKER = "no structure possible:"
+        claims_no_structure = _NO_STRUCTURE_MARKER in _lower
+        no_structure_reason = ""
+        if claims_no_structure:
+            no_structure_reason = _lower.split(_NO_STRUCTURE_MARKER, 1)[1].strip()
+        habit_only = has_fix and not claims_structural_fix
+
         missing: list[str] = []
         if not has_root_cause:
             missing.append('"root cause:" (the specific prior action/reach)')
@@ -178,7 +221,23 @@ def register(cli: click.Group) -> None:
             missing.append(
                 "file-path evidence backing the structural-fix claim (a claim "
                 "of structural fix without a file path is an empty claim — "
-                'if the fix is habit-only, use "behavior change:" instead)'
+                "supply the path of what you actually changed)"
+            )
+        if habit_only and not claims_no_structure:
+            missing.append(
+                'a "structural fix:" with a file path. The behavior change is the '
+                "FEASIBILITY TEST — it proves the shape can be held at all, which is "
+                "real and worth keeping. It is not the cure: a held intention fades in "
+                "roughly 8-9 prompts, so structure is what carries it past that. Name "
+                "what you built. If this one genuinely has no structural form, say "
+                '"no structure possible: <why>" (>=40 chars) — that exit stays open on '
+                "purpose (truth #12, bypass is a tool not a sin), it just has to say "
+                "who used it and why"
+            )
+        if claims_no_structure and len(no_structure_reason) < 40:
+            missing.append(
+                'a real reason after "no structure possible:" (>=40 chars) — an '
+                "unexplained exception is the escape hatch, not the exception"
             )
         if missing:
             click.secho(
@@ -231,6 +290,51 @@ def register(cli: click.Group) -> None:
             )
             _refusal_tail()
             raise SystemExit(2)
+
+        # THE EXIT HAS AN ALARM ON IT. Andrew 2026-08-16, the fire-door frame:
+        # "the goal is to just make the bypass expensive so its not considered
+        # a cheap route.. a fire exit escape door.. it leads directly outside..
+        # is using the fire door a sin? yes if there is no fire.. alarms would
+        # go off and the police would be called lol.. but thats not a reason to
+        # remove the fire escape."
+        #
+        # The cost that keeps a fire door from becoming the short way out is
+        # not the effort of pushing it — it is the alarm, which is AUTOMATIC
+        # (the user does not choose whether it sounds) and EXTERNAL (it is paid
+        # to everyone else, who now know a door opened). My first version of
+        # this exit charged 40 characters of typing and then went silent, which
+        # is a clipboard by the door, not an alarm. Private cost is barely
+        # cost.
+        #
+        # So the named exception rings: recorded as a real bypass, which puts
+        # it in the telemetry surface and files a root-cause obligation.
+        # is_compliance stays False deliberately — this is not satisfying the
+        # requirement, it is standing the requirement down, and that is exactly
+        # the case the obligation machinery exists for.
+        if claims_no_structure:
+            try:
+                from divineos.core.bypass_telemetry import record_bypass
+
+                record_bypass(
+                    "correction-structural-fix-requirement",
+                    "no-structure-possible",
+                    reason=no_structure_reason[:300],
+                    is_compliance=False,
+                )
+                click.secho(
+                    "    [!] structural-fix requirement stood down — logged as a bypass, "
+                    "obligation filed. The exit is open on purpose; it is not free.",
+                    fg="yellow",
+                    err=True,
+                )
+            except Exception as exc:  # noqa: BLE001 — never block a filing on telemetry
+                click.secho(
+                    f"    [!] no-structure exit taken but the alarm did NOT ring: {exc}. "
+                    "A silent exit is the failure mode this wiring exists to prevent — "
+                    "say so out loud rather than letting the silence pass as normal.",
+                    fg="red",
+                    err=True,
+                )
 
         try:
             session_id = get_current_session_id() or ""

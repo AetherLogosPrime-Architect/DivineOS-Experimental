@@ -343,12 +343,43 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
             cli,
             [
                 "correction",
-                "root cause: I said the sky was green. positives: caught before shipping. behavior change: "
-                "I will call it blue from now on.",
+                # 2026-08-24 merge: the positives clause is new here. Main's
+                # fixture predates the positives requirement this tree added
+                # on 2026-08-02, so the two validators met for the first time
+                # in this merge and the fixture satisfied only one of them.
+                # Both rules are live and both are kept; the fixture answers
+                # to both now.
+                # Was a habit-only body ("behavior change: I will call it blue
+                # from now on"), which the pairing gate now refuses outright —
+                # Andrew 2026-08-16, habits do not survive compaction, so a
+                # promise to remember is a remedy that can never fire. The
+                # test's intent is unchanged: a correction that PASSES the gate
+                # while carrying no structural-fix trigger words must not arm
+                # the tracker. The named no-structure path is now the only way
+                # to be both valid and non-structural, so it is the fixture.
+                "root cause: I said the sky was green. positives: caught before "
+                "it shipped, and it is the fixture that proved the two merged "
+                "validators disagree. behavior change: "
+                "I will call it blue from now on. no structure possible: "
+                "colour naming is a one-off slip with no mechanism behind "
+                "it, and a detector would be pure theater.",
             ],
         )
         assert result.exit_code == 0
-        assert list_pending() == []
+        # This assertion used to read `list_pending() == []`, using "nothing
+        # pending at all" as a proxy for "the tracker did not arm". Those came
+        # apart on 2026-08-16: taking the named no-structure exit now records a
+        # bypass, which files its own root-cause obligation on purpose — the
+        # alarm on the fire door, so the exit is open but never silent.
+        #
+        # The test's intent is unchanged and is asserted directly now: the
+        # STRUCTURAL-FIX TRACKER must not arm on a correction carrying no
+        # structural-fix language. Anything pending must have come from the
+        # bypass, not from the tracker. Asserting emptiness instead would make
+        # this test fail every time the alarm works, which would pressure a
+        # later reader into disconnecting the alarm to get green.
+        pending = list_pending()
+        assert all("bypass of gate" in p["content_excerpt"] for p in pending), pending
 
 
 def test_identical_content_becomes_one_row_with_a_count(tmp_path: Path) -> None:

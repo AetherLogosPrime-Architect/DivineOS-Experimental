@@ -655,8 +655,18 @@ def _count_tool_calls_split(cutoff: float) -> tuple[int, int]:
         if not names:
             return (0, int(total))
         placeholders = ",".join("?" * len(names))
+        # nosec B608 — the f-string interpolates `placeholders` only, which is
+        # built one line above from `","join("?" * len(names))`: question marks
+        # and commas, nothing else. Every value is bound through the parameter
+        # tuple below, including each tool name. This is the standard safe way
+        # to build a variable-length IN clause, and bandit flags the shape
+        # rather than the content.
+        #
+        # Landed in #409 and has been failing bandit strict-mode since; this is
+        # the first commit after it to stage a file under src/divineos/, which
+        # is what triggers the scan, so it went unnoticed until now.
         gated = conn.execute(
-            "SELECT COUNT(*) FROM tool_logbook "
+            "SELECT COUNT(*) FROM tool_logbook "  # nosec B608
             "WHERE event_type = 'TOOL_CALL' AND timestamp >= ? "
             f"AND tool_name IN ({placeholders})",
             (cutoff, *names),

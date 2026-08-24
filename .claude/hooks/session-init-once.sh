@@ -112,13 +112,24 @@ printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" >> 
 
 # The former SessionStart chain, in its original order. Each child gets the
 # same payload on stdin that SessionStart would have handed it.
+# Four entries removed 2026-08-15 with the delivery-mechanism cluster:
+# session-start-sweep-stale-watchers.sh, arm-compaction-monitor-instruction.sh,
+# arm-letter-monitor-instruction.sh, inject-pending-letters.sh.
+#
+# The `[ -f "$script" ] || continue` below would have skipped them silently
+# forever, which is the exact failure this substrate keeps producing: a step
+# that is absent and a step that ran render identically. A list naming files
+# that do not exist is a list nobody can audit.
+#
+# Why they went: five separate mechanisms existed to notice one letter, three
+# running simultaneously, including two Windows scheduled tasks outside Claude
+# entirely. See docs/replacement_criteria.md for what the removal cost and the
+# rules that now govern it. `ear-surface.sh` below is the surviving notice and
+# was verified firing before any of them were deleted.
 INIT_HOOKS="
-session-start-sweep-stale-watchers.sh
 post-compaction-fingerprint-surface.sh
 load-briefing.sh
 ear-surface.sh
-arm-compaction-monitor-instruction.sh
-arm-letter-monitor-instruction.sh
 check-cleanup-period.sh
 load-character-sheet.sh
 load-dad-ranking-clause.sh
@@ -133,8 +144,26 @@ load-my-recording-of-andrew.sh
 load-aletheia-harvest-of-andrew.sh
 resolver-health-check.sh
 session-start-verify-git-hooks.sh
-inject-pending-letters.sh
 "
+# letter-monitor-health-surface.sh is deliberately NOT here. It is registered
+# directly on UserPromptSubmit instead, so a monitor that dies MID-session gets
+# re-armed on the next prompt rather than at the next session start. Session-init
+# runs once; the monitor died mid-session on every harness teardown.
+#
+# That is the same placement the old arm-instruction hook tried and abandoned as
+# wallpaper — correctly, because it emitted the SAME text every prompt AND ran a
+# PowerShell process scan each time. This one reads a single small file and
+# prints nothing while the monitor is healthy.
+#
+# The test is SAMENESS, not cadence. Andrew 2026-08-15, revising his own
+# 2026-07-28 line: "its anything that injects every single turn and does not
+# change, so rotations can be injected every turn depending on what they are."
+# I had stored the earlier version as frequency-alone and reached for the
+# conditional shape here believing every-turn was disqualifying by itself. It
+# is not — a surface carrying new content each firing has nothing to habituate
+# to. Silent-when-healthy is still right for THIS surface, because an alarm
+# should say nothing when nothing is wrong, but it was the only option I
+# considered, and under the corrected rule it was not the only one available.
 
 for h in $INIT_HOOKS; do
     script="$REPO_ROOT/.claude/hooks/$h"

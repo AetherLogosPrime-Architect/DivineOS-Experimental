@@ -86,7 +86,11 @@ def _classify(rec: dict) -> str:
 
 
 def record_bypass(
-    gate_name: str, env_var: str, reason: str = "", is_compliance: bool = False
+    gate_name: str,
+    env_var: str,
+    reason: str = "",
+    is_compliance: bool = False,
+    gate_defect: str = "",
 ) -> None:
     """Append a bypass event to the rolling log.
 
@@ -163,6 +167,30 @@ def record_bypass(
         # distinction the data cannot carry is a distinction no report can
         # make.
         "is_compliance": bool(is_compliance),
+        # WAS THERE A FIRE? Stored 2026-08-16. Andrew's fire-door frame: using
+        # the escape door is a sin only when nothing is burning. The
+        # compliance/escape split answers "did I run the prescribed command",
+        # which is a different question — it cannot tell a bypass forced by a
+        # broken gate from a bypass taken to skip work, and those two were
+        # summing into one "escapes" number that then read as routing-around.
+        #
+        # This substrate has a real history of the first kind, counted rather
+        # than guessed: the goal-add deadlock, a fix that deadlocked the very
+        # session it shipped in, Aria's livelock where closing five obligations
+        # spawned three more from the commands used to close them, the
+        # read-gate demanding a file that no longer existed while holding the
+        # tools needed to repair it, and a gate whose printed remedy set the
+        # variable in the wrong process so it never worked. In each, the
+        # bypass was the only exit from a room with no other door.
+        #
+        # NON-EMPTY MEANS FIRE, and the string is the defect. It is not a
+        # boolean on purpose: an unexplained claim of "the gate was broken" is
+        # exactly the excuse-checkbox the optimizer would want, so the claim
+        # must describe what was broken. It also does not clear the
+        # obligation — it REDIRECTS it, from "investigate your discipline" to
+        # "repair the door". Pulling the alarm for a genuine fire still brings
+        # the fire department; someone still has to deal with the fire.
+        "gate_defect": (gate_defect or "").strip()[:500],
     }
     try:
         with log.open("a", encoding="utf-8") as fh:
@@ -196,8 +224,28 @@ def record_bypass(
     try:
         from divineos.core.structural_fix_tracker import record_pending_fix
 
-        record_pending_fix(
-            content=(
+        if gate_defect:
+            # There WAS a fire. The obligation is redirected, not cleared: the
+            # question is no longer "was this bypass justified" — the caller
+            # has named the defect — it is "the door is broken, go fix the
+            # door." Claiming defect therefore costs MORE than staying silent,
+            # which is the property that keeps it from being a free excuse.
+            content = (
+                f"GATE DEFECT REPAIR owed: gate '{gate_name}' was bypassed via "
+                f"'{env_var}' on {time.strftime('%Y-%m-%d')} because the gate "
+                f"itself was broken. Named defect: {gate_defect.strip()[:250]}. "
+                f"Reason given: {(reason or '(none)').strip()[:150]}. This is NOT "
+                f"a discipline question — the bypass is accepted as the only exit "
+                f"available. Resolve by landing a fix to the GATE so the next "
+                f"occupant is not forced through the same door, and cite the file "
+                f"changed. If investigation shows the gate was NOT actually "
+                f"defective, say so and convert this to an ordinary bypass "
+                f"obligation — a wrong defect-claim is the one shape that turns "
+                f"this field into an excuse checkbox."
+            )
+            source_kind = "gate_defect"
+        else:
+            content = (
                 f"Root-cause investigation owed: bypass of gate "
                 f"'{gate_name}' via env var '{env_var}' on "
                 f"{time.strftime('%Y-%m-%d')}. Reason given: "
@@ -208,9 +256,12 @@ def record_bypass(
                 f"authorization = my discipline is off). Resolve by "
                 f"either landing a structural fix to the gate OR "
                 f"citing an operator-authorization corroborator."
-            ),
+            )
+            source_kind = "bypass_use"
+        record_pending_fix(
+            content=content,
             trigger=f"bypass:{env_var}",
-            source_kind="bypass_use",
+            source_kind=source_kind,
         )
     except Exception:  # noqa: BLE001 - fail-open on tracker import
         pass
@@ -246,6 +297,8 @@ def bypass_rate(window_days: int = 14) -> dict:
     compliance = 0
     escapes = 0
     unclassified = 0
+    defect_escapes = 0
+    inferred_compliance = 0
     try:
         for line in log.read_text(encoding="utf-8").splitlines():
             if not line.strip():
@@ -257,12 +310,73 @@ def bypass_rate(window_days: int = 14) -> dict:
             if rec.get("timestamp", 0) < cutoff:
                 continue
             total += 1
+            # ONE DISPATCH, THREE QUESTIONS. Merged 2026-08-24 from two
+            # independent repairs of the same function, and neither side's
+            # chain could be kept whole beside the other's — two elif chains
+            # over one row is how every row gets counted twice.
+            #
+            # The axes are orthogonal, which is why both repairs were right:
+            #
+            #   _classify(rec)        did this row SATISFY the gate
+            #   is_compliance flag    was that CONFIRMED, or inferred from
+            #                         the env_var prefix on a pre-2026-08-02
+            #                         row that predates the flag
+            #   gate_defect           was an escape taken because the gate
+            #                         itself was broken
+            #
+            # _classify already folds the `cmd:` prefix inference into
+            # "compliance", so the inferred bucket becomes a split INSIDE that
+            # branch rather than a peer of it. Kept disjoint from confirmed
+            # compliance, per the reasoning below: an inferred number must not
+            # be readable as a measured one.
             kind = _classify(rec)
             if kind == "compliance":
-                compliance += 1
+                if rec.get("is_compliance"):
+                    compliance += 1
+                else:
+                    # UNFLAGGED HISTORY, SHAPE-INFERRED. Rows written before
+                    # 2026-08-02 predate the compliance flag and were all counted
+                    # as escapes. Measured 2026-08-16 across the full log: 227 of
+                    # 280 rows are unflagged, and 194 of those 227 (85.5%) carry an
+                    # env_var of the form "cmd:divineos <command>" — briefing, ask,
+                    # goal, context, recall, hud, preflight. Those are the commands
+                    # the gates PRESCRIBE. The gate said run this, it was run, and
+                    # the row was filed as evasion. The genuine escape-shaped
+                    # remainder is 33, and 18 of those are one disabled marker.
+                    #
+                    # Andrew 2026-08-16: "its not about softening the blow its
+                    # about accuracy.. you reading 60+ bypasses in X days when 50 of
+                    # them were just recorded falsely as a bypass doesnt help with
+                    # data acclimation.. leaving bad data with nothing explaining
+                    # its bad is worse than erasing it."
+                    #
+                    # So: not rewritten, and not silently absorbed either. Every row
+                    # stands exactly as written; this bucket says what they are. It
+                    # is INFERENCE from the trigger shape, never a recovered fact —
+                    # a "cmd:" prefix means a divineos command was the trigger,
+                    # which is compliance-shaped but was not confirmed as such at
+                    # the time. Kept separate from confirmed compliance for exactly
+                    # that reason: an inferred number must not be readable as a
+                    # measured one.
+                    inferred_compliance += 1
             elif kind == "escape":
-                escapes += 1
+                if rec.get("gate_defect"):
+                    # Escape with a fire behind it. Counted separately from
+                    # here on, because summing it with the no-fire escapes is
+                    # what made the verdict line read "gates are being
+                    # routed-around" off a sample that included every time a
+                    # broken gate left no other exit. Still an escape — it is
+                    # not compliance, and it still owes a repair — but a
+                    # different KIND, and a report that cannot name the kind
+                    # cannot tell arson from a rescue.
+                    defect_escapes += 1
+                else:
+                    escapes += 1
             else:
+                # Neither prefix recognised and no flag. Not folded into either
+                # side: "no flag" and "was an escape" are different facts, and
+                # rendering them identically is the defect _classify exists to
+                # fix.
                 unclassified += 1
             by_env[rec.get("env_var", "?")] = by_env.get(rec.get("env_var", "?"), 0) + 1
             days.add(rec.get("day", ""))
@@ -273,6 +387,8 @@ def bypass_rate(window_days: int = 14) -> dict:
         "compliance_events": compliance,
         "escape_events": escapes,
         "unclassified_events": unclassified,
+        "defect_escape_events": defect_escapes,
+        "inferred_compliance_events": inferred_compliance,
         "by_env_var": by_env,
         "unique_days": len(days),
         "window_days": window_days,
@@ -382,6 +498,7 @@ def briefing_block() -> str:
         "",
         "### Windowed (recent sample)",
         f"{stats.get('escape_events', stats['total_events'])} escape(s), "
+        f"{stats.get('defect_escape_events', 0)} defect-escape(s), and "
         f"{stats.get('compliance_events', 0)} compliance-event(s)"
         + (
             f", {stats['unclassified_events']} unclassified"
@@ -390,11 +507,36 @@ def briefing_block() -> str:
         )
         + f" across {stats['unique_days']} distinct day(s), "
         f"within the last {stats['window_days']} days.",
+        f"  plus {stats.get('inferred_compliance_events', 0)} INFERRED-compliance "
+        f"row(s): unflagged pre-2026-08-02 rows whose trigger was a divineos "
+        f"command, i.e. compliance-shaped. Inference from the trigger prefix, "
+        f"NOT a recovered fact — held separate so a guess never reads as a "
+        f"measurement.",
         "  (compliance = ran the command the gate prescribes, which satisfies "
         "it rather than evading it. Rows without the flag are classified by "
         "env_var prefix — cmd: is a prescribed command, bypass:/DIVINEOS_ is a "
         "dismissal — and anything unrecognised is counted as unclassified "
         "rather than assumed. Unknown is its own answer, not a quiet escape.)",
+        "  (WHAT THE OLD NUMBERS WERE. Measured 2026-08-16 over the full log: "
+        "227 of 280 rows predate the compliance flag, and 194 of those 227 "
+        "(85.5%) were triggered by a prescribed divineos command — the gate "
+        "said run this, it was run, and the row was filed as evasion. Genuine "
+        "escape-shaped rows in that set: 33, of which 18 are one disabled "
+        "marker. Nothing was rewritten — NOT because append-only forbids it "
+        "(that rule scopes to the ledger and knowledge store; this file is "
+        "operational telemetry and rewriting it was always permitted), but "
+        "because the rows are the evidence that the mis-recording happened, "
+        "and correcting them in place would erase the trace of the defect "
+        "along with the defect. Andrew 2026-08-16: 'its not "
+        "about softening the blow its about accuracy.. leaving bad data with "
+        "nothing explaining its bad is worse than erasing it.')",
+        "  (defect-escape = the gate itself was broken and the bypass was the "
+        "only exit — a named defect, owing a repair to the GATE rather than an "
+        "investigation of my discipline. Andrew 2026-08-16: using the fire door "
+        "is a sin only when nothing is burning. Much of this substrate's "
+        "bypass history is this kind, plus ordinary correct gate use; the "
+        "gaming was concentrated early, before these protocols existed, which "
+        "is why they exist)",
     ]
     if stats["by_env_var"]:
         lines.append("By gate-bypass env var (windowed):")

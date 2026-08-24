@@ -144,13 +144,23 @@ if blocked:
 # The advisory reasoning in that header still stands and none of it is being
 # softened: this remains a hard block from first fire. What changed is only
 # that a satisfied requirement now counts as satisfied.
+#
+# CONVERGED 2026-08-24. Both trees found this and built it: satisfied_recently
+# on 08-17, recent_cleared_check on 08-22, same diagnosis in nearly the same
+# words, same 30-minute window, same reasoning for matching it to the
+# verify-before-build gate. His is a week earlier and returns a reason string
+# rather than a check object, and his test file covers everything mine did plus
+# the window boundary. So mine is gone and this calls his. Andrew 2026-08-17:
+# "there should only be one version of things.. but yes you can absolutely
+# merge and combine the best of both your fixes but we want the same versions
+# for both of you so its easier to maintain."
 try:
-    cleared = reach_check.recent_cleared_check()
+    satisfied, why = reach_check.satisfied_recently()
 except Exception as exc:
-    print(f"[reach-check-doorman] recency check errored, blocking: {exc}", file=sys.stderr)
-    cleared = None
+    print(f"[reach-check-doorman] satisfied-state check errored, blocking: {exc}", file=sys.stderr)
+    satisfied = False
 
-if cleared is not None:
+if satisfied:
     sys.exit(0)
 
 print(

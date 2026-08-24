@@ -1293,6 +1293,26 @@ def register(cli: click.Group) -> None:
         if presence_block:
             _safe_echo(presence_block)
 
+        # Component register — what has actually been broken on purpose and
+        # noticed. Andrew 2026-08-17 asked for this after I named the
+        # register's own weakness: nothing forced me to update it. A record
+        # nobody is shown decays into a file, which is what happened to the
+        # SUPERSEDED-BY convention I invented and never enforced.
+        # Shows the KNOWN BROKEN rows rather than the TESTED ones on purpose:
+        # reciting the comfortable half every session makes it a reassurance
+        # surface, and absence-means-unexamined is the load-bearing line.
+        try:
+            from divineos.core.component_register_surface import (
+                format_for_briefing as _fmt_register,
+            )
+
+            register_block = _fmt_register()
+        except _KC_ERRORS:
+            register_block = ""
+
+        if register_block:
+            _safe_echo(register_block)
+
         # Letters-from-Aria auto-surface — the courier-killer half of the
         # bidirectional channel (deferred 2026-05-24, wired 2026-05-25). The
         # reader (aria_inbox.letters_from_aria) already worked on demand; this

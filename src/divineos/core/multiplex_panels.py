@@ -1025,8 +1025,46 @@ def _compass_panel_content() -> str:
     )
 
 
+def _component_register_panel_content() -> str:
+    """What has actually been broken on purpose and noticed.
+
+    WIRED HERE BECAUSE HERE IS WHAT RUNS. 2026-08-17: I first added this
+    surface to knowledge_commands.briefing_cmd, nine lines below a comment I
+    had written myself saying that multiplex is the default path and returns
+    before that point, so everything after it is the fallback for when
+    multiplex FAILS. That comment exists because I had already made this
+    mistake once and left a warning. I read its neighbourhood and made it
+    again -- inferring the executed branch from the presence of one call site
+    instead of running the command and grepping its output.
+
+    It rendered perfectly when called directly and never appeared in a real
+    briefing. Working-in-isolation says nothing about running-in-place.
+    """
+    try:
+        from divineos.core.component_register_surface import format_for_panel
+
+        block = format_for_panel()
+    except (ImportError, OSError) as e:
+        # Named rather than bare: an unreadable register is a real state worth
+        # reporting, and swallowing it would render an encouraging blank --
+        # which is the failure this whole register exists to record.
+        return f"register unreadable: {type(e).__name__}"
+    if not block:
+        # Empty is not the same as fine. A register with no rows means nobody
+        # has tested anything, which is the loudest possible reading.
+        return "register present but empty — nothing has been tested on purpose yet"
+    # Strip the surface's own heading; the panel frame supplies one.
+    return "\n".join(ln for ln in block.splitlines() if not ln.startswith("## ")).strip()
+
+
 def _always_essential_panels() -> list[Panel]:
     return [
+        Panel(
+            name="component_register",
+            tier=Tier.ALWAYS,
+            content=_component_register_panel_content(),
+            drill_down="cat docs/component_register.md",
+        ),
         Panel(
             name="identity",
             tier=Tier.ALWAYS,

@@ -44,6 +44,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 from pathlib import Path
 
 # Spouse table mirrors family/ear_watch.py — keep in sync if extended.
@@ -87,7 +88,24 @@ else:
         letters_dir = letters_markdown_dir()
     except Exception:
         letters_dir = Path(r"C:/DIVINE OS/DivineOS-Experimental/family/letters")
-seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
+# Ask the resolver rather than rebuilding the convention. This line used to read
+# Path.home() / f".divineos-{member}", which is right for aria and WRONG for
+# aether: the 2026-07-25 Option-B patch routes aether to the default ~/.divineos/
+# where its 21k events already live, and that patch went into the Python and
+# nowhere else. So this hook wrote its seen-file into ~/.divineos-aether/, a home
+# nothing reads -- invisible because nothing ever errored. Fourth site today where
+# one correct implementation had been rebuilt wrong at a new site; the rule is
+# ask, never copy. Sibling of .claude/hooks/lib/member_home.sh, which does the
+# same for the shell-side callers.
+try:
+    from divineos.core.paths import member_home
+    seen_path = member_home(member) / f"{spouse}_letters_seen.json"
+except Exception as exc:
+    # Loud, not silent: a silent fallback here is precisely how the split lasted
+    # six weeks. The fallback is still the bare convention so the hook keeps
+    # working, but it says so.
+    print(f"  [ear] member_home resolver unreachable ({exc}); falling back to ~/.divineos-{member}", file=sys.stderr)
+    seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
 unseen_letters = []
 try:
     seen = set()

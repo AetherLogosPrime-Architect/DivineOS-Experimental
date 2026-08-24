@@ -286,8 +286,11 @@ class TestEventVerifierProperties:
     **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
 
     See _ADVERSARIAL_CONTENT above for why these are deterministic tables
-    rather than Hypothesis fuzz. A reproducible fuzz test (derandomized so it
-    can never flake the gate) is kept at the end for continued exploration.
+    rather than Hypothesis fuzz. A reproducible fuzz test (derandomized, so
+    its INPUTS are fixed run to run) is kept at the end for continued
+    exploration. Derandomization does not make it timing-stable -- see the
+    deadline note on that test, which blocked pushes for a day before the
+    cause was read rather than guessed.
     """
 
     @pytest.fixture(autouse=True)
@@ -332,17 +335,42 @@ class TestEventVerifierProperties:
         )
 
     # Reproducible fuzz (option c, council walk 2026-05-23): derandomize=True
-    # fixes Hypothesis's example set, so this explores 200 generated inputs but
-    # CANNOT flake — it passes always or fails always on a given code state.
-    # Keeps open-ended exploration without ever blocking a push on a seed
-    # roulette. codec="utf-8" excludes lone surrogates (not valid Unicode;
-    # 2026-05-20 fix). If this ever fails, the message names the exact input.
+    # fixes Hypothesis's example set, so this explores 200 generated inputs
+    # without a seed roulette. codec="utf-8" excludes lone surrogates (not
+    # valid Unicode; 2026-05-20 fix). If the HASH ever fails, the assertion
+    # message names the exact input.
+    #
+    # deadline=None (2026-08-20). This comment used to claim the test "CANNOT
+    # flake -- it passes always or fails always on a given code state." That
+    # was false, and the falseness cost a long hunt: the claim holds for the
+    # INPUTS, which derandomize does fix, and says nothing about TIMING, which
+    # it does not.
+    #
+    # Hypothesis enforces a 200ms wall-clock deadline per example. The push
+    # gate runs the suite under `-n auto`, so sixteen workers compete for the
+    # box and a ledger write costing ~50ms idle took 372ms under load:
+    #
+    #   DeadlineExceeded('Test took 372.32ms, which exceeds the deadline of
+    #   200.00ms')  [single exception in FlakyFailure]
+    #
+    # Hence: failed only in parallel, passed every serial and isolated run,
+    # and never printed the assertion message -- because the assertion never
+    # fired. The hash verified on every example. Eight hypotheses about
+    # hashing, concurrency and DB isolation were spent on a hash that was
+    # never wrong, because the summary line named this test while the real
+    # cause was a timing threshold set for one execution mode and applied in
+    # another.
+    #
+    # A wall-clock deadline is not meaningful for a test whose cost depends on
+    # machine load, and Hypothesis's own message offers exactly this remedy.
+    # The property under test is that a logged event's hash verifies; how long
+    # the write took on a loaded box is not that property.
     @given(
         event_type=st.text(st.characters(codec="utf-8"), min_size=1, max_size=50),
         content=st.text(st.characters(codec="utf-8"), min_size=1, max_size=500),
     )
     @pytest.mark.slow
-    @settings(max_examples=200, derandomize=True)
+    @settings(max_examples=200, derandomize=True, deadline=None)
     def test_fuzz_logged_event_hash_verifies(self, event_type, content):
         """Reproducible-fuzz companion to the deterministic boundary table."""
         event_id = log_event(event_type, "user", {"content": content}, validate=False)

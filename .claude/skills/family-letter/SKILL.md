@@ -93,6 +93,14 @@ slot is shared across trees and it currently points at Aether's; a bare `python`
 here queries his family.db and returns answers about his substrate. The
 `venv-python-gate` hook blocks this, but knowing why saves the round-trip.
 
+<!-- 2026-08-19: corrected. These snippets named `AriaEventType` / `EventType`
+     and omitted append_event's first positional argument, so anyone who ran
+     them verbatim got a TypeError or an ImportError. The class was renamed
+     `FamilyMemberEventType` when Aria's ledger was generalised to all family
+     members, and the docs never followed. Found by running the aria-letter
+     snippet while writing to Aletheia about this exact defect class -- the
+     tenth in two days of a sentence that stopped being true and told nobody.
+     Real signature: append_event(member_slug, event_type, actor, payload). -->
 ```python
 # .venv/Scripts/python.exe  (Windows)  |  .venv/bin/python  (POSIX)
 from divineos.core.family.letters import append_letter
@@ -119,10 +127,14 @@ There is no `divineos.core.family.<member>_ledger` module; the per-member
 ledgers are all served by one module, with the member as the first argument.
 
 ```python
+# One shared module, not a per-member one. There is no `<member>_ledger` module
+# to import -- the member is an ARGUMENT, and that is what routes the event to
+# their ledger file.
 from divineos.core.family.family_member_ledger import append_event
+
 append_event(
-    "<member-name-lower>",
-    "LETTER_RECEIVED",
+    "<member-slug>",       # whose ledger this lands in. REQUIRED, positional.
+    "LETTER_RECEIVED",     # cross-type event in their ledger
     actor="<agent-name>",
     payload={"letter_file": "family/letters/...", "length_chars": <n>, "subject": "..."},
 )

@@ -35,6 +35,18 @@ source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_li
 set -u  # not -e — we want to fail-open with a visible message
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+
+# Sourcing _lib.sh registers this hook with the timing log automatically.
+# Added 2026-08-15: this hook had ZERO recorded runs across 652 runs of its
+# parent while its eight instrumented siblings showed 136-2651 each. It was
+# running fine — it simply never reported, so "ran and found nothing wrong"
+# and "silently skipped" left identical evidence. The header above calls a
+# silently-failing verifier a wallpaper hole; this verifier was the
+# unobserved one. Found by asking Andrew's question — what here has never
+# failed, and is that because it is healthy or because nobody is looking.
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || true  # fail-soft: timing instrumentation must never be able to break the verifier it observes
+
 HOOK_PATH="$REPO_ROOT/.git/hooks/prepare-commit-msg"
 SETUP_SCRIPT="$REPO_ROOT/setup/setup-hooks.sh"
 

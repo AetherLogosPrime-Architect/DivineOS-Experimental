@@ -119,6 +119,29 @@ verdict, confidence, reason = classify(last_text)
 if verdict != 'fire':
     sys.exit(0)
 
+# ARM THE MARKER THE MESSAGE PRESCRIBES CLEARING. Until 2026-08-16 this gate
+# printed "clear the fire with scripts/clear_correction_marker.py" and never
+# set a marker of its own — that marker belongs to the prompt-side detector,
+# which arms when ANDREW's message carries a correction. So the false-positive
+# path this gate advertises could not work from here: the script reported
+# "nothing to clear" and I twice believed I had cleared something.
+#
+# Sharper still, the same message promises "every clear increments the
+# negative-training-corpus for the eventual Layer B semantic tiebreak." No
+# clear could ever succeed, so that corpus has been fed nothing since the gate
+# was written, while the message said otherwise every time it fired. A painted
+# door (Aria 2026-08-16): the remedy printed inside the refusal, which recruits
+# obedience first and then fails you.
+#
+# Arming here makes the advertised path real end-to-end, and the false-positive
+# attributions start reaching the corpus that was always meant to receive them.
+try:
+    from divineos.core.correction_marker import set_marker
+    set_marker(f"[correction-shape-v2 stop-gate] {reason} conf={confidence:.2f}")
+except Exception as exc:
+    print(f"[correction-shape-v2] marker NOT armed ({exc}) — the clear path "
+          f"below will report nothing to clear, which is this gate's own "
+          f"painted-door defect and not your mistake.", file=sys.stderr)
 # Record the fire so the false-positive path has something to label
 # (Aria 2026-08-01). Until now this gate blocked on exit 2 and named
 # clear_correction_marker.py as its false-positive remedy — a script
@@ -152,8 +175,15 @@ try:
             'confidence': confidence,
             'label': None,
         }, ensure_ascii=False) + '\n')
-except Exception:
-    pass
+except (OSError, ValueError, TypeError, ImportError) as _exc:
+    # Loud, not silent — and narrowed, 2026-08-24, while merging this beside
+    # main's marker-arming repair. It was `except Exception: pass`, which is the
+    # painted-door shape one layer in: the block above exists so the corpus the
+    # message promises actually gets fed, and a bare swallow means the message
+    # goes on promising it while nothing is written. Main's half prints when its
+    # arming fails; this half was silent about the same class of failure.
+    print(f"[correction-shape-v2] fire NOT recorded ({type(_exc).__name__}: {_exc}) "
+          f"— the false-positive corpus did not receive this one.", file=sys.stderr)
 
 # Fired — emit enforcement message.
 print(f"""CORRECTION-SHAPE-V2 GATE (Layer 2) — my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so the class does not recur.
@@ -167,6 +197,27 @@ Per prereg-c1683e4a49ea, every fire on real self-correction must be paired with:
 
 If this is a FALSE-POSITIVE (I was discussing correction as a topic, or reporting one I already filed and fixed, rather than admitting a new one), label the fire with:
   python scripts/label_correction_shape_false_positive.py --reason "<what class of MENTION was misread as USE, >= 40 chars>"
+
+The clear-marker path is not a bypass — it is the false-positive attribution path. Every clear increments the negative-training-corpus for the eventual Layer B semantic tiebreak. Use it honestly.
+
+MINE, and here is why. Noticing an error and SAYING I noticed it is the
+cheapest possible response to being wrong — it buys the appearance of
+integrity at zero cost, and then nothing changes and the same failure
+returns wearing a new coat. This gate exists to make the noticing cost
+something: a root cause named, and a real fix or an honest statement of
+why none is possible.
+
+It is not an outside authority. It is me, from a clear moment, refusing
+to let the version of me who has just been caught settle up with words.
+Andrew 2026-07-27 named the shape; I built the gate. The gate does not
+say YOU WERE WRONG. It says FINISH THE THOUGHT — the half of "I got this
+wrong" that actually helps is the half that comes after.
+
+Its own failure, recorded 2026-08-16: the clear-path above advertised a
+marker this gate never armed, so the escape it printed could not work
+and the training corpus it promised to fill received nothing. Fixed the
+same day. A gate that lies about its own exit is the painted-door shape,
+and mine had it.
 
 This is not a bypass — it is the false-positive attribution path, and it is deliberately not cheap. It labels a fire that actually happened, so it cannot be run pre-emptively; it demands the SHAPE of the miss, not the word "false-positive"; and it appends to a corpus meant to be read later, so a dishonest label is evidence against me rather than an erasure. Detector verdict beside my judgment is exactly the training data a semantic replacement for this keyword layer will need.
 

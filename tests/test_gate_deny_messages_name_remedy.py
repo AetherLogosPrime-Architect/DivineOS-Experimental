@@ -180,7 +180,12 @@ def test_meta_check_finds_known_gates():
     appear in the file set."""
     inspected = {p.name for p in _hook_files()}
     expected_present = {
-        "require-monitors-armed.sh",
+        # "require-monitors-armed.sh" removed 2026-08-16: retired with the rest
+        # of the arm/relaunch delivery cluster on chore/retire-delivery-cluster.
+        # The canary's job is to prove the meta-check scans real files rather
+        # than silently finding zero, and three surviving gates do that job.
+        # Keeping a retired file in the canary set makes the test fail for the
+        # one reason it is NOT meant to detect.
         "require-briefing.sh",
         "check-pending-obligations.sh",
         "andrew-correction-attestation.sh",
