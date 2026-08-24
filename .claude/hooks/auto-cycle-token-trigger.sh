@@ -217,7 +217,7 @@ fi
 # ---------------------------------------------------------------- stage read
 STAGE_INFO="$(
   STATE_FILE="$STATE_FILE" REPO_ROOT="$REPO_ROOT" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: a stage-read failure falls back to WALK, the earliest stage, so no ritual work is skipped
-import json, os, sqlite3, time, glob
+import json, os, sqlite3, time, glob, datetime
 
 state_file = os.environ["STATE_FILE"]
 repo = os.environ["REPO_ROOT"]
@@ -273,10 +273,42 @@ def dream_done():
             continue
     return False
 
+def mech_confirmed():
+    # Evidence, not self-report -- same rule as walk_done()/dream_done() above.
+    #
+    # The pipeline is launched DETACHED now (see run_mech), so the launching
+    # shell cannot report on it: it returns immediately and may itself be killed
+    # at this hook's 20s timeout while the ~283s pipeline is still running. The
+    # only honest completion signal is the handshake marker that run_phase1
+    # writes when it finishes, and only if it finished AFTER we launched.
+    #
+    # Fails toward NOT-DONE in every failure mode -- missing marker, unparseable
+    # marker, missing timestamp, marker older than the launch. That direction is
+    # load-bearing (Aria's Phase 2 invariant): a cycle wrongly read as done is
+    # silently skipped work, while one wrongly read as pending is merely offered
+    # again.
+    launched = st.get("mech_launched_at")
+    if not launched:
+        return False
+    try:
+        from divineos.core.paths import divineos_home
+        mp = str(divineos_home() / "auto_cycle_phase1_done.json")
+    except Exception:
+        mp = os.path.expanduser("~/.divineos/auto_cycle_phase1_done.json")
+    try:
+        marker = json.load(open(mp, encoding="utf-8"))
+        done_at = marker["phase1_completed_at"]
+        ts = datetime.datetime.strptime(done_at, "%Y-%m-%dT%H:%M:%SZ")
+        ts = ts.replace(tzinfo=datetime.timezone.utc).timestamp()
+    except Exception:
+        return False
+    return ts >= float(launched)
+
 stage = st.get("stage", "WALK")
 if stage == "WALK" and walk_done():
     stage = "MECH"
-if stage == "MECH" and st.get("mech_done"):
+if stage == "MECH" and (st.get("mech_done") or mech_confirmed()):
+    st["mech_done"] = True
     stage = "DREAM"
 if stage == "DREAM" and dream_done():
     stage = "REST"
@@ -305,20 +337,49 @@ PY
 
 run_mech() {
   echo ""
-  echo "### MECHANICAL STEPS — running now (commit, extract, sleep)"
+  echo "### MECHANICAL STEPS — launching detached (archive, commit, extract, sleep)"
   if ! command -v divineos >/dev/null 2>&1; then
     echo "[!] CLI FAULT — divineos is not on PATH. Nothing ran. Do these by hand"
     echo "    and say so plainly; a failed auto-step is never a completed one."
     return
   fi
-  divineos auto-cycle defer-check 2>&1 | tail -20
-  RC="${PIPESTATUS[0]}"
-  if [ "$RC" != "0" ]; then
-    echo ""
-    echo "[!] defer-check exited ${RC}. The pipeline did NOT complete. Run the"
-    echo "    steps by hand. 'Couldn't do' must not collapse into 'did'."
-  fi
-  mark mech_done 1
+
+  # DETACHED, not inline. 2026-08-24, measured.
+  #
+  # `divineos auto-cycle defer-check` calls run_phase1() when it decides to
+  # fire, and run_phase1 is archive -> commit -> extract -> sleep. Measured from
+  # the commits one real cycle produced: 37016a82 (pre-cycle auto-cycle-50bf49d3,
+  # 00:32:48Z) to 6451e57d (pre-extract, 00:37:31Z) is 283 SECONDS. This hook's
+  # timeout is 20.
+  #
+  # So the hook was killed every time the cycle actually fired -- 6 of 7 firings
+  # inside one window, and auto-cycle-token-trigger.sh was the top-killed hook in
+  # three of four sessions in the timing log. The pipeline finished anyway, which
+  # is only possible because it kept running after the shell that started it was
+  # dead. That is the orphaned bash/python Andrew reported seeing on shutdown,
+  # and a ~5 minute stall is exactly what he described from the other side.
+  #
+  # Redirection is NOT optional here and is the whole point. A bare `&` leaves
+  # the child holding the parent's stdout, and the harness blocks waiting for
+  # that descriptor to close -- the same defect found in auto-push-letter.sh
+  # earlier this session, where fixing it took a caller from 8s to 0s. All three
+  # descriptors are closed or redirected before detaching.
+  MECH_LOG="${STATE_DIR:-${HOME}/.divineos}/auto_cycle_mech.log"
+  {
+    echo "=== launched $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+    divineos auto-cycle defer-check
+    echo "=== defer-check exited $? at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+  } >>"$MECH_LOG" 2>&1 </dev/null &
+  disown 2>/dev/null || true  # fail-soft: some shells lack disown; the redirections above already detach the child, so disown is belt-not-suspenders
+
+  echo "  launched in background; this hook no longer waits on it."
+  echo "  log: $MECH_LOG"
+  echo ""
+  echo "  NOT marked done. 'Launched' is not 'completed' -- mech_done is set"
+  echo "  only when the handshake marker confirms a cycle that finished AFTER"
+  echo "  this launch. If the pipeline dies, no marker appears, the stage stays"
+  echo "  MECH, and this step is offered again rather than silently skipped."
+  mark mech_launched_at "$(date -u +%s)"
 }
 
 [ "$STAGE" = "DONE" ] && exit 0
