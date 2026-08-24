@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-23 14:38. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-23 17:23. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,30 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## c43c22bd weight=1
+
+**Decision:** Fix the line-ending translation bug in scripts/union_resolve.py and re-normalise the three files it corrupted
+
+**Reasoning:** The tool reads with read_text(encoding='utf-8') and writes with write_text(res, encoding='utf-8'). On Windows Python translates line endings on the way in and again on the way out, so every file it touches is silently rewritten to CRLF. It resolved 16 merge conflicts correctly and shellcheck then rejected two of the results with SC1017 literal-carriage-return, blocking the commit. The merges were 
+
+**Tension:** The obvious fix is to normalise the three files and move on, because the commit is blocked and the merge is otherwise finished and tested at 11452 passed. That leaves the tool loaded for the next person who runs it. The IDENTICAL defect bit a hook patch earlier the same day -- I hit write_text on op
+
+**Almost:** Normalised the three files with tr -d and committed, because the merge was green and the blocker was one shellcheck rule. The tool would have kept the bug and the next merge would have re-introduced it silently, since CRLF only surfaces when shellcheck happens to look.
+
+---
+
+## dccf75ca weight=1
+
+**Decision:** Build hook_hang_count.py as a counting tool that structurally cannot emit a cross-session total
+
+**Reasoning:** Four hang-counts went to Andrew across 2026-08-22/23 -- 650, 1545, my 609, Aria's 1191 -- every one arithmetically correct and every one meaningless, because the log they came from is not a population. Two independent defects, either sufficient alone to void a total. It ROTATES: measured at 12,018,363 bytes, then 7,824,862 an hour later, then 8,111,429; it shrank 4.2MB mid-investigation, and hook_
+
+**Tension:** The obvious build is a flag -- add --session and let the bare invocation keep printing a total for convenience. That preserves exactly the failure. The convenience path IS the defect, so the tool has no code path that sums across sessions; a bare invocation REFUSES and names the four bad numbers. Co
+
+**Almost:** Shipped it with a default that prints the aggregate when no scope is given, because refusing felt unhelpful. That would have rebuilt the exact tool that produced four wrong reports, with a scoping option nobody would reach for.
 
 ---
 
@@ -507,26 +531,6 @@
 **Tension:** push-ready always opens a NEW round and files an aether self-CONFIRMS. Reusing it as-is would mint a second round per branch and attach my own signature to work that already carries Andrew's and Aletheia's real confirms - a self-signature next to two real ones is worse than no signature, because it 
 
 **Almost:** almost called push-ready after writing the PR body, which reads as the natural order - stamp then push. That would have bound the body tree-hash to the pre-amend tree, because amending commits rewrites them and moves the tree. The trailer would have looked valid and certified a tree that no longer e
-
----
-
-## 7aa62e5d weight=1
-
-**Decision:** make shared_sync derive the round from the filename or the findings when a shared file carries no round record, instead of skipping the findings
-
-**Tension:** the round record was meant as a provenance anchor - proof the sender knew which round they were filing against rather than guessing. Dropping the requirement loses that check. What replaces it is stronger: the round must already exist in the LOCAL store, which is a real existence test rather than a 
-
-**Almost:** almost hand-edited her eleven files to prepend a round line, which would have unblocked this in one minute and left the importer rejecting the exact format my own work order specifies. I wrote the spec that told her to send finding-lines only, then my importer refused it - patching her data would ha
-
----
-
-## b7e69e7d weight=1
-
-**Decision:** send Aletheia a work order rather than a letter - a table of eleven branches with current head and tree hashes, the round-id to file against, and the exact JSONL line format, asking for one verdict per branch at the depth she actually covered
-
-**Tension:** asking for a scope-level verdict rather than a deep audit could be read as lowering the bar to get my work merged, which is the exact shape I refused an hour ago when I declined to transcribe confirms she never gave. The distinction I am relying on: she sets the depth and writes it into the descript
-
-**Almost:** almost sent a fourth essay. The previous three asked for judgement and supplied prose; her discipline is hash-anchored and every verdict she has ever given was pinned to a head. Her 08-03 table went stale the moment I rebased, and nobody carried its verdict column into the store - so the failure was
 
 ---
 

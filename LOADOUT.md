@@ -2790,6 +2790,7 @@ lives in its own directory under ``core/``.
 - [harness_detect_andrew_build_request.py](scripts/harness_detect_andrew_build_request.py)
 - [hollow_out.py](scripts/hollow_out.py)
 - [hook_bypass_commands.txt](scripts/hook_bypass_commands.txt)
+- [hook_hang_count.py](scripts/hook_hang_count.py)
 - [hook_hang_delta.py](scripts/hook_hang_delta.py)
 - [leak_response_runbook.py](scripts/leak_response_runbook.py)
 - [ledger_swap.py](scripts/ledger_swap.py)

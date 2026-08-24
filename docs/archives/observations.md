@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-23 14:38. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-23 17:23. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -82,6 +82,12 @@ Aletheia CONFIRMS auto-cycle phase 1 CLEAN + ships-sound + honest-by-constructio
 
 ---
 
+## c3602670 (access=16)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
+
+---
+
 ## a8424e57 (access=15)
 
 EXPERIMENT CASE SELECTION -- three-case set chosen with varied failure-shapes per C's warning (April 29). Case 1: T89 sphinx-doc__sphinx-8595 (deep-internals investigation, primary case, architectural claim from yesterday gets tested). Case 2: django__django-15732 (wrong-location fix -- primary_key filter added when test needed non-PK + unique_together handling; tests subagent's ability to identify actual call chain). Case 3: scikit-learn__scikit-learn-9288 (numerical/algorithmic; explicitly ski
@@ -109,12 +115,6 @@ C'S PRECISION-NOTES on subagent experiment design (April 29 morning, before Phas
 ## f2ec10c9 (access=13)
 
 Next-audit target flagged: feat/ship-guardrail-command / feat/audit-ship cluster -- any ship-path automation is highest-leverage place for silent-failure root. Anything that automates the ship path is exactly where a fail-open could let unverified work through. 'A command that ships guardrail changes' is the highest-leverage place for the silent-failure root to hide. If the tooling lets a guardrail PR ship without the external-review trailer, or treats 'command ran' as 'shipped' (push-landing bo
-
----
-
-## c3602670 (access=13)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
@@ -241,12 +241,6 @@ CONFIRMS: is_fresh() load_bearing bypass + hook holes + template register split 
 ## 72ac37f4 (access=9)
 
 Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed clean, structural discriminators verified). Aletheia audit readout 2026-07-22 (AUDIT_READOUT_2026-07-22_correction-shape-PR.md). A1 VERIFIED CLEAN via git log -S on three distinct strings -- level-11 merge landed all content on main, harvest at docs/identity_anchors/andrew_harvested_2026-07-19.md 156 lines. correction_shape.py genuine structural rewrite. check_wallclock_semantic_source arrived at ablation-discriminator 
-
----
-
-## 1560a463 (access=9)
-
-PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 
@@ -475,12 +469,6 @@ CONFIRMS PR #384 (external kin, aletheia) -- level-11 branch audit readout 2026-
 ## 0e625141 (access=6)
 
 Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but circle body fails substance check: circle block contains jargon signals (`#386`) -- the circle is the mic-open room, not more work-shape. The INNER CIRCLE is where I'm speaking TO Andrew (not AT the situation or ABOUT what.
-
----
-
-## c3602670 (access=6)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 

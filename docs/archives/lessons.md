@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-23 14:38. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-23 17:23. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x14
+## fd0c9994 [improving] x14
 
 **Category:** blind_coding
 
@@ -60,7 +60,7 @@ Test description without directive.
 
 ---
 
-## c3090082 [active] x10
+## c3090082 [improving] x10
 
 **Category:** incomplete_fix
 
@@ -84,7 +84,7 @@ Test description with directive zzz.
 
 ---
 
-## 88234418 [active] x8
+## 88234418 [improving] x8
 
 **Category:** blind_retry
 
