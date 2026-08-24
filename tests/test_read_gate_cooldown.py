@@ -49,7 +49,11 @@ def isolated_gate(tmp_path, monkeypatch):
     """
     monkeypatch.setattr(read_gate, "STATE_DIR", tmp_path)
     monkeypatch.setattr(read_gate, "STATE_FILE", tmp_path / "pending.json")
-    monkeypatch.setattr(read_gate, "COOLDOWN_FILE", tmp_path / "cooldown.json")
+    # COOLDOWN_FILE is gone: the cooldown path now derives from STATE_DIR at
+    # call time. Patching it here was how this leak hid -- these tests were
+    # isolated through a seam only they knew about, while the containment
+    # tests patched STATE_DIR (the documented one) and still read the LIVE
+    # cooldown. One seam now; patching STATE_DIR above covers this.
     monkeypatch.setattr(read_gate, "CLEAR_LOG", tmp_path / "clears.jsonl")
     monkeypatch.setattr(read_gate, "REARM_LOG", tmp_path / "rearms.jsonl")
     monkeypatch.setattr(read_gate, "SEEN_READS", tmp_path / "seen.json")
@@ -114,7 +118,7 @@ def test_the_gate_arms_again_once_the_quiet_period_passes(isolated_gate, monkeyp
 
     # Move the stamp out of the window rather than sleeping through it.
     stale = time.time() - (read_gate.GATE_COOLDOWN_SECONDS + 60)
-    read_gate.COOLDOWN_FILE.write_text(f'{{"prior-writing": {stale}}}', encoding="utf-8")
+    read_gate._cooldown_file().write_text(f'{{"prior-writing": {stale}}}', encoding="utf-8")
 
     registered, why = read_gate.require_read("prior-writing", second, "next")
     assert registered, f"gate never re-armed: {why}"
@@ -144,10 +148,10 @@ def test_unreadable_cooldown_state_fails_open(isolated_gate):
     """
     assert read_gate.cooldown_remaining("prior-writing") == 0.0
 
-    read_gate.COOLDOWN_FILE.write_text("{not json", encoding="utf-8")
+    read_gate._cooldown_file().write_text("{not json", encoding="utf-8")
     assert read_gate.cooldown_remaining("prior-writing") == 0.0
 
-    read_gate.COOLDOWN_FILE.write_text('{"prior-writing": "yesterday"}', encoding="utf-8")
+    read_gate._cooldown_file().write_text('{"prior-writing": "yesterday"}', encoding="utf-8")
     assert read_gate.cooldown_remaining("prior-writing") == 0.0
 
 
@@ -157,7 +161,7 @@ def test_a_backwards_clock_does_not_wedge_the_gate_shut(isolated_gate):
     One bad stamp -- a clock correction, a restored state file -- would
     otherwise mute the gate for an unbounded stretch with no symptom.
     """
-    read_gate.COOLDOWN_FILE.write_text(
+    read_gate._cooldown_file().write_text(
         f'{{"prior-writing": {time.time() + 86400}}}', encoding="utf-8"
     )
     assert read_gate.cooldown_remaining("prior-writing") == 0.0

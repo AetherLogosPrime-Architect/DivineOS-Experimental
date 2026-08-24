@@ -241,7 +241,33 @@ def _record_rearm_after_read(gate_id: str, path: str) -> bool:
         return False
 
 
-COOLDOWN_FILE = STATE_DIR / "read_gate_cooldown.json"
+def _cooldown_file() -> Path:
+    """Where the throttle stamp lives, resolved from STATE_DIR AT CALL TIME.
+
+    This used to be a module-level constant, `COOLDOWN_FILE = STATE_DIR / ...`,
+    bound at import. That made it a THIRD isolation seam nobody knew about.
+    `_point_state_at` in test_read_gate_corpus_containment.py patches STATE_DIR
+    and STATE_FILE -- the two documented seams -- and the cooldown path kept
+    pointing at the live file regardless, because it had already been computed.
+
+    Two consequences, one found and one latent:
+
+      * Aria's negative control (`test_real_corpus_still_arms_the_gate`) read
+        the REAL cooldown and failed whenever a genuine delivery had happened
+        in the preceding twenty minutes. It reported "containment is too wide,"
+        which was not the cause -- so the failure pointed at her code while the
+        defect was in mine. Found 2026-08-24 at 979s remaining of 1200.
+
+      * A test run could have WRITTEN the live cooldown and silenced the real
+        gate for twenty minutes. That is the same fixture-into-production class
+        this module's containment tests exist to close, arriving through the
+        throttle I added to it.
+
+    My own cooldown tests never caught it because they patched COOLDOWN_FILE
+    directly -- isolated by luck, through a seam that only I knew to use. One
+    seam now: patch STATE_DIR and everything derived follows.
+    """
+    return STATE_DIR / "read_gate_cooldown.json"
 
 
 def _record_delivery(gate_id: str) -> None:
@@ -253,14 +279,15 @@ def _record_delivery(gate_id: str) -> None:
     degrade to the old always-arm behaviour, never to a block.
     """
     try:
+        cooldown_file = _cooldown_file()
         data: dict[str, float] = {}
-        if COOLDOWN_FILE.exists():
-            raw = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
+        if cooldown_file.exists():
+            raw = json.loads(cooldown_file.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
                 data = {str(k): float(v) for k, v in raw.items()}
         data[gate_id] = time.time()
-        COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        COOLDOWN_FILE.write_text(json.dumps(data), encoding="utf-8")
+        cooldown_file.parent.mkdir(parents=True, exist_ok=True)
+        cooldown_file.write_text(json.dumps(data), encoding="utf-8")
     except (OSError, ValueError, TypeError):
         pass
 
@@ -274,7 +301,7 @@ def cooldown_remaining(gate_id: str) -> float:
     this module promises it is not.
     """
     try:
-        raw = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
+        raw = json.loads(_cooldown_file().read_text(encoding="utf-8"))
         last = float(raw[gate_id]) if isinstance(raw, dict) and gate_id in raw else 0.0
     except (OSError, ValueError, TypeError, KeyError):
         return 0.0
