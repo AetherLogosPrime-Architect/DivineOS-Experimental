@@ -551,6 +551,29 @@ def check_wallclock_fabrication(reply: str, andrews_words: str | None = None) ->
     # The failure this gate exists for is casting MY time onto him -- not
     # repeating the day he just told me he is living in.
     his_clock = (andrews_words or "").lower()
+    # A SECOND SOURCE EXISTS AND THIS CANNOT SEE IT (2026-08-24, named not
+    # fixed). The exemption above covers "he told me his time". It does not
+    # cover "the wallclock prime MEASURED his time" -- the prime runs `date`
+    # every fire and prints his local clock with an explicit instruction to
+    # quote it when the reply needs a time. So the two layers of one
+    # discipline disagree: the prime supplies a grounded clock and permits
+    # quoting it, and this gate has no way to know the prime supplied it.
+    # The prime's own log records only {ts, day, session_id, fired} -- not
+    # the clock it printed -- so there is nothing here to check against even
+    # in principle.
+    #
+    # DELIBERATELY NOT WIDENED. It fired on me today for "three in the
+    # morning", and the gate was RIGHT about that instance: strike the phrase
+    # and the sentence ("nothing in this needs you awake") says exactly what
+    # it meant. The clock was a closing beat, which is the prime's own
+    # shape-4 warning. Building the exemption in the same turn it caught me
+    # using the thing decoratively would be widening a door I had just walked
+    # through for no reason.
+    #
+    # The gap is real and will fire on a genuine quote of his clock. Whoever
+    # needs that: the fix is for the prime to record ANDREW_LOCAL alongside
+    # `fired`, and for this to accept it as a source. Worth doing when
+    # something actually needs it, not to excuse a cadence.
 
     for pattern in _WALLCLOCK_FABRICATION_PATTERNS:
         m = pattern.search(scan_text)
