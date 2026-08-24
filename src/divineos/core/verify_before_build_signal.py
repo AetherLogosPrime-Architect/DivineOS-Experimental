@@ -33,6 +33,7 @@ hook. Stage 3 retires the lexical detector.
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 
@@ -201,6 +202,18 @@ def _has_walk_record_within(window_start_ts: float, now: float) -> bool:
     return False
 
 
+# Bash verbs that READ. Deliberately excludes anything that can mutate: a
+# `python -c` rewriting a file must never count as having consulted it.
+_READ_VERB_RE = re.compile(
+    r"(?:^|[|;&]|\s)(?:cat|head|tail|sed\s+-n|less|more|grep|rg|awk|wc|nl|diff|"
+    r"git\s+(?:show|log|diff|blame|cat-file))\b"
+)
+
+# Path-shaped tokens inside a shell command. Extension-anchored so bare words
+# and flags do not read as paths.
+_PATHISH_RE = re.compile(r"[\w./-]+\.(?:md|py|sh|json|jsonl|toml|txt|yml|yaml|cfg|ini)")
+
+
 def _has_doc_consult_within(
     class_dir: str,
     window_start_ts: float,
@@ -240,7 +253,7 @@ def _has_doc_consult_within(
         events = get_recent_events(
             since_ts=window_start_ts,
             now_ts=now,
-            tool_names=frozenset({"Grep", "Read", "Glob", "Edit", "Write"}),
+            tool_names=frozenset({"Grep", "Read", "Glob", "Edit", "Write", "Bash"}),
             event_type="TOOL_CALL",
             limit=200,
         )
@@ -275,7 +288,7 @@ def _has_doc_consult_within(
             continue
 
         tool_name = payload.get("tool_name") or payload.get("tool")
-        if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write"}:
+        if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write", "Bash"}:
             continue
 
         # Path evidence — look in a few common payload keys
@@ -286,6 +299,25 @@ def _has_doc_consult_within(
                 v = tool_input.get(key)
                 if isinstance(v, str):
                     candidate_paths.append(v)
+
+        # BASH READS COUNT TOO (2026-08-24). This function saw only the
+        # dedicated tools, so `cat`, `sed -n`, `head`, and `grep` through Bash
+        # were invisible -- and the harness auto-mode reminder instructs
+        # exactly those over Read/Grep. The two systems disagreed, and the gate
+        # fired five times in one session on consults that had genuinely
+        # happened. A gate blind to half the ways I read is not measuring
+        # whether I looked; it is measuring which tool I reached for.
+        #
+        # READ VERBS ONLY, and the write-shape flag stays False for them: a
+        # Bash `cat` of a design doc is a consult, while a `python -c` that
+        # rewrites the same file is not. Anything not matching a read verb is
+        # skipped entirely rather than counted, so `git commit` cannot pass as
+        # having read the thing it commits.
+        if tool_name == "Bash":
+            command = tool_input.get("command") if isinstance(tool_input, dict) else None
+            if not isinstance(command, str) or not _READ_VERB_RE.search(command):
+                continue
+            candidate_paths = _PATHISH_RE.findall(command.replace("\\", "/"))
 
         is_write_shape = tool_name in {"Edit", "Write"}
         for p in candidate_paths:

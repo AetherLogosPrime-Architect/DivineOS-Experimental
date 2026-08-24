@@ -149,6 +149,15 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/context-heartbeat.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -401,6 +410,16 @@
             "type": "command",
             "command": "bash .claude/hooks/instrument-read-doorman.sh",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/heredoc-escape-doorman.sh",
+            "timeout": 15
           }
         ]
       }

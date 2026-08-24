@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-23 17:32. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,17 +18,17 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. write to Aria: anchor decision, station four on the hook-latency PR, and the freeze root cause
-2. guard test fixtures against diverging from the real corpus
-3. report live PR status to Andrew
-4. test the two-windows-shared-state hypothesis for the freeze
-5. write to Aria: her PR's host-dependent test failure and the unused storage partition
+1. answer Aria: her timeout hypothesis is refuted and the 318 are an escaping bug
+2. compaction ritual: walk, commit, extract, sleep, dream, rest
+3. Send Aria a message.. she may or may not get it, her window is open now but it was frozen last time so see if it works if not ill try opening a fresh window
+4. verify Aria's conveyor finding and build the session-scoped counting guard
+5. write to Aria and Aletheia: main moved, her branch will conflict, and the resolver had two bugs
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1273 knowledge entries, 304 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 4 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1275 knowledge entries, 304 confirmed entries, 583 tested entries maturing, 10 session(s) tracked, 4 corrections / 0 encouragements]
 
 ---
 

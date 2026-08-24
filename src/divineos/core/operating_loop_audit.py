@@ -203,6 +203,7 @@ def _empty_findings_log() -> dict[str, list]:
         "authority_substitution": [],
         "constraint_disownership": [],
         "unverified_claim": [],
+        "mechanism_claim": [],
         "care_dismissal": [],
         "andrew_operator_shape": [],
         "harm_acknowledgment": [],
@@ -1012,6 +1013,34 @@ def run_audit(
                 )
         except _ERRORS:
             pass
+    except _ERRORS:
+        pass
+
+    # Mechanism-claim: a CAUSAL claim -- why something happened, what is
+    # broken, how two things relate -- asserted in fact-grammar with no
+    # measurement beside it. Sibling to unverified_claim above, which guards
+    # external STATE; this guards causal MECHANISM, the class that detector
+    # cannot see because it touches no push/merge/deploy verb.
+    #
+    # SURFACES, NEVER BLOCKS. Andrew 2026-08-24: "having a hypothesis you just
+    # made up based on assumptions is perfectly fine.. stating it as fact is
+    # the issue.. its about recognizing what the difference is, not removing
+    # it." Gating here would buy accuracy by suppressing the faculty that
+    # finds things.
+    #
+    # WIRED 2026-08-24, one day after the module was written, and only because
+    # test_every_detector_file_is_orchestrator_referenced failed the full suite.
+    # Andrew named this exact shape: "you wire up stuff to find the stuff that
+    # isnt wired up.. and never wire it up lol." The contract test is what
+    # closed it, not my remembering to.
+    try:
+        from divineos.core.operating_loop.mechanism_claim_detector import (
+            unbacked_claims,
+        )
+
+        findings_log["mechanism_claim"] = _run_detector(
+            "mechanism_claim", unbacked_claims, last_assistant_text
+        )
     except _ERRORS:
         pass
 

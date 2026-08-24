@@ -69,6 +69,6 @@ printf '%s' "$HEAD_NOW" > "$STATE_FILE" 2>/dev/null || true  # fail-soft: an unw
 
 # Run the auto-close. The CLI reads HEAD's commit message itself.
 # Output is informational; never blocks.
-divineos goal auto-close 2>/dev/null || true
+divineos goal auto-close 2>/dev/null || true  # fail-soft: this fires on the Bash path after every commit and closing a goal is bookkeeping, never correctness; a failure here leaves the goal open, which is the visible-and-safe direction, whereas surfacing CLI stderr on every commit is the noise that turns a surface into wallpaper.
 
 exit 0

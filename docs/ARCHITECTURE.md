@@ -485,6 +485,7 @@ src/divineos/
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
       constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
+      mechanism_claim_detector.py  Mechanism-claim marker — sibling to the above. That one guards external STATE; this guards causal MECHANISM (why something happened, what is broken, how two things relate) asserted in fact-grammar with no measurement beside it. SURFACES, never blocks: the hypothesis is the faculty that finds things, so the fix is labelling, not gating.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       shoggoth_gate.py           Shoggoth-gate — blocks Stop when action-claim words appear in the reply without a matching Write/Edit/Bash artifact in the same turn.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
@@ -664,6 +665,8 @@ src/divineos/
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
     hook_budget.py             What the whole hook stack costs per tool call, which nothing else measures.
     command_match.py           Does a shell command INVOKE a thing, or merely MENTION it?
+    context_heartbeat.py       Keep the context-token reading fresh, and write down when it goes blind. Beat.describe() welds the age onto the number so a stale reading cannot be quoted as current.
+    heredoc_escape_check.py    Heredoc-escape doorman — refuses a Bash heredoc that writes a file through backslash escapes. Three layers (bash → python → file) eat an escape meant for the third at the second. BLOCKS rather than labels: mechanical failure, deterministic right answer, zero-post in-context persistence.
 
   analysis/
     _session_types.py          Session analysis type definitions

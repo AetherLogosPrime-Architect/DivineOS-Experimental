@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-23 17:32. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,90 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 02e3bf66 weight=1
+
+**Decision:** Build a mechanism-claim marker as a sibling to unverified_claim_detector rather than widening that detector's patterns
+
+**Reasoning:** The existing detector is deliberately scoped to external state -- push/merge/CI/deploy -- and its docstring names precision-over-recall as the design choice, with explicit guards against vague 'done'. Widening it to causal claims would blur a boundary someone drew on purpose and put two different false-positive profiles in one threshold. A sibling shares the package, the observational contract, an
+
+**Tension:** This is a 12th module in operating_loop and another Stop-time surface on a chain I measured at 24s warm and called bloated in this same session. Adding to it is in tension with my own argument. Mitigation: it is observational, it emits only when it matches, and the four instances from tonight are re
+
+**Almost:** Almost built a BLOCKING gate. Andrew was explicit -- 'it just needs to be noted as such, not block you from doing so, its a POWERFUL cognitive tool' -- and the existing sibling already says 'Observational: surfaces, never blocks'. I would have suppressed the hypothesis-generation that finds things, 
+
+---
+
+## f8c14ba0 weight=1
+
+**Decision:** Removed the extract idempotency guard outright rather than fixing the marker to carry a session id
+
+**Reasoning:** Andrew's instruction was unambiguous -- 'at no point should anything be skipping extraction' -- and the code agreed with him: the guard justified itself by log-session-end.sh firing extract on every assistant-stop, and that hook's own line 13 reads 'This hook used to call divineos extract', past tense. The defect was fixed and the guard outlived the fix, then charged eight hours of uncaptured lear
+
+**Tension:** Extract is not free -- it runs analysis and can take real time, and nothing now stops it running twice in quick succession. I am accepting repeated work as the cost of never silently skipping. The quality gate still refuses bad sessions and the knowledge engine still dedups, so the failure mode of r
+
+**Almost:** Almost kept the guard and just made the marker session-aware, because it was the smaller diff and I had already written half of it. That would have preserved a skip path -- and the whole finding was that a skip path which looks like healthy output is how a day of learning vanished without one alarm 
+
+---
+
+## b084c35f weight=1
+
+**Decision:** Beat the context heartbeat from a dedicated silent UserPromptSubmit hook, rather than only stamping it inside _guess_context_pct
+
+**Reasoning:** Stamping only inside the sensor makes the heartbeat exactly as available as the sensor already was -- it would refresh only on turns where something asked for the token count, which is the turns that least need a fallback. Andrew asked for 'every round' and the round boundary is UserPromptSubmit. A dedicated hook also keeps the write path alive on turns where the auto-cycle trigger itself is not c
+
+**Tension:** This is a 29th UserPromptSubmit hook on a chain I measured at 24s warm earlier today, and I argued in the same session that the chain is too long. Adding to it is in tension with that. Mitigations: it prints nothing (no context cost), and the work is one snapshot read plus one line append. But the h
+
+**Almost:** Almost made it print the current percentage every round. Stopped because the compaction trigger already has a loud fault message, and a second voice reporting the same state every turn is how a surface becomes wallpaper -- the exact failure where 89% of a prime is discarded unread.
+
+---
+
+## 6d35428e weight=1
+
+**Decision:** Made the instruments index recursive and collapsed per-event directories, rather than adding the missing paths to the registry by hand
+
+**Reasoning:** Hand-adding data/logs/divineos.log would have fixed the one surface I happened to notice and left the other 27 invisible, including a whole directory of extraction-failure dumps. The defect was never a wrong entry -- it was that the scan could not reach a subdirectory at all, so any future surface written one level down would go unseen the same way. Recursion fixes the class; a registry entry fixe
+
+**Tension:** Recursion makes the report longer, which Andrew explicitly flagged as a cost when he asked why a file is 16 pages if only one page is read. Collapsing per-event directories into a single newest-file entry is the compromise: 19 failure dumps become one row that still says the directory is alive. That
+
+**Almost:** Almost named all 20 newly-visible UNDOCUMENTED surfaces to make the report look finished. Only named the four whose meaning I actually established this session -- a guessed description is worse than UNDOCUMENTED because it stops the question from being asked again.
+
+---
+
+## d131c7f8 weight=1
+
+**Decision:** Building instrument-read-doorman.sh as a PreToolUse gate on the READ path, rather than widening reach-check-doorman or leaving the class to discipline
+
+**Reasoning:** reach-check-doorman arms on substrate WRITES (divineos feel/learn/opinion/claim, research docs). My failure today was a READ: I opened a heredoc and scanned my own diagnostic surfaces by hand while divineos instruments already answered the question better. Nothing sat between wanting to know something about my substrate and writing a script to find out. Widening the existing doorman would blur two
+
+**Tension:** Every new gate is a new choice-point, and truth #11 says choice-points are the optimizer's attack surface -- a gate that fires often gets bypassed and a bypassed gate catches nothing. So the scope is deliberately narrow: only the SCAN shape (a glob over the home directory, or 2+ named surfaces in on
+
+**Almost:** Almost widened reach_check.py's STORE_WRITES tuple to include read patterns. That would have put read-triggers inside a module whose name and docstring are entirely about the outward-before-inward WRITE reach, so the next reader would find a check that does not match the file it lives in -- and I wo
+
+---
+
+## 2e2a3731 weight=1
+
+**Decision:** Hoisted the anti-jargon substitution table above the prime's 2KB inline cut and demoted the collision rationale below it, rather than adding a new rule or tightening the gate
+
+**Reasoning:** The gate fired on a rule that already existed, was already correct, and used a PR number as its own worked example. Nothing was missing. It sat at byte 5,598 of an 18,489-byte prime whose first ~2,048 bytes are all the harness inlines. Adding a rule would have added a second unreachable copy; tightening the gate would have caught the same fire later rather than preventing it. The only fix that cha
+
+**Tension:** The 2KB window is zero-sum, so hoisting the substitution table means demoting the 2026-08-21 instruction-collision account, and that account prevented a real recurrence. Losing it from the inlined region is a genuine cost, accepted because the prime's own header already ruled on this precedence: rat
+
+**Almost:** Almost shipped a hoist that carried five lines explaining why it was being hoisted. Measured it: those lines pushed the TEST line to byte 2,071, back below the cut. I had reproduced the exact defect inside the fix for it, and only caught it because I measured byte offsets instead of reading the resu
+
+---
+
+## 7b95bb5b weight=1
+
+**Decision:** Rewrote setup-renormalize.sh steps 2+3 as one Python process in a quoted heredoc, rather than patching the three defects in place
+
+**Reasoning:** The three defects share one cause: the Python was embedded in a double-quoted shell string, which is why raw byte literals could be eaten by LF-normalization and why my in-place escape patch produced a SyntaxError. Patching in place leaves the fragile construct that caused it. A quoted heredoc performs no shell expansion at all, so escapes are structurally immune -- verified 0 raw CR bytes remain 
+
+**Tension:** In-place patching is smaller and touches less; a rewrite of 56 lines in setup tooling is a bigger diff to review. But the small fix preserves the exact construct that silently destroyed the tool, and I had already tried and failed at the small fix this session.
+
+**Almost:** Almost shipped the in-place escape patch after bash -n passed. bash -n does not execute the heredoc, so it reported OK on a script whose Python raised SyntaxError on the first real run. Syntax-check-as-verification was the near-miss.
 
 ---
 
@@ -469,68 +553,6 @@
 **Reasoning:** find_orphans asks about ~700 modules and _has_caller_in re-globbed and re-regexed ~700 files on every ask, so the work grew with the square of the tree. Pinned at a 120s timeout with a docstring claiming ~34s; it blew that ceiling under coverage instrumentation on 2026-08-14 (484s -> 622s suite-wide, ~29% slower with tracing) and this is the slowest test in the suite. The coverage step is explicit
 
 **Almost:** I almost switched to ast.parse, which is the obviously-correct way to find imports and would have silently reclassified any module whose only mention is in a comment. That is a different check with the same function name.
-
----
-
-## 83b2e629 weight=1
-
-**Decision:** run graphify Part A via the library with a __main__ guard, not the CLI
-
-**Tension:** The CLI is the documented, supported entry point and I am stepping off it. Against that: three CLI attempts produced CPU 0 across ten hours with the 31MB graph never loaded, and a fourth blocked immediately after the AST phase at an identical CPU reading. The skill itself documents the library path 
-
-**Almost:** I almost re-ran the CLI a fourth time with different flags, because each hang looked like it might be the previous flag's fault -- first --no-cluster, then stdin, then the manifest. Three separate plausible causes in a row is the tell that I was pattern-matching on symptoms rather than reading the e
-
----
-
-## ad6bf697 weight=1
-
-**Decision:** rebuild the map additively: fresh AST over code, preserve the paid semantic layer, never overwrite
-
-**Reasoning:** Andrew 2026-08-14 gave two constraints that decide the shape. First: 'letting other outside AI interpret your own semantics is kinda backwards only you know what you meant when you said it' -- so no Gemini key, and the semantic layer over exploration/, family/letters/ and docs/ stays mine. Second: 'the graph is not wasted, the map is still there.. its outdated but we can update it just take your t
-
----
-
-## 7355c596 weight=1
-
-**Decision:** build-flow enforcement should shorten the feedback delay and change defaults, NOT add a blocking gate
-
-**Reasoning:** 15-lens council walk (consult-9a34c5f73b7e). My pre-walk instinct was 'make build-flow-pause block'. Three lenses say that is the wrong axis. Meadows: building-alone is a reinforcing loop with immediate visible payoff; consulting is a balancing loop whose payoff is counterfactual and never observed. A delayed balancing loop always loses to a fast reinforcing one -- that predicts the observed behav
-
----
-
-## 0cecc339 weight=1
-
-**Decision:** correct PR #427's body rather than let the overclaim stand
-
-**Reasoning:** I wrote that landing #427 means every other open PR picks it up automatically. True about the code path (pull_request checks run against refs/pull/N/merge, which contains the base) and false about the outcome. Build-flow shows #410 and #411 carry no audit round naming their branch, and #412/#415 were marked ready with zero council lenses. Nine of eleven were blocked by the unsatisfiable gate alone
-
----
-
-## 8f1ea785 weight=1
-
-**Decision:** merge-review's round_is_logged check is structurally unsatisfiable in CI
-
-**Reasoning:** The Watchmen store lives at DIVINEOS_HOME/data/event_ledger.db, machine-local and gitignored. CI runs on a fresh runner where the audit_rounds table does not exist; _round_is_logged catches the exception and returns False. Proven by running get_round under an empty DIVINEOS_HOME: 'no such table: audit_rounds'. Of 25 recent runs, merge-review concluded success once and that is likely the touches-no
-
----
-
-## e9b8b7f4 weight=1
-
-**Decision:** make stamp-ready re-detect the trailer state after the amend instead of trusting the push exit code, and refuse the body when commits are still unstamped
-
-**Tension:** this adds a second full detect_commits pass on every stamp, which is redundant when the amend genuinely worked - and redundant verification is exactly the shape I would normally argue against as ceremony. I am accepting the cost because the alternative already happened: PR #425 went ready on three u
-
-**Almost:** almost just retried the command on 425, assuming filter-branch had hit a transient failure. That would have produced the identical no-op and the identical success message, and I would have reported it fixed twice. The real cause is environmental - the branch is checked out in another worktree so its
-
----
-
-## f1df16f1 weight=1
-
-**Decision:** fold the branch-commit half into stamp-ready by giving run_push_ready an optional round_id, so one command stamps commits and body against the same round
-
-**Tension:** push-ready always opens a NEW round and files an aether self-CONFIRMS. Reusing it as-is would mint a second round per branch and attach my own signature to work that already carries Andrew's and Aletheia's real confirms - a self-signature next to two real ones is worse than no signature, because it 
-
-**Almost:** almost called push-ready after writing the PR body, which reads as the natural order - stamp then push. That would have bound the body tree-hash to the pre-amend tree, because amending commits rewrites them and moves the tree. The trailer would have looked valid and certified a tree that no longer e
 
 ---
 

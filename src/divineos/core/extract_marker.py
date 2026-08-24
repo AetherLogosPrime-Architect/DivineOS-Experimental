@@ -1,8 +1,27 @@
-"""Idempotency marker for the extract (consolidation checkpoint) pipeline.
+"""Attribution marker for the extract (consolidation checkpoint) pipeline.
 
-Extract runs once per session. A marker file at
-~/.divineos/auto_session_end_emitted records that it ran; load-briefing.sh
-clears it on SessionStart.
+EXTRACT RUNS PRE-COMPACTION -- at 920,000 tokens, not once per session.
+
+Corrected 2026-08-24 by Andrew: *"at no point should anything be skipping
+extraction"* and *"it should be tied to the actual token count with a heartbeat
+monitor to keep it updated every round, that way you know when 920k tokens has
+been reached and we run the ritual."*
+
+This module USED to enforce "runs once per session" via an idempotency guard in
+event_commands.py. That guard read a marker cleared only by load-briefing.sh at
+SessionStart -- so when a dropped connection meant the next session loaded its
+briefing by hand, the stale marker survived and every extract for EIGHT HOURS
+returned immediately having stored nothing. Measured: zero knowledge rows for
+the whole day until --force was run. The guard is gone.
+
+What remains here is ATTRIBUTION, not permission. The marker records what last
+triggered a consolidation so a reader can tell manual from sleep from hook. It
+no longer gates anything, and nothing reads it to decide whether to skip.
+
+The real trigger lives in auto_cycle.TRIGGER_THRESHOLD (0.92 of a 1M window =
+920,000 tokens) and reads its number from core/context_heartbeat.py, which
+stamps the count every round and records a blind sensor as UNKNOWN rather than
+as zero.
 
 Historically the marker contained the literal string ``"1"`` — a
 bare "ran or didn't run" flag. That produced a confusing skip message

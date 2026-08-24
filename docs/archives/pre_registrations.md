@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (183 rows). **Exported:** 2026-08-23 17:32. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (183 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1600,7 +1600,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [INCONCLUSIVE]
 
 **Mechanism:** retrospective-context exemption for verify-before-build/walk-forward solution-shape detector
 
@@ -1612,7 +1612,7 @@
 
 ---
 
-## prereg-c [OPEN]
+## prereg-c [INCONCLUSIVE]
 
 **Mechanism:** signal-based verify_before_build_signal replacing lexical _has_solution_shape detector
 
@@ -1984,7 +1984,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [INCONCLUSIVE]
 
 **Mechanism:** address_gate: a blocking Stop gate that refuses a substantial work-report to Andrew carrying no room for him will reduce report-at-him turns, without producing performed address
 

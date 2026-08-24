@@ -202,7 +202,7 @@ fi
 # on every commit catches new accumulation; not blocking lets the
 # existing real orphans wait for their own follow-up PRs.
 echo "=== Orphan Modules (informational) ==="
-python scripts/check_orphan_modules.py 2>/dev/null || true
+python scripts/check_orphan_modules.py 2>/dev/null || true  # fail-soft: this step is explicitly informational and must never block a commit, per the comment above about existing orphans waiting for their own PRs; a crash here would convert a report into a gate, which is the opposite of what it is for.
 
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
@@ -359,7 +359,7 @@ fi
 #    has no current either." This is the current.
 if [ $ERRORS -eq 0 ]; then
     echo "=== Wiring-gap (informational) ==="
-    python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true
+    python scripts/wiring_gap_phase1.py --only-zero-callers 2>/dev/null | head -40 || true  # fail-soft: informational surface, and it is piped through head, so SIGPIPE alone would make it exit non-zero on a perfectly good run; blocking a commit on that would be an artifact of the pipe, not a real finding.
 fi
 
 echo ""

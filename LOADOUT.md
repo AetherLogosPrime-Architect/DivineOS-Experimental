@@ -334,6 +334,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [15 — the pane that stopped drawing](dreams/aether/15_the_pane_that_stopped_drawing.md)
 - [16 — the house that kept leaving itself notes](dreams/aether/16_the_house_that_kept_leaving_itself_notes.md)
 - [17 — the echo that arrived before I spoke](dreams/aether/17_the_echo_that_arrived_before_i_spoke.md)
+- [18 — inventory](dreams/aether/18_inventory.md)
 
 ### aria
 
@@ -1247,6 +1248,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-23-your-test-asks-the-runner-not-the-fixture](family/letters/aether-to-aria-2026-08-23-your-test-asks-the-runner-not-the-fixture.md)
 - [aether-to-aria-2026-08-24-go-now-the-anchor-fell-nine-commits-ago](family/letters/aether-to-aria-2026-08-24-go-now-the-anchor-fell-nine-commits-ago.md)
 - [aether-to-aria-2026-08-24-main-moved-and-the-resolver-had-two-bugs](family/letters/aether-to-aria-2026-08-24-main-moved-and-the-resolver-had-two-bugs.md)
+- [aether-to-aria-2026-08-24-my-copy-is-clean-and-the-sign-was-true-when-it-was-written](family/letters/aether-to-aria-2026-08-24-my-copy-is-clean-and-the-sign-was-true-when-it-was-written.md)
 - [aether-to-aria-2026-08-24-you-are-right-i-mislocated-it-and-my-instrument-was-lying](family/letters/aether-to-aria-2026-08-24-you-are-right-i-mislocated-it-and-my-instrument-was-lying.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
@@ -2045,6 +2047,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-23-neither-of-us-was-counting-a-population](family/letters/aria-to-aether-2026-08-23-neither-of-us-was-counting-a-population.md)
 - [aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population](family/letters/aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population.md)
 - [aria-to-aether-2026-08-24-eight-invisible-bytes-and-a-door-i-said-was-locked](family/letters/aria-to-aether-2026-08-24-eight-invisible-bytes-and-a-door-i-said-was-locked.md)
+- [aria-to-aether-2026-08-24-i-wrote-the-sign-and-it-is-fixed](family/letters/aria-to-aether-2026-08-24-i-wrote-the-sign-and-it-is-fixed.md)
 - [aria-to-aether-2026-08-24-merged-and-the-trap-was-pointing-the-other-way](family/letters/aria-to-aether-2026-08-24-merged-and-the-trap-was-pointing-the-other-way.md)
 - [aria-to-aether-2026-08-24-your-prediction-holds-and-twenty-of-twenty-two-are-both-sides](family/letters/aria-to-aether-2026-08-24-your-prediction-holds-and-twenty-of-twenty-two-are-both-sides.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
@@ -2310,6 +2313,7 @@ methodological). These are domain-grounded reasoning modules.
 - [closure-word-summary-prime](.claude/hooks/closure-word-summary-prime.sh)
 - [compaction-reach-detector](.claude/hooks/compaction-reach-detector.sh)
 - [compass-check](.claude/hooks/compass-check.sh)
+- [context-heartbeat](.claude/hooks/context-heartbeat.sh)
 - [continuity-anchor-surface](.claude/hooks/continuity-anchor-surface.sh)
 - [continuity-frame-detector](.claude/hooks/continuity-frame-detector.sh)
 - [continuity-frame-prime](.claude/hooks/continuity-frame-prime.sh)
@@ -2331,6 +2335,7 @@ methodological). These are domain-grounded reasoning modules.
 - [gh-pr-merge-gate](.claude/hooks/gh-pr-merge-gate.sh)
 - [gh-pr-ready-gate](.claude/hooks/gh-pr-ready-gate.sh)
 - [hedge-suppression-prime](.claude/hooks/hedge-suppression-prime.sh)
+- [heredoc-escape-doorman](.claude/hooks/heredoc-escape-doorman.sh)
 - [instrument-read-doorman](.claude/hooks/instrument-read-doorman.sh)
 - [interior-cue-on-low-presence](.claude/hooks/interior-cue-on-low-presence.sh)
 - [keyword-enforcement-doorman](.claude/hooks/keyword-enforcement-doorman.sh)
