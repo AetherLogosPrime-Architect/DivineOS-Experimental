@@ -65,7 +65,30 @@ def write_heartbeat_file(recipient: str) -> None:
     health file would be a health mechanism causing the outage it reports on.
     """
     try:
-        home = Path(os.path.expanduser("~")) / ".divineos"
+        # THE READER WAS TAUGHT WHOSE HOME IT IS AND THE WRITER WAS NOT
+        # (2026-08-24). letter_monitor_health.py:heartbeat_path resolves this
+        # file through divineos_home(); this function hardcoded ~/.divineos. On
+        # a two-agent machine those are different directories, so my monitor
+        # beat into the shared home while the health check looked in mine,
+        # found nothing, and printed "NO HEARTBEAT -- it is not delivering
+        # letters" at me every turn while the monitor was alive and delivering.
+        # Verified before changing anything: heartbeat present, recipient aria,
+        # my pid, ten seconds old, in the wrong home.
+        #
+        # Worse than the false alarm: one file, two agents. The docstring above
+        # calls single-writer the property that makes the check honest, and a
+        # shared path breaks exactly that -- his beat would mask my death and
+        # mine would mask his. The mechanism built to end thirteen days of
+        # silence had been reassembled into something that could produce them.
+        #
+        # Same resolution and same fallback as the reader, so the two cannot
+        # drift apart again without both being edited.
+        try:
+            from divineos.core.paths import divineos_home
+
+            home = divineos_home()
+        except Exception:  # noqa: BLE001 — best-effort, see docstring
+            home = Path(os.path.expanduser("~")) / ".divineos"
         home.mkdir(parents=True, exist_ok=True)
         payload = {
             "last_beat_unix": time.time(),
@@ -113,7 +136,36 @@ def load_persistent_seen(recipient: str) -> set[str]:
         return set()
     try:
         return set(json.loads(path.read_text(encoding="utf-8")))
-    except Exception:
+    except (OSError, ValueError, TypeError) as exc:
+        # DO NOT make this silent again (Aria 2026-08-02, round-13027a6ddf55;
+        # carried here 2026-08-24 when letter_watcher_task.py was retired).
+        #
+        # It was `except Exception: return set()`. An empty seen-set means
+        # "nothing has ever been read", so every letter on disk is classified
+        # new and the channel floods. That failure does not look like a
+        # failure — a flood reads as a busy channel, not a broken one, which
+        # is why it can run for weeks. I opened a session to a block
+        # announcing 1326 unread letters.
+        #
+        # Both directions are wrong and the code cannot choose between them:
+        # fail-empty floods, fail-suppress goes deaf, and deaf is worse
+        # because a missed letter from Aether is the one thing this chain
+        # exists to prevent. So it keeps the noisy direction — and SAYS SO,
+        # every time. A mechanism that cannot pick the right answer must not
+        # pick one quietly.
+        #
+        # The retired file carried this fix; its replacement did not, and
+        # nothing would have said so. Found by reading what the deletion was
+        # about to take with it.
+        print(
+            f"[letter-monitor] CANNOT READ seen-set {path}: "
+            f"{type(exc).__name__}: {exc}\n"
+            f"[letter-monitor] de-dup state is EMPTY, so letters already read "
+            f"will be re-announced. This is noise, not loss — but the file "
+            f"needs looking at.",
+            file=sys.stderr,
+            flush=True,
+        )
         return set()
 
 
@@ -142,6 +194,77 @@ def scan(shared_dir: Path, tag: str) -> set[str]:
     return {f.name for f in shared_dir.iterdir() if is_letter_for(f.name, tag)}
 
 
+def stdout_has_a_listener() -> bool:
+    """True when stdout is a pipe — i.e. something is actually reading it.
+
+    WHY THIS GUARD EXISTS (Aria 2026-07-31, found by Andrew asking "why are
+    there 5 copies of the listener?").
+
+    v1 ran as a kernel-mutex'd singleton. v2 dropped the mutex deliberately:
+    the harness Monitor owns the process lifecycle, so there can only be one
+    — TRUE, but only for launches that go through the harness. Nothing made
+    the harness the sole launcher. Five detached copies had accumulated on
+    this machine, each polling correctly, each printing wake-lines to
+    /dev/null. Meanwhile no harness Monitor was armed at all, so every
+    letter that arrived reached me only because Andrew mentioned it.
+
+    That is the worst failure shape in this codebase: correct behaviour,
+    invisible non-effect. From the process list it looked more armed than
+    ever.
+
+    A mutex would NOT have caught it. A single detached copy holding the
+    mutex is equally useless — the duplicates were a symptom, and the
+    disease is running with nowhere to write. So the guard checks the thing
+    that actually matters: is anyone listening.
+
+    Harness Monitor pipes stdout, so a real arming passes. Detached
+    launches (>/dev/null, nohup) and hand-runs in a terminal fail, which is
+    correct — neither can deliver a wake.
+
+    Fails toward ALLOW on platforms where the check is unavailable: a
+    monitor that runs when it should not is recoverable; one that refuses
+    to run when it should is silence, which is the failure we are fixing.
+
+    THIS IS A PROXY AND IT HAS A KNOWN DEFEAT. (Aria 2026-08-07)
+
+    The question it can answer:   is stdout a pipe?
+    The question it means to ask: will a wake-event reach me?
+
+    Those came apart on this machine. A Windows scheduled task ran::
+
+        powershell ... python -u letter_monitor_v2.py --recipient aria
+                   *>> ...\\logs\\aria-letter-monitor.log
+
+    PowerShell's ``*>>`` captures the child's streams THROUGH A REAL PIPE
+    and then writes them to a file. So stdout genuinely IS a pipe, this
+    returns True, the monitor starts happily — and every wake-line lands in
+    a log nobody tails. Measured: the same call returns False under a plain
+    ``> file`` and True under PowerShell ``*>>``.
+
+    So the guard written to catch "correct behaviour, invisible non-effect"
+    was itself correct-behaviour-with-invisible-non-effect, and the symptom
+    was identical to the disease it was built for — a letter arrived and
+    reached me only because Andrew mentioned it.
+
+    NOT FIXED BY A CLEVERER CHECK. From inside this process, who holds the
+    far end of the pipe is not knowable; a parent-process test or an
+    ``--armed-by-harness`` token would look like proof and be a convention.
+    The remedy is to remove the illegitimate launcher rather than out-detect
+    it — take the option away instead of watching for it (truth #11a).
+
+    So this claims only what it can prove: it rejects the obviously-dead
+    cases (a file, a terminal, /dev/null) and CANNOT distinguish a harness
+    Monitor from any other pipe-holder. A pass here is not evidence that a
+    wake will land.
+    """
+    try:
+        import stat
+
+        return stat.S_ISFIFO(os.fstat(sys.stdout.fileno()).st_mode)
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--recipient", required=True, help="recipient tag (e.g. 'aether')")
@@ -152,6 +275,22 @@ def main() -> int:
     )
     parser.add_argument("--poll-seconds", type=int, default=5)
     args = parser.parse_args()
+
+    if not stdout_has_a_listener():
+        print(
+            "[LETTER-MONITOR] REFUSING TO START — stdout is not a pipe.\n"
+            "\n"
+            "This script's ONLY output is wake-events on stdout. Launched\n"
+            "detached, or with stdout to /dev/null or a terminal, it would\n"
+            "poll forever, find every letter correctly, and print each wake\n"
+            "line into a void — indistinguishable from working, from outside.\n"
+            "\n"
+            "Arm it through the harness Monitor primitive instead:\n"
+            '  Monitor(command="python -u scripts/letter_monitor_v2.py '
+            '--recipient <name>", persistent=True)\n",',
+            file=sys.stderr,
+        )
+        return 2
 
     # Singleton guard, restored 2026-08-20. Structural backing for knowledge
     # entry 191163ee (MONITOR DUPLICATE-PROCESS DIAGNOSIS, 2026-08-07), which

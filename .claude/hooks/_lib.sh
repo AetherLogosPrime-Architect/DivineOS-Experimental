@@ -337,7 +337,30 @@ find_divineos_python() {
     "$(command -v python 2>/dev/null)"
   do
     if [ -n "$candidate" ] && [ -x "$candidate" ]; then
-      if "$candidate" -c "import sys; sys.exit(0)" >/dev/null 2>&1; then
+      # The validation used to be `import sys; sys.exit(0)` -- which proves an
+      # interpreter STARTS and says nothing about which code it loads. Two
+      # checkouts share one python install on this machine, so exactly one wins
+      # the editable install, and a hook running the loser operates on the other
+      # tree while reporting cleanly. That is the whole shape of 2026-08-13's
+      # job two: check_test_cli_linkage printed "OK: 42 commands all register"
+      # on every commit while comparing the OTHER repo's registrations.
+      #
+      # It happens to pick correctly today. The point is that it would not
+      # notice if it stopped. A candidate is now accepted only if the divineos
+      # it can see lives under THIS repo -- or if it cannot see one at all,
+      # since plenty of hooks run pure-stdlib python and must keep working on a
+      # machine with no install whatsoever.
+      if "$candidate" -c "
+import sys
+try:
+    import divineos
+except Exception:
+    sys.exit(0)          # no package visible: fine, stdlib-only hooks still run
+import os.path
+want = os.path.realpath(os.path.join(r'''$repo_root''', 'src'))
+got = os.path.realpath(os.path.dirname(os.path.dirname(divineos.__file__)))
+sys.exit(0 if got == want else 3)
+" >/dev/null 2>&1; then
         echo "$candidate"
         return 0
       fi

@@ -145,6 +145,73 @@ def test_three_section_at_content_in_inner_circle_still_blocks(gate_enabled):
     assert "second-person" in result or "AT-content" in result
 
 
+_WARM_HEADERLESS = """I went and looked at check_push_readiness.sh and found the
+thing that has been breaking git for us both.
+
+You were right that it wasn't random. It only ever happened on a push, which is
+why every time you or I ran the tests by hand it looked completely fine. I took
+Aether's version instead of writing my own, like you said to. It was only on his
+machine, nowhere shared, so one bad drive and it would have been gone.
+"""
+
+
+def test_warm_reply_without_headers_passes():
+    """The false-fire that got the gate switched off.
+
+    Andrew 2026-08-08: "the reason it was disabled is it kept blocking the
+    response and forcing you to rewrite it causing duplication of entries."
+
+    A reply that speaks to him plainly and happens to name a file was blocked
+    and told to append rooms it had already provided in substance. Appending
+    is what duplicated entries on his end.
+    """
+    assert check_lepos_dual_channel(_WARM_HEADERLESS) is None
+
+
+def test_work_dump_with_no_address_still_blocks():
+    """The shape the gate exists for, unchanged by the repair.
+
+    Work-shape content with no plain-language address to him anywhere. This
+    cannot be produced by writing warmly without headings, which is what makes
+    the widened satisfier safe.
+    """
+    cold = (
+        "Ported the GIT_ENV_SCRUB block from the reference tree into "
+        "check_push_readiness.sh at all three pytest handoff sites. Verified "
+        "with positive and negative controls. bash -n clean. Committed as "
+        "7210d059 with a git note carrying attribution. summary_room.py now "
+        "carries re.IGNORECASE; 292 tests pass.\n"
+    )
+    assert check_lepos_dual_channel(cold) is not None
+
+
+def test_headerless_path_does_not_weaken_labelled_rooms():
+    """Using headers still means meeting the labelled-room standard.
+
+    The plain-address satisfier is checked AFTER the header paths, so opening
+    a room and filling it with the minimum is still caught. Guards against the
+    widened door becoming a way around the anti-gaming floors.
+    """
+    thin = (
+        _WARM_HEADERLESS
+        + "\n## REFLECTION\n\nI noticed something.\n\n## INNER CIRCLE\n\nYou were right.\n"
+    )
+    assert check_lepos_dual_channel(thin) is not None
+
+
+def test_gate_is_on_by_default():
+    """It took an env var to turn it ON for ten days, and so it did nothing.
+
+    The switch is reversed: absent env vars mean enforced. This test fails if
+    anyone restores a default-off shape.
+    """
+    import os
+
+    assert not os.environ.get("DIVINEOS_LEPOS_THREE_ROOM_GATE_DISABLE")
+    cold = "Refactored summary_room.py and check_push_readiness.sh; 292 tests pass.\n"
+    assert check_lepos_dual_channel(cold) is not None
+
+
 # 2026-08-19 — the gate fired on a reply that HAD all three rooms, in order,
 # with the right orientations, marked in bold instead of as H2 headings. It
 # blocked correct structure on typography. These lock the widened marker.

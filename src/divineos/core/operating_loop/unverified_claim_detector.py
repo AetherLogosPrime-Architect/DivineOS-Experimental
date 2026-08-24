@@ -1003,11 +1003,37 @@ def _verification_ran(
     return False
 
 
+def _appears_in_turn_output(trigger: str, output_texts: tuple[str, ...] | list[str] | None) -> bool:
+    """True when the triggering phrase appears in output already read.
+
+    A value I am QUOTING from something I just read is not an unverified
+    claim; the verification is the reading. The gate previously asked only
+    whether a matching command RAN, never what it RETURNED, so a quoted
+    result and an invented one looked identical.
+
+    Andrew 2026-08-11: "you gonna fix the gate or just keep suffering it?"
+    Three fires in one session on the string exit 0, taken verbatim from a
+    log read in the same turn. prereg-4b2e3212d289, FAILED, redesign note.
+
+    Deliberately narrow: substring, case-insensitive, and only for phrases
+    long enough to be distinctive. A two-character trigger would match
+    everywhere and silence the gate wholesale, which is the failure mode on
+    the other side.
+    """
+    if not output_texts:
+        return False
+    needle = " ".join((trigger or "").split()).lower()
+    if len(needle) < 4:
+        return False
+    return any(needle in (o or "").lower() for o in output_texts)
+
+
 def detect_unverified_claim(
     text: str,
     tool_calls_in_turn: tuple[str, ...] | list[str] | None = None,
     command_texts: tuple[str, ...] | list[str] | None = None,
     letter_contents: dict[str, str] | None = None,
+    output_texts: tuple[str, ...] | list[str] | None = None,
 ) -> list[UnverifiedClaimFinding]:
     """Detect confident claims of external verifiable state.
 
@@ -1082,6 +1108,10 @@ def detect_unverified_claim(
             if kind == "id_string" and _is_id_transcription(text, m):
                 continue
             if _verification_ran(kind, command_texts, m.group(0)):
+                continue
+            # Quoted from output already read this turn -> evidence in
+            # hand, not an unverified claim. See _appears_in_turn_output.
+            if _appears_in_turn_output(m.group(0), output_texts):
                 continue
             phrase = re.sub(r"\s+", " ", m.group(0).strip())[:60]
             key = (kind, phrase.lower())

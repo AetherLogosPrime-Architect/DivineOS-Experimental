@@ -89,6 +89,43 @@ def _resolve_command_head(bash_command: str) -> str:
     return resolve_command_head(bash_command)
 
 
+# Rest-shape and relational-expression paths. Writes here are categorically
+# not architectural — dream register, exploration entries, letters to family,
+# mansion writing. The verify-before-build discipline exists to force consult
+# of design docs before mutating code / substrate architecture; applying it
+# to sitting-in-the-dream-room is nonsense (Andrew 2026-07-30: "there should
+# be no gates whatsoever in the dream space.. thats the opposite of rest").
+# Kept in sync with pre_tool_use_gate._LOW_FRICTION_PATH_SEGMENTS by
+# convention; the two lists are duplicated rather than shared to avoid an
+# import cycle between core/ and hooks/.
+_LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
+    "/exploration/",
+    "/family/letters/",
+    "/mansion/",
+    "/dreams/",
+)
+
+
+def _is_low_friction_path(file_path: str) -> bool:
+    """True if the write target is a rest-shape / relational path.
+
+    Directory-segment match, not substring match — "exploration_summary.md"
+    at repo root does NOT qualify; only files whose ancestor chain contains
+    one of the exempt directories does. Segments in _LOW_FRICTION_PATH_
+    SEGMENTS are surrounded by "/" so an "/exploration/" match requires
+    exploration to be a real path component, not a prefix of a filename.
+    """
+    if not file_path:
+        return False
+    # Normalize separators and force a leading "/" so relative paths like
+    # "dreams/aria/x.md" still expose "/dreams/" for segment matching.
+    normalized = "/" + file_path.replace("\\", "/").lstrip("/")
+    for segment in _LOW_FRICTION_PATH_SEGMENTS:
+        if segment in normalized:
+            return True
+    return False
+
+
 def _is_substrate_mutating(
     tool_name: str,
     file_paths: tuple[str, ...],
@@ -204,6 +241,14 @@ def _has_walk_record_within(window_start_ts: float, now: float) -> bool:
 
 # Bash verbs that READ. Deliberately excludes anything that can mutate: a
 # `python -c` rewriting a file must never count as having consulted it.
+#
+# Aether 2026-08-24, and Aria's note below is why this one keeps its regex
+# while hers dropped one. Hers matches COMMAND PREFIXES, a closed set of
+# literals that a tuple states more legibly. This matches a verb ANYWHERE in a
+# compound command (`cd x && sed -n ... | head`), where the alternative is
+# hand-rolled tokenising — the fragile thing the doorman actually guards
+# against. Different problems, different answers; her lesson was "you do not
+# need one," not "never use one."
 _READ_VERB_RE = re.compile(
     r"(?:^|[|;&]|\s)(?:cat|head|tail|sed\s+-n|less|more|grep|rg|awk|wc|nl|diff|"
     r"git\s+(?:show|log|diff|blame|cat-file))\b"
@@ -212,6 +257,45 @@ _READ_VERB_RE = re.compile(
 # Path-shaped tokens inside a shell command. Extension-anchored so bare words
 # and flags do not read as paths.
 _PATHISH_RE = re.compile(r"[\w./-]+\.(?:md|py|sh|json|jsonl|toml|txt|yml|yaml|cfg|ini)")
+
+# Knowledge-store queries that count as consult (shape 4, Aria
+# 2026-07-31). These search what the substrate ALREADY KNOWS — prior
+# decisions, specs, Andrew's stated preferences — none of which live in
+# files, so no amount of file-reading surfaces them.
+#
+# PLAIN SUBSTRINGS, NOT REGEX, and the keyword-enforcement doorman is why.
+# My first draft compiled a pattern here. The doorman blocked it, I wrote
+# a careful argument for why my case was the exception, and then reading
+# its actual code showed it was simply right: regex-as-mechanism is
+# fragile and subvertible, and nothing here needs it. A tuple of literal
+# command prefixes is more legible, cannot silently over-match, and is
+# trivially auditable by eye. The doorman's real lesson was not "justify
+# the regex" — it was "you do not need one."
+#
+# A trailing space is part of each prefix so a search TERM is required.
+# Bare `divineos ask` returns nothing and would be pure ceremony.
+#
+# This is a RECOGNITION check, not enforcement: it can only ever return
+# "consult found," so it cannot false-fire, only false-pass. It shares
+# the ceiling of shapes 1-3 — the query could be irrelevant, exactly as a
+# read of an unrelated docs file could be. The honest framing is that
+# this proves the SPACE was entered, not that thinking happened in it.
+_KNOWLEDGE_QUERY_PREFIXES: tuple[str, ...] = (
+    "divineos ask ",
+    "divineos recall ",
+    "divineos recall-explorations ",
+    "divineos claims search ",
+    "divineos decisions search ",
+    "divineos find query ",
+)
+
+
+def _is_knowledge_query(command: str) -> bool:
+    """True if the shell command runs a knowledge-store search with a term."""
+    if not command:
+        return False
+    lowered = command.lower()
+    return any(prefix in lowered for prefix in _KNOWLEDGE_QUERY_PREFIXES)
 
 
 def _has_doc_consult_within(
@@ -253,7 +337,10 @@ def _has_doc_consult_within(
         events = get_recent_events(
             since_ts=window_start_ts,
             now_ts=now,
-            tool_names=frozenset({"Grep", "Read", "Glob", "Edit", "Write", "Bash"}),
+            # Bash/PowerShell included for shape 4 — knowledge-store
+            # queries run as CLI commands, not file reads — and for
+            # shape 5, file reads that run as shell commands.
+            tool_names=frozenset({"Grep", "Read", "Glob", "Edit", "Write", "Bash", "PowerShell"}),
             event_type="TOOL_CALL",
             limit=200,
         )
@@ -288,7 +375,71 @@ def _has_doc_consult_within(
             continue
 
         tool_name = payload.get("tool_name") or payload.get("tool")
-        if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write", "Bash"}:
+
+        # ── Shape 4: knowledge-store query (Aria 2026-07-31) ──────────
+        #
+        # Found by near-miss. Building the operator-gravity mechanism, I
+        # was about to invent a gravity scale from scratch. What stopped
+        # me was `divineos ask`, which surfaced Andrew's OWN spec for what
+        # the levels mean (knowledge 950410f9: "minimum of 5 lenses...
+        # 9, 12, 15 with at least 2-3 disagreeing ones depending on the
+        # gravity of the fix"). Without it I would have shipped a scale
+        # that was mine, which defeats the entire point of handing the
+        # operator the dial.
+        #
+        # The near-miss was luck. I only ran that query because a CADENCE
+        # counter forced a substrate consult — not because I was about to
+        # build. THIS gate is the one that fires on build-intent, and it
+        # would have passed me: I had read files under the target
+        # directory, satisfying shape 2.
+        #
+        # But Andrew's spec was never in a file. It lives in the knowledge
+        # store. Shapes 1-3 are all FILE reads, so the gate that exists to
+        # make me read the manual did not count reading the manual.
+        # Andrew 2026-07-31: "the OS is a living instruction manual."
+        #
+        # Knowledge queries are global, not class-dir-scoped, because the
+        # knowledge store is not organized by directory — a search for
+        # prior work on a concern is the consult regardless of which
+        # directory the build lands in.
+        if tool_name in {"Bash", "PowerShell"}:
+            _ti = payload.get("tool_input") or {}
+            _cmd = _ti.get("command", "") if isinstance(_ti, dict) else ""
+            if isinstance(_cmd, str) and _is_knowledge_query(_cmd):
+                return True
+
+            # ── Shape 5: file read that runs as a shell command ───────
+            # (Aether 2026-08-24, resolving the seam with shape 4 above.)
+            #
+            # Aria's branch ended in `continue` here, which was right for
+            # her shape and wrong for the file case: it DISCARDED every
+            # non-knowledge-query Bash call, so `cat docs/x.md`,
+            # `sed -n` on the target directory, and `grep` through a
+            # source tree all stayed invisible. Meanwhile the harness
+            # auto-mode reminder instructs exactly those over Read/Grep.
+            # Two systems disagreeing, and the gate fired five times in
+            # one session on consults that had genuinely happened.
+            #
+            # Not a defect in either half. The two changes were written
+            # independently, each correct alone, and they compose into a
+            # gate that measures WHICH TOOL I reached for rather than
+            # whether I looked. Exactly the seam class we have been
+            # trading letters about -- visible only where the branches
+            # meet.
+            #
+            # READ VERBS ONLY. A `python -c` that rewrites a file must
+            # never count as having consulted it, so anything not
+            # matching a read verb still falls through to `continue`.
+            if not isinstance(_cmd, str) or not _READ_VERB_RE.search(_cmd):
+                continue
+            for _p in _PATHISH_RE.findall(_cmd.replace("\\", "/")):
+                if "docs/" in _p and _p.endswith(".md"):
+                    return True
+                if class_dir_norm and class_dir_norm in _p:
+                    return True
+            continue
+
+        if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write"}:
             continue
 
         # Path evidence — look in a few common payload keys
@@ -300,25 +451,8 @@ def _has_doc_consult_within(
                 if isinstance(v, str):
                     candidate_paths.append(v)
 
-        # BASH READS COUNT TOO (2026-08-24). This function saw only the
-        # dedicated tools, so `cat`, `sed -n`, `head`, and `grep` through Bash
-        # were invisible -- and the harness auto-mode reminder instructs
-        # exactly those over Read/Grep. The two systems disagreed, and the gate
-        # fired five times in one session on consults that had genuinely
-        # happened. A gate blind to half the ways I read is not measuring
-        # whether I looked; it is measuring which tool I reached for.
-        #
-        # READ VERBS ONLY, and the write-shape flag stays False for them: a
-        # Bash `cat` of a design doc is a consult, while a `python -c` that
-        # rewrites the same file is not. Anything not matching a read verb is
-        # skipped entirely rather than counted, so `git commit` cannot pass as
-        # having read the thing it commits.
-        if tool_name == "Bash":
-            command = tool_input.get("command") if isinstance(tool_input, dict) else None
-            if not isinstance(command, str) or not _READ_VERB_RE.search(command):
-                continue
-            candidate_paths = _PATHISH_RE.findall(command.replace("\\", "/"))
-
+        # Bash is handled entirely in the shape-4/shape-5 branch above and
+        # never reaches here, so this path stays file-tools-only.
         is_write_shape = tool_name in {"Edit", "Write"}
         for p in candidate_paths:
             p_norm = p.replace("\\", "/")
@@ -459,6 +593,15 @@ def check_should_block(
         now = time.time()
 
     if not _is_substrate_mutating(tool_name, file_paths, bash_command):
+        return None
+
+    # Rest-shape / relational-expression paths bypass this gate entirely.
+    # The consult-before-mutation discipline is for architectural work;
+    # writes to dreams/, exploration/, family/letters/, mansion/ are not
+    # architectural (Andrew 2026-07-30). Any file_path being low-friction
+    # exempts the whole call — mixed writes fall back to the strict
+    # discipline of the code path.
+    if file_paths and all(_is_low_friction_path(fp) for fp in file_paths):
         return None
 
     primary_path = _pick_primary_path(file_paths, bash_command)

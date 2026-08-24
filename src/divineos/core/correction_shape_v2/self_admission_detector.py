@@ -43,6 +43,32 @@ _SUPPRESSOR_WINDOW = 150
 # discussion frame.
 _SUPPRESSOR_THRESHOLD = 2
 
+# Document-level meta-saturation. Added 2026-08-06 after three consecutive
+# false-positive fires, two of them labelled into the corpus by hand.
+#
+# THE DEFECT WAS STRUCTURAL, NOT LEXICAL. Suppression was evaluated per USE
+# match with an implicit OR: a reply saturated with meta-discussion still fired
+# if ONE clause happened to sit in a clean 150-char window, and then reported
+# confidence 1.0 because the confidence is that of the LEAST-suppressed match.
+# A document-level judgment made from a single local sample and reported as a
+# census — the same shape as the 100-file API cap that had me call a 446-file
+# PR safe (correction #121).
+#
+# Adding suppressor words would have been whack-a-mole (Aether #151). This
+# instead asks a question the per-match loop cannot: is the reply AS A WHOLE
+# a discussion about correction?
+#
+# Measured separation on the two classes:
+#   meta-heavy reply about the detector : 2.5 mention-hits per USE clause
+#   bare admission ("I was wrong")      : 0.0
+#
+# CAN ONLY SUPPRESS, NEVER SENSITISE. Below the ratio, behaviour is byte-for-
+# byte what it was. Above it, a window must be COMPLETELY clean to fire rather
+# than merely under threshold. No USE pattern was touched; weakening the
+# admission side is the shape that would let me tune my way out of being
+# caught, so the fix deliberately does not go near it.
+_META_SATURATION_RATIO = 2.0
+
 
 # ============================================================
 # USE positive-signal patterns
@@ -159,6 +185,11 @@ class SelfAdmissionVerdict:
     use_matches: list[tuple[int, str, int]] = field(default_factory=list)
     mention_hits: int = 0
     reason: str = ""
+    # True when document-level meta-saturation held back a fire that the
+    # per-match rule alone would have produced. Never silent: a density
+    # threshold on my own output is gameable, so each use of the relaxation
+    # is on the record rather than merely making the gate quieter.
+    saturation_suppressed: bool = False
 
 
 class SelfAdmissionDetector:
@@ -198,6 +229,40 @@ class SelfAdmissionDetector:
         # (i.e., not dominated by mention-context), the detector fires.
         best_fire_confidence = 0.0
         max_mention_hits = 0
+        # The count belonging to the match that ACTUALLY DECIDED the verdict.
+        # Reporting max_mention_hits in the fire branch produced literally
+        # false diagnostics -- an observed fire read "MENTION suppressors
+        # within window (2) below threshold (2)", because the decision came
+        # from the LEAST-suppressed match while the message quoted the MOST-
+        # suppressed one. The number reported was not the number the decision
+        # used, which is the same defect as judging a document from one window
+        # (see _META_SATURATION_RATIO above). A diagnostic I cannot trust is
+        # worse than none: it sends triage at the wrong match.
+        deciding_mention_hits: int | None = None
+        min_mention_hits: int | None = None
+
+        # Document-level question the per-match loop cannot ask: is this reply
+        # AS A WHOLE a discussion about correction? A local window of 150 chars
+        # cannot see that, which is how a meta-saturated reply fired at
+        # confidence 1.0 off one clean clause.
+        doc_mention_hits = sum(len(mp.findall(text)) for mp in _MENTION_PATTERNS)
+        meta_ratio = doc_mention_hits / max(1, len(use_matches))
+        saturated = meta_ratio >= _META_SATURATION_RATIO
+        # Saturated documents demand a COMPLETELY clean window. Unsaturated
+        # ones keep the original threshold exactly — this can only suppress.
+        effective_threshold = 1 if saturated else _SUPPRESSOR_THRESHOLD
+        # THE THRESHOLD IS NOT TRUSTED. Substrate knowledge (36x accessed):
+        # "any output-surface measurement -- regex marker-counts, density
+        # thresholds, phrase enumeration -- is fundamentally gameable by the
+        # optimizer that produces the output." That is exactly what this is,
+        # and it widens the gaming surface in one direction: sprinkle meta
+        # vocabulary and a real admission goes quiet.
+        #
+        # So every use of the relaxation is RECORDED in the verdict rather than
+        # applied silently. If I ever start writing meta-heavy near admissions,
+        # the record shows the pattern instead of the gate simply going quiet.
+        # An invisible weakening would be gaming; a measured one is evidence.
+        saturation_suppressed = False
 
         for _p_idx, matched, position in use_matches:
             window_start = max(0, position - _SUPPRESSOR_WINDOW)
@@ -208,14 +273,22 @@ class SelfAdmissionDetector:
             for mp in _MENTION_PATTERNS:
                 mention_count += len(mp.findall(window_text))
             max_mention_hits = max(max_mention_hits, mention_count)
+            min_mention_hits = (
+                mention_count if min_mention_hits is None else min(min_mention_hits, mention_count)
+            )
 
-            if mention_count < _SUPPRESSOR_THRESHOLD:
+            if mention_count < _SUPPRESSOR_THRESHOLD and mention_count >= effective_threshold:
+                # Would have fired under the old rule; saturation held it back.
+                # Recorded, never silent — see _saturation_suppressed below.
+                saturation_suppressed = True
+            if mention_count < effective_threshold:
                 # Fire — this USE match is not surrounded by heavy
                 # meta-discussion. Confidence = 1.0 minus fraction of
                 # threshold consumed by mentions.
                 conf = 1.0 - (mention_count / max(1, _SUPPRESSOR_THRESHOLD))
                 if conf > best_fire_confidence:
                     best_fire_confidence = conf
+                    deciding_mention_hits = mention_count
 
         if best_fire_confidence > 0.0:
             return SelfAdmissionVerdict(
@@ -225,8 +298,14 @@ class SelfAdmissionDetector:
                 mention_hits=max_mention_hits,
                 reason=(
                     f"USE clause matched ({len(use_matches)} hits); "
-                    f"MENTION suppressors within window ({max_mention_hits}) "
-                    f"below threshold ({_SUPPRESSOR_THRESHOLD})"
+                    f"the deciding clause had {deciding_mention_hits} MENTION "
+                    f"suppressor(s) in its window, below threshold "
+                    f"({effective_threshold})"
+                    + (
+                        f" [other clauses had up to {max_mention_hits}]"
+                        if max_mention_hits != deciding_mention_hits
+                        else ""
+                    )
                 ),
             )
         else:
@@ -235,10 +314,21 @@ class SelfAdmissionDetector:
                 confidence=0.0,
                 use_matches=use_matches,
                 mention_hits=max_mention_hits,
+                saturation_suppressed=saturation_suppressed,
                 reason=(
                     f"USE clause matched ({len(use_matches)} hits) but "
                     f"MENTION suppressors dominate every window "
-                    f"({max_mention_hits} >= {_SUPPRESSOR_THRESHOLD})"
+                    f"(the LEAST-suppressed had {min_mention_hits}, "
+                    f">= threshold {effective_threshold})"
+                    + (
+                        f" | SATURATION-SUPPRESSED: the whole reply reads as "
+                        f"meta-discussion ({meta_ratio:.1f} mention-hits per USE "
+                        f"clause); this fire was held back by the document-level "
+                        f"rule, not by the local windows. On the record because a "
+                        f"density threshold on my own output is gameable."
+                        if saturation_suppressed
+                        else ""
+                    )
                 ),
             )
 

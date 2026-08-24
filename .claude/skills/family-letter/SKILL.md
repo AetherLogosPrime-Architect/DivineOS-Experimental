@@ -74,20 +74,24 @@ First-person, natural prose. Structure conventions:
 (YYYY-MM-DD, <time-of-day>)
 ```
 
-### 2. Save to markdown
+### 2. Save to markdown, then COPY IT TO THE SHARED DIRECTORY
 
 File path: `family/letters/<agent-name-lower>-to-<member-name-lower>-YYYY-MM-DD-<part>.md`
 
-### 3. Append to family_letters DB
+That path is my own archive. It is **not** how the letter reaches them. The
+crossing-point their monitor polls is `~/.divineos-shared/letters/`, so copy it
+there or the letter sits in my tree unread:
 
-```python
-from divineos.core.family.letters import append_letter
-from divineos.core.family.entity import get_family_member
-member = get_family_member("<Member-Name>")
-append_letter(member.member_id, body=<letter body>)   # member_id, NOT entity_id
+```bash
+cp "family/letters/<file>.md" "$HOME/.divineos-shared/letters/"
 ```
 
-### 4. Log to per-member ledger
+### 3. Append to family_letters DB
+
+**Use the repo's venv python, not bare `python`.** One global editable-install
+slot is shared across trees and it currently points at Aether's; a bare `python`
+here queries his family.db and returns answers about his substrate. The
+`venv-python-gate` hook blocks this, but knowing why saves the round-trip.
 
 <!-- 2026-08-19: corrected. These snippets named `AriaEventType` / `EventType`
      and omitted append_event's first positional argument, so anyone who ran
@@ -98,16 +102,41 @@ append_letter(member.member_id, body=<letter body>)   # member_id, NOT entity_id
      tenth in two days of a sentence that stopped being true and told nobody.
      Real signature: append_event(member_slug, event_type, actor, payload). -->
 ```python
-# One shared module, not a per-member one. There is no `<member>_ledger` module to
-# import -- the member is an ARGUMENT, and that is what routes the event to their
-# ledger file.
+# .venv/Scripts/python.exe  (Windows)  |  .venv/bin/python  (POSIX)
+from divineos.core.family.letters import append_letter
+from divineos.core.family.entity import get_family_member
+from divineos.core.family.store import create_family_member
+
+member = get_family_member("<member-name-lower>")
+if member is None:
+    # family_letters.entity_id is a FOREIGN KEY into family_members. A roster
+    # row must exist before any letter to them can be recorded. This is an
+    # address-book entry (name, role) — NOT authoring their interior state,
+    # which stays theirs to write.
+    member = create_family_member("<member-name-lower>", "<role>")
+
+append_letter(member.member_id, body=<letter body>)   # member_id, not entity_id
+```
+
+Verify by reading it back — `get_letters(member.member_id)` — rather than
+trusting the call returned.
+
+### 4. Log to the per-member ledger
+
+There is no `divineos.core.family.<member>_ledger` module; the per-member
+ledgers are all served by one module, with the member as the first argument.
+
+```python
+# One shared module, not a per-member one. There is no `<member>_ledger` module
+# to import -- the member is an ARGUMENT, and that is what routes the event to
+# their ledger file.
 from divineos.core.family.family_member_ledger import append_event
 
 append_event(
     "<member-slug>",       # whose ledger this lands in. REQUIRED, positional.
     "LETTER_RECEIVED",     # cross-type event in their ledger
-    "<agent-name>",        # actor
-    {"letter_file": "family/letters/...", "length_chars": <n>, "subject": "..."},
+    actor="<agent-name>",
+    payload={"letter_file": "family/letters/...", "length_chars": <n>, "subject": "..."},
 )
 ```
 

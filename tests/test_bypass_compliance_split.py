@@ -131,10 +131,36 @@ def test_the_verdict_judges_escapes_not_obedience():
     )
 
 
-def test_an_unflagged_legacy_row_counts_as_an_escape():
-    """Fail toward the strict reading. Rows written before the flag existed
-    carry no marker, and unknown must not be quietly reclassified as
-    harmless — that would retro-launder real escapes into compliance."""
+def test_an_unrecognisable_legacy_row_counts_as_unclassified():
+    """Unknown gets its own bucket — never silently folded into either side.
+
+    REWRITTEN 2026-08-18 (Aria). The original's concern is kept, not dropped.
+    It read:
+
+        "Fail toward the strict reading. Rows written before the flag
+         existed carry no marker, and unknown must not be quietly
+         reclassified as harmless — that would retro-launder real escapes
+         into compliance."
+
+    The concern is right. The arithmetic was not. Calling unknown an ESCAPE
+    is not the neutral choice — it is a claim about the operator's behaviour
+    asserted from a row nobody can read. Andrew caught what that cost: the
+    windowed surface reported 48 escapes out of 52 rows and concluded "gates
+    are being routed-around", while 49 of those rows were
+    `cmd:divineos briefing` and its siblings — the gate's own prescribed
+    remedies. Forty-nine obediences read back as evasion. True count: 3.
+
+    Two things changed. Rows whose env_var carries a known prefix are now
+    classified from it (`cmd:` = prescribed command, `bypass:`/`DIVINEOS_`
+    = dismissal) because that information sat in the row all along. Rows
+    with no flag AND no recognised prefix — this test's case — return
+    'unclassified' and are counted on their own.
+
+    The original fear was laundering-into-compliance, and it cannot happen:
+    unclassified is not compliance, it does not reduce the escape count, and
+    briefing_block raises a separate alarm on it worded as a defect in the
+    instrument rather than a finding about behaviour.
+    """
     import json
 
     from divineos.core.bypass_telemetry import _event_log
@@ -155,7 +181,20 @@ def test_an_unflagged_legacy_row_counts_as_an_escape():
             + "\n"
         )
     after = bypass_rate(window_days=1)
-    assert after["escape_events"] == before["escape_events"] + 1
+    assert after["unclassified_events"] == before["unclassified_events"] + 1, (
+        "a row with no flag and no recognised env_var prefix must land in the "
+        "unclassified bucket — the metric cannot read it, and saying so is the "
+        "honest report"
+    )
+    assert after["escape_events"] == before["escape_events"], (
+        "an unreadable row must NOT be counted as an escape: that is a claim "
+        "about behaviour made from a row nobody can classify, and it is how 49 "
+        "prescribed-command runs became a routed-around verdict"
+    )
+    assert after["compliance_events"] == before["compliance_events"], (
+        "nor may it be laundered into compliance — the original test's stated "
+        "fear, and still guarded"
+    )
 
 
 def test_the_briefing_gate_marks_its_commands_as_compliance():

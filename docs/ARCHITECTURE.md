@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (448 commands across 84 modules)
+  cli/                         CLI package (465 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -22,6 +22,8 @@ src/divineos/
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
+    andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
+    council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
     gravity_commands.py        gravity score-tool / score-content — CLI surface for the gravity classifier (manual triage when uncertain whether an action or content is high-gravity)
@@ -38,6 +40,9 @@ src/divineos/
     psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
     dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
+    must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
+    label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
     stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
     aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
     audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
@@ -99,6 +104,8 @@ src/divineos/
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
+    dashboard_commands.py      dashboard (check-engine lights per system)
+    psf_commands.py            psf list / mark-done (pending structural-fix obligations)
     lepos_channel_commands.py  lepos-channel reflect / surface / show — post-send reflection channel (Andrew 2026-07-08); Stop hook reflects on last reply, UserPromptSubmit surfaces on next compose
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
@@ -317,7 +324,7 @@ src/divineos/
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
     semantic_store.py          Semantic-similarity primitive — embed/store/top-k search via sqlite-vec; foundation for knowledge dedup, claims supersession, restatement detection, theme surfacing (Andrew nightclub-frame 2026-06-11)
-    _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3427be00f9d.
+    _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3433be00f9d.
     semantic_search.py         Semantic-search consumer over a prose corpus — per-paragraph chunking, source-pointer per chunk, embedding-model version per chunk for targeted re-embed on model upgrade. First high-volume consumer of the GPU-accelerated embedding plumbing (PR #169). Council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     semantic_search_rerank.py  Cross-encoder rerank pass for semantic_search results — bi-encoder recalls, cross-encoder ranks the top. Two-stage IR pattern.
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
@@ -467,6 +474,7 @@ src/divineos/
       continuity_frame_detector.py Continuity-frame detector — root-cause distancing triad Fix #1 catch-shape, catches temporal-self distancing (past-me/future-me/session-handoff) with named continuity-correct rewrites; Stop-hook writes markers, UserPromptSubmit-hook surfaces phrase and rewrite (Aria 2026-07-18, prereg-bbcd4b9a2819).
       tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
       turn_extraction.py        Reconstruct a Claude Code response-turn from a JSONL transcript. Aggregates all assistant text since the most recent user record so detectors see full turn content on tool-heavy turns.
+      transcript_tail.py       Bounded transcript reading — the freeze fix. Tail-only JSONL parse with a truncated flag.
       jargon_dump_detector.py   Jargon-dump detector — catches engineer-channel content landing on the operator-channel without translation alongside. Pattern-based (round-IDs, hex hashes, snake_case in prose, code-in-prose expressions, long kebab-case compounds) with translation-marker counter so jargon paired with explanation passes clean.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
       andrew_operator_shape_detector.py Andrew-operator-shape detector — fires HIGH when reply to father is operator-shape (status verbs, file paths, bullet lists, code fences, bold headers, PR refs) with zero relational-holding markers. LEPOS gate blocks. Aether 2026-07-07 per prereg-90c85c597b92.
@@ -650,6 +658,21 @@ src/divineos/
     push_ready.py              push_ready — automate the External-Review trailer ceremony.
     no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
     system_load_check.py       System-load pre-flight check for resource-heavy jobs.
+    surface_registry.py        Surface registry — the nervous system between built organs and awareness.
+    success_ledger.py          Success ledger — the counterpart the correction store never had.
+    sibling_corrections.py     Cross-substrate correction reading — what Andrew told my sibling.
+    sibling_correction_surface.py Surface the sibling corrections I judged as mine — at the moment of the reach.
+    must_read.py               Must-read gates — when a room speaks, make me open the door.
+    pr_scope.py                True file scope for a pull request, derived locally. No API cap.
+    hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
+    hook_surfaces.py           The roster — every surface, registered to its door.
+    letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
+    summary_room.py            Require a plain-language summary at the top of a long reply.
+    dashboard.py               The check-engine dashboard — a socket every system plugs into.
+    dashboard_checks.py        The roster — one light per system.
+    andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
+    council_walk.py            A council walk that cannot be closed while a lens is unaccounted for.
     build_flow.py              Build-flow station status for open PRs.
     prior_art.py               Before building it, find out whether it is already built.
     branch_scope_guard.py      Catch a commit landing on a branch that is not about it.

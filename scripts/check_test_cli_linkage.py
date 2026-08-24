@@ -176,8 +176,16 @@ def _scan_painted_doors(repo_root: Path) -> list[tuple[Path, int, str]]:
 
 
 def _registered_commands() -> set[str]:
-    """Return the set of top-level command names registered on the CLI."""
+    """Return the set of top-level command names registered on the CLI.
+
+    The import guard is not decoration. Run under bare python this compared the
+    OTHER checkout's registrations against this checkout's tests and printed
+    "OK: 42 test-referenced commands all register" on every commit — a real
+    check, greenly answering about the wrong repository (2026-08-13).
+    """
     try:
+        import _repo_import  # noqa: F401  -- must precede the divineos import
+
         from divineos.cli import cli
     except ImportError as e:
         print(f"FAIL: could not import divineos.cli: {e}", file=sys.stderr)

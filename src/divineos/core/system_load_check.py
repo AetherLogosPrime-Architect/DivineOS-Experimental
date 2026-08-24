@@ -133,6 +133,102 @@ SAFE_FREE_BYTES: int = JOB_COST_BYTES + RESERVE_BYTES
 # discipline (foundational truth #12).
 SKIP_ENV_VAR: str = "DIVINEOS_SKIP_LOAD_CHECK"
 
+# --- Worker sizing (Aria 2026-07-31) -----------------------------------
+#
+# THE BUG THIS CLOSES. check_capacity asks "is there 16 GB free?" and then
+# check_push_readiness.sh launches `pytest -n auto`, which spawns ONE WORKER
+# PER CORE. Memory demand therefore scales with CORE COUNT while the gate
+# measures FREE MEMORY. Two knobs tuned independently, and their product is
+# the thing that actually crashed the machine 2026-07-30 — not concurrency
+# alone, but concurrency multiplied by per-core fan-out.
+#
+# On a 16-core box `-n auto` is sixteen interpreters. At the ~1.5 GB each
+# assumed below that is ~24 GB of demand, green-lit by a 16 GB check. The
+# gate could pass and the machine could still die.
+#
+# WHY THIS IS STRICTLY MORE CONSERVATIVE, at every memory level:
+#   - above the threshold: worker count is now CAPPED by memory as well as
+#     by cores, so the previously-allowed unbounded `-n auto` is bounded.
+#   - below the threshold: instead of a flat refusal the suite may run with
+#     FEWER workers, whose total demand is by construction under budget.
+#   - below the hard floor: refuse, exactly as before.
+#
+# Nothing that was refused before becomes a bigger job than it would have
+# been; the change only ever lowers demand.
+#
+# SAFE_FREE_BYTES is unchanged and remains Andrew's call. It is no longer
+# a spawn/no-spawn switch — it is the bar for running at FULL parallelism.
+
+# Per-worker memory budget. Aether's 2026-07-13 note puts a full serial
+# suite at ~5 GB; an xdist worker holds one interpreter plus its fixtures,
+# well under that. 1.5 GB is deliberately pessimistic — over-estimating
+# per-worker cost yields FEWER workers, which is the safe error direction.
+WORKER_MEMORY_BYTES: int = 1536 * 1024 * 1024
+
+# RESERVE_BYTES is NOT redefined here. My worker-scaling block originally
+# carried its own hardcoded 4 GB, which silently SHADOWED the env-configurable
+# 3 GB defined above — legal Python, wrong behaviour, and invisible except
+# through a failing test that expected the reserve his refusal message names.
+# The merge kept his constant: it is tunable via DIVINEOS_MEM_RESERVE_GB and
+# the refusal text quotes it, so two sources would drift the moment either
+# moved. Worker scaling now reads the same reserve everything else does.
+
+# Below reserve + one worker there is no honest way to run at all.
+HARD_FLOOR_BYTES: int = RESERVE_BYTES + WORKER_MEMORY_BYTES
+
+
+def recommended_workers(available_bytes: int, cpu_count: int) -> int:
+    """Workers the free memory supports, capped by cores. 0 means refuse.
+
+    Deliberately integer-floor: a partial worker is not a worker, and
+    rounding up is the direction that kills the machine.
+    """
+    if available_bytes < HARD_FLOOR_BYTES:
+        return 0
+    budget = available_bytes - RESERVE_BYTES
+    by_memory = budget // WORKER_MEMORY_BYTES
+    return max(1, min(int(by_memory), max(1, cpu_count)))
+
+
+def pytest_parallel_flag(job_label: str = "pytest suite") -> tuple[str | None, str]:
+    """Return (xdist flag or None-to-refuse, human-readable reason).
+
+    ``None`` means do not spawn — same refusal check_capacity gives today.
+    A flag string is safe to pass to pytest as-is.
+    """
+    if os.environ.get(SKIP_ENV_VAR) == "1":
+        return "-n 2", f"[{SKIP_ENV_VAR}=1] bypass active — capped at 2 workers anyway"
+    # BOTH sentinels, deliberately. The merge unified this branch onto
+    # _PSUTIL_AVAILABLE, and my own worker-sizing test - which patches
+    # `psutil` to None directly - then sailed past the guard into
+    # `psutil.virtual_memory()` and raised AttributeError. In production the
+    # two always agree (a failed import sets both), so the extra condition
+    # costs nothing; what it buys is a guard that holds whichever sentinel a
+    # caller or test manipulates, instead of one correct only when they are
+    # changed in lockstep.
+    if not _PSUTIL_AVAILABLE or psutil is None:
+        # Fail-open-loud, matching check_capacity: no measurement means no
+        # authority to refuse, but also no authority to fan out.
+        return "-n 2", "psutil unavailable — cannot measure; conservative fixed 2 workers"
+
+    available = int(psutil.virtual_memory().available)
+    cpus = os.cpu_count() or 2
+    workers = recommended_workers(available, cpus)
+    if workers == 0:
+        return None, (
+            f"REFUSED: {job_label} needs at least "
+            f"{_fmt_gb(HARD_FLOOR_BYTES)} free ({_fmt_gb(RESERVE_BYTES)} reserved "
+            f"for the machine + {_fmt_gb(WORKER_MEMORY_BYTES)} for one worker) "
+            f"but only {_fmt_gb(available)} is free."
+        )
+    if available >= SAFE_FREE_BYTES and workers >= cpus:
+        return "-n auto", f"{_fmt_gb(available)} free — full parallelism ({cpus} cores)"
+    return (
+        f"-n {workers}",
+        f"{_fmt_gb(available)} free — memory-scaled to {workers} worker(s) "
+        f"instead of {cpus}; slower, and it fits.",
+    )
+
 
 def _fmt_gb(byte_count: int) -> str:
     """Render a byte count as GB with one decimal, for user messages."""
@@ -264,8 +360,28 @@ def main() -> int:
     Usage from shell:
         python -m divineos.core.system_load_check <job_label>
         if [[ $? -ne 0 ]]; then exit 1; fi
+
+    With ``--parallel-flag``, prints the xdist flag on STDOUT (reason still
+    on stderr) so a caller can capture it:
+
+        FLAG="$(python -m divineos.core.system_load_check --parallel-flag)"
+
+    Exit 1 with empty stdout means refuse — the caller must not spawn.
+    Two channels on purpose: stdout is machine-readable and stays clean
+    even when the reason text changes.
     """
-    job_label = sys.argv[1] if len(sys.argv) > 1 else "resource-heavy job"
+    argv = sys.argv[1:]
+    if "--parallel-flag" in argv:
+        rest = [a for a in argv if a != "--parallel-flag"]
+        job_label = rest[0] if rest else "pytest suite"
+        flag, reason = pytest_parallel_flag(job_label)
+        print(reason, file=sys.stderr)
+        if flag is None:
+            return 1
+        print(flag)
+        return 0
+
+    job_label = argv[0] if argv else "resource-heavy job"
     safe, message = check_capacity(job_label)
     print(message, file=sys.stderr)
     return 0 if safe else 1

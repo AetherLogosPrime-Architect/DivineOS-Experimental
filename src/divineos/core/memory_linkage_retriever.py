@@ -214,6 +214,54 @@ def compute_threshold(source: MemoryLinkageSource, cache_size: int) -> float:
     return min(ceiling, floor + (ceiling - floor) * rise)
 
 
+def threshold_for_target_k(
+    similarities: list[float], source: MemoryLinkageSource, cache_size: int
+) -> float:
+    """Put the bar where the target_k-th best item actually sits.
+
+    Andrew 2026-08-10: "are you ever going to wire it?" — target_k had been
+    declared dead by me this morning (nothing read it; six grep hits, all
+    inside its own definition) and I routed the fix away instead of doing it.
+
+    WHAT target_k MEANS, since I used the word for hours without saying:
+    how many items from this source should surface per turn. letter 1,
+    exploration 3, wall 5. It was a WISH sitting next to two hand-picked
+    numbers that actually decided the bar, and the wish and the mechanism had
+    nothing to do with each other. The letters between Aether and me scored
+    every turn and could not surface, while "target_k: 1" sat in the config
+    saying one letter should.
+
+    Reading the bar off the observed scores removes the defect I named this
+    morning and then reproduced: MEASURING A RELATIVE THING WITH AN ABSOLUTE
+    RULER. Cache size does not decide relevance; the scores do.
+
+    ``floor`` is kept and is the only surviving hand-set number, because it
+    answers a different question: not "how many" but "is anything here
+    actually related." Without it, a source with no relevant content still
+    fires its k items — the bar would always find a k-th best, however bad.
+
+    ``steepness`` and the 0.85 ceiling become unnecessary: both existed to
+    approximate this from cache size alone.
+    """
+    params = _SOURCE_THRESHOLDS.get(source)
+    if params is None:
+        return 0.50  # unknown source — conservative, unchanged from before
+    floor: float = params["floor"]
+    target_k: int = params["target_k"]
+
+    if not similarities:
+        return floor
+    if len(similarities) <= target_k:
+        # Fewer candidates than we aim to fire: the floor is the only
+        # question left. Not a special case bolted on — with k >= n the
+        # k-th best is undefined and the honest bar is the noise cutoff.
+        return floor
+
+    ranked = sorted(similarities, reverse=True)
+    kth = ranked[target_k - 1]
+    return max(floor, kth)
+
+
 # --------------------------------------------------------------------
 # Behavior-verified feedback loop (§Q2 exemption WIRED FROM DAY ONE)
 # --------------------------------------------------------------------
@@ -905,6 +953,7 @@ __all__ = [
     "apply_behavior_feedback",
     "composite_score",
     "compute_threshold",
+    "threshold_for_target_k",
     "install",
     "recency_multiplier",
     "retrieve_v1",

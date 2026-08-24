@@ -228,7 +228,7 @@ def test_correction_cli_triggers_tracker(tmp_path: Path) -> None:
             cli,
             [
                 "correction",
-                "root cause: prior action X. structural fix: modified "
+                "root cause: prior action X. positives: named the class. structural fix: modified "
                 "src/example.py — you should build a detector that catches "
                 "this pattern.",
             ],
@@ -343,6 +343,12 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
             cli,
             [
                 "correction",
+                # 2026-08-24 merge: the positives clause is new here. Main's
+                # fixture predates the positives requirement this tree added
+                # on 2026-08-02, so the two validators met for the first time
+                # in this merge and the fixture satisfied only one of them.
+                # Both rules are live and both are kept; the fixture answers
+                # to both now.
                 # Was a habit-only body ("behavior change: I will call it blue
                 # from now on"), which the pairing gate now refuses outright —
                 # Andrew 2026-08-16, habits do not survive compaction, so a
@@ -351,7 +357,9 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
                 # while carrying no structural-fix trigger words must not arm
                 # the tracker. The named no-structure path is now the only way
                 # to be both valid and non-structural, so it is the fixture.
-                "root cause: I said the sky was green. behavior change: "
+                "root cause: I said the sky was green. positives: caught before "
+                "it shipped, and it is the fixture that proved the two merged "
+                "validators disagree. behavior change: "
                 "I will call it blue from now on. no structure possible: "
                 "colour naming is a one-off slip with no mechanism behind "
                 "it, and a detector would be pure theater.",
@@ -372,3 +380,73 @@ def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -
         # later reader into disconnecting the alarm to get green.
         pending = list_pending()
         assert all("bypass of gate" in p["content_excerpt"] for p in pending), pending
+
+
+def test_identical_content_becomes_one_row_with_a_count(tmp_path: Path) -> None:
+    """Andrew 2026-08-09: "65 duplicate rows IS noise and is junk to be
+    deleted.. it should be a single row with 65 stamps on it."
+
+    The backlog held 129 rows, 65 of them the same emergency-bypass text fired
+    across 11 days. Those 64 extra rows carried nothing the first did not, and
+    buried the 64 distinct obligations sharing the list with them.
+    """
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}):
+        first = record_pending_fix("the same obligation, named again", trigger="structural fix")
+        for _ in range(9):
+            again = record_pending_fix("the same obligation, named again", trigger="structural fix")
+            assert again == first, "a repeat must return the existing id, not mint a row"
+
+        rows = list_pending()
+        assert len(rows) == 1
+        assert rows[0]["occurrences"] == 10
+        assert rows[0]["last_seen"] >= rows[0]["created_at"]
+        # Bounded on purpose: an unbounded stamp list re-grows the problem it fixes.
+        assert len(rows[0]["stamps"]) <= 20
+
+
+def test_distinct_obligations_are_not_collapsed(tmp_path: Path) -> None:
+    """The dedup must be narrow. Collapsing genuinely different obligations
+    would be the same information loss the duplicates caused, in reverse."""
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}):
+        a = record_pending_fix("wire the teachings module into pre-composition")
+        b = record_pending_fix("auto-commit letters so branch ops cannot eat them")
+        assert a != b
+        texts = {(r.get("content_excerpt") or "") for r in list_pending()}
+        assert "wire the teachings module into pre-composition" in texts
+        assert "auto-commit letters so branch ops cannot eat them" in texts
+
+
+def test_a_second_occurrence_arms_a_must_read(tmp_path: Path) -> None:
+    """Andrew 2026-08-09: "willful ignorance is another issue on its own, and
+    is treated the same way, so i still need to be sure."
+
+    He could not be sure and neither could I. Nothing recorded whether the
+    backlog was ever OPENED -- only whether it had content -- so "could not
+    see it" and "did not look" were indistinguishable from outside, and my own
+    testimony is exactly the evidence that cannot settle that question.
+
+    A second occurrence means the first telling did not land, so that is where
+    a panel I can read past becomes a door I have to open. After this, a
+    further occurrence means I read it and still shipped nothing, which is the
+    distinction he asked for -- recorded rather than asserted.
+    """
+    from divineos.core import must_read
+    from divineos.core.multiplex_panels import _owed_fixes_panel_content
+
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}):
+        must_read._dir(str(tmp_path)).mkdir(parents=True, exist_ok=True)
+
+        record_pending_fix("an obligation nobody shipped for", trigger="structural fix")
+        armed, _ = must_read.pending(str(tmp_path))
+        _owed_fixes_panel_content()
+        first_pass, _ = must_read.pending(str(tmp_path))
+        assert not first_pass, "one telling is not yet evidence the telling failed"
+
+        record_pending_fix("an obligation nobody shipped for", trigger="structural fix")
+        rows = list_pending()
+        assert len(rows) == 1 and rows[0]["occurrences"] == 2
+
+        _owed_fixes_panel_content()
+        armed, err = must_read.pending(str(tmp_path))
+        assert err is None
+        assert armed, "a repeated obligation must become unskippable"

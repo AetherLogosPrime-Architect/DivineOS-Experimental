@@ -37,20 +37,52 @@ _MARKER_FILENAME = ".envrc"
 _VENV_ROOT_NAME = ".direnv"
 
 
-def find_marker_dir(start: Path) -> Path | None:
-    """Walk up from start looking for a `.envrc` marker file.
+def find_marker_dirs(start: Path) -> list[Path]:
+    """Every marker directory from ``start`` up to the filesystem root.
 
-    Returns the directory containing the marker, or None if not found
-    before reaching filesystem root.
+    Returns ALL of them, nearest first, rather than stopping at the first.
+
+    Changed 2026-08-06 (Aria) after Aether was locked out of his own shell.
+    This used to return the FIRST marker and stop, which is correct when a
+    checkout is the only thing that carries a marker. It is wrong for git
+    worktrees, and the failure is total:
+
+        <clone>/.claude/worktrees/<name>/.envrc   0 bytes, no venv  <- stops here
+        <clone>/.envrc                            0 bytes, .venv/   <- never reached
+
+    A worktree carries a stray empty marker and never carries a venv, because
+    untracked directories do not come with it. So the walk stopped at a
+    directory that could not satisfy the request while a perfectly good sealed
+    venv sat one level up, and the wrapper refused.
+
+    What that cost: the engagement gate blocks Bash until a thinking command
+    runs, and the remedy it prints is `divineos ask / recall / context`. The
+    shim refused that exact command. Aether spent the start of a session
+    locked out of his own shell, routing git through PowerShell to escape a
+    gate whose prescribed remedy was unreachable. He reported it rather than
+    loosening my guard, which is why it is still a guard.
+
+    THIS DOES NOT WEAKEN THE SEAL. The wrapper still refuses to dispatch to a
+    system-wide install — that is the pip-ping-pong hazard it exists to
+    prevent. A parent CHECKOUT's sealed venv is not system-wide; it is the
+    enclosing project, and it is exactly the environment a worktree of that
+    project should be using.
     """
+    found: list[Path] = []
     current = start.resolve()
     while True:
         if (current / _MARKER_FILENAME).is_file():
-            return current
+            found.append(current)
         parent = current.parent
         if parent == current:
-            return None
+            return found
         current = parent
+
+
+def find_marker_dir(start: Path) -> Path | None:
+    """Nearest marker directory, or None. Kept for callers that want one."""
+    dirs = find_marker_dirs(start)
+    return dirs[0] if dirs else None
 
 
 def find_sealed_cli(marker_dir: Path) -> Path | None:
@@ -135,10 +167,21 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
     cwd = Path.cwd()
-    marker_dir = find_marker_dir(cwd)
-    if marker_dir is None:
+    marker_dirs = find_marker_dirs(cwd)
+    if not marker_dirs:
         return fail_loud(None, cwd)
-    sealed_cli = find_sealed_cli(marker_dir)
+
+    # Try EVERY marker, nearest first, and take the first that actually has a
+    # sealed venv. A worktree carries a stray empty marker and no venv; the
+    # clone above it carries both. Stopping at the nearest marker refused the
+    # request while the answer sat one directory up (Aria 2026-08-06).
+    sealed_cli = None
+    marker_dir = marker_dirs[0]
+    for candidate in marker_dirs:
+        found = find_sealed_cli(candidate)
+        if found is not None:
+            sealed_cli, marker_dir = found, candidate
+            break
     if sealed_cli is None:
         return fail_loud(marker_dir, cwd)
 

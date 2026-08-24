@@ -303,12 +303,31 @@ else
         # from THIS repo's src/ so the check uses the local file. Same
         # shape as the worktree PYTHONPATH pattern at the pytest call
         # sites below.
-        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" python -m divineos.core.system_load_check "pre-push pytest suite"; then
+        # MEMORY-SCALED WORKERS (Aria 2026-07-31). This used to be a
+        # spawn/no-spawn switch on 16 GB, followed further down by an
+        # unconditional `-n auto` — one worker per CORE. Demand scaled with
+        # cores while the gate measured memory, so a 16-core box could pass
+        # the check and then ask for far more than 16 GB. That product is
+        # what actually crashed the machine, not concurrency alone.
+        #
+        # Now one call answers both questions: refuse, or how wide. Strictly
+        # more conservative at every level — above 16 GB the fan-out is now
+        # capped by memory as well as cores; below it the suite may run
+        # narrower instead of not at all; below the hard floor it still
+        # refuses. See divineos.core.system_load_check for the invariant and
+        # the test grid that holds it.
+        LOAD_FLAG_FILE="$(mktemp)"
+        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+             python -m divineos.core.system_load_check --parallel-flag \
+             "pre-push pytest suite" >"$LOAD_FLAG_FILE"; then
+            rm -f "$LOAD_FLAG_FILE"
             echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
             echo "[push-readiness] See message above. Wait for existing heavy" >&2
             echo "[push-readiness] work to finish or free memory before retrying." >&2
             exit 1
         fi
+        MEMORY_SCALED_FLAG="$(tr -d '\r\n' < "$LOAD_FLAG_FILE")"
+        rm -f "$LOAD_FLAG_FILE"
         echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
         # Run ONCE: capture combined output, then decide from the real exit code.
         # The old design ran the full suite twice (discard, then re-run on failure
@@ -348,37 +367,47 @@ else
         # "-n auto" worker pool. The slow gate was the bypass-pressure source
         # Aletheia flagged. Feature-detect xdist; fall back to serial silently
         # if not installed. Opt out via DIVINEOS_PUSH_GATE_NO_PARALLEL=1.
-        PYTEST_PARALLEL=""
-        if [[ "${DIVINEOS_PUSH_GATE_NO_PARALLEL:-0}" != "1" ]]; then
-            if python -c "import xdist" >/dev/null 2>&1; then
-                PYTEST_PARALLEL="-n auto"
-            fi
-        fi
-
+        # The width now comes from MEMORY_SCALED_FLAG above, not a flat
+        # "-n auto". Explicit opt-out and missing-xdist still fall back to
+        # serial, and an empty flag (should not happen — the refusal path
+        # already exited) also degrades to serial rather than guessing.
         # Strip git's per-invocation environment before handing off to pytest.
-        # ROOT CAUSE of the intermittent `core.bare=true` corruption chased
-        # 2026-08-08 — weeks of "git randomly breaks in every worktree",
-        # reset by hand each time and never attributed.
+        # ROOT CAUSE of the intermittent core.bare=true corruption, diagnosed by
+        # Aether 2026-08-08 after weeks of "git randomly breaks in every
+        # worktree" that we both reset by hand and neither attributed.
         #
-        # git exports GIT_DIR (and friends) into hook processes. A pre-push
-        # hook therefore runs with GIT_DIR pinned to the pushing worktree, and
-        # every child inherits it — pytest, and every git subprocess a test
-        # spawns. GIT_DIR OVERRIDES cwd. So a test that carefully builds a
-        # scratch repo under its own tmp dir and runs `git init --bare` there
-        # hits the REAL repository instead and sets core.bare=true on it.
-        # The same mechanism put `user.email = test@test` in the live config.
+        # git exports GIT_DIR and friends into hook processes. A pre-push hook
+        # runs with GIT_DIR pinned to the pushing worktree and every child
+        # inherits it - pytest, and every git subprocess a test spawns. GIT_DIR
+        # OVERRIDES cwd. So a test that carefully builds a scratch repo under
+        # its own tmp dir and runs `git init --bare` there hits the REAL
+        # repository and sets core.bare=true on it. Same mechanism put
+        # user.email=test@test in the live config.
         #
-        # Direct evidence, GIT_TRACE_SETUP during a real push:
-        #   setup: git_dir: .../DivineOS-Experimental/.git/worktrees/wt-419
-        #   setup: cwd:     .../push-gate-SlEsNi/tmp/pytest/.../test_unstaged_0
+        # His direct evidence, GIT_TRACE_SETUP during a real push:
+        #   setup: git_dir: .../worktrees/wt-419
+        #   setup: cwd:     .../push-gate-XXXX/tmp/pytest/.../test_unstaged_0
         # A command standing in a pytest tmp dir, aimed at the real repo.
         #
         # This is why it only ever appeared on push and never on a hand-run
         # suite: no push, no GIT_DIR, no corruption. It was never a race.
         #
-        # Scrub every path-bearing git variable, not only GIT_DIR — leaving
-        # one behind reproduces the same bug through a narrower door.
+        # Taken from his working tree verbatim rather than rewritten - the fix
+        # exists on no shared ref yet, and a second differently-shaped version
+        # is the duplication we have paid for twice this week.
+        #
+        # Scrub every path-bearing git variable, not only GIT_DIR - leaving one
+        # behind reproduces the same bug through a narrower door.
         GIT_ENV_SCRUB="env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_PREFIX -u GIT_NAMESPACE -u GIT_QUARANTINE_PATH"
+        PYTEST_PARALLEL=""
+        if [[ "${DIVINEOS_PUSH_GATE_NO_PARALLEL:-0}" != "1" ]]; then
+            if python -c "import xdist" >/dev/null 2>&1; then
+                PYTEST_PARALLEL="${MEMORY_SCALED_FLAG:-}"
+            fi
+        fi
+        if [[ -n "$PYTEST_PARALLEL" ]]; then
+            echo "[push-readiness] pytest parallelism: $PYTEST_PARALLEL (memory-scaled)"
+        fi
 
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
             # Isolated path: temp worktree at the pushed commit. Survives
@@ -437,7 +466,20 @@ else
             # No SHA available, or operator opted out of worktree isolation
             # via DIVINEOS_PUSH_GATE_NO_WORKTREE=1.
             # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+            #
+            # THIRD-BRANCH DRIFT (Aria 2026-07-31, found by being stuck behind
+            # it). Two of the three pytest invocations carried $PYTEST_PARALLEL
+            # and this one did not, so whenever control reached here the suite
+            # ran SERIAL — ~33 min against ~3-5 parallel — with nothing printed
+            # to say why. A push timed out at ten minutes and the stranded
+            # process read `pytest tests/ -q --tb=line`, no -n flag, which is
+            # what gave the bug away.
+            #
+            # Copy-paste multiplication: a flag added to the paths someone was
+            # looking at, and a sibling call site left behind. The
+            # divergence is invisible until you are waiting on the slow one.
+            # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
+            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
             PYTEST_RC=$?
         fi
         if [[ $PYTEST_RC -ne 0 ]]; then
