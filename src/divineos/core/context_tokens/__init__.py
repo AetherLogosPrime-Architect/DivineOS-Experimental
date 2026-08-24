@@ -37,7 +37,8 @@ something that never wrote a usage record.
 
 Worse: that exact bug, in that exact abandoned transcript, was found
 and fixed on 2026-06-10 (Andrew correction #50) — in
-`scripts/compaction_token_monitor.py`, and nowhere else. One of two
+`scripts/compaction_token_monitor.py` (retired 2026-08-22 with the
+delivery cluster; this resolver outlived its only caller). One of two
 copies was repaired; the other kept lying for sixty-nine days. So the
 resolver lives here now, once, and the monitor imports it.
 

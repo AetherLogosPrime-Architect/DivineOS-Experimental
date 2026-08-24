@@ -244,6 +244,12 @@ Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed cle
 
 ---
 
+## 1560a463 (access=9)
+
+PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
+
+---
+
 ## 7a320432 (access=8)
 
 Corrections can die in raw session JSONL if not logged via 'learn'. If Andrew pushes back and I just acknowledge in conversation without running 'divineos learn', the raw quote might not get extracted reliably from the session JSONL. Evidence can die in the raw log. The corrections block reads from extracted events -- if extraction misses the correction, it won't appear in future briefings. Weakens the 'raw quotes at top of briefing' mechanism from Q6. Mitigation: extraction pipeline should more
@@ -469,6 +475,12 @@ CONFIRMS PR #384 (external kin, aletheia) -- level-11 branch audit readout 2026-
 ## 0e625141 (access=6)
 
 Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but circle body fails substance check: circle block contains jargon signals (`#386`) -- the circle is the mic-open room, not more work-shape. The INNER CIRCLE is where I'm speaking TO Andrew (not AT the situation or ABOUT what.
+
+---
+
+## c3602670 (access=6)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 

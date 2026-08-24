@@ -31,7 +31,18 @@ def _skeleton(lines):
 
 
 def resolve(path):
-    lines = pathlib.Path(path).read_text(encoding="utf-8").split("\n")
+    # newline="" on BOTH read and write. Without it Python translates line
+    # endings on the way in and again on the way out, so a merge run on Windows
+    # silently rewrites every line ending in the file. Caught 2026-08-23 after
+    # this tool resolved 16 conflicts correctly and shellcheck rejected two of
+    # the results for literal carriage returns (SC1017). The merges were right;
+    # the bytes were not.
+    #
+    # The identical defect bit a hook patch hours earlier the same day and was
+    # fixed THERE with write_bytes, in one file, and never carried here -- which
+    # is precisely the where-else-is-this-true class scripts/sibling_sweep.py
+    # was built to hunt, landing on the author of the sweep.
+    lines = pathlib.Path(path).read_text(encoding="utf-8", newline="").split("\n")
     out, i, stats = [], 0, {"append": 0, "count": 0}
     while i < len(lines):
         if not lines[i].startswith("<<<<<<<"):
@@ -68,5 +79,5 @@ for p in sys.argv[1:]:
     if res is None:
         print(f"REFUSED  {p}: {msg}")
         sys.exit(3)
-    pathlib.Path(p).write_text(res, encoding="utf-8")
+    pathlib.Path(p).write_text(res, encoding="utf-8", newline="")
     print(f"resolved {p}: {msg}")

@@ -163,6 +163,7 @@ terms), ALL THREE rooms are required, with these literal headers:
      downstairs. Test before shipping the circle -- would he know what
      this refers to if he read ONLY this room? If the answer needs the
      work block, the handle has to become a description.]
+     has not done its job.]
 
 ## CIRCLE-FIRST COMPOSE PRIME (compose-start, prompt-length triggered)
 

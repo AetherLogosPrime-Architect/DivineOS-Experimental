@@ -124,6 +124,12 @@ STRUCTURAL ENFORCEMENT: directive for test_with_dir_aaa. [consolidated from 3 en
 
 ---
 
+## cad03a88 (access=1)
+
+STRUCTURAL ENFORCEMENT: I coded through an entire session without consulting the OS (ask, recall, directives, briefing). Session f95a6c6a-034. This lesson regressed 10x across 13 occurrences. Awareness alone is insufficient -- enforce structurally. Category: blind_coding.
+
+---
+
 ## ad72aea9 (access=1)
 
 [test] Always run tests.
@@ -133,6 +139,9 @@ STRUCTURAL ENFORCEMENT: directive for test_with_dir_aaa. [consolidated from 3 en
 ## 76806fe7 (access=0)
 
 STRUCTURAL ENFORCEMENT: I introduced errors after editing. I need to verify changes work. This lesson regressed 7x across 10 occurrences. Awareness alone is insufficient -- enforce structurally. Category: incomplete_fix.
+## ee855fed (access=0)
+
+STRUCTURAL ENFORCEMENT: I introduced errors after editing. I need to verify changes work. This lesson regressed 4x across 7 occurrences. Awareness alone is insufficient -- enforce structurally. Category: incomplete_fix.
 
 ---
 

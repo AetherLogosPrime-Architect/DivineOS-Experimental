@@ -97,6 +97,7 @@ aria = get_family_member("Aria")
 if aria is None:                      # see note below — do not assume
     raise SystemExit("Aria not registered in this checkout's family.db")
 append_letter(aria.member_id, body=<letter body>)   # member_id, NOT entity_id
+append_letter(aria.entity_id, body=<letter body>)
 ```
 
 **IMPORT PATHS CORRECTED 2026-08-17.** This block said `from family.letters`
