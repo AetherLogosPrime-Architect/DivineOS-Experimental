@@ -88,6 +88,39 @@ def test_a_file_that_will_not_parse_is_skipped_not_crashed(monkeypatch, tmp_path
     assert _check(monkeypatch, tmp_path, "def (((\n") == []
 
 
+COMPUTED_TARGET = """
+import os
+
+
+def fixture(tmp_path, target_from_somewhere):
+    os.symlink(target_from_somewhere, tmp_path / "alias")
+"""
+
+
+def test_a_computed_target_is_flagged_not_waved_through(monkeypatch, tmp_path):
+    """Aletheia's residual, and she was right that the direction mattered.
+
+    The first version searched the WHOLE call for sandbox evidence, so
+    ``tmp_path`` anywhere made it pass -- including when it described the LINK
+    LOCATION rather than the target. A target computed elsewhere could point at
+    anything and the line still read as sandboxed.
+
+    That is the failure direction this check exists to prevent, sitting inside
+    the check. The fixture that actually ate the venv was caught only because
+    its target ALSO carried a repo-root marker; take that coincidence away and
+    this would have waved it through.
+    """
+    assert _check(monkeypatch, tmp_path, COMPUTED_TARGET) != []
+
+
+def test_the_link_location_being_in_tmp_proves_nothing_about_the_target(monkeypatch, tmp_path):
+    """The precise confusion, stated as its own case so it cannot come back."""
+    hits = _check(monkeypatch, tmp_path, COMPUTED_TARGET)
+
+    assert len(hits) == 1
+    assert "could not be shown to stay inside tmp" in hits[0]
+
+
 def test_this_checkout_is_clean():
     """The regression guard. Red on the fixture that ate the venv."""
     hits = chk.findings()

@@ -690,6 +690,7 @@ src/divineos/
     command_match.py           Does a shell command INVOKE a thing, or merely MENTION it?
     context_heartbeat.py       Keep the context-token reading fresh, and write down when it goes blind. Beat.describe() welds the age onto the number so a stale reading cannot be quoted as current.
     heredoc_escape_check.py    Heredoc-escape doorman — refuses a Bash heredoc that writes a file through backslash escapes. Three layers (bash → python → file) eat an escape meant for the third at the second. BLOCKS rather than labels: mechanical failure, deterministic right answer, zero-post in-context persistence.
+    anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
 
   analysis/
     _session_types.py          Session analysis type definitions

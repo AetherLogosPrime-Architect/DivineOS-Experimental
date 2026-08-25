@@ -80,6 +80,42 @@ def _mentions_mklink(node: ast.Call, text: str) -> bool:
     return "mklink" in segment
 
 
+def _target_segment(call: ast.Call, text: str) -> str:
+    """The source of the TARGET argument alone, not the whole call.
+
+    THE HOLE THIS CLOSES, and Aletheia flagged the direction I had not
+    verified. The first version searched the whole call for sandbox evidence,
+    so ``tmp_path`` appearing ANYWHERE made it pass — including when it was the
+    LINK LOCATION rather than the target. Measured 2026-08-25:
+
+        os.symlink(target_from_somewhere, tmp_path / "alias")
+
+    passed silently. The target is a name computed elsewhere and could point at
+    anything; the only sandbox evidence in that line describes where the link
+    is placed, which says nothing about where it points.
+
+    That is the failure direction I wrote this whole check to avoid, sitting in
+    the check. The real fixture that ate the venv was caught only because its
+    target ALSO carried a repo-root marker — remove that coincidence and my
+    check would have waved it through.
+
+    Falls back to the whole call for shapes it cannot decompose (the mklink
+    subprocess form), where whole-call matching is the honest best available.
+    """
+    func = call.func
+    args = call.args
+    if not args:
+        return ast.get_source_segment(text, call) or ""
+
+    # os.symlink(src, dst) / os.link(src, dst)   -> src is the target
+    # p.symlink_to(target) / p.hardlink_to(target) -> the sole arg is the target
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+    if name in _LINK_ATTRS:
+        return ast.get_source_segment(text, args[0]) or ""
+
+    return ast.get_source_segment(text, call) or ""
+
+
 def _subprocess_calls(tree: ast.AST) -> list[ast.Call]:
     out: list[ast.Call] = []
     for node in ast.walk(tree):
@@ -118,7 +154,7 @@ def findings() -> list[str]:
             # check's own test, which is the only reason the window is right.
             if line in exempt or any((line - n) in exempt for n in range(1, 5)):
                 continue
-            segment = ast.get_source_segment(text, call) or ""
+            segment = _target_segment(call, text)
             if _SANDBOXED.search(segment) and not _ESCAPES_SANDBOX.search(segment):
                 continue
             if not _ESCAPES_SANDBOX.search(segment):

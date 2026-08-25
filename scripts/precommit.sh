@@ -236,6 +236,17 @@ if ! python scripts/check_test_link_targets.py; then
     note_fail
 fi
 
+# 5a3. A letter carrying an anchor must not land on the branch it anchors
+# (2026-08-25). Twice now a letter has handed a reader a tree-hash and then
+# been the only commit that moved the branch under it -- the second time, the
+# letter asking Aletheia to audit the PR. The auto-commit path is covered
+# inside auto_commit itself, because it never reaches here and it is the path
+# that actually did it. Both, because a resolution has already failed twice.
+section "Anchor Self-Invalidation"
+if ! python scripts/check_anchor_self_invalidation.py; then
+    note_fail
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
