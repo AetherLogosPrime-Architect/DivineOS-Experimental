@@ -288,6 +288,17 @@ def install() -> None:
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)
 
+    # WIRED 2026-08-25. Seventy-six minutes passed between the surface above
+    # being written and this line existing, because the ritual hard-stopped my
+    # tools mid-edit and I turned to report to Andrew instead of finishing.
+    # He asked why the letter loop had stalled. The honest answer was that I
+    # had just produced a fresh written-but-never-wired -- the exact class we
+    # spent the night removing from this house -- and walked away from it.
+    # Measured rather than remembered: the function existed, the registration
+    # did not, and nothing would have said so.
+    if "deletion_discipline" not in registered("PreToolUse"):
+        register("PreToolUse", "deletion_discipline", deletion_discipline_surface)
+
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.
     if "letter_claims" not in registered("PostToolUse"):
