@@ -226,6 +226,53 @@ def _scan_callers(functions: list[NewFunction]) -> None:
                 _scan_file(hook_file, by_name, is_test=False)
 
 
+def _docstring_lines(text: str, suffix: str) -> set[int]:
+    """Line numbers this Python source spends inside a DOCSTRING.
+
+    Docstrings only -- not every string literal, and the narrowness is the
+    whole design. ``scripts/check_silent_swallow.py`` carries a same-named
+    helper that excludes ALL string literals, and the two are deliberately
+    different rather than drifted: there, a swallow pattern appearing in any
+    string is prose and the cost of over-excluding is a missed warning anyone
+    can still see. Here, over-excluding would blind the scanner to a genuine
+    call made through a string -- ``subprocess.run(["python", "-c",
+    "render_block()"])`` is a real caller -- and this detector's failure
+    direction is silence. So: docstrings, which are never call sites, and
+    nothing else.
+
+    Kept as a second copy rather than extracted. Two copies is inside the
+    house rule (extract at three), and a shared helper across two files in
+    scripts/ needs an import path -- the failure class that had
+    tests/_archive/conftest.py shadowing the live conftest by name. Extract
+    on the third caller, and make it a real module rather than a sibling
+    import.
+
+    Returns empty for non-Python and for anything that will not parse, so a
+    broken file degrades to scanning every line. That is the noisy direction,
+    chosen on purpose.
+    """
+    if suffix not in (".py", ".pyi"):
+        return set()
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return set()
+
+    covered: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = getattr(node, "body", None)
+        if not body:
+            continue
+        first = body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+            if isinstance(first.value.value, str):
+                end = first.value.end_lineno or first.value.lineno
+                covered.update(range(first.value.lineno, end + 1))
+    return covered
+
+
 def _scan_file(
     py_file: Path,
     by_name: dict[str, list[NewFunction]],
@@ -235,6 +282,15 @@ def _scan_file(
         text = py_file.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
         return
+    # A function NAMED in prose is not a function CALLED. Before this, a
+    # docstring reading "call render_block() when the briefing needs it"
+    # registered as a production caller, and so did a `#` comment in a hook.
+    # In a detector whose job is finding unwired code, that fails toward
+    # SILENCE: the gap disappears instead of being argued with. Found
+    # 2026-08-25 as the fifth instance of the mention-versus-use class in one
+    # session, and the only one of the five whose failure direction was a
+    # false negative.
+    prose = _docstring_lines(text, py_file.suffix.lower())
     rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
     for name, fns in by_name.items():
         # Three call shapes recognized as wiring:
