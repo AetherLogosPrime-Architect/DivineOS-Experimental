@@ -293,9 +293,21 @@ def unseen_letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     Kept as the name every existing caller uses. Thin wrapper over the general
     form -- the behaviour is identical, and nothing that imports this had to
     change for the generalisation to land.
+
+    AND IT NOW ACTUALLY IS ONE. The sentence above was written on 2026-08-25
+    alongside ``unseen_letters_from`` and was false the moment it was written:
+    this function re-implemented the filter instead of calling the general
+    form, so there were two paths free to drift while a docstring promised one.
+    ``_LETTER_RE`` and the pattern the general form builds happen to be
+    identical today, which is exactly why the divergence would have been
+    invisible until the day they were not.
+
+    Found by ``scripts/wiring_gap_phase1.py`` a few hours later, reporting
+    ``unseen_letters_from`` as having zero callers -- a report that instrument
+    could not have produced before it was taught, the same session, to stop
+    counting a function named in prose as a function called.
     """
-    seen = load_seen()
-    return [r for r in letters_from_aria(root) if r["name"] not in seen]
+    return unseen_letters_from("aria", "aether", root)
 
 
 def format_unseen_for_briefing(root: Path | None = None) -> str:

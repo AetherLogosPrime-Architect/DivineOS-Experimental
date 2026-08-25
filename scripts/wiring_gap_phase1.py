@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess
 import sys
@@ -316,9 +317,16 @@ def _scan_file(
         indirect_pattern = re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]")
         multiline_pattern = re.compile(rf"^\s*{re.escape(name)}\s*,\s*$")
         found = False
-        for line in text.splitlines():
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if line_no in prose:
+                continue
             stripped = line.lstrip()
             if stripped.startswith(f"def {name}"):
+                continue
+            # Pure comment lines, in both languages. Hooks are scanned too and
+            # they have no docstrings, so the AST pass above cannot reach them
+            # — a `#` line is the only prose form a .sh file has.
+            if stripped.startswith("#"):
                 continue
             # Skip import lines — they bind a name but aren't a call site.
             # The actual call site (if any) will be picked up elsewhere.
