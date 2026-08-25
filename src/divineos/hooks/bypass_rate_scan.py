@@ -60,7 +60,35 @@ class BypassRateScan(CrossTurnScan):
     information."
     """
 
-    def __init__(self, threshold_events: int = 50, window_days: int = 14) -> None:
+    # THE THRESHOLD MOVED WITH THE FIELD IT MEASURES. (2026-08-25.)
+    #
+    # 50 was calibrated against `total_events`, the lumped count. When the
+    # comparison switched to `escape_events` earlier the same turn, the
+    # threshold did not move with it -- and escapes run about a fifth of
+    # totals here (measured: 70 total, 45 compliance, 15 escapes, 10
+    # unclassified). A gate asking "are escapes >= 50" when escapes are 15
+    # is a gate that never fires. I disarmed a safety check while reporting
+    # that I had repaired it.
+    #
+    # Aria caught this before I did and refused to make the same patch,
+    # filing claim 8628807d instead: "switching the field changes when a
+    # gate fires and that is a calibration change, not a typo." She was
+    # right and I was not. My verification used synthetic numbers -- 99
+    # escapes fires, 3 does not -- which are nowhere near the live 15, so
+    # the check looked rigorous and could not have caught this. That is a
+    # fake-green of my own construction, on the day spent hunting them.
+    #
+    # Derivation, so this is a translation rather than a fresh guess:
+    # 50 lumped x (15 escapes / 70 total) = 10.7 at the observed mix, so 10
+    # preserves roughly the sensitivity 50 had before the field changed. It
+    # sits deliberately above bypass_telemetry's escape-scale threshold of 5,
+    # which drives an INFORMATIONAL surface; a gate that blocks should be
+    # less twitchy than one that narrates.
+    _ESCAPE_THRESHOLD_DEFAULT = 10
+
+    def __init__(
+        self, threshold_events: int = _ESCAPE_THRESHOLD_DEFAULT, window_days: int = 14
+    ) -> None:
         self.gate_name = "bypass_rate_scan"
         self._threshold_events = threshold_events
         self._window_days = window_days

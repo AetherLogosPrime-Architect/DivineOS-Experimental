@@ -132,6 +132,49 @@ class TestThresholdCountsEscapesOnly:
         assert "compliance rows" in result.specific_evidence
 
 
+class TestThresholdMovedWithTheField:
+    """Aria's catch, claim 8628807d, and she was right to refuse the patch.
+
+    Switching the comparison from total_events to escape_events without
+    moving the threshold left a gate asking "are escapes >= 50" when escapes
+    run about a fifth of totals. It could not fire. The repair disarmed the
+    safety check while being reported as a repair.
+
+    The verification that missed it used synthetic numbers -- 99 escapes and
+    3 escapes -- neither anywhere near the live 15. A test whose fixtures sit
+    far from production can be green about nothing, which is the same
+    fake-green species being swept this session, authored by the sweeper.
+    """
+
+    def test_threshold_is_on_the_escape_scale_not_the_lumped_scale(self):
+        gate = BypassRateScan()
+        assert gate._threshold_events == 10, (
+            "threshold must track the field it compares; 50 was calibrated "
+            "against total_events and silently disables the gate on escapes"
+        )
+
+    def test_fires_at_the_observed_live_escape_level(self):
+        """15 escapes is what the window actually held when this was written,
+        and the narrative surface called that rate elevated. A blocking gate
+        that stays silent while its own narrator says 'routed-around' is the
+        two-consumers-disagreeing bug in a new costume."""
+        gate = BypassRateScan()
+        result = gate.scan(
+            {"bypass_stats": _stats(escapes=15, total=70, top_env="DIVINEOS_SKIP_TESTS")}, ""
+        )
+        assert result is not None
+
+    def test_stays_quiet_below_the_informational_surface(self):
+        """bypass_telemetry narrates at 5. A gate that BLOCKS must be less
+        twitchy than one that talks, or it becomes noise and gets bypassed --
+        which is the habituation this gate exists to catch."""
+        gate = BypassRateScan()
+        result = gate.scan(
+            {"bypass_stats": _stats(escapes=4, total=70, top_env="cmd:divineos goal")}, ""
+        )
+        assert result is None
+
+
 class TestMarkerPathUsesTheResolver:
     def test_hook_asks_member_home_instead_of_rebuilding_the_rule(self):
         """Sixth site to rebuild `$HOME/.divineos-$MEMBER` by hand. The
