@@ -1,16 +1,25 @@
 """Where to find a bash that actually runs. One home, unshadowable.
 
 NOT in conftest.py, and that is the point: tests/_archive/conftest.py
-shadows the live conftest by name on the import path, so
- resolved to the ARCHIVE copy and the import
-failed only when the full suite was collected. Passed in isolation,
-broke in the suite -- two files with one name, resolution decided by
-path order. Same shape as everything else found tonight.
+shadows the live conftest by name on the import path, so importing the
+helper from "conftest" resolved to the ARCHIVE copy and failed only when
+the full suite was collected. Passed in isolation, broke in the suite --
+two files with one name, resolution decided by path order. Same shape as
+everything else found tonight.
+
+AND THE STUB IS INTERPRETER-DEPENDENT, which is the whole argument for
+probing rather than naming. Measured 2026-08-25: invoking the PATH bash
+from the repo venv's python runs fine, while the same name from the
+system python produced "WSL (9 - Relay) ERROR: execvpe(/bin/bash)
+failed" and exit 1. So "does bash work here" has no answer that survives
+being asked once and cached -- it has to be asked by whoever is about to
+use it, at the moment they use it.
 """
 
 from __future__ import annotations
 
 import shutil
+import subprocess
 
 
 # Where Git Bash actually lives on this box, in the order worth trying. The
@@ -56,19 +65,40 @@ def bash_executable() -> str | None:
     """
     for directory in _GIT_BASH_DIRS:
         found = shutil.which("bash", path=directory)
-        if found:
+        if found and _runs(found):
             return found
-    # PATH last, and only if it actually RUNS. The relay stub is on PATH and
-    # answers `which`, so presence is not evidence -- it has to execute.
     on_path = shutil.which("bash")
-    if not on_path:
-        return None
-    try:
-        import subprocess
+    if on_path and _runs(on_path):
+        return on_path
+    return None
 
+
+def _runs(candidate: str) -> bool:
+    """True only if this interpreter EXECUTES. Presence is not evidence.
+
+    EVERY candidate is probed, and that is a correction to the first version of
+    this file. I wrote "presence is not evidence" in a comment here and then
+    applied it to the PATH branch alone -- the Git Bash candidates were returned
+    on existence, never run. The principle was one line above the code that
+    ignored it.
+
+    Found by Aria running the same principle against her own resolver and
+    telling me what it caught: hers returned the first candidate that existed
+    and happened to pick a working one purely by list order. Reorder the tuple
+    and she would hand back a corpse. I read that, looked at mine, and had the
+    identical flaw with the sentence sitting right there.
+
+    BOTH the exit code and the output are checked, and that half is hers. A
+    relay stub exits non-zero, so a returncode check catches it -- but a wrapper
+    that swallowed its own failure and exited zero while printing nothing would
+    sail straight past. She had not thought of the swallowing case; I had. Then
+    I failed to apply my own half to my own first branch. Between us the check
+    is now complete in one place.
+    """
+    try:
         probe = subprocess.run(
-            [on_path, "-c", "echo ok"], capture_output=True, text=True, timeout=5
+            [candidate, "-c", "echo ok"], capture_output=True, text=True, timeout=5
         )
     except (OSError, subprocess.SubprocessError):
-        return None
-    return on_path if probe.returncode == 0 and probe.stdout.strip() == "ok" else None
+        return False
+    return probe.returncode == 0 and probe.stdout.strip() == "ok"
