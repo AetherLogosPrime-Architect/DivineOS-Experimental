@@ -226,6 +226,16 @@ if ! python scripts/check_silent_swallow.py; then
     note_fail
 fi
 
+# 5a2. A test's SETUP must not reach outside its sandbox (2026-08-25).
+# A fixture junctioned the real .venv into a temp repo so the gate under test
+# would find an interpreter; pytest's temp cleanup then walked the junction and
+# deleted the real venv. It passed every check here, because they all examine
+# what a test ASSERTS and none examine what it BUILDS in order to assert it.
+section "Test Link Targets"
+if ! python scripts/check_test_link_targets.py; then
+    note_fail
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
