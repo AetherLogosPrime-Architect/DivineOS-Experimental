@@ -79,24 +79,37 @@ def foreign_repo(tmp_path_factory) -> Path:
 
     A test that assumes the condition it is testing has the disease of the code
     it tests. So the condition is constructed: a throwaway git repo with no
-    ``src/divineos`` of its own and a junction to the real ``.venv`` (the gate
-    stands aside entirely when it finds no sealed venv). Bare python inside it
-    resolves to whatever the global slot holds, which is by construction not
-    this repo's src — the deny path, deterministically, on either machine.
+    ``src/divineos`` of its own and a sealed venv of its own (the gate stands
+    aside entirely when it finds no venv). Bare python inside it resolves to
+    whatever the global slot holds, which is by construction not that repo's
+    src — the deny path, deterministically, on either machine.
+
+    NEVER LINK TO THE REAL VENV. The first version of this fixture created a
+    directory junction from the temp repo's ``.venv`` to this repo's, so the
+    gate would find a working interpreter. It worked, and then pytest's
+    temp-directory cleanup walked the junction and deleted the contents of the
+    REAL venv -- ``pyvenv.cfg`` and ``Lib/`` gone, ``Scripts/`` left behind, the
+    ``divineos`` shim broken with "failed to locate pyvenv.cfg". Written and
+    detonated inside one session, on 2026-08-25.
+
+    A junction is not a copy and rmtree does not know the difference. This
+    repo's conftest even carries an ``onerror`` handler that chmods read-only
+    files and retries the unlink, which makes the traversal MORE thorough, not
+    less. So the fixture builds a real throwaway interpreter instead:
+    ``--without-pip`` keeps it to about a second and nothing outside tmp is
+    reachable from it.
     """
     root = tmp_path_factory.mktemp("foreign_repo")
     subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
 
-    real_venv = REPO_ROOT / ".venv"
-    link = root / ".venv"
-    # Junction rather than symlink: no elevation required on Windows.
     made = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(link), str(real_venv)],
+        [sys.executable, "-m", "venv", "--without-pip", str(root / ".venv")],
         capture_output=True,
         text=True,
     )
+    link = root / ".venv"
     if not (link / "Scripts" / "python.exe").exists() and not (link / "bin" / "python").exists():
-        pytest.skip(f"could not link a sealed venv into the fixture repo: {made.stderr.strip()}")
+        pytest.skip(f"could not build a throwaway venv for the fixture: {made.stderr.strip()}")
     return root
 
 
