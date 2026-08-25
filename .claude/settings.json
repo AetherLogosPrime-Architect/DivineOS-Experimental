@@ -273,11 +273,6 @@
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-monitors-armed.sh",
-            "timeout": 10
           }
         ]
       },

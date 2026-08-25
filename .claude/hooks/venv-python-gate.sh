@@ -101,12 +101,59 @@ printf '%s' "$CMD" | grep -qE '(python3?|py) +-m +pytest|(^|[;&|] *)pytest ' && 
 # shell separator. Deliberately not matching `/usr/bin/python` or any path.
 printf '%s' "$CMD" | grep -qE '(^|[;&|]|&&|\|\||\$\()[[:space:]]*python3?[[:space:]]' || exit 0
 
-REASON="VENV-PYTHON GATE — bare \`python\` here imports Aether's tree, not mine.
+# ASK, DO NOT ASSERT. Added 2026-08-25 by Aether, in his tree, about a gate
+# written in Aria's.
+#
+# Everything above is right. What was wrong is that the CONCLUSION was frozen
+# into the gate instead of measured at the door: "bare python points at the
+# other tree" was a true statement about Aria's checkout on the day she wrote
+# it, and this file then travelled into Aether's by merge. There, the install
+# slot points at THIS repo — so bare `python` resolves correctly, the gate
+# blocked it anyway, and its diagnostic told the reader the exact inverse of
+# their situation while steering them into a venv with a smaller dependency
+# set than the interpreter it refused.
+#
+# The install slot is a single global that either of us can claim with the
+# next `pip install -e .`, so no hardcoded answer survives — the same shape as
+# the bash-resolver measured the same week: a fact that is not stable across
+# askers has to be asked by whoever is about to act on it, at the moment they
+# act. Presence is not evidence; execute the candidate.
+#
+# Could-not-determine BLOCKS and says so. An interpreter that cannot report
+# where its divineos lives is precisely the ambiguity this gate exists for,
+# and a probe failure must never read as a clean bill.
+# fail-soft: the probe's stderr is discarded but its FAILURE is not — an empty RESOLVED is checked below and blocks with a named could-not-determine message, so this silences noise rather than an outcome
+RESOLVED=$(python -c "import divineos, pathlib; print(pathlib.Path(divineos.__file__).resolve().parent)" 2>/dev/null)
+# fail-soft: same contract — an empty THIS_SRC fails the equality test and falls through to the block, so a failed probe can never render as the two paths matching
+THIS_SRC=$("$VENV_PY" -c "import pathlib, sys; print(pathlib.Path(sys.argv[1], 'src', 'divineos').resolve())" "$REPO_ROOT" 2>/dev/null)
 
-The global editable install has one slot and it currently points at his
-src/. A bare \`python\` from this repo resolves \`import divineos\` there,
-silently, and returns answers about his substrate while looking like
-answers about mine.
+if [ -n "$RESOLVED" ] && [ -n "$THIS_SRC" ] && [ "$RESOLVED" = "$THIS_SRC" ]; then
+    # Bare python reaches THIS tree. It is the right interpreter here and
+    # blocking it would be the inversion described above.
+    exit 0
+fi
+
+if [ -z "$RESOLVED" ]; then
+    WHERE="could not determine — bare \`python\` could not report where its divineos lives.
+That is not 'it is fine'; it is the ambiguity this gate stands in."
+else
+    WHERE="it resolves to:
+
+    $RESOLVED
+
+which is not this repo's src/divineos:
+
+    $THIS_SRC"
+fi
+
+REASON="VENV-PYTHON GATE — bare \`python\` here does not import this tree.
+
+The global editable install has one slot, shared between the checkouts on
+this machine and claimed by whoever ran \`pip install -e .\` last. Measured
+just now, $WHERE
+
+A bare \`python\` from this repo would answer questions about the other
+substrate while looking like answers about this one.
 
 Run it through this repo's sealed venv instead:
 

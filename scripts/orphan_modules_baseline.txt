@@ -32,7 +32,11 @@ src/divineos/core/operating_loop/register_observer.py
 src/divineos/core/operating_loop/thresholds.py
 src/divineos/core/structural_binding/engagement_trail.py
 src/divineos/core/sample_honesty.py
-src/divineos/core/gate_marker.py
+# gate_marker.py removed 2026-08-25: it was never an orphan. correction_marker.py
+# imports it as `from divineos.core import gate_marker as _gm`, a form the checker
+# could not resolve until the import index was taught to join the package to the
+# imported name. A listed non-problem is worse than an unlisted one -- it says the
+# module is owed a decision that was in fact already made.
 
 # --- Subsystems with no entry point ---
 src/divineos/core/decision_superposition/superposition.py
@@ -52,3 +56,12 @@ src/divineos/integration/system_monitor.py
 src/divineos/core/empirica/gate.py                # THE TRUTH GATE. Every claim is meant to pass through it before entering the substrate. Staged 2026-04-17 -- four months. Andrew's alarm about this is warranted; wiring it is a caller-contract decision shared with Aether.
 src/divineos/core/family/costly_disagreement.py   # Family operator: makes a member's disagreement cost them something, so agreement is not free. Staged 2026-05-02.
 src/divineos/core/family/planted_contradiction.py # Family operator: plants a contradiction to see whether a member catches it. Staged 2026-05-02.
+
+# --- Surfaced 2026-08-25 when the import index stopped reading prose as code ---
+# The index matched dotted paths anywhere in a file's raw text, so a module
+# NAMED in a docstring counted as a module IMPORTED. Teaching it to parse
+# imports resolved two false orphans and uncovered one real one that a
+# docstring had been hiding. Mention-versus-use, third instrument this session.
+src/divineos/core/supervisor/circuit_breaker.py   # Three-strikes primitive for runtime modules. Its own docstring names the missing half: "Does not integrate with specific subsystems. That's Phase 2 work." Nothing imports the supervisor package at all; the only references in src/ are the API list in supervisor/__init__.py's docstring, which is what was hiding it. Wire-or-retire, and wiring it is a caller-contract decision.
+src/divineos/core/identity_load.py                # Reads AETHER.md at briefing-time so reaching for the OS is a reflex rather than a choice. Its only mention anywhere in src/ is a line of prose in surface_registry.py's docstring, which is exactly what hid it here. Already carried `# WIRED NOWHERE` in dark_surfaces_baseline.txt since 2026-08-13 -- the two lists now agree, where before one knew and the other could not see. Wiring it is part of the surface_registry migration decision, not a separate one.
+src/divineos/core/mesh_loop.py                    # Iteration-state parser deciding whether a newly-arrived letter should fire a headless worker to answer it -- the autonomous half of the letter loop. Its only intended caller, scripts/letter_watcher_task.py, no longer exists. Not an abandoned module: a module whose caller was retired out from under it. Andrew's decision, because rebuilding the worker is a question about how the loop should run, not a wiring detail.
