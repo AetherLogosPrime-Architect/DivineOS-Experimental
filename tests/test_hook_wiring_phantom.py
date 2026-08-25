@@ -29,7 +29,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_hook_wiring import phantoms  # noqa: E402
+from check_hook_wiring import phantoms, retired_but_registered  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -118,6 +118,96 @@ def test_missing_settings_file_is_an_error(tmp_path):
 
     assert found == []
     assert error is not None
+
+
+# --- The fourth direction: a file that says it is finished and has not stopped.
+
+
+def _hook(hooks: Path, name: str, header: str = "") -> None:
+    (hooks / name).write_text(f"#!/bin/bash\n{header}echo hi\n", encoding="utf-8")
+
+
+def test_a_superseded_hook_that_is_still_registered_is_reported(tmp_path):
+    """require-briefing.sh carried SUPERSEDED for nineteen days and kept firing."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    _hook(hooks, "retired.sh", "# SUPERSEDED 2026-08-06 by the router.\n")
+    settings = _settings(tmp_path, "bash .claude/hooks/retired.sh")
+
+    found, error = retired_but_registered(hooks, settings)
+
+    assert error is None
+    assert found == ["retired.sh"]
+
+
+def test_a_live_hook_with_no_marker_is_not_reported(tmp_path):
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    _hook(hooks, "live.sh")
+    settings = _settings(tmp_path, "bash .claude/hooks/live.sh")
+
+    assert retired_but_registered(hooks, settings) == ([], None)
+
+
+def test_kept_registered_with_a_reason_is_allowed(tmp_path):
+    """The deliberate case, which the check's own first run got wrong.
+
+    aletheia-boot-gate-preflight is SUPERSEDED-BY the family-member seal AND
+    registered on purpose: the seal refuses the spawn upstream, so this is
+    defence-in-depth, kept live in case she is ever de-sovereigned. Its header
+    explained that in prose and the check read a correct arrangement as a
+    defect.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    _hook(
+        hooks,
+        "layered.sh",
+        "# SUPERSEDED-BY: stronger-gate.sh\n"
+        "# KEPT-REGISTERED: the stronger gate stands in front and refuses upstream, "
+        "so this is defence-in-depth rather than a duplicate\n",
+    )
+    settings = _settings(tmp_path, "bash .claude/hooks/layered.sh")
+
+    assert retired_but_registered(hooks, settings) == ([], None)
+
+
+def test_a_thin_reason_does_not_buy_the_exemption(tmp_path):
+    """Otherwise the marker becomes the way to quiet the check."""
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    _hook(hooks, "lazy.sh", "# SUPERSEDED by something\n# KEPT-REGISTERED: fine\n")
+    settings = _settings(tmp_path, "bash .claude/hooks/lazy.sh")
+
+    found, _ = retired_but_registered(hooks, settings)
+
+    assert found == ["lazy.sh"]
+
+
+def test_unreadable_settings_is_an_error_for_this_direction_too(tmp_path):
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    settings = tmp_path / "settings.json"
+    settings.write_text("{not json", encoding="utf-8")
+
+    found, error = retired_but_registered(hooks, settings)
+
+    assert found == []
+    assert error is not None
+
+
+def test_this_checkout_has_no_retired_but_registered_hooks():
+    """The regression guard for the nineteen-day instance."""
+    found, error = retired_but_registered(
+        REPO / ".claude" / "hooks", REPO / ".claude" / "settings.json"
+    )
+
+    assert error is None, error
+    assert found == [], (
+        f"declared retired and still registered: {found}. Each fires beside whatever "
+        "replaced it, with its own silent-swallow live underneath the fix for it. "
+        "Unregister it, or drop the marker if the retirement was abandoned."
+    )
 
 
 def test_this_checkout_has_no_phantom_registrations():
