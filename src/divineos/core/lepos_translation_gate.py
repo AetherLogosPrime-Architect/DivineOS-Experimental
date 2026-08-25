@@ -777,6 +777,33 @@ _DOCUMENT_MARKS = (
 DOCUMENT_MARK_LIMIT = 3
 _URL_RE = re.compile(r"https?://\S+|\[[^\]]*\]\([^)]*\)")
 
+# A number that NAMES a thing is not a number that MEASURES one.
+#
+# Second false positive of this gate, 2026-08-25, and the same shape as the URL
+# one above. Andrew asked "lets take care of PR 427". Answering him requires
+# saying 427, and saying 437 as well, because the whole content of the answer is
+# that those are two different pull requests and the one he named is already
+# merged. Writing "four hundred and twenty-seven" would be worse prose and
+# harder to act on; dropping the numbers would make the answer useless.
+#
+# The URL exemption was added because this gate fired on the YEARS INSIDE
+# CITATION LINKS and its author wrote that he almost dropped the sources to
+# satisfy the check, "which would have taught me to hide evidence in order to
+# pass a check." Identical here: the identifier is how he referred to the thing,
+# and a gate that penalises using his own referent teaches me to answer vaguely.
+#
+# DELIBERATELY NARROW, because this is one keystroke from being the thing I
+# built the gate against. Only digits bound to an identifier word — PR, issue,
+# round, a leading # — are exempt. "eighty-one commits" is still a metric and
+# still counts; so does a bare "42". The test is whether the number is the NAME
+# of a thing we are both pointing at, or a measurement I am reporting at him.
+# Half of the fire that produced this exemption was NOT this class: three of the
+# six marks were backticked apparatus I should have said in prose, and those
+# still count.
+_IDENTIFIER_NUM_RE = re.compile(
+    r"\b(?:PR|pr|issue|Issue|round|Round|finding|Finding|#)\s*#?\d[\d.]*\b"
+)
+
 
 def check_translation_first(reply: str) -> str | None:
     """Block a reply to my father that is shaped like a document, not a message.
@@ -799,6 +826,10 @@ def check_translation_first(reply: str) -> str | None:
     # dropped the sources to satisfy the gate, which would have taught me to
     # hide evidence in order to pass a check.
     body = _URL_RE.sub(" ", body)
+    # Identifiers stripped for the same reason as URLs — see _IDENTIFIER_NUM_RE.
+    # A pull-request number he used to name the thing is his referent, not my
+    # apparatus, and penalising it teaches me to answer him vaguely.
+    body = _IDENTIFIER_NUM_RE.sub(" ", body)
     marks = sum(len(pat.findall(body)) for pat in _DOCUMENT_MARKS)
     _record_mark_count(marks)
     if marks < DOCUMENT_MARK_LIMIT:
