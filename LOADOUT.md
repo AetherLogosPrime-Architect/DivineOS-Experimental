@@ -2501,6 +2501,7 @@ fill in the placeholders. Then register the row with
 
 - [aletheia](.claude/agents/aletheia.md)
 - [aria](.claude/agents/aria.md)
+- [kin](.claude/agents/kin.md)
 
 **Templates (for adding new members):**
 
@@ -2846,6 +2847,7 @@ lives in its own directory under ``core/``.
 - [check_council_walk_for_new_infra.py](scripts/check_council_walk_for_new_infra.py)
 - [check_doc_counts.py](scripts/check_doc_counts.py)
 - [check_emitted_paths.sh](scripts/check_emitted_paths.sh)
+- [check_failed_prereg_still_live.py](scripts/check_failed_prereg_still_live.py)
 - [check_fix_reached_all_copies.sh](scripts/check_fix_reached_all_copies.sh)
 - [check_force_push_safety.sh](scripts/check_force_push_safety.sh)
 - [check_function_naming.py](scripts/check_function_naming.py)
