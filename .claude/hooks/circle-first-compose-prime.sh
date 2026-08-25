@@ -57,6 +57,43 @@ rationale is what should be truncated, never this.
   COMPOSE in this order:  circle -> work -> reflection
   PLACE   in this order:  work  -> reflection -> circle
 
+THE WORK BLOCK OPENS WITH A TELLING, NOT WITH APPARATUS.
+Added 2026-08-24 after the translate-first gate measured 113 document-marks
+in one work block against a limit of 3 -- tables, fences, backticked names and
+bare numbers, with no sentence anywhere saying what had happened.
+
+Jargon being ALLOWED in this room is not the same as the room being readable.
+Two instruments disagreed on that turn: the room-mirror scored the work block
+0.85 and called it correct (reports live here), while this gate called it
+unreadable. Both were right about different things. The mirror asks whether
+operator-shape LEAKED into the wrong room; it cannot ask whether Andrew can
+follow the right one.
+
+So: first paragraph of the work block is prose he could picture -- what broke,
+what it cost, what changed. The numbers, paths, and fences come AFTER that, as
+support for a story already told. Never instead of it.
+
+AND THE CAP IS ON THE WHOLE BLOCK, NOT ON ITS OPENING.
+Amended 2026-08-24, one turn after the rule above was written, because the rule
+above caused the next fire. I opened correctly with a telling and then let the
+SECOND half revert to apparatus -- a filename in backticks, a count of tests, a
+count of things found -- and the gate fired again at 12 marks against a limit of
+3. "Apparatus comes AFTER" reads as permission for everything past paragraph one
+to be apparatus. It is not. It means a short tail under a hard cap, and a second
+section is not a tail.
+
+Two sections means two tellings. If the work block has a part about my work and
+a part about Aria's, BOTH are prose he can picture. The story does not end when
+the first subject does.
+
+Andrew 2026-08-11: "the word PLAIN is WRONG.. a peer reviewed journal is
+written in plain language.. i need prose, metaphor, analogy, translation, i
+want to be spoken to like a regular person not a college professor."
+
+TEST: strike every code fence, table, and backtick from the work block. Does
+what remains still say what happened? If not, the apparatus was carrying the
+meaning and the telling was never written.
+
 NOTHING FOLLOWS THE CIRCLE. The circle is the last thing on the page,
 full stop. Citations, Sources lists, source links, appendices, footnotes
 and any other reference apparatus are WORK-block content and belong up
@@ -499,6 +536,31 @@ try:
     terms = recent_jargon_terms(10)
 except Exception:
     terms = []
+try:
+    from divineos.core.lepos_translation_gate import (
+        recent_mark_counts,
+        DOCUMENT_MARK_LIMIT,
+    )
+    counts = recent_mark_counts(5)
+except Exception:
+    counts = []
+    DOCUMENT_MARK_LIMIT = 3
+if counts:
+    # THE NUMBER BEFORE THE WRITING, not after he has already read the reply.
+    # Added 2026-08-24 after three fires running. I answered the first two by
+    # writing a more precise RULE into the prime -- twice -- and fired again
+    # both times. The counts were falling each turn, which says I do respond
+    # to the number; the defect was that it only ever arrived too late to
+    # steer anything. This is the same shape as the terms list below: the
+    # gate feeds the prime instead of a person maintaining a note.
+    trend = " -> ".join(str(c) for c in counts)
+    latest = counts[-1]
+    verdict = "OVER" if latest >= DOCUMENT_MARK_LIMIT else "under"
+    print(f"\nMY LAST WORK BLOCKS, SCORED (limit {DOCUMENT_MARK_LIMIT}): {trend}")
+    print(f"  most recent: {latest} — {verdict} the cap.")
+    print("  Backticked names, bare numbers, tables and fences all count.")
+    print("  A count under the cap is not austerity: it is one telling with")
+    print("  its evidence attached, instead of evidence with no telling.")
 if terms:
     print("\nTERMS THAT ACTUALLY LEAKED INTO THE CIRCLE (newest first,")
     print("recorded by the gate itself — not a list anyone typed):")

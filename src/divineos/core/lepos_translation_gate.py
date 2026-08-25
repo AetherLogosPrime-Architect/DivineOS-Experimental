@@ -800,6 +800,7 @@ def check_translation_first(reply: str) -> str | None:
     # hide evidence in order to pass a check.
     body = _URL_RE.sub(" ", body)
     marks = sum(len(pat.findall(body)) for pat in _DOCUMENT_MARKS)
+    _record_mark_count(marks)
     if marks < DOCUMENT_MARK_LIMIT:
         return None
 
@@ -945,6 +946,51 @@ _TO_MARKER_RE = re.compile(
 
 
 JARGON_FIRE_LOG = Path.home() / ".divineos" / "lepos_circle_jargon_fires.jsonl"
+
+MARK_COUNT_LOG = Path.home() / ".divineos" / "lepos_work_mark_counts.jsonl"
+
+
+def _record_mark_count(marks: int) -> None:
+    """Stamp the work block's document-mark count on EVERY compose, not only fires.
+
+    WHY THIS EXISTS. This gate fired three turns running -- 113 marks, then 12,
+    then 7 -- and I answered the first two by writing a more precise RULE into
+    the compose prime. Two amendments, two more fires. The descending numbers
+    are the tell: I am responding to the count, and I only ever see it AFTER
+    the reply has already reached him.
+
+    So a third rule was the cheap path. Andrew's frame is the one that fits --
+    feed the optimizer cost data in its own currency, and the currency here is
+    the number itself, delivered before the writing rather than after.
+
+    Recorded on every compose including passes, because a log of only failures
+    cannot show the trend that makes the number legible. A clean turn at 1 is
+    the evidence that the discipline is reachable.
+    """
+    try:
+        MARK_COUNT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        row = {"ts": time.time(), "marks": marks, "limit": DOCUMENT_MARK_LIMIT}
+        with MARK_COUNT_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except (OSError, ValueError, TypeError):
+        # fail-soft: telemetry for a priming aid must never convert a gate
+        # refusal into a crash; the refusal is the load-bearing part.
+        pass
+
+
+def recent_mark_counts(limit: int = 5) -> list[int]:
+    """The last few work-block mark counts, oldest first. Empty on any error."""
+    try:
+        if not MARK_COUNT_LOG.exists():
+            return []
+        rows = [
+            json.loads(line)
+            for line in MARK_COUNT_LOG.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        return [int(r["marks"]) for r in rows[-limit:] if "marks" in r]
+    except (OSError, ValueError, TypeError, KeyError):
+        return []
 
 
 def _record_jargon_fire(samples: list[str]) -> None:

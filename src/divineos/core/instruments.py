@@ -110,6 +110,57 @@ KNOWN_INSTRUMENTS: dict[str, str] = {
 SILENT_AFTER_DAYS = 14
 
 
+# Every key this substrate's JSONL surfaces use to stamp a row, in the order
+# worth trying. Seconds and milliseconds both, because both exist here.
+_TIMESTAMP_KEYS: tuple[tuple[str, float], ...] = (
+    ("ts", 1.0),
+    ("cleared_at", 1.0),
+    ("timestamp", 1.0),
+    ("created_at", 1.0),
+    ("time", 1.0),
+    ("recorded_at", 1.0),
+    ("ts_ms", 0.001),
+)
+
+
+def row_timestamp(row: object) -> float | None:
+    """Epoch seconds for one JSONL row, or None if it carries no stamp.
+
+    WHY THIS EXISTS. Twice in one session, 2026-08-24, I hand-rolled a reader
+    over one of these logs, guessed the timestamp key, guessed wrong, and read
+    the empty result as a finding about the world:
+
+      * hook_timing.jsonl stamps ``ts_ms``. I filtered on ``ts``, got zero rows
+        out of 47,028, and was a step away from concluding the timing log had
+        stopped recording.
+      * read_gate_clears.jsonl stamps ``cleared_at``. I filtered on ``ts``, got
+        zero rows in the window, and told Andrew the read gate had delivered a
+        file without logging it -- "a gap in the instrument." There was no gap.
+        The row sat exactly where it belonged, fourteen minutes old.
+
+    The second reached him as a claim about the substrate before I checked it,
+    which is the cost that makes this a function rather than a note to myself.
+
+    The index above computes age from file mtime, so it never needed these keys
+    -- which is precisely why the knowledge lived nowhere and every ad-hoc
+    reader had to invent it. It lives here now.
+
+    A missing stamp returns None, NEVER 0.0. A row read as epoch zero is
+    fifty-six years old and drops silently out of every window, which is the
+    same failure wearing a different mask.
+    """
+    if not isinstance(row, dict):
+        return None
+    for key, scale in _TIMESTAMP_KEYS:
+        if key not in row:
+            continue
+        try:
+            return float(row[key]) * scale
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 @dataclass(frozen=True)
 class Reading:
     """One instrument, as it is right now — not as documented."""

@@ -158,16 +158,6 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-gravity-set.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
-            "timeout": 10
           }
         ]
       },
@@ -282,11 +272,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-rearm-letter-monitor.sh",
             "timeout": 10
           },
           {
@@ -700,16 +685,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/shoggoth-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
           },
           {
