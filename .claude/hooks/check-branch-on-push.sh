@@ -210,6 +210,39 @@ except Exception as e:
     print(f'[check-branch-on-push] BYPASS-RECORDING FAILED — {type(e).__name__}: {e}', file=sys.stderr)
     print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
 " "$REASON"
+
+    # CONSUME THE MARKER. 2026-08-25.
+    #
+    # The comment above says this kill-switch "disable[s] the gate for one
+    # push." Nothing deleted it, so it disabled the gate for every push after
+    # the first. One marker written 2026-08-21 kept the gate off for four days
+    # and fired record_emergency_use on every push in between -- 92 of the 334
+    # rows in the pending-obligations list are that single marker, refiled.
+    # The gate was healthy the whole time; the diagnosis written into the
+    # marker accused a merge-base diff that branch_health has never used.
+    #
+    # A one-push switch that is not consumed is a permanent one, and the only
+    # visible difference is a backlog that grows on a timer. So: move it aside
+    # after use. Re-arming an emergency stretch costs one echo per push, which
+    # is the correct price for a bypass (truth #11) and is what stops a stale
+    # reason from outliving the emergency that justified it.
+    #
+    # Moved rather than deleted -- the reason text is the evidence trail that
+    # emergency_bypass filed a claim against.
+    # The mv error is CAPTURED, not discarded. A failure here means the gate
+    # stays off indefinitely, which is the exact state this block exists to
+    # end -- so the reason it failed is the most useful line on the screen.
+    USED_PATH="${MARKER_PATH}.used"
+    if MV_ERR=$(mv -f "$MARKER_PATH" "$USED_PATH" 2>&1); then
+        echo "[check-branch-on-push] KILL-SWITCH CONSUMED - moved to $(basename "$USED_PATH")" >&2
+        echo "  The gate is LIVE again for the next push." >&2
+        echo "  Re-arm only if the emergency continues, by writing a fresh reason to:" >&2
+        echo "    $MARKER_PATH" >&2
+    else
+        echo "[check-branch-on-push] KILL-SWITCH NOT CONSUMED - mv failed on $MARKER_PATH" >&2
+        echo "  mv said: ${MV_ERR:-(no message)}" >&2
+        echo "  The gate stays DISABLED for every later push until this file is removed by hand." >&2
+    fi
     exit 0
 fi
 
