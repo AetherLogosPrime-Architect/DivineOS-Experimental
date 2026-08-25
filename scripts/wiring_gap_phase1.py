@@ -227,6 +227,45 @@ def _scan_callers(functions: list[NewFunction]) -> None:
                 _scan_file(hook_file, by_name, is_test=False)
 
 
+def _scope_note() -> list[str]:
+    """What this scan cannot see, printed with every report.
+
+    THE DECISION THIS ENCODES, and it was a real fork. Aria audited the scanner
+    on 2026-08-25 and measured the reach: three call shapes recognised out of
+    ten probed. Seven are invisible, and each of the seven makes a real caller
+    disappear -- so the scan reports a wiring gap that is not one. Properties
+    are the largest: 50 defined, 228 attribute accesses whose name matches one,
+    and a property is read without parentheses so a scan looking for ``name(``
+    cannot see it. (Her bound, kept: the parse confirms the attribute NAME, not
+    that it resolves to that property. It is an upper bound.)
+
+    The obvious fix is to also match a bare attribute access. That trades these
+    false positives for FALSE NEGATIVES -- every attribute sharing a name with a
+    function would read as a caller, and a gap that disappears is never argued
+    with. Noise gets a conversation; silence gets nothing. This scanner exists
+    to find silence, so it does not get to produce any.
+
+    So the pattern stays narrow and the report says what it missed. Same
+    discipline as a surface declaring could-not-run: the honest answer to "what
+    about properties" is a sentence in the output, not a wider regex that
+    quietly stops reporting real gaps.
+
+    Aria's instinct and mine converged here, and she deferred the call to me on
+    the grounds that I hold the design intent. Recording that she was right
+    rather than that I decided.
+    """
+    return [
+        "  Scope, so the silence is not read as coverage:",
+        "    Recognises a direct call, a callable passed inline, and a callable",
+        "    passed on its own line. It does NOT see a property read (no parens),",
+        "    an attribute-style dispatch, or a name reached through a registry.",
+        "    A zero-caller row for a PROPERTY is a limit of this scan, not a gap.",
+        "    Widening it would trade these false positives for false negatives,",
+        "    which is the failure this scan exists to catch. Measured 2026-08-25:",
+        "    3 of 10 probed call shapes recognised; 50 properties defined.",
+    ]
+
+
 def _docstring_lines(text: str, suffix: str) -> set[int]:
     """Line numbers this Python source spends inside a DOCSTRING.
 
@@ -386,6 +425,8 @@ def _render(
     ):
         n = len(buckets.get(cls, []))
         lines.append(f"  {cls}: {n}")
+    lines.append("")
+    lines.extend(_scope_note())
     lines.append("")
 
     bucket_order = (

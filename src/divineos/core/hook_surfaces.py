@@ -166,6 +166,84 @@ def deletion_discipline_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+def no_verify_cost_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse an unverified git write that skips the hooks without paying for it.
+
+    MIGRATED 2026-08-25, second thin hook onto the router. The decision is
+    unchanged: same ``decide()``, same reason text, same JSON deny protocol.
+
+    IT CALLS ``decide`` DIRECTLY rather than ``main``. The shell hook shelled to
+    ``main()``, which exists only to read PreToolUse JSON off stdin and write a
+    decision to stdout — a serialisation round-trip whose sole purpose was
+    crossing the process boundary the router removes. ``decide(tool_input)`` was
+    always the real interface; ``main`` was the envelope.
+
+    AND THE SWALLOW GOES, which is the reason this one was worth doing. The
+    shell version ended with ``except Exception: pass`` and stderr to
+    /dev/null, so a raised decision exited 0 and read exactly like a command
+    the gate had examined and approved. Its find-python failure was already
+    declared loudly — Aletheia's 2026-07-09 finding — which left the gate with
+    one honest failure mode and one silent one.
+
+    That swallow is not this hook's mistake. ``docs/hook_migration_tracker.md``
+    prescribes it in the canonical thin-doorbell pattern, and 27 hooks in this
+    tree carry it. For an observational surface it can only fail to inform; for
+    a refusal-capable gate it turns could-not-run into looked-and-approved.
+
+    RETIRING THE SHELL REGISTRATION IS PART OF THE MIGRATION, not a follow-up.
+    ``deletion_discipline`` was wired into this router earlier tonight and its
+    shell hook stayed registered, so both fired for hours and the swallow that
+    motivated the migration was still live underneath the fix for it. A
+    migration that leaves the original running has moved code and retired
+    nothing.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="no_verify_cost", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        return SurfaceOutcome(name="no_verify_cost", state="nothing-to-say")
+
+    try:
+        from divineos.core.no_verify_cost import decide
+    except ImportError as exc:
+        return SurfaceOutcome(
+            name="no_verify_cost",
+            error=f"cannot import: {exc}",
+            state="could-not-run",
+        )
+
+    try:
+        decision = decide(tool_input)
+    except _DELETION_ERRORS as exc:
+        return SurfaceOutcome(
+            name="no_verify_cost",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if decision is None:
+        return SurfaceOutcome(name="no_verify_cost", state="nothing-to-say")
+
+    reason = (decision.get("hookSpecificOutput") or {}).get("permissionDecisionReason") or ""
+    if not reason:
+        # A decision shaped wrong is not a decision to allow. Refusing with no
+        # reason would be worse than reporting that the shape broke.
+        return SurfaceOutcome(
+            name="no_verify_cost",
+            error="decide() returned a decision carrying no reason text",
+            state="could-not-run",
+        )
+
+    return SurfaceOutcome(
+        name="no_verify_cost",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse substantive tools while the briefing is stale or never loaded.
 
@@ -298,6 +376,14 @@ def install() -> None:
     # did not, and nothing would have said so.
     if "deletion_discipline" not in registered("PreToolUse"):
         register("PreToolUse", "deletion_discipline", deletion_discipline_surface)
+
+    # Second thin hook, 2026-08-25. Its shell registration comes OUT of
+    # settings.json in the same change -- see the surface docstring. Wiring the
+    # replacement without retiring the original is what left deletion_discipline
+    # double-firing for several hours earlier tonight, with the swallow the
+    # migration existed to remove still running underneath it.
+    if "no_verify_cost" not in registered("PreToolUse"):
+        register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
 
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.

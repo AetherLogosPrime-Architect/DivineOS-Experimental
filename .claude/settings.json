@@ -391,11 +391,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/deletion-discipline.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
             "timeout": 10
           },
@@ -413,16 +408,6 @@
             "type": "command",
             "command": "bash .claude/hooks/rederivation-detector.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/no-verify-cost-escalation.sh",
-            "timeout": 10
           }
         ]
       },
