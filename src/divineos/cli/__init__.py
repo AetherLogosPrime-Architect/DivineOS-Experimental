@@ -379,6 +379,7 @@ from divineos.cli import (  # noqa: E402
     prior_art_commands,
     prereg_commands,
     reach_commands,
+    win_commands,
     admin_reset_template,
     admin_migrate_family,
     family_member_commands,
@@ -506,6 +507,10 @@ ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
 correction_commands.register(cli)
+# Registered directly beside correction_commands on purpose: the two ledgers
+# are a pair, and the wins half spent three weeks with no door at all while
+# this line's neighbour had a command and a blocking gate (2026-08-25).
+win_commands.register(cli)
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
