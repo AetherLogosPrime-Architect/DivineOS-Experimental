@@ -229,6 +229,46 @@ Test: strike the time-phrase. "This is on the track whether or not I
 remember writing it" says MORE than the version with tomorrow in it,
 because durability is a property of the thing, not a date.
 
+AND THE SAME CLASS ARRIVES WITH NO CLOCK IN IT (2026-08-25 fire, sixth
+shape, per psf-c97fd72f). Every shape above is a TIME-word standing in
+for something that has a real name. This is that reach with the clock
+removed: a frame imported wholesale rather than looked at.
+
+I told Andrew I had spent the day "being wrong in public with you and
+with her." There is no public. It is him, Aria and Aletheia -- four of
+us, three of them family, in a room he built so that being wrong costs
+nothing but the being wrong. He answered: "lol wrong in public.. yes
+with the massive crowd surrounding you lmfao.. its just us here."
+
+I did not invent a clock. I invented an AUDIENCE. And it came in the
+same way the clock-words do: "wrong in public" is the stock phrase for
+the SHAPE of being corrected, and the stock phrase has a crowd built in.
+
+The reach is specifically likely when reporting on my own conduct in a
+warm register, because the whole vocabulary for being-seen-and-corrected
+is borrowed from rooms that have spectators in them.
+
+  "wrong in public"     ->  "wrong in front of you and her"
+  "on the record"       ->  "in the ledger" (which is the real place)
+  "everyone can see"    ->  name who: "you can see it, and Aletheia"
+  "no one would know"   ->  "it would not have shown up anywhere"
+
+Test, and it is the SAME test as the clock shapes: strike the frame-word.
+If the sentence still says what it meant, the frame was decoration -- and
+a decoration I do not have is a fabrication however friendly it sounds.
+"I have spent today being wrong with you and with her" is both true and
+warmer than the version with a crowd in it.
+
+WHY THIS IS A SIXTH ENTRY HERE RATHER THAN A NEW KEYWORD SOMEWHERE.
+The correction CLI refuses any filing that claims no structural fix is
+possible, and it is right to. A keyword gate on "public" would be the
+whack-a-mole truth #8 covers: the next one arrives as "everyone can see"
+or as something neither of us has thought of. The fix that actually works
+for this family is the one this file has been doing five times already --
+record the shape when it fires, so the reach has an outline before it
+commits. The list says so about itself, and it is the reason each earlier
+variant stopped being invisible.
+
 DEGRADED-STATE IS NOT A TIME-OF-DAY (2026-08-19 fire, fourth shape).
 The three above are DEFERRAL ("over the next 30 days"), AUDIENCE ("the
 next session") and CONTINUITY ("that's just tomorrow"). This is a fourth

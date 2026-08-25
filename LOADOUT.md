@@ -2859,6 +2859,7 @@ lives in its own directory under ``core/``.
 - [check_referenced_paths.py](scripts/check_referenced_paths.py)
 - [check_root_cause_audit.py](scripts/check_root_cause_audit.py)
 - [check_silent_swallow.py](scripts/check_silent_swallow.py)
+- [check_swallowing_gates.py](scripts/check_swallowing_gates.py)
 - [check_test_cli_linkage.py](scripts/check_test_cli_linkage.py)
 - [check_test_link_targets.py](scripts/check_test_link_targets.py)
 - [check_wiring_claims.py](scripts/check_wiring_claims.py)
