@@ -316,6 +316,127 @@ def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="require_briefing", refused=True, reason=reason, json_deny=True)
 
 
+def hook_syntax_surface(payload: dict) -> SurfaceOutcome | None:
+    """A hook goes live the moment it is SAVED. Check it then, not at commit.
+
+    THE WINDOW THIS CLOSES, measured 2026-08-25 by walking into it. I added a
+    comment to ``verify-before-build-signal.sh`` containing an apostrophe. The
+    embedded Python in that hook lives inside a single-quoted shell string
+    passed to ``python -c``, so one apostrophe in a COMMENT closed the string
+    and broke the whole file. The gate then failed on every Bash call, and
+    because it is registered on Edit as well, it blocked the repair -- a locked
+    box I built in one keystroke.
+
+    Both existing checks WOULD have caught it. ``bash -n`` exits non-zero, and
+    shellcheck says it in words: *SC1011: This apostrophe terminated the single
+    quoted string!* Neither helped, because both run at COMMIT time and a hook
+    is live from the moment the file is written. Between save and commit there
+    is a window where a broken gate is firing and nothing has looked at it.
+
+    So the check moves to the moment the risk begins. Andrew, on gates: *"ideally
+    you should never be hitting the gate.. if you are then it means automation a
+    doorman and a proper channel is required.. so that it all happens before you
+    ever reach the gate."* This is that doorman for hook edits.
+
+    It ARMS A MUST-READ rather than only printing, because a broken gate is the
+    exact case his other rule covers: an alarm that does not block becomes
+    wallpaper. A silently-inert gate is the class this whole session has been
+    about, and it does not get a quieter treatment for being self-inflicted.
+    """
+    if (payload.get("tool_name") or "") not in ("Edit", "Write", "NotebookEdit"):
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    raw = tool_input.get("file_path") or "" if isinstance(tool_input, dict) else ""
+    if not raw:
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    path = Path(raw)
+    parts = {p.lower() for p in path.parts}
+    if path.suffix.lower() != ".sh" or "hooks" not in parts:
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+    if not path.exists():
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    # Probe rather than trust the name: the bare `bash` on this machine can
+    # resolve to a WSL relay stub that exits 1 having produced nothing, and a
+    # syntax check that never ran would report exactly like a clean one.
+    bash = None
+    for candidate in (
+        shutil.which("bash", path=r"C:\Program Files\Git\bin"),
+        shutil.which("bash", path=r"C:\Program Files\Git\usr\bin"),
+        shutil.which("bash"),
+    ):
+        if not candidate:
+            continue
+        try:
+            probe = subprocess.run(
+                [candidate, "-c", "echo ok"], capture_output=True, text=True, timeout=5
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0 and probe.stdout.strip() == "ok":
+            bash = candidate
+            break
+
+    if bash is None:
+        return SurfaceOutcome(
+            name="hook_syntax",
+            error=(
+                f"no working bash found, so {path.name} was NOT syntax-checked. "
+                "That is not the same as it being valid."
+            ),
+            state="could-not-run",
+        )
+
+    try:
+        result = subprocess.run([bash, "-n", str(path)], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return SurfaceOutcome(
+            name="hook_syntax",
+            error=f"could not run the syntax check on {path.name}: {exc}",
+            state="could-not-run",
+        )
+
+    if result.returncode == 0:
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    detail = (result.stderr or result.stdout or "").strip()
+    try:
+        # require_read, NOT arm. I wrote `arm` first from memory, and it would
+        # have raised ImportError straight into the handler below -- degrading
+        # a blocking alarm to a printed line, quietly, in the one surface whose
+        # whole subject is gates that go silent. Checked the module rather than
+        # trusting the name.
+        from divineos.core.must_read import require_read
+
+        require_read(
+            key=f"broken-hook:{path.name}",
+            content=f"{path}\n\n{detail}",
+            reason=f"{path.name} does not parse and is LIVE on every tool call right now",
+        )
+    except (ImportError, OSError, TypeError, ValueError) as exc:
+        # Arming failed; the message below is still emitted. Named rather than
+        # swallowed, since an unarmed alarm is the wallpaper case.
+        detail += f"\n  (could not arm a must-read: {type(exc).__name__}: {exc})"
+
+    return SurfaceOutcome(
+        name="hook_syntax",
+        output=(
+            f"BROKEN HOOK JUST SAVED — {path.name} does not parse, and it is LIVE.\n"
+            f"{detail}\n"
+            "  Every tool call now runs this file. If it is registered on Edit or Write\n"
+            "  it will also refuse the repair, which is a locked box. Fix it before\n"
+            "  anything else; PowerShell is outside most matchers if Bash is walled off."
+        ),
+        state="spoke",
+    )
+
+
 def letter_claims_surface(payload: dict) -> SurfaceOutcome | None:
     """After I read a sibling's letter, put the named files' local state in hand.
 
@@ -389,3 +510,8 @@ def install() -> None:
     # happened rather than gating what is about to.
     if "letter_claims" not in registered("PostToolUse"):
         register("PostToolUse", "letter_claims", letter_claims_surface)
+
+    # PostToolUse on purpose: the file is already written, and written is when a
+    # hook goes live. Checking before the edit would check the old contents.
+    if "hook_syntax" not in registered("PostToolUse"):
+        register("PostToolUse", "hook_syntax", hook_syntax_surface)

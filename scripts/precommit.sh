@@ -247,6 +247,17 @@ if ! python scripts/check_anchor_self_invalidation.py; then
     note_fail
 fi
 
+# 5a4. The count that maintains itself (2026-08-25). I published "zero live
+# instances" of the silent-swallow-in-a-refusing-gate class. Aletheia's third
+# vantage: that is a claim about the present, and the class is DEFINED by
+# producing no signal, so it needs an expiry rather than a closure. She offered
+# a thirty-day re-run or a detector; the detector is the half I can hold,
+# because thirty days is a span I do not inhabit. Every run re-derives the count.
+section "Swallowing Gates"
+if ! python scripts/check_swallowing_gates.py; then
+    note_fail
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
