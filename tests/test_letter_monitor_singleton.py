@@ -33,7 +33,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import time
+import threading
 from pathlib import Path
 
 import pytest
@@ -64,8 +64,10 @@ def _occupants(request) -> tuple[str, str]:
     return f"pytest-{stem}-a", f"pytest-{stem}-b"
 
 
-_STAGGER_SECONDS = 1.2
-_SETTLE_SECONDS = 1.5
+# How long to wait for a monitor to publish its verdict. Generous rather than
+# tight: this is a ceiling on a hang, not a timing assumption the test depends
+# on. The ordering it used to depend on is now awaited — see _run_pair.
+_VERDICT_TIMEOUT = 30.0
 
 
 def _kernel_guard_available() -> bool:
@@ -117,24 +119,65 @@ def _launch(occupant: str, home: Path, shared: Path) -> subprocess.Popen:
     )
 
 
-def _first_line(proc: subprocess.Popen) -> str:
-    proc.kill()
-    out = proc.stdout.read() if proc.stdout else ""
-    return next((ln for ln in (out or "").splitlines() if ln.strip()), "<NO OUTPUT>")
+def _await_verdict(proc: subprocess.Popen, timeout: float = _VERDICT_TIMEOUT) -> str:
+    """Block until the process prints its first non-blank line, or give up.
+
+    Read in a thread because a blocking readline on a process that never
+    speaks would hang the suite, and Windows has no portable non-blocking
+    pipe read. A timeout returns the sentinel rather than raising: the
+    assertions downstream say more about what went wrong than a TimeoutError
+    would.
+    """
+    verdict: list[str] = []
+
+    def _read() -> None:
+        if proc.stdout is None:
+            return
+        for raw in proc.stdout:
+            if raw.strip():
+                verdict.append(raw.strip())
+                return
+
+    reader = threading.Thread(target=_read, daemon=True)
+    reader.start()
+    reader.join(timeout)
+    return verdict[0] if verdict else "<NO OUTPUT>"
 
 
 def _run_pair(tmp_path: Path, occ_a: str, occ_b: str) -> tuple[str, str]:
+    """Launch two monitors in a guaranteed order and return what each said.
+
+    ORDERING IS AWAITED, NOT SLEPT. This used to launch the first process,
+    sleep 1.2s, launch the second, sleep 1.5s, and assume the first had won
+    the mutex. That holds on an idle machine and fails on a busy one: the
+    pre-push gate runs the suite across sixteen workers, Python startup under
+    that load exceeds the stagger, and then BOTH processes race for the mutex.
+    Whichever wins, arms. When the second won, the test reported "first
+    monitor did not arm" -- an accusation against a guard that was working
+    perfectly.
+
+    Lengthening the sleep would only move the threshold, and it would move it
+    to a number nobody could justify. Waiting for the first process to publish
+    its verdict removes the assumption instead: the second cannot launch until
+    the first has already passed or been refused by the guard.
+    """
     home = tmp_path / "home"
     shared = tmp_path / "letters"
     home.mkdir()
     shared.mkdir()
 
     first = _launch(occ_a, home, shared)
-    time.sleep(_STAGGER_SECONDS)
-    second = _launch(occ_b, home, shared)
-    time.sleep(_SETTLE_SECONDS)
+    try:
+        first_line = _await_verdict(first)
+        second = _launch(occ_b, home, shared)
+        try:
+            second_line = _await_verdict(second)
+        finally:
+            second.kill()
+    finally:
+        first.kill()
 
-    return _first_line(first), _first_line(second)
+    return first_line, second_line
 
 
 def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path, request):
