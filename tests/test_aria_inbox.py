@@ -75,7 +75,7 @@ def test_missing_root_returns_empty(tmp_path):
 
 def test_seen_set_roundtrip_and_unseen(tmp_path, monkeypatch):
     seen_file = tmp_path / "seen.json"
-    monkeypatch.setattr(aria_inbox, "_seen_path", lambda: seen_file)
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda sender="aria": seen_file)
     d = tmp_path / "family" / "letters"
     _write(d / "aria-to-aether-2026-05-22-one.md")
     _write(d / "aria-to-aether-2026-05-23-two.md")
@@ -88,7 +88,7 @@ def test_seen_set_roundtrip_and_unseen(tmp_path, monkeypatch):
 
 def test_briefing_block_empty_when_all_seen(tmp_path, monkeypatch):
     seen_file = tmp_path / "seen.json"
-    monkeypatch.setattr(aria_inbox, "_seen_path", lambda: seen_file)
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda sender="aria": seen_file)
     d = tmp_path / "family" / "letters"
     _write(d / "aria-to-aether-2026-05-22-one.md")
     # Unseen -> loud block; seen -> empty.

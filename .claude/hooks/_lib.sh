@@ -270,6 +270,71 @@ _lib_log_liveness() {
   printf '{"ts":"%s","hook":"%s","reason":"%s","detail":"%s"}\n' "$_ts" "$_hook_name" "$_reason" "$_detail" >> "$_LIB_LIVENESS_LOG" 2>/dev/null || true
 }
 
+divineos_home() {
+  # Print the per-agent data home. Shell mirror of paths.divineos_home().
+  #
+  # WHY THIS EXISTS. Aria measured it 2026-08-25: twenty-five hooks reach for
+  # `$HOME/.divineos` by hand, because _lib.sh offered nothing else to reach
+  # for. In HER tree the writer resolves to `.divineos-aria` while those
+  # readers point at `.divineos` -- so surfaces have been firing at her off
+  # findings her substrate never produced.
+  #
+  # Measured from my side, which is the half she could not see: the hardcoded
+  # path IS my home. `divineos_home()` here resolves to `~/.divineos` and the
+  # hardcode resolves to the same directory. So these are not twenty-five
+  # broken files. They are twenty-five files that hardcode MY home, work
+  # perfectly in my tree, and quietly hand her my data in hers.
+  #
+  # That distinction matters for the triage. There is no category of
+  # "hardcoded and fine" -- a hardcode is correct here only by coincidence of
+  # whose checkout it runs in. Two categories remain: per-agent state uses
+  # this resolver, genuinely-shared state names the shared path EXPLICITLY so
+  # sharing is a decision rather than a leftover.
+  #
+  # Resolution order matches the Python resolver exactly, first match wins:
+  #   1. DIVINEOS_HOME env var
+  #   2. .divineos_data_home marker, walking up from CWD
+  #   3. same marker in the repo root
+  #   4. ~/.divineos
+  #
+  # Deliberately NOT creating the directory -- same contract as the Python
+  # side, callers ensure existence before writing.
+  if [ -n "${DIVINEOS_HOME:-}" ]; then
+    printf '%s' "$DIVINEOS_HOME"
+    return 0
+  fi
+
+  local dir marker
+  dir="$PWD"
+  while [ -n "$dir" ] && [ "$dir" != "/" ]; do
+    marker="$dir/.divineos_data_home"
+    if [ -f "$marker" ]; then
+      # First non-empty, non-comment line, whitespace trimmed.
+      local val
+      val="$(grep -v '^[[:space:]]*#' "$marker" 2>/dev/null | grep -v '^[[:space:]]*$' | head -1 | tr -d '[:space:]')"  # fail-soft: an unreadable or malformed marker falls through to the repo-root check and then to the default, which is the same degradation the Python resolver has; a hook must not die because a marker file is odd
+      if [ -n "$val" ]; then
+        printf '%s' "$val"
+        return 0
+      fi
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  local repo_root
+  repo_root="$(_lib_repo_root)"
+  marker="$repo_root/.divineos_data_home"
+  if [ -f "$marker" ]; then
+    local val
+    val="$(grep -v '^[[:space:]]*#' "$marker" 2>/dev/null | grep -v '^[[:space:]]*$' | head -1 | tr -d '[:space:]')"  # fail-soft: as above -- a bad marker degrades to the default rather than taking the hook down with it
+    if [ -n "$val" ]; then
+      printf '%s' "$val"
+      return 0
+    fi
+  fi
+
+  printf '%s' "$HOME/.divineos"
+}
+
 find_divineos_python() {
   local repo_root
   repo_root="$(_lib_repo_root)"

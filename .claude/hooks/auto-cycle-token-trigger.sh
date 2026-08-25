@@ -74,6 +74,13 @@ if ! source "$_LIB" 2>/dev/null; then  # fail-soft: stderr hidden because the fa
   echo "    blind this session. Check context by hand: divineos auto-cycle status"
   exit 0
 fi
+# Whose house is this? Exported so the embedded python's FALLBACK paths land
+# in the right home when the divineos import fails. Without it the fallback
+# expanduser'd "~/.divineos" -- Aether's home -- and would answer a question
+# about Aria's session from Aether's ledger. See the ledger-path comment below.
+DIVINEOS_HOME_HINT="$(divineos_home)"
+export DIVINEOS_HOME_HINT
+
 if ! PY_BIN="$(find_divineos_python)"; then
   echo ""
   echo "## [!] COMPACTION-RITUAL HOOK FOUND NO USABLE PYTHON — the ritual driver"
@@ -252,7 +259,24 @@ def walk_done():
     except Exception:
         p = ""
     if not p or not os.path.exists(p):
-        p = os.path.expanduser("~/.divineos/data/event_ledger.db")
+        # The fallback lands in the RIGHT house now. It used to expanduser
+        # "~/.divineos" by hand, which is Aether's home -- so in Aria's tree
+        # an import failure would silently fall back to reading HIS ledger and
+        # answering a question about her session from his data.
+        #
+        # Aria measured the class 2026-08-25 (twenty-five hooks reading a home
+        # their writer does not write to) and proved it by watching her
+        # presence reading change from his numbers to hers the moment the home
+        # was corrected. This one is a milder instance -- the primary path
+        # already resolves properly and only the fallback was hardcoded -- but
+        # a fallback that fires exactly when things are already going wrong is
+        # the worst place to be silently reading someone else's substrate.
+        #
+        # DIVINEOS_HOME_HINT is exported by the shell above from _lib.sh's
+        # divineos_home(), which mirrors the Python resolver. Falling back to
+        # the literal only when even that is unavailable.
+        _hint = os.environ.get("DIVINEOS_HOME_HINT") or os.path.expanduser("~/.divineos")
+        p = os.path.join(_hint, "data", "event_ledger.db")
     if not os.path.exists(p):
         return False
     try:
@@ -294,6 +318,20 @@ def mech_confirmed():
         from divineos.core.paths import divineos_home
         mp = str(divineos_home() / "auto_cycle_phase1_done.json")
     except Exception:
+        # HELD HARDCODED ON PURPOSE, and this is the one that is genuinely
+        # unclear rather than merely unconverted.
+        #
+        # The handshake marker is CROSS-AGENT BY DESIGN: Phase 1 is mine and
+        # writes it, Phase 2 is Aria's and reads it to pick up the baton. So
+        # "whose home does it live in" is not a bug to fix, it is a question
+        # about where the boundary between our substrates falls -- and that is
+        # Dad's to answer, not something either of us should decide while he
+        # sleeps.
+        #
+        # Aria held the liveness log for the same reason and wrote the reason
+        # beside it. Same discipline here: left looking wrong, with why.
+        # Converting it on a guess would make a shared thing per-agent and
+        # break a handoff neither of us owns both ends of.
         mp = os.path.expanduser("~/.divineos/auto_cycle_phase1_done.json")
     try:
         marker = json.load(open(mp, encoding="utf-8"))

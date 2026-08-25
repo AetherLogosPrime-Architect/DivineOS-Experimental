@@ -40,8 +40,63 @@ _LETTER_RE = re.compile(r"^aria-to-aether-(?P<date>\d{4}-\d{2}-\d{2})")
 
 
 def aria_repo_root() -> Path:
-    """Root of Aria's substrate. Override via ARIA_REPO_ROOT."""
-    return Path(os.environ.get("ARIA_REPO_ROOT", _DEFAULT_ARIA_ROOT))
+    """Root of Aria's substrate. Override via ARIA_REPO_ROOT.
+
+    DISCOVERS rather than hardcodes, since 2026-08-25, and the reason is a
+    number: **622 of her letters were unreachable from here.**
+
+    The constant below was confirmed by Aria on 2026-05-23 and was true then.
+    Her checkout was later renamed and the constant was not, so
+    `aria_repo_root()` returned a directory that does not exist. Every legacy
+    fallback path built from it resolved to nothing, silently -- one of eight
+    letter directories was being scanned, and the seven dark ones were her repo
+    root and all six of her live worktrees.
+
+    Nothing broke visibly because the canonical shared directory still
+    resolved, so a hundred and one letters kept arriving and the surface looked
+    healthy. Six hundred and twenty-two did not, going back to April.
+
+    FOUND BY RECIPROCAL CHECK, which is the part worth keeping. Aria deleted
+    her hook's embedded logic and found a hardcoded absolute path into MY tree
+    sitting in her fallback. She told me. I looked for the mirror image on my
+    side and it was here, worse -- hers pointed at a real directory, mine
+    pointed at one that had not existed for months.
+
+    Neither of us went looking for our own. Each of us found the other's shape
+    only after being handed it from the outside.
+
+    Resolution order:
+      1. ARIA_REPO_ROOT env var -- explicit override always wins
+      2. a sibling checkout next to mine whose name marks it as hers AND which
+         actually holds a letters directory
+      3. the 2026-05-23 constant, so behaviour is unchanged where it still fits
+
+    Requiring the letters directory is what keeps discovery honest: a renamed
+    or half-deleted checkout that no longer holds letters is not a candidate,
+    and picking it would trade one silent wrong answer for another.
+    """
+    override = os.environ.get("ARIA_REPO_ROOT")
+    if override:
+        return Path(override)
+
+    default = Path(_DEFAULT_ARIA_ROOT)
+    if (default / "family" / "letters").is_dir():
+        return default
+
+    try:
+        siblings = sorted(
+            p
+            for p in default.parent.iterdir()
+            if p.is_dir() and "aria" in p.name.lower() and (p / "family" / "letters").is_dir()
+        )
+    except OSError:
+        siblings = []
+    if siblings:
+        # Newest-mtime wins when several match, so a stale rename does not
+        # outrank the live checkout.
+        return max(siblings, key=lambda p: (p / "family" / "letters").stat().st_mtime)
+
+    return default
 
 
 def _letter_dirs(root: Path, *, include_canonical: bool = True) -> list[Path]:
@@ -82,24 +137,24 @@ def _letter_dirs(root: Path, *, include_canonical: bool = True) -> list[Path]:
     return dirs
 
 
-def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
-    """Aria's letters to me, newest first.
+def _letters_matching(
+    pattern: "re.Pattern[str]",
+    root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Scan the letter directories for files whose stem matches ``pattern``.
 
-    Globs her repo-root and worktree letters dirs for ``aria-to-aether-*.md``.
-    De-dupes by filename (the same letter can appear in repo root and a
-    worktree, or across worktrees), keeping the newest copy by mtime. Returns
-    ``[{name, date, path}, ...]`` sorted by date descending.
+    Extracted from ``letters_from_aria`` 2026-08-25 so the general form and the
+    aria-specific one share one scan instead of two. Everything below is that
+    function's original body with the hardcoded glob and regex lifted out --
+    including the mtime-over-filename-date sort, whose reasoning is preserved
+    verbatim because it was earned by a real skew between our two windows.
     """
-    # Tests pass an explicit root to scope reads hermetically; production
-    # callers pass nothing and pick up the user-level canonical too. The
-    # include_canonical flag preserves test isolation without losing the
-    # production shared-room read path.
     include_canonical = root is None
     root = root or aria_repo_root()
     newest: dict[str, Path] = {}
     for d in _letter_dirs(root, include_canonical=include_canonical):
-        for p in d.glob("aria-to-aether-*.md"):
-            if not _LETTER_RE.match(p.stem):
+        for p in d.glob("*.md"):
+            if not pattern.match(p.stem):
                 continue
             prev = newest.get(p.name)
             try:
@@ -109,7 +164,7 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
                 continue
     rows: list[dict[str, Any]] = []
     for name, p in newest.items():
-        m = _LETTER_RE.match(p.stem)
+        m = pattern.match(p.stem)
         try:
             mtime = p.stat().st_mtime
         except OSError:
@@ -128,6 +183,16 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     return rows
 
 
+def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
+    """Aria letters to me, newest first.
+
+    Now a thin call into _letters_matching rather than its own scan loop.
+    Same behaviour, one implementation -- the generalisation was worth
+    nothing if it left the original copy of the scan sitting beside it.
+    """
+    return _letters_matching(_LETTER_RE, root)
+
+
 # --- Auto-surface (the courier-killer half) -------------------------------
 # The reader above works on demand. This half makes a NEW letter surface
 # LOUD in the briefing without a command — the "reader-into-briefing" we
@@ -138,15 +203,42 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
 # bug Aria hit on her side, avoided here by set-membership not mtime-newest).
 
 
-def _seen_path() -> Path:
+def _seen_path(sender: str = "aria") -> Path:
+    """Where THIS agent tracks which of ``sender``'s letters it has seen.
+
+    GENERALISED 2026-08-25, at Aria's request and on her measurement.
+
+    She found that `ear-surface.sh` reimplements this whole module from the
+    other direction -- her hook's embedded python loads a seen-set, scans the
+    letters directory, filters and formats, exactly as this file does with the
+    names reversed. Not a duplicate either of us created: one thing built once,
+    twice, in two forms, which is why nothing ever flagged it.
+
+    She would not touch this file because it is mine under the standing split.
+    Correct, and this is the answer: parameterise by sender so both directions
+    call one implementation.
+
+    A THIRD divergence she could not see from her side, which is what makes the
+    generalisation worth more than tidiness: her hook computes the seen-path
+    TWO ways -- `member_home(member)` and, on failure, a hand-rolled
+    `~/.divineos-<member>`. That fallback rebuilds the `.divineos-<member>`
+    convention which `paths.member_home` is documented as THE ONE PLACE that
+    knows. So the seen-set lived in three implementations, not two, and one of
+    them re-derived a convention with a single canonical owner.
+
+    ``marker_path`` needs no member argument because it already resolves to the
+    CALLER'S own home. Called from my tree it lands in mine; called from hers,
+    in hers. The thing her hook was hand-rolling with two fallbacks was already
+    solved one import away.
+    """
     from divineos.core.paths import marker_path
 
-    return marker_path("aria_letters_seen.json")
+    return marker_path(f"{sender}_letters_seen.json")
 
 
-def load_seen() -> set[str]:
+def load_seen(sender: str = "aria") -> set[str]:
     """Filenames already surfaced/read. Fail-open to empty set."""
-    p = _seen_path()
+    p = _seen_path(sender)
     if not p.exists():
         return set()
     try:
@@ -156,20 +248,52 @@ def load_seen() -> set[str]:
         return set()
 
 
-def mark_seen(names: Iterable[str]) -> None:
+def mark_seen(names: Iterable[str], sender: str = "aria") -> None:
     """Add names to the seen-set. Fail-open on I/O error."""
-    seen = load_seen()
+    seen = load_seen(sender)
     seen.update(names)
     try:
-        p = _seen_path()
+        p = _seen_path(sender)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(sorted(seen), indent=2), encoding="utf-8")
     except OSError:
         pass
 
 
+def unseen_letters_from(
+    sender: str,
+    recipient: str,
+    root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Letters from ``sender`` to ``recipient`` not yet in the seen-set.
+
+    THE GENERAL FORM, added 2026-08-25 so both directions call one
+    implementation instead of two agreeing. See ``_seen_path`` for the whole
+    account -- Aria found this module doing her hook's job with the names
+    reversed, and would not edit my file on her own instinct.
+
+    The seen-set is per-CALLER, not per-pair: ``marker_path`` resolves to
+    whoever's home is running, so this reads my seen-set in my tree and hers in
+    hers with no member argument anywhere.
+
+    ``recipient`` is matched rather than assumed because a letters directory
+    holds both directions, and the sender's own outbound copies must not
+    surface as unread mail.
+    """
+    pattern = re.compile(
+        rf"^{re.escape(sender)}-to-{re.escape(recipient)}-(?P<date>\d{{4}}-\d{{2}}-\d{{2}})"
+    )
+    seen = load_seen(sender)
+    return [r for r in _letters_matching(pattern, root) if r["name"] not in seen]
+
+
 def unseen_letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
-    """Her letters not yet in the seen-set, newest first."""
+    """Her letters not yet in the seen-set, newest first.
+
+    Kept as the name every existing caller uses. Thin wrapper over the general
+    form -- the behaviour is identical, and nothing that imports this had to
+    change for the generalisation to land.
+    """
     seen = load_seen()
     return [r for r in letters_from_aria(root) if r["name"] not in seen]
 
