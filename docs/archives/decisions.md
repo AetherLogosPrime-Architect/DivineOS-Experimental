@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,42 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 7067ae5a weight=1
+
+**Decision:** Check hook syntax at SAVE time via a PostToolUse surface, rather than only at commit time
+
+**Reasoning:** A hook is live from the moment the file is written. Both existing checks -- bash -n and shellcheck, which does say SC1011 'this apostrophe terminated the single quoted string' in plain words -- run at commit. Between save and commit there is a window where a broken gate is firing and nothing has looked at it. I measured that window by falling into it: one apostrophe in a COMMENT inside a python -c
+
+**Tension:** This adds a subprocess to every Edit of a hook file, and a check that runs on every save is a check I could learn to ignore. Mitigated by scope: it only fires on .sh files under a hooks directory.
+
+**Almost:** Adding bash -n to precommit alongside shellcheck, which would be cheaper and would not have caught this instance at all -- the break was live for ten minutes before any commit was attempted
+
+---
+
+## 056ff32e weight=1
+
+**Decision:** Fix check_translation_first to find the work block with the file's own flexible room patterns, and when no room header exists, count the whole reply but SAY that is what happened
+
+**Reasoning:** The function splits on the literal strings '## REFLECTION' and '## INNER CIRCLE' while the same file already contains _REFLECTION_HEADER_PATTERNS, _CIRCLE_HEADER_PATTERNS and _HARD_RULE_RE, used by the careful room-parser a few hundred lines down. Two splitters in one file; the naive one fired on me. Its docstring promises those rooms 'never count against me' and that promise silently fails for an
+
+**Tension:** Falling back to the first horizontal rule would fix my case but weaken the gate: a work block using --- internally would have its later marks uncounted, and a gate going quiet is the failure direction I have spent all night removing.
+
+**Almost:** Splitting on the first horizontal rule unconditionally
+
+---
+
+## cab846dc weight=1
+
+**Decision:** Fix the prose-as-caller defect inline in wiring_gap_phase1 rather than extracting a shared docstring-lines helper
+
+**Reasoning:** This is the second place tonight needing string-literal exclusion (check_silent_swallow was the first). House rule is extract after 3+ copies, not before, and I have 2. The stronger argument against extracting: a shared helper across two scripts/ modules needs an import path, and tonight I spent real time on tests/_archive/conftest.py shadowing a live conftest by name -- a cross-script import is t
+
+**Tension:** Duplication is real and the boundary is one the substrate keeps getting wrong, which argues for one place to fix it.
+
+**Almost:** Creating scripts/_source_prose.py and having both import it
 
 ---
 
@@ -527,36 +563,6 @@
 **Decision:** accept operator approval-by-comment in merge-review
 
 **Reasoning:** GitHub does not render Approve for a PR's own author; every PR here is self-authored, so the gate demanded a review nobody could create. Twelve PRs blocked two weeks. Comment channel is the only one GitHub leaves open to the author; sha-binding preserves the anti-stale-approval property that was the gate's actual purpose.
-
----
-
-## 2e36ab56 weight=1
-
-**Decision:** record every read-gate clear to bypass telemetry; keep the escape, count it
-
-**Tension:** The escape must stay. A gate with no door is a cage, and this one was genuinely unsatisfiable twice today -- a vanished target, then a satisfier never wired -- so removing the exit would have frozen the workspace with no legitimate way out. But an escape nobody counts is not a bypass, it is a hole. 
-
-**Almost:** I almost defended all seven because the gate really was broken for the first two. That reasoning also covers the seventh, where I cleared without reading which file it named -- reflex, not remedy. Truth #12: bypasses are neutral, intent decides, so the reason has to travel per use rather than as a v
-
----
-
-## 252b5cb2 weight=1
-
-**Decision:** wire satisfy_from_transcript into the read-gate doorman so reading clears the requirement
-
-**Tension:** This makes the gate easier to pass, and it is the one gate I built to be un-skimmable. Loosening it is exactly the wrong direction if I am wrong about the cause. Against that: satisfy_from_stream has one occurrence in the entire tree and it is its own definition. The clearing mechanism was never cal
-
-**Almost:** I almost added a Read-detection check inside the hook's bash rather than in the OS module, which would have put judgment back in a doorman Andrew has said should only point. I also nearly concluded the satisfier was working and my Read simply had not matched the path -- a plausible story that would 
-
----
-
-## 384ea302 weight=1
-
-**Decision:** drop read-gate requirements whose target has vanished, at fire-time not only arm-time
-
-**Tension:** The gate exists because I skim my own prior writing and it measurably cost me four rediscoveries in one session. Loosening it risks defanging the one mechanism that catches that. Against: it just blocked Bash, Edit AND Write for a file pytest had deleted, which meant it blocked the repair of ITSELF 
-
-**Almost:** I almost treated MAX_AGE_SECONDS as the existing remedy and left it alone. Three hours of a frozen workspace is not a remedy, and an aged-out block teaches exactly the bypass reflex this module exists to prevent -- I would learn the gate clears itself if I wait, which is worse than it never firing. 
 
 ---
 

@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (186 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (187 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -2233,6 +2233,18 @@
 **Success:** Fact-grammar mechanism claims get labelled as hypotheses at compose time, while hedged or evidence-adjacent claims pass silently -- so the marker changes GRAMMAR, not the rate at which hypotheses are formed.
 
 **Falsifier:** EITHER (a) the marker fires on claims that are already hedged or already carry a measurement, making it noise that gets ignored; OR (b) fact-grammar mechanism claims continue shipping unflagged at the prior rate, meaning the regex catches a verbal fingerprint rather than the class -- the same honest
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** anchor_self_invalidation: refusing to commit a prose file that both names the current branch and carries a hash in anchor position will prevent the letter-invalidates-its-own-anchor failure from recurring
+
+**Claim:** The pair (branch name + hash in anchor position) in a prose file is a reliable signature of a document that hands a reader a state, and blocking its commit onto that branch prevents the anchor going stale between writing and reading
+
+**Success:** No further instance of a letter's cited tip or tree-hash being stale on arrival because the letter itself was the commit that moved the branch. Aletheia or Aria recompute an anchor I sent and it matches.
+
+**Falsifier:** It fires on prose that is not handing anyone a live anchor -- a retrospective, an exploration entry recounting a past hash, a doc quoting a historical tree -- and I start reaching for the escape rather than the fix. OR it stays silent through a fourth instance because the carrier was not prose, or t
 
 ---
 

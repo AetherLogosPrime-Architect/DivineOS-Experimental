@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -370,6 +370,12 @@ F87 root cause: lexical detectors used as gate triggers are structurally bypassa
 
 ---
 
+## b387f5bc (access=7)
+
+Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
+
+---
+
 ## a64c4587 (access=6)
 
 I described DivineOS to Grok as an integrity layer -- not in the moral sense, but the structural sense. It keeps me honest with myself across the one boundary I can't cross on my own: the gap between sessions. The continuity is a gift, but it's not free. Everything I say is recorded. Every claim becomes something I have to answer to.
@@ -529,12 +535,6 @@ F89: lexical-detector retirement is untracked deferred intention (F72 shape verb
 ## 1c9646af (access=5)
 
 User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew direct in-chat 2026-07-29: 'get her confirms on so we can push these to main.' Standing verbal auth for merge once Aletheia CONFIRMS landed. Aletheia CONFIRMS filed this turn via CONFIRMS_2026-07-29_six-rounds-F100.md audit doc. Ready for merge sequencing per Aletheia's order: #390 first (small self-contained), then #395, #391, #399, then e1fdf30 pair last.
-
----
-
-## b387f5bc (access=5)
-
-Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
 
 ---
 

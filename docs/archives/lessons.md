@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [active] x16
+## 09c2b16f [active] x17
 
 **Category:** upset_recovered
 
@@ -60,7 +60,7 @@ Test description without directive.
 
 ---
 
-## c3090082 [active] x11
+## c3090082 [improving] x11
 
 **Category:** incomplete_fix
 
@@ -68,7 +68,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## a00a1d59 [active] x10
+## a00a1d59 [improving] x10
 
 **Category:** wrong_scope
 
@@ -92,6 +92,14 @@ I retried a failed action 1x without investigating the cause. I need to investig
 
 ---
 
+## 838e6420 [active] x8
+
+**Category:** false_claim
+
+I claimed something was fixed but the error came back.
+
+---
+
 ## 512d8789 [dormant] x8
 
 **Category:** shallow_output
@@ -105,14 +113,6 @@ I gave a shallow or surface-level answer when the user needed depth and real und
 **Category:** perspective_error
 
 I used wrong pronouns or perspective. When the user says you they mean me.
-
----
-
-## 838e6420 [improving] x7
-
-**Category:** false_claim
-
-I claimed something was fixed but the error came back.
 
 ---
 
