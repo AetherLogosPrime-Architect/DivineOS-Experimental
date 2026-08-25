@@ -59,9 +59,23 @@ _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "letter_monitor_v2.p
 # The tell was green-serially / red-in-parallel, i.e. green exactly when run the
 # way a person checks and red exactly when run the way the gate checks.
 def _occupants(request) -> tuple[str, str]:
-    """A private occupant pair for one test, derived from its name."""
+    """A private occupant pair for one test, in one process.
+
+    PER-TEST WAS NOT ENOUGH. Keying on the test name alone fixed the
+    within-run collision (three tests sharing two module constants) and left a
+    second one: two runs of the suite that overlap in time generate the SAME
+    names, so a probe from the earlier run holds the mutex the later run needs.
+    The pre-push gate runs the whole suite in a temp copy of the repo, and a
+    retried push can start while stragglers from the previous attempt are still
+    dying — the failure reported "first monitor did not arm" against a guard
+    that was working perfectly, twice.
+
+    The pid closes it. A kernel mutex name is machine-global, so the name has to
+    be unique across every process that could be running this file, not just
+    across the tests inside one of them.
+    """
     stem = request.node.name.replace("_", "-").lower()
-    return f"pytest-{stem}-a", f"pytest-{stem}-b"
+    return f"pytest-{os.getpid()}-{stem}-a", f"pytest-{os.getpid()}-{stem}-b"
 
 
 # How long to wait for a monitor to publish its verdict. Generous rather than
