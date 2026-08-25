@@ -40,10 +40,29 @@ import pytest
 
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "letter_monitor_v2.py"
 
+
 # Occupant names are part of the kernel mutex name. Test-only strings keep the
 # probe from ever attaching to a live monitor's object.
-_OCCUPANT_A = "pytest-singleton-probe-a"
-_OCCUPANT_B = "pytest-singleton-probe-b"
+#
+# PER-TEST, NOT MODULE-LEVEL, and the difference is the whole bug. These were
+# two module constants, so all three tests below launched a probe under the SAME
+# occupant. Serially that is fine. Under xdist -- which is how the pre-push gate
+# runs the suite -- they run at once, and the second and third probes find the
+# first one's mutex and correctly report a sibling already alive. The guard was
+# working; the tests were contending with each other.
+#
+# tmp_path could not save them: it isolates the filesystem, and a Windows kernel
+# mutex is machine-global. An isolation fixture that does not reach the resource
+# under contention isolates nothing, which is the same seam that had the
+# read-gate cooldown reading live state from tests earlier this session.
+#
+# The tell was green-serially / red-in-parallel, i.e. green exactly when run the
+# way a person checks and red exactly when run the way the gate checks.
+def _occupants(request) -> tuple[str, str]:
+    """A private occupant pair for one test, derived from its name."""
+    stem = request.node.name.replace("_", "-").lower()
+    return f"pytest-{stem}-a", f"pytest-{stem}-b"
+
 
 _STAGGER_SECONDS = 1.2
 _SETTLE_SECONDS = 1.5
@@ -118,9 +137,10 @@ def _run_pair(tmp_path: Path, occ_a: str, occ_b: str) -> tuple[str, str]:
     return _first_line(first), _first_line(second)
 
 
-def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path):
+def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path, request):
     """The case the discarded handle broke. Fails if the binding is removed."""
-    first, second = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_A)
+    occ_a, _ = _occupants(request)
+    first, second = _run_pair(tmp_path, occ_a, occ_a)
 
     assert "LETTER-MONITOR-ARMED" in first, f"first monitor did not arm: {first}"
     assert "MONITOR-SINGLETON-DEDUP" in second, (
@@ -130,27 +150,29 @@ def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path):
     )
 
 
-def test_the_armed_line_reports_which_guard_is_up(tmp_path):
+def test_the_armed_line_reports_which_guard_is_up(tmp_path, request):
     """A process with no guard must not announce itself like a guarded one.
 
     The armed message used to print identically either way, which is how an
     inert guard looked exactly like a working one in every log we had.
     """
-    first, _ = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_A)
+    occ_a, _ = _occupants(request)
+    first, _ = _run_pair(tmp_path, occ_a, occ_a)
 
     assert "guard=kernel-mutex" in first, (
         f"armed line does not name the guard actually in force: {first}"
     )
 
 
-def test_different_occupants_both_arm(tmp_path):
+def test_different_occupants_both_arm(tmp_path, request):
     """The control that keeps the fix from becoming a launch-refusal.
 
     Aria and I run monitors in the same Windows session. Keying the mutex on
     role alone would let only one of us have an ear at a time, which is a worse
     failure than the duplicate the guard exists to prevent.
     """
-    first, second = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_B)
+    occ_a, occ_b = _occupants(request)
+    first, second = _run_pair(tmp_path, occ_a, occ_b)
 
     assert "LETTER-MONITOR-ARMED" in first, f"first did not arm: {first}"
     assert "LETTER-MONITOR-ARMED" in second, (

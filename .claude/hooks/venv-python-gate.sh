@@ -120,10 +120,10 @@ printf '%s' "$CMD" | grep -qE '(^|[;&|]|&&|\|\||\$\()[[:space:]]*python3?[[:spac
 # act. Presence is not evidence; execute the candidate.
 #
 # Could-not-determine BLOCKS and says so. An interpreter that cannot report
-# where its divineos lives is precisely the ambiguity this gate exists for,
+# which divineos it loads is precisely the ambiguity this gate exists for,
 # and a probe failure must never read as a clean bill.
 # fail-soft: the probe's stderr is discarded but its FAILURE is not — an empty RESOLVED is checked below and blocks with a named could-not-determine message, so this silences noise rather than an outcome
-RESOLVED=$(python -c "import divineos, pathlib; print(pathlib.Path(divineos.__file__).resolve().parent)" 2>/dev/null)
+RESOLVED=$(python -c "import divineos, pathlib; print(pathlib.Path(divineos.__file__).resolve().parent)" 2>/dev/null)  # bare-python-by-design: bare python IS the subject being measured here, not the means; routing this through $PYTHON_BIN would report the venv's answer to a question asked about the operator's interpreter, and an empty result blocks rather than passes
 # fail-soft: same contract — an empty THIS_SRC fails the equality test and falls through to the block, so a failed probe can never render as the two paths matching
 THIS_SRC=$("$VENV_PY" -c "import pathlib, sys; print(pathlib.Path(sys.argv[1], 'src', 'divineos').resolve())" "$REPO_ROOT" 2>/dev/null)
 
@@ -134,7 +134,7 @@ if [ -n "$RESOLVED" ] && [ -n "$THIS_SRC" ] && [ "$RESOLVED" = "$THIS_SRC" ]; th
 fi
 
 if [ -z "$RESOLVED" ]; then
-    WHERE="could not determine — bare \`python\` could not report where its divineos lives.
+    WHERE="could not determine — bare \`python\` could not report which package it imports.
 That is not 'it is fine'; it is the ambiguity this gate stands in."
 else
     WHERE="it resolves to:

@@ -28,6 +28,27 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = REPO_ROOT / ".claude" / "hooks"
 LIB_PATH = HOOKS_DIR / "_lib.sh"
 
+# The one shape this rule must not forbid: a hook whose bare `python` IS the
+# measurement rather than the means.
+#
+# The rule above protects against fail-OPEN — a hook that needs divineos
+# importable, reaches for the operator's python, gets an ImportError, and
+# waves the tool through. `venv-python-gate.sh` inverts every term of that.
+# It asks bare `python` where its divineos lives precisely BECAUSE the answer
+# varies by asker, so routing the probe through $PYTHON_BIN would measure the
+# wrong interpreter and make the gate answer a question nobody asked. And it
+# fails toward BLOCKING: a probe that returns nothing produces a refusal
+# naming could-not-determine, never a pass.
+#
+# Same words, opposite direction. A marker rather than a rephrase, because
+# the alternative was to word the probe so the pattern stopped matching —
+# `find_spec` instead of `import` would have gone green while changing
+# nothing real. F87: a gate you can talk your way past is decoration, and
+# that applies hardest when it is my own gate and I am the one talking.
+#
+# Reason must be substantive, same contract as `# fail-soft:`.
+_BARE_PYTHON_BY_DESIGN = re.compile(r"#\s*bare-python-by-design\s*:\s*(.{40,})")
+
 # Hooks that don't import divineos (no python embedding) and so don't
 # need the helper. Add to this list with a comment explaining why.
 EXEMPT_HOOKS = {
@@ -101,6 +122,8 @@ def test_no_hook_uses_bare_python_for_divineos_imports() -> None:
             line_no = text[: m.start()].count("\n") + 1
             line = text.split("\n")[line_no - 1] if line_no <= len(text.split("\n")) else ""
             if "$PYTHON_BIN" in line:
+                continue
+            if _BARE_PYTHON_BY_DESIGN.search(line):
                 continue
             failures.append((hook.name, f"bare python invocation: {m.group(0).strip()!r}", line_no))
 
