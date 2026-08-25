@@ -97,6 +97,75 @@ _BRIEFING_TAIL = (
 )
 
 
+_DELETION_ERRORS = (OSError, TypeError, ValueError, KeyError, AttributeError)
+
+
+def deletion_discipline_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a destructive deletion lacking a fresh matching justification.
+
+    MIGRATED 2026-08-25, after being named four times without being started.
+    Aria observed that each naming was displaced by something urgent arriving
+    from her — true, and not a reason to name it a fifth time. The cure for
+    announcement-is-not-action is the action.
+
+    THE DECISION IS UNCHANGED: same block_reason, same JSON deny protocol. A
+    migration moves WHERE a decision is made and must never change HOW it lands
+    — my July precedent and Aria's own, applied here rather than rediscovered.
+
+    WHAT CHANGES IS THE FAILURE MODE, and it is why this one was worth doing
+    rather than deferring again. The shell hook wrapped its call in a bare
+    `except Exception: pass` with stderr to /dev/null, so a gate that could not
+    run — bad import, raised decision, anything — was byte-identical to a gate
+    that examined the command and approved it. That is the class this whole
+    session has been pulling out of the house, sitting inside a gate whose
+    entire job is refusal.
+
+    Now could-not-run is DECLARED. It lands in the router's errored list, prints
+    "COULD NOT RUN … this is not the same as it passing," and arms a must-read
+    so the next tool stops until it has been seen. Andrew 2026-08-25: a loud
+    alarm that does not block becomes wallpaper.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="deletion_discipline", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    command = (tool_input.get("command") or "") if isinstance(tool_input, dict) else ""
+    if not command.strip():
+        return SurfaceOutcome(name="deletion_discipline", state="nothing-to-say")
+
+    try:
+        from divineos.core.deletion_discipline import block_reason
+    except ImportError as exc:
+        return SurfaceOutcome(
+            name="deletion_discipline",
+            error=f"cannot import: {exc}",
+            state="could-not-run",
+        )
+
+    try:
+        reason = block_reason(command)
+    except _DELETION_ERRORS as exc:
+        # The shell swallowed this and approved. Declared instead: whatever this
+        # gate guards went unguarded for this call, and that must not read as
+        # consent.
+        return SurfaceOutcome(
+            name="deletion_discipline",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if not reason:
+        return SurfaceOutcome(name="deletion_discipline", state="nothing-to-say")
+
+    return SurfaceOutcome(
+        name="deletion_discipline",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse substantive tools while the briefing is stale or never loaded.
 
