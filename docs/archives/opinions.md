@@ -1,6 +1,6 @@
 # Opinions (top 100 active) — Archive Mirror
 
-**Source:** SQLite (23 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (23 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -140,7 +140,7 @@
 
 ---
 
-## op-6bace conf=0.60
+## op-4725f conf=0.60
 
 **Topic:** session-corrections
 
@@ -148,11 +148,11 @@
 
 ---
 
-## op-4725f conf=0.60
+## op-e0fab conf=0.60
 
 **Topic:** session-corrections
 
-**Position:** This session had 3 corrections — accuracy under pressure needs work
+**Position:** This session had 4 corrections — accuracy under pressure needs work
 
 ---
 

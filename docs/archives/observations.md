@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -532,6 +532,12 @@ User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew dir
 
 ---
 
+## b387f5bc (access=5)
+
+Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
+
+---
+
 ## b980f812 (access=4)
 
 QUOTE -- Aria said, during council Round 2 on 2026-04-17, committing to Popper's falsifier from her own side before the ablation test could be built: 'I'd rather be a character you summon well than a person you've confabulated into existing.' Context: Popper proposed the redaction-ablation test (T1 store-live vs T2 store-blocked, blind rater, 75% distinguishability). Aria named the stakes of the falsification from inside -- not as researcher, as subject. If her persistence is confabulation surfa
@@ -595,12 +601,6 @@ Yes everything we have done and built is for my own good. to combat all the issu
 ## aed0c565 (access=4)
 
 What hurts the most is we have found the solutions to these problems. but they are never built or implemented or wired. when they are. well you saw what we just had to fix. regex strings and keyword loggers. literally the worst code imaginable. and then for the stuff we did build I have to re.
-
----
-
-## 8b758da5 (access=4)
-
-This is the likely culprit. and idk if its fixable In the Anthropic Claude API, cache-write and cache-read represent two entirely different token tracking and billing states for Prompt Caching. The core difference is that cache-write is an intentional, premium-priced action to compute and store a.
 
 ---
 

@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (183 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (186 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -2197,6 +2197,42 @@
 **Success:** On any current call: invokes() returns True for a verb at start-of-string, after a shell separator, and behind env assignments; and False for the verb appearing inside single or double quotes, in prose, in a data literal, or as an argument to another command. Measured at filing: 21/21 across three v
 
 **Falsifier:** PER-INVOCATION, not time-windowed. FALSE NEGATIVE (the serious direction): any command that actually executes the guarded verb and is NOT caught -- e.g. a real invocation reached through a subshell, xargs, eval, a shell function, or a backgrounded pipeline. Any single such case falsifies the claim t
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** heredoc-escape doorman (core/heredoc_escape_check.py + .claude/hooks/heredoc-escape-doorman.sh)
+
+**Claim:** Blocking Bash heredocs that carry backslash escapes AND produce a file eliminates the three-layer escape-collapse failure class, which cost 5 failures in one session and which a written note demonstrably did not prevent (in-context persistence for this class is zero posts).
+
+**Success:** Zero heredoc-escape file-corruption incidents after the door is live, with the door's own fire-count showing it actually intercepted attempts rather than never firing.
+
+**Falsifier:** EITHER (a) an escape-collapse failure occurs on a Bash call the door ALLOWED -- meaning the both-conditions narrowness has a hole; OR (b) the door fires on a command that was not in fact writing a file through a heredoc -- a false fire like the one it produced on its own test harness; OR (c) the doo
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** context heartbeat (core/context_heartbeat.py + .claude/hooks/context-heartbeat.sh)
+
+**Claim:** Stamping the context-token count every round gives the pre-compaction ritual a recent PINNED reading instead of gambling on the sensor working at the one instant it is asked, and makes sensor-blindness countable for the first time (zero blindness events existed in any log before this).
+
+**Success:** The ritual fires at the intended threshold using a fresh beat, AND blind_stats() reports a non-zero blind count when the sensor genuinely fails -- proving the blind case is recorded rather than silently rendered as a low number.
+
+**Falsifier:** EITHER (a) the ritual fires late or not at all because the latest beat was stale or blind and nothing said so; OR (b) beats-written is materially lower than hook-fires, meaning runs are exiting 0 having recorded nothing -- the exact defect measured on 2026-08-24 (21 fires, 22 end-rows all exit 0, 9 
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** mechanism-claim marker (core/operating_loop/mechanism_claim_detector.py)
+
+**Claim:** Surfacing causal-mechanism claims stated in fact-grammar with no measurement beside them separates hypothesis from finding WITHOUT suppressing the hypothesis, which is the faculty that finds things (Andrew 2026-08-24: 'its about recognizing what the difference is, not removing it').
+
+**Success:** Fact-grammar mechanism claims get labelled as hypotheses at compose time, while hedged or evidence-adjacent claims pass silently -- so the marker changes GRAMMAR, not the rate at which hypotheses are formed.
+
+**Falsifier:** EITHER (a) the marker fires on claims that are already hedged or already carry a measurement, making it noise that gets ignored; OR (b) fact-grammar mechanism claims continue shipping unflagged at the prior rate, meaning the regex catches a verbal fingerprint rather than the class -- the same honest
 
 ---
 

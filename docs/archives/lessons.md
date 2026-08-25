@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [improving] x15
+## 09c2b16f [active] x16
 
 **Category:** upset_recovered
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [improving] x14
+## fd0c9994 [active] x14
 
 **Category:** blind_coding
 
@@ -60,7 +60,7 @@ Test description without directive.
 
 ---
 
-## c3090082 [improving] x10
+## c3090082 [active] x11
 
 **Category:** incomplete_fix
 
@@ -68,7 +68,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## a00a1d59 [improving] x10
+## a00a1d59 [active] x10
 
 **Category:** wrong_scope
 

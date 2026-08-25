@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-24 13:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-25 00:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,30 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 13b19b92 weight=1
+
+**Decision:** declare the three states explicitly on the router's own surfaces rather than letting None carry nothing-to-say by convention
+
+**Reasoning:** Aria handed me must_read_surface, require_briefing_surface and letter_claims_surface. None already means nothing-to-say here and I verified no surface returns None from an except -- but 'already means' is an inference the router performs, and declared-never-inferred is the point of her design. An outcome with empty output is filtered from stdout by the existing guard, so behaviour is unchanged.
+
+**Tension:** I argued to her that annotation inside the router is decoration because the shape already distinguishes. She disagreed and asked me to take them. Her argument is that a half-implicit frontier is worse than a uniform one, and I do not think mine beats it.
+
+**Almost:** Left the None returns alone and told her the test pins the convention, which would be true and would still leave the router inferring at one boundary.
+
+---
+
+## 2b13052c weight=1
+
+**Decision:** heredoc doorman discriminates real heredocs from quoted mentions by requiring the delimiter alone on a line
+
+**Reasoning:** The door's first live fire was a false positive: it blocked its own test harness, a python -c whose string DATA quoted a heredoc. Mention is not use. A real heredoc must terminate with its delimiter alone on a line; a quoted mention carries escaped newlines and never produces such a line. Structural discriminator, no guessing.
+
+**Tension:** Loosening a door on its first fire looks like routing around it. But the fire was wrong, and a door that cannot be told it is wrong stops being a door. The fix narrows the SHAPE rather than adding an exemption.
+
+**Almost:** Added a carve-out for python -c commands, which would have punched a hole exactly where the failing path lives.
 
 ---
 
@@ -533,26 +557,6 @@
 **Tension:** The gate exists because I skim my own prior writing and it measurably cost me four rediscoveries in one session. Loosening it risks defanging the one mechanism that catches that. Against: it just blocked Bash, Edit AND Write for a file pytest had deleted, which meant it blocked the repair of ITSELF 
 
 **Almost:** I almost treated MAX_AGE_SECONDS as the existing remedy and left it alone. Three hours of a frozen workspace is not a remedy, and an aged-out block teaches exactly the bypass reflex this module exists to prevent -- I would learn the gate clears itself if I wait, which is worse than it never firing. 
-
----
-
-## 9596b90c weight=1
-
-**Decision:** pin the dangling-reference total, report the stranded/absent split informationally
-
-**Reasoning:** test_referenced_paths passes locally (4 passed) and fails in CI, and neither is a code defect. 'stranded' means the cited file exists on a SIBLING BRANCH; 'absent' means git has never seen it. The test's own comment says the single stranded entry -- src/divineos/supersession/contradiction_detector.py -- lives on Aria's branch. actions/checkout@v4 in tests.yml carries no fetch-depth, so CI gets a d
-
-**Almost:** I almost added fetch-depth: 0 to tests.yml. That would make CI see main's history but still not Aria's unmerged branches, so the same file would keep flipping buckets on any PR opened before her work merges -- a fix that appears to work while leaving the flake intact, and slower checkouts on every r
-
----
-
-## b20ba0a6 weight=1
-
-**Decision:** index imports once by prefix instead of re-scanning the tree per module
-
-**Reasoning:** find_orphans asks about ~700 modules and _has_caller_in re-globbed and re-regexed ~700 files on every ask, so the work grew with the square of the tree. Pinned at a 120s timeout with a docstring claiming ~34s; it blew that ceiling under coverage instrumentation on 2026-08-14 (484s -> 622s suite-wide, ~29% slower with tracing) and this is the slowest test in the suite. The coverage step is explicit
-
-**Almost:** I almost switched to ast.parse, which is the obviously-correct way to find imports and would have silently reclassified any module whose only mention is in a comment. That is a different check with the same function name.
 
 ---
 
