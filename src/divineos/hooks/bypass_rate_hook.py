@@ -57,10 +57,34 @@ _CLEARANCE_EVENT_TYPES = (
 )
 
 
-def _parse_iso(ts_str: str) -> float:
-    """Parse an ISO timestamp to epoch seconds. Returns 0 on failure."""
+def _parse_iso(ts_str: Any) -> float:
+    """Read a ledger timestamp as epoch seconds. Returns 0 on failure.
+
+    THE LEDGER WRITES FLOATS AND THIS READ ISO STRINGS. (2026-08-25.)
+
+    Every timestamp came back 0.0. `core.ledger.get_events` returns
+    `timestamp` as a float epoch -- measured: 1787693818.7120047 -- and this
+    called `.replace("Z", ...)` on it, raising AttributeError into the
+    `except` and returning zero for every event without a sound.
+
+    Both clearance paths died on it. `_find_open_fire` skips any fire whose
+    timestamp parses to 0, and `_recent_clearance_within` had its own inline
+    copy of the same parse, so the cool-off never engaged either. The gate
+    therefore could not be cleared by ANY of the three exits it documents,
+    and could not stop re-firing. Confirmed the hard way 2026-08-25: I filed
+    claim b59f71c4 and audit round-7c8963ffa78a -- two of its three
+    prescribed exits -- and it blocked the very next edit both times.
+
+    A gate whose cure sits behind the door it guards is a wall. This one was
+    a wall for anyone who read its instructions and followed them.
+
+    Accepts both shapes now: a number passes through, a string is parsed.
+    Ledgers change format; a reader that only knows one is how this happened.
+    """
+    if isinstance(ts_str, (int, float)):
+        return float(ts_str)
     try:
-        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+        return datetime.fromisoformat(str(ts_str).replace("Z", "+00:00")).timestamp()
     except (ValueError, AttributeError):
         return 0.0
 
@@ -119,8 +143,12 @@ def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) 
     window. Used to suppress redundant re-fires while an investigation is
     already in progress."""
     import time
-    from datetime import datetime
 
+    # ONE READER, not a second copy. This block had its own inline
+    # fromisoformat call, so when the ledger's float timestamps broke
+    # _parse_iso they broke the cool-off too -- the same defect twice because
+    # the same parse was written twice. Same shape as the event-type string
+    # that lived in two files and drifted, found earlier the same day.
     cutoff = time.time() - window_seconds
     for event_type in _CLEARANCE_EVENT_TYPES:
         try:
@@ -128,10 +156,8 @@ def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) 
         except Exception:  # noqa: BLE001
             continue
         for e in events:
-            ts_str = e.get("timestamp") or ""
-            try:
-                ts_epoch = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
-            except (ValueError, AttributeError):
+            ts_epoch = _parse_iso(e.get("timestamp"))
+            if ts_epoch == 0.0:
                 continue
             if ts_epoch < cutoff:
                 # desc order — remaining events are older, stop

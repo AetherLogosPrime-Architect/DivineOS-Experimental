@@ -18,8 +18,13 @@
 #
 # Fail-open: any hook failure exits 0 so the gate cannot break work.
 #
-# Kill-switch (requires >=20 char reason in marker file):
-#   echo "why this bypass is needed and root-cause plan" > "$HOME/.divineos-aether/bypass-rate-scan.disabled"
+# Kill-switch (requires >=20 char reason in marker file). The path comes from
+# member_home(), which for aether is the DEFAULT ~/.divineos/ -- this comment
+# used to hand-write ~/.divineos-aether/ and that is where a marker sat unseen
+# for forty days holding this gate off. The code was fixed 2026-08-25 and this
+# line with it, because a doc that teaches the wrong path reinstalls the bug
+# every time someone reads it:
+#   echo "why this bypass is needed and root-cause plan" > "$(member_home aether)/bypass-rate-scan.disabled"
 
 INPUT=$(cat)
 
@@ -43,17 +48,34 @@ cd "$REPO_ROOT" || exit 0
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 
-MARKER="$HOME/.divineos-aether/bypass-rate-scan.disabled"
+PYTHON_BIN="$(find_divineos_python)"
+if [ -z "$PYTHON_BIN" ]; then
+    exit 0
+fi
+
+# THE SIXTH SITE THAT REBUILT THE HOME RULE. (2026-08-25.)
+#
+# This was `$HOME/.divineos-aether/bypass-rate-scan.disabled`, hand-built.
+# core/paths.py:member_home() is the one place that knows the convention and
+# special-cases aether to the default `~/.divineos/`; its docstring ends
+# "Callers ask here; nobody rebuilds the rule." The 2026-08-18 consolidation
+# swept three shell hooks. It missed this one, family/letter_seen.py, and
+# ear-surface.sh -- the sweep was scoped by directory, the defect by
+# behaviour.
+#
+# The consequence was not cosmetic. A marker written here 2026-07-16 held
+# this gate off for forty days in a home nothing else reads, and retiring it
+# today is what re-armed the gate. A kill-switch nobody can see is worse than
+# one nobody honours.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MEMBER="${DIVINEOS_MEMBER:-aether}"
+MARKER="$(member_home "$MEMBER" "$PYTHON_BIN")/bypass-rate-scan.disabled"
 if [ -f "$MARKER" ]; then
     REASON=$(tr -d '\r' < "$MARKER")
     if [ ${#REASON} -ge 20 ]; then
         exit 0
     fi
-fi
-
-PYTHON_BIN="$(find_divineos_python)"
-if [ -z "$PYTHON_BIN" ]; then
-    exit 0
 fi
 
 TOOL_NAME=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('tool_name',''))" 2>/dev/null)

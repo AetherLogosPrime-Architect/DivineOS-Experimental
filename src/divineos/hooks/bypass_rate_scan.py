@@ -90,15 +90,34 @@ class BypassRateScan(CrossTurnScan):
             except Exception:  # noqa: BLE001 — fail-open per primitive contract
                 return None
         try:
-            total_events = int(stats.get("total_events", 0))
+            # ESCAPES, NOT EVERY ROW. (audit round-7c8963ffa78a, 2026-08-25.)
+            #
+            # This compared `total_events`, which counts COMPLIANCE rows --
+            # running the command a gate prescribed. It blocked at
+            # 70-over-14-days naming its top three offenders as
+            # `divineos goal`, `divineos ask` and `divineos context`: three
+            # commands that gates tell me to run. Doing what a gate says is
+            # not routing around it.
+            #
+            # bypass_telemetry.py:593 reads the same stats for the narrative
+            # surface and already filtered to escape_events. Two consumers of
+            # one dataset, one filtering and one not -- and the one that
+            # BLOCKS was the one that did not. The surface printed "compliance
+            # is excluded from this verdict" directly above a verdict that
+            # included it.
+            #
+            # Falls back to total_events when the provider is too old to carry
+            # the classification, matching the telemetry side, so an
+            # unclassified window still trips rather than silently passing.
+            escape_events = int(stats.get("escape_events", stats.get("total_events", 0)))
             by_env = dict(stats.get("by_env_var", {}) or {})
             unique_days = int(stats.get("unique_days", 0))
             window_days = int(stats.get("window_days", self._window_days))
         except (TypeError, ValueError):
             return None
-        if total_events < self._threshold_events:
+        if escape_events < self._threshold_events:
             return None
-        return self._to_evidence(total_events, by_env, unique_days, window_days)
+        return self._to_evidence(escape_events, by_env, unique_days, window_days)
 
     def _to_evidence(
         self,
@@ -113,12 +132,16 @@ class BypassRateScan(CrossTurnScan):
         top_line = (
             ", ".join(f"{name} ({count})" for name, count in top) if top else "(no env-var detail)"
         )
+        # The label follows the number. This said `total_events` while the
+        # value became escape_events, which is how a correct figure still
+        # reads as the wrong claim -- the exact shape being fixed here.
         specific_evidence = (
-            f"total_events={total}, unique_days={unique_days}, "
-            f"window_days={window_days}, top_bypassed={top_line}"
+            f"escape_events={total}, unique_days={unique_days}, "
+            f"window_days={window_days}, top_bypassed={top_line} "
+            f"(compliance rows -- running a command a gate prescribed -- are excluded)"
         )
         matched_shape = (
-            f"bypass rate {total} events over {window_days} days "
+            f"escape rate {total} events over {window_days} days "
             f"exceeds threshold {self._threshold_events}"
         )
         required_action = (
