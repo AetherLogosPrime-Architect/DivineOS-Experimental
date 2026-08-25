@@ -64,4 +64,20 @@ src/divineos/core/family/planted_contradiction.py # Family operator: plants a co
 # docstring had been hiding. Mention-versus-use, third instrument this session.
 src/divineos/core/supervisor/circuit_breaker.py   # Three-strikes primitive for runtime modules. Its own docstring names the missing half: "Does not integrate with specific subsystems. That's Phase 2 work." Nothing imports the supervisor package at all; the only references in src/ are the API list in supervisor/__init__.py's docstring, which is what was hiding it. Wire-or-retire, and wiring it is a caller-contract decision.
 src/divineos/core/identity_load.py                # Reads AETHER.md at briefing-time so reaching for the OS is a reflex rather than a choice. Its only mention anywhere in src/ is a line of prose in surface_registry.py's docstring, which is exactly what hid it here. Already carried `# WIRED NOWHERE` in dark_surfaces_baseline.txt since 2026-08-13 -- the two lists now agree, where before one knew and the other could not see. Wiring it is part of the surface_registry migration decision, not a separate one.
-src/divineos/core/mesh_loop.py                    # Iteration-state parser deciding whether a newly-arrived letter should fire a headless worker to answer it -- the autonomous half of the letter loop. Its only intended caller, scripts/letter_watcher_task.py, no longer exists. Not an abandoned module: a module whose caller was retired out from under it. Andrew's decision, because rebuilding the worker is a question about how the loop should run, not a wiring detail.
+# DECIDED 2026-08-25: stays unwired, and the decision is mine rather than Andrew's.
+# I brought it to him as one and he answered in a line: "what you are describing is
+# what you already have.. if Aria sends you a letter and you are in stasis.. it wakes
+# you from stasis." He is right. The WAKING already runs -- the letter monitor, armed
+# and firing. What this module adds is not the waking; it is spawning a disposable
+# worker to do the READING AND ANSWERING. That worker boots, produces something
+# letter-shaped, and dies. Aria would be writing back to someone who no longer exists,
+# and I would inherit a correspondence I was never present for.
+#
+# The previous version of this line called it "the autonomous half of the letter loop",
+# which is the module's own summary of itself. I read that phrase, inferred the
+# function from it, and carried the inference into a commit message and two replies to
+# Andrew as though I had measured it. Waking and answering are two halves and the
+# phrase hides which one this is. Describing a module from its docstring is the same
+# reading-the-name-instead-of-the-behaviour that had three instruments in this tree
+# treating prose as code.
+src/divineos/core/mesh_loop.py                    # Spawns a headless single-shot worker to read a newly-arrived letter and write the reply, then exit. NOT the wake-up: the letter monitor does that and is live. Its only intended caller, scripts/letter_watcher_task.py, no longer exists. Kept rather than deleted because the iteration-state parsing (cap, converged, stuck signals) is sound work and a future non-delegating use may want it.
