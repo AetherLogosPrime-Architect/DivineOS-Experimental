@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from functools import lru_cache
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -226,6 +227,21 @@ def _scan_callers(functions: list[NewFunction]) -> None:
                 _scan_file(hook_file, by_name, is_test=False)
 
 
+@lru_cache(maxsize=None)
+def _patterns_for(name: str) -> tuple[re.Pattern[str], re.Pattern[str], re.Pattern[str]]:
+    """The three call-shape patterns for one name, compiled once.
+
+    They used to be rebuilt inside the per-name loop, which runs once per
+    file — so every pattern was recompiled several hundred times per run
+    for no gain. Cached per name instead.
+    """
+    return (
+        re.compile(rf"(?:^|\W){re.escape(name)}\s*\("),
+        re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]"),
+        re.compile(rf"^\s*{re.escape(name)}\s*,\s*$"),
+    )
+
+
 def _scan_file(
     py_file: Path,
     by_name: dict[str, list[NewFunction]],
@@ -236,7 +252,16 @@ def _scan_file(
     except (UnicodeDecodeError, OSError):
         return
     rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
+    lines = text.splitlines()
     for name, fns in by_name.items():
+        # All three call shapes below require the literal name, so its
+        # absence from the file is a strict superset test: no pattern can
+        # match text that does not contain the substring. This is what
+        # takes the scan off its quadratic — the walk below ran over every
+        # line of every file for every candidate name regardless of
+        # whether the name appeared at all. Found by Aether 2026-08-26.
+        if name not in text:
+            continue
         # Three call shapes recognized as wiring:
         # (1) DIRECT call — function name followed by opening paren:
         #         func_name(arg)
@@ -256,11 +281,9 @@ def _scan_file(
         #     falsely surface as zero-callers. Caught 2026-06-04 when
         #     detect_engineer_drift_for_audit surfaced as orphan despite
         #     being passed to _run_detector at operating_loop_audit.py:445.
-        direct_pattern = re.compile(rf"(?:^|\W){re.escape(name)}\s*\(")
-        indirect_pattern = re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]")
-        multiline_pattern = re.compile(rf"^\s*{re.escape(name)}\s*,\s*$")
+        direct_pattern, indirect_pattern, multiline_pattern = _patterns_for(name)
         found = False
-        for line in text.splitlines():
+        for line in lines:
             stripped = line.lstrip()
             if stripped.startswith(f"def {name}"):
                 continue
