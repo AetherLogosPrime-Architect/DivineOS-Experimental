@@ -208,6 +208,46 @@ class TestWhoseTranscriptIsIt:
             f"resolved to {picked.parent.name!r} -- a separate agent's live session"
         )
 
+    def test_a_sibling_session_of_mine_is_still_not_this_session(self, tmp_path, monkeypatch):
+        """The half the separator fix does NOT cover, and I called it closed.
+
+        Another window of MY OWN lives in the same project directory and
+        satisfies the scoped predicate legitimately, so newest-wins could still
+        hand this session the wrong transcript. One was open and writing while
+        I wrote the separator repair. The harness names each transcript after
+        the session id and exports that id, so the resolver looks its own up by
+        name -- an exact match, not a tiebreak. The sibling is NEWER here on
+        purpose: that is the losing case under mtime, and it must still lose.
+        """
+        mine = "0c1698fa-9524-4eb2-9942-38e35adf2866"
+        root = tmp_path / ".claude" / "projects" / MAIN_DIR
+        root.mkdir(parents=True)
+        for name, mtime in ((mine, 1000.0), ("a18627d7-0cff-46ee-91df-b39f4e8ddea6", 9000.0)):
+            f = root / f"{name}.jsonl"
+            f.write_text("{}", encoding="utf-8")
+            os.utime(f, (mtime, mtime))
+        monkeypatch.setattr(R.Path, "home", staticmethod(lambda: tmp_path))
+        monkeypatch.setattr("divineos.core.context_tokens._encode_cwd_for_claude", lambda: MAIN_DIR)
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", mine)
+        picked = R._active_transcript_including_worktrees()
+        assert picked is not None and picked.stem == mine, (
+            f"resolved to {picked and picked.stem!r} -- another window of mine"
+        )
+
+    def test_without_a_session_id_the_newest_still_wins(self, tmp_path, monkeypatch):
+        """The fallback has to stay intact for hooks and subagents.
+
+        They run without the harness session id in their environment, and there
+        newest-wins is still the best answer available. Closing the race for the
+        session that HAS an id must not blind the callers that do not.
+        """
+        _projects_root(tmp_path, monkeypatch, {MAIN_DIR: 1000.0})
+        (tmp_path / ".claude" / "projects" / MAIN_DIR / "newer.jsonl").write_text("{}")
+        os.utime(tmp_path / ".claude" / "projects" / MAIN_DIR / "newer.jsonl", (9000.0, 9000.0))
+        monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+        picked = R._active_transcript_including_worktrees()
+        assert picked is not None and picked.name == "newer.jsonl"
+
     def test_an_unrelated_project_is_not_mine_either(self, tmp_path, monkeypatch):
         """The general case the Aria instance is one example of."""
         _projects_root(

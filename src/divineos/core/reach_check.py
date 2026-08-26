@@ -82,6 +82,7 @@ different failures, and only the first has been costing.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import subprocess
@@ -641,6 +642,25 @@ def _active_transcript_including_worktrees() -> Path | None:
     anyway, so the only directories the old match added beyond the new one were
     other people's.
 
+    THE SEPARATOR FIX ALONE ONLY NARROWED IT, AND I REPORTED IT AS CLOSED.
+    Correcting that in the same session it shipped. Scoping to my own project
+    excludes Aria; it does NOT exclude ANOTHER SESSION OF MINE, which lives in
+    the same project directory and satisfies the predicate legitimately. A
+    second window of mine was open and writing the whole time I wrote the first
+    repair, so the newest-wins tiebreak could still have handed me the wrong
+    transcript. I verified against the case I had in mind and then reported the
+    general property.
+
+    So the tiebreak is no longer the primary route. The harness names each
+    transcript after the session id and exports that id, which makes this an
+    EXACT LOOKUP rather than an inference -- the race does not narrow, it
+    disappears, because nothing is left to guess. Newest-wins survives only as
+    the fallback for callers with no session id in the environment (hooks,
+    subagents, a bare shell), where it remains the best available answer.
+
+    Found by reading the process table, not the code. No amount of staring at
+    this function would have shown me a second window of mine was open.
+
     NOT a fix to context_tokens: other callers depend on its exact behaviour
     and changing a shared resolver from inside a gate repair is how one fix
     becomes three regressions. Scoped here, with the wider issue named.
@@ -657,6 +677,15 @@ def _active_transcript_including_worktrees() -> Path | None:
             candidates.extend(d.glob("*.jsonl"))
     if not candidates:
         return None
+
+    # EXACT MATCH FIRST — there is nothing to infer when the harness has
+    # already told us which session this is.
+    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+    if session_id:
+        for c in candidates:
+            if c.stem == session_id:
+                return c
+
     return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
