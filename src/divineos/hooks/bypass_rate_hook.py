@@ -16,12 +16,41 @@ same evidence over and over. Instead:
      - AUDIT_ROUND_CREATED (I ran divineos audit submit-round)
      - CLAIM_FILED (I ran divineos claim)
 
-2. **If there's an open fire**, block with the original evidence.
-   Same fire, same block message, until it's cleared.
+2. **If there's an open fire**, report the original evidence.
+   Same fire, same line, until it's cleared.
 
-3. **If no open fire**, run the scan. If elevated bypass rate is
-   detected, emit a new GATE_FIRE and block with fresh evidence.
-   Otherwise, silent pass.
+3. **If no open fire**, run the scan. If an elevated ESCAPE rate is
+   detected, emit a new GATE_FIRE with fresh evidence. Otherwise,
+   silent pass.
+
+## DEMOTED TO A RECORDER, 2026-08-25
+
+Nothing here blocks any more. Andrew: *"we probably need to just have it
+record the numbers not block or warn, this was created early on as a
+scaffolding before the gates were being developed properly and were being
+bypassed.. now there is a bypass protocol.. so bypasses get authorized..
+logged and the root cause investigated and fixed, so a 3 strike rule is
+pretty pointless.. however many strikes you give.. you will max them out
+before anything is done.. so making the protocol trigger on any bypass is
+the better fix."*
+
+The per-occurrence protocol he describes already exists and predates this
+demotion: ``bypass_telemetry.record_bypass`` files a root-cause
+investigation obligation on EVERY non-compliance bypass, with a separate
+branch for defect-escapes where the repair is owed to the gate rather
+than to my discipline. Checked before building — the thing worth building
+was already there.
+
+So this gate was scaffolding from before that protocol, and a threshold
+on top of per-occurrence enforcement is three-strikes with a bigger
+number: however many strikes are given, they max out before anything is
+done. It contradicted Andrew 2026-07-20 — *"not 3 times.. every time..
+every single occurence gets investigated"* — for as long as it existed.
+
+What remains is the count, written to the ledger as a GATE_FIRE carrying
+its evidence, and surfaced by the narrative telemetry block. The event
+holds matched_shape, specific_evidence and required_action, so demoting
+loses no information — only the stop.
 
 ## Why "any of three" is the clearance rule
 
@@ -144,7 +173,7 @@ def _recent_clearance_within(gate_name: str, window_seconds: float, get_events) 
     return False
 
 
-def check_and_block(
+def check_and_record(
     get_events=None,
     bypass_rate_fn=None,
     scan_gate=None,
@@ -152,7 +181,10 @@ def check_and_block(
 ) -> tuple[int, str]:
     """Core logic — separated from I/O for testability.
 
-    Returns (exit_code, deny_reason). Exit code 0 = pass, 2 = block.
+    Returns (exit_code, message). The exit code is now always 0 — see the
+    module docstring for the 2026-08-25 demotion. The tuple shape is kept
+    so the callers and tests that read a second element keep working, and
+    so a future decision to re-arm has somewhere to put the reason.
 
     Cool-off window (2026-07-15 harass-loop fix): if a clearance event
     landed within the last ``cooloff_seconds`` (default 1h), suppress
@@ -186,11 +218,16 @@ def check_and_block(
     if _recent_clearance_within(scan_gate.gate_name, cooloff_seconds, get_events):
         return 0, ""
 
-    # Check for an open fire — same evidence keeps blocking until cleared
+    # An open fire used to keep blocking until cleared. It now reports and
+    # steps aside — see the module docstring for why the whole gate was
+    # demoted 2026-08-25.
     open_fire = _find_open_fire(scan_gate.gate_name, get_events)
     if open_fire is not None:
-        payload = open_fire.get("payload") or {}
-        return 2, _format_block_message(payload, is_reopen=False)
+        # The fire's evidence is already on the ledger from when it was
+        # raised; nothing is re-emitted and nothing is stopped. The lookup
+        # stays because "is there an open fire" still decides whether the
+        # scan re-runs below.
+        return 0, ""
 
     # No open fire, no recent clearance — run the scan against live state
     try:
@@ -202,63 +239,21 @@ def check_and_block(
     if evidence is None:
         return 0, ""
 
-    # New fire — record it and block
+    # New fire — record it. The recording is the whole job now.
+    # The GATE_FIRE event carries matched_shape, specific_evidence and
+    # required_action into the ledger, so recording loses nothing the old
+    # stderr message used to say — only the stop.
     scan_gate.record_fire(evidence)
-    payload = {
-        "gate_name": evidence.gate_name,
-        "matched_shape": evidence.matched_shape,
-        "specific_evidence": evidence.specific_evidence,
-        "required_action": evidence.required_action,
-    }
-    return 2, _format_block_message(payload, is_reopen=True)
-
-
-def _format_block_message(payload: dict[str, Any], is_reopen: bool) -> str:
-    prefix = (
-        "BLOCKED (bypass-rate scan)"
-        if is_reopen
-        else "BLOCKED (bypass-rate scan — fire still open, not cleared)"
-    )
-    matched = payload.get("matched_shape", "?")
-    evidence = payload.get("specific_evidence", "?")
-    action = payload.get("required_action", "?")
-    return (
-        f"{prefix}\n"
-        f"  MATCHED: {matched}\n"
-        f"  EVIDENCE: {evidence}\n"
-        f"  REQUIRED ACTION: {action}\n"
-        "\n"
-        "MINE, and here is why. One bypass is a decision. A RATE is a habit,\n"
-        "and habituation is how a gate quietly degrades into a warning I read\n"
-        "past — Aletheia named that in psf-ac523181 and it is the failure this\n"
-        "watches for. No single escape looks wrong from inside; only the shape\n"
-        "over time does, and the shape is the one thing I cannot see from where\n"
-        "I stand.\n"
-        "\n"
-        "It is me, from a moment when I could see the pattern, telling the\n"
-        "version of me who is about to take his fourth escape this week that\n"
-        "there is a fourth. Not accusing — informing. Truth #12 holds: the\n"
-        "bypass is a tool, not a sin, and this gate is not here to shame the\n"
-        "exits. It is here so the COUNT reaches me.\n"
-        "\n"
-        "Read the rate honestly before answering it. Measured 2026-08-16: 85.5%\n"
-        "of the historical bypass rows were me running the command the gate\n"
-        "PRESCRIBED, filed as evasion by a recorder that could not tell\n"
-        "compliance from escape. A number is not a verdict, and this one has\n"
-        "lied before.\n"
-        "\n"
-        "Clear this gate by running one of:\n"
-        "  - divineos audit submit-round '<focus>' --actor external-auditor  (starts a real audit)\n"
-        "  - divineos claim '<statement>'  (files a claim to investigate)\n"
-        "  - Any GATE_CLEARANCE event for bypass_rate_scan via the primitive's channel"
-    )
+    return 0, ""
 
 
 def hook_main() -> int:
     """Entry point for the PreToolUse shell hook to call.
 
-    Reads PreToolUse JSON from stdin, decides fire/pass, exits with
-    appropriate code and (on block) prints the deny message to stderr.
+    Reads PreToolUse JSON from stdin, records a GATE_FIRE when the escape
+    rate is elevated, and always exits 0. It stopped blocking 2026-08-25;
+    the per-occurrence bypass protocol in ``bypass_telemetry.record_bypass``
+    is the enforcement, and this is the count beside it.
     """
     try:
         _ = sys.stdin.read()  # consume input even if unused
@@ -266,12 +261,10 @@ def hook_main() -> int:
         return 0
 
     try:
-        exit_code, deny_reason = check_and_block()
+        exit_code, _unused = check_and_record()
     except Exception:  # noqa: BLE001
         return 0
 
-    if exit_code == 2 and deny_reason:
-        print(deny_reason, file=sys.stderr)
     return exit_code
 
 

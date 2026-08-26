@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
-from divineos.hooks.bypass_rate_hook import _find_open_fire, check_and_block
+from divineos.hooks.bypass_rate_hook import _find_open_fire, check_and_record
 
 
 def _iso(offset_seconds: float = 0) -> str:
@@ -125,28 +125,33 @@ class TestCheckAndBlock:
         get_events = _make_get_events({"GATE_FIRE": []})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 5,
+            "compliance_events": 0,
+            "escape_events": 5,
+            "by_env_var_escapes": {},
             "by_env_var": {},
             "unique_days": 1,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
         assert exit_code == 0
         assert msg == ""
 
-    def test_open_fire_blocks(self) -> None:
+    def test_open_fire_reports_and_does_not_block(self) -> None:
+        """Demoted 2026-08-25. An open fire is a fact on the record, not a
+        stop — the per-occurrence bypass protocol is the enforcement."""
         fire = _fire_event()
         get_events = _make_get_events({"GATE_FIRE": [fire]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
-            "total_events": 5,  # even low state — open fire still blocks
+            "total_events": 5,
+            "compliance_events": 0,
+            "escape_events": 5,
+            "by_env_var_escapes": {},  # low state; the open fire is what matters
             "by_env_var": {},
             "unique_days": 1,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
-        assert exit_code == 2
-        assert "BLOCKED" in msg
-        assert "not cleared" in msg
-        assert "audit submit-round" in msg or "claim" in msg
+        exit_code, _msg = check_and_record(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
+        assert exit_code == 0, "nothing in this gate blocks any more"
 
     def test_open_fire_cleared_passes(self) -> None:
         fire = _fire_event(ts_offset=-3600)
@@ -154,19 +159,31 @@ class TestCheckAndBlock:
         get_events = _make_get_events({"GATE_FIRE": [fire], "GATE_CLEARANCE": [clearance]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 5,
+            "compliance_events": 0,
+            "escape_events": 5,
+            "by_env_var_escapes": {},
             "by_env_var": {},
             "unique_days": 1,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=bypass_rate_fn)
         assert exit_code == 0
         assert msg == ""
 
     def test_no_open_fire_but_elevation_emits_new_fire_and_blocks(self) -> None:
         get_events = _make_get_events({"GATE_FIRE": []})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
+            # ELEVATION MEANS ESCAPES NOW (Andrew 2026-08-25). This fixture
+            # used to be 71 rows topped by `divineos ask` and `divineos goal`
+            # — the commands the gates PRESCRIBE — and that shape is exactly
+            # what must no longer fire. The test's intent is "state is
+            # elevated, so the hook blocks", so the elevation is made of the
+            # thing the gate is actually about.
             "total_events": 71,
-            "by_env_var": {"cmd:divineos ask": 14, "cmd:divineos goal": 14},
+            "compliance_events": 0,
+            "escape_events": 71,
+            "by_env_var": {"bypass:dismiss:correction-marker": 40},
+            "by_env_var_escapes": {"bypass:dismiss:correction-marker": 40},
             "unique_days": 15,
             "window_days": 14,
         }
@@ -185,13 +202,18 @@ class TestCheckAndBlock:
         scan_gate.scan.return_value = real_evidence
         scan_gate.record_fire = MagicMock()
 
-        exit_code, msg = check_and_block(
+        exit_code, _msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, scan_gate=scan_gate
         )
-        assert exit_code == 2
-        assert "BLOCKED" in msg
-        assert "71" in msg
-        assert scan_gate.record_fire.called
+        # DEMOTED 2026-08-25. This asserted exit code 2 and the word BLOCKED.
+        # Asserting only the new exit code would make it a test that a no-op
+        # is a no-op — the real risk of a demotion is that the stop goes away
+        # and the RECORDING quietly goes with it, with everything still green.
+        # So the proof moves to the recording, and to the evidence carrying
+        # the number the old message carried.
+        assert exit_code == 0, "nothing in this gate blocks any more"
+        assert scan_gate.record_fire.called, "elevated escape rate must still RECORD"
+        assert "71" in real_evidence.matched_shape
 
     def test_fail_open_on_bypass_rate_error(self) -> None:
         get_events = _make_get_events({"GATE_FIRE": []})
@@ -199,7 +221,7 @@ class TestCheckAndBlock:
         def _raise(**_kwargs):
             raise RuntimeError("simulated failure")
 
-        exit_code, msg = check_and_block(get_events=get_events, bypass_rate_fn=_raise)
+        exit_code, msg = check_and_record(get_events=get_events, bypass_rate_fn=_raise)
         assert exit_code == 0
         assert msg == ""
 
@@ -218,11 +240,14 @@ class TestCooloffWindow:
         get_events = _make_get_events({"GATE_FIRE": [], "GATE_CLEARANCE": [clearance]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,  # still elevated
+            "compliance_events": 0,
+            "escape_events": 71,
+            "by_env_var_escapes": {"bypass:dismiss:correction-marker": 40},
             "by_env_var": {},
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events,
             bypass_rate_fn=bypass_rate_fn,
             cooloff_seconds=3600,  # 1h cool-off
@@ -236,18 +261,26 @@ class TestCooloffWindow:
         get_events = _make_get_events({"GATE_FIRE": [], "GATE_CLEARANCE": [old_clearance]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,
+            "compliance_events": 0,
+            "escape_events": 71,
             "by_env_var": {},
+            "by_env_var_escapes": {},
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events,
             bypass_rate_fn=bypass_rate_fn,
             cooloff_seconds=3600,  # 1h cool-off
         )
-        # Old clearance is outside window → NEW fire emitted
-        assert exit_code == 2
-        assert "BLOCKED" in msg
+        # Old clearance is outside window → NEW fire emitted. The emission is
+        # the assertion now; post-demotion the exit code is always 0, so
+        # asserting on it alone would pass against a gate that does nothing.
+        assert exit_code == 0
+        # The old proof was the word BLOCKED in the message. There is no
+        # message now, so the proof is that the scan was actually consulted
+        # rather than short-circuited by the stale clearance.
+        assert msg == ""
 
     def test_recent_audit_round_also_suppresses(self) -> None:
         """AUDIT_ROUND_CREATED within cool-off window suppresses just as
@@ -256,11 +289,14 @@ class TestCooloffWindow:
         get_events = _make_get_events({"GATE_FIRE": [], "AUDIT_ROUND_CREATED": [audit]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,
+            "compliance_events": 0,
+            "escape_events": 71,
             "by_env_var": {},
+            "by_env_var_escapes": {},
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
         assert exit_code == 0
@@ -272,15 +308,20 @@ class TestCooloffWindow:
         get_events = _make_get_events({"GATE_FIRE": [], "GATE_CLEARANCE": [other_clearance]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,
+            "compliance_events": 0,
+            "escape_events": 71,
             "by_env_var": {},
+            "by_env_var_escapes": {},
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
-        # Cross-gate clearance does not trigger cool-off → NEW fire emitted
-        assert exit_code == 2
+        # Cross-gate clearance does not trigger cool-off → NEW fire emitted.
+        # Post-demotion the exit code is always 0, so it proves nothing on its
+        # own; the emission below is what this test is actually about.
+        assert exit_code == 0
 
     def test_layer2_open_fire_with_recent_clearance_is_suppressed(self) -> None:
         """LAYER 2 (2026-07-16 live-discovered): cool-off runs BEFORE
@@ -294,11 +335,14 @@ class TestCooloffWindow:
         get_events = _make_get_events({"GATE_FIRE": [fire], "GATE_CLEARANCE": [recent_clearance]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,
+            "compliance_events": 0,
+            "escape_events": 71,
             "by_env_var": {},
+            "by_env_var_escapes": {},
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
         assert exit_code == 0
@@ -311,12 +355,17 @@ class TestCooloffWindow:
         get_events = _make_get_events({"GATE_FIRE": [fire]})
         bypass_rate_fn = lambda window_days=14: {  # noqa: E731
             "total_events": 71,
+            "compliance_events": 0,
+            "escape_events": 71,
             "by_env_var": {},
+            "by_env_var_escapes": {},
             "unique_days": 14,
             "window_days": 14,
         }
-        exit_code, msg = check_and_block(
+        exit_code, _msg = check_and_record(
             get_events=get_events, bypass_rate_fn=bypass_rate_fn, cooloff_seconds=3600
         )
-        assert exit_code == 2
-        assert "not cleared" in msg
+        # Was: exit 2 and "not cleared" in the message. The open fire still
+        # suppresses nothing and reports nothing to stderr; what it must not
+        # do is silently vanish, which the ledger assertions elsewhere cover.
+        assert exit_code == 0

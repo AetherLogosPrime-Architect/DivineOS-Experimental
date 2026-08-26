@@ -33,11 +33,25 @@ from divineos.hooks.evidence_bearing_stop_gate import (
 
 
 def _stats(
-    total: int, by_env: dict[str, int] | None = None, unique_days: int = 10
+    escapes: int, by_env: dict[str, int] | None = None, unique_days: int = 10
 ) -> dict[str, Any]:
+    """Stats as ``bypass_rate`` returns them.
+
+    The first argument used to be ``total`` and fed ``total_events``,
+    because the gate judged against every bypass-shaped row. It counts
+    ESCAPES now (Andrew 2026-08-25: "at no point should any gate punish you
+    for doing the right thing"), so the argument is renamed to say what it
+    is and the dict carries the fields a real one carries. Each test's
+    intent — this many events, above or below threshold — is unchanged;
+    what changed is which events the gate is asking about.
+    """
+    escape_env = by_env or {}
     return {
-        "total_events": total,
-        "by_env_var": by_env or {},
+        "total_events": escapes,
+        "compliance_events": 0,
+        "escape_events": escapes,
+        "by_env_var": escape_env,
+        "by_env_var_escapes": escape_env,
         "unique_days": unique_days,
         "window_days": 14,
     }
@@ -131,7 +145,9 @@ class TestStateSource:
     def test_fail_open_on_malformed_payload(self) -> None:
         gate = BypassRateScan(threshold_events=50)
         rec = gate.scan(
-            accumulated_state={"bypass_stats": {"total_events": "not-a-number"}},
+            accumulated_state={
+                "bypass_stats": {"escape_events": "not-a-number", "total_events": 99}
+            },
             just_emitted_text="",
         )
         assert rec is None

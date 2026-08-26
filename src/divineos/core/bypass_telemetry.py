@@ -271,9 +271,17 @@ def bypass_rate(window_days: int = 14) -> dict:
     """Return bypass-rate stats over the window.
 
     Returns:
-        total_events: int — number of distinct (env_var, session, day) bypass-events
-        by_env_var: dict[str, int] — count per env_var
+        total_events: int — every bypass-shaped row in the window, ALL kinds
+        compliance_events / escape_events / unclassified_events /
+            defect_escape_events: int — the same rows split by what they were
+        by_env_var: dict[str, int] — count per env_var, all kinds
+        by_env_var_escapes: dict[str, int] — count per env_var, ESCAPES ONLY
         unique_days: int — number of distinct days with at least one bypass
+
+    A consumer deciding whether I am routing around gates wants
+    ``escape_events`` and ``by_env_var_escapes``. Reading ``total_events``
+    for that question counts obedience as evasion, which is what the
+    bypass-rate scan did until 2026-08-25.
     """
     log = _event_log()
     if not log.exists():
@@ -287,11 +295,14 @@ def bypass_rate(window_days: int = 14) -> dict:
             # same shape as everything else found tonight, in the fix for it.
             "unclassified_events": 0,
             "by_env_var": {},
+            # On BOTH exits, for the reason the sibling comment above gives.
+            "by_env_var_escapes": {},
             "unique_days": 0,
             "window_days": window_days,
         }
     cutoff = time.time() - (window_days * 86400.0)
     by_env: dict[str, int] = {}
+    by_env_escapes: dict[str, int] = {}
     days: set[str] = set()
     total = 0
     compliance = 0
@@ -378,7 +389,16 @@ def bypass_rate(window_days: int = 14) -> dict:
                 # rendering them identically is the defect _classify exists to
                 # fix.
                 unclassified += 1
-            by_env[rec.get("env_var", "?")] = by_env.get(rec.get("env_var", "?"), 0) + 1
+            env_name = rec.get("env_var", "?")
+            by_env[env_name] = by_env.get(env_name, 0) + 1
+            # A SECOND BREAKDOWN, ESCAPES ONLY. Andrew 2026-08-25: "at no
+            # point should any gate punish you for doing the right thing."
+            # by_env_var counts every row regardless of kind, so a consumer
+            # asking "which gates am I routing around" got back a list
+            # topped by the commands the gates PRESCRIBE. The counts were
+            # right and the question they answered was the wrong one.
+            if kind != "compliance" and not rec.get("gate_defect"):
+                by_env_escapes[env_name] = by_env_escapes.get(env_name, 0) + 1
             days.add(rec.get("day", ""))
     except OSError:
         pass
@@ -390,6 +410,7 @@ def bypass_rate(window_days: int = 14) -> dict:
         "defect_escape_events": defect_escapes,
         "inferred_compliance_events": inferred_compliance,
         "by_env_var": by_env,
+        "by_env_var_escapes": by_env_escapes,
         "unique_days": len(days),
         "window_days": window_days,
     }
