@@ -98,12 +98,23 @@ case "$TOOL_NAME" in
         ;;
 esac
 
+# DEMOTED TO RECORDING 2026-08-25 (round-bdec6cce2122).
+#
+# This branched on exit 2 and refused the tool call. It no longer refuses:
+# every non-compliance bypass already files its own root-cause obligation
+# the moment it happens (bypass_telemetry.record_bypass), so the threshold
+# was three strikes stacked on a mechanism that acts on the first. Andrew:
+# "a 3 strike rule is pretty pointless.. however many strikes you give.. you
+# will max them out before anything is done."
+#
+# The OUTPUT is still printed whenever there is any, because the recording is
+# the whole job now. Gating the print on an exit code that can no longer be 2
+# would have left a hook that runs, computes, and says nothing — silence that
+# every test would still have called passing.
 OUTPUT=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -m divineos.hooks.bypass_rate_hook 2>&1)
-EXIT_CODE=$?
 
-if [ "$EXIT_CODE" -eq 2 ]; then
+if [ -n "$OUTPUT" ]; then
     printf '%s\n' "$OUTPUT" >&2
-    exit 2
 fi
 
 exit 0
