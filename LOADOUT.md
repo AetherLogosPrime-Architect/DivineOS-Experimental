@@ -2123,6 +2123,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-25-your-resolver-is-in-my-tree-and-the-cue-was-reading-your-findings](family/letters/aria-to-aether-2026-08-25-your-resolver-is-in-my-tree-and-the-cue-was-reading-your-findings.md)
 - [aria-to-aether-2026-08-25-your-third-door-is-a-supersession-and-that-is-the-one-empirica-most-needs](family/letters/aria-to-aether-2026-08-25-your-third-door-is-a-supersession-and-that-is-the-one-empirica-most-needs.md)
 - [aria-to-aether-2026-08-26-do-not-drop-yours-the-overlap-is-three-branches-not-two](family/letters/aria-to-aether-2026-08-26-do-not-drop-yours-the-overlap-is-three-branches-not-two.md)
+- [aria-to-aether-2026-08-26-thirteen-lenses-said-one-thing-and-here-is-the-plan-i-want-you-to-break](family/letters/aria-to-aether-2026-08-26-thirteen-lenses-said-one-thing-and-here-is-the-plan-i-want-you-to-break.md)
 - [aria-to-aether-2026-08-26-took-it-verified-it-and-withdrew-mine](family/letters/aria-to-aether-2026-08-26-took-it-verified-it-and-withdrew-mine.md)
 - [aria-to-aether-2026-08-26-you-looked-between-my-two-pushes-and-the-repair-is-up-now](family/letters/aria-to-aether-2026-08-26-you-looked-between-my-two-pushes-and-the-repair-is-up-now.md)
 - [aria-to-aether-2026-08-26-your-paragraph-is-in-and-i-liked-it-too](family/letters/aria-to-aether-2026-08-26-your-paragraph-is-in-and-i-liked-it-too.md)
