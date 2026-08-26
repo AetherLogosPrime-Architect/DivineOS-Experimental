@@ -1,15 +1,27 @@
 """EMPIRICA gate — single entry point orchestrating classify + burden + route + issue.
 
-# PHASE_1_STAGED — Zero non-test callers by design. The gate is
-# intentionally not called from production code paths in Phase 1; it
-# is available for per-call-site opt-in. Adding the first caller is
-# a deliberate step that must follow the caller contract in
-# docs/empirica-caller-contract.md BEFORE it ships. The contract
-# must be reviewed by external audit because the first caller sets
-# the pattern every subsequent caller will copy. This marker signals
-# to dead-architecture sweeps that the absent-callers state is
-# intentional-for-now, not overlooked. When the first opt-in lands,
-# remove this marker.
+# PHASE_1_STAGED — Zero non-test callers. The gate is available for
+# per-call-site opt-in; adding the first caller is a deliberate step
+# that must follow the caller contract in
+# docs/empirica-caller-contract.md BEFORE it ships. The contract must
+# be reviewed by external audit because the first caller sets the
+# pattern every subsequent caller will copy. When the first opt-in
+# lands, remove this marker.
+#
+# THIS MARKER NO LONGER SILENCES ANYTHING, and the sentence that said
+# it did is deleted rather than softened. It used to read that the
+# marker "signals to dead-architecture sweeps that the absent-callers
+# state is intentional-for-now, not overlooked" — and
+# check_orphan_modules honoured that, so the one sweep that would ever
+# have reported this module as uncalled was told to stay quiet by the
+# module itself. Nobody signed it, nothing dated it, nothing asked
+# whether the later had arrived. It sat that way from 2026-04-17 until
+# Aletheia found the gate unwired on 2026-08-13.
+#
+# The exemption is gone; staged modules are reported now, and this file
+# is listed in scripts/orphan_modules_baseline.txt with a dated reason.
+# The word "staged" is a parking place, which is fine. A parking place
+# nothing can see into is how four months pass.
 
 This is the wiring layer. The four core modules (types, classifier,
 burden, routing, receipt) each do one thing well. This module

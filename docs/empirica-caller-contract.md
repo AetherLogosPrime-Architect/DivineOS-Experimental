@@ -2,15 +2,46 @@
 
 > **Partnership-specific artifact.** This document is from the reference deployment and uses its names. The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
 
-**Status: no production callers yet (Phase 1 staged).** This document
-specifies the rules that the **first** opt-in caller must follow.
-Every subsequent caller copies that pattern — so the first caller sets
-the precedent for the entire EMPIRICA integration.
+**Status: no production callers yet.** This document specifies the
+rules that the **first** opt-in caller must follow. Every subsequent
+caller copies that pattern — so the first caller sets the precedent
+for the entire EMPIRICA integration.
 
 **This contract must be reviewed by external audit before the first
 opt-in lands.** See `docs/routines/` for how heterogeneous audits
 are scheduled; EMPIRICA opt-ins should queue a cross-family audit
 specifically.
+
+### What has actually been blocking this (investigated 2026-08-25)
+
+Andrew asked why the evidence gate is not hooked up. Two answers, and
+the first one is already closed.
+
+**What blocked it for four months, now fixed.** The gate carried a
+`PHASE_1_STAGED` marker in its own docstring, and `check_orphan_modules`
+honoured that marker as an exemption. So the one sweep that would ever
+have said *this module has no callers* was told to stay quiet, by the
+module, on the module's own authority. Nobody signed it, nothing dated
+it, nothing asked whether the later had arrived. Aletheia found the gate
+unwired on 2026-08-13; the exemption was removed the same day, and the
+gate now sits in `scripts/orphan_modules_baseline.txt` with a dated
+reason, so the parking is visible instead of silent.
+
+**What blocks it now.** This document names external audit as the
+enforcement mechanism for the first caller, and no audit round has ever
+been filed carrying that review. Checked against the store rather than
+from memory: 34 rounds, 52 findings, and the only match for "caller" is
+a peer-review of the `operator_wallpaper` caller, which is unrelated.
+The blocking condition is real and correct — it is simply a condition
+with no owner and no queue entry, which is a different problem from a
+condition that has not been met.
+
+**And the classifier is stronger than this document says.** Phase 2
+shipped on 2026-07-02 (`pointer_resolver.py`, Fable audit round 7).
+Rule 4 below was written when a well-formed fake pointer bought
+FALSIFIABLE tier for free; it no longer does. The rule has been updated
+in place. Anyone who read this document to decide whether wiring was
+safe was reading a weaker system than the one that exists.
 
 ## Why this contract exists
 
@@ -81,14 +112,25 @@ the caller must maintain; it is not one EMPIRICA enforces.
 ### 4. Pass a real artifact pointer or none at all
 
 The demotion rule in `classifier.py` fires when `FALSIFIABLE` or
-`PATTERN` tiers lack an `artifact_pointer`. Passing a **bogus-format**
-pointer (e.g., a fake commit hash that looks valid but points to
-nothing) defeats the demotion but leaves the hash chain intact —
-Phase 2 will add pointer-resolution validation, but until then,
-callers must not fabricate pointers to skip the demotion.
+`PATTERN` tiers lack an `artifact_pointer` — **or when the pointer does
+not resolve.** Callers must not fabricate pointers to skip the
+demotion.
 
-This is an integrity rule, not an enforcement rule. EMPIRICA cannot
-tell a real commit hash from a well-formed fake one in Phase 1.
+**Updated 2026-08-25: this is now an enforcement rule, not only an
+integrity rule.** It used to read that EMPIRICA could not tell a real
+commit hash from a well-formed fake one, and that Phase 2 would fix it.
+Phase 2 shipped on 2026-07-02 and this paragraph did not follow it.
+`classifier.py` calls `resolve_pointer`, which checks that a `test:`
+path exists on disk, that a `commit:` sha resolves through git, and that
+a `prereg:` / `event:` / `knowledge:` / `decide:` id has a row behind
+it. Unrecognised pointer shapes fail closed, so a caller cannot invent a
+new prefix to slip past. `garbage-string-not-a-real-pointer` and
+`commit:deadbeefdeadbeef` now demote exactly like `None`.
+
+What EMPIRICA still cannot check is whether the artifact a pointer
+resolves to is the *right* artifact for the claim. A real commit that
+has nothing to do with the assertion resolves fine. That part remains
+an integrity rule the caller maintains.
 
 ### 5. The `valid != true` invariant in UI text
 
@@ -132,8 +174,14 @@ cross-family audit (Claude + Grok, or equivalent) must verify:
 
 ## When this contract evolves
 
-If Phase 2 ships pointer resolution, rule 4 becomes enforceable
-mechanically and this document should be updated. If the classifier
+Rule 4's update is the worked example of why this section exists, and
+of how it fails. Phase 2 shipped pointer resolution on 2026-07-02 and
+this document went on describing the pre-Phase-2 system for weeks —
+because "this document should be updated" names no one and fires on
+nothing. A doc that describes a system more weakly than the system
+behaves makes every downstream decision more cautious than the evidence
+warrants, which is how a finished capability keeps reading as unfinished
+work. If the classifier
 adds tiers beyond FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL, rules
 referencing those tiers must be revisited. If the `GnosisWarrant`
 vocabulary is ever reintroduced for a legitimate reason, this
