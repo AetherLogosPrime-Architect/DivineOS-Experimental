@@ -14,6 +14,7 @@ dependencies = [
     "ftfy>=6.0",
     "numpy>=1.20",
     "filelock>=3.0",  # core/push_orchestrator — cross-platform file lock for push serialization (works on Windows where flock is unavailable). Added 2026-06-24 with the divineos push CLI per prereg-a9ecf79d250d. CI caught the missing dep on PR #266 — local had filelock via another transitive install, CI didn't.
+    "pywin32>=306; sys_platform == 'win32'",  # core/monitor_singleton + scripts/letter_monitor_v2 — the kernel mutex that stops a second letter-watcher arming under the same name. THIRD instance of the story told twice below: filelock, then psutil, now this. Undeclared, present locally by accident, absent anywhere clean. The tell was different this time and worse — the DEP003 note below said "pywin32 is in environment markers, not a direct dep" while no marker existed, so the checker was silenced by a claim about a declaration nobody had written. A guard that degrades quietly plus a comment asserting it is provided for is invisible in both directions. Added 2026-08-26 after three tests failed for a missing import while the live monitors ran fine on system python, which is why nobody caught it here.
     "psutil>=5.9",  # core/system_load_check — reads free memory before spawning resource-heavy jobs (prereg-ca5fb15220ea). Core rather than dev: the module is imported by scripts/check_push_readiness.sh, not only by tests. Added 2026-07-31 after the identical filelock story one line above — local had psutil transitively, CI did not, and PR #402 died at COLLECTION with ModuleNotFoundError: 10852 tests, zero run. The import is also guarded now (Aletheia F101) so a missing psutil degrades to a loud fail-open instead of killing the suite. An imports-vs-declared-deps check belongs on the backlog: this was the SECOND instance of the class.
 ]
 
@@ -203,9 +204,9 @@ DEP002 = [
 # DEP003 = transitive dep used directly. These are intentional:
 DEP003 = [
     "torch",        # CUDA detection in core/_embedding_device.py — transitive of sentence-transformers; declaring directly would couple us to a specific torch version we don't want to constrain
-    "win32api",     # Windows-only optional; pywin32 is in environment markers, not a direct dep
-    "win32event",   # Windows-only optional; pywin32
-    "winerror",     # Windows-only optional; pywin32
+    "win32api",     # Provided by pywin32, which IS now declared with a sys_platform marker above. This note previously claimed that and it was false — no marker existed — so deptry stayed quiet about a real gap for as long as the claim stood.
+    "win32event",   # Same; see above.
+    "winerror",     # Same; see above.
     "whisper",      # scripts/video_tool.py — optional speech-to-text tool; the script gates on import availability so undeclared is correct
 ]
 

@@ -250,6 +250,16 @@ class TestMain:
         import shutil
 
         shutil.copyfile(sys.executable, cli)
+        # A venv interpreter is a LAUNCHER, not a standalone binary: copied on
+        # its own it aborts with "failed to locate pyvenv.cfg" and exit 106, so
+        # the assertion below read 106 == 7 and the failure looked like a
+        # dispatch bug rather than a missing file. Whether it passed depended
+        # entirely on which interpreter happened to be running pytest — system
+        # python copies fine, the project's own venv does not, which is why this
+        # was red under precommit and green for whoever last looked.
+        # base_prefix is the real install under a venv and equals prefix
+        # outside one, so this line is correct either way.
+        (venv / "pyvenv.cfg").write_text("home = " + sys.base_prefix + "\n", encoding="utf-8")
         monkeypatch.chdir(tmp_path)
         # Invoke with `-c 'import sys; sys.exit(7)'` via the shim.
         exit_code = wrapper.main(["-c", "import sys; sys.exit(7)"])
