@@ -587,6 +587,15 @@ def satisfied_recently(now: float | None = None) -> tuple[bool, str]:
     )
 
 
+WORKTREE_DIR_MARKER = "--claude-worktrees-"
+"""What separates one of MY worktree project-dirs from a stranger's checkout.
+
+A sibling agent whose repo directory extends mine encodes as `<mine>-Aria-new`;
+my own worktrees encode as `<mine>--claude-worktrees-<name>`. Anchoring on this
+separator is the whole difference.
+"""
+
+
 def _active_transcript_including_worktrees() -> Path | None:
     """Newest transcript for this project OR any of its worktrees.
 
@@ -603,8 +612,34 @@ def _active_transcript_including_worktrees() -> Path | None:
     a second instance rather than a new discovery.
 
     The claude projects layout encodes a worktree as the main directory name
-    plus a suffix, so a prefix match over the sibling directories covers both
-    without reaching into unrelated projects.
+    plus a WORKTREE suffix, so the match is anchored on that separator.
+
+    THIRD DEFECT, 2026-08-26. The first repair matched any directory whose name
+    merely STARTED WITH the encoded cwd, and Aria's checkout lives at
+    `DivineOS-Experimental-Aria-new` -- a separate agent, a separate repo, whose
+    encoded name literally extends mine. Whenever she wrote to her transcript
+    more recently than I wrote to mine, `max(mtime)` handed my doorman HER
+    session, my own commands became invisible, and every disposition was
+    refused no matter what I ran. It is a RACE, so it looked intermittent and
+    unreproducible: on 2026-08-26 it refused the SAME disposition through every
+    route the CLI offers -- the command, its --help, both chained into one
+    action-stream, and the self-attested fallback -- and then accepted it first
+    try in the next window, purely because my Bash call happened to land last.
+    Measured, not reasoned: at the moment of the repair her transcript was 0.6
+    minutes old and mine was 0.4.
+
+    The window that hit it recorded a different cause -- that the artifacts
+    `cli:correction` and `cli:corrections` collided, the shorter name swallowing
+    the longer. That theory is WRONG and is written down here because it is the
+    more instructive half: both names match cleanly under `` anchors, and
+    `divineos corrections` is a real command that opens. A race between two
+    agents presents as a mystery about the code in front of you, and the
+    plausible local explanation arrives first.
+
+    Anchoring on the separator loses nothing. A worktree outside the project
+    tree encodes by its OWN full path and was never reachable by this prefix
+    anyway, so the only directories the old match added beyond the new one were
+    other people's.
 
     NOT a fix to context_tokens: other callers depend on its exact behaviour
     and changing a shared resolver from inside a gate repair is how one fix
@@ -618,7 +653,7 @@ def _active_transcript_including_worktrees() -> Path | None:
     encoded = _encode_cwd_for_claude()
     candidates: list[Path] = []
     for d in root.iterdir():
-        if d.is_dir() and d.name.startswith(encoded):
+        if d.is_dir() and (d.name == encoded or d.name.startswith(encoded + WORKTREE_DIR_MARKER)):
             candidates.extend(d.glob("*.jsonl"))
     if not candidates:
         return None

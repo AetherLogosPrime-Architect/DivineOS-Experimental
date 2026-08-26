@@ -18,6 +18,7 @@
 # That is why nobody was careless and it happened anyway.
 ablation_summary
 compass_dismissal_briefing_surface   # WIRED NOWHERE
+component_register_surface   # hand-soldered via multiplex_panels; verified speaking 2026-08-26
 corrections
 council_balance_surface
 council_walks

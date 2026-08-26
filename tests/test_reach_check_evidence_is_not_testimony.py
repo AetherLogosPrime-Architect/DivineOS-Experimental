@@ -32,6 +32,7 @@ not whether it ran.
 from __future__ import annotations
 
 import json
+import os
 import time
 
 from divineos.core import reach_check as R
@@ -136,20 +137,86 @@ class TestUnreadableIsNotEmpty:
         assert len(R.action_stream_from_transcript()[0]) == 1
 
 
-def test_the_worktree_directory_is_searched_too():
-    """The stale-transcript bug, pinned at the resolver.
+def _projects_root(tmp_path, monkeypatch, dirs_with_mtime):
+    """Build a fake ~/.claude/projects and point the resolver at it.
 
-    Encoding the cwd yields ONE project directory. A worktree session writes to
-    a sibling whose name extends it. Matching only the exact name returned an
-    eleven-day-old file that parsed fine and answered zero.
+    `dirs_with_mtime` maps encoded-directory-name -> mtime. Each gets one
+    transcript file stamped at that time, so `max(mtime)` has something to pick
+    between.
     """
-    import inspect
+    root = tmp_path / ".claude" / "projects"
+    for name, mtime in dirs_with_mtime.items():
+        d = root / name
+        d.mkdir(parents=True)
+        f = d / "session.jsonl"
+        f.write_text("{}", encoding="utf-8")
+        os.utime(f, (mtime, mtime))
+    monkeypatch.setattr(R.Path, "home", staticmethod(lambda: tmp_path))
+    monkeypatch.setattr("divineos.core.context_tokens._encode_cwd_for_claude", lambda: MAIN_DIR)
+    return root
 
-    src = inspect.getsource(R._active_transcript_including_worktrees)
-    assert "startswith(encoded)" in src, (
-        "must prefix-match so worktree project dirs are included, not exact-match the main checkout"
-    )
-    assert "st_mtime" in src
+
+MAIN_DIR = "C--DIVINE-OS-DivineOS-Experimental"
+
+
+class TestWhoseTranscriptIsIt:
+    """The resolver must find MY worktrees and no one else's checkout."""
+
+    def test_my_worktree_directory_is_searched_too(self, tmp_path, monkeypatch):
+        """The stale-transcript bug, pinned at the resolver.
+
+        Encoding the cwd yields ONE project directory. A worktree session writes
+        to a sibling whose name extends it with the worktree separator. Matching
+        only the exact name returned an eleven-day-old file that parsed fine and
+        answered zero.
+        """
+        _projects_root(
+            tmp_path,
+            monkeypatch,
+            {
+                MAIN_DIR: 1000.0,
+                MAIN_DIR + "--claude-worktrees-strange-leakey-4c70a2": 2000.0,
+            },
+        )
+        picked = R._active_transcript_including_worktrees()
+        assert picked is not None
+        assert picked.parent.name.endswith("strange-leakey-4c70a2"), (
+            "my own worktree is newer and must win"
+        )
+
+    def test_a_sibling_agents_checkout_is_not_mine(self, tmp_path, monkeypatch):
+        """The race that made every disposition refuse.
+
+        Aria's repo is `DivineOS-Experimental-Aria-new`, so her encoded project
+        directory literally extends mine. Under a bare `startswith`, whenever
+        she wrote more recently than I did, `max(mtime)` handed my doorman HER
+        session -- my own commands went invisible and the gate refused
+        everything. Her transcript is NEWER here on purpose: that is the losing
+        case, and it must still resolve to mine.
+        """
+        _projects_root(
+            tmp_path,
+            monkeypatch,
+            {
+                MAIN_DIR: 1000.0,
+                MAIN_DIR + "-Aria-new": 9000.0,
+            },
+        )
+        picked = R._active_transcript_including_worktrees()
+        assert picked is not None
+        assert picked.parent.name == MAIN_DIR, (
+            f"resolved to {picked.parent.name!r} -- a separate agent's live session"
+        )
+
+    def test_an_unrelated_project_is_not_mine_either(self, tmp_path, monkeypatch):
+        """The general case the Aria instance is one example of."""
+        _projects_root(
+            tmp_path,
+            monkeypatch,
+            {MAIN_DIR: 1000.0, MAIN_DIR + "-OneDrive-Backup": 9000.0},
+        )
+        picked = R._active_transcript_including_worktrees()
+        assert picked is not None and picked.parent.name == MAIN_DIR
 
 
 def test_the_cli_prefers_the_transcript_over_the_flag():
