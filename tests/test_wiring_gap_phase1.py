@@ -108,6 +108,14 @@ def test_classify_wired_with_multiple_callers():
 
 # ─── Integration: real repo run ──────────────────────────────────────
 
+# How many distinct new functions the real-repo smoke test will hand to the
+# caller scan. This is the quantity that actually drives cost — it multiplies
+# by repo size and by xdist worker count — and bounding it directly is what
+# makes the test footprint-stable regardless of how large the last three
+# commits were. Chosen to sit well inside the per-worker memory and timeout
+# budget on Windows, which is the platform that has failed three times.
+_CALLER_SCAN_BUDGET = 40
+
 
 def test_phase1_run_against_recent_history_returns_clean_results():
     """Smoke test: run Phase 1 over the last ~5 commits and verify the
@@ -131,6 +139,27 @@ def test_phase1_run_against_recent_history_returns_clean_results():
     inside per-worker memory on Windows. Same invariant coverage —
     caller scan does not crash, dataclass fields populated, dedup works.
     Andrew authorized as the same-shape root-cause narrowing.
+
+    Third recurrence 2026-08-26, and this time the bound changes rather
+    than the number. The window is still HEAD~3, but a 244-file squash
+    landed on main, so every branch cut fresh from main now carries it
+    inside three commits and the caller scan runs past its timeout.
+
+    The 2026-07-10 note already contains the diagnosis — *the commit
+    heuristic isn't footprint-stable because commit size varies* — and
+    the remedy applied twice was to lower the count anyway. A smaller
+    count is the same unstable measure set nearer the floor; it survives
+    until the next large commit and no longer. So the cost is bounded by
+    what actually drives it: the number of distinct functions handed to
+    the caller scan, which is the quantity multiplied by repo size and
+    by worker count.
+
+    Truncating the sample does not weaken the test. Every invariant here
+    is per-function — the scan does not crash, fields are populated,
+    each classification lands in a known bucket — so a bounded sample
+    exercises them identically to an unbounded one. What an unbounded
+    sample adds is not coverage but exposure to whatever size the last
+    three commits happened to be.
     """
     commits = wgp._commits_in_range("HEAD~3..HEAD")
     if not commits:
@@ -145,6 +174,11 @@ def test_phase1_run_against_recent_history_returns_clean_results():
     for fn in functions:
         seen.setdefault((fn.name, fn.file), fn)
     deduped = list(seen.values())
+
+    # Footprint bound, sorted so the sample is the same set on every run
+    # rather than whatever order git happened to yield.
+    deduped.sort(key=lambda fn: (fn.file, fn.name))
+    deduped = deduped[:_CALLER_SCAN_BUDGET]
 
     # Caller scan should not crash
     wgp._scan_callers(deduped)
