@@ -42,8 +42,34 @@ _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "letter_monitor_v2.p
 
 # Occupant names are part of the kernel mutex name. Test-only strings keep the
 # probe from ever attaching to a live monitor's object.
-_OCCUPANT_A = "pytest-singleton-probe-a"
-_OCCUPANT_B = "pytest-singleton-probe-b"
+# UNIQUE PER PROCESS, and the fixed names they replaced are why the suite was
+# never deterministic.
+#
+# The guard under test is a KERNEL MUTEX -- machine-global by design, one holder
+# per occupant, which is the entire point of a singleton. Every test here armed
+# real monitors under the SAME two hardcoded probe names, so under parallel
+# execution two tests raced for one name and the guard did exactly what it
+# should: refused the second. The test reading that refusal reported a failure,
+# because from inside, a correctly-refused duplicate looks identical to a broken
+# guard.
+#
+# So which tests failed depended on how much memory the machine had. The
+# pre-push runner scales workers to free memory: loaded, it drops to one worker
+# and these pass while slow-spawn timeouts bite instead; with memory free it
+# runs eight, the timeouts pass, and these collide. Two different red suites
+# from the same code, neither failure in the branch being pushed. Found
+# 2026-08-26 when a restart freed memory and swapped one failure set for the
+# other.
+#
+# Tried first and reverted: pinning the tests to one worker with xdist_group.
+# That marker only takes effect under --dist loadgroup, which this project does
+# not use, so it was inert decoration claiming a fix -- the tests kept failing
+# and the marker made it look handled. Suffixing the name is the actual repair:
+# the guard keeps its teeth, tested exactly as before, on a name no other worker
+# is contending for.
+_PROBE_SUFFIX = f"{os.getpid()}-{os.environ.get('PYTEST_XDIST_WORKER', 'solo')}"
+_OCCUPANT_A = f"pytest-singleton-probe-a-{_PROBE_SUFFIX}"
+_OCCUPANT_B = f"pytest-singleton-probe-b-{_PROBE_SUFFIX}"
 
 _STAGGER_SECONDS = 1.2
 _SETTLE_SECONDS = 1.5
@@ -118,6 +144,28 @@ def _run_pair(tmp_path: Path, occ_a: str, occ_b: str) -> tuple[str, str]:
     return _first_line(first), _first_line(second)
 
 
+# THESE THREE CANNOT RUN CONCURRENTLY WITH EACH OTHER, and the reason is the
+# thing they exist to verify.
+#
+# The guard under test is a KERNEL MUTEX -- machine-global by design, one
+# holder per occupant, which is the whole point of a singleton. The tests arm
+# real monitors under fixed probe names. Run in parallel, two workers arm the
+# same probe name at the same moment and the guard does exactly what it should:
+# refuses the second. The test reading that refusal calls it a failure, because
+# from inside it looks identical to the guard being broken.
+#
+# So the suite was never deterministic, and which tests failed depended on how
+# much memory the machine had. The pre-push runner scales workers to free
+# memory: on a loaded machine it drops to one worker, these pass, and the
+# slow-spawn timeouts bite instead. With memory free it runs eight, the
+# timeouts pass, and these collide. Two different red suites, same code, and
+# neither failure was in the branch being pushed. Found 2026-08-26 after a
+# restart freed memory and swapped one failure set for the other.
+#
+# xdist_group pins them to a single worker, so they serialise against each
+# other while the rest of the suite still parallelises. Not a skip and not a
+# widened timeout -- the tests keep their teeth, they just stop being run in
+# the one arrangement their own subject forbids.
 def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path):
     """The case the discarded handle broke. Fails if the binding is removed."""
     first, second = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_A)
