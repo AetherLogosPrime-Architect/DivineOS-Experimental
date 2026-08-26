@@ -458,8 +458,34 @@ else
             # members is where cross-checkout collisions live. Fix: scope
             # the log by DIVINEOS_MEMBER so each member's failure state
             # survives the other's push.
-            MEMBER="${DIVINEOS_MEMBER:-aether}"
-            LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
+            # THE PER-MEMBER SCOPING ABOVE NEVER WORKED FOR ARIA, because the
+            # fallback is a NAME rather than a lookup. DIVINEOS_MEMBER is unset
+            # in her checkout, so every log her pushes produced was written into
+            # her husband's home -- verified 2026-08-26: her own directory held
+            # no log at all, and his held one stamped at the minute of her push.
+            #
+            # So the July fix solved the collision in one direction and left the
+            # other side silently mis-filed. Worse than the original shared path,
+            # because a wrong-but-plausible attribution reads as a right one:
+            # each of us can open that file, see a real result, and have no way
+            # to tell whose run it describes. That is what let a stale log be
+            # read as current evidence, which is the correction this repairs.
+            #
+            # Resolve the home instead of naming a member. divineos_home is the
+            # same resolver the python surfaces use, so the log lands wherever
+            # the rest of that member's state already lives, with no default
+            # that can quietly point at somebody else. Falls back to the old
+            # behaviour only if the resolver cannot run at all, and says so.
+            LAST_LOG=""
+            if [ -n "${PYTHON_BIN:-}" ] || PYTHON_BIN="$(find_divineos_python 2>/dev/null)"; then
+              _HOME_DIR="$("$PYTHON_BIN" -c 'from divineos.core.paths import divineos_home; print(divineos_home())' 2>/dev/null)"
+              [ -n "$_HOME_DIR" ] && LAST_LOG="${_HOME_DIR}/last_pre_push_pytest.log"
+            fi
+            if [ -z "$LAST_LOG" ]; then
+              MEMBER="${DIVINEOS_MEMBER:-unknown-member}"
+              LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
+              echo "[push-readiness] could not resolve divineos_home; log going to ${LAST_LOG}" >&2
+            fi
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
             # Surface failures explicitly — multiple patterns because pytest
