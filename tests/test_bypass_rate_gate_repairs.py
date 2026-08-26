@@ -254,6 +254,47 @@ class TestOffenderListSplitsLikeTheCount:
             assert count <= every.get(key, 0)
 
 
+class TestTheDocstringDoesNotPromiseWhatTheCodeCannotDo:
+    """Aria, 2026-08-25, by grep, an hour after I rewrote this docstring.
+
+    It promised the threshold would "move with data as it accumulates" via
+    compute_falsification_ratio, quoting Aletheia's line that a number which
+    cannot move with evidence is ammunition. The number is assigned once and
+    never changes. I corrected the stale NUMBER in that docstring and left the
+    false CAPABILITY standing in the present tense.
+    """
+
+    def test_threshold_is_never_reassigned_after_construction(self):
+        """If a calibration path is ever built, this fails and the docstring
+        gets rewritten deliberately rather than drifting back into a promise."""
+        import inspect
+
+        from divineos.hooks import bypass_rate_scan
+
+        source = inspect.getsource(bypass_rate_scan)
+        assignments = [
+            line
+            for line in source.splitlines()
+            if "_threshold_events" in line and "=" in line and "==" not in line
+        ]
+        assert len(assignments) == 1, (
+            "the threshold is assigned in more than one place; if it can now "
+            "move with evidence, say so in the docstring instead of leaving "
+            "the correction that says it cannot"
+        )
+
+    def test_docstring_states_the_number_is_inherited_from_a_smoke_test(self):
+        """The 50 was chosen to sit under the observed count so the wiring
+        could be demonstrated -- it answered 'does this fire', never 'when
+        should I be worried'. The 10 preserves its sensitivity, so it is
+        faithful to a smoke-test and the file has to say so."""
+        from divineos.hooks.bypass_rate_scan import BypassRateScan
+
+        doc = BypassRateScan.__doc__ or ""
+        assert "smoke-test" in doc
+        assert "does not move" in doc.lower() or "DOES NOT MOVE" in doc
+
+
 class TestMarkerPathUsesTheResolver:
     def test_hook_asks_member_home_instead_of_rebuilding_the_rule(self):
         """Sixth site to rebuild `$HOME/.divineos-$MEMBER` by hand. The

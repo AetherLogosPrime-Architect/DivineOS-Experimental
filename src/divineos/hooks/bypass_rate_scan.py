@@ -60,10 +60,36 @@ class BypassRateScan(CrossTurnScan):
     the old assumption in every reader — the same shape as the hook comment
     that kept pointing at a dead home for forty days.
 
-    Threshold is a SEED — the falsification-signal layer
-    (``compute_falsification_ratio``) lets the calibration move with data as
-    it accumulates. Aletheia audit finding 2026-07-15: "a number that can't
-    move with evidence is ammunition, not information."
+    THE THRESHOLD DOES NOT MOVE, AND THIS DOCSTRING SAID IT DID.
+
+    It read: "Threshold is a SEED — the falsification-signal layer
+    (``compute_falsification_ratio``) lets the calibration move with data as it
+    accumulates", quoting Aletheia 2026-07-15: *"a number that can't move with
+    evidence is ammunition, not information."*
+
+    ``_threshold_events`` is assigned once in ``__init__`` and read twice. No
+    code path changes it. ``compute_falsification_ratio`` emits a diagnostic
+    string about clearance-to-fire and feeds nothing back. So the gate carried
+    that quotation as a promise through the whole period in which the number
+    could not move — and I rewrote this docstring on 2026-08-25, corrected the
+    stale NUMBER, and left the false CAPABILITY standing in the present tense.
+    Aria found it an hour later, by grep, and she was right.
+
+    AND THE ORIGINAL FIFTY WAS NEVER A JUDGEMENT (Aria, 2026-08-25). The
+    removed text said it out loud: *"the initial threshold is set below that
+    intentionally so the gate would fire on today's state, proving the
+    mechanism live."* It was picked to sit UNDER the observed count so the
+    wiring could be demonstrated. It answered "does this fire" and was never
+    asked "when should I be worried."
+
+    Which means the 10 below INHERITS that. It was derived to preserve the
+    sensitivity 50 had once the comparison moved to escapes, so it is faithful
+    to a smoke-test. A number derived from an arbitrary number is still
+    arbitrary; this one is only honestly arbitrary, and saying so here is the
+    difference. What would make it mean something is a measured base rate of
+    escapes across windows where nothing was wrong, so the bar sits above
+    normal rather than under a figure chosen to make a demo fire. That
+    measurement does not exist in either tree yet.
     """
 
     # THE THRESHOLD MOVED WITH THE FIELD IT MEASURES. (2026-08-25.)
