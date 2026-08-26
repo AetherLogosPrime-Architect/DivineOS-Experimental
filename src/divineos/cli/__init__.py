@@ -420,6 +420,7 @@ from divineos.cli import (  # noqa: E402
     calibration_commands,
     time_estimate_commands,
     backlog_commands,
+    win_commands,
     wiring_commands,
     prs_commands,
     automerge_commands,
@@ -541,6 +542,7 @@ performing_caution_commands.register(cli)
 check_similar_commands.register(cli)
 multiplex_commands.register(cli)
 foundations_commands.register(cli)
+win_commands.register(cli)
 wiring_commands.register(cli)
 
 # Mansion ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â functional internal space (optional, personal)

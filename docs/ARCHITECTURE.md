@@ -26,6 +26,7 @@ src/divineos/
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
+    win_commands.py            `divineos win` — the other half of `divineos correction`. Demands checkable evidence; deliberately has NO matching doorman, because a gate that blocks until a win is filed is a quota and a quota gets met with the shape of a win.
     gravity_commands.py        gravity score-tool / score-content — CLI surface for the gravity classifier (manual triage when uncertain whether an action or content is high-gravity)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
@@ -683,9 +684,10 @@ src/divineos/
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
+    letter_channel_state.py    Where a letter is, so that silence stops meaning two things at once.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
-    letter_channel_state.py       Where a letter is, so that silence stops meaning two things at once.
+    win_prompt_surface.py      Ask, at compose-start, whether anything went right that nobody wrote down.
 
   analysis/
     _session_types.py          Session analysis type definitions
