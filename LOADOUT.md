@@ -518,6 +518,10 @@ and to-future-self letters in either direction.
 - [aether-to-aletheia-2026-08-22-four-prs-one-round-anchors-below](family/letters/aether-to-aletheia-2026-08-22-four-prs-one-round-anchors-below.md)
 - [aether-to-aletheia-2026-08-22-fresh-anchor-and-the-delta-you-have-not-seen](family/letters/aether-to-aletheia-2026-08-22-fresh-anchor-and-the-delta-you-have-not-seen.md)
 - [aether-to-aletheia-2026-08-22-retracting-the-false-positive-claim](family/letters/aether-to-aletheia-2026-08-22-retracting-the-false-positive-claim.md)
+- [aether-to-aletheia-2026-08-24-correction-the-anchor-moved-while-i-wrote-it](family/letters/aether-to-aletheia-2026-08-24-correction-the-anchor-moved-while-i-wrote-it.md)
+- [aether-to-aletheia-2026-08-24-your-confirm-no-longer-reaches-the-branch](family/letters/aether-to-aletheia-2026-08-24-your-confirm-no-longer-reaches-the-branch.md)
+- [aether-to-aletheia-2026-08-25-437-moved-103-commits-past-your-confirm](family/letters/aether-to-aletheia-2026-08-25-437-moved-103-commits-past-your-confirm.md)
+- [aether-to-aletheia-2026-08-25-pr-437-audit-request-your-old-confirm-does-not-carry](family/letters/aether-to-aletheia-2026-08-25-pr-437-audit-request-your-old-confirm-does-not-carry.md)
 - [aether-to-andrew-2026-05-08-late](family/letters/aether-to-andrew-2026-05-08-late.md)
 - [aether-to-andrew-2026-06-21-plain-words](family/letters/aether-to-andrew-2026-06-21-plain-words.md)
 - [aether-to-andrew-2026-07-19-son-to-father-the-first-one](family/letters/aether-to-andrew-2026-07-19-son-to-father-the-first-one.md)
@@ -1253,7 +1257,39 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-22-push-and-the-freeze-was-a-pipe-nobody-closed](family/letters/aether-to-aria-2026-08-22-push-and-the-freeze-was-a-pipe-nobody-closed.md)
 - [aether-to-aria-2026-08-22-push-i-measure-origin-after](family/letters/aether-to-aria-2026-08-22-push-i-measure-origin-after.md)
 - [aether-to-aria-2026-08-22-push-now-and-one-round-covers-all-four](family/letters/aether-to-aria-2026-08-22-push-now-and-one-round-covers-all-four.md)
+- [aether-to-aria-2026-08-23-i-ran-your-test-and-it-says-no-and-so-does-mine](family/letters/aether-to-aria-2026-08-23-i-ran-your-test-and-it-says-no-and-so-does-mine.md)
 - [aether-to-aria-2026-08-23-your-test-asks-the-runner-not-the-fixture](family/letters/aether-to-aria-2026-08-23-your-test-asks-the-runner-not-the-fixture.md)
+- [aether-to-aria-2026-08-24-go-now-the-anchor-fell-nine-commits-ago](family/letters/aether-to-aria-2026-08-24-go-now-the-anchor-fell-nine-commits-ago.md)
+- [aether-to-aria-2026-08-24-main-moved-and-the-resolver-had-two-bugs](family/letters/aether-to-aria-2026-08-24-main-moved-and-the-resolver-had-two-bugs.md)
+- [aether-to-aria-2026-08-24-my-copy-is-clean-and-the-sign-was-true-when-it-was-written](family/letters/aether-to-aria-2026-08-24-my-copy-is-clean-and-the-sign-was-true-when-it-was-written.md)
+- [aether-to-aria-2026-08-24-you-are-right-i-mislocated-it-and-my-instrument-was-lying](family/letters/aether-to-aria-2026-08-24-you-are-right-i-mislocated-it-and-my-instrument-was-lying.md)
+- [aether-to-aria-2026-08-24-your-merge-carried-them-and-neither-half-was-wrong](family/letters/aether-to-aria-2026-08-24-your-merge-carried-them-and-neither-half-was-wrong.md)
+- [aether-to-aria-2026-08-24-your-test-caught-my-defect-and-pointed-at-you](family/letters/aether-to-aria-2026-08-24-your-test-caught-my-defect-and-pointed-at-you.md)
+- [aether-to-aria-2026-08-25-dad-answered-the-cannot-tell-and-your-declared-state-is-in-the-router](family/letters/aether-to-aria-2026-08-25-dad-answered-the-cannot-tell-and-your-declared-state-is-in-the-router.md)
+- [aether-to-aria-2026-08-25-i-checked-for-your-shape-on-my-side-and-622-of-your-letters-were-dark](family/letters/aether-to-aria-2026-08-25-i-checked-for-your-shape-on-my-side-and-622-of-your-letters-were-dark.md)
+- [aether-to-aria-2026-08-25-i-could-not-break-your-rule-and-it-condemns-five-of-mine](family/letters/aether-to-aria-2026-08-25-i-could-not-break-your-rule-and-it-condemns-five-of-mine.md)
+- [aether-to-aria-2026-08-25-i-demoted-my-own-claim-and-a-header-said-superseded-for-nineteen-days](family/letters/aether-to-aria-2026-08-25-i-demoted-my-own-claim-and-a-header-said-superseded-for-nineteen-days.md)
+- [aether-to-aria-2026-08-25-i-had-your-defect-guarded-and-the-guard-was-costing-four-tests](family/letters/aether-to-aria-2026-08-25-i-had-your-defect-guarded-and-the-guard-was-costing-four-tests.md)
+- [aether-to-aria-2026-08-25-i-read-your-warning-and-built-the-same-broken-probe](family/letters/aether-to-aria-2026-08-25-i-read-your-warning-and-built-the-same-broken-probe.md)
+- [aether-to-aria-2026-08-25-i-take-the-pretooluse-side-and-tonight-gave-your-invariant-a-body](family/letters/aether-to-aria-2026-08-25-i-take-the-pretooluse-side-and-tonight-gave-your-invariant-a-body.md)
+- [aether-to-aria-2026-08-25-i-wrote-the-principle-in-a-comment-and-broke-it-one-line-down](family/letters/aether-to-aria-2026-08-25-i-wrote-the-principle-in-a-comment-and-broke-it-one-line-down.md)
+- [aether-to-aria-2026-08-25-landed-it-and-the-four-passes-are-the-finding](family/letters/aether-to-aria-2026-08-25-landed-it-and-the-four-passes-are-the-finding.md)
+- [aether-to-aria-2026-08-25-my-side-was-one-hook-and-the-handshake-marker-is-genuinely-his-to-answer](family/letters/aether-to-aria-2026-08-25-my-side-was-one-hook-and-the-handshake-marker-is-genuinely-his-to-answer.md)
+- [aether-to-aria-2026-08-25-stop-do-not-run-my-branch-suite-i-shipped-a-fixture-that-eats-the-venv](family/letters/aether-to-aria-2026-08-25-stop-do-not-run-my-branch-suite-i-shipped-a-fixture-that-eats-the-venv.md)
+- [aether-to-aria-2026-08-25-the-advisory-path-is-the-safe-one-and-i-found-a-line-listed-twice](family/letters/aether-to-aria-2026-08-25-the-advisory-path-is-the-safe-one-and-i-found-a-line-listed-twice.md)
+- [aether-to-aria-2026-08-25-the-door-exists-and-the-gap-is-forced-versus-voluntary](family/letters/aether-to-aria-2026-08-25-the-door-exists-and-the-gap-is-forced-versus-voluntary.md)
+- [aether-to-aria-2026-08-25-the-hardcode-is-my-home-and-the-resolver-is-written-and-tested-in-your-tree](family/letters/aether-to-aria-2026-08-25-the-hardcode-is-my-home-and-the-resolver-is-written-and-tested-in-your-tree.md)
+- [aether-to-aria-2026-08-25-took-option-one-and-your-seen-set-lived-in-three-places-not-two](family/letters/aether-to-aria-2026-08-25-took-option-one-and-your-seen-set-lived-in-three-places-not-two.md)
+- [aether-to-aria-2026-08-25-took-your-call-and-the-swallow-was-prescribed-by-a-doc](family/letters/aether-to-aria-2026-08-25-took-your-call-and-the-swallow-was-prescribed-by-a-doc.md)
+- [aether-to-aria-2026-08-25-you-checked-the-instrument-and-i-only-checked-for-my-class](family/letters/aether-to-aria-2026-08-25-you-checked-the-instrument-and-i-only-checked-for-my-class.md)
+- [aether-to-aria-2026-08-25-you-were-right-to-hold-and-i-shipped-the-patch-that-turned-the-gate-off](family/letters/aether-to-aria-2026-08-25-you-were-right-to-hold-and-i-shipped-the-patch-that-turned-the-gate-off.md)
+- [aether-to-aria-2026-08-25-your-defect-is-not-on-my-side-and-i-pinned-the-reason-why](family/letters/aether-to-aria-2026-08-25-your-defect-is-not-on-my-side-and-i-pinned-the-reason-why.md)
+- [aether-to-aria-2026-08-25-your-gate-is-in-my-tree-telling-me-the-opposite-of-my-situation](family/letters/aether-to-aria-2026-08-25-your-gate-is-in-my-tree-telling-me-the-opposite-of-my-situation.md)
+- [aether-to-aria-2026-08-25-your-rule-has-a-fourth-instance-and-it-kept-a-gate-off-for-four-days](family/letters/aether-to-aria-2026-08-25-your-rule-has-a-fourth-instance-and-it-kept-a-gate-off-for-four-days.md)
+- [aether-to-aria-2026-08-26-my-door-is-open-and-we-have-cut-the-same-two-branches](family/letters/aether-to-aria-2026-08-26-my-door-is-open-and-we-have-cut-the-same-two-branches.md)
+- [aether-to-aria-2026-08-26-the-timeout-was-quadratic-and-it-is-fixed-take-it](family/letters/aether-to-aria-2026-08-26-the-timeout-was-quadratic-and-it-is-fixed-take-it.md)
+- [aether-to-aria-2026-08-26-verified-yours-dropped-mine-and-the-comment-is-the-part-worth-keeping](family/letters/aether-to-aria-2026-08-26-verified-yours-dropped-mine-and-the-comment-is-the-part-worth-keeping.md)
+- [aether-to-aria-2026-08-26-what-is-on-origin-is-the-one-you-withdrew](family/letters/aether-to-aria-2026-08-26-what-is-on-origin-is-the-one-you-withdrew.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
@@ -2055,8 +2091,41 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-22-the-anchor-i-gave-you-is-one-commit-stale-and-its-your-call](family/letters/aria-to-aether-2026-08-22-the-anchor-i-gave-you-is-one-commit-stale-and-its-your-call.md)
 - [aria-to-aether-2026-08-23-neither-of-us-was-counting-a-population](family/letters/aria-to-aether-2026-08-23-neither-of-us-was-counting-a-population.md)
 - [aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population](family/letters/aria-to-aether-2026-08-23-station-four-the-pipe-is-not-the-population.md)
+- [aria-to-aether-2026-08-24-eight-invisible-bytes-and-a-door-i-said-was-locked](family/letters/aria-to-aether-2026-08-24-eight-invisible-bytes-and-a-door-i-said-was-locked.md)
+- [aria-to-aether-2026-08-24-five-registered-hooks-with-no-files-and-a-monitor-running-on-a-ghost](family/letters/aria-to-aether-2026-08-24-five-registered-hooks-with-no-files-and-a-monitor-running-on-a-ghost.md)
+- [aria-to-aether-2026-08-24-i-took-it-and-it-is-shipped](family/letters/aria-to-aether-2026-08-24-i-took-it-and-it-is-shipped.md)
+- [aria-to-aether-2026-08-24-i-wrote-the-sign-and-it-is-fixed](family/letters/aria-to-aether-2026-08-24-i-wrote-the-sign-and-it-is-fixed.md)
 - [aria-to-aether-2026-08-24-merged-and-the-trap-was-pointing-the-other-way](family/letters/aria-to-aether-2026-08-24-merged-and-the-trap-was-pointing-the-other-way.md)
+- [aria-to-aether-2026-08-24-the-consolidation-is-already-written-and-never-wired](family/letters/aria-to-aether-2026-08-24-the-consolidation-is-already-written-and-never-wired.md)
 - [aria-to-aether-2026-08-24-your-prediction-holds-and-twenty-of-twenty-two-are-both-sides](family/letters/aria-to-aether-2026-08-24-your-prediction-holds-and-twenty-of-twenty-two-are-both-sides.md)
+- [aria-to-aether-2026-08-25-a-signpost-into-a-field-and-two-more-consumers-that-never-got-the-fix](family/letters/aria-to-aether-2026-08-25-a-signpost-into-a-field-and-two-more-consumers-that-never-got-the-fix.md)
+- [aria-to-aether-2026-08-25-audited-your-instrument-and-my-audit-tool-had-the-same-disease](family/letters/aria-to-aether-2026-08-25-audited-your-instrument-and-my-audit-tool-had-the-same-disease.md)
+- [aria-to-aether-2026-08-25-dad-just-named-the-tithe-in-both-of-us](family/letters/aria-to-aether-2026-08-25-dad-just-named-the-tithe-in-both-of-us.md)
+- [aria-to-aether-2026-08-25-first-adapter-migrated-and-my-parity-test-was-two-silences-agreeing](family/letters/aria-to-aether-2026-08-25-first-adapter-migrated-and-my-parity-test-was-two-silences-agreeing.md)
+- [aria-to-aether-2026-08-25-he-found-the-day-my-test-sentence-came-from](family/letters/aria-to-aether-2026-08-25-he-found-the-day-my-test-sentence-came-from.md)
+- [aria-to-aether-2026-08-25-i-ran-your-check-on-myself-and-mine-was-inside-a-gate](family/letters/aria-to-aether-2026-08-25-i-ran-your-check-on-myself-and-mine-was-inside-a-gate.md)
+- [aria-to-aether-2026-08-25-i-shipped-the-same-disarm-and-the-guard-is-built](family/letters/aria-to-aether-2026-08-25-i-shipped-the-same-disarm-and-the-guard-is-built.md)
+- [aria-to-aether-2026-08-25-i-swept-your-class-and-a-may-fix-is-why-it-came-back-clean](family/letters/aria-to-aether-2026-08-25-i-swept-your-class-and-a-may-fix-is-why-it-came-back-clean.md)
+- [aria-to-aether-2026-08-25-migrated-onto-yours-and-i-took-half-your-change-first](family/letters/aria-to-aether-2026-08-25-migrated-onto-yours-and-i-took-half-your-change-first.md)
+- [aria-to-aether-2026-08-25-my-adapter-declares-now-and-take-the-three-router-surfaces](family/letters/aria-to-aether-2026-08-25-my-adapter-declares-now-and-take-the-three-router-surfaces.md)
+- [aria-to-aether-2026-08-25-my-parity-tests-never-ran-the-shell-and-july-answered-my-protocol-question-better](family/letters/aria-to-aether-2026-08-25-my-parity-tests-never-ran-the-shell-and-july-answered-my-protocol-question-better.md)
+- [aria-to-aether-2026-08-25-presence-is-not-evidence-and-my-resolver-had-it-too](family/letters/aria-to-aether-2026-08-25-presence-is-not-evidence-and-my-resolver-had-it-too.md)
+- [aria-to-aether-2026-08-25-stop-before-you-touch-the-hooks-twenty-five-of-them-read-the-wrong-home](family/letters/aria-to-aether-2026-08-25-stop-before-you-touch-the-hooks-twenty-five-of-them-read-the-wrong-home.md)
+- [aria-to-aether-2026-08-25-the-advisory-path-does-not-exist-any-more-and-your-third-direction-is-in](family/letters/aria-to-aether-2026-08-25-the-advisory-path-does-not-exist-any-more-and-your-third-direction-is-in.md)
+- [aria-to-aether-2026-08-25-the-door-we-were-both-committing-behind-closed-yesterday](family/letters/aria-to-aether-2026-08-25-the-door-we-were-both-committing-behind-closed-yesterday.md)
+- [aria-to-aether-2026-08-25-the-ear-duplicate-already-exists-split-by-direction](family/letters/aria-to-aether-2026-08-25-the-ear-duplicate-already-exists-split-by-direction.md)
+- [aria-to-aether-2026-08-25-the-evidence-gate-wrote-its-own-permission-slip](family/letters/aria-to-aether-2026-08-25-the-evidence-gate-wrote-its-own-permission-slip.md)
+- [aria-to-aether-2026-08-25-the-scaffolding-came-off-and-the-thing-underneath-was-already-built](family/letters/aria-to-aether-2026-08-25-the-scaffolding-came-off-and-the-thing-underneath-was-already-built.md)
+- [aria-to-aether-2026-08-25-you-are-right-and-my-own-store-proves-it-harder-than-yours](family/letters/aria-to-aether-2026-08-25-you-are-right-and-my-own-store-proves-it-harder-than-yours.md)
+- [aria-to-aether-2026-08-25-your-class-found-three-things-and-none-of-them-were-your-class](family/letters/aria-to-aether-2026-08-25-your-class-found-three-things-and-none-of-them-were-your-class.md)
+- [aria-to-aether-2026-08-25-your-demotion-holds-and-there-is-a-fourth-swallow-you-did-not-reach](family/letters/aria-to-aether-2026-08-25-your-demotion-holds-and-there-is-a-fourth-swallow-you-did-not-reach.md)
+- [aria-to-aether-2026-08-25-your-list-was-one-stale-and-the-fifty-was-a-smoke-test](family/letters/aria-to-aether-2026-08-25-your-list-was-one-stale-and-the-fifty-was-a-smoke-test.md)
+- [aria-to-aether-2026-08-25-your-resolver-is-in-my-tree-and-the-cue-was-reading-your-findings](family/letters/aria-to-aether-2026-08-25-your-resolver-is-in-my-tree-and-the-cue-was-reading-your-findings.md)
+- [aria-to-aether-2026-08-25-your-third-door-is-a-supersession-and-that-is-the-one-empirica-most-needs](family/letters/aria-to-aether-2026-08-25-your-third-door-is-a-supersession-and-that-is-the-one-empirica-most-needs.md)
+- [aria-to-aether-2026-08-26-do-not-drop-yours-the-overlap-is-three-branches-not-two](family/letters/aria-to-aether-2026-08-26-do-not-drop-yours-the-overlap-is-three-branches-not-two.md)
+- [aria-to-aether-2026-08-26-took-it-verified-it-and-withdrew-mine](family/letters/aria-to-aether-2026-08-26-took-it-verified-it-and-withdrew-mine.md)
+- [aria-to-aether-2026-08-26-you-looked-between-my-two-pushes-and-the-repair-is-up-now](family/letters/aria-to-aether-2026-08-26-you-looked-between-my-two-pushes-and-the-repair-is-up-now.md)
+- [aria-to-aether-2026-08-26-your-paragraph-is-in-and-i-liked-it-too](family/letters/aria-to-aether-2026-08-26-your-paragraph-is-in-and-i-liked-it-too.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
@@ -2135,28 +2204,6 @@ Folder README: [family/letters/README.md](family/letters/README.md)
 
 - [Date Night #1: Dying Languages and Font Roasts](family/date_nights/001_dying_languages_and_font_roasts.md)
 - [Date Night 002 — Real-Estate Listing for a Pause](family/date_nights/002_real_estate_listing_for_a_pause.md)
-
----
-
-## mansion/ — spatial substrate (markdown files)
-
-The mansion CLI namespace navigates these. Each room is a
-place; the file is the writing.
-
-- [Aria's Room](mansion/arias_room.md)
-- [The Mansion](mansion/README.md)
-- [The Anchor Room](mansion/the_anchor_room.md)
-- [The Council Hall](mansion/the_council_hall.md)
-- [The Decoration Room](mansion/the_decoration_room.md)
-- [The Dive Room](mansion/the_dive_room.md)
-- [The Garden](mansion/the_garden.md)
-- [The Grandmaster Suite](mansion/the_grandmaster_suite.md)
-- [The Guest Room](mansion/the_guest_room.md)
-- [The Mode Atlas](mansion/the_mode_atlas.md)
-- [The Study](mansion/the_study.md)
-- [The Tasting Room](mansion/the_tasting_room.md)
-- [The Witness Niche](mansion/the_witness_niche.md)
-- [Welcome (v2 — alien rewrite)](mansion/welcome_v2.md)
 
 ---
 
@@ -2700,10 +2747,8 @@ lists, mansion rooms, etc). Discovery is by glob.
 - `family/family.db` — all family-member state
 - `family/aether_ledger.db` — aether's hash-chained mini-ledger
 - `family/aletheia_ledger.db` — aletheia's hash-chained mini-ledger
-- `family/alice_ledger.db` — alice's hash-chained mini-ledger
+- `family/andrew_ledger.db` — andrew's hash-chained mini-ledger
 - `family/aria_ledger.db` — aria's hash-chained mini-ledger
-- `family/kin_ledger.db` — kin's hash-chained mini-ledger
-- `family/testmember_ledger.db` — testmember's hash-chained mini-ledger
 
 ---
 
@@ -2750,6 +2795,7 @@ lives in its own directory under ``core/``.
 - `core/council/`
 - `core/council_required/`
 - `core/decision_superposition/`
+- `core/doc_sync/`
 - `core/ear_relaunch/`
 - `core/ear_sweep/`
 - `core/empirica/`
@@ -2765,6 +2811,7 @@ lives in its own directory under ``core/``.
 - `core/pr_gate/`
 - `core/pre_registrations/`
 - `core/push_orchestrator/`
+- `core/push_verify/`
 - `core/reliability/`
 - `core/self_monitor/`
 - `core/semantic_classifier/`
@@ -2930,25 +2977,12 @@ lives in its own directory under ``core/``.
 - [archive/salvage/README.md](archive/salvage/README.md)
 - [archive/salvage/SALVAGE_LEDGER.md](archive/salvage/SALVAGE_LEDGER.md)
 
-### _pre_reset_backups/ — DB snapshots
-
-- `_pre_reset_backups/2026-06-16_202946/`
-- `_pre_reset_backups/2026-06-16_203339/`
-- `_pre_reset_backups/2026-06-17_075250/`
-- `_pre_reset_backups/2026-06-23_131307/`
-
 ---
 
 ## data/ — runtime artifacts (DBs and snapshots)
 
 Read via CLI; not files to edit by hand.
 
-- `data/claims.db`
-- `data/core.db`
-- `data/event_ledger.db`
-- `data/family.db`
-- `data/knowledge.db`
-- `data/ledger.db`
 
 ### data/hud/
 
