@@ -254,6 +254,24 @@ def _scan_file(
     rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
     lines = text.splitlines()
     for name, fns in by_name.items():
+        # WHY THIS AND NOT ANOTHER WINDOW NARROWING. The test that exercises
+        # this function records its scan window being cut twice for the same
+        # symptom — HEAD~30 to HEAD~5 in July, then HEAD~5 to HEAD~3 a week
+        # later — each time because the walk blew past its budget on a branch
+        # whose commits happened to be large. The window was never the cost.
+        # The cost is that this loop ran files x names x lines with three
+        # regexes recompiled inside it, so it scaled with how much the repo
+        # HOLDS rather than with how much changed. Narrowing the window
+        # shrinks the input to a walk that stays quadratic; this shrinks the
+        # walk.
+        #
+        # Aether wrote this paragraph and asked for it in the file rather than
+        # only in a commit message, because each of those two narrowings left
+        # a careful note explaining itself and each note made the NEXT
+        # narrowing look reasonable. A reader meeting those notes alone would
+        # conclude that shrinking the window is what you do when this gets
+        # slow. This is what stops a fourth.
+        #
         # All three call shapes below require the literal name, so its
         # absence from the file is a strict superset test: no pattern can
         # match text that does not contain the substring. This is what
