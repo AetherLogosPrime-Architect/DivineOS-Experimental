@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (22 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (22 rows). **Exported:** 2026-08-25 20:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 1b0746b8 (access=70)
+## 1b0746b8 (access=71)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: mixed with 3 corrections and 82 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -130,9 +130,9 @@ STRUCTURAL ENFORCEMENT: directive for test_with_dir_aaa. [consolidated from 3 en
 
 ---
 
-## adeda3c2 (access=0)
+## 2546f532 (access=0)
 
-STRUCTURAL ENFORCEMENT: I claimed something was fixed but the error came back. This lesson regressed 5x across 8 occurrences. Awareness alone is insufficient -- enforce structurally. Category: false_claim.
+STRUCTURAL ENFORCEMENT: I introduced errors after editing. I need to verify changes work. This lesson regressed 8x across 11 occurrences. Awareness alone is insufficient -- enforce structurally. Category: incomplete_fix.
 
 ---
 

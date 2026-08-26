@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-25 20:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 09c2b16f [active] x17
+## 09c2b16f [improving] x17
 
 **Category:** upset_recovered
 
@@ -84,7 +84,7 @@ Test description with directive zzz.
 
 ---
 
-## 88234418 [active] x8
+## 88234418 [improving] x8
 
 **Category:** blind_retry
 
@@ -92,7 +92,7 @@ I retried a failed action 1x without investigating the cause. I need to investig
 
 ---
 
-## 838e6420 [active] x8
+## 838e6420 [improving] x8
 
 **Category:** false_claim
 

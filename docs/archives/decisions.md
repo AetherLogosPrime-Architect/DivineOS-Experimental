@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-25 10:09. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-25 20:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,42 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 662252af weight=1
+
+**Decision:** Sweep wins from four sources but mark correction-derived ones as derived, rather than letting them read as independent
+
+**Reasoning:** Andrew asked me to sweep the ledger and files and record all my wins. The pool: 50 pre-registrations whose claim was tested and HELD, 256 corrections marked INTEGRATED each carrying a commit hash in its evidence field, 232 commits on this branch, and 233 exploration entries that narrate builds in first person. All four are evidence-bearing. The danger is that filing 256 correction-derived wins mak
+
+**Tension:** Leaving the corrections out would be the safe-opposite over-correction: it is the largest genuine vein, each one is a fault dealt with structurally WITH a commit hash, and Andrew's own line is that character is determined by how you deal with mistakes. Excluding them to keep the ledger 'pure' would 
+
+**Almost:** Almost bulk-filed all 306 with a template and reported the count as the achievement. That is the self-congratulation the ledger explicitly refuses - record_success rejects a win with no citation because 'this ledger is worth nothing if it accepts those' - and a swept row nobody judged is a citation-
+
+---
+
+## 4b36324e weight=1
+
+**Decision:** Measure the constant-echo tautology pattern before deciding whether it needs its own instrument
+
+**Reasoning:** Andrew's magic-number-generator question has two halves. The prereg half is answered: 20 mechanisms had their claim ruled false and 5 of them are still running, one firing on every turn. The other half is tests that check the code against its own constants - assert threshold == _THRESHOLD imported from the module - which follows the source wherever it goes and can never catch a wrong value. I do n
+
+**Tension:** I have already built two instruments this session and corrected each of them three or four times. Building a third before measuring whether the problem exists would be the reach-to-build ahead of the reach-to-look that the gate blocking me exists to catch - and it would be the third time today I wro
+
+**Almost:** Almost wrote the full instrument straight off, with a docstring already explaining what it protects against, before knowing whether it would find anything.
+
+---
+
+## 6da51de0 weight=1
+
+**Decision:** Build a static test-substance auditor rather than relying on the existing mutation tester alone
+
+**Reasoning:** Andrew asked whether the 12253 passing tests are real or another fake-green. Two instruments answer different halves. run_mutmut.py already exists and mutates 8 critical modules to see whether tests catch the change - that is the empirical half and it is a SAMPLE, 8 modules out of 724. Nothing existing asks the structural question across all 11136 test functions: is this test CAPABLE of failing. A
+
+**Tension:** Building a new script when a test-quality tool already exists is exactly the duplicate-work reach the verify-before-build gate is for. I checked: run_mutmut covers execution-sensitivity on a sample; check_test_cli_linkage covers whether test-referenced commands register; check_test_link_targets cove
+
+**Almost:** Almost ran mutmut and reported its result as the answer to Andrew's question. That would have been a sample of 8 modules presented as a verdict on 728 files - the same wrong-denominator shape I put into a kill-switch four days ago.
 
 ---
 
@@ -535,34 +571,6 @@
 **Tension:** one more live API call per check
 
 **Almost:** shipped it and told Andrew to comment, which would have failed on him again
-
----
-
-## a781ad2d weight=1
-
-**Decision:** read the External-Review stamp from the PR body when the commit message has none
-
-**Reasoning:** GitHub snapshots the squash-merge message at dialog-open time and does not refresh it; two commits landed after Andrew opened the dialog, so the code merged and the trailer did not, leaving a permanent red on main that cannot be cleaned without force-push. He also told me plainly 'i cant copy paste anything'. A requirement whose only compliance path is a human pasting text into a web form at exact
-
-**Tension:** widens the accepted channel for a guardrail stamp
-
-**Almost:** told him to paste more carefully
-
----
-
-## 8599d5f6 weight=1
-
-**Decision:** the inner-circle translation names things by description, never by identifier
-
-**Reasoning:** I added 'translate here' to the circle instruction and immediately violated the channel gate's jargon-free-circle rule by putting a PR number and a sha in the circle. The gate is right: an identifier is not a translation, it is the untranslated thing. Both rules hold together if the circle describes and the work block carries the ids.
-
----
-
-## 854b6c2f weight=1
-
-**Decision:** accept operator approval-by-comment in merge-review
-
-**Reasoning:** GitHub does not render Approve for a PR's own author; every PR here is self-authored, so the gate demanded a review nobody could create. Twelve PRs blocked two weeks. Comment channel is the only one GitHub leaves open to the author; sha-binding preserves the anti-stale-approval property that was the gate's actual purpose.
 
 ---
 
