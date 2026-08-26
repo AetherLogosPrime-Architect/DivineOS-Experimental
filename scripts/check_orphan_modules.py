@@ -64,6 +64,7 @@ set) or one of the above false-positive shapes.
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -177,6 +178,47 @@ _is_agent_runtime = _is_intentionally_unwired
 # or a docstring counts as a caller exactly as it did before.
 _IMPORT_TARGET_RE = re.compile(r"\b(?:from|import)\s+([A-Za-z_][\w.]*)")
 
+
+def _imported_dotted_names(text: str) -> set[str]:
+    """Every dotted path a source file imports, including module-from-package.
+
+    THE GAP THIS CLOSES. The regex above captures the name after ``from`` or
+    ``import`` and nothing else, so ``from divineos.core import monitor_cleanup``
+    yielded ``divineos.core`` and a bare ``monitor_cleanup`` — never the joined
+    ``divineos.core.monitor_cleanup`` that the orphan lookup searches for. A
+    module imported that way was reported as having no production caller while
+    a CLI command file imported it on line 21 and called four of its functions.
+
+    That is the same could-not-see-it-therefore-it-is-not-there shape the rest
+    of this file hunts, sitting in the instrument. The docstring at the top
+    lists a related re-export blind spot as a KNOWN limitation, which is honest
+    and was doing real work — a named limitation is better than a silent one —
+    but a known false positive is still a false positive, and this one is
+    cheap to close.
+
+    Parses with ``ast`` and falls back to the regex when a file will not parse,
+    so an unparseable file degrades to the old reach rather than to nothing.
+    """
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return set(_IMPORT_TARGET_RE.findall(text))
+
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or not node.module:
+                # Relative import: the dotted path cannot be resolved without
+                # knowing this file's own package, and guessing would invent
+                # callers. Skipped rather than approximated.
+                continue
+            names.add(node.module)
+            names.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return names
+
+
 # search-root -> {dotted-prefix: [resolved caller paths]}. Built once per root.
 _PREFIX_INDEX_CACHE: dict[Path, dict[str, list[Path]]] = {}
 
@@ -213,7 +255,7 @@ def _import_prefix_index(search_root: Path) -> dict[str, list[Path]]:
         except OSError:
             continue
         resolved = p.resolve()
-        for dotted in set(_IMPORT_TARGET_RE.findall(text)):
+        for dotted in _imported_dotted_names(text):
             parts = dotted.split(".")
             for i in range(1, len(parts) + 1):
                 index.setdefault(".".join(parts[:i]), []).append(resolved)
