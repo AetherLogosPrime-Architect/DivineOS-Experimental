@@ -515,6 +515,28 @@ if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
     fi
 fi
 
+# ───────── 2a-ter. Branch growth past the last confirmed anchor ─────────
+# Aletheia 2026-08-25, ruling on PR #437: the size IS the finding. Nothing
+# in the build flow gets louder as a branch grows, so after reading that
+# ruling the signal was identical to before reading it: none. Thirty more
+# commits went onto the same branch before Andrew asked why one PR held
+# 103. Warning only, per her wording and Andrew 2026-07-15 gates-are-
+# helpers -- a block here would refuse every push on an already-large
+# branch, and the only satisfiable answer would be switching it off.
+if [[ "${DIVINEOS_SKIP_BRANCH_GROWTH:-0}" != "1" ]]; then
+    BG_SCRIPT="$REPO_ROOT/scripts/check_branch_growth.py"
+    if [[ -f "$BG_SCRIPT" ]]; then
+        if ! "$(find_divineos_python)" "$BG_SCRIPT" 2>&1; then
+            # Not `|| true`. This checker's entire doctrine is that a check
+            # which could not run must never be able to report success, so
+            # swallowing its own failure would reproduce the defect it exists
+            # to surface -- silence indistinguishable from a small branch.
+            echo "[branch-growth] the growth check itself FAILED TO RUN." >&2
+            echo "[branch-growth] That is not 'branch is small'. Nothing was measured." >&2
+        fi
+    fi
+fi
+
 # ─── 2a-bis. Audit-export freshness ─────────────────────────────────────
 # Aria 2026-08-01, reading the export I had just shipped: "verification has
 # two questions and we've both only been asking the first — is it true, and
