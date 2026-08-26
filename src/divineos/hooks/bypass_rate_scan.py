@@ -50,14 +50,20 @@ class BypassRateScan(CrossTurnScan):
     without action. Cross-turn variant of the primitive: state is the
     accumulated bypass ledger, not any single turn.
 
-    Threshold defaults to 50 events over 14 days. Current substrate
-    surface reports 71 in 15 days; the initial threshold is set below
-    that intentionally so the gate would fire on today's state, proving
-    the mechanism live. Threshold is a SEED — the falsification-signal
-    layer (``compute_falsification_ratio``) will let the calibration
-    move with data as it accumulates. Aletheia audit finding 2026-07-15:
-    "a number that can't move with evidence is ammunition, not
-    information."
+    Threshold defaults to 10 ESCAPES over 14 days — see
+    ``_ESCAPE_THRESHOLD_DEFAULT`` below for the derivation.
+
+    It read "50 events" here until 2026-08-25, and that sentence outlived
+    two changes beneath it: the comparison moving from every row to escapes
+    only, and the number moving from 50 to 10. Corrected in the same edit as
+    the code, because a docstring that teaches the old contract reinstalls
+    the old assumption in every reader — the same shape as the hook comment
+    that kept pointing at a dead home for forty days.
+
+    Threshold is a SEED — the falsification-signal layer
+    (``compute_falsification_ratio``) lets the calibration move with data as
+    it accumulates. Aletheia audit finding 2026-07-15: "a number that can't
+    move with evidence is ammunition, not information."
     """
 
     # THE THRESHOLD MOVED WITH THE FIELD IT MEASURES. (2026-08-25.)
@@ -138,7 +144,13 @@ class BypassRateScan(CrossTurnScan):
             # the classification, matching the telemetry side, so an
             # unclassified window still trips rather than silently passing.
             escape_events = int(stats.get("escape_events", stats.get("total_events", 0)))
-            by_env = dict(stats.get("by_env_var", {}) or {})
+            # The offender list has to be drawn from the same rows the count
+            # was. Reading by_env_var here made the gate print "escape rate 15
+            # ... compliance rows are excluded" and then name three prescribed
+            # commands as the gates being routed around (round-5b387cf59034).
+            # Falls back to the all-rows view only when the provider predates
+            # the split, so an old stats dict still names something.
+            by_env = dict(stats.get("by_env_var_escape") or stats.get("by_env_var", {}) or {})
             unique_days = int(stats.get("unique_days", 0))
             window_days = int(stats.get("window_days", self._window_days))
         except (TypeError, ValueError):

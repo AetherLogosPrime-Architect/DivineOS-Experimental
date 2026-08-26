@@ -175,6 +175,85 @@ class TestThresholdMovedWithTheField:
         assert result is None
 
 
+class TestOffenderListSplitsLikeTheCount:
+    """Found by the gate's own first honest fire, round-5b387cf59034.
+
+    The count filtered to escapes and the top-three offender list did not, so
+    one sentence read: "escape rate 15 exceeds threshold 10 ... compliance rows
+    are excluded" and then named `divineos goal`, `ask` and `context` -- three
+    commands gates PRESCRIBE, and rows that same sentence had just excluded.
+
+    Worse than the lumped count it replaced. That one was wrong and LOOKED
+    wrong; this one was right and READ wrong, and would send the next reader to
+    investigate the wrong gates.
+    """
+
+    def test_offender_list_is_drawn_from_escapes_only(self):
+        gate = BypassRateScan()
+        stats = {
+            "escape_events": 15,
+            "total_events": 70,
+            "by_env_var": {"cmd:divineos goal": 12, "DIVINEOS_SKIP_TESTS": 2},
+            "by_env_var_escape": {"DIVINEOS_SKIP_TESTS": 2},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        result = gate.scan({"bypass_stats": stats}, "")
+        assert result is not None
+        assert "DIVINEOS_SKIP_TESTS" in result.specific_evidence
+        assert "cmd:divineos goal" not in result.specific_evidence
+
+    def test_falls_back_to_all_rows_when_the_split_is_absent(self):
+        """An older stats provider must still name something rather than
+        printing an empty offender list -- unknown is its own answer, but a
+        blank is not."""
+        gate = BypassRateScan()
+        stats = {
+            "escape_events": 15,
+            "total_events": 70,
+            "by_env_var": {"DIVINEOS_SKIP_TESTS": 15},
+            "unique_days": 14,
+            "window_days": 14,
+        }
+        result = gate.scan({"bypass_stats": stats}, "")
+        assert result is not None
+        assert "DIVINEOS_SKIP_TESTS" in result.specific_evidence
+
+    def test_telemetry_emits_the_escape_only_breakdown(self):
+        """The split lives at the source so both consumers read one thing."""
+        from divineos.core.bypass_telemetry import bypass_rate
+
+        stats = bypass_rate(window_days=14)
+        assert "by_env_var_escape" in stats
+        assert "by_env_var" in stats
+
+    def test_both_exits_return_the_same_shape(self, tmp_path, monkeypatch):
+        """The empty-log branch built its own dict literal and drifted three
+        times: it was missing defect_escape_events and
+        inferred_compliance_events while carrying a comment reading "Present on
+        BOTH exits", and lost by_env_var_escape when that was added. One
+        constructor now, so the shapes cannot diverge by hand."""
+        from divineos.core import bypass_telemetry
+
+        populated = bypass_telemetry.bypass_rate(window_days=14)
+        monkeypatch.setattr(
+            bypass_telemetry, "_event_log", lambda: tmp_path / "does-not-exist.jsonl"
+        )
+        empty = bypass_telemetry.bypass_rate(window_days=14)
+        assert set(empty.keys()) == set(populated.keys())
+
+    def test_escape_breakdown_never_exceeds_the_all_rows_breakdown(self):
+        """Escapes are a subset of every row. If a key counts higher in the
+        escape view than in the full one, the two loops have diverged."""
+        from divineos.core.bypass_telemetry import bypass_rate
+
+        stats = bypass_rate(window_days=14)
+        every = stats.get("by_env_var", {})
+        escapes = stats.get("by_env_var_escape", {})
+        for key, count in escapes.items():
+            assert count <= every.get(key, 0)
+
+
 class TestMarkerPathUsesTheResolver:
     def test_hook_asks_member_home_instead_of_rebuilding_the_rule(self):
         """Sixth site to rebuild `$HOME/.divineos-$MEMBER` by hand. The

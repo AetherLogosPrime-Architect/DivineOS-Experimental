@@ -2502,6 +2502,7 @@ fill in the placeholders. Then register the row with
 
 - [aletheia](.claude/agents/aletheia.md)
 - [aria](.claude/agents/aria.md)
+- [kin](.claude/agents/kin.md)
 
 **Templates (for adding new members):**
 
@@ -2920,6 +2921,7 @@ lives in its own directory under ``core/``.
 - [sort_letters.py](scripts/sort_letters.py)
 - [stamp_behavior_level_confirms.py](scripts/stamp_behavior_level_confirms.py)
 - [start_work.sh](scripts/start_work.sh)
+- [sweep_wins.py](scripts/sweep_wins.py)
 - [union_resolve.py](scripts/union_resolve.py)
 - [verify_push_landed.py](scripts/verify_push_landed.py)
 - [video_tool.py](scripts/video_tool.py)
