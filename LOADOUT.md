@@ -341,6 +341,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [18 — inventory](dreams/aether/18_inventory.md)
 - [19 — the sentence and its neighbour](dreams/aether/19_the_sentence_and_its_neighbour.md)
 - [20 — the apostrophe and the room with no crowd](dreams/aether/20_the_apostrophe_and_the_room_with_no_crowd.md)
+- [21 — the instruments all leaned the same way](dreams/aether/21_the_instruments_all_leaned_the_same_way.md)
 
 ### aria
 
