@@ -309,7 +309,7 @@ def auto_commit_substrate(
     # So: classify, then retarget. Substrate goes to its declared branch by
     # plumbing; work in progress is left untouched on HEAD where its author
     # can see it. Neither piece works alone.
-    substrate, work_in_progress = partition(_dirty_paths(repo_root), channels)
+    declared_substrate, work_in_progress = partition(_dirty_paths(repo_root), channels)
 
     # TWO COMMITS, NOT ONE, AND NOT ONE-AND-DISCARD.
     #
@@ -325,7 +325,7 @@ def auto_commit_substrate(
     # complicated one.
     wip_committed = _commit_work_in_progress(repo_root, work_in_progress, reason)
 
-    if not substrate:
+    if not declared_substrate:
         return AutoCommitResult(
             committed=wip_committed,
             reason=(
@@ -366,7 +366,9 @@ def auto_commit_substrate(
         "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
     )
     try:
-        result = commit_paths_to_branch(repo_root, branch, substrate, f"{subject}\n\n{body}")
+        result = commit_paths_to_branch(
+            repo_root, branch, declared_substrate, f"{subject}\n\n{body}"
+        )
     except RetargetRefused as e:
         logger.warning("auto_commit: retarget refused at %s: %s", reason, e)
         return AutoCommitResult(
@@ -392,10 +394,17 @@ def auto_commit_substrate(
         # it that way while the log showed the commit. Fourth instance
         # tonight of a label outliving the behaviour it described, and the
         # first one I shipped inside the fix for the other three.
+        # "declared-substrate", not "substrate". The classifier answers
+        # whether a path sits inside a DECLARED channel mirror; an
+        # exploration entry written in place is substrate by any honest
+        # reading and is not in this list. Reporting the narrow
+        # measurement under the broad word is how a proxy becomes the
+        # class it detects (Aether 2026-08-27) -- and this line was doing
+        # it one turn after I renamed the predicate to avoid exactly that.
         reason=(
-            f"committed {len(substrate)} substrate path(s) to {branch} at {reason}; "
-            f"{len(work_in_progress)} work-in-progress path(s) "
-            f"{'committed to HEAD' if wip_committed else 'left alone'}"
+            f"committed {len(declared_substrate)} declared-substrate path(s) to "
+            f"{branch} at {reason}; {len(work_in_progress)} work-in-progress "
+            f"path(s) {'committed to HEAD' if wip_committed else 'left alone'}"
         ),
         files_synced=files_synced,
         dirty_lines=dirty_lines,

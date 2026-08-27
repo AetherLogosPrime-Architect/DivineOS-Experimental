@@ -139,14 +139,25 @@ def partition(
     rel_paths: list[str],
     channels: tuple[ExternalChannel, ...] = DEFAULT_CHANNELS,
 ) -> tuple[list[str], list[str]]:
-    """Split paths into (substrate, work_in_progress), order preserved.
+    """Split paths into (declared_substrate, work_in_progress), order kept.
+
+    THE FIRST WORD IS THE POINT (Aether 2026-08-27): *an instrument
+    reporting a proxy must name what the proxy stands in for, or it
+    becomes the class it detects.*
+
+    This returned a list called ``substrate`` for exactly one turn --
+    directly beneath a predicate I had just renamed to say ``declared``
+    for that same reason. The rename went one layer deep and the very
+    next line broadened it back, and the operator message downstream
+    then reported plain "substrate path(s)" to Andrew. Renaming the
+    measurement while every consumer re-inflates it changes nothing.
 
     Order is preserved so a caller reporting what it is about to commit
     lists it the way git listed it. A reordered report reads as a
     different set of files to anyone comparing it against `git status`.
     """
-    substrate: list[str] = []
+    declared_substrate: list[str] = []
     work: list[str] = []
     for p in rel_paths:
-        (substrate if is_declared_substrate_path(p, channels) else work).append(p)
-    return substrate, work
+        (declared_substrate if is_declared_substrate_path(p, channels) else work).append(p)
+    return declared_substrate, work
