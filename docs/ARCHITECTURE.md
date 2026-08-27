@@ -683,6 +683,7 @@ src/divineos/
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
+    substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
 
   analysis/
     _session_types.py          Session analysis type definitions
