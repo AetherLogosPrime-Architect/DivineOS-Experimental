@@ -685,7 +685,7 @@ src/divineos/
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
-    letter_seen_store.py       Where a letter is, so that silence stops meaning two things at once.
+    letter_channel_state.py       Where a letter is, so that silence stops meaning two things at once.
 
   analysis/
     _session_types.py          Session analysis type definitions

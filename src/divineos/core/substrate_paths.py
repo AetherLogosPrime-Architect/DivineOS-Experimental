@@ -105,11 +105,19 @@ def substrate_mirrors(
     return tuple(PurePosixPath(c.repo_mirror.as_posix()) for c in channels)
 
 
-def is_substrate_path(
+def is_declared_substrate_path(
     rel_path: str | Path,
     channels: tuple[ExternalChannel, ...] = DEFAULT_CHANNELS,
 ) -> bool:
-    """True when ``rel_path`` lies inside a declared channel mirror.
+    """True when ``rel_path`` lies inside a DECLARED channel mirror.
+
+    The word "declared" is load-bearing and was added 2026-08-27 after
+    Aletheia's rule: ask what a name claims against what its predicate
+    tests. This was ``is_substrate_path``, which claims to answer whether
+    something IS substrate. It does not. An exploration entry written in
+    place is substrate by any honest reading and returns False here,
+    because no channel declares it — a hole this module already documents
+    and which the old name quietly asserted did not exist.
 
     ``rel_path`` is repo-relative, in either separator style — git
     porcelain emits forward slashes and Windows callers hold backslashes,
@@ -140,5 +148,5 @@ def partition(
     substrate: list[str] = []
     work: list[str] = []
     for p in rel_paths:
-        (substrate if is_substrate_path(p, channels) else work).append(p)
+        (substrate if is_declared_substrate_path(p, channels) else work).append(p)
     return substrate, work

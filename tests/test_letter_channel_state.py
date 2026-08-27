@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from divineos.core.letter_seen_store import (
+from divineos.core.letter_channel_state import (
     LetterState,
     derive_from_watched_channel,
     in_the_channel,

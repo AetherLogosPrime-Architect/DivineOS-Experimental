@@ -1,5 +1,20 @@
 """Where a letter is, so that silence stops meaning two things at once.
 
+NAMED FOR ITS PREDICATE, NOT FOR A BROADER SUBJECT (Aletheia 2026-08-27).
+This was `letter_seen_store` for exactly one turn. It records handed,
+delivered and answered; it never measures *seen* and cannot. The word
+sat in the module name, in the filename and in the tests — the same
+four-layer assertion that had just misled both of us about the marking
+hook, whose file, module, docstring and every function say "seen" while
+its predicate is "was opened with one particular tool".
+
+Her rule, and it is the one worth carrying past this file: ask what the
+name CLAIMS and what the predicate TESTS, and check whether they are the
+same question. Where the name is broader, the gap beside it is not
+merely unasked — it is asserted as covered. A comment is read once; a
+name is read every time the thing is used.
+
+
 Per prereg-9bb3d0fd17be. Designed by Aletheia 2026-08-27, built by Aria
 the same day, after she named the problem better than I had:
 
