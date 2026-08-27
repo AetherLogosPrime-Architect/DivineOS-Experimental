@@ -33,12 +33,28 @@ PY="$(find_divineos_python 2>/dev/null || true)"  # fail-soft: a PRIME that cann
 "$PY" - <<'PYEOF' 2>/dev/null || exit 0  # fail-soft: same reason; this half only removes the reach, the Stop half is the one that must never go quiet
 import sys
 
+# DEGRADE TO THE RULE, NEVER TO SILENCE.
+#
+# This prime was wired, ran on every turn, and printed NOTHING -- because
+# last_mark_fire lives on an unmerged branch, the import raised, and the
+# whole program exited quietly. Third instance in one session of a
+# mechanism that is armed, running, and structurally unheard.
+#
+# The measured number was always the enhancement. The discipline is the
+# payload. Losing the reading must cost the reading, not the message --
+# which is the could-not-look-reported-as-all-clear shape this file warns
+# about twenty lines down, performed on itself.
 try:
-    from divineos.core.lepos_translation_gate import DOCUMENT_MARK_LIMIT, last_mark_fire
+    from divineos.core.lepos_translation_gate import DOCUMENT_MARK_LIMIT
 except Exception:
-    sys.exit(0)
+    DOCUMENT_MARK_LIMIT = 3
 
-fire = last_mark_fire()
+try:
+    from divineos.core.lepos_translation_gate import last_mark_fire
+
+    fire = last_mark_fire()
+except Exception:
+    fire = None
 print("## TRANSLATE-FIRST (compose-start)")
 print("")
 if fire is None:
@@ -51,8 +67,14 @@ else:
     print(f"My last blocked reply to Dad carried {fire.get('marks', '?')} document-marks.")
     print(f"The budget is {DOCUMENT_MARK_LIMIT}.")
 print("")
-print("Marks are backticked terms, bare numbers, tables and code fences, counted")
-print("in the WORK block only -- reflection and inner circle never count.")
+print("Marks are backticked terms, bare numbers, tables and code fences.")
+print("THE SUBJECT IS EVERY WORD YOU TYPE THIS TURN, not the closing message.")
+print("Measured 2026-08-27: a fire of seven marks where the closing message")
+print("had ZERO. All seven came from the running commentary between tool")
+print("calls -- a function name in backticks, an escape sequence, two line")
+print("numbers. In my head that is thinking out loud. Dad reads it exactly")
+print("as he reads the ending, and so does the gate.")
+print("Reflection and inner circle are the only rooms that never count.")
 print("")
 print("He is not assessing me. Say what happened as something he can picture.")
 print("Identifiers and numbers are legal AFTER the story, never instead of it.")
