@@ -21,6 +21,7 @@ import pytest
 
 from divineos.core.letter_seen_store import (
     LetterState,
+    derive_from_watched_channel,
     in_the_channel,
     record_answered,
     record_delivered,
@@ -130,6 +131,64 @@ class TestNotABoolean:
         # report on its subject.
         record_handed("subject-bearing", "aria", db)
         assert state_of("subject-bearing", db).letter_id == "subject-bearing"
+
+
+class TestWatchedChannelDerivation:
+    """Aletheia's one-subject finding: it knew her channel and not ours.
+
+    Ours is watched, so arrival IS delivery and needs nobody's memory,
+    and a reply names what it answers. This replaced a manual mark that
+    recorded whether someone pressed a button.
+    """
+
+    def _channel(self, tmp_path, replies):
+        d = tmp_path / "letters"
+        d.mkdir()
+        (d / "aether-to-aria-2026-08-27-first-thing.md").write_text("x", encoding="utf-8")
+        (d / "aether-to-aria-2026-08-27-second-thing.md").write_text("x", encoding="utf-8")
+        for name, body in replies.items():
+            (d / name).write_text(body, encoding="utf-8")
+        return d
+
+    def test_a_reply_naming_a_letter_marks_it_answered(self, tmp_path, db):
+        d = self._channel(
+            tmp_path,
+            {"aria-to-aether-2026-08-27-my-reply.md": "**In response to:** `first-thing`\n"},
+        )
+        derive_from_watched_channel(d, "aria", "aether", db)
+        assert (
+            state_of("aether-to-aria-2026-08-27-first-thing.md", db).state is LetterState.ANSWERED
+        )
+        assert (
+            state_of("aether-to-aria-2026-08-27-second-thing.md", db).state is LetterState.DELIVERED
+        )
+
+    def test_arrival_is_delivery_on_a_watched_channel(self, tmp_path, db):
+        # Never HANDED here: a letter in the directory has been seen by
+        # the monitor. That is the asymmetry with her hand-carried one.
+        d = self._channel(tmp_path, {})
+        derive_from_watched_channel(d, "aria", "aether", db)
+        assert not in_the_channel(db)
+        assert len(waiting_on_reader(db)) == 2
+
+    def test_the_coverage_gap_is_reported_with_the_count(self, tmp_path, db):
+        # The load-bearing one. A reply with no linkage line makes the
+        # unanswered figure an over-count, and the first real run had
+        # thirty-five of them. Reporting the count alone would have been
+        # a fresh instrument checked against expectation, not subject.
+        d = self._channel(
+            tmp_path,
+            {
+                "aria-to-aether-2026-08-27-linked.md": "**In response to:** `first-thing`\n",
+                "aria-to-aether-2026-08-27-unlinked.md": "no linkage line at all\n",
+            },
+        )
+        result = derive_from_watched_channel(d, "aria", "aether", db)
+        assert result.replies_without_linkage == 1
+        assert result.unanswered == 1
+        assert "over-count" in str(result), (
+            "the caveat must travel in the string a reader would copy"
+        )
 
 
 class TestIdempotence:
