@@ -151,7 +151,7 @@ PY="$(find_divineos_python 2>/dev/null)" || exit 0
 # shellcheck disable=SC2016  # single quotes are deliberate: this is a
 # Python program, and shell must NOT expand $-anything inside it.
 printf '%s' "$INPUT" | "$PY" -c '
-import json, re, sys
+import atexit, json, re, sys
 
 try:
     data = json.loads(sys.stdin.read() or "{}")
@@ -161,6 +161,53 @@ except Exception:
 cmd = ((data.get("tool_input") or {}).get("command") or "")
 if not cmd:
     sys.exit(0)
+
+# SUBJECT RECORD -- Aletheia 2026-08-27, and it is the fix for the thing
+# that let this hook stay blind for months.
+#
+# She asked for the liveness marker (F90) and then named what was wrong
+# with her own ask: a marker written before any logic can exit early
+# proves the process STARTED. It cannot say anything about what the
+# process SAW, because it is written before the process sees anything.
+# The placement that makes it reliable is exactly what makes it useless.
+#
+#   a liveness marker answers   did this run
+#   what was missing answers    did this evaluate a subject
+#
+# Her discriminator, in her words: record the subject, not the fact. Not
+# ran=true but examined=<the thing it looked at>. Eight thousand rows
+# reading examined="cd" is a finding visible at a glance. Eight thousand
+# rows reading ran=true is what I had, and I read it as proof the hook
+# was working for months.
+#
+# Registered with atexit so the row is written no matter which of the ten
+# exits fires. An early exit is exactly the case that needs recording --
+# a hook that exits before looking is the failure mode, so the record
+# must not depend on reaching the end.
+#
+# The general form, which is hers and outlives this file: an instrument
+# reporting on ITSELF cannot report on its SUBJECT. Liveness is
+# self-report. Coverage is subject-report. We have been building the
+# first and reading it as the second.
+_SUBJECT = {"raw": cmd[:120], "examined": "", "verdict": "silent", "why": "no-verdict-reached"}
+
+
+def _write_subject_record():
+    try:
+        import pathlib
+        log = pathlib.Path.home() / ".divineos" / "hook-liveness.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        row = dict(_SUBJECT)
+        row["hook"] = "pipeline-exit-ambiguity.sh"
+        row["reason"] = "subject"
+        with log.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + chr(10))
+    except Exception:
+        pass
+
+
+atexit.register(_write_subject_record)
+
 
 # Cheap pre-filter only: if the raw text holds no bar at all there is
 # nothing here. It deliberately does NOT decide whether a bar is a real
@@ -277,6 +324,7 @@ if "|" not in _split_unquoted(cmd, ["||"])[0] and len(stages) > 1 and "||" in cm
 # inside its own quotes, and the hook refused a command with no shell
 # pipe in it at all.
 if len(stages) < 2:
+    _SUBJECT["why"] = "no-unquoted-pipe"
     sys.exit(0)
 
 if not stages:
@@ -327,8 +375,11 @@ for token in first_tokens:
     break
 probe = probe.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].removesuffix(".exe")
 if probe not in CONSEQUENTIAL:
+    _SUBJECT["examined"] = probe
+    _SUBJECT["why"] = "first-stage-not-consequential"
     sys.exit(0)
 first = probe
+_SUBJECT["examined"] = probe
 
 # --- teeth, added 2026-08-27 -------------------------------------------
 # Advisory was not enough. This hook fired correctly on THREE masked
@@ -369,6 +420,8 @@ if _subs:
         break
 
 if _mutating:
+    _SUBJECT["verdict"] = "deny"
+    _SUBJECT["why"] = "mutating-first-stage"
     reason = (
         "PIPELINE EXIT-CODE AMBIGUITY -- refused, because this one mutates.\n\n"
         f"`{first}` is the first stage and `{last}` is the last, with no "
@@ -404,6 +457,8 @@ if _mutating:
 # The channel was documented in this same directory the whole time, in
 # the hooks that visibly work. I wrote three versions without reading
 # one of them, because I assumed printing was emitting.
+_SUBJECT["verdict"] = "warn"
+_SUBJECT["why"] = "read-only-pipeline"
 message = (
     "## PIPELINE EXIT-CODE AMBIGUITY\n\n"
     f"About to run a pipeline whose first stage is `{first}` and whose "
