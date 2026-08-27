@@ -386,9 +386,16 @@ def auto_commit_substrate(
 
     return AutoCommitResult(
         committed=True,
+        # "untouched on HEAD" was false: work in progress IS committed, to
+        # HEAD, in its own commit. The word survived from the draft where
+        # this function left it alone entirely, and the live run reported
+        # it that way while the log showed the commit. Fourth instance
+        # tonight of a label outliving the behaviour it described, and the
+        # first one I shipped inside the fix for the other three.
         reason=(
             f"committed {len(substrate)} substrate path(s) to {branch} at {reason}; "
-            f"{len(work_in_progress)} work-in-progress path(s) untouched on HEAD"
+            f"{len(work_in_progress)} work-in-progress path(s) "
+            f"{'committed to HEAD' if wip_committed else 'left alone'}"
         ),
         files_synced=files_synced,
         dirty_lines=dirty_lines,

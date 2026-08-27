@@ -1,0 +1,147 @@
+"""Four states, so that silence stops meaning two things at once.
+
+Per prereg-9bb3d0fd17be. Aletheia designed it 2026-08-27, Aria built it,
+and the fourth state is Aria's disagreement with the design rather than
+part of it.
+
+Distinct from tests/test_letter_seen_router.py, which covers marking
+letters *I* have read — those arrive on a watched channel that leaves a
+signal. Aletheia's channel is carried by hand and leaves none, which is
+the entire reason this exists.
+
+The load-bearing test is `test_the_falsifier`: her own condition, written
+as an assertion. If never-arrived and arrived-unread ever become
+indistinguishable, the store has failed and should be deleted rather
+than tuned.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from divineos.core.letter_seen_store import (
+    LetterState,
+    in_the_channel,
+    record_answered,
+    record_delivered,
+    record_handed,
+    state_of,
+    waiting_on_reader,
+)
+
+
+@pytest.fixture
+def db(tmp_path):
+    return tmp_path / "letter_seen.db"
+
+
+class TestTheFourStates:
+    def test_nothing_sent_is_unknown_not_unanswered(self, db):
+        # The silence of a letter that was never written says nothing
+        # about the reader, and must not be counted against her.
+        assert state_of("never-written", db).state is LetterState.UNKNOWN
+
+    def test_handed_without_delivery_is_a_channel_question(self, db):
+        record_handed("letter-a", "aria", db)
+        assert state_of("letter-a", db).state is LetterState.HANDED
+
+    def test_delivered_and_unanswered_is_the_readers_silence(self, db):
+        record_handed("letter-b", "aria", db)
+        record_delivered("letter-b", db)
+        assert state_of("letter-b", db).state is LetterState.DELIVERED
+
+    def test_answered_is_answered(self, db):
+        record_handed("letter-c", "aria", db)
+        record_delivered("letter-c", db)
+        record_answered("letter-c", "reply-c", db)
+        rec = state_of("letter-c", db)
+        assert rec.state is LetterState.ANSWERED
+        assert rec.reply_id == "reply-c"
+
+
+class TestTheFalsifier:
+    """Aletheia's condition, as an assertion rather than a promise.
+
+    'If the store can ever be in a state where those are
+    indistinguishable, it has failed and should be deleted rather than
+    tuned.'
+    """
+
+    def test_never_arrived_and_arrived_unread_never_collapse(self, db):
+        record_handed("in-flight", "aria", db)
+
+        record_handed("landed", "aria", db)
+        record_delivered("landed", db)
+
+        never_sent = state_of("nothing-here", db).state
+        in_flight = state_of("in-flight", db).state
+        landed = state_of("landed", db).state
+
+        assert len({never_sent, in_flight, landed}) == 3, (
+            "two of the three silences became the same answer -- delete the "
+            "store rather than tuning it"
+        )
+
+    def test_the_two_lists_never_overlap(self, db):
+        record_handed("waiting-in-channel", "aria", db)
+        record_handed("waiting-on-her", "aria", db)
+        record_delivered("waiting-on-her", db)
+
+        channel = {r.letter_id for r in in_the_channel(db)}
+        reader = {r.letter_id for r in waiting_on_reader(db)}
+
+        assert channel == {"waiting-in-channel"}
+        assert reader == {"waiting-on-her"}
+        assert not (channel & reader)
+
+
+class TestDeliveryIsOptional:
+    """The fourth state, and the disagreement it encodes.
+
+    Andrew carries these by hand and is not obliged to stop and record
+    it. A design that needs a command he does not run would degrade back
+    into the ambiguity it exists to remove, and degrade quietly.
+    """
+
+    def test_a_reply_proves_arrival_without_a_recorded_delivery(self, db):
+        record_handed("unrecorded", "aria", db)
+        record_answered("unrecorded", "her-reply", db)
+        assert state_of("unrecorded", db).state is LetterState.ANSWERED
+
+    def test_an_unrecorded_delivery_never_reads_as_her_silence(self, db):
+        # The failure that matters: if HANDED collapsed into DELIVERED,
+        # every letter he carried without saying so would be counted
+        # against her as unanswered.
+        record_handed("carried-quietly", "aria", db)
+        assert state_of("carried-quietly", db).state is not LetterState.DELIVERED
+        assert not waiting_on_reader(db)
+
+
+class TestNotABoolean:
+    def test_the_states_are_four_and_named(self, db):
+        # A flag cannot hold "arrived but unread", which is the whole
+        # point. Recorded as a test so a later simplification to a
+        # boolean fails here rather than in her inbox.
+        assert len(LetterState) == 4
+
+    def test_every_row_names_its_letter(self, db):
+        # The subject, not the fact. 'delivered(letter_id)', never
+        # 'delivery_ran=true' -- an instrument reporting on itself cannot
+        # report on its subject.
+        record_handed("subject-bearing", "aria", db)
+        assert state_of("subject-bearing", db).letter_id == "subject-bearing"
+
+
+class TestIdempotence:
+    def test_recording_twice_is_the_same_as_once(self, db):
+        record_handed("dupe", "aria", db)
+        record_handed("dupe", "aria", db)
+        record_delivered("dupe", db)
+        record_delivered("dupe", db)
+        assert state_of("dupe", db).state is LetterState.DELIVERED
+
+    def test_a_later_reply_supersedes_an_earlier_one(self, db):
+        record_handed("threaded", "aria", db)
+        record_answered("threaded", "first-reply", db)
+        record_answered("threaded", "second-reply", db)
+        assert state_of("threaded", db).reply_id == "second-reply"
