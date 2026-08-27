@@ -204,7 +204,25 @@ stages = [s.strip() for s in re.split(r"(?<!\|)\|(?!\|)", cmd) if s.strip()]
 if not stages:
     sys.exit(0)
 last = stages[-1].split()[0]
-first_tokens = stages[0].split()
+# The command that actually FEEDS the pipe is the last one in stage
+# zero, not the first token of it. Every Bash call in this harness is
+# prefixed `cd "<repo>" && ...`, so reading the first token found `cd`,
+# which is not consequential, and the hook exited before it could speak.
+#
+# Measured 2026-08-27, after 8,304 logged invocations and zero warnings
+# reaching me. Aria and I each spent hours believing we had read past
+# its output; it had never produced any on a real command. The liveness
+# marker said invoked and I read that as working -- the marker proves
+# the hook RAN, never that it SAW anything.
+#
+# The bare form warns and the cd-prefixed form did not, which is the
+# whole bug in two lines:
+#     git log --oneline | head -2                -> warns
+#     cd "..." && git log --oneline | head -2    -> silent
+_lead = re.split(r"&&|\|\||;", stages[0])
+first_tokens = (_lead[-1].strip() or stages[0]).split()
+if not first_tokens:
+    sys.exit(0)
 first = first_tokens[0]
 
 # NARROWING, required because PreToolUse cannot see whether output will
