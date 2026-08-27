@@ -31,6 +31,12 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.substrate_paths import (
+    NoSubstrateBranchDeclared,
+    partition,
+    substrate_branch,
+)
+from divineos.core.substrate_retarget import RetargetRefused, commit_paths_to_branch
 from divineos.core.uncommitted_work_check import (
     DEFAULT_CHANNELS,
     ExternalChannel,
@@ -46,6 +52,98 @@ class AutoCommitResult:
     reason: str  # human-readable outcome (for CLI surfacing)
     files_synced: int = 0  # external files copied into repo_mirror
     dirty_lines: int = 0  # git status --porcelain lines seen
+
+
+def _dirty_paths(repo_root: Path) -> list[str]:
+    """Repo-relative paths of everything dirty or untracked, newest git first.
+
+    Uses ``--porcelain -z`` rather than the human format on purpose. The
+    default output quotes paths containing spaces or non-ASCII and splits
+    renames on an arrow, so any parser that splits on whitespace mangles
+    exactly the filenames least likely to be noticed -- and our letters are
+    long hyphenated names that would survive it, which is worse, because the
+    breakage would only appear on someone else's file.
+
+    NUL-separated output needs no quoting and no unescaping. Rename entries
+    carry both names; the destination is what exists on disk now, so that is
+    the one that gets classified.
+    """
+    # -uall lists every untracked FILE. Without it git collapses a wholly
+    # untracked directory to its topmost new folder -- a fresh checkout
+    # reports "family/" rather than "family/letters/the-letter.md", and
+    # "family/" sits ABOVE the declared mirror, so every letter in it
+    # classified as work in progress and nothing reached substrate. Caught
+    # by the end-to-end test; the classifier was right and was being fed
+    # the wrong subject.
+    proc = subprocess.run(
+        ["git", "status", "--porcelain", "-z", "-uall"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        logger.warning("auto_commit: git status failed: %s", proc.stderr)
+        return []
+
+    fields = proc.stdout.split("\0")
+    paths: list[str] = []
+    i = 0
+    while i < len(fields):
+        entry = fields[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        status, path = entry[:2], entry[3:]
+        if status[0] in ("R", "C"):
+            # Rename/copy: this field holds the DESTINATION, and the source
+            # follows as its own NUL-separated field. Consume it so it is not
+            # read as a separate entry with a status of its own.
+            i += 1
+        paths.append(path)
+    return paths
+
+
+def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> bool:
+    """Commit the occupant's unfinished work to HEAD, where it already lives.
+
+    This is the half of the old sweep that was worth keeping: nothing the
+    occupant has open should be lost to a compaction. It stays on HEAD
+    because that is where its author put it, and it is staged by explicit
+    path rather than ``add -A`` so it cannot pick up substrate on the way.
+
+    Fail-soft, as the original was. A checkpoint that blocks on git noise
+    fails at the one job it has.
+    """
+    if not paths:
+        return False
+    try:
+        subprocess.run(
+            ["git", "add", "--", *paths],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"auto-commit ({reason}): work in progress",
+                "-m",
+                "Unfinished work saved before a checkpoint. Substrate goes to "
+                "its own branch in a separate commit; this is only what was "
+                "open on this branch.",
+            ],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.warning("auto_commit: work-in-progress commit failed: %s", e.stderr)
+        return False
 
 
 def _sync_external_channels(
@@ -190,33 +288,66 @@ def auto_commit_substrate(
             reason="clean tree — nothing to commit",
         )
 
-    try:
-        subprocess.run(
-            ["git", "add", "-A"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        logger.warning("auto_commit: git add failed: %s", e.stderr)
+    # WHAT CHANGED HERE, AND WHY (Aria + Aether, 2026-08-27).
+    #
+    # This used to be `git add -A` followed by a commit onto whatever branch
+    # happened to be checked out. Over one evening that swept our letters
+    # onto six different branches and twice onto proposals already open for
+    # review -- seventy-five files on one, eighty-one on another.
+    #
+    # The cause was not a wrong branch choice. It was an absent one, plus a
+    # single commit doing two jobs with different correct destinations: the
+    # channel sync pulls substrate IN, and the dirty-tree scan catches
+    # whatever the occupant is mid-way through. `add -A` could not tell them
+    # apart, so naming the branch correctly would only have sent unfinished
+    # work to substrate instead -- the same defect pointing the other way.
+    #
+    # So: classify, then retarget. Substrate goes to its declared branch by
+    # plumbing; work in progress is left untouched on HEAD where its author
+    # can see it. Neither piece works alone.
+    substrate, work_in_progress = partition(_dirty_paths(repo_root), channels)
+
+    # TWO COMMITS, NOT ONE, AND NOT ONE-AND-DISCARD.
+    #
+    # The first draft of this change committed substrate and left work in
+    # progress alone entirely. That silently removed the other thing this
+    # checkpoint was for: saving the occupant's unfinished work before a
+    # compaction so none of it is lost. Seven existing tests failed and
+    # every one of them was right to.
+    #
+    # The diagnosis was always "one commit doing two jobs with different
+    # correct destinations". The answer is two commits, each to its own
+    # place -- not one job dropped because its destination was the
+    # complicated one.
+    wip_committed = _commit_work_in_progress(repo_root, work_in_progress, reason)
+
+    if not substrate:
         return AutoCommitResult(
-            committed=False,
-            reason=f"git add failed: {e.stderr.strip()[:200]}",
+            committed=wip_committed,
+            reason=(
+                f"no substrate to commit; {len(work_in_progress)} "
+                f"work-in-progress path(s) {'committed to HEAD' if wip_committed else 'left alone'}"
+            ),
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
-    staged_check = subprocess.run(
-        ["git", "diff", "--cached", "--quiet"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-    if staged_check.returncode == 0:
+    # Only substrate needs the branch, so this is asked AFTER work in
+    # progress is already safe. An undeclared branch must not cost the
+    # occupant their unfinished work -- that would make a configuration
+    # gap into data loss, which is a worse failure than the one being
+    # fixed. Caught by seven existing tests when the check sat above.
+    try:
+        branch = substrate_branch(repo_root)
+    except NoSubstrateBranchDeclared as e:
+        # Refuse rather than fall back to HEAD. Falling back IS the bug,
+        # and nothing is lost by refusing: the letters remain in the shared
+        # channel that is their source of truth, and the next checkpoint
+        # picks them up once the branch is declared.
+        logger.warning("auto_commit: %s", e)
         return AutoCommitResult(
-            committed=False,
-            reason="nothing staged after add",
+            committed=wip_committed,
+            reason=f"substrate refused — {e}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
@@ -231,25 +362,30 @@ def auto_commit_substrate(
         "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
     )
     try:
-        subprocess.run(
-            ["git", "commit", "-m", subject, "-m", body],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        logger.warning("auto_commit: git commit failed at %s: %s", reason, e.stderr)
+        result = commit_paths_to_branch(repo_root, branch, substrate, f"{subject}\n\n{body}")
+    except RetargetRefused as e:
+        logger.warning("auto_commit: retarget refused at %s: %s", reason, e)
         return AutoCommitResult(
             committed=False,
-            reason=f"git commit failed: {e.stderr.strip()[:200]}",
+            reason=f"retarget refused: {e}",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    if result is None:
+        return AutoCommitResult(
+            committed=False,
+            reason=f"substrate already current on {branch}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
     return AutoCommitResult(
         committed=True,
-        reason=f"committed at {reason}",
+        reason=(
+            f"committed {len(substrate)} substrate path(s) to {branch} at {reason}; "
+            f"{len(work_in_progress)} work-in-progress path(s) untouched on HEAD"
+        ),
         files_synced=files_synced,
         dirty_lines=dirty_lines,
     )

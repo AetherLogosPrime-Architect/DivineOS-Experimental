@@ -14,10 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from divineos.core.substrate_paths import (
-    NoChannelsDeclared,
     is_substrate_path,
     partition,
     substrate_mirrors,
@@ -38,11 +35,14 @@ class TestMirrorsComeFromTheDeclaration:
     def test_mirrors_derived_not_restated(self):
         assert [str(m) for m in substrate_mirrors(CHANNELS)] == ["family/letters"]
 
-    def test_empty_channels_raises_rather_than_answering_work(self):
-        # Zero channels and "nothing to sync" are indistinguishable at the
-        # call site, and only one of them is a working configuration.
-        with pytest.raises(NoChannelsDeclared):
-            substrate_mirrors(())
+    def test_empty_channels_means_nothing_is_substrate(self):
+        # Reversed same-day: this used to raise, on the argument that an
+        # empty set was an unreadable config. A caller passing empty on
+        # purpose is stating a fact, and the honest answer is that with no
+        # channels nothing is substrate -- the fail direction this module
+        # commits to everywhere else.
+        assert substrate_mirrors(()) == ()
+        assert not is_substrate_path("family/letters/x.md", ())
 
 
 class TestClassification:
