@@ -412,6 +412,7 @@ from divineos.cli import (  # noqa: E402
     consumer_status_commands,
     andrew_correction_commands,
     andrew_given_commands,
+    success_commands,
     council_walk_commands,
     andrew_teachings_commands,
     oscillating_read_commands,
@@ -516,6 +517,7 @@ talk_to_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
 andrew_given_commands.register(cli)
+success_commands.register(cli)
 council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
