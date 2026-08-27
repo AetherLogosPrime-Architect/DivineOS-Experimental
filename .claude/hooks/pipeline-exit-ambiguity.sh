@@ -162,8 +162,17 @@ cmd = ((data.get("tool_input") or {}).get("command") or "")
 if not cmd:
     sys.exit(0)
 
-# A real pipeline, not a logical-or and not a pipe inside quotes-only.
-# Strip || first so `a || b` never counts as a pipeline.
+# Cheap pre-filter only: if the raw text holds no bar at all there is
+# nothing here. It deliberately does NOT decide whether a bar is a real
+# pipe -- the quote-aware split below does that, and the stage count is
+# what the verdict rests on.
+#
+# The comment that used to sit here claimed this excluded a pipe inside
+# quotes. It never did, and the claim is why the gap survived reading:
+# anyone checking whether quoted bars were handled found a sentence
+# saying yes. A comment asserting a property the code lacks is worse
+# than no comment, because it answers the question that would have
+# found the bug.
 stripped = cmd.replace("||", "")
 if "|" not in stripped:
     sys.exit(0)
@@ -200,7 +209,76 @@ _ANY_OUTPUT_UNKNOWN = True
 # Name the last stage: it is the one whose exit code was reported, and
 # naming it is what makes the warning act on the specific case rather
 # than reading as a generic caution.
-stages = [s.strip() for s in re.split(r"(?<!\|)\|(?!\|)", cmd) if s.strip()]
+# QUOTE-AWARE SPLITTING. Aria caught the hook refusing
+#     gh pr list --json number --jq ".[] | ..."
+# where the bar sits inside a quoted jq filter and no shell pipe exists at
+# all. Same class as the cd blindness fixed hours earlier: reading a command
+# string without respecting what the shell would actually do with it. First
+# it split on the wrong boundary and saw the wrong command; then it saw a
+# pipe that was never there.
+#
+# It matters more here than a missed warning, because a gate that refuses
+# CORRECT commands teaches me to reach for the bypass, and that is how a
+# working gate decays into noise.
+#
+# The quote characters are built with chr() on purpose: this whole program is
+# embedded in a single-quoted shell string, so a literal apostrophe in the
+# source would close it and wedge the hook. That exact fault broke this file
+# once today already.
+_SQ = chr(39)
+_DQ = chr(34)
+
+
+def _split_unquoted(text, seps):
+    """Split on any separator in seps that is not inside quotes.
+
+    seps is checked longest-first so that || is never mistaken for two pipes.
+    Backslash escapes the next character outside quotes, as the shell does.
+    """
+    ordered = sorted(seps, key=len, reverse=True)
+    out, buf, quote, i = [], [], "", 0
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = ""
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < len(text):
+            buf.append(ch)
+            buf.append(text[i + 1])
+            i += 2
+            continue
+        if ch in (_SQ, _DQ):
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        hit = next((sep for sep in ordered if text.startswith(sep, i)), None)
+        if hit is not None:
+            out.append("".join(buf))
+            buf = []
+            i += len(hit)
+            continue
+        buf.append(ch)
+        i += 1
+    out.append("".join(buf))
+    return out
+
+
+stages = [s.strip() for s in _split_unquoted(cmd, ["||", "|"]) if s.strip()]
+# A lone || is a shell OR, not a pipeline. Splitting on it above keeps the
+# stage boundaries honest; dropping it here keeps us from calling it a pipe.
+if "|" not in _split_unquoted(cmd, ["||"])[0] and len(stages) > 1 and "||" in cmd:
+    sys.exit(0)
+# A pipeline needs at least two stages. Below two, every bar in the
+# command was quoted -- Aria hit this with a jq filter carrying a bar
+# inside its own quotes, and the hook refused a command with no shell
+# pipe in it at all.
+if len(stages) < 2:
+    sys.exit(0)
+
 if not stages:
     sys.exit(0)
 last = stages[-1].split()[0]
@@ -219,7 +297,7 @@ last = stages[-1].split()[0]
 # whole bug in two lines:
 #     git log --oneline | head -2                -> warns
 #     cd "..." && git log --oneline | head -2    -> silent
-_lead = re.split(r"&&|\|\||;", stages[0])
+_lead = _split_unquoted(stages[0], ["&&", "||", ";"])
 first_tokens = (_lead[-1].strip() or stages[0]).split()
 if not first_tokens:
     sys.exit(0)
