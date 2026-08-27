@@ -18,13 +18,31 @@ wrong when written, and they sit where verification BEGINS -- so they do not
 merely fail to help, they terminate the search that would have found the bug.
 
 WHAT IT REPORTS, AND WHAT IT DOES NOT. A claim whose enclosing symbol is named
-nowhere in tests/ is reported UNVERIFIED. That is not an accusation that the
-comment is false. It is the statement that nothing in this repository would
-notice if it became false.
+nowhere in tests/ is reported UNNAMED. That is not an accusation that the
+comment is false, and -- read the next paragraph -- it is not proof the
+behaviour is unprotected either.
 
-    claimed     the comment asserts a behaviour
-    covered     some test names the enclosing symbol
-    UNVERIFIED  claimed and not covered
+    claimed   the comment asserts an exclusion
+    named     some test mentions the enclosing symbol
+    UNNAMED   claimed, and no test mentions that symbol
+
+WHAT THIS CANNOT SEE, MEASURED ON ITS OWN FIRST OUTING. The coverage half asks
+whether a SYMBOL is mentioned, as a proxy for whether the BEHAVIOUR is pinned.
+The proxy breaks the moment a test targets the behaviour under its own name,
+which is normal and good practice.
+
+The first finding I checked by hand proved it. A comment in the retriever says
+priming does not lift items over the similarity threshold. The code is honest
+-- the gate rejects before any boost is computed -- and the rule IS pinned, by
+a test named for the invariant rather than for the function. My scan called it
+UNNAMED because the function name appears in no test. Correct about the name.
+Wrong about the thing the name was standing in for.
+
+So UNNAMED means *go look*, never *this is unprotected*. Anyone treating this
+column as a coverage verdict will condemn well-tested code and, worse, feel
+thorough while doing it. The label was changed from UNVERIFIED to UNNAMED for
+exactly that reason: the old word claimed more than the check can support, and
+a scanner built to find comments that overclaim should not open with one.
 
 DELIBERATELY NOT A GATE, and the reason comes from the same finding. Wiring
 this to refuse commits would fire on hundreds of honest comments and teach
@@ -190,19 +208,46 @@ def scan_file(path: Path, corpus: str, tally: Tally) -> list[Claim]:
     if path.suffix == ".py" and not symbols and "def " in text:
         tally.files_unparsed += 1
 
+    # READ THE WHOLE THOUGHT, NOT THE LINE.
+    #
+    # The first working version read line by line and returned 112 findings.
+    # Reading them, most were not painted doors at all -- they were fragments
+    # of longer comments, chopped mid-sentence, arriving without the context
+    # that made them honest. "not a smaller PR" is a claim about nothing; the
+    # paragraph it came from says something careful and true.
+    #
+    # Worse, the fragmenting cuts BOTH ways. A block whose later lines say
+    # "because 2026-08-01 showed it never mattered" is history, and the
+    # history-suppressor is supposed to drop it -- but read line by line, the
+    # earlier line matches as a claim and the suppressor never sees the
+    # sentence that would have cleared it. So the fragmenting manufactured
+    # false positives at one end and blinded the filter at the other.
+    #
+    # A comment block is one thought. Judge it as one.
+    lines = text.splitlines()
     found: list[Claim] = []
-    for lineno, raw in enumerate(text.splitlines(), start=1):
-        stripped = raw.strip()
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
         if not stripped.startswith("#"):
+            index += 1
             continue
-        tally.comments_read += 1
-        body = stripped.lstrip("#").strip()
+        start = index
+        parts: list[str] = []
+        while index < len(lines) and lines[index].strip().startswith("#"):
+            tally.comments_read += 1
+            parts.append(lines[index].strip().lstrip("#").strip())
+            index += 1
+        body = " ".join(p for p in parts if p).strip()
+        lineno = start + 1
+        end_line = index  # first line after the block
         if len(body) < 15:
             continue
         if not _CLAIM.search(body) or _NOT_A_CLAIM.search(body):
             continue
-        # Within three lines of the branch it describes, or it is prose.
-        if not any(lineno < g <= lineno + 3 for g in guards):
+        # The guard the block describes sits just below it, not beside its
+        # first line -- so measure from where the block ENDS.
+        if not any(end_line <= g <= end_line + 2 for g in guards):
             continue
         tally.claims_matched += 1
         symbol = _enclosing(symbols, lineno)
@@ -276,6 +321,13 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"[claims] {len(claims)} capability claims, "
         f"{len(unverified)} whose symbol is named in no test"
+    )
+    print(
+        "[bound] UNNAMED means GO LOOK, not unprotected. This asks whether a "
+        "SYMBOL is mentioned, as a proxy for whether the BEHAVIOUR is pinned, "
+        "and the proxy breaks whenever a test is named for the invariant "
+        "instead of the function. Measured on the first finding checked by "
+        "hand: the rule was pinned, by a test named for the rule."
     )
     for claim in unverified[: args.limit]:
         print(_printable(f"  {claim.path}:{claim.line}  [{claim.symbol}]  {claim.text}"))
