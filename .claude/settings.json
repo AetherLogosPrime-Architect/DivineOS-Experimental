@@ -506,6 +506,15 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/prior-art-before-new-file.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [

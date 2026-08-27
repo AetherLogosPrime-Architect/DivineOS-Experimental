@@ -688,6 +688,7 @@ src/divineos/
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     win_prompt_surface.py      Ask, at compose-start, whether anything went right that nobody wrote down.
+    prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
 
   analysis/
     _session_types.py          Session analysis type definitions
