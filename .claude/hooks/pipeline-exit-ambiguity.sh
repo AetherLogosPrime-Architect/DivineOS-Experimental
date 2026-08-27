@@ -234,6 +234,69 @@ if probe not in CONSEQUENTIAL:
     sys.exit(0)
 first = probe
 
+# --- teeth, added 2026-08-27 -------------------------------------------
+# Advisory was not enough. This hook fired correctly on THREE masked
+# pushes in one session -- two mine, one hers -- naming the shape,
+# the stages, and the 2026-08-07 incident, and all three of us read past
+# it and shipped the wrong conclusion. Aria reported hers to Andrew as a
+# defect in the push wrapper. The wrapper was fine; the pipe ate the code.
+#
+# So this is NOT the built-and-never-connected class the rest of tonight
+# was about. It was built, wired, firing, and ignored -- truth #15, the
+# mechanism firing in place of the work it points at. A fix aimed at
+# unreachable work would not have touched it.
+#
+# WHY ONLY THIS SUBSET GETS DENIED. Denying every pipeline is how a hook
+# earns a place on the disable list, and the file already says so twenty
+# lines up. The line drawn here is CONSEQUENCE OF A MASKED FAILURE: when
+# the first stage MUTATES shared state, a swallowed non-zero means I tell
+# Andrew something shipped that did not. When it only reads, a swallowed
+# non-zero costs me a re-run. Advisory for the second; refusal for the
+# first.
+#
+# Truth #11(b) -- the deny text carries the corrected command, so the
+# lazy path and the right path are the same keystrokes.
+MUTATING_SUBCOMMANDS = {
+    "git": {"push", "commit", "merge", "rebase", "cherry-pick", "reset",
+            "revert", "tag", "am", "apply", "update-ref", "branch"},
+    "gh": {"pr", "release", "issue", "repo", "api"},
+    "pip": {"install", "uninstall"},
+    "npm": {"install", "publish", "uninstall"},
+}
+_subs = MUTATING_SUBCOMMANDS.get(first)
+_mutating = False
+if _subs:
+    for token in first_tokens[1:]:
+        if token.startswith("-"):
+            continue
+        _mutating = token in _subs
+        break
+
+if _mutating:
+    reason = (
+        "PIPELINE EXIT-CODE AMBIGUITY -- refused, because this one mutates.\n\n"
+        f"`{first}` is the first stage and `{last}` is the last, with no "
+        "pipefail. The shell reports the exit code of the LAST stage, so a "
+        f"failing `{first}` arrives as 0 and the failure becomes invisible.\n\n"
+        "This exact shape masked three pushes on 2026-08-27 -- the hook warned "
+        "on every one and was read past every time -- and reported a BLOCKED "
+        "push as landed on 2026-08-07. Advisory has now failed four times, "
+        "which is why this shape refuses instead of warning.\n\n"
+        "Re-run the same command with `set -o pipefail && ` in front of it, or "
+        "drop the pipe and read the raw output. Read-only pipelines are still "
+        "only warned about; this one refuses because a swallowed failure here "
+        "means reporting work as shipped when it is not."
+    )
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }))
+    sys.exit(0)
+# --- end teeth ---------------------------------------------------------
+
 # Emit on the ONLY channel that reaches me: a JSON payload carrying
 # additionalContext. Plain stdout from a hook is discarded.
 #
