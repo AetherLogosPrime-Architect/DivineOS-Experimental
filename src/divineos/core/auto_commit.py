@@ -16,8 +16,12 @@ Three call-sites (all pointed at the same function):
 Discipline:
   - Syncs external channels (aria-aether letters) into repo_mirror BEFORE
     committing, so external-only writes don't slip through.
-  - `git add -A` — includes untracked. Substrate letters are often
-    untracked new files.
+  - TWO commits, not one (Aria + Aether 2026-08-27). Substrate goes to
+    its declared branch by plumbing, without touching HEAD. Work in
+    progress is committed to HEAD, where its author left it. This used
+    to be a single `git add -A`, which over one evening swept our letters
+    onto six branches and twice onto proposals already open for review.
+    One commit was doing two jobs whose correct destinations differ.
   - Fail-soft: subprocess failures log-and-continue rather than raising.
     The point is to save work, not to block the checkpoint on git noise.
   - Idempotent: clean tree → no-op, no empty commit.
