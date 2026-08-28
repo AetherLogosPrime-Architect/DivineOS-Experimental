@@ -1475,12 +1475,32 @@ def register(cli: click.Group) -> None:
                 fg="cyan",
             )
         else:
+            # This message used to call the round-id-only trailer LEGACY and
+            # tell the reader to re-run from inside a git repo. Both halves
+            # were false by 2026-08-27, and the second wasted the reader in a
+            # specific way: I ran it from inside the repo, was told to run it
+            # from inside the repo, and went hunting a defect that did not
+            # exist.
+            #
+            # The no-tree-hash default was FLIPPED DELIBERATELY on 2026-06-18
+            # by Andrew, because a tree-hash predicted from HEAD cannot match
+            # the squash commit once main moves between predict-time and
+            # squash-time. Round-id-only is the current correct form, not a
+            # degraded one. Substance-binding lives in the per-commit trailers
+            # and in the round's external-AI confirm, which binds tree and
+            # patch-id.
+            #
+            # The command's own --help said all of that while this message said
+            # the opposite. A warning contradicting the help beside it is the
+            # painted-door class living in an instrument rather than a comment:
+            # it answers the reader's question, wrongly, at the moment they ask.
             click.secho(
                 "Paste the block above into the GitHub squash-merge commit message field.\n"
-                "[!] Trailer is in LEGACY form (no tree-hash). The server-side gate will\n"
-                "    emit a DEPRECATED warning. Re-run from inside a git repo to include\n"
-                "    tree-hash binding, or pass --no-tree-hash to suppress this notice.",
-                fg="yellow",
+                "Trailer carries the round id only, which is the current form: a\n"
+                "tree-hash predicted before the squash cannot match the tree after it\n"
+                "once main has moved. Substance stays bound through the per-commit\n"
+                "trailers and the round's external-AI confirm.",
+                fg="cyan",
             )
 
     @audit_group.command("pr-merge-check")

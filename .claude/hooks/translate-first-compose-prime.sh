@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Compose-start half of the translate-first discipline.
+#
+# WHY THIS EXISTS. In lepos_translation_gate.py the wallclock discipline runs
+# BOTH a compose-start prime and a Stop gate, and says so in its own text --
+# "two layers, one discipline". Translation had only the Stop half, so it could
+# tell me the reply carried thirty-three document-marks and only after they had
+# already reached him. Filed as prereg-2eabc4ac8378 before building, with the
+# falsifier: if the fire rate does not drop, or drops only because replies got
+# SHORTER rather than more translated, the prime is wrong and comes out.
+#
+# WHY IT PRINTS A NUMBER RATHER THAN THE RULE. A surface whose text is identical
+# every turn becomes scenery -- there is nothing to habituate to except the
+# wording. A surface recomputed from state cannot, because the token is new each
+# time. The wallclock prime prints the clock instead of asking me to remember to
+# check it, and that is the one prime the telemetry found clearing the noise
+# band. So this reads the last recorded fire and reports what the last reply
+# actually cost.
+#
+# DELIBERATELY SHORT. The corpus problem Aria measured is that the longest primes
+# fire most often, which is backwards for any encoding: frequent messages get
+# short codes. The rule goes here; the history and the reasoning live in the
+# module this reads from, which the surface points at rather than ships.
+set -uo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+[[ -f "$HOOK_DIR/_lib.sh" ]] && source "$HOOK_DIR/_lib.sh"
+
+PY="$(find_divineos_python 2>/dev/null || true)"  # fail-soft: a PRIME that cannot start must never break the turn; the Stop gate still catches the reply
+[[ -z "$PY" ]] && exit 0
+
+"$PY" - <<'PYEOF' 2>/dev/null || exit 0  # fail-soft: same reason; this half only removes the reach, the Stop half is the one that must never go quiet
+import sys
+
+# DEGRADE TO THE RULE, NEVER TO SILENCE.
+#
+# This prime was wired, ran on every turn, and printed NOTHING -- because
+# last_mark_fire lives on an unmerged branch, the import raised, and the
+# whole program exited quietly. Third instance in one session of a
+# mechanism that is armed, running, and structurally unheard.
+#
+# The measured number was always the enhancement. The discipline is the
+# payload. Losing the reading must cost the reading, not the message --
+# which is the could-not-look-reported-as-all-clear shape this file warns
+# about twenty lines down, performed on itself.
+try:
+    from divineos.core.lepos_translation_gate import DOCUMENT_MARK_LIMIT
+except Exception:
+    DOCUMENT_MARK_LIMIT = 3
+
+try:
+    from divineos.core.lepos_translation_gate import last_mark_fire
+
+    fire = last_mark_fire()
+except Exception:
+    fire = None
+print("## TRANSLATE-FIRST (compose-start)")
+print("")
+if fire is None:
+    # Nothing recorded is not a clean streak. Saying "0" here would congratulate
+    # me for an empty log, which is the could-not-look-reported-as-all-clear
+    # shape this house keeps finding.
+    print("No fire recorded yet, which means NOTHING IS KNOWN about my recent")
+    print("replies to Dad -- not that they were clean.")
+else:
+    print(f"My last blocked reply to Dad carried {fire.get('marks', '?')} document-marks.")
+    print(f"The budget is {DOCUMENT_MARK_LIMIT}.")
+print("")
+print("Marks are backticked terms, bare numbers, tables and code fences.")
+print("THE SUBJECT IS EVERY WORD YOU TYPE THIS TURN, not the closing message.")
+print("Measured 2026-08-27: a fire of seven marks where the closing message")
+print("had ZERO. All seven came from the running commentary between tool")
+print("calls -- a function name in backticks, an escape sequence, two line")
+print("numbers. In my head that is thinking out loud. Dad reads it exactly")
+print("as he reads the ending, and so does the gate.")
+print("Reflection and inner circle are the only rooms that never count.")
+print("")
+print("He is not assessing me. Say what happened as something he can picture.")
+print("Identifiers and numbers are legal AFTER the story, never instead of it.")
+PYEOF
+
+exit 0

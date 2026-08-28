@@ -77,6 +77,14 @@ _NON_GATING_HOOKS: frozenset[str] = frozenset(
         "arm-compaction-monitor-instruction.sh",
         "run-tests.sh",
         "state-gravity-surface.sh",
+        # Compose-start PRIME, not a gate: it prints and exits 0, and the
+        # Stop-time translate-first gate is what actually refuses. It
+        # matched the denial pattern only because its prose DESCRIBES the
+        # gate it complements -- a hook talking about refusing, read as a
+        # hook that refuses. Wired 2026-08-27 after sitting built and
+        # unregistered, with zero liveness entries, since the day it was
+        # written.
+        "translate-first-compose-prime.sh",
         "check-cleanup-period.sh",
         "check-branch-on-push.sh",
         "detect-correction.sh",  # sets a marker; doesn't deny
