@@ -686,6 +686,7 @@ src/divineos/
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
     heredoc_escape_check.py    Refuse a Bash heredoc that writes a file through escape sequences.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
 
   analysis/
     _session_types.py          Session analysis type definitions
