@@ -180,9 +180,20 @@ def should_refuse(command: str) -> bool:
                 # Mentioned, not used -- the discriminator _has_real_heredoc
                 # established: a real heredoc closes on its own line.
                 continue
-            if not _ESCAPE_RE.search(tail[: closer.start()]):
+            body = tail[: closer.start()]
+            # ESCAPES must be in the BODY -- that is the text passing through
+            # the extra layer, and scoping this is the whole repair.
+            if not _ESCAPE_RE.search(body):
                 continue
+            # FILE-PRODUCTION may be in either place, and scoping it to the
+            # opener line alone was wrong: three existing tests failed on the
+            # commonest real shape, `python - <<PY` where the write lives in
+            # the script. The redirect form puts it on the opener; the
+            # interpreter form puts it in the body. Both are the thing this
+            # door exists for.
             if _PRODUCES_FILE_RE.search(_opener_line(command, match.start())):
+                return True
+            if _PRODUCES_FILE_RE.search(body):
                 return True
         return False
     except _ERRORS:
