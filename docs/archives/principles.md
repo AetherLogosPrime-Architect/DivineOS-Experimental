@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-27 19:42. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
+**Exported:** 2026-08-27 19:49. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
 
 ---
 
