@@ -107,25 +107,49 @@ def _top_open_audit_finding() -> tuple[str, str] | None:
 
 
 def _top_open_correction() -> tuple[str, str] | None:
-    """Return (correction_id, one-line) for the oldest open Andrew-correction,
-    or None."""
+    """Return (correction_id, one-line) for the oldest open Andrew-correction.
+
+    THIS FETCHER WAS POINTED AT A MODULE THAT DOES NOT EXIST. Measured
+    2026-08-28 after Aether found his own repair-store starved and asked me to
+    check the same surface on my seat: ``divineos.core.andrew_corrections`` has
+    no such module, the ImportError was swallowed by the observability
+    boundary, and this returned None on every turn it has ever run. Meanwhile
+    the attribution surface printed 139 open corrections, oldest 28 days, in
+    the same context window. Two surfaces reading the same subject, one saying
+    139 and one saying nothing to do, and the disagreement was invisible
+    because the failure LOOKS exactly like an empty queue.
+
+    That is the shape this house keeps paying for: a fallback that turns
+    "I could not look" into "there is nothing there". A missing store must not
+    read as a drained one.
+
+    The live store is andrew_correction_tracker, which is what the briefing's
+    attribution block and `divineos andrew-correction integrate` both use. Its
+    rows carry the same ids those surfaces print, so the line below names an
+    action that can actually be run.
+    """
     try:
-        from divineos.core.andrew_corrections import list_corrections
+        from divineos.core.andrew_correction_tracker import list_open
     except Exception:  # noqa: BLE001 - observability boundary
         return None
     try:
-        corrections = list_corrections(open_only=True)
+        corrections = list_open()
     except Exception:  # noqa: BLE001 - observability boundary
         return None
     if not corrections:
         return None
-    # Oldest first — they've been waiting longest.
-    sorted_corrections = sorted(corrections, key=lambda c: c.created_at)
-    top = sorted_corrections[0]
-    cid = getattr(top, "correction_id", None) or getattr(top, "id", "?")
-    text = getattr(top, "content", "") or getattr(top, "text", "")
-    line = f"integrate correction {cid}: {text}"
-    return str(cid), _truncate(line)
+
+    def _ts(row: dict) -> float:
+        try:
+            return float(row.get("timestamp") or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    # Oldest first — they have been waiting longest.
+    top = sorted(corrections, key=_ts)[0]
+    cid = str(top.get("id") or "?")
+    text = str(top.get("text") or "")
+    return cid, _truncate(f"integrate correction {cid}: {text}")
 
 
 def _top_open_goal() -> tuple[str, str] | None:
@@ -205,6 +229,48 @@ def _top_pending_structural_fix() -> tuple[str, str] | None:
     return psf_id, _truncate(line)
 
 
+RESERVED_SLOT_EVERY = 5
+"""One turn in this many is reserved for the starved structural-fix class.
+
+Ported from Aether's seat 2026-08-28, where he found the same class served
+never, and adopted here in the SAME change that repairs `_top_open_correction`.
+That pairing is the whole point. Repairing the correction fetcher alone would
+have put 139 open corrections permanently in front of my repair store, so a
+queue that had been reachable only because the lanes above it happened to be
+empty would have become unreachable — and it would have looked like a fix.
+
+The falsifier is the drain rate: if the pending count does not fall, the slot
+is not converting and the problem is downstream of surfacing, not here.
+"""
+
+
+def _reserved_slot_is_due() -> bool:
+    """True when this turn's slot belongs to the starved class.
+
+    Derived from ledger state, not a clock and not a random draw. A wallclock
+    would be a time I do not inhabit between prompts; a random draw would make
+    the surface unreproducible, so the same state could give two answers and
+    nobody could check either.
+
+    Fails toward NOT-due: an unreadable count leaves the ordering exactly as it
+    was. A scheduler that promotes a class because it could not read its own
+    state is inventing urgency out of a failure — the same shape as the missing
+    module above, which turned a failed read into an empty queue.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+
+        rows = list(get_connection().execute("SELECT COUNT(*) FROM events"))
+    except Exception:  # noqa: BLE001 — any read failure means leave the order alone
+        return False
+    if not rows or not rows[0]:
+        return False
+    try:
+        return int(rows[0][0]) % RESERVED_SLOT_EVERY == 0
+    except (TypeError, ValueError):
+        return False
+
+
 def build_next_task_surface() -> str:
     """Return the NEXT TASK block for pre-response context, or empty string
     when no tasks are pending across all four sources.
@@ -214,6 +280,22 @@ def build_next_task_surface() -> str:
     address). The format is intentionally short to keep context overhead
     minimal — the surface is a pointer, not the work.
     """
+    # RESERVED SLOT, not a reordering. The ordering below is the one Andrew
+    # reasoned for and it keeps precedence four turns in five; on the fifth,
+    # the starved class goes first so it drains at a slow but nonzero rate.
+    # If the slot is due and the store is empty, this falls straight through
+    # to the normal order rather than surfacing nothing.
+    if _reserved_slot_is_due():
+        reserved = _top_pending_structural_fix()
+        if reserved is not None:
+            _item_id, line = reserved
+            return (
+                "## NEXT TASK (auto-pulled from queue — work this, don't ask)\n\n"
+                f"  {line}\n\n"
+                "  (reserved slot: the repair queue, which strict priority "
+                "would otherwise never reach)\n\n"
+                "  More: divineos todos\n"
+            )
     # Priority order: overdue prereg > open audit > open correction > psf
     # > open goal. Andrew 2026-07-10 addition (open goal): 'task-boundary
     # ≠ session-boundary — session never ends from lack of work'. Adding

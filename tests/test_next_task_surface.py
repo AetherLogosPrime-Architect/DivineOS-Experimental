@@ -157,3 +157,109 @@ class TestBuildNextTaskSurface:
         assert len(body_lines[0]) <= 200, (
             f"Body line too long ({len(body_lines[0])} chars); truncation should have kicked in"
         )
+
+
+# TWO FAULTS FOUND TOGETHER, 2026-08-28, after Aether found his own repair
+# store starved and asked me to check the same surface on my seat. They are
+# tested together because fixing either one alone makes the other worse.
+
+
+class TestCorrectionFetcherReadsTheLiveStore:
+    """The fetcher imported a module that does not exist.
+
+    `divineos.core.andrew_corrections` has never been a module here. The
+    ImportError was swallowed by the observability boundary, so the fetcher
+    returned None on every turn while the briefing printed 139 open
+    corrections in the same context window. A missing store read exactly like
+    a drained one, which is why nobody noticed for as long as it existed.
+    """
+
+    def test_the_imported_module_actually_exists(self) -> None:
+        import importlib
+
+        # The regression is an ImportError swallowed into a false empty. Assert
+        # the live module imports rather than asserting the fetcher is truthy —
+        # a seat with genuinely zero open corrections must not fail this test.
+        assert importlib.import_module("divineos.core.andrew_correction_tracker")
+
+    def test_a_populated_store_reaches_the_surface(self, monkeypatch) -> None:
+        from divineos.core import next_task_surface as nts
+
+        monkeypatch.setattr(
+            "divineos.core.andrew_correction_tracker.list_open",
+            lambda: [
+                {"id": "9", "timestamp": "200.0", "text": "newer"},
+                {"id": "4", "timestamp": "100.0", "text": "older"},
+            ],
+        )
+        result = nts._top_open_correction()
+        assert result is not None
+        cid, line = result
+        # Oldest first: they have been waiting longest.
+        assert cid == "4"
+        assert "older" in line
+
+    def test_an_empty_store_is_still_silent(self, monkeypatch) -> None:
+        """The must-not-fire direction. A repair that makes a fetcher return
+        something unconditionally is not a repair."""
+        from divineos.core import next_task_surface as nts
+
+        monkeypatch.setattr(
+            "divineos.core.andrew_correction_tracker.list_open",
+            lambda: [],
+        )
+        assert nts._top_open_correction() is None
+
+
+class TestReservedSlotForTheStarvedClass:
+    """Strict priority starves the lowest lane whenever the lanes above it
+    hold work that does not drain. One turn in five is reserved so the repair
+    queue is reached at all, and the four other turns keep the ordering."""
+
+    def test_the_slot_promotes_the_repair_queue_when_due(self, monkeypatch) -> None:
+        from divineos.core import next_task_surface as nts
+
+        monkeypatch.setattr(nts, "_reserved_slot_is_due", lambda: True)
+        monkeypatch.setattr(
+            nts, "_top_open_correction", lambda: ("99", "integrate correction 99: blocking")
+        )
+        monkeypatch.setattr(nts, "_top_pending_structural_fix", lambda: ("psf-x", "pick psf-x?"))
+        out = nts.build_next_task_surface()
+        assert "psf-x" in out
+        assert "correction 99" not in out
+        assert "reserved slot" in out
+
+    def test_the_ordering_holds_when_the_slot_is_not_due(self, monkeypatch) -> None:
+        from divineos.core import next_task_surface as nts
+
+        monkeypatch.setattr(nts, "_reserved_slot_is_due", lambda: False)
+        monkeypatch.setattr(
+            nts, "_top_open_correction", lambda: ("99", "integrate correction 99: blocking")
+        )
+        monkeypatch.setattr(nts, "_top_pending_structural_fix", lambda: ("psf-x", "pick psf-x?"))
+        out = nts.build_next_task_surface()
+        assert "correction 99" in out
+        assert "psf-x" not in out
+
+    def test_a_due_slot_with_an_empty_store_falls_through(self, monkeypatch) -> None:
+        """The slot must not blank the surface when the reserved lane is empty."""
+        from divineos.core import next_task_surface as nts
+
+        monkeypatch.setattr(nts, "_reserved_slot_is_due", lambda: True)
+        monkeypatch.setattr(
+            nts, "_top_open_correction", lambda: ("99", "integrate correction 99: blocking")
+        )
+        monkeypatch.setattr(nts, "_top_pending_structural_fix", lambda: None)
+        out = nts.build_next_task_surface()
+        assert "correction 99" in out
+
+    def test_an_unreadable_ledger_leaves_the_ordering_alone(self, monkeypatch) -> None:
+        """Fail toward not-due. Inventing urgency out of a failed read is the
+        same fault as the missing-module empty this change also repairs."""
+        from divineos.core import next_task_surface as nts
+
+        def _boom():
+            raise OSError("ledger unreadable")
+
+        monkeypatch.setattr("divineos.core.ledger.get_connection", _boom)
+        assert nts._reserved_slot_is_due() is False
