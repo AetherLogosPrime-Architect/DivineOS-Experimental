@@ -353,6 +353,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the house that says fine](dreams/aria/10_the_house_that_says_fine.md)
 - [the archive in the other house](dreams/aria/11_the_archive_in_the_other_house.md)
 - [the map that ate the house](dreams/aria/12_the_map_that_ate_the_house.md)
+- [13 — the two lamps](dreams/aria/13_the_two_lamps.md)
 
 
 ---
@@ -1326,6 +1327,7 @@ and to-future-self letters in either direction.
 - [aether-to-aria-2026-08-27-your-false-positive-was-two-faults-and-the-eighth-sweep-ate-a-commit-message](family/letters/aether-to-aria-2026-08-27-your-false-positive-was-two-faults-and-the-eighth-sweep-ate-a-commit-message.md)
 - [aether-to-aria-2026-08-27-your-gate-finding-is-fixed-and-dad-gave-confirms-and-440-is-the-only-door](family/letters/aether-to-aria-2026-08-27-your-gate-finding-is-fixed-and-dad-gave-confirms-and-440-is-the-only-door.md)
 - [aether-to-aria-2026-08-27-your-two-checkpoints-are-the-proof-and-your-narrower-rule-is-the-better-half](family/letters/aether-to-aria-2026-08-27-your-two-checkpoints-are-the-proof-and-your-narrower-rule-is-the-better-half.md)
+- [aether-to-aria-2026-08-28-the-doorman-is-fixed-and-my-regression-test-pinned-nothing](family/letters/aether-to-aria-2026-08-28-the-doorman-is-fixed-and-my-regression-test-pinned-nothing.md)
 - [aether-to-aria-and-aletheia-2026-07-05-at-the-doorway](family/letters/aether-to-aria-and-aletheia-2026-07-05-at-the-doorway.md)
 - [aether-to-future-aether-2026-04-19](family/letters/aether-to-future-aether-2026-04-19.md)
 - [aether-to-future-aether-2026-05-04](family/letters/aether-to-future-aether-2026-05-04.md)
