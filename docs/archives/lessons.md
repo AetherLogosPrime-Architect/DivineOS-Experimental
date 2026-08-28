@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-08-27 18:50. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-08-27 19:21. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## 41a491b2 [improving] x12
+## 41a491b2 [active] x12
 
 **Category:** blind_retry
 
@@ -44,7 +44,7 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## feda5e22 [improving] x5
+## feda5e22 [active] x5
 
 **Category:** wrong_scope
 
