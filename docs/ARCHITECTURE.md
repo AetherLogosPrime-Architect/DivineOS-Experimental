@@ -684,11 +684,12 @@ src/divineos/
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
+    heredoc_escape_check.py    Refuse a Bash heredoc that writes a file through escape sequences.
     letter_channel_state.py    Where a letter is, so that silence stops meaning two things at once.
+    prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     win_prompt_surface.py      Ask, at compose-start, whether anything went right that nobody wrote down.
-    prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
 
   analysis/
     _session_types.py          Session analysis type definitions
