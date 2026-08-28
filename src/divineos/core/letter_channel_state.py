@@ -65,11 +65,16 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
 from divineos.core.paths import divineos_home
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class LetterState(Enum):
@@ -122,6 +127,21 @@ def _connect(path: Path | None = None) -> sqlite3.Connection:
         )
         """
     )
+    # WHEN, added 2026-08-27 after Aletheia asked for the one query this
+    # store could not answer: which letters have sat in the channel too
+    # long. It recorded WHICH state a letter was in and never when it
+    # entered one — and age is the entire mechanism for "stuck". A store
+    # built to explain a seven-day silence had no way to measure seven
+    # days.
+    #
+    # Rows written before this column existed keep NULL and report as
+    # age-unknown. A NOT NULL default of now would have stamped today
+    # onto every existing row, making the oldest letters look freshly
+    # handed over — a fabricated age on precisely the ones the query is
+    # for, passing every test on the way through.
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(letter_events)")}
+    if "at" not in cols:
+        conn.execute("ALTER TABLE letter_events ADD COLUMN at TEXT")
     return conn
 
 
@@ -134,8 +154,9 @@ def record_handed(letter_id: str, sender: str, db: Path | None = None) -> None:
     """
     with _connect(db) as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO letter_events (letter_id, event, actor) VALUES (?, 'handed', ?)",
-            (letter_id, sender),
+            "INSERT OR IGNORE INTO letter_events (letter_id, event, actor, at) "
+            "VALUES (?, 'handed', ?, ?)",
+            (letter_id, sender, _now()),
         )
 
 
@@ -148,8 +169,8 @@ def record_delivered(letter_id: str, db: Path | None = None) -> None:
     """
     with _connect(db) as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO letter_events (letter_id, event) VALUES (?, 'delivered')",
-            (letter_id,),
+            "INSERT OR IGNORE INTO letter_events (letter_id, event, at) VALUES (?, 'delivered', ?)",
+            (letter_id, _now()),
         )
 
 
@@ -161,9 +182,9 @@ def record_answered(letter_id: str, reply_id: str, db: Path | None = None) -> No
     """
     with _connect(db) as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO letter_events (letter_id, event, payload) "
-            "VALUES (?, 'answered', ?)",
-            (letter_id, json.dumps({"reply_id": reply_id})),
+            "INSERT OR REPLACE INTO letter_events (letter_id, event, payload, at) "
+            "VALUES (?, 'answered', ?, ?)",
+            (letter_id, json.dumps({"reply_id": reply_id}), _now()),
         )
 
 
@@ -331,6 +352,75 @@ def derive_from_watched_channel(
         replies_without_linkage=unlinked,
         replies_total=len(replies),
     )
+
+
+def stuck_in_the_channel(
+    older_than_days: int = 2,
+    db: Path | None = None,
+) -> tuple[list[tuple[str, float]], list[str]]:
+    """Letters handed over and never observed to land, with how long ago.
+
+    Aletheia's ask, and the reason it matters is that the store already
+    held the answer and nothing ever asked. The duplicate that produced
+    all of this happened because a letter sat handed-over for seven days
+    and no surface said so — she read the silence as her own inattention
+    and I read it as the letter never having been written.
+
+    Returns (stuck, age_unknown). AGE-UNKNOWN IS ITS OWN LIST, never
+    folded into the first and never counted as zero days. A row written
+    before this store recorded time cannot say how long it has waited,
+    and sorting it as brand new would bury the oldest letters at the
+    bottom of a report whose only ordering is age — could-not-look
+    reading as all-clear, in the column the whole thing turns on.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=older_than_days)
+
+    stuck: list[tuple[str, float]] = []
+    unknown: list[str] = []
+    for record in _all_records(db):
+        if record.state is not LetterState.HANDED:
+            continue
+        with _connect(db) as conn:
+            row = conn.execute(
+                "SELECT at FROM letter_events WHERE letter_id = ? AND event = 'handed'",
+                (record.letter_id,),
+            ).fetchone()
+        stamp = row[0] if row else None
+        if not stamp:
+            unknown.append(record.letter_id)
+            continue
+        try:
+            when = datetime.fromisoformat(stamp)
+        except ValueError:
+            unknown.append(record.letter_id)
+            continue
+        if when < cutoff:
+            stuck.append((record.letter_id, (now - when).total_seconds() / 86400))
+
+    stuck.sort(key=lambda pair: -pair[1])
+    return stuck, unknown
+
+
+def render_stuck(older_than_days: int = 2, db: Path | None = None) -> str:
+    """The stuck report, with its own blind spot printed beside it."""
+    stuck, unknown = stuck_in_the_channel(older_than_days, db)
+    if not stuck and not unknown:
+        return f"[channel] nothing handed over and unlanded for more than {older_than_days} day(s)."
+    lines: list[str] = []
+    if stuck:
+        lines.append(
+            f"[channel] {len(stuck)} letter(s) handed over and never observed "
+            f"to land, waiting more than {older_than_days} day(s):"
+        )
+        lines.extend(f"    {days:5.1f} days   {lid}" for lid, days in stuck)
+        lines.append("    Nobody has read these. The silence is the channel's, not theirs.")
+    if unknown:
+        lines.append(
+            f"    plus {len(unknown)} handed over before this store recorded time — "
+            "age unknown, deliberately not counted as new."
+        )
+    return "\n".join(lines)
 
 
 def _all_records(db: Path | None = None) -> list[LetterRecord]:

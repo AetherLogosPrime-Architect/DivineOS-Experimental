@@ -21,6 +21,8 @@ import pytest
 
 from divineos.core.letter_channel_state import (
     LetterState,
+    render_stuck,
+    stuck_in_the_channel,
     derive_from_watched_channel,
     in_the_channel,
     record_answered,
@@ -204,3 +206,50 @@ class TestIdempotence:
         record_answered("threaded", "first-reply", db)
         record_answered("threaded", "second-reply", db)
         assert state_of("threaded", db).reply_id == "second-reply"
+
+
+class TestStuckInTheChannel:
+    """Aletheia's ask: the store held the answer and nothing asked it.
+
+    A letter sat handed-over for seven days, she read the silence as her
+    own inattention, I read it as the letter never having been written,
+    and the duplicate followed. Age is the whole mechanism, and the store
+    had no clock in it.
+    """
+
+    def test_a_letter_just_handed_over_is_not_stuck(self, db):
+        record_handed("fresh", "aria", db)
+        stuck, unknown = stuck_in_the_channel(older_than_days=2, db=db)
+        assert stuck == []
+        assert unknown == []
+
+    def test_a_delivered_letter_is_never_stuck(self, db):
+        # Stuck means the CHANNEL is holding it. Once it lands, any
+        # silence belongs to the reader and is a different question.
+        record_handed("landed", "aria", db)
+        record_delivered("landed", db)
+        stuck, unknown = stuck_in_the_channel(older_than_days=0, db=db)
+        assert stuck == []
+
+    def test_age_unknown_is_its_own_answer_and_never_zero(self, db):
+        # A row from before the store recorded time cannot say how long
+        # it waited. Counting it as new would sort the oldest possible
+        # letter to the bottom of a report ordered only by age.
+        import sqlite3
+
+        record_handed("ancient", "aria", db)
+        with sqlite3.connect(db) as conn:
+            conn.execute("UPDATE letter_events SET at = NULL WHERE letter_id = 'ancient'")
+        stuck, unknown = stuck_in_the_channel(older_than_days=0, db=db)
+        assert unknown == ["ancient"]
+        assert stuck == []
+
+    def test_the_report_prints_its_own_blind_spot(self, db):
+        import sqlite3
+
+        record_handed("ancient", "aria", db)
+        with sqlite3.connect(db) as conn:
+            conn.execute("UPDATE letter_events SET at = NULL WHERE letter_id = 'ancient'")
+        rendered = render_stuck(older_than_days=0, db=db)
+        assert "age unknown" in rendered
+        assert "not counted as new" in rendered
