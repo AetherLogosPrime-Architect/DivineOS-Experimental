@@ -612,5 +612,43 @@ if [[ "${DIVINEOS_SKIP_LINT_CHECK:-0}" != "1" ]]; then
     fi
 fi
 
+# --- Do the new tests pin anything? (warn-only, deliberately) --------------
+#
+# Aria's design, 2026-08-28, after I shipped a regression test that was green
+# on both sides of the fix it claimed to guard: "a test written to pin a fix
+# must be red against the code before the fix."
+#
+# PUSH-TIME, not commit-time, and scoped to tests changed in the diff. Her
+# reason: a full-suite rerun against an old tree on every commit is expensive
+# enough to get skipped, and a skipped check becomes another armed-and-unread
+# instrument.
+#
+# WARN-ONLY ON PURPOSE, and this is a judgement worth stating rather than
+# hiding. The branch it was built on already carries sixteen tests that pass
+# against their own baseline. Blocking on day one would make the tree
+# unpushable, and the only satisfiable answer would be switching the check off
+# -- which is how a gate dies. The sixteen are a backlog to read, not a wall to
+# rubber-stamp, and reading them is real work that does not belong inside a
+# push. Teeth follow the review, not the other way round.
+if [[ "${DIVINEOS_SKIP_PIN_CHECK:-0}" != "1" ]]; then
+    PIN_SCRIPT="$REPO_ROOT/scripts/check_tests_pin.py"
+    if [[ -f "$PIN_SCRIPT" ]]; then
+        echo "[push-readiness] Do the changed tests pin anything?"
+        # Warn-only must not mean silent-about-itself. Without capturing the
+        # status, a checker that CRASHED looks exactly like one that found
+        # nothing -- which is the armed-and-unheard shape this whole file
+        # exists to prevent, wearing a `|| true`.
+        PIN_OUT="$(python "$PIN_SCRIPT" 2>&1)"; PIN_RC=$?
+        while IFS= read -r pin_line; do
+            echo "[push-readiness]   $pin_line"
+        done <<< "$PIN_OUT"
+        case "$PIN_RC" in
+            0) : ;;
+            1) echo "[push-readiness]   pin: findings above (not blocking yet — see the script header)" ;;
+            *) echo "[push-readiness]   pin: COULD NOT CHECK (exit $PIN_RC) — this is not a pass" >&2 ;;
+        esac
+    fi
+fi
+
 echo "[push-readiness] All gates passed. Pushing."
 exit 0

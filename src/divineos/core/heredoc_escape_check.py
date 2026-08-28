@@ -126,16 +126,57 @@ def find_escapes(command: str) -> list[str]:
         return []
 
 
+def _opener_line(command: str, start: int) -> str:
+    """The line a heredoc opens on -- where its redirect target lives."""
+    line_start = command.rfind("\n", 0, start) + 1
+    line_end = command.find("\n", start)
+    return command[line_start : line_end if line_end != -1 else len(command)]
+
+
 def should_refuse(command: str) -> bool:
-    """True when this Bash call writes a file through an escaping heredoc."""
+    """True when this Bash call writes a file through an escaping heredoc.
+
+    JUDGED PER HEREDOC, not per command line. Added 2026-08-27 after this door
+    false-fired on the commit carrying the map-freshness work. That command held
+    a heredoc -- a commit message, no escapes, no file target -- and, elsewhere
+    on the same line, a `python -c` normalizing line endings.
+
+    The old predicate searched the WHOLE command for escapes and the WHOLE
+    command for a file-producing shape. Two unrelated fragments satisfied the
+    two conditions BETWEEN them, and the door refused a call that was never
+    going to write a file through a heredoc at all.
+
+    Its own refusal text asks to be told when that happens -- a door that cannot
+    be told it is wrong stops being a door -- and names the SHAPE as the thing
+    to fix rather than the door as the thing to route around. This is that fix.
+    """
     if not command:
         return False
     try:
-        if not _has_real_heredoc(command):
-            return False
-        if not _ESCAPE_RE.search(command):
-            return False
-        return bool(_PRODUCES_FILE_RE.search(command))
+        for match in _HEREDOC_RE.finditer(command):
+            delim = match.group(1)
+            tail = command[match.end() :]
+            closer = re.search(rf"^[ \t]*{re.escape(delim)}[ \t]*$", tail, re.MULTILINE)
+            if not closer:
+                # Mentioned, not used -- the discriminator _has_real_heredoc
+                # established: a real heredoc closes on its own line.
+                continue
+            body = tail[: closer.start()]
+            # ESCAPES must be in the BODY -- that is the text passing through
+            # the extra layer, and scoping this is the whole repair.
+            if not _ESCAPE_RE.search(body):
+                continue
+            # FILE-PRODUCTION may be in either place, and scoping it to the
+            # opener line alone was wrong: three existing tests failed on the
+            # commonest real shape, `python - <<PY` where the write lives in
+            # the script. The redirect form puts it on the opener; the
+            # interpreter form puts it in the body. Both are the thing this
+            # door exists for.
+            if _PRODUCES_FILE_RE.search(_opener_line(command, match.start())):
+                return True
+            if _PRODUCES_FILE_RE.search(body):
+                return True
+        return False
     except _ERRORS:
         return False
 
