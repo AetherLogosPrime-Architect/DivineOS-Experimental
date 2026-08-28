@@ -360,6 +360,38 @@ def main(argv: list[str]) -> int:
     total = len(records)
     capable = counts.get("CAPABLE", 0)
 
+    # COULD-NOT-LOOK IS NOT A CLEAN BILL. Aether hit this 2026-08-28 and it
+    # arrived as a ZeroDivisionError three lines below -- inside the instrument
+    # built to find tests that cannot fail. The mechanism is narrower than it
+    # first looked, and the difference decides the fix: running this script IN
+    # PLACE from any working directory is fine, because TESTS_DIR is derived
+    # from __file__ and not from the cwd. What breaks it is running a COPY of
+    # the file from somewhere else, which puts the derived tests directory
+    # somewhere with no tests in it. Verified both ways before writing this.
+    #
+    # So the repair is not "find the tests from the cwd instead" -- it is to
+    # refuse when the derived directory yielded nothing, and to say which
+    # directory that was, because the answer is almost always visible the
+    # moment the path is printed. A crash and a clean bill are equally easy to
+    # read as "the tool is fine, my invocation was odd."
+    if total == 0:
+        print(f"REFUSED: parsed no test functions under {TESTS_DIR}")
+        print()
+        if not TESTS_DIR.is_dir():
+            print("That directory does not exist.")
+        else:
+            print("That directory exists but holds no test_*.py files.")
+        print(
+            "This script derives its tests directory from its OWN location "
+            "(parents[1] of __file__), not from the working directory. Running "
+            "it in place is safe from anywhere; running a COPY of it outside "
+            "the repository points it at a tree with no tests."
+        )
+        print("Run the copy in scripts/ of a real checkout, or pass the repo one.")
+        print()
+        print("Reporting nothing is not the same as finding nothing wrong.")
+        return 2
+
     print(f"Test functions parsed: {total}")
     for verdict, count in counts.most_common():
         pct = (count / total * 100) if total else 0.0

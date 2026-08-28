@@ -39,6 +39,36 @@ def test_plain_assertion_is_capable():
     assert verdict_of("def test_x():\n    assert 1 + 1 == 2\n") == "CAPABLE"
 
 
+# COULD-NOT-LOOK MUST NOT SORT AS ALL-CLEAR. Aether ran a copy of the script
+# from outside the repository on 2026-08-28; the derived tests directory held
+# nothing, and the run died on a division by zero -- inside the instrument
+# whose whole job is finding tests that cannot fail. Both directions are pinned
+# because a refusal that fires on everything is as useless as one that fires on
+# nothing, and only the pair distinguishes them.
+
+
+def test_empty_suite_refuses_instead_of_crashing(monkeypatch, capsys):
+    monkeypatch.setattr(substance, "audit_suite", lambda: [])
+    code = substance.main(["check_test_substance.py"])
+    out = capsys.readouterr().out
+    assert code == 2
+    assert "REFUSED" in out
+    assert str(substance.TESTS_DIR) in out
+
+
+def test_populated_suite_still_reports_and_passes(monkeypatch, capsys):
+    records = [
+        {"file": "tests/test_a.py", "line": 1, "test": "test_a", "verdict": "CAPABLE", "detail": ""},
+        {"file": "tests/test_b.py", "line": 2, "test": "test_b", "verdict": "NO-ASSERT", "detail": ""},
+    ]
+    monkeypatch.setattr(substance, "audit_suite", lambda: records)
+    code = substance.main(["check_test_substance.py"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "REFUSED" not in out
+    assert "Test functions parsed: 2" in out
+
+
 def test_pytest_raises_is_capable():
     source = "def test_x():\n    with pytest.raises(ValueError):\n        f()\n"
     assert verdict_of(source) == "CAPABLE"
