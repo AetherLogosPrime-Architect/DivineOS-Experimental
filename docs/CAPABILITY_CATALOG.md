@@ -26,7 +26,7 @@ Commands that DO report usage:
 | `compass` | 131 |
 | `context` | 86 |
 | `recall` | 49 |
-| `lessons` | 35 |
+| `lessons` | 36 |
 | `directives` | 13 |
 | `feel` | 8 |
 | `body` | 6 |

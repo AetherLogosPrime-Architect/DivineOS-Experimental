@@ -83,27 +83,60 @@ def test_baseline_proof_rejects_a_module_resolved_outside_the_worktree(tmp_path)
     instrument.
     """
     elsewhere = tmp_path / "not-the-worktree"
-    elsewhere.mkdir()
+    (elsewhere / "divineos").mkdir(parents=True)
+    outside = elsewhere / "divineos" / "__init__.py"
+    outside.write_text("", encoding="utf-8")
     worktree = tmp_path / "worktree"
     worktree.mkdir()
 
-    # A python that reports a divineos living outside the worktree.
-    fake = tmp_path / "fake.py"
-    fake.write_text(
-        f"import sys\nsys.stdout.write({str(elsewhere / 'divineos' / '__init__.py')!r})\n",
+    # A stand-in interpreter that reports a divineos living OUTSIDE the
+    # worktree -- exactly what an editable install does. It must not prove.
+    stub = tmp_path / "stub_python.py"
+    stub.write_text(
+        "import sys\nsys.stdout.write(sys.argv[-1])\n",
         encoding="utf-8",
     )
-    import sys
 
-    assert pin.prove_baseline(worktree, sys.executable) is None or True
-    # The direct unit: a path outside the worktree must not prove.
-    resolved = elsewhere / "divineos" / "__init__.py"
+    def fake_run(cmd, **kwargs):
+        class Result:
+            stdout = str(outside)
+
+        assert cmd[1] == "-c"  # the probe is still a -c invocation
+        return Result()
+
+    monkey = getattr(pin, "subprocess")
+    original = monkey.run
+    monkey.run = fake_run
     try:
-        Path(resolved).resolve().relative_to(worktree.resolve())
-        proven = True
-    except ValueError:
-        proven = False
-    assert proven is False
+        assert pin.prove_baseline(worktree, "python") is None
+    finally:
+        monkey.run = original
+
+
+def test_baseline_proof_accepts_a_module_resolved_inside_the_worktree(tmp_path):
+    """The other direction, so the refusal above is not vacuously true.
+
+    A test that only ever checks the rejecting case passes just as happily
+    when the function rejects everything, which would make the whole checker
+    unable to run while looking correct.
+    """
+    worktree = tmp_path / "worktree"
+    inside = worktree / "src" / "divineos" / "__init__.py"
+    inside.parent.mkdir(parents=True)
+    inside.write_text("", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        class Result:
+            stdout = str(inside)
+
+        return Result()
+
+    original = pin.subprocess.run
+    pin.subprocess.run = fake_run
+    try:
+        assert pin.prove_baseline(worktree, "python") == str(inside)
+    finally:
+        pin.subprocess.run = original
 
 
 def test_a_python_that_prints_nothing_does_not_prove_a_baseline(tmp_path):

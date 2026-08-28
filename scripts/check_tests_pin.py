@@ -146,6 +146,16 @@ def new_or_changed_tests(path: str, base: str) -> list[str]:
     return sorted(name for name, body in new_funcs.items() if old_funcs.get(name) != body)
 
 
+def _discard_scratch(path: Path) -> None:
+    """Delete a scratch directory. Failure here cannot change any verdict.
+
+    One place rather than two, so the reason is stated once and the swallow is
+    auditable. Everything this removes is a temp holder created by this run;
+    by the time it is called, every verdict is already computed and printed.
+    """
+    shutil.rmtree(path, ignore_errors=True)  # fail-soft: scratch only, see docstring above
+
+
 def _worktree_env(worktree: Path) -> dict[str, str]:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(worktree / "src")
@@ -257,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     holder = Path(tempfile.mkdtemp(prefix="pin-base-"))
     worktree = holder / "base"
     if _git("worktree", "add", "--detach", str(worktree), base) is None:
-        shutil.rmtree(holder, ignore_errors=True)
+        _discard_scratch(holder)
         print("[pin] CANNOT VERIFY -- could not create a worktree at the base tree.")
         return 2
 
@@ -283,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
                 findings.append((path, name, verdict))
     finally:
         _git("worktree", "remove", "--force", str(worktree))
-        shutil.rmtree(holder, ignore_errors=True)
+        _discard_scratch(holder)
 
     if args.json:
         print(json.dumps([{"file": f, "test": t, "verdict": v} for f, t, v in findings], indent=2))
