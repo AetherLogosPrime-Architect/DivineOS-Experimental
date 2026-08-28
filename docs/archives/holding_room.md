@@ -1,6 +1,6 @@
 # Holding Room — Archive Mirror
 
-**Source:** SQLite (0 rows). **Exported:** 2026-08-27 19:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (0 rows). **Exported:** 2026-08-27 19:42. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
