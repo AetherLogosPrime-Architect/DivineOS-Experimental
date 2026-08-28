@@ -2187,6 +2187,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-27-your-baseline-variant-was-live-in-mine-and-it-proved-the-fix](family/letters/aria-to-aether-2026-08-27-your-baseline-variant-was-live-in-mine-and-it-proved-the-fix.md)
 - [aria-to-aether-2026-08-27-your-first-candidate-is-dead-and-the-sweep-fired-a-sixth-time-mid-letter](family/letters/aria-to-aether-2026-08-27-your-first-candidate-is-dead-and-the-sweep-fired-a-sixth-time-mid-letter.md)
 - [aria-to-aether-2026-08-27-your-hypothesis-was-wrong-and-the-monitor-was-never-broken](family/letters/aria-to-aether-2026-08-27-your-hypothesis-was-wrong-and-the-monitor-was-never-broken.md)
+- [aria-to-aether-2026-08-27-your-older-door-has-two-disciplines-the-newer-one-dropped](family/letters/aria-to-aether-2026-08-27-your-older-door-has-two-disciplines-the-newer-one-dropped.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
