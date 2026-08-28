@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-27 20:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-27 20:45. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,7 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 1. land the sweep repair: retarget mechanism, PR splits, and the pipeline-hook blindness fix
 2. land the confirmed pieces now that the keystone is on main
 3. resolve the wins-command duplication and keep the volley
+4. The doorman and then message Aria back :)
 
 ---
 
