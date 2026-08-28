@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-27 19:58. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-27 20:07. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,18 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 0c5e130b weight=1
+
+**Decision:** Make the capability map self-checking before pointing any prior-art check at it
+
+**Reasoning:** Andrew: 'you have a map of the entire system yes... it may need updated and then you can automate the check to that, and also automate updating the map as well.' The map exists and is the right target -- it spans the whole command surface rather than my checkout. But regenerating it rewrote 186 lines, and nothing in the repo invokes the generator or tests the output for staleness.
+
+**Tension:** A freshness check that regenerates on every commit costs time on a gate that already runs several scans, and the generator walks the whole CLI package.
+
+**Almost:** Point the prior-art check at the map as it stands and call the job done. Refused: the map did not know about either wins door, so that check would have answered 'no such thing' and confirmed the duplicate exactly as my working-tree search did. A stale map is a worse oracle than no map, because it an
 
 ---
 
@@ -579,14 +591,6 @@
 **Tension:** NOT NULL is the stronger guarantee and I am choosing the weaker one. A schema constraint cannot be forgotten; a positional check can be misread if rows are ever reordered or if timestamps are untrusted. I accept that because refusing to open historical databases is a worse failure than a subtler che
 
 **Almost:** Almost just removed the skip entirely, since backfill_chain_hashes() exists and the hatch's justification has expired. That would break any database not yet backfilled — the migration was never verified as complete (Deming: the cycle stopped at Do, nobody Studied whether zero unchained rows remained
-
----
-
-## 3991940e weight=1
-
-**Decision:** Update three tests to match the delivery-cluster retirement rather than restore the files
-
-**Reasoning:** The push gate's deletion-shape alarm fired on 19 deliberate deletions and I looked, exactly as the note I had just written into that gate told me to. What the look found: the three test failures I had reported to Andrew as 'pre-existing and unrelated' were neither — they are this branch's own unfinished work. tests/test_channel_files_present.py asserts ear-auto-relaunch.sh exists, tests/test_gate_
 
 ---
 

@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-27 19:58. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-27 20:07. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -68,7 +68,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## a00a1d59 [active] x11
+## a00a1d59 [improving] x11
 
 **Category:** wrong_scope
 
