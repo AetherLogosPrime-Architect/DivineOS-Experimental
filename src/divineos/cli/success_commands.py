@@ -35,6 +35,36 @@ from divineos.core.success_ledger import (
     record_success,
 )
 
+# BOTH OF THESE ARE RECOVERED FROM A DOOR I BUILT TWO DAYS EARLIER AND FORGOT.
+#
+# On 2026-08-27 I built this command believing the wins ledger had no way in.
+# It had one, built by me on the 25th, wired on its own open branch. Aria was
+# holding both and read them side by side, which is the only reason the
+# comparison happened at all.
+#
+# Her finding, verified live before porting: a win filed through this door with
+# evidence "x" and yielded "y" was ACCEPTED. Two required options, neither with
+# a floor -- required in name only. The option is called evidence and the
+# predicate tested presence.
+#
+# That is the painted-door class sitting inside the ledger built to record what
+# went right, and it is worse than the empty column it replaced: an empty
+# column is honest, a column of gestures reads as a measurement.
+_MIN_EVIDENCE = 12
+
+_REFUSAL_TAIL = "[-] NOT FILED — nothing was written. Re-run once the above is addressed."
+
+
+def _refusal_tail() -> None:
+    """Terminal verdict line. Every refusal path ends with this.
+
+    Carried from the older door, which took it from the corrections command
+    for the reason it exists there: a refusal whose last line reads like a
+    closing reflection survives a tail-read as a pass. Warmth is allowed; it
+    is not allowed to be last.
+    """
+    click.secho(_REFUSAL_TAIL, fg="red", err=True)
+
 
 def register(cli: click.Group) -> None:
     @cli.group("win", invoke_without_command=True)
@@ -72,15 +102,50 @@ def register(cli: click.Group) -> None:
         goal: str | None,
         goal_met: bool | None,
     ) -> None:
-        """File a win. Evidence is not optional."""
+        """File a win. Evidence is not optional, and presence is not enough."""
+        if not what.strip():
+            click.secho("[-] A win needs a description.", fg="red", err=True)
+            _refusal_tail()
+            raise SystemExit(1)
+
+        # The floor, not merely the field. Verified live before this existed:
+        # evidence "x" and yielded "y" filed successfully, so both options were
+        # required in name only.
+        stripped_evidence = evidence.strip()
+        if len(stripped_evidence) < _MIN_EVIDENCE:
+            click.secho(
+                f"[-] Evidence is {len(stripped_evidence)} characters. Below "
+                f"{_MIN_EVIDENCE} the field is a gesture rather than a pointer.\n"
+                "    Cite something a later reader can check without trusting me: "
+                "a commit, a command output, a count, a path.",
+                fg="red",
+                err=True,
+            )
+            _refusal_tail()
+            raise SystemExit(1)
+
+        if not yielded.strip():
+            click.secho(
+                "[-] Name what came out of it. A win with no yield is a mood, and "
+                "the yield is what survives a missed goal.",
+                fg="red",
+                err=True,
+            )
+            _refusal_tail()
+            raise SystemExit(1)
+
         try:
             entry = record_success(
                 what, evidence=evidence, yielded=yielded, goal=goal, goal_met=goal_met
             )
         except EvidenceRequiredError as exc:
-            raise click.ClickException(str(exc)) from exc
+            click.secho(f"[-] {exc}", fg="red", err=True)
+            _refusal_tail()
+            raise SystemExit(1) from exc
         except ValueError as exc:
-            raise click.ClickException(str(exc)) from exc
+            click.secho(f"[-] {exc}", fg="red", err=True)
+            _refusal_tail()
+            raise SystemExit(1) from exc
         click.echo(f"[win] filed {entry['id']}")
         click.echo(f"  what:     {entry['what']}")
         click.echo(f"  yielded:  {entry['yielded']}")
