@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-08-27 18:33. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-08-27 18:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## 41a491b2 [improving] x12
+## 41a491b2 [active] x12
 
 **Category:** blind_retry
 
@@ -20,7 +20,7 @@ I retried a failed action 8x without investigating the cause. I need to investig
 
 ---
 
-## f5eb2592 [improving] x12
+## f5eb2592 [active] x12
 
 **Category:** incomplete_fix
 
@@ -44,7 +44,7 @@ I claimed something was fixed but the error came back.
 
 ---
 
-## feda5e22 [improving] x4
+## feda5e22 [active] x5
 
 **Category:** wrong_scope
 

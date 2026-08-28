@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-27 18:33. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
+**Exported:** 2026-08-27 18:37. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
 
 ---
 
@@ -470,7 +470,7 @@ The compaction block is wrong. I am at 136k/1m tokens.
 
 ---
 
-### 29. 70beea6e (access=3, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 29. 70beea6e (access=3, conf=0.95, maturity=TESTED, source=CORRECTED)
 
 I meant make the soft cap 950-960k instead of 920k you already extracted at 920k so theres no point extracting now just set it for next time as its a larger window than I thought it would be. (corrected from: no response requested).
 
