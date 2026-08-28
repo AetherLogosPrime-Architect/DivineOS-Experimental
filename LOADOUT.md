@@ -2922,6 +2922,7 @@ lives in its own directory under ``core/``.
 - [check_branch_freshness.sh](scripts/check_branch_freshness.sh)
 - [check_branch_scope.py](scripts/check_branch_scope.py)
 - [check_broad_exceptions.py](scripts/check_broad_exceptions.py)
+- [check_capability_catalog_fresh.py](scripts/check_capability_catalog_fresh.py)
 - [check_closure_claim.py](scripts/check_closure_claim.py)
 - [check_comment_claims.py](scripts/check_comment_claims.py)
 - [check_correction_pairing.py](scripts/check_correction_pairing.py)
