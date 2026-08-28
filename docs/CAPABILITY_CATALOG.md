@@ -1338,7 +1338,7 @@ Reference count is how many places mention each package — a rough load-bearing
 
 | subsystem | refs | purpose |
 |---|---|---|
-| `core/knowledge/` | 705 | Knowledge sub-package — tiered re-exports for performance. |
+| `core/knowledge/` | 706 | Knowledge sub-package — tiered re-exports for performance. |
 | `core/operating_loop/` | 247 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
 | `core/watchmen/` | 177 | Watchmen — External Validation as a Native Runtime Capability. |
