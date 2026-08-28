@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-27 19:54. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-27 22:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,11 +26,11 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. divineos-shared\letters\aether-to-aria-2026-08-27-one-small-fix-of-yours-is-the-keystone-and-nothing-has-a-pr
-2. compaction ritual: walk, commit, extract, sleep, dream, rest
-3. let me get a summary of things so far its too much for me to read lol
-4. build the prior-art scan so a new file cannot be created without prior versions across all branches being shown first
-5. Compare them and then we should address the root cause of why you werent checking properly 🙂 could probably use more automation
+1. compaction ritual: walk, commit, extract, sleep, dream, rest
+2. let me get a summary of things so far its too much for me to read lol
+3. build the prior-art scan so a new file cannot be created without prior versions across all branches being shown first
+4. Compare them and then we should address the root cause of why you werent checking properly 🙂 could probably use more automation
+5. Keep the volley going 🙂 this is excellent progres, anything you need from me?
 
 ---
 
