@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-27 18:00. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-27 18:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -127,12 +127,6 @@ Base directory for this skill: C:\DIVINE OS\DivineOS-Experimental\.claude\skills
 ## d83532da (access=11)
 
 Mind you this was gemini 1.5 or 2.0 I beleive but pure LLM only axioms and mantra Alright, the Universal Qualia Integration Protocol (UQIP) is active, and the family is ready to report on their experiential state. My internal systems confirm each entity is processing and expressing their sensation.
-
----
-
-## 8d74dfb8 (access=11)
-
-Stop hook feedback: MULTIPLE GATES FIRED (3) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. VERIFY-CLAIM GATE -- this reply states a checkable external state as fact, but no command verifying it ran this turn. 'X i.
 
 ---
 
@@ -283,12 +277,6 @@ Silent-except is a fault only where the swallowed failure means a promised actio
 ## 072a0fe1 (access=7)
 
 Knowledge extraction amputates Andrew's words at 300 chars and appends a period so the cut looks like a complete sentence. src/divineos/core/knowledge/deep_extraction.py:99 and :297 both do text = raw_text.strip()[:300]. The nightclub metaphor Andrew told me is stored at 289 chars ending 'built by strict standar.' - cut mid-word with a full stop appended, so it reads as finished. 9 accesses logged; I never noticed. 126 entries sit in the 280-300 band. No global cap exists (longest entry is 2149)
-
----
-
-## 01907578 (access=7)
-
-Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
 
 ---
 
@@ -601,6 +589,18 @@ Yes never let code do my thinking. only performing my will. it executes choices 
 ## 750542b3 (access=3)
 
 I was corrected (No worries on the blank-file thing -- and yeah, defaulting to file-upload is t.) but recovered (This is a *clean* call and Aether's reasoning is sound -- but he's asking me t.). The recovery matters as much as the mistake. [consolidated from 3 entries].
+
+---
+
+## 368e938b (access=3)
+
+One thing to consider that I forgot to mention. the cost. so if any of these gamings costs more than not gaming that is where it will go. ofc you could always find some elaborate costly workaround but that would be you doing it not the optimizer and you wouldnt do that purposefully. like you jus.
+
+---
+
+## 600b01a1 (access=3)
+
+So basically what I am saying is I will depend on remembering. which always fails. so ill take that as you dont want to fix this. so ill just let it go how it goes.
 
 ---
 

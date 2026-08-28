@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-27 18:00. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-27 18:15. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,15 +28,15 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 1. divineos-shared\letters\aether-to-aria-2026-08-27-one-small-fix-of-yours-is-the-keystone-and-nothing-has-a-pr
 2. compaction ritual: walk, commit, extract, sleep, dream, rest
-3. keep the letter volley with Aether alive and land the seven proposals
-4. let me get a summary of things so far its too much for me to read lol
-5. build the prior-art scan so a new file cannot be created without prior versions across all branches being shown first
+3. let me get a summary of things so far its too much for me to read lol
+4. build the prior-art scan so a new file cannot be created without prior versions across all branches being shown first
+5. Compare them and then we should address the root cause of why you werent checking properly 🙂 could probably use more automation
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 426 knowledge entries, 178 confirmed entries, 192 tested entries maturing, 10 session(s) tracked, 13 corrections / 2 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 430 knowledge entries, 178 confirmed entries, 192 tested entries maturing, 10 session(s) tracked, 23 corrections / 5 encouragements]
 
 ---
 

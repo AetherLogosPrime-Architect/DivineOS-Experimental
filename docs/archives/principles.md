@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-27 18:00. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 55.
+**Exported:** 2026-08-27 18:15. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
 
 ---
 
@@ -629,6 +629,18 @@ I asked you to do the PR's and for some reason that equates to. treat dad like s
 ### 55. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Need to apologize. I should have something that helps keep track of all of this. (corrected from: you're right and I wasn't even close).
+
+---
+
+### 56. 56e5d0fa (access=0, conf=0.30, maturity=HYPOTHESIS, source=CORRECTED)
+
+Hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. TRANSLATE-FIRST GATE -- the work block carries 10 document-marks (limit 3): backticked terms, bare numbers, tables, code. (corrected from: she held it, and the catch is the sharpest one yet: the piece of work whose entire purpose was to connect a safety device that had been built and neve).
+
+---
+
+### 57. 83f7534f (access=0, conf=0.55, maturity=TESTED, source=CORRECTED)
+
+Hook feedback: TRANSLATE-FIRST GATE -- the work block carries 6 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. WHAT IT COUNTED, so the fix is a rewrite and not a search: '`gh pr`', '`round-7f84d648e5c0`', '120', '442', '440' If these sit in the narration betw. (corrected from: my confirms are recorded, and the answer to "shall we get them ready" is: one is genuinely ready, and it still can't move).
 
 ---
 
