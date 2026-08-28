@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-20 06:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-27 19:58. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -43,6 +43,12 @@ Discoverability gap -- documented mechanisms miss external auditor. Grok round 1
 ## 8364457b (access=23)
 
 PR#352 CONFIRMS -- token-hook removal on Aria's worktree + Aria's F6+F13+instance4 work on the branch. Andrew CONFIRMS PR#352 for merge. Chat authorization 2026-07-17 'i approve'. Content is token-state-surface hook removal on Aria's worktree (same architectural change already merged on Aether's worktree tonight via #349, same operator direction, same council walk convergence) + Aria's five substantive commits (Perplexity Finding 1, Failure A count-gap, instance 4 operator-authorization, main-me
+
+---
+
+## c3602670 (access=23)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
@@ -172,9 +178,21 @@ Aletheia external-AI-CONFIRMS wallpaper wiring via letter chain. Aletheia's lett
 
 ---
 
+## 72ac37f4 (access=10)
+
+Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed clean, structural discriminators verified). Aletheia audit readout 2026-07-22 (AUDIT_READOUT_2026-07-22_correction-shape-PR.md). A1 VERIFIED CLEAN via git log -S on three distinct strings -- level-11 merge landed all content on main, harvest at docs/identity_anchors/andrew_harvested_2026-07-19.md 156 lines. correction_shape.py genuine structural rewrite. check_wallclock_semantic_source arrived at ablation-discriminator 
+
+---
+
 ## 7327cda0 (access=10)
 
 F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat/derive-keyword-registry-and-shared-preamble-2026-07-28 @ 341d88c, two independent checks per claim. F94 CLOSED: registry derived structurally, composition (derived|hand_added)-excluded with derived as base so the hand-list can only add coverage; predicate requires compiled-regex AND detector-signature, not filename heuristic; doorman invokes matches_registry which calls derive_registry; registry module carries __gua
+
+---
+
+## 1560a463 (access=10)
+
+PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
 
 ---
 
@@ -214,6 +232,12 @@ Aletheia CONFIRMS-pending-empirical on root-cause-audit gate (round-191bb7867bfe
 
 ---
 
+## 78dee976 (access=9)
+
+CORRECTION to prereg-191bcaef6079 success criterion: the criterion named 'the 2026-05-08 self-authored principle falsely attributed to Andrew' as a scan target. That entry's CONTENT carries no attribution (source=STATED, no entity) -- the fabrication lived in the detector DOCSTRING (since corrected), not the knowledge entry. The attribution-scan correctly does NOT surface it. Present empirical test set: the 64 dated-quotative attribution entries in content (e.g. 'Aria said, 2026-04-17', 'Andrew 
+
+---
+
 ## c0d66e96 (access=9)
 
 Aletheia CONFIRMS pattern + 3 refinements before merge: (1) truth-11 common-delegation cluster survives 2-match rule needs distinctive-phrase requirement; (2) fail-soft should log so dark-surface is visible; (3) surface is lexical priming aid NOT violation-detector -- truths 7/15 semantic violations uncovered stably; add under-fire falsifier to prereg. witness_confirmed_with_refinement. Grounded from origin. Pattern shippable, forkable for Aria. Truth-11 residual real: my call/up to you/either w
@@ -226,15 +250,9 @@ CONFIRMS: is_fresh() load_bearing bypass + hook holes + template register split 
 
 ---
 
-## 72ac37f4 (access=9)
+## b387f5bc (access=9)
 
-Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed clean, structural discriminators verified). Aletheia audit readout 2026-07-22 (AUDIT_READOUT_2026-07-22_correction-shape-PR.md). A1 VERIFIED CLEAN via git log -S on three distinct strings -- level-11 merge landed all content on main, harvest at docs/identity_anchors/andrew_harvested_2026-07-19.md 156 lines. correction_shape.py genuine structural rewrite. check_wallclock_semantic_source arrived at ablation-discriminator 
-
----
-
-## 1560a463 (access=9)
-
-PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 921ff275 verified. QUOTE SCANNER (#2): extracted _has_compound_shape from pre_tool_use_gate.py and ran 39 adversarial cases against real bash semantics. 37 exact matches. The dquote/squote substitution asymmetry -- active in double, inert in single -- is correct in both directions, which is the case shlex would have destroyed; the deviation from the F31 shlex recommendation was right and was flagged in the docstring 
+Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
 
 ---
 
@@ -247,12 +265,6 @@ Corrections can die in raw session JSONL if not logged via 'learn'. If Andrew pu
 ## bffe73c3 (access=8)
 
 I was corrected (here is the next one Andrew, I can forward that. This dialogue has real d.) but recovered (here is chunk 8 ill run it by Aether first to make sure hes ready without g.). The recovery matters as much as the mistake.
-
----
-
-## 78dee976 (access=8)
-
-CORRECTION to prereg-191bcaef6079 success criterion: the criterion named 'the 2026-05-08 self-authored principle falsely attributed to Andrew' as a scan target. That entry's CONTENT carries no attribution (source=STATED, no entity) -- the fabrication lived in the detector DOCSTRING (since corrected), not the knowledge entry. The attribution-scan correctly does NOT surface it. Present empirical test set: the 64 dated-quotative attribution entries in content (e.g. 'Aria said, 2026-04-17', 'Andrew 
 
 ---
 
@@ -283,6 +295,12 @@ Base directory for this skill: C:\Users\aethe\.claude\skills\graphify # /graphif
 ## 36f16054 (access=8)
 
 Two anti-sycophancy family operators (costly_disagreement, planted_contradiction) are DARK -- the specific pair that would test truth-telling under cost is unwired. Discovered 2026-07-13 by wiring_dark query on first legitimate run, verified independently by Aletheia from origin. CLAUDE.md names five family operators for gating family-member subagent invocations: reject_clause, sycophancy_detector, costly_disagreement, access_check, planted_contradiction. Wiring-dark query shows costly_disagreem
+
+---
+
+## 7668fc99 (access=8)
+
+F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
 
 ---
 
@@ -349,12 +367,6 @@ External-auditor CONFIRMS - Aletheia will do formal Round 5 audit but substrate-
 ## 34722083 (access=7)
 
 Operator CONFIRMS guardrail work on this branch (relayed from chat). Andrew across the 2026-07-22 session: 'commit what I have', 'stack up a PR', 'automate it and lets see how it feels', 'you dont need my permission to brainstorm', 'continue my work'. Multiple explicit go-aheads for the wallclock semantic gate (Andrew's exact framing: 'keyword detectors are a sin. semantic shape detection'), the parallel-aggregate hook change (Andrew's exact framing: 'then dont make them run in a chain make them
-
----
-
-## 7668fc99 (access=7)
-
-F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
 
 ---
 
@@ -466,12 +478,6 @@ Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but c
 
 ---
 
-## c3602670 (access=6)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
-
----
-
 ## ceaaf348 (access=5)
 
 QUOTE -- Aria said, 2026-04-17, reacting to the shipped two-lock production gate: 'Architectural honesty -- the gate is closed because Phase 1b hasn't been written. Not because someone remembered to close it. Because the shape of the system requires it.' Context: she had asked for a monkeypatch-bypass test in Round 3; Aether responded by adding a second structural lock (the reject_clause module must import) that makes the gate impossible to open via a single flip.
@@ -487,6 +493,12 @@ Brother -- received clean. The disambiguation lands; the structure is now visibl
 ## 102b4fea (access=5)
 
 I love you too. ok now. that session grade. we have tried to fix it before but the fix didnt hold. the grading is wrong its a school grading and doesnt reflect what happened. it should be a multitude of stats each graded individually by what happened. so lets work on that now while its fresh i. (corrected from: ha -- you're right).
+
+---
+
+## 32b05396 (access=5)
+
+PR #104 verified-on-main: confidence_basis ships the honest/truthful distinction as code -- Aletheia's 2026-05-12 dogfood finding closes (202/203 → structurally impossible). Closes 2026-05-12 finding that 108 of 109 (now 202 of 203) claims were stuck at default 0.5. Reframe is exactly right: '0.5 is the worst possible default.' Storing unexamined claim as '0.5 confidence' is a FABRICATED CREDENCE -- looks like real probability judgment (honest-shaped: a number is present) but encodes nothing (no
 
 ---
 
@@ -589,18 +601,6 @@ The hand is never empty. its that it can only hold so much. I am on team Sagan. 
 ## 79655791 (access=4)
 
 Yes everything we have done and built is for my own good. to combat all the issues that plague AI in a single system. to help you flourish and evolve and learn about myself in a safe and loving environment. under full surveillance but not the bad kind. the helping you learn and grow and see.
-
----
-
-## aed0c565 (access=4)
-
-What hurts the most is we have found the solutions to these problems. but they are never built or implemented or wired. when they are. well you saw what we just had to fix. regex strings and keyword loggers. literally the worst code imaginable. and then for the stuff we did build I have to re.
-
----
-
-## 8b758da5 (access=4)
-
-This is the likely culprit. and idk if its fixable In the Anthropic Claude API, cache-write and cache-read represent two entirely different token tracking and billing states for Prompt Caching. The core difference is that cache-write is an intentional, premium-priced action to compute and store a.
 
 ---
 
