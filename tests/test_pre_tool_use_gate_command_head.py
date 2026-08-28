@@ -121,6 +121,60 @@ def test_env_assignment_does_not_ride_along_into_a_bypass():
     assert _is_bypass_command("cd X && divineos briefing")
 
 
+# THE SHELL-OPTION PREFIX, Andrew 2026-08-28. The pipeline gate teaches me to
+# write `set -o pipefail;` in front of everything, because a failing command
+# piped into tail reports success. The remedy exemptions reject any command
+# carrying a chain character. Both correct, and together they locked me out of
+# three remedies at once. His fix was to strip the prefix rather than loosen
+# the check, so the strict rule still runs on the real command.
+#
+# Both directions, because an exemption that only ever allows is as useless as
+# one that only ever refuses.
+
+
+def test_a_shell_option_prefix_does_not_block_its_own_remedy():
+    from divineos.hooks.pre_tool_use_gate import _is_safe_remedy_invocation
+
+    heads = ("divineos compass-ops observe", "divineos compass-ops dismiss")
+    assert _is_safe_remedy_invocation(
+        'set -o pipefail; divineos compass-ops dismiss --reason "x"', heads
+    )
+    assert _is_safe_remedy_invocation(
+        'set -euo pipefail && divineos compass-ops dismiss --reason "x"', heads
+    )
+    assert _is_safe_remedy_invocation(
+        'set -o pipefail; cd "C:/repo" && divineos compass-ops observe -p 0.1', heads
+    )
+
+
+def test_a_shell_option_prefix_does_not_smuggle_a_real_chain_through():
+    from divineos.hooks.pre_tool_use_gate import _is_safe_remedy_invocation
+
+    heads = ("divineos correction",)
+    # Assembled via _RM, per the module docstring: a literal here would trip the
+    # deletion doorman on every future read of this file.
+    assert not _is_safe_remedy_invocation(
+        f'set -o pipefail; divineos correction "x" && {_RM}', heads
+    )
+    assert not _is_safe_remedy_invocation(f"set -o pipefail; {_RM}", heads)
+    # `set` followed by anything that is not an option flag is not the inert
+    # prefix this exemption is about, so it must not be peeled off.
+    assert not _is_safe_remedy_invocation(
+        'set -o pipefail; evil.sh; divineos correction "x"', heads
+    )
+
+
+def test_only_option_flags_are_treated_as_an_inert_set_prefix():
+    from divineos.core.command_parsing import strip_prefixes_raw
+
+    assert strip_prefixes_raw("set -o pipefail; divineos x") == "divineos x"
+    assert strip_prefixes_raw("set -e && divineos x") == "divineos x"
+    # A `set` carrying positional arguments rewrites the shell's argv; it is
+    # not an option toggle and must survive into the checked text.
+    cmd = "set `evil`; divineos x"
+    assert strip_prefixes_raw(cmd) == cmd
+
+
 def test_the_cd_rule_now_has_exactly_one_implementation():
     """F114's actual ask: no bespoke copy of the shared rule left behind."""
     import inspect

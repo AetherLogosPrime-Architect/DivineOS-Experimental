@@ -149,11 +149,47 @@ _ASSIGN_RAW_RE = re.compile(
     r"""^\s*[A-Za-z_][A-Za-z0-9_]*=(?:"[^"$`]*"|'[^'$`]*'|[^\s;&|`$]*)\s+"""
 )
 
+# SHELL-OPTION PREFIX (Andrew 2026-08-28). One gate teaches the habit of
+# prefixing commands with `set -o pipefail;` -- because a pipeline reports the
+# exit code of its LAST stage, so a failing command piped into `tail` arrives
+# as success. Other gates reject any command containing a chain character,
+# because `remedy && rm -rf ~` must never be exempt. Both rules are correct.
+# Together they deadlocked me out of three remedies at once, each gate refusing
+# the exact command its own message told me to run.
+#
+# The reach was to loosen the chain check. Andrew's answer was better and is
+# what is built here: "why not automate it or run it through something that
+# removes the prefix if you add it." Strip the inert prefix, then apply the
+# strict check UNCHANGED to what remains. Nothing is widened -- a `set` that
+# passes this pattern can only enable shell options.
+#
+# The pattern accepts option flags and `-o <name>` pairs ONLY. No paths, no
+# substitutions, no operators. So what is removed provably cannot execute
+# anything, and any real chain survives into the returned string exactly as
+# the `cd` prefix note above describes: `set -o pipefail; divineos learn "x"
+# && rm -rf ~` still returns text containing `&& rm -rf ~` and is still caught.
+# The `o` flag takes a name, and it is commonly CLUSTERED -- `set -euo pipefail`
+# is the same thing as `set -e -u -o pipefail`. The clustered form was missing
+# from the first version of this pattern and the test for it failed, which is
+# the only reason it is here: `-euo` matched as a plain flag and `pipefail` was
+# then a bare word the pattern could not account for, so the whole prefix went
+# unrecognised and the deadlock stayed shut for the commonest spelling of it.
+# Still options-only either way -- the trailing word is reachable only when the
+# flag cluster actually contains an `o`.
+_SET_OPT = r"(?:[-+][A-Za-z]*o[A-Za-z]*\s+[A-Za-z]+|[-+][A-Za-z]+)"
+_SET_RAW_RE = re.compile(rf"^\s*set\s+{_SET_OPT}(?:\s+{_SET_OPT})*\s*(?:;|&&)\s*")
+
 CD = "cd"
 ENV = "env"
 ASSIGN = "assign"
-_RAW_PREFIX_PATTERNS = {CD: _CD_RAW_RE, ENV: _ENV_RAW_RE, ASSIGN: _ASSIGN_RAW_RE}
-ALL_PREFIX_KINDS = (CD, ENV, ASSIGN)
+SET = "set"
+_RAW_PREFIX_PATTERNS = {
+    CD: _CD_RAW_RE,
+    ENV: _ENV_RAW_RE,
+    ASSIGN: _ASSIGN_RAW_RE,
+    SET: _SET_RAW_RE,
+}
+ALL_PREFIX_KINDS = (CD, ENV, ASSIGN, SET)
 
 
 def strip_prefixes_raw(bash_command: str, kinds: tuple[str, ...] = ALL_PREFIX_KINDS) -> str:

@@ -59,7 +59,9 @@ import re
 import sys
 from typing import Any
 
-from divineos.core.command_parsing import CD, strip_prefixes_raw
+from divineos.core.command_parsing import CD
+from divineos.core.command_parsing import SET as _SET_KIND
+from divineos.core.command_parsing import strip_prefixes_raw
 
 
 # Chain-shape metacharacters that indicate shell-chain composition.
@@ -240,6 +242,22 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     # string comes back out naked and a legitimate remedy gets rejected.
     # Hence strip_prefixes_raw — prefixes off, quoting preserved — and BOTH
     # checks then run against the same real command.
+    # SHELL-OPTION PREFIX PEELED FIRST (Andrew 2026-08-28), deliberately BEFORE
+    # everything below rather than inside it. The narrowness check further down
+    # was written when the only strippable prefix was `cd <path> &&`: it
+    # partitions the discarded text on `&&` and refuses if there is no `&&` at
+    # all. A `set -o pipefail;` prefix joins with a SEMICOLON, so that check
+    # refused it -- which is how the pipeline gate's own advice ended up
+    # deadlocking three remedies.
+    #
+    # Peeling here, with the strict SET pattern doing the validating, leaves
+    # every existing check below operating on exactly the text it was written
+    # for. Nothing downstream is loosened; the cd rule still sees a cd-only
+    # discard and still refuses a second chained command.
+    _after_set = strip_prefixes_raw(cmd, kinds=(_SET_KIND,))
+    if _after_set and _after_set != cmd:
+        cmd = _after_set
+
     real = strip_prefixes_raw(cmd)
     if not real:
         return False
