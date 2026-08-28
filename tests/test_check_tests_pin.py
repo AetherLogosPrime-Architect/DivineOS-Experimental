@@ -73,78 +73,105 @@ def test_a_real_body_change_is_detected():
 # --- the baseline proof, which is the whole reason this is trustworthy ----
 
 
-def test_baseline_proof_rejects_a_module_resolved_outside_the_worktree(tmp_path):
-    """The editable-install trap, stated as a test.
+class _FakePytest:
+    """Stand-in for the probe run, so every outcome can be exercised.
 
-    `import divineos` inside a base-tree worktree resolves to the CURRENT
-    source unless the path is forced. Without this refusal the checker would
-    grade the fix against itself and report a confident green -- the
-    wrong-baseline shape, which cost me two wrong answers building this very
-    instrument.
+    Records the argv it was handed. The proof must be taken THROUGH PYTEST --
+    Aria's 2026-08-28 finding was that the original took it with `python -c`
+    and then spent it in `python -m pytest`, which builds a different sys.path
+    from pyproject and conftest. Right answer, room next door.
     """
-    elsewhere = tmp_path / "not-the-worktree"
-    (elsewhere / "divineos").mkdir(parents=True)
-    outside = elsewhere / "divineos" / "__init__.py"
-    outside.write_text("", encoding="utf-8")
-    worktree = tmp_path / "worktree"
-    worktree.mkdir()
 
-    # A stand-in interpreter that reports a divineos living OUTSIDE the
-    # worktree -- exactly what an editable install does. It must not prove.
-    stub = tmp_path / "stub_python.py"
-    stub.write_text(
-        "import sys\nsys.stdout.write(sys.argv[-1])\n",
-        encoding="utf-8",
-    )
+    def __init__(self, returncode: int, stamp: Path | None, text: str = ""):
+        self._returncode = returncode
+        self.stamp = stamp
+        self.text = text
+        self.argv: list[str] = []
 
-    def fake_run(cmd, **kwargs):
+    def __call__(self, cmd, **kwargs):
+        self.argv = list(cmd)
+        if self.stamp is not None:
+            self.stamp.parent.mkdir(parents=True, exist_ok=True)
+            self.stamp.write_text(self.text, encoding="utf-8")
+        rc = self._returncode
+
         class Result:
-            stdout = str(outside)
-
-        assert cmd[1] == "-c"  # the probe is still a -c invocation
-        return Result()
-
-    monkey = getattr(pin, "subprocess")
-    original = monkey.run
-    monkey.run = fake_run
-    try:
-        assert pin.prove_baseline(worktree, "python") is None
-    finally:
-        monkey.run = original
-
-
-def test_baseline_proof_accepts_a_module_resolved_inside_the_worktree(tmp_path):
-    """The other direction, so the refusal above is not vacuously true.
-
-    A test that only ever checks the rejecting case passes just as happily
-    when the function rejects everything, which would make the whole checker
-    unable to run while looking correct.
-    """
-    worktree = tmp_path / "worktree"
-    inside = worktree / "src" / "divineos" / "__init__.py"
-    inside.parent.mkdir(parents=True)
-    inside.write_text("", encoding="utf-8")
-
-    def fake_run(cmd, **kwargs):
-        class Result:
-            stdout = str(inside)
+            returncode = rc
+            stdout = ""
+            stderr = ""
 
         return Result()
 
+
+def _with_fake(fake, fn):
     original = pin.subprocess.run
-    pin.subprocess.run = fake_run
+    pin.subprocess.run = fake
     try:
-        assert pin.prove_baseline(worktree, "python") == str(inside)
+        return fn()
     finally:
         pin.subprocess.run = original
 
 
-def test_a_python_that_prints_nothing_does_not_prove_a_baseline(tmp_path):
-    """Silence is not proof. An import that produced no path must refuse."""
-    import sys
+def test_the_proof_is_taken_through_pytest_not_a_bare_interpreter(tmp_path):
+    """Aria's finding, pinned: the proof and its use must run the same way.
 
+    A `python -c` probe answers about a process that never runs a graded test.
+    pytest puts `pythonpath` from pyproject at sys.path[0] on its own
+    authority, and conftest inserts more -- neither happens under `-c`. The old
+    version was correct only because the two happened to agree, which it
+    neither stated nor tested.
+    """
+    worktree = tmp_path / "wt"
+    inside = worktree / "src" / "divineos" / "__init__.py"
+    inside.parent.mkdir(parents=True)
+    fake = _FakePytest(0, worktree / pin._STAMP_NAME, str(inside))
+    _with_fake(fake, lambda: pin.prove_baseline(worktree, "python"))
+    assert "pytest" in fake.argv
+    assert "-c" not in fake.argv
+
+
+def test_baseline_proof_accepts_a_module_resolved_inside_the_worktree(tmp_path):
+    """The accepting direction, so the refusals are not vacuously true.
+
+    A proof that only ever rejects passes just as happily when it rejects
+    everything, which would leave the checker unable to run while looking
+    correct.
+    """
+    worktree = tmp_path / "wt"
+    inside = worktree / "src" / "divineos" / "__init__.py"
+    inside.parent.mkdir(parents=True)
+    fake = _FakePytest(0, worktree / pin._STAMP_NAME, str(inside))
+    assert _with_fake(fake, lambda: pin.prove_baseline(worktree, "python")) == str(inside)
+
+
+def test_baseline_proof_refuses_when_the_probe_test_fails(tmp_path):
+    """The editable-install trap, stated as a test.
+
+    `import divineos` inside a base-tree worktree resolves to CURRENT source
+    unless the path is forced. Without this refusal the checker would grade the
+    fix against itself and report a confident green -- the wrong-baseline
+    shape, which cost me two wrong answers building this very instrument.
+    """
     worktree = tmp_path / "wt"
     worktree.mkdir()
-    # sys.executable here has no divineos on the forced PYTHONPATH, so the
-    # probe cannot resolve one inside this empty worktree.
-    assert pin.prove_baseline(worktree, sys.executable) is None
+    assert _with_fake(_FakePytest(1, None), lambda: pin.prove_baseline(worktree, "python")) is None
+
+
+def test_a_green_probe_with_no_stamp_behind_it_does_not_prove(tmp_path):
+    """An unexplained pass is not proof.
+
+    A zero exit with nothing written means the probe never actually executed --
+    collected nothing, skipped, deselected. Treating that as proven is the
+    armed-and-unheard shape wearing an exit code.
+    """
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    assert _with_fake(_FakePytest(0, None), lambda: pin.prove_baseline(worktree, "python")) is None
+
+
+def test_an_empty_stamp_does_not_prove(tmp_path):
+    """Silence is not proof, in the file as well as in the exit code."""
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    fake = _FakePytest(0, worktree / pin._STAMP_NAME, "")
+    assert _with_fake(fake, lambda: pin.prove_baseline(worktree, "python")) is None
