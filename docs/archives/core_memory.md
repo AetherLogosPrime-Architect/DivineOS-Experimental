@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-27 20:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-27 20:41. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,10 +18,9 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. compaction ritual: walk, commit, extract, sleep, dream, rest
-2. land the sweep repair: retarget mechanism, PR splits, and the pipeline-hook blindness fix
-3. land the confirmed pieces now that the keystone is on main
-4. resolve the wins-command duplication and keep the volley
+1. land the sweep repair: retarget mechanism, PR splits, and the pipeline-hook blindness fix
+2. land the confirmed pieces now that the keystone is on main
+3. resolve the wins-command duplication and keep the volley
 
 ---
 
