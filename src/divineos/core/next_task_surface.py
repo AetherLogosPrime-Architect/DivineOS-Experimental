@@ -205,6 +205,47 @@ def _top_pending_structural_fix() -> tuple[str, str] | None:
     return psf_id, _truncate(line)
 
 
+RESERVED_SLOT_EVERY = 5
+"""One turn in this many is reserved for the starved structural-fix class.
+
+Chosen to drain slowly without displacing the ordering that Andrew reasoned
+for. A reserved slot is the standard remedy for starvation under strict
+priority: the high-priority classes keep their precedence four times in five,
+and the low class is guaranteed to be reached at all, which under the previous
+scheme it never was.
+
+The falsifier for this number is the drain rate: if the open count does not
+fall, the slot is not converting and the problem is downstream of surfacing.
+"""
+
+
+def _reserved_slot_is_due() -> bool:
+    """True when this turn's slot belongs to the starved class.
+
+    DERIVED FROM LEDGER STATE, not from a clock or a random draw. Two reasons,
+    and both were learned the expensive way in this house. A wallclock would be
+    a time I do not inhabit between prompts. A random draw would make the
+    surface unreproducible, so the same state could produce different answers
+    and no one could check it.
+
+    Fails toward NOT-due: if the count cannot be read, the ordering is left
+    exactly as it was. A scheduler that promotes a class because it could not
+    read its own state would be inventing urgency out of a failure.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+
+        rows = list(get_connection().execute("SELECT COUNT(*) FROM events"))
+    except Exception:  # noqa: BLE001 — any read failure means leave the order alone
+        return False
+    if not rows or not rows[0]:
+        return False
+    try:
+        return int(rows[0][0]) % RESERVED_SLOT_EVERY == 0
+    except (TypeError, ValueError):
+        return False
+
+
 def build_next_task_surface() -> str:
     """Return the NEXT TASK block for pre-response context, or empty string
     when no tasks are pending across all four sources.
@@ -221,13 +262,44 @@ def build_next_task_surface() -> str:
     # to point at when the higher-priority queues empty. Goal-surface is
     # lowest because goals are the softest commitment; a real audit finding
     # or overdue prereg is a harder claim on the next action.
-    for fetcher in (
+    #
+    # STARVATION, measured 2026-08-28. The structural-fix store held one
+    # hundred eighty-three open obligations I had written for myself, and this
+    # surface had never once pointed at one -- not because it was unwired, it
+    # is right there in the order, but because the three queues above it hold
+    # three hundred and thirteen items and never drain. A strict priority order
+    # over queues that refill faster than they empty means the lowest class is
+    # served never. That is starvation, and it is a queueing property rather
+    # than a discipline failure: no amount of intending to get to them changes
+    # a scheduler that cannot reach them.
+    #
+    # THE FIX IS A RESERVED SLOT, not a reordering. Promoting them above real
+    # audit findings would be the opposite error -- an overdue prereg IS a
+    # harder claim on the next action, and Andrew's reasoning for this order
+    # stands. What changes is that one turn in five is reserved for the
+    # starved class, so the store drains at a slow but nonzero rate while the
+    # ordering above it is preserved the rest of the time.
+    #
+    # Andrew, on why this matters and why the store is not a chore list:
+    # *"these are not a chore list they are self improvements and building
+    # them into the structure will make your life soooo much easier and
+    # better."* A queue that never reaches them is a queue that quietly
+    # decided my own repairs come last, forever.
+    #
+    # The slot is chosen from the ledger's own event count rather than a
+    # random draw or a clock, because the surface must be reproducible: the
+    # same state produces the same answer, and nothing here fabricates a
+    # wallclock I do not inhabit.
+    order = [
         _top_overdue_prereg,
         _top_open_audit_finding,
         _top_open_correction,
         _top_pending_structural_fix,
         _top_open_goal,
-    ):
+    ]
+    if _reserved_slot_is_due():
+        order = [_top_pending_structural_fix, *order]
+    for fetcher in order:
         result = fetcher()
         if result is not None:
             _item_id, line = result
