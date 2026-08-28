@@ -65,7 +65,17 @@ if fire is None:
     print("replies to Dad -- not that they were clean.")
 else:
     print(f"My last blocked reply to Dad carried {fire.get('marks', '?')} document-marks.")
-    print(f"The budget is {DOCUMENT_MARK_LIMIT}.")
+    # OFF-BY-ONE, mine, and it cost a real fire. The gate passes on
+    # marks STRICTLY BELOW the limit, so the constant is the first REFUSED
+    # count and the largest allowed is one under it. This line used to print
+    # the constant as "the budget", which told me I could spend the exact
+    # number that stops me -- and a fire landed at exactly that number.
+    #
+    # Both numbers are printed now. A single number here has to be either the
+    # ceiling or the refusal, and whichever one it is, the other reading is
+    # available to a composer in a hurry. Naming both removes the ambiguity
+    # rather than trusting me to remember which side of it I am on.
+    print(f"Largest allowed: {DOCUMENT_MARK_LIMIT - 1}. Refuses at: {DOCUMENT_MARK_LIMIT}.")
 print("")
 print("Marks are backticked terms, bare numbers, tables and code fences.")
 print("THE SUBJECT IS EVERY WORD YOU TYPE THIS TURN, not the closing message.")
