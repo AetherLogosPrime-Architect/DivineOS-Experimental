@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-08-27 19:36. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-08-27 19:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
