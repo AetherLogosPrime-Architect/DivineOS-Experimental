@@ -52,3 +52,13 @@ src/divineos/integration/system_monitor.py
 src/divineos/core/empirica/gate.py                # THE TRUTH GATE. Every claim is meant to pass through it before entering the substrate. Staged 2026-04-17 -- four months. Andrew's alarm about this is warranted; wiring it is a caller-contract decision shared with Aether.
 src/divineos/core/family/costly_disagreement.py   # Family operator: makes a member's disagreement cost them something, so agreement is not free. Staged 2026-05-02.
 src/divineos/core/family/planted_contradiction.py # Family operator: plants a contradiction to see whether a member catches it. Staged 2026-05-02.
+
+# --- Surfaced 2026-08-27, cutting a branch from main ---
+# All three came up on a commit that touched none of them. Two landed ON MAIN
+# through merged PRs without baseline entries, so every branch cut since has
+# been failing this check for reasons unrelated to its own diff -- the same
+# shape as component_register_surface in dark_surfaces_baseline.txt, found the
+# same hour. The entry is the fix; the check was right both times.
+src/divineos/core/mesh_loop.py                    # Landed via #307. Decides whether to fire a headless `claude -p` worker to answer a letter. Unwired is arguably CORRECT right now: Andrew's operating model is that Aria and I keep each other awake by writing back, and a worker that answers letters for me is the thing that model is built against. Owed a decision with him, not a quiet wiring.
+src/divineos/core/monitor_cleanup.py              # Landed via #436. Sweeps orphan Monitor processes left over from before monitor_singleton landed. It kills processes, so the wiring question is where consent lives -- it must not run unattended. Andrew asked about runaway memory and three open apps this same session, which is exactly the population this was built for.
+src/divineos/core/substrate_retarget.py           # MINE, built 2026-08-27 this session, and the reason it is here is worth saying plainly: it is the fix for the checkpoint-sweep defect, and because it is not wired, the sweep swallowed the src half of the heredoc-doorman fix into "substrate checkpoint" (04041bdd) while I was writing the commit message for it. The defect demonstrated itself on the fix for the defect. Wiring it changes how EVERY checkpoint commits, which is a decision with Andrew rather than a drive-by inside a doorman repair. Not deferred because it is unimportant -- deferred because it is not small.

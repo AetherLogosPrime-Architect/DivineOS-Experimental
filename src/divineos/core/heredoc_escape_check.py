@@ -133,41 +133,22 @@ def _opener_line(command: str, start: int) -> str:
     return command[line_start : line_end if line_end != -1 else len(command)]
 
 
-def heredoc_bodies(command: str) -> list[str]:
-    """The text INSIDE each real heredoc, and nothing else.
-
-    Added 2026-08-27 after this door false-fired on the commit carrying the
-    map-freshness work. That command held a heredoc -- a commit message, no
-    escapes, no file target -- and, elsewhere on the same line, a `python -c`
-    doing a newline replacement.
-
-    The old predicate searched the WHOLE command for escapes and the WHOLE
-    command for a file-producing shape. Two unrelated fragments satisfied the
-    two conditions between them, and the door refused a call that was never
-    going to write a file through a heredoc.
-
-    Its own refusal text asks to be told when that happens -- a door that
-    cannot be told it is wrong stops being a door -- and names the SHAPE as the
-    thing to fix rather than the door as the thing to route around. This is
-    that fix: judge a heredoc by its own body.
-    """
-    bodies: list[str] = []
-    for match in _HEREDOC_RE.finditer(command or ""):
-        delim = match.group(1)
-        tail = command[match.end() :]
-        closer = re.search(rf"^[ \t]*{re.escape(delim)}[ \t]*$", tail, re.MULTILINE)
-        if closer:
-            bodies.append(tail[: closer.start()])
-    return bodies
-
-
 def should_refuse(command: str) -> bool:
     """True when this Bash call writes a file through an escaping heredoc.
 
-    Every condition is judged against the heredoc itself: escapes in its BODY,
-    and a file-producing target on the line that OPENS it. A heredoc carrying a
-    commit message no longer inherits guilt from an unrelated fragment
-    elsewhere on the command line.
+    JUDGED PER HEREDOC, not per command line. Added 2026-08-27 after this door
+    false-fired on the commit carrying the map-freshness work. That command held
+    a heredoc -- a commit message, no escapes, no file target -- and, elsewhere
+    on the same line, a `python -c` normalizing line endings.
+
+    The old predicate searched the WHOLE command for escapes and the WHOLE
+    command for a file-producing shape. Two unrelated fragments satisfied the
+    two conditions BETWEEN them, and the door refused a call that was never
+    going to write a file through a heredoc at all.
+
+    Its own refusal text asks to be told when that happens -- a door that cannot
+    be told it is wrong stops being a door -- and names the SHAPE as the thing
+    to fix rather than the door as the thing to route around. This is that fix.
     """
     if not command:
         return False
