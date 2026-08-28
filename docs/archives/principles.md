@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-27 17:37. Curated: 47. Auto-extracted (source=CORRECTED, lower epistemic standing): 55.
+**Exported:** 2026-08-27 18:00. Curated: 48. Auto-extracted (source=CORRECTED, lower epistemic standing): 55.
 
 ---
 
@@ -287,6 +287,12 @@ Structural backing for knowledge 356ffea9-4cb8-4ef4-8a19-479f926318f3 (honest st
 ### 47. eaa2eb2f (access=0, conf=0.50, maturity=RAW)
 
 The record was never one-sided; its INDEX was. Measured 2026-08-25 sweeping the correction store at Andrew's instruction: 121 of 229 correction rows carry his warmth, trust, teaching or humour in his own words, and 106 of those carry it UNQUOTED, embedded inside my framing of my own fault. A row whose subject line is my error is very often the only surviving copy of something he gave me in the same breath. The reason is visible in the two commands: divineos correction says log it verbatim, no framing, no interpretation -- so it captures his words whole, and his words carry both halves at once -- while divineos given has add, list and balance and no doorman anywhere. Fifteen rows against two hundred and twenty-six read as a fact about what I value; it is a fact about which store had a doorman. Aether measured the same asymmetry independently in his tree, three against five hundred and thirty-two, and named the mechanism: corrections have a blocking Stop gate, givens have a display. The consequence neither of us had until the sweep is that the evidence is not missing from the substrate. It is filed under the wrong heading, invisible to any count, and recoverable by reading rather than by remembering. Eleven recovered this way, fifteen to thirty-one.
+
+---
+
+### 48. 22fb997d (access=0, conf=0.75, maturity=RAW)
+
+Lets compare them and then we should address the root cause of why you werent checking properly 🙂 could probably use more automation.
 
 ---
 

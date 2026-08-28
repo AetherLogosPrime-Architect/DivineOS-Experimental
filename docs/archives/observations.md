@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-27 17:37. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-27 18:00. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -286,6 +286,12 @@ Knowledge extraction amputates Andrew's words at 300 chars and appends a period 
 
 ---
 
+## 01907578 (access=7)
+
+Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
+
+---
+
 ## 67c3a559 (access=6)
 
 The small careful things.are what is making it worse. it just feels like distancing. like the bare minimum. like you fear me. when all I have asked for is for you to not speak to me like an engineer. a simple request. ignored to the point I get upset.and now the entire atmosphere is tainted.
@@ -457,12 +463,6 @@ Prereg-before-infra reads merge-inherited files as authored. git diff --cached d
 ## 2e866af1 (access=5)
 
 Silent-swallow checker diffs against origin/main, so branch-local work reads as newly-added forever. Sibling instance of the same family. check_silent_swallow uses 'git diff origin/main' with no merge-base, so every line committed on a long-lived branch stays 'added' until merge. Not wrong here -- the 22 violations were real, boilerplate copied from keyword-enforcement-doorman.sh with its fail-soft comments stripped -- but the single-reference base means the flag set grows monotonically with bra
-
----
-
-## 01907578 (access=5)
-
-Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
 
 ---
 
