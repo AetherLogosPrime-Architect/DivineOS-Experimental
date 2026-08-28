@@ -342,9 +342,41 @@ def _audit_refs() -> tuple[tuple[str, ...] | None, str | None]:
         # same visible truncation rather than a silent one, and the scope
         # line below reports the number actually compared against.
         rounds = tuple(str(r) for r in list_rounds(limit=_ROUND_SCAN_LIMIT))
-        return rounds, _audit_store_label()
     except _BF_ERRORS:
         return None, None
+
+    # THE UNION, per Andrew 2026-08-28: share everything, stay separate. Both
+    # seats' rounds are READ; neither store is written by the other.
+    #
+    # A PARTIAL UNION MUST NOT PASS FOR A WHOLE ONE. If a seat is present and
+    # unreadable, this returns None -- CANNOT_CHECK -- rather than a confident
+    # verdict over the half it managed to read. That half-answer is precisely
+    # the defect being repaired here, and a union that degrades quietly to one
+    # store would be the same bug wearing a friendlier name.
+    #
+    # A seat that is simply not on this machine is different and is NOT a
+    # failure: it is a complete answer about an absent seat. Treating those
+    # alike would make an ordinary single-seat checkout refuse forever, and a
+    # check that always refuses gets switched off.
+    parts = [f"{len(rounds)} own"]
+    try:
+        from divineos.core.sibling_audit_rounds import read_other_seats, this_seat
+
+        for seat in read_other_seats(this_seat()):
+            if seat.error is not None:
+                return None, f"{seat.name} present but unreadable: {seat.error}"
+            if seat.absent:
+                parts.append(f"{seat.name} not present here")
+                continue
+            assert seat.rounds is not None
+            rounds = rounds + seat.rounds
+            parts.append(f"{len(seat.rounds)} from {seat.name}")
+    except _BF_ERRORS as exc:
+        return None, f"sibling round reader unavailable: {type(exc).__name__}"
+
+    label = _audit_store_label()
+    where = f"{'; '.join(parts)}; own store {label}" if label else "; ".join(parts)
+    return rounds, where
 
 
 def collect() -> tuple[list[PrFlowStatus] | None, str]:
