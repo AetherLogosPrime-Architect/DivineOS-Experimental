@@ -107,25 +107,56 @@ def _top_open_audit_finding() -> tuple[str, str] | None:
 
 
 def _top_open_correction() -> tuple[str, str] | None:
-    """Return (correction_id, one-line) for the oldest open Andrew-correction,
-    or None."""
+    """Return (correction_id, one-line) for the oldest open Andrew-correction.
+
+    A PAINTED DOOR UNTIL 2026-08-28. This imported
+    ``divineos.core.andrew_corrections``, which does not exist in this tree and
+    never has -- the module is ``andrew_correction_tracker``, and seven other
+    files import it correctly. The ImportError went into the observability
+    boundary below, so this returned None on EVERY TURN IT HAS EVER RUN, while
+    the briefing printed two hundred and sixty open corrections in the same
+    context window.
+
+    Two surfaces on one subject: one said two hundred and sixty, one said
+    nothing to do, and the disagreement was invisible because a failed read and
+    a drained queue produce identical output. Could-not-look sorting as
+    all-clear, in the lane that decides what I work on next.
+
+    FOUND BY ARIA on her own seat and relayed; confirmed identical here before
+    touching it. Her finding also corrects my account of the starvation below.
+    I had written that three queues holding three hundred and thirteen items
+    were blocking the repair lane. Measured: the prereg lane is empty, THIS
+    lane was absent rather than full, and the real blocker was a single audit
+    finding. I asserted a cause from counts without checking which lanes ever
+    fire -- the same shape as taking a proof in one process and spending it in
+    another.
+
+    HER SHARPER HALF IS WHY THIS IS SAFE TO REPAIR. On her seat the repair lane
+    was reachable ONLY because this lane was broken, so fixing the import alone
+    would have manufactured the starvation rather than cured anything -- a true
+    fix, correctly made, turning reachable-by-accident into
+    unreachable-by-design, and it would have read as an improvement in the
+    commit message. The reserved slot has to exist first. It does, on both
+    seats, shipped before this line changed.
+    """
     try:
-        from divineos.core.andrew_corrections import list_corrections
+        from divineos.core.andrew_correction_tracker import list_open
     except Exception:  # noqa: BLE001 - observability boundary
         return None
     try:
-        corrections = list_corrections(open_only=True)
+        corrections = list_open()
     except Exception:  # noqa: BLE001 - observability boundary
         return None
     if not corrections:
         return None
-    # Oldest first — they've been waiting longest.
-    sorted_corrections = sorted(corrections, key=lambda c: c.created_at)
-    top = sorted_corrections[0]
-    cid = getattr(top, "correction_id", None) or getattr(top, "id", "?")
-    text = getattr(top, "content", "") or getattr(top, "text", "")
-    line = f"integrate correction {cid}: {text}"
-    return str(cid), _truncate(line)
+    # Oldest first — they have been waiting longest. Rows are plain dicts
+    # carrying id/text/timestamp; the previous attribute access would have
+    # raised even if the import had ever resolved, so this lane was broken
+    # twice over and neither break could surface.
+    top = sorted(corrections, key=lambda c: c.get("timestamp") or 0)[0]
+    cid = str(top.get("id") or "?")
+    text = str(top.get("text") or "")
+    return cid, _truncate(f"integrate correction {cid}: {text}")
 
 
 def _top_open_goal() -> tuple[str, str] | None:
