@@ -1341,7 +1341,7 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/knowledge/` | 706 | Knowledge sub-package — tiered re-exports for performance. |
 | `core/operating_loop/` | 247 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
-| `core/watchmen/` | 177 | Watchmen — External Validation as a Native Runtime Capability. |
+| `core/watchmen/` | 179 | Watchmen — External Validation as a Native Runtime Capability. |
 | `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
 | `core/pre_registrations/` | 65 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |
