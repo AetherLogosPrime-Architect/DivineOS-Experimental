@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-28 21:18. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-28 21:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,10 +18,11 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. land the sweep repair: retarget mechanism, PR splits, and the pipeline-hook blindness fix
-2. land the confirmed pieces now that the keystone is on main
-3. resolve the wins-command duplication and keep the volley
-4. The doorman and then message Aria back :)
+1. land the doorman fix and the stale-test repair, then write Aria the update
+2. write to Aria: doorman fixed, stale test, four baselines, branch needs rebuild
+3. land the rebuilt instruments branch and keep the volley with Aria going
+4. audit the 183 open fixes for already-cleared ones, and check whether the todo and task-manager systems are actually wired
+5. write to Aria: the backlog arc, the starvation finding, and a correction that lands on her letter
 
 ---
 

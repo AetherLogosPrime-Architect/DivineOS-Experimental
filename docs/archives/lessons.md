@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-28 21:18. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-28 21:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -60,7 +60,7 @@ Test description without directive.
 
 ---
 
-## c3090082 [active] x11
+## c3090082 [improving] x11
 
 **Category:** incomplete_fix
 
@@ -84,7 +84,7 @@ Test description with directive zzz.
 
 ---
 
-## 88234418 [active] x8
+## 88234418 [improving] x8
 
 **Category:** blind_retry
 

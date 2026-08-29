@@ -38,23 +38,38 @@ from divineos.core.sibling_council_walks import (
 
 
 def _make_walk_store(root: Path, rows: list[tuple[str, str, str]]) -> Path:
-    """A minimal ledger holding (actor, expert, fingerprint) walk events."""
+    """A ledger holding (actor, expert, fingerprint) walk events.
+
+    FULL PRODUCTION COLUMN SET, including the three hash columns this reader
+    never touches. My first version declared only the five columns the code
+    reads, and the schema-sync guard refused the push: a test that builds a
+    simpler table than production passes against a reality that does not
+    exist, so it can go green while the real store has a shape the code would
+    trip on.
+
+    Same family as everything else this session -- a check agreeing with
+    itself rather than with the world -- caught by a gate rather than by me.
+    """
     db = root / "data" / "event_ledger.db"
     db.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(db)
     con.execute(
-        "CREATE TABLE system_events "
-        "(event_id TEXT, timestamp REAL, event_type TEXT, actor TEXT, payload TEXT)"
+        "CREATE TABLE system_events ("
+        "event_id TEXT, timestamp REAL, event_type TEXT, actor TEXT, "
+        "payload TEXT, content_hash TEXT, prior_hash TEXT, chain_hash TEXT)"
     )
     for i, (actor, expert, fingerprint) in enumerate(rows):
         con.execute(
-            "INSERT INTO system_events VALUES (?,?,?,?,?)",
+            "INSERT INTO system_events VALUES (?,?,?,?,?,?,?,?)",
             (
                 f"e{i}",
                 float(i),
                 WALK_EVENT_TYPE,
                 actor,
                 json.dumps({"expert_name": expert, "edit_fingerprint": fingerprint}),
+                f"hash{i}",
+                f"prior{i}",
+                f"chain{i}",
             ),
         )
     con.commit()
