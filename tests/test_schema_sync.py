@@ -320,6 +320,19 @@ class TestSchemaSync:
             # reality check the adapter itself doesn't participate in.
             # Same shape as the aletheia entry above.
             "test_memory_linkage_retriever_adapters.py",
+            # A DIFFERENT KIND of exemption from the two above, and worth the
+            # distinction: those hold fixtures shaped for a legacy schema the
+            # SUT genuinely reads. This one holds fixtures that are WRONG ON
+            # PURPOSE -- a system_events table missing the columns the sibling
+            # walk reader needs, so the test can prove the reader reports
+            # could-not-read instead of returning an empty result.
+            #
+            # Split into its own file 2026-08-29 rather than exempting the
+            # file it came from. That file keeps a full production-shaped
+            # fixture and stays guarded; exempting it would have been one line
+            # less work and would have un-guarded a correct fixture to buy
+            # convenience with the coverage this check exists to provide.
+            "test_sibling_walk_store_malformed.py",
         }
 
         warnings: list[str] = []
