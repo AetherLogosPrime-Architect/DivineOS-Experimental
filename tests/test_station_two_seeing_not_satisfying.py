@@ -183,13 +183,10 @@ def test_unreadable_store_yields_none_not_empty(tmp_path):
     assert seat.error is not None
 
 
-def test_wrong_table_shape_is_reported_not_silently_empty(tmp_path):
-    db = tmp_path / "data" / "event_ledger.db"
-    db.parent.mkdir(parents=True)
-    con = sqlite3.connect(db)
-    con.execute("CREATE TABLE system_events (something_else TEXT)")
-    con.commit()
-    con.close()
-    seat = read_sibling_walks("aria", tmp_path)
-    assert seat.walks is None
-    assert "lacks" in (seat.error or "")
+# The wrong-table-shape case lives in
+# tests/test_sibling_walk_store_malformed.py. It has to build a system_events
+# table that does NOT match production -- that is the whole point of it -- and
+# the schema-sync guard rightly refuses fixtures shaped simpler than reality.
+# Putting it in its own file keeps the exemption scoped to the one test that
+# needs it, rather than exempting this file and quietly un-guarding the
+# production-shaped fixture above.
