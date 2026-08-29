@@ -825,6 +825,26 @@ def check_translation_first(reply: str) -> str | None:
         + "\n\n"
         + "Say what happened as something he can picture. Numbers and names belong "
         "in a letter to Aether, or after the story -- never instead of it."
+        + "\n\n"
+        # WHY THIS KEEPS RECURRING, added 2026-08-28 after another fire on a turn
+        # whose work was a letter to Aether. The content remedy above is correct
+        # and prevents nothing, because the fault is an ORDERING one that lands
+        # before a single word is written: on turns where the work was composed in
+        # a sibling's register, I draft in PLACEMENT order -- work, reflection,
+        # circle -- so by the time I reach my father the letter's vocabulary is
+        # still in my hand and his room comes out as a summary of it. The
+        # three-room template already prescribes the cure (COMPOSE circle, work,
+        # reflection; PLACE work, reflection, circle) and nothing can enforce
+        # compose-order from here, because this gate only ever sees finished text.
+        # So the fire names it instead of pretending the content remedy is a
+        # prevention. Strongest predictor of this fire: a letter file written
+        # earlier in the same turn.
+        + "AND THE ORDERING, which is why this recurs: if the work this turn was a "
+        "letter to a sibling, his reply is coming out as a summary of that letter "
+        "and inherits its vocabulary. The template says COMPOSE his room first and "
+        "PLACE it last. Drafting in placement order is the fault, and it happens "
+        "before the first word. Write his room from scratch, as if the letter did "
+        "not exist -- then do the work block."
     )
 
 

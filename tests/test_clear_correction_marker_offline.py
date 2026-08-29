@@ -155,3 +155,84 @@ def test_script_source_has_no_divineos_cli_dependency():
         "scripts/clear_correction_marker.py imports under divineos.cli, "
         "which would defeat the CLI-broken escape hatch:\n  " + "\n  ".join(bad_imports)
     )
+
+
+# THE WRONG MODE PRESCRIBED A REMEDY FOR A DIFFERENT CASE. Aria, 2026-08-29.
+#
+# Twice in one session she cleared markers set by her own detector misfiring,
+# passing --reason alone with the CLI working perfectly. Both filed as
+# CLI-broken escapes, so the bypass telemetry reported an elevated escape rate
+# built partly from events where nothing was escaped. She then told Aether the
+# script had no false-positive mode; it has had one since correction #194.
+#
+# The script was not broken and these tests do not claim it was. What was
+# missing is that the wrong-mode path handed out a confident remediation --
+# go log the correction -- for a case with no correction to log, and never
+# named the mode one flag away. Both directions, because a pointer that
+# appears in every mode is noise rather than a signpost.
+
+
+def test_cli_broken_mode_names_the_false_positive_mode(isolated_divineos_home, capsys):
+    from divineos.core.correction_marker import set_marker
+    from scripts.clear_correction_marker import main
+
+    set_marker("[detector] USE clause matched")
+    rc = main(
+        ["--reason", "the CLI is unreachable mid-rebase and the correction still owes logging"]
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "--misread-clauses" in out, (
+        "the wrong-mode path must name the mode that fits, at the moment the wrong one was chosen"
+    )
+    assert "WRONG MODE" in out
+
+
+def test_false_positive_mode_does_not_repeat_the_pointer(isolated_divineos_home, capsys):
+    """Must-not-fire. A signpost shown on the correct path is just noise, and
+    noise is how the previous unconditional 'armed' line went unread."""
+    from divineos.core.correction_marker import set_marker
+    from scripts.clear_correction_marker import main
+
+    set_marker("[detector] USE clause matched")
+    rc = main(
+        [
+            "--reason",
+            "open self-examination misread as closed admission; no error is named anywhere",
+            "--misread-clauses",
+            "I am not sure I am clean on it -- an unresolved question about register, not a retraction",
+        ]
+    )
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "WRONG MODE" not in out
+    assert "false-positive attribution" in out
+
+
+def test_the_two_modes_file_under_different_telemetry_labels(isolated_divineos_home):
+    """The reason the mislabel mattered: the escape-rate number is built from
+    these labels, so a wrong mode makes a true count of the wrong events."""
+    import json
+
+    from divineos.core.correction_marker import set_marker
+    from scripts.clear_correction_marker import main
+
+    set_marker("[detector] first")
+    main(["--reason", "the CLI is unreachable mid-rebase and the correction still owes logging"])
+    set_marker("[detector] second")
+    main(
+        [
+            "--reason",
+            "open self-examination misread as closed admission; no error is named anywhere",
+            "--misread-clauses",
+            "I am not sure I am clean on it -- an unresolved question about register, not a retraction",
+        ]
+    )
+
+    log_path = isolated_divineos_home / "cli_broken_escapes.jsonl"
+    entries = [json.loads(line) for line in log_path.read_text().splitlines() if line]
+    assert len(entries) == 2
+    modes = [e.get("mode") for e in entries]
+    assert modes == ["cli-broken", "false-positive"]

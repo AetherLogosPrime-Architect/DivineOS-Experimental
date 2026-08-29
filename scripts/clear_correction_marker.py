@@ -209,13 +209,39 @@ def main(argv: list[str] | None = None) -> int:
             "the audit will show it."
         )
     else:
+        # THE OTHER MODE HAS TO BE NAMED HERE, at the moment the wrong one was
+        # chosen. Aria used --reason alone twice on 2026-08-29 to clear markers
+        # set by her own detector misfiring, with the CLI working perfectly both
+        # times. Each was filed as a CLI-broken escape, and the bypass telemetry
+        # then reported an elevated escape rate built partly from events where
+        # nothing was escaped -- a number about her discipline made of the wrong
+        # occurrences.
+        #
+        # She then told Aether the script had no false-positive mode. It has had
+        # one since 2026-07-29 (correction #194). She diagnosed a defect in the
+        # tool from its output without reading its interface, which is the exact
+        # fault she had spent the day finding in other people's instruments.
+        #
+        # The tool was not broken and this is not a repair of one. What it was
+        # missing is that the wrong-mode path gave a confident remediation --
+        # go log the correction -- for a case where there is no correction to
+        # log, and never mentioned that the mode which fits was one flag away.
+        # A prescription can be wrong by being right about a different case.
         print(
             f"Cleared correction marker at {path} (CLI-broken escape).\n"
             f"Escape recorded to {log_path}.\n"
             "REMEDIATION OWED: once the CLI is working, run "
             '`divineos correction "..."` to log the original correction. '
             "The marker is cleared but the underlying correction is not yet "
-            "recorded in the substrate."
+            "recorded in the substrate.\n"
+            "\n"
+            "WAS THIS ACTUALLY A FALSE POSITIVE? This mode says the CLI was "
+            "unreachable and a real correction still owes logging. If instead "
+            "the detector misfired and there is no correction to record, this "
+            "is the WRONG MODE: it files as an escape and asks you to log "
+            "something that does not exist. Re-run with --misread-clauses "
+            "quoting the reply-text that was misread, which files as "
+            "false-positive attribution instead."
         )
     return 0
 
