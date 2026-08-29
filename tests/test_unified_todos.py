@@ -234,17 +234,81 @@ def test_collect_todos_respects_source_filter(monkeypatch):
     assert "correction" not in called
 
 
-def test_summary_counts_returns_all_four_sources(monkeypatch):
+def test_summary_counts_returns_every_source(monkeypatch):
+    """Every store this surface knows about, counted.
+
+    Was named ...all_four_sources and asserted exactly four. Correct when
+    written; stale on 2026-08-28 when the structural-fix store became the
+    fifth. That store held one hundred eighty-three obligations I had written
+    for myself, and the one surface I consult to answer "what should I work
+    on" did not know it existed.
+
+    Kept as exact equality rather than a subset check: a new source appearing
+    here SHOULD fail and make someone look, which is exactly what it just did.
+    """
     from divineos.core import unified_todos
 
     monkeypatch.setattr(unified_todos, "_prereg_todos", lambda **_: [object()] * 3)
     monkeypatch.setattr(unified_todos, "_correction_todos", lambda **_: [object()])
     monkeypatch.setattr(unified_todos, "_audit_todos", lambda **_: [object()] * 5)
     monkeypatch.setattr(unified_todos, "_claim_todos", lambda **_: [])
+    monkeypatch.setattr(unified_todos, "_structural_fix_todos", lambda **_: [object()] * 2)
 
     counts = unified_todos.summary_counts()
 
-    assert counts == {"prereg": 3, "correction": 1, "audit": 5, "claim": 0}
+    assert counts == {
+        "structural-fix": 2,
+        "prereg": 3,
+        "correction": 1,
+        "audit": 5,
+        "claim": 0,
+    }
+
+
+def test_structural_fixes_are_collected_by_default(monkeypatch):
+    """The store must be in the DEFAULT source set, not merely reachable.
+
+    Reachable-on-request is what it already was: the next-task surface listed
+    it last and never got there, because the three queues above it hold
+    hundreds of items and never drain. A source nothing asks for by default is
+    a source nothing asks for.
+    """
+    from divineos.core import unified_todos
+
+    sentinel = unified_todos.TodoItem(
+        source="structural-fix",
+        item_id="psf-test",
+        summary="a fix I named for myself",
+        age_days=100.0,
+        priority=-100,
+        extra={},
+    )
+    monkeypatch.setattr(unified_todos, "_prereg_todos", lambda **_: [])
+    monkeypatch.setattr(unified_todos, "_correction_todos", lambda **_: [])
+    monkeypatch.setattr(unified_todos, "_audit_todos", lambda **_: [])
+    monkeypatch.setattr(unified_todos, "_claim_todos", lambda **_: [])
+    monkeypatch.setattr(unified_todos, "_structural_fix_todos", lambda **_: [sentinel])
+
+    assert any(t.item_id == "psf-test" for t in unified_todos.collect_todos())
+
+
+def test_oldest_structural_fix_sorts_first(monkeypatch):
+    """Oldest first, because these are debts to myself and age is the claim.
+
+    No severity was ever recorded on them, so inventing a priority would be a
+    number with nothing behind it. Age is the one honest ordering available.
+    """
+    import divineos.core.structural_fix_tracker as tracker
+    from divineos.core import unified_todos
+
+    rows = [
+        {"id": "psf-new", "created_at": 1_000_000.0, "content_excerpt": "recent"},
+        {"id": "psf-old", "created_at": 1.0, "content_excerpt": "ancient"},
+    ]
+    monkeypatch.setattr(tracker, "list_pending", lambda: rows)
+
+    items = unified_todos._structural_fix_todos(now=2_000_000.0)
+    assert [i.item_id for i in items] == ["psf-old", "psf-new"]
 
 
 def test_audit_todos_fail_soft_on_store_error(monkeypatch):

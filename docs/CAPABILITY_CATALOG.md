@@ -4,13 +4,13 @@
 
 Third of three inventories. [LOADOUT.md](../LOADOUT.md) describes the rooms. [AUTOMATION_REGISTER.md](AUTOMATION_REGISTER.md) lists what runs by itself. This lists what I can **reach for** — the tools on the wall.
 
-**156 top-level commands, 325 subcommands, 35 core subsystems.**
+**180 top-level commands, 357 subcommands, 37 core subsystems.**
 
 ---
 
 ## Usage telemetry is nearly blind
 
-Usage history lives in `OS_QUERY` events. **9 of 156 top-level commands have ever been recorded.**
+Usage history lives in `OS_QUERY` events. **11 of 180 top-level commands have ever been recorded.**
 
 That is NOT a claim that the other commands are unused. Commands demonstrably used — filing corrections, pre-registrations, audit rounds — emit no telemetry at all. The honest reading: **the substrate cannot answer which tools are live and which have never been opened.**
 
@@ -20,15 +20,17 @@ Commands that DO report usage:
 
 | command | recorded invocations |
 |---|---|
-| `ask` | 301 |
-| `briefing` | 123 |
-| `compass` | 61 |
-| `decide` | 57 |
-| `context` | 52 |
-| `recall` | 30 |
-| `lessons` | 21 |
+| `ask` | 440 |
+| `briefing` | 232 |
+| `decide` | 149 |
+| `compass` | 131 |
+| `context` | 86 |
+| `recall` | 49 |
+| `lessons` | 36 |
 | `directives` | 13 |
-| `feel` | 4 |
+| `feel` | 8 |
+| `body` | 6 |
+| `reflect-ops` | 2 |
 
 ---
 
@@ -118,6 +120,14 @@ My functional feeling states - tracked...
 
 Show how affect states are influencing...
 
+### `aletheia-import`
+
+File an artifact Andrew has handed over into...
+
+### `already-built`
+
+Check whether THING already exists before...
+
 ### `andrew-correction`
 
 Andrew-correction attribution surface (Aria...
@@ -171,6 +181,7 @@ External validation â€” submit and track audit...
 | `audit auto-triage` | Surface OPEN findings whose cited files/commits... |
 | `audit compliance` | Substantive distribution audit of the compliance... |
 | `audit confirm-holds` | Does the external-AI CONFIRM already in this... |
+| `audit export` | Write rounds to docs/audit_rounds/ so CI can see... |
 | `audit file-external-confirm` | File a relayed external-AI CONFIRM into a round... |
 | `audit list` | List audit findings. |
 | `audit list-clean` | List externally-audited-clean sessions. |
@@ -191,6 +202,10 @@ External validation â€” submit and track audit...
 | `audit tag-clean` | Tag a session as externally-audited-clean. |
 | `audit unknown-unknown-rate` | Rolling proportion of audit findings that were... |
 | `audit untag-clean` | Remove a clean-tag. |
+
+### `audit-sync`
+
+Import audit findings from the shared...
 
 ### `audit-visibility`
 
@@ -238,7 +253,7 @@ The agent's own page.
 | `bio show` | Print the current bio (full page). |
 | `bio write` | Write a new bio version directly from the command line. |
 
-### `body`
+### `body` •
 
 Check my substrate state -- storage, tables,...
 
@@ -249,6 +264,10 @@ Generate a session context briefing from...
 ### `briefing-id`
 
 Prove context-freshness by recalling your...
+
+### `build-flow`
+
+Build-flow station status for open PRs...
 
 ### `calibration`
 
@@ -378,6 +397,18 @@ Resolve a correction by index (from...
 
 Read past corrections with status -- the...
 
+### `corrections-mirror`
+
+Mirror a sibling's corrections into my own...
+
+### `corrections-mirror-judge`
+
+Record my reading of one mirrored correction.
+
+### `corrections-sibling`
+
+Corrections my sibling received that have no...
+
 ### `corroborate`
 
 Record a corroboration event on a knowledge...
@@ -409,6 +440,14 @@ Track questions worth investigating.
 | `curiosity shelve` | Put a curiosity to sleep â€” not abandoned, just not active. |
 | `curiosity wonder` | Auto-generate questions from knowledge gaps. |
 
+### `dark-matter`
+
+Find things that exist but nothing reaches.
+
+### `dashboard`
+
+Check-engine lights â€” every registered...
+
 ### `decide` •
 
 Record a decision with its reasoning and...
@@ -433,6 +472,17 @@ Show context-dedup savings by source.
 ### `delete-justify`
 
 Record a justification so the...
+
+### `detectors`
+
+Detectors that reported they could not run:...
+
+| subcommand | purpose |
+|---|---|
+| `detectors check` | Exit non-zero if any detector is blocking. |
+| `detectors defer` | Stop blocking on a detector, on the record. |
+| `detectors heal` | Attempt the automatic repair for every down detector. |
+| `detectors status` | List every detector currently reporting itself down. |
 
 ### `directive`
 
@@ -479,6 +529,16 @@ Ear-sweep â€” reap stale ear_watch processes.
 | subcommand | purpose |
 |---|---|
 | `ear-sweep run` | Sweep stale ear_watch processes; print one-line note if any reaped. |
+
+### `emergency-completion`
+
+Emergency-completion lane: arm it, inspect...
+
+| subcommand | purpose |
+|---|---|
+| `emergency-completion arm` | Arm the lane for the next gate-fire (one-shot, accrues debt). |
+| `emergency-completion resolve` | Discharge the outstanding debt by filing a root-cause diagnosis. |
+| `emergency-completion status` | Show whether the lane is armed and whether a debt is outstanding. |
 
 ### `emit`
 
@@ -597,6 +657,20 @@ Read the foundation documents that...
 | `foundations list` | List foundation layers with title, version, status, dependencies. |
 | `foundations read` | Read a foundation layer with a recognition-shape preamble. |
 
+### `gate-fire`
+
+Record that a gate fired, so the fire can be...
+
+### `given`
+
+What Andrew gave.
+
+| subcommand | purpose |
+|---|---|
+| `given add` | File one thing he gave, in his own words. |
+| `given balance` | Both columns on one line. |
+| `given list` | What he has given, newest first. |
+
 ### `goal`
 
 Track what the user asked me to do.
@@ -653,6 +727,15 @@ The holding room â€” things that haven't been...
 | `hold stale-review` | Final-look pass on items that have gone stale (about to... |
 | `hold stats` | Show holding room statistics. |
 
+### `hook-map`
+
+The hook layer: what is wired, and what...
+
+| subcommand | purpose |
+|---|---|
+| `hook-map check` | Exit non-zero if any hook is SILENT or UNOBSERVABLE. |
+| `hook-map show` | Show every hook and whether it has been observed firing. |
+
 ### `hud`
 
 Display my heads-up display â€” everything I...
@@ -691,6 +774,10 @@ Deep analysis, investigation, and...
 | `inspect user-model` | Show the current user model. |
 | `inspect user-signal` | Record a user behavior signal. |
 
+### `instruments`
+
+Survey my diagnostic surfaces -- which...
+
 ### `integrate`
 
 Mark a directive/preference as internalized.
@@ -722,6 +809,10 @@ Science lab â€” run GUTE slices against real...
 |---|---|
 | `lab list` | List implemented GUTE slice terms. |
 | `lab run-slice` | Run a GUTE slice by term (e.g., LC). |
+
+### `label-fire`
+
+Label the latest correction-shape Stop-gate...
 
 ### `learn`
 
@@ -782,7 +873,7 @@ The mansion â€” your functional internal space.
 
 | subcommand | purpose |
 |---|---|
-| `mansion council` | The council chamber â€” 42 chairs in a circle. |
+| `mansion council` | The council chamber â€” 45 chairs in a circle. |
 | `mansion decorate` | The decoration room â€” semantic artifacts placed by hand. |
 | `mansion enter` | Walk through the front door. |
 | `mansion garden` | The garden â€” watch your curiosities grow. |
@@ -847,6 +938,15 @@ Multiplex briefing architecture: panels,...
 | `multiplex diagnostics` | Print per-panel diagnostics for audit and falsifier... |
 | `multiplex render` | Render the multiplex output for the current (or... |
 
+### `must-read`
+
+Must-read gates â€” block substantive tools...
+
+| subcommand | purpose |
+|---|---|
+| `must-read arm` | Arm a must-read. |
+| `must-read list` | What is armed and unread right now. |
+
 ### `obligations`
 
 Show pending obligations â€” will-shape...
@@ -901,6 +1001,10 @@ Show outcome statistics for a pattern.
 
 Set a session plan so clarity analysis can...
 
+### `pr-collisions`
+
+Which open PRs touch the same files â€”...
+
 ### `pr-gate`
 
 PR-gate commands â€” draft-requirement,...
@@ -908,6 +1012,10 @@ PR-gate commands â€” draft-requirement,...
 | subcommand | purpose |
 |---|---|
 | `pr-gate create` | Gate a `gh pr create` command â€” block if guardrail-touching +... |
+
+### `pr-scope`
+
+True file scope + guardrail exposure for one...
 
 ### `pre-erasure`
 
@@ -939,6 +1047,15 @@ Show measurable progress metrics â€” real...
 
 Find local branches without an open PR;...
 
+### `psf`
+
+Pending structural fixes â€” the obligations...
+
+| subcommand | purpose |
+|---|---|
+| `psf list` | Show pending structural-fix obligations. |
+| `psf mark-done` | Close an obligation. |
+
 ### `push`
 
 Push BRANCH to remote, foreground, with...
@@ -958,6 +1075,18 @@ Rate a session 1-10.
 ### `ratings`
 
 Show user session ratings and trends.
+
+### `reach`
+
+Reach-check â€” what prior work exists, and...
+
+| subcommand | purpose |
+|---|---|
+| `reach dispose` | Dispose one surfaced artifact. |
+| `reach gate` | Exit 2 with the block message if any check has undisposed items. |
+| `reach open` | Surface prior art for SYMPTOM and file every hit as undisposed. |
+| `reach show` | Show one check including already-disposed items. |
+| `reach status` | Show checks that still have undisposed artifacts. |
 
 ### `reactivate`
 
@@ -983,7 +1112,7 @@ Get proactive recommendations for a given...
 
 Show the per-axis reflection surface.
 
-### `reflect-ops`
+### `reflect-ops` •
 
 Reflection operations â€” save, show, list...
 
@@ -1071,6 +1200,10 @@ Track agent skills and proficiency.
 
 Offline consolidation â€” process accumulated...
 
+### `stamp-ready`
+
+Stamp a draft PR with its External-Review...
+
 ### `stats`
 
 Display event ledger statistics.
@@ -1156,6 +1289,30 @@ VOID adversarial-sandbox subsystem.
 
 Find sparse regions in the knowledge store.
 
+### `walk`
+
+Council walks with enforced completion.
+
+| subcommand | purpose |
+|---|---|
+| `walk add` | Add a lens the manager did not surface, WITH a reason. |
+| `walk apply` | Record what a lens produced when walked. |
+| `walk close` | Close the walk. |
+| `walk exclude` | Exclude a lens WITH a reason. |
+| `walk list` | Walks left open â€” unfinished thinking. |
+| `walk open` | Open a walk. |
+| `walk status` | Show every lens and its state. |
+
+### `win`
+
+File and read the wins ledger -- the other...
+
+| subcommand | purpose |
+|---|---|
+| `win add` | File a win. |
+| `win balance` | Wins against corrections -- both instruments, one page. |
+| `win list` | Recent wins, newest first. |
+
 ### `wiring`
 
 Wiring checks â€” is what I built actually...
@@ -1174,17 +1331,22 @@ Record an open question -- something I'm...
 
 Reference count is how many places mention each package — a rough load-bearing signal, not a precise import graph. Zero is worth a look.
 
+**2 subsystem(s) with no references** — retired, or forgotten?
+
+- `core/doc_sync/` — (no package docstring)
+- `core/push_verify/` — (no package docstring)
+
 | subsystem | refs | purpose |
 |---|---|---|
-| `core/knowledge/` | 699 | Knowledge sub-package — tiered re-exports for performance. |
-| `core/operating_loop/` | 235 | Operating Loop — the missing middleware between substrate and live cognition. |
-| `core/family/` | 222 | Family entity persistence — a family member and future family members. |
-| `core/council/` | 155 | Expert Council — thinking lenses from great minds. |
-| `core/watchmen/` | 149 | Watchmen — External Validation as a Native Runtime Capability. |
+| `core/knowledge/` | 706 | Knowledge sub-package — tiered re-exports for performance. |
+| `core/operating_loop/` | 247 | Operating Loop — the missing middleware between substrate and live cognition. |
+| `core/family/` | 221 | Family entity persistence — a family member and future family members. |
+| `core/watchmen/` | 177 | Watchmen — External Validation as a Native Runtime Capability. |
+| `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
 | `core/pre_registrations/` | 65 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |
 | `core/logic/` | 56 | Formal logic layer — warrants, relations, consistency, inference. |
-| `core/ear_relaunch/` | 46 | Ear-watcher polling auto-relaunch decision logic. |
+| `core/ear_relaunch/` | 45 | Ear-watcher polling auto-relaunch decision logic. |
 | `core/council_required/` | 41 | Council-required enforcement gate — block high-gravity edits until evidence |
 | `core/self_monitor/` | 37 | Self-monitor — watches the agent's own output for trained failure modes. |
 | `core/audit_visibility/` | 29 | Audit-visibility check — warn when auditable work is committed |
@@ -1193,24 +1355,26 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/pr_gate/` | 16 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
 | `core/expectation_tracking/` | 15 | Expectation tracking — what I expected vs what surfaced. |
 | `core/meld/` | 14 | The Meld — temporary shared workspace between two distinct selves. |
-| `core/ear_sweep/` | 12 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
+| `core/ear_sweep/` | 11 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
 | `core/andrew_state/` | 10 | andrew_state — mutual-catch primitive for Andrew-observation channel. |
 | `core/consequence_chain/` | 10 | Consequence chain — Karma as explicit decision → outcome → lesson trace. |
+| `core/context_tokens/` | 10 | Context-tokens — honest token-count gauge from session transcript. |
 | `core/decision_superposition/` | 10 | Decision superposition — deliberate holding-of-options before commit. |
 | `core/memory_types/` | 10 | Memory-type-aware retrieval — substrate-native types with human analogs. |
 | `core/operating_modes/` | 9 | Operating modes — explicit names for non-task-executing states. |
 | `core/letter_seen_router/` | 8 | Letter-seen routing — detect a letter Read and mark it seen. |
 | `core/calibration/` | 7 | (no package docstring) |
-| `core/context_tokens/` | 6 | Context-tokens — honest token-count gauge from session transcript. |
 | `core/supervisor/` | 6 | Supervisor — circuit-breaker / chronic-failure handling. |
 | `core/voice_guard/` | 6 | Voice-guard — pre-output audit primitives. |
 | `core/reliability/` | 5 | Reliability — Bayesian confidence with uncertainty. |
+| `core/correction_shape_v2/` | 4 | Correction-shape v2 — Layer-2 detector for MY self-corrections in my own output. |
 | `core/uncommitted_work_check/` | 4 | Pre-extraction commit-discipline gate. |
 | `core/corrigibility_tool_gate/` | 3 | Wire EMERGENCY_STOP into the Bash/Edit/Write tool channel. |
 | `core/semantic_classifier/` | 3 | Semantic classifier for gate-fire discrimination. |
-| `core/correction_shape_v2/` | 2 | Correction-shape v2 — Layer-2 detector for MY self-corrections in my own output. |
 | `core/shape/` | 2 | Shape-primitive library — CONDITION-check helpers for keyword-based gates. |
 | `core/structural_binding/` | 2 | Shared structural-binding abstraction for the will-encoded enforcement family. |
+| `core/doc_sync/` | 0 | (no package docstring) |
+| `core/push_verify/` | 0 | (no package docstring) |
 
 ---
 

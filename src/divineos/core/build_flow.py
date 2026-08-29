@@ -175,7 +175,10 @@ def check_draft_station(is_draft: bool | None) -> StationResult:
 
 
 def check_audit_station(
-    pr_number: int, branch: str, audit_refs: tuple[str, ...] | None
+    pr_number: int,
+    branch: str,
+    audit_refs: tuple[str, ...] | None,
+    store_label: str | None = None,
 ) -> StationResult:
     """Station 8 -- Aletheia. Last, and never self-serviceable.
 
@@ -223,7 +226,41 @@ def check_audit_station(
         return StationResult("8-audit", Status.SATISFIED, f"audit round names PR #{pr_number}")
     if branch and any(branch in r for r in audit_refs):
         return StationResult("8-audit", Status.SATISFIED, f"audit round names {branch}")
-    return StationResult("8-audit", Status.MISSING, "no audit round names this PR or its branch")
+    # THE ANSWER CARRIES ITS OWN SCOPE. Aria, 2026-08-28, after going to verify
+    # a round I had filed and being told twice by her own tools that it did not
+    # exist:
+    #
+    #   "Two readings, both true, both about the wrong thing. My store is not
+    #    the one you wrote to."
+    #
+    # There are two stores in this house and neither seat can see the other's
+    # through its own tools. Her round count and mine differ, and a round filed
+    # on one side is genuinely absent from the other. This sentence used to
+    # read "no audit round names this PR or its branch" -- a true statement
+    # about ONE store, published with the scope of all of them, at the last
+    # gate before a merge.
+    #
+    # She stopped short of asserting my board was broken because she had not
+    # read it. I checked: on this side the round IS visible to this code path.
+    # So the defect is not a wrong verdict here; it is a sentence that cannot
+    # be wrong out loud. Naming the store turns an unfalsifiable negative into
+    # one a reader can check -- and if it is ever run from the other seat, the
+    # miss explains itself instead of reading as NOT-AUDITED.
+    #
+    # An unnamed store is reported as unnamed rather than guessed at: naming a
+    # store this did not query would be the same wrong-subject error one level
+    # down, which is the error being fixed.
+    # The scope names BOTH narrowings, because there were two stacked and the
+    # second was only visible once the first was measured: which store, and
+    # how many of its rounds were actually compared against. Aria found the
+    # row cap when the count came back a number matching neither store.
+    where = f" in {store_label}" if store_label else " (store not identified)"
+    return StationResult(
+        "8-audit",
+        Status.MISSING,
+        f"no audit round names this PR or its branch "
+        f"(compared against {len(audit_refs)} round(s){where})",
+    )
 
 
 def fingerprint(statuses: list[PrFlowStatus]) -> str:

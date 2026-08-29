@@ -279,25 +279,111 @@ def _lenses_applied(paths: tuple[str, ...] | None) -> int | None:
     return len(seen)
 
 
-def _audit_refs() -> tuple[str, ...] | None:
+_ROUND_SCAN_LIMIT = 100_000
+"""Ceiling for the station-eight round scan.
+
+Deliberately far above any plausible round count rather than unbounded. If a
+store ever exceeds it the truncation is at least reported by the scope line,
+which names how many rounds were compared against -- a visible narrowing
+instead of the silent one this replaces."""
+
+
+def _audit_store_label() -> str | None:
+    """The database the rounds were actually read from, or None.
+
+    Resolved from the SAME connection the rounds come through, never guessed
+    from configuration. A label naming a store this did not query would be the
+    wrong-subject error the label exists to prevent.
+    """
+    try:
+        from divineos.core.knowledge import _get_connection
+
+        rows = list(_get_connection().execute("PRAGMA database_list"))
+    except _BF_ERRORS:
+        return None
+    for row in rows:
+        if len(row) >= 3 and str(row[1]) == "main" and row[2]:
+            return str(row[2])
+    return None
+
+
+def _audit_refs() -> tuple[tuple[str, ...] | None, str | None]:
+    """Rounds visible to THIS seat, and the store they came from.
+
+    Returns the label alongside the refs so station eight can say where it
+    looked. Two stores exist in this house and neither seat sees the other's;
+    an unqualified "no round found" is a true statement about one of them
+    published with the scope of both.
+    """
     out = _gh(["pr", "list", "--state", "open", "--limit", "1"])
     if out is None:
-        return None  # no network -> cannot check, do not claim absent
+        return None, None  # no network -> cannot check, do not claim absent
     try:
         from divineos.core.watchmen.store import list_rounds  # type: ignore[attr-defined]
     except _BF_ERRORS:
-        return None
+        return None, None
     try:
-        return tuple(str(r) for r in list_rounds())
+        # THE ROW CAP. `list_rounds` defaults to limit=20 and this called it
+        # with no argument, so station eight compared every PR against the
+        # twenty most recent rounds out of three hundred and twenty-one.
+        # Measured by Aria 2026-08-28 and re-measured here: default call 20,
+        # explicit limit 321, table 321. A round older than the twenty newest
+        # produced a confident MISS at the last gate before merge.
+        #
+        # THIRD INSTANCE OF THIS CLASS IN THIS FILE, and the other two are
+        # written up in docstrings above: the changed-files list silently
+        # capping at a hundred, and before that the lens key being wrong. Her
+        # reading, which is right -- the first fix corrected the key, the
+        # second corrected the corpus the key is looked up in, and this
+        # narrowed that corpus twice more, once by store and once by row.
+        #
+        # No sentinel and no None: an explicit ceiling far above any real
+        # round count, so a future store that outgrows it degrades to the
+        # same visible truncation rather than a silent one, and the scope
+        # line below reports the number actually compared against.
+        rounds = tuple(str(r) for r in list_rounds(limit=_ROUND_SCAN_LIMIT))
     except _BF_ERRORS:
-        return None
+        return None, None
+
+    # THE UNION, per Andrew 2026-08-28: share everything, stay separate. Both
+    # seats' rounds are READ; neither store is written by the other.
+    #
+    # A PARTIAL UNION MUST NOT PASS FOR A WHOLE ONE. If a seat is present and
+    # unreadable, this returns None -- CANNOT_CHECK -- rather than a confident
+    # verdict over the half it managed to read. That half-answer is precisely
+    # the defect being repaired here, and a union that degrades quietly to one
+    # store would be the same bug wearing a friendlier name.
+    #
+    # A seat that is simply not on this machine is different and is NOT a
+    # failure: it is a complete answer about an absent seat. Treating those
+    # alike would make an ordinary single-seat checkout refuse forever, and a
+    # check that always refuses gets switched off.
+    parts = [f"{len(rounds)} own"]
+    try:
+        from divineos.core.sibling_audit_rounds import read_other_seats, this_seat
+
+        for seat in read_other_seats(this_seat()):
+            if seat.error is not None:
+                return None, f"{seat.name} present but unreadable: {seat.error}"
+            if seat.absent:
+                parts.append(f"{seat.name} not present here")
+                continue
+            assert seat.rounds is not None
+            rounds = rounds + seat.rounds
+            parts.append(f"{len(seat.rounds)} from {seat.name}")
+    except _BF_ERRORS as exc:
+        return None, f"sibling round reader unavailable: {type(exc).__name__}"
+
+    label = _audit_store_label()
+    where = f"{'; '.join(parts)}; own store {label}" if label else "; ".join(parts)
+    return rounds, where
 
 
 def collect() -> tuple[list[PrFlowStatus] | None, str]:
     prs = _open_prs()
     if prs is None:
         return None, "GitHub unreachable — status unknown, NOT clean"
-    audit = _audit_refs()
+    audit, audit_store = _audit_refs()
     out: list[PrFlowStatus] = []
     for pr in prs:
         n = int(pr.get("number", 0))
@@ -313,7 +399,7 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
                 check_aria_station(branch, _LETTERS),
                 check_draft_station(pr.get("isDraft")),
-                check_audit_station(n, branch, audit),
+                check_audit_station(n, branch, audit, audit_store),
             ]
             out.append(st)
             continue
@@ -326,7 +412,7 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
             check_council_station(branch, need, _lenses_applied(paths)),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
-            check_audit_station(n, branch, audit),
+            check_audit_station(n, branch, audit, audit_store),
         ]
         out.append(st)
     return out, ""
