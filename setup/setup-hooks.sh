@@ -303,7 +303,11 @@ cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #   DIVINEOS_SKIP_FRESHNESS_CHECK=1   — bypass freshness
 #   DIVINEOS_FORCE_PUSH_OK=1          — bypass force-push safety
 #   DIVINEOS_SKIP_TESTS=1             — bypass local pytest (push-readiness)
-#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — bypass External-Review trailer check
+#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — skip the FEATURE-BRANCH trailer
+#                                       advisory only (step 5). It does NOT
+#                                       reach the push-to-main gate at step 3
+#                                       and never has. There is no bypass for
+#                                       merging to main; see step 3.
 #   DIVINEOS_EMERGENCY_PUSH=1         — bypass push-readiness entirely
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
@@ -336,10 +340,34 @@ if [[ -x "$FORCE_SAFETY" ]]; then
 fi
 
 # 3. Multi-party-review (pre-push mode, target=main only).
-# Walks the push-range and blocks if any commit touching guardrail
-# files lacks the External-Review trailer. Default mode filters to
-# refs/heads/main; the push-readiness gate below also runs --strict
-# which catches feature-branch pushes that will fail CI.
+# Walks the push-range and blocks if any commit merging to main lacks
+# the External-Review trailer. Default mode filters to refs/heads/main;
+# the push-readiness gate below also runs --strict which catches
+# feature-branch pushes that will fail CI.
+#
+# NO BYPASS HERE, DELIBERATELY, AND THE HEADER USED TO IMPLY OTHERWISE.
+#
+# This file's own header advertised DIVINEOS_SKIP_MULTIPARTY_CHECK as
+# bypassing "the External-Review trailer check" without saying which of
+# the two layers it reaches. It reaches step 5 -- the feature-branch
+# advisory -- and has never been read here. So the documented escape was
+# inert at the only door that is actually shut, and reading the header
+# told you the opposite.
+#
+# THE REPAIR IS THE HEADER, NOT THIS STEP. Wiring the variable in here
+# would create a one-word bypass of the merge-to-main audit, which is
+# precisely the loophole the blanket rule exists to close. Andrew
+# 2026-08-29, on why review is blanket rather than guardrail-scoped:
+# "if we removed the auditing from the personal stuff (even when theres
+# nothing to audit code wise) it could be used as a loophole to sneak
+# things in that shouldnt be snuck in."
+#
+# AND THE INERT ESCAPE COST MORE THAN CONFUSION (Aletheia 2026-08-29):
+# a narrow exit that does not open does not fail neutrally -- it routes
+# the person to the wide one. Some fraction of DIVINEOS_EMERGENCY_PUSH
+# uses in the bypass telemetry are people who tried the narrow door
+# first, so those numbers overstate deliberate whole-gate skipping. The
+# telemetry cannot tell routing-around from routed-into.
 if [[ -f "$MULTI_PARTY" ]]; then
     echo "$HOOK_STDIN" | python "$MULTI_PARTY" --mode=pre-push
     RC=$?
