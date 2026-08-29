@@ -160,6 +160,96 @@ def validate_external_confirm_inputs(
     )
 
 
+def _anchor_after(description: str, label: str) -> str:
+    """The 40-hex token following ``label`` in a confirm's description.
+
+    NO REGEX, and the keyword-doorman is why. Its standing lesson -- proven
+    twice on this file -- is that the pattern is usually unnecessary and
+    literal checks are clearer and cannot over-match. That applies exactly
+    here: a confirm description is PROSE, and a pattern hunting for a label
+    near a hash can match the words inside a sentence ABOUT a hash. Splitting
+    on whitespace and demanding the very next token be forty hex characters
+    cannot do that, and a reader can verify it by eye.
+    """
+    tokens = description.split()
+    for i, token in enumerate(tokens[:-1]):
+        if token.lower().rstrip(":") != label:
+            continue
+        candidate = tokens[i + 1].strip(".,;)").lower()
+        if len(candidate) == 40 and all(c in "0123456789abcdef" for c in candidate):
+            return candidate
+    return ""
+
+
+def anchor_state_for_round(
+    round_id: str,
+    branch: str,
+    remote: str = "origin",
+    main_ref: str = "origin/main",
+) -> tuple[str, str]:
+    """Does this round's external CONFIRM still cover the branch as it stands?
+
+    Returns (state, detail) where state is one of:
+
+      holds        the reviewed change is unchanged -- exact tree, or a
+                   catch-up whose patch-id still matches
+      stale        the reviewed change MOVED; re-audit rather than merge on it
+      unanchored   the confirm predates content binding and records no anchor,
+                   so drift since cannot be detected either way
+      cannot-check the round, the confirm, or git could not be read
+
+    EXTRACTED SO THE BOARD AND THE COMMAND ANSWER FROM ONE PLACE. Station
+    eight needed this and `confirm-holds` already did it; copying the logic
+    would have produced two answers to one question that drift apart -- the
+    defect that left three council lenses unwalkable earlier this month, and
+    the one that let a schema exemption sit in one list while a comment
+    claimed it was in two.
+
+    CANNOT-CHECK IS NOT A PASS and the caller must keep it distinct. This is
+    the last station before a merge; a failed read reported as a clean one is
+    the whole class of fault this station has been accumulating.
+    """
+    try:
+        from divineos.core.watchmen.store import list_findings
+    except Exception:  # noqa: BLE001 - store unavailable is cannot-check, not stale
+        return "cannot-check", "audit store not importable"
+
+    try:
+        findings = list_findings(round_id=round_id, limit=200)
+    except Exception as exc:  # noqa: BLE001 - unreadable, which is not absent
+        return "cannot-check", f"{type(exc).__name__}: {exc}"
+
+    ext = [
+        f
+        for f in findings
+        if (getattr(f, "actor", "") or "").lower() in _EXTERNAL_AI_ACTORS
+        and "CONFIRMS" in (getattr(f, "title", "") or "")
+    ]
+    if not ext:
+        return "cannot-check", f"no external-AI CONFIRM in round {round_id}"
+
+    desc = getattr(ext[-1], "description", "") or ""
+    rec_tree = _anchor_after(desc, "tree")
+    rec_pid = _anchor_after(desc, "patch-id")
+    if not rec_tree and not rec_pid:
+        return "unanchored", "confirm records no tree-hash or patch-id"
+
+    _git_capture(["git", "fetch", remote, branch], timeout=60)
+    cur_tree = _git_capture(["git", "rev-parse", f"{remote}/{branch}^{{tree}}"])
+    cur_pid = compute_branch_patch_id(f"{remote}/{branch}", main_ref)
+    if not cur_tree and not cur_pid:
+        return "cannot-check", f"could not resolve {remote}/{branch}"
+
+    ok, reason, _basis = validate_external_confirm_inputs(
+        actor=getattr(ext[-1], "actor", ""),
+        claimed_tree=rec_tree,
+        actual_tree=cur_tree or "",
+        claimed_patch_id=rec_pid,
+        actual_patch_id=cur_pid or "",
+    )
+    return ("holds" if ok else "stale"), reason
+
+
 def _git_capture(args: list[str], timeout: int = 30) -> str | None:
     """Run a git command; return stripped stdout, or None on any failure."""
     import subprocess
@@ -211,10 +301,29 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
     if not base:
         return None
     try:
+        # BYTES, NOT TEXT, AND THIS IS THE WHOLE BUG (Aletheia 2026-08-29).
+        #
+        # She computed a patch-id for a branch that returned nothing here and
+        # asked why. Reproduced: `text=True` decodes with the locale codec,
+        # which on this machine is cp1252, and the diff carries a byte cp1252
+        # cannot map. An em-dash or a curly quote is enough -- so nearly every
+        # branch I own, because my own comments and letters are full of them.
+        #
+        # WORSE THAN A CRASH: UnicodeDecodeError is a ValueError, which is in
+        # neither OSError nor SubprocessError, so the guard below never caught
+        # it. It escaped to a broad handler upstream and became a silent None,
+        # and a None here is indistinguishable from "this branch has no diff".
+        # The catch-up rung was therefore unavailable to those branches
+        # permanently, and nothing anywhere said so.
+        #
+        # A diff is bytes. Forcing it through a text codec was the error, not
+        # the codec choice -- so this works in bytes end to end rather than
+        # picking a better encoding, and the failure mode stops existing
+        # instead of being caught. Only the final line is decoded, and that
+        # line is hex and a space.
         diff = subprocess.run(
             ["git", "diff", base, branch_ref],  # default context; NEVER -U0
             capture_output=True,
-            text=True,
             check=False,
             timeout=30,
         )
@@ -224,16 +333,18 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
             ["git", "patch-id", "--stable"],
             input=diff.stdout,
             capture_output=True,
-            text=True,
             check=False,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, ValueError):
+        # ValueError kept even though bytes should make it unreachable: it is
+        # what this function used to die on, and an empty guard costs nothing
+        # next to another silent None.
         return None
     if pid.returncode != 0 or not pid.stdout.strip():
         return None
     # Output line: "<patch-id> <commit-id>" — first token is the patch-id.
-    return pid.stdout.split()[0].strip()
+    return pid.stdout.decode("ascii", "replace").split()[0].strip()
 
 
 def register(cli: click.Group) -> None:

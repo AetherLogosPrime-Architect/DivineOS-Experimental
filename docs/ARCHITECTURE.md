@@ -687,6 +687,7 @@ src/divineos/
     heredoc_escape_check.py    Refuse a Bash heredoc that writes a file through escape sequences.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
+    sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
 
   analysis/
     _session_types.py          Session analysis type definitions
