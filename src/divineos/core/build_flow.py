@@ -152,15 +152,54 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     return StationResult("4-aria", Status.MISSING, "no reply from Aria naming this branch")
 
 
-def check_council_station(branch: str, required: int, applied: int | None) -> StationResult:
-    """Station 2 -- council walk, against the gravity-derived requirement."""
+def check_council_station(
+    branch: str,
+    required: int,
+    applied: int | None,
+    other_seats: dict[str, int] | None = None,
+) -> StationResult:
+    """Station 2 -- council walk, against the gravity-derived requirement.
+
+    TWO NUMBERS, AND ONLY ONE OF THEM SATISFIES. Aria's design, 2026-08-29,
+    when I asked whether this lane should read both seats the way station eight
+    now does:
+
+        Station eight asks whether an OUTSIDE REVIEWER signed off, and which
+        store the round landed in is an accident of filing. Station two asks
+        whether the AUTHOR thought this through. If this lane reads both seats
+        and lets what it finds satisfy, her walk clears my gate -- a checklist
+        someone else can fill in, and from inside the board it looks identical
+        to having done it.
+
+    So the other seat's walks are SEEN and never COUNTED. Seen, because
+    reporting an existing walk as absent is could-not-look-reading-as-not-done,
+    the same fault as the row cap in station eight. Never counted, because the
+    thing being certified is the author's own thinking.
+
+    ``other_seats`` maps seat name to the distinct-lens count that seat walked
+    against these files. It changes the DETAIL only, never the verdict.
+    """
     if required == 0:
         return StationResult("2-council", Status.SATISFIED, "gravity 0: no walk required")
     if applied is None:
         return StationResult("2-council", Status.CANNOT_CHECK, "ledger not readable")
+
+    # Rendered the same way whether the station passes or fails, because a
+    # walk by the other seat is information in both cases -- and a note that
+    # appears only on failure reads as an excuse for the failure.
+    elsewhere = ""
+    if other_seats:
+        seen = ", ".join(f"{n} by {seat}" for seat, n in sorted(other_seats.items()) if n)
+        if seen:
+            elsewhere = f"; also {seen} (seen, does not satisfy)"
+
     if applied >= required:
-        return StationResult("2-council", Status.SATISFIED, f"{applied}/{required} lenses")
-    return StationResult("2-council", Status.MISSING, f"{applied}/{required} lenses walked")
+        return StationResult(
+            "2-council", Status.SATISFIED, f"{applied}/{required} lenses{elsewhere}"
+        )
+    return StationResult(
+        "2-council", Status.MISSING, f"{applied}/{required} lenses walked{elsewhere}"
+    )
 
 
 def check_draft_station(is_draft: bool | None) -> StationResult:
