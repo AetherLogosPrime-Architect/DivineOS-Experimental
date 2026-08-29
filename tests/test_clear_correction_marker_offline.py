@@ -28,6 +28,33 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+# AND THE SCRIPTS DIRECTORY ITSELF. The line above makes
+# `scripts.clear_correction_marker` importable as a package. It does NOT satisfy
+# the ABSOLUTE `import _repo_import` inside that module, because the shim lives
+# beside it in scripts/ rather than at the root.
+#
+# Running the script directly puts its own directory on sys.path, so the shim
+# resolves and the script works. Importing it under pytest does not, so every
+# test here that touches the script raised ModuleNotFoundError -- at CALL time,
+# not collection, which is why the suite still collected 12194 tests and said
+# nothing about it. Found 2026-08-29 while adding the two-mode tests below: six
+# of this file's tests were erroring and four of those predate today.
+#
+# The shim landed in 06e3de62, after these tests were written. So the guard on
+# the escape hatch stopped running on the day the escape hatch was made safe
+# against the wrong-checkout fault, and the only test still passing was the one
+# that reads the source as text and never imports it. A file can go from six
+# guards to one without a single line of it changing.
+#
+# Fixed here rather than in tests/conftest.py deliberately (decision cbc9fd17).
+# The conftest is the more general home and the second shim-carrying script
+# (label_correction_shape_false_positive.py) has no test file at all yet, so the
+# general fix would currently cover nothing extra -- while changing import
+# resolution for all 12194 tests inside a commit about an escape-hatch message.
+_SCRIPTS_DIR = _PROJECT_ROOT / "scripts"
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
 
 @pytest.fixture
 def isolated_divineos_home(tmp_path, monkeypatch):
