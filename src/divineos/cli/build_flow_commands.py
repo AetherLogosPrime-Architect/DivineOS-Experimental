@@ -288,6 +288,43 @@ which names how many rounds were compared against -- a visible narrowing
 instead of the silent one this replaces."""
 
 
+def _other_seat_lenses(paths: tuple[str, ...] | None) -> dict[str, int]:
+    """Distinct lenses the OTHER seat walked against these files.
+
+    Seen, never counted -- Aria's 2026-08-29 design. A walk of hers this board
+    cannot see is reported to me as "not walked", which is
+    could-not-look-reading-as-not-done inside the lane that decides whether I
+    thought a change through. Measured when the split was found: 290 walk
+    events on this seat, 103 on hers, all 103 invisible here.
+
+    An absent or unreadable seat yields an empty mapping, and that is the one
+    place this deliberately differs from station eight. There, an unreadable
+    seat forces CANNOT_CHECK, because a round I cannot see might be an audit
+    that happened. Here, a walk of hers cannot change my verdict either way --
+    hers never satisfy -- so an unreadable sibling costs a line of information
+    rather than producing a wrong answer.
+    """
+    if not paths:
+        return {}
+    try:
+        from divineos.core.sibling_audit_rounds import this_seat
+        from divineos.core.sibling_council_walks import lenses_for_paths, read_other_seats_walks
+    except _BF_ERRORS:
+        return {}
+    wanted = {p.replace("\\", "/") for p in paths if p}
+    out: dict[str, int] = {}
+    try:
+        for seat in read_other_seats_walks(this_seat()):
+            if not seat.readable:
+                continue
+            found = lenses_for_paths(seat, wanted)
+            if found:
+                out[seat.name] = len(found)
+    except _BF_ERRORS:
+        return {}
+    return out
+
+
 def _audit_store_label() -> str | None:
     """The database the rounds were actually read from, or None.
 
@@ -409,7 +446,7 @@ def collect() -> tuple[list[PrFlowStatus] | None, str]:
         st.stations = [
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
-            check_council_station(branch, need, _lenses_applied(paths)),
+            check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
             check_aria_station(branch, _LETTERS),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store),
