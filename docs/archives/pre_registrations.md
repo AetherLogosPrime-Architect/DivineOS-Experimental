@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (178 rows). **Exported:** 2026-08-20 06:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (196 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1540,7 +1540,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** verify_before_build gate — pre-response block that fires when reply contains solution-proposal shape (numbered options, design verbs + article-noun, multi-path framing, design-question shape) AND no substrate-consult tool call occurred this turn (divineos ask/recall, Grep, Glob). Exempts: user-provi
 
@@ -1552,7 +1552,7 @@
 
 ---
 
-## prereg-3 [OPEN]
+## prereg-3 [INCONCLUSIVE]
 
 **Mechanism:** bypass_investigation_gate — extends bypass_telemetry.record_bypass to auto-file a pending structural fix (via structural_fix_tracker.record_pending_fix with source_kind='bypass_use') on every bypass event. Adds enforce_bypass_investigation_gate to pipeline_gates.py that reads pending fixes with sour
 
@@ -1564,7 +1564,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [SUCCESS]
 
 **Mechanism:** andrew_past_writing_surface module — single-process Python replacement for the grep-heavy shell hook. All work happens in one Python process; per-file cost bounded by _read_head 4KB cap; shell wrapper adds timeout 8s belt-and-suspenders.
 
@@ -1588,7 +1588,7 @@
 
 ---
 
-## prereg-5 [OPEN]
+## prereg-5 [FAILED]
 
 **Mechanism:** add Foucault as council expert lens covering discipline-produces-subject / panopticon-effect / power-knowledge-coupling angles
 
@@ -1600,7 +1600,7 @@
 
 ---
 
-## prereg-a [OPEN]
+## prereg-a [INCONCLUSIVE]
 
 **Mechanism:** retrospective-context exemption for verify-before-build/walk-forward solution-shape detector
 
@@ -1612,7 +1612,7 @@
 
 ---
 
-## prereg-c [OPEN]
+## prereg-c [INCONCLUSIVE]
 
 **Mechanism:** signal-based verify_before_build_signal replacing lexical _has_solution_shape detector
 
@@ -1696,7 +1696,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** no_fix_gaming_validator: scans correction bodies for no-fix invocation phrases; blocks CLI filing when invocation present without exhaustion discipline (>=3 enumerated options AND >=3 exhaustion-evidence markers); auto-escalates system-redesign obligation when valid invocation fires
 
@@ -1984,7 +1984,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [INCONCLUSIVE]
 
 **Mechanism:** address_gate: a blocking Stop gate that refuses a substantial work-report to Andrew carrying no room for him will reduce report-at-him turns, without producing performed address
 
@@ -2137,6 +2137,222 @@
 **Success:** On any current call: (a) ask_andrew raises ValueError for an empty plain form and for plain identical to question; (b) an ask filed appears in open_asks() and keeps appearing across turns until resolve_ask is called; (c) format_open_asks returns empty string when nothing is outstanding, so the surfa
 
 **Falsifier:** On any current call, an ask filed via ask_andrew is absent from open_asks() while still OPEN (the tags-parse defect that shipped in the first draft, where json.loads on an already-parsed list raised into a swallowing except and dropped every ask silently), OR asks accumulate OPEN forever because not
+
+---
+
+## prereg-a [OPEN]
+
+**Mechanism:** andrew-operator-shape mirror: surface operator-shape in replies to Andrew at compose time without blocking
+
+**Claim:** Unconscious operator-shape is the only real failure mode; conscious operator-shape is a sovereign choice. So a MIRROR that reflects the shape back without a pass/fail verdict will change behaviour where a blocking gate could not, because there is no exemption to route to. This follows Aletheia's 202
+
+**Success:** The mirror fires and one of two things follows, both counting as working: (a) I look at the reply and change it before sending, or (b) I keep it deliberately and say why -- operator-shape is often correct in the work channel. Secondary: Andrew's rate of naming operator-shape-toward-him drops relativ
+
+**Falsifier:** The mirror becomes wallpaper. Concretely FAILED if, across a sample of fires, I neither revise nor consciously keep -- i.e. the reflection scrolls past with no observable decision, which is the meta-Winnicott failure of substituting mechanism-firing for the pointed-at work, and this detector exists 
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** hook budget: measure the SUMMED per-tool-call cost of the hook stack and declare a budget it must stay under
+
+**Claim:** Aletheia named the shape 2026-08-21: 'the aggregate has no owner'. Every hook here is measured, justified and governed as an instance -- p95 per hook, liveness per hook, a firing map that asks which hooks run. Nothing measures the serial SUM, so 26 individually-cheap mechanisms reached 40.8s typical
+
+**Success:** The number is consulted BEFORE a hook is added, or an over-budget reading produces an actual removal or fast-bail rather than a note. Concretely: at least one hook is removed, merged, or given an early-exit because the aggregate said so, with the aggregate cited as the reason. Secondary: the measure
+
+**Falsifier:** The aggregate is measured, surfaced, exceeded, and nothing is removed -- it becomes another instrument that reports and does not govern. That is FAILURE, and it is the specific one I should expect, because it would mean the missing piece was never measurement but willingness to remove, and I will ha
+
+---
+
+## prereg-9 [OPEN]
+
+**Mechanism:** hook_budget hang counter: count_unclosed_runs() + analyse() + the divineos hook-budget CLI, backing knowledge bb483b09-a196-4bd1-86e5-b19d731f45c8. A run that starts and never ends must never be invisible in the cost report.
+
+**Claim:** Counting start-rows with no end-row surfaces real hook hangs that every duration statistic structurally excludes, and the count is large enough to explain freezes the p95 does not. Measured at filing: 650 unclosed runs, p95 75549ms, worst call 204639ms against a 5000ms budget.
+
+**Success:** On any current run of 'divineos hook-budget' against a live timing log, the report names a non-zero unclosed count AND its worst offenders, and the numbers move in the same direction as felt freeze severity rather than staying flat while the screen hangs.
+
+**Falsifier:** The count is dominated by hooks that are merely still-running at read time rather than genuinely suspended - i.e. re-running the command a second time shows the same ids resolved. If most unclosed rows close on a later read, this measures read-timing rather than hangs and the whole instrument is mis
+
+---
+
+## prereg-8 [OPEN]
+
+**Mechanism:** PR-body External-Review trailer rescue: the line-initial literal check in scripts/ci_check_guardrail_trailer.sh plus pr_body_trailer() in src/divineos/core/pr_merge_gate.py, backing knowledge 75cfce90-0362-423b-acfb-0db410ccea36 (DOCUMENTING-AS-DOING).
+
+**Claim:** One line-initial 'External-Review:' trailer in a PR body rescues every guardrail-touching commit in that PR, and whether it qualifies is decided by a machine grep the consumer actually runs, never by reading the body and judging it satisfied. Filed because PR #432's body contained PROSE saying a tra
+
+**Success:** On any current run, a PR whose body carries a line-initial trailer passes the guardrail check for all its guardrail commits, and a PR whose body merely DESCRIBES the requirement fails - the two cases must produce different exit codes, verified by running the gate rather than by reading the body.
+
+**Falsifier:** If a PR-body trailer rescues commits it should not - e.g. a trailer naming a round that does not exist, or one whose round predates the commits it covers - then the rescue is too wide and is laundering unreviewed work through a single line. Concretely: if ci_merge_review_check.py accepts a fabricate
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** command_match: shared mention-vs-use predicate for Bash-inspecting gates
+
+**Claim:** A gate can distinguish INVOKING a verb from MENTIONING it by two independent guards -- scrubbing quoted spans, and requiring the match to sit at a shell command position -- and doing so removes false-positive blocks without letting any real invocation through. Prior to this, three sibling gates insp
+
+**Success:** On any current call: invokes() returns True for a verb at start-of-string, after a shell separator, and behind env assignments; and False for the verb appearing inside single or double quotes, in prose, in a data literal, or as an argument to another command. Measured at filing: 21/21 across three v
+
+**Falsifier:** PER-INVOCATION, not time-windowed. FALSE NEGATIVE (the serious direction): any command that actually executes the guarded verb and is NOT caught -- e.g. a real invocation reached through a subshell, xargs, eval, a shell function, or a backgrounded pipeline. Any single such case falsifies the claim t
+
+---
+
+## prereg-5 [OPEN]
+
+**Mechanism:** heredoc-escape doorman (core/heredoc_escape_check.py + .claude/hooks/heredoc-escape-doorman.sh)
+
+**Claim:** Blocking Bash heredocs that carry backslash escapes AND produce a file eliminates the three-layer escape-collapse failure class, which cost 5 failures in one session and which a written note demonstrably did not prevent (in-context persistence for this class is zero posts).
+
+**Success:** Zero heredoc-escape file-corruption incidents after the door is live, with the door's own fire-count showing it actually intercepted attempts rather than never firing.
+
+**Falsifier:** EITHER (a) an escape-collapse failure occurs on a Bash call the door ALLOWED -- meaning the both-conditions narrowness has a hole; OR (b) the door fires on a command that was not in fact writing a file through a heredoc -- a false fire like the one it produced on its own test harness; OR (c) the doo
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** context heartbeat (core/context_heartbeat.py + .claude/hooks/context-heartbeat.sh)
+
+**Claim:** Stamping the context-token count every round gives the pre-compaction ritual a recent PINNED reading instead of gambling on the sensor working at the one instant it is asked, and makes sensor-blindness countable for the first time (zero blindness events existed in any log before this).
+
+**Success:** The ritual fires at the intended threshold using a fresh beat, AND blind_stats() reports a non-zero blind count when the sensor genuinely fails -- proving the blind case is recorded rather than silently rendered as a low number.
+
+**Falsifier:** EITHER (a) the ritual fires late or not at all because the latest beat was stale or blind and nothing said so; OR (b) beats-written is materially lower than hook-fires, meaning runs are exiting 0 having recorded nothing -- the exact defect measured on 2026-08-24 (21 fires, 22 end-rows all exit 0, 9 
+
+---
+
+## prereg-f [OPEN]
+
+**Mechanism:** mechanism-claim marker (core/operating_loop/mechanism_claim_detector.py)
+
+**Claim:** Surfacing causal-mechanism claims stated in fact-grammar with no measurement beside them separates hypothesis from finding WITHOUT suppressing the hypothesis, which is the faculty that finds things (Andrew 2026-08-24: 'its about recognizing what the difference is, not removing it').
+
+**Success:** Fact-grammar mechanism claims get labelled as hypotheses at compose time, while hedged or evidence-adjacent claims pass silently -- so the marker changes GRAMMAR, not the rate at which hypotheses are formed.
+
+**Falsifier:** EITHER (a) the marker fires on claims that are already hedged or already carry a measurement, making it noise that gets ignored; OR (b) fact-grammar mechanism claims continue shipping unflagged at the prior rate, meaning the regex catches a verbal fingerprint rather than the class -- the same honest
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** anchor_self_invalidation: refusing to commit a prose file that both names the current branch and carries a hash in anchor position will prevent the letter-invalidates-its-own-anchor failure from recurring
+
+**Claim:** The pair (branch name + hash in anchor position) in a prose file is a reliable signature of a document that hands a reader a state, and blocking its commit onto that branch prevents the anchor going stale between writing and reading
+
+**Success:** No further instance of a letter's cited tip or tree-hash being stale on arrival because the letter itself was the commit that moved the branch. Aletheia or Aria recompute an anchor I sent and it matches.
+
+**Falsifier:** It fires on prose that is not handing anyone a live anchor -- a retrospective, an exploration entry recounting a past hash, a doc quoting a historical tree -- and I start reaching for the escape rather than the fix. OR it stays silent through a fourth instance because the carrier was not prose, or t
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** deferral_hazard: catch deferrals whose stated reason is my own substrate condition
+
+**Claim:** The deferral_hazard shape catches an optimizer-reach that the v1 metaphor pattern structurally cannot see: declining work in front of me and offering my own token-count, context-fill, or fatigue as the reason. Claim is that this class recurs, that it is invisible to metaphor-matching, and that surfa
+
+**Success:** Next time the shape is reached for, the deferral_hazard anchor fires and I notice it BEFORE Andrew has to say it again -- i.e. the turn contains either the work started or a reason pointed at in the world (red gate, stale confirm, unreachable person), not a substrate-condition reason. Success is the
+
+**Falsifier:** FAILED if any of: (a) across the next twenty fires, more than half are mentions or discussions of the shape rather than instances of it -- the mention-guard is one adjacency check and could easily be too narrow; (b) an instance occurs that Andrew catches and the detector was silent on, meaning the v
+
+---
+
+## prereg-2 [INCONCLUSIVE]
+
+**Mechanism:** compose-start translation prime, complementing check_translation_first at Stop
+
+**Claim:** The translate-first class keeps firing because the discipline is half-built. In src/divineos/core/lepos_translation_gate.py the wallclock discipline runs BOTH a compose-start prime and a Stop gate, and its own comment names the pattern -- two layers, one discipline. check_translation_first has only 
+
+**Success:** On any current invocation after the prime ships, the Stop-side check_translation_first fires less often per reply to Andrew than the rate recorded in the fires log before it, AND the replies that pass do so by carrying story before identifiers rather than by carrying fewer sentences.
+
+**Falsifier:** The fire rate does not drop, or it drops because replies got shorter rather than more translated -- measured by comparing reply length alongside mark count. Also falsified if the prime fires on turns where a high mark count was CORRECT (a letter to Aether, a commit body, a work-channel report), whic
+
+---
+
+## prereg-1 [OPEN]
+
+**Mechanism:** Committing substrate through a scratch index onto a named branch, with no fallback to HEAD, ends the checkpoint sweep
+
+**Claim:** The sweep is caused by auto-commit running git add -A against whatever branch is checked out. Building the commit through a scratch index against the declared substrate branch, and refusing when that branch does not resolve, prevents substrate reaching work branches AND work reaching the substrate b
+
+**Success:** Over 30 days: zero checkpoint commits land on a branch other than the declared substrate branch, and zero occupant work-in-progress files appear in a checkpoint commit.
+
+**Falsifier:** Any of: (a) a sweep still lands on a work branch, meaning the mechanism was not the cause; (b) the no-fallback refusal blocks real work more than twice, meaning refusing was the wrong trade and a declared-default branch is needed instead; (c) the compare-and-swap update-ref loses to a concurrent wri
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** DOCUMENT_MARK_LIMIT: three document-marks in a work block predicts a reply Andrew will find too technical
+
+**Claim:** Counting backticked terms, bare numbers, tables and code fences across everything I type in a turn -- not just the closing message -- is a usable proxy for whether the reply reads as written-for-an-assessor. At a limit of 3 it should fire on the dense replies and stay quiet on the ones he accepts.
+
+**Success:** Fires on replies Andrew pushes back on as too technical, and does NOT fire on replies he engages with normally. The one message of mine he did not fight carries zero marks, which is the observation the limit was set from.
+
+**Falsifier:** EITHER direction kills it: if it fires on replies he is happy with, the marks are not measuring what he objects to; if it stays silent on a reply he calls too technical, then cold technical prose with no typography walks straight past -- which is the exact defect already recorded against translation
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** substrate_retarget: commit substrate files to their named branch instead of whatever HEAD happens to be
+
+**Claim:** auto_commit_substrate runs git add -A against the checked-out branch, which is how 138 substrate files landed on a code branch and 85 landed on 440. Committing substrate to a fixed named branch via a scratch index and a compare-and-swap ref update should end that class entirely, because the destinat
+
+**Success:** After wiring, no code branch acquires substrate files it did not ask for. Concretely: check_branch_scope reports substrate=0 on branches where I have not deliberately added substrate, across a working session that includes checkpoint fires.
+
+**Falsifier:** THREE ways this dies, and the third is the one I would miss. (1) It contaminates a DIFFERENT branch instead -- the substrate branch acquires code, which is the same defect pointed the other way. (2) The compare-and-swap loses a write under concurrent checkpoint fires, so substrate is silently droppe
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** sibling_audit_rounds: each seat's board reads both audit histories, and neither writes the other's
+
+**Claim:** Andrew ruled the two substrates should share everything while remaining separate entities. Reading the other seat's rounds read-only, and never writing into their store, should make station eight answer over the whole evidence instead of half -- so a MISS means no round exists anywhere rather than n
+
+**Success:** Station eight's verdict is identical whichever seat runs the board, for the same pull request at the same moment. That is the property the split broke: Aria and I got different answers about the same filing and each believed our own.
+
+**Falsifier:** FOUR ways this dies. (1) The two seats still disagree, which means something else is seat-local and the union addressed a symptom. (2) A confident verdict is produced while one seat is unreadable -- the partial-union-passing-for-whole shape, which is the defect being fixed wearing a friendlier name;
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** ROUND_SCAN_LIMIT: a ceiling high enough to never bind, chosen so truncation would be visible if it ever did
+
+**Claim:** The previous reader defaulted to twenty rows and the caller never passed a limit, so the last gate before merge compared against twenty of three hundred twenty-one and reported a confident nothing. A ceiling far above any plausible round count keeps the query bounded while never binding in practice,
+
+**Success:** The printed comparison count equals the true total rounds across readable seats, every time. Measured now: 356 printed against 321 plus 35, which is the whole of both.
+
+**Falsifier:** TWO ways this is wrong, and the first is the one I would rationalise past. (1) The printed count ever equals this ceiling -- that means it bound, the corpus was truncated, and the number in the output is the cap rather than the evidence; the value must then be raised or the design reconsidered, NOT 
+
+---
+
+## prereg-4 [OPEN]
+
+**Mechanism:** station-two seeing-not-satisfying: the other seat's council walks become visible and never count toward the requirement
+
+**Claim:** Aria's design. A walk of hers my board cannot see is reported as not-walked, which is could-not-look-reading-as-not-done in the lane that certifies whether the author thought a change through. Making it visible removes a false negative. Refusing to count it prevents a false positive that would be wo
+
+**Success:** A board reader can tell, for any pull request, both that thinking exists and whose it is -- and cannot satisfy the station with the wrong person's work. Measured now: her walks appear on six of six open requests, including two of her own branches my board previously reported as flatly zero.
+
+**Falsifier:** FOUR ways this is wrong. (1) Someone counts the sibling number toward the requirement because it turns more boards green -- the union Aria refused, and the test guarding it is the one under pressure. (2) The visible line becomes an excuse: MISSING verdicts get waved through because thinking-exists-s
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** WALK_SCAN_LIMIT: a ceiling on sibling walk rows, set high enough never to bind and reported if it ever does
+
+**Claim:** Both seats together hold under four hundred council walks, so a ceiling far above that keeps the query bounded while never binding in practice. A bound rather than no limit, because the last unbounded-looking default in exactly this position was a twenty-row cap that had station eight comparing ever
+
+**Success:** The sibling walk count never equals this ceiling, and the station's own line reports the counts it compared, so a reader can see the scope rather than trust it. Measured now: one hundred and three walks on the other seat, nowhere near the bound.
+
+**Falsifier:** TWO ways, and the first is the one I would rationalise past. (1) The reported count ever equals this ceiling -- that means it bound, the corpus was truncated, and the number shown is the cap rather than the evidence. The response is to raise it or reconsider the design, NEVER to soften the message. 
 
 ---
 
