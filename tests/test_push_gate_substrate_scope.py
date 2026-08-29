@@ -98,6 +98,42 @@ def repo(tmp_path: Path) -> Path:
     return root
 
 
+# Substrings marking a variable whose whole job is to switch a gate OFF.
+# NOT a whole-prefix strip: conftest sets DIVINEOS_DB and DIVINEOS_HOME to
+# point at the sandbox, and removing those breaks every test that follows.
+_ESCAPE_MARKERS = ("SKIP", "BYPASS", "NO_VERIFY", "SUBSTRATE_BRANCH")
+
+
+def _clean_env(**extra: str) -> dict[str, str]:
+    """The ambient environment with gate-disabling variables removed.
+
+    THESE TESTS WERE NOT HERMETIC AND IT MATTERED. They inherited os.environ
+    whole, and DIVINEOS_SUBSTRATE_BRANCH=1 is a variable a person legitimately
+    exports to push a letters branch. The pre-push hook then runs the suite as
+    a child process, which inherits it, and the escape the gate honours turns
+    the check off underneath the very tests that exist to prove it refuses.
+
+    Found 2026-08-29 while pushing letters: all eight went red at once while
+    passing in isolation, which reads exactly like a regression and is not one.
+    The tests were right about a gate that had been silently disabled around
+    them.
+
+    THE MARKER LIST IS AN ENUMERATION and therefore has the failure mode this
+    house keeps finding -- a new escape variable nobody adds here walks
+    straight past it. What makes that survivable rather than silent is the
+    shape of the tests themselves: they assert the gate REFUSES, so an escape
+    that slips through makes them fail loudly rather than pass quietly. The
+    enumeration decides how confusing the failure is, not whether it happens.
+    """
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not (k.startswith("DIVINEOS_") and any(m in k for m in _ESCAPE_MARKERS))
+    }
+    env.update(extra)
+    return env
+
+
 def _run_gate(repo: Path, refs: list[tuple[str, str]], **env_extra: str):
     """Run the real gate against a synthetic pre-push stdin.
 
@@ -114,7 +150,7 @@ def _run_gate(repo: Path, refs: list[tuple[str, str]], **env_extra: str):
         text=True,
         cwd=str(repo),
         timeout=300,
-        env={**os.environ, **env_extra},
+        env=_clean_env(**env_extra),
     )
 
 
@@ -253,7 +289,7 @@ def test_a_hand_run_with_no_stdin_says_which_subject_it_used(repo: Path) -> None
         text=True,
         cwd=str(repo),
         timeout=300,
-        env=dict(os.environ),
+        env=_clean_env(),
     )
 
     assert "no push refs on stdin" in result.stdout
