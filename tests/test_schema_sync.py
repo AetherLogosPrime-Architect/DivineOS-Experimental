@@ -277,8 +277,23 @@ class TestSchemaSync:
         test_dir = Path(__file__).parent
         inline_schemas = _extract_inline_schemas(test_dir)
 
+        # Same exemption as the missing-columns check below, and it has to be
+        # named separately because the two tests are separate lists over the
+        # same corpus. A fixture that is wrong ON PURPOSE trips both: it has a
+        # column production lacks AND lacks columns production has.
+        #
+        # Added 2026-08-29. Having to write the exemption twice is itself the
+        # smell -- two copies of one fact, the shape that left three council
+        # lenses unwalkable the same day. Not unified here because merging the
+        # two lists is a change to this guard rather than to the thing under
+        # test, and doing it inside an unrelated commit is the drive-by that
+        # makes a diff unreviewable. Named so the next reader sees it.
+        exempt_by_design = {"test_sibling_walk_store_malformed.py"}
+
         violations: list[str] = []
         for filename, tables in inline_schemas.items():
+            if filename in exempt_by_design:
+                continue
             for table_name, test_cols in tables.items():
                 if table_name not in prod_schema:
                     # Table might be test-only (e.g., temporary fixture)
