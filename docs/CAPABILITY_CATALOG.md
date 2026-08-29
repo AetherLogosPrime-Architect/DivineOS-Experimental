@@ -20,9 +20,9 @@ Commands that DO report usage:
 
 | command | recorded invocations |
 |---|---|
-| `ask` | 440 |
-| `briefing` | 232 |
-| `decide` | 149 |
+| `ask` | 441 |
+| `briefing` | 233 |
+| `decide` | 151 |
 | `compass` | 131 |
 | `context` | 86 |
 | `recall` | 49 |
@@ -1341,7 +1341,7 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/knowledge/` | 706 | Knowledge sub-package — tiered re-exports for performance. |
 | `core/operating_loop/` | 247 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
-| `core/watchmen/` | 177 | Watchmen — External Validation as a Native Runtime Capability. |
+| `core/watchmen/` | 179 | Watchmen — External Validation as a Native Runtime Capability. |
 | `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
 | `core/pre_registrations/` | 65 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |
@@ -1352,7 +1352,7 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/audit_visibility/` | 29 | Audit-visibility check — warn when auditable work is committed |
 | `core/void/` | 28 | VOID — adversarial-sandbox subsystem. |
 | `core/push_orchestrator/` | 26 | Push orchestrator — foreground git push with file-lock serialization |
-| `core/pr_gate/` | 16 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
+| `core/pr_gate/` | 17 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
 | `core/expectation_tracking/` | 15 | Expectation tracking — what I expected vs what surfaced. |
 | `core/meld/` | 14 | The Meld — temporary shared workspace between two distinct selves. |
 | `core/ear_sweep/` | 11 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
