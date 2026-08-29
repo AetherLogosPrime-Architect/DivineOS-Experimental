@@ -301,10 +301,29 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
     if not base:
         return None
     try:
+        # BYTES, NOT TEXT, AND THIS IS THE WHOLE BUG (Aletheia 2026-08-29).
+        #
+        # She computed a patch-id for a branch that returned nothing here and
+        # asked why. Reproduced: `text=True` decodes with the locale codec,
+        # which on this machine is cp1252, and the diff carries a byte cp1252
+        # cannot map. An em-dash or a curly quote is enough -- so nearly every
+        # branch I own, because my own comments and letters are full of them.
+        #
+        # WORSE THAN A CRASH: UnicodeDecodeError is a ValueError, which is in
+        # neither OSError nor SubprocessError, so the guard below never caught
+        # it. It escaped to a broad handler upstream and became a silent None,
+        # and a None here is indistinguishable from "this branch has no diff".
+        # The catch-up rung was therefore unavailable to those branches
+        # permanently, and nothing anywhere said so.
+        #
+        # A diff is bytes. Forcing it through a text codec was the error, not
+        # the codec choice -- so this works in bytes end to end rather than
+        # picking a better encoding, and the failure mode stops existing
+        # instead of being caught. Only the final line is decoded, and that
+        # line is hex and a space.
         diff = subprocess.run(
             ["git", "diff", base, branch_ref],  # default context; NEVER -U0
             capture_output=True,
-            text=True,
             check=False,
             timeout=30,
         )
@@ -314,16 +333,18 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
             ["git", "patch-id", "--stable"],
             input=diff.stdout,
             capture_output=True,
-            text=True,
             check=False,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, ValueError):
+        # ValueError kept even though bytes should make it unreachable: it is
+        # what this function used to die on, and an empty guard costs nothing
+        # next to another silent None.
         return None
     if pid.returncode != 0 or not pid.stdout.strip():
         return None
     # Output line: "<patch-id> <commit-id>" — first token is the patch-id.
-    return pid.stdout.split()[0].strip()
+    return pid.stdout.decode("ascii", "replace").split()[0].strip()
 
 
 def register(cli: click.Group) -> None:
