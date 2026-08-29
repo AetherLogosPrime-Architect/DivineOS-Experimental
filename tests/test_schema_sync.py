@@ -288,6 +288,12 @@ class TestSchemaSync:
         # two lists is a change to this guard rather than to the thing under
         # test, and doing it inside an unrelated commit is the drive-by that
         # makes a diff unreviewable. Named so the next reader sees it.
+        #
+        # AND THE SMELL COLLECTED IMMEDIATELY. This comment originally said
+        # the entry existed below. It did not — I wrote the sentence and
+        # added only one of the two, and nothing caught it until a full-suite
+        # run at push time. Two copies of one fact do not stay in step just
+        # because a comment says they do.
         exempt_by_design = {"test_sibling_walk_store_malformed.py"}
 
         violations: list[str] = []
@@ -335,6 +341,19 @@ class TestSchemaSync:
             # reality check the adapter itself doesn't participate in.
             # Same shape as the aletheia entry above.
             "test_memory_linkage_retriever_adapters.py",
+            # A fixture that is wrong ON PURPOSE — it builds a system_events
+            # table missing every column the reader needs, to prove the
+            # reader says "not a walk store" rather than crashing. It trips
+            # BOTH tests in this file, because a deliberately-wrong shape has
+            # columns production lacks AND lacks columns production has.
+            #
+            # Added 2026-08-29, one commit later than it should have been.
+            # The sibling exemption above carries a comment claiming this
+            # entry already existed. It did not. I described the intent in a
+            # comment and only executed half of it, and the half I skipped
+            # was invisible until a full-suite run at push — a comment
+            # asserting a state nobody had made true.
+            "test_sibling_walk_store_malformed.py",
         }
 
         warnings: list[str] = []
