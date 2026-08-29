@@ -92,6 +92,17 @@ class PriorArt:
     shared_tokens: tuple[str, ...]
 
 
+# THREE STATES, THREE CODES. The wrapper used to decide on whether anything
+# had been printed, which collapsed could-not-look into found-nothing because
+# neither printed. Naming them here rather than as bare numbers at the return
+# sites, so the shell side and this side cannot drift apart on what a code
+# means -- the two-copies-of-one-fact shape that cost three council lenses
+# their walkability the same week.
+_EXIT_NOTHING_FOUND = 0
+_EXIT_PRIOR_ART = 2
+_EXIT_COULD_NOT_LOOK = 3
+
+
 @dataclass(frozen=True)
 class ScanResult:
     """What the scan found AND what it looked at.
@@ -342,10 +353,32 @@ def main() -> int:
         return 0
 
     result = scan(rel, repo)
+
+    # COULD-NOT-LOOK IS NOT LOOKED-AND-FOUND-NOTHING, and until 2026-08-29
+    # this entry point could not tell you which it was. The old line was
+    # `if not result.hits: return 0` -- and a scan that never ran has no
+    # hits, so a skip returned zero, printed nothing, and the wrapper (which
+    # keys on whether anything was printed) exited clean. Byte-identical to
+    # a clean result at the only surface that ever reaches me.
+    #
+    # The renderer has carried honest non-run text this whole time -- no git
+    # refs readable from here, the name had no distinctive words -- and it
+    # was unreachable from the live path. Exercised only by the tests, which
+    # is exactly what made it look present. Found by Aether, reviewing this
+    # module, and it is the module's own thesis turned on itself: an
+    # instrument that cannot say it failed to look.
+    #
+    # FAIL-OPEN IS RIGHT AND WAS NEVER THE PROBLEM. A broken doorman must
+    # not stop the work. But fail-open and fail-SILENT got welded together,
+    # and they are separable: exit zero and still say so. Three codes now,
+    # so the wrapper can tell the three states apart.
+    if not result.ran:
+        print(result.render())
+        return _EXIT_COULD_NOT_LOOK
     if not result.hits:
-        return 0
+        return _EXIT_NOTHING_FOUND
     print(result.render())
-    return 2
+    return _EXIT_PRIOR_ART
 
 
 if __name__ == "__main__":

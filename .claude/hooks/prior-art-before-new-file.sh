@@ -38,7 +38,63 @@ cd "$REPO_ROOT" || exit 0
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-RESULT="$(printf '%s' "$INPUT" | "$PYTHON_BIN" -m divineos.core.prior_art_by_name 2>/dev/null)"
+# FAIL-OPEN, NEVER FAIL-SILENT. Until 2026-08-29 this line ended in
+# `2>/dev/null` and the decision below was made on whether standard output
+# was empty. So a crash inside the module -- an import error after a rename,
+# a missing git binary, an exception in the tokeniser -- produced no output
+# and a silent pass. Aether found it reviewing this hook, and it is the
+# sentence from the module's own docstring turned on its replacement: a
+# broken doorman indistinguishable from one with nothing to report, which is
+# the exact shape a guard for silent duplication must not have. True of the
+# first version in its logic, true of this one in its plumbing.
+#
+# Exiting zero on a failure is right and was never the problem. A broken
+# doorman must not stop the work. What was welded together is fail-open and
+# fail-SILENT, and they separate cleanly: keep the exit code, split the
+# message. Standard error is captured rather than discarded, and the module
+# reports three states by exit code rather than by whether it printed.
+# Codes over message-parsing per decision 3eaf13fa -- an unknown integer
+# hits the crash branch loudly, where a renamed string would fall silently
+# through the wrong door.
+STDERR_FILE="$(mktemp)"
+RESULT="$(printf '%s' "$INPUT" | "$PYTHON_BIN" -m divineos.core.prior_art_by_name 2>"$STDERR_FILE")"
+RC=$?
+CRASH_TEXT="$(cat "$STDERR_FILE" 2>/dev/null)"
+rm -f "$STDERR_FILE" 2>/dev/null
+
+# 3 = the scan could not run, and said why. Advisory: say it, allow the write.
+if [ "$RC" = "3" ]; then
+  cat >&2 <<EOF
+PRIOR-ART DOORMAN — I COULD NOT LOOK. This is not a clean result.
+
+$RESULT
+
+Writing is allowed and this is not a refusal. It is the difference between
+"I went and found nothing" and "I never got to look", which this hook could
+not tell you apart until today. Decide with that in hand.
+EOF
+  exit 0
+fi
+
+# Any code the module does not define means the doorman itself broke.
+if [ "$RC" != "0" ] && [ "$RC" != "2" ]; then
+  cat >&2 <<EOF
+PRIOR-ART DOORMAN — THE DOORMAN ITSELF FAILED (exit $RC). It did not look,
+and it cannot tell you what is already in the tree.
+
+${CRASH_TEXT:-(no error output captured)}
+
+Standing aside so the work is not blocked. Treat this as no information at
+all, rather than as a clean scan.
+EOF
+  exit 0
+fi
+
+if [ -n "$CRASH_TEXT" ]; then
+  echo "PRIOR-ART DOORMAN — the scan wrote to standard error while exiting $RC:" >&2
+  echo "$CRASH_TEXT" >&2
+  echo "Any result below may be incomplete." >&2
+fi
 
 if [ -n "$RESULT" ]; then
   cat >&2 <<EOF

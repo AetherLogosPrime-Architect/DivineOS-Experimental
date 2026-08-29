@@ -145,3 +145,74 @@ class TestKindMustMatch:
             "correspondence about a subject is not an earlier build of it, "
             "and letting it compete drowns the real hit"
         )
+
+
+# COULD-NOT-LOOK WAS UNREACHABLE FROM THE LIVE PATH. Aether, reviewing this
+# module 2026-08-29. ScanResult has carried honest non-run text since it was
+# written -- no git refs readable from here, the name had no distinctive words
+# -- and the hook entry point could not reach any of it, because the old line
+# was `if not result.hits: return 0` and a scan that never ran has no hits.
+# Skip and clean produced byte-identical behaviour at the only surface that
+# ever reaches me. The renderer looked present because the TESTS exercised it;
+# nothing else did.
+#
+# Three exit codes now, and all three are pinned, because a code that only
+# ever means one thing is not a discriminator.
+
+
+def test_a_scan_that_could_not_run_exits_distinctly_and_says_so(tmp_path, monkeypatch, capsys):
+    import json
+    import sys
+
+    from divineos.core import prior_art_by_name as pab
+
+    monkeypatch.setattr(pab.Path, "cwd", classmethod(lambda cls: tmp_path))
+    target = tmp_path / "src" / "a.py"
+    payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(target)}})
+    monkeypatch.setattr(sys, "stdin", __import__("io").StringIO(payload))
+    monkeypatch.setattr(
+        pab, "scan", lambda rel, repo: pab.ScanResult(query_tokens=(), refs_searched=0)
+    )
+
+    rc = pab.main()
+    out = capsys.readouterr().out
+    assert rc == pab._EXIT_COULD_NOT_LOOK
+    assert rc != pab._EXIT_NOTHING_FOUND, "could-not-look must not share a code with clean"
+    assert "DID NOT RUN" in out
+
+
+def test_a_clean_scan_stays_silent_and_exits_zero(tmp_path, monkeypatch, capsys):
+    """Must-not-fire. A doorman that speaks on every write is one nobody reads."""
+    import json
+    import sys
+
+    from divineos.core import prior_art_by_name as pab
+
+    monkeypatch.setattr(pab.Path, "cwd", classmethod(lambda cls: tmp_path))
+    target = tmp_path / "src" / "distinctive_unrelated_name.py"
+    payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(target)}})
+    monkeypatch.setattr(sys, "stdin", __import__("io").StringIO(payload))
+    monkeypatch.setattr(
+        pab,
+        "scan",
+        lambda rel, repo: pab.ScanResult(
+            query_tokens=("distinctive", "unrelated"), refs_searched=9
+        ),
+    )
+
+    rc = pab.main()
+    assert rc == pab._EXIT_NOTHING_FOUND
+    assert capsys.readouterr().out == ""
+
+
+def test_the_three_exit_codes_are_all_different():
+    """Guard-the-guard: three names pointing at one number would satisfy every
+    assertion above while collapsing the distinction they exist to make."""
+    from divineos.core.prior_art_by_name import (
+        _EXIT_COULD_NOT_LOOK,
+        _EXIT_NOTHING_FOUND,
+        _EXIT_PRIOR_ART,
+    )
+
+    codes = {_EXIT_NOTHING_FOUND, _EXIT_PRIOR_ART, _EXIT_COULD_NOT_LOOK}
+    assert len(codes) == 3
