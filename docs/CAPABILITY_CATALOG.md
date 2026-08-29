@@ -1352,7 +1352,7 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/audit_visibility/` | 29 | Audit-visibility check — warn when auditable work is committed |
 | `core/void/` | 28 | VOID — adversarial-sandbox subsystem. |
 | `core/push_orchestrator/` | 26 | Push orchestrator — foreground git push with file-lock serialization |
-| `core/pr_gate/` | 16 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
+| `core/pr_gate/` | 17 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
 | `core/expectation_tracking/` | 15 | Expectation tracking — what I expected vs what surfaced. |
 | `core/meld/` | 14 | The Meld — temporary shared workspace between two distinct selves. |
 | `core/ear_sweep/` | 11 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
