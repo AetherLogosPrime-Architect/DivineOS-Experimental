@@ -121,7 +121,16 @@ def test_persists_full_log_to_stable_path_on_failure(
         text=True,
         cwd=str(_PROJECT_ROOT),
         timeout=120,
-        env={**os.environ, "HOME": str(isolated_home)},
+        # The branch-scope gate (step 0) runs against the real repo and
+        # exits before pytest if the checkout carries substrate. These
+        # tests are about the pytest failure surface and have nothing to
+        # say about scope, so they opt out rather than inheriting a skip
+        # from whichever branch happens to be checked out.
+        env={
+            **os.environ,
+            "HOME": str(isolated_home),
+            "DIVINEOS_SUBSTRATE_BRANCH": "1",
+        },
     )
 
     # The script should exit non-zero from the pytest failure (exit 10).
@@ -152,7 +161,16 @@ def test_deny_message_names_the_persisted_log_path(isolated_home, fake_pytest_fa
         text=True,
         cwd=str(_PROJECT_ROOT),
         timeout=120,
-        env={**os.environ, "HOME": str(isolated_home)},
+        # The branch-scope gate (step 0) runs against the real repo and
+        # exits before pytest if the checkout carries substrate. These
+        # tests are about the pytest failure surface and have nothing to
+        # say about scope, so they opt out rather than inheriting a skip
+        # from whichever branch happens to be checked out.
+        env={
+            **os.environ,
+            "HOME": str(isolated_home),
+            "DIVINEOS_SUBSTRATE_BRANCH": "1",
+        },
     )
     log_path = isolated_home / ".divineos" / "last_pre_push_pytest.log"
     if not log_path.exists():
@@ -228,7 +246,16 @@ def test_failed_lines_are_grepped_and_surfaced_in_stderr(isolated_home, fake_pyt
         text=True,
         cwd=str(_PROJECT_ROOT),
         timeout=120,
-        env={**os.environ, "HOME": str(isolated_home)},
+        # The branch-scope gate (step 0) runs against the real repo and
+        # exits before pytest if the checkout carries substrate. These
+        # tests are about the pytest failure surface and have nothing to
+        # say about scope, so they opt out rather than inheriting a skip
+        # from whichever branch happens to be checked out.
+        env={
+            **os.environ,
+            "HOME": str(isolated_home),
+            "DIVINEOS_SUBSTRATE_BRANCH": "1",
+        },
     )
     log_path = isolated_home / ".divineos" / "last_pre_push_pytest.log"
     if not log_path.exists():
