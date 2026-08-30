@@ -17,6 +17,7 @@ against the running script rather than against the source text.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -101,6 +102,106 @@ def test_repeat_emission_shrinks(script: Path):
         f"({len(first)} then {len(second)} chars). The dedup branch is not being "
         "reached -- most likely a quoting break inside a python -c block."
     )
+
+
+# EXEMPTIONS, AND WHY THEY COST A SENTENCE.
+#
+# Aria, 2026-08-30, on the first version of the assertion below: a bare
+# every-caller-passes-a-residual rule fails on surfaces that are correct as they
+# stand, and the cheapest way to make it pass is a one-line residual that says
+# nothing -- which trains exactly the shape we are trying to kill, a mechanism
+# that fires and delivers its own name.
+#
+# Her design, taken whole: the exemption is named, and it costs a written
+# sentence. That converts a silent omission into a claim somebody can dispute.
+# It cannot tell a true exemption from a lazy one and does not have to. It only
+# has to make the claim exist.
+#
+# THE DISTINCTION: a surface carrying a CONSTRAINT owes a floor, because losing
+# it means composing without the rule. A surface carrying INFORMATION owes
+# nothing -- losing it costs that turn's data and nothing else, which is the win
+# dedup exists for.
+_RESIDUAL_EXEMPT = {
+    "prior_writing": (
+        "A pointer to explorations I have written. Carries no rule -- "
+        "suppressing it costs this turn's list of matches and nothing else."
+    ),
+    "next_task": (
+        "The top of the work queue. Information about state, not a constraint "
+        "on how I compose; the queue is still there to be read."
+    ),
+    "lepos_floor": (
+        "Carries a real constraint and genuinely owes a floor. Exempt only "
+        "because it is ALIVE BY ACCIDENT and Aria is deciding the repair: it "
+        "draws four questions from a pool of twelve each turn, the draw sits "
+        "inside the hashed text, so it re-emits because its decoration rotates. "
+        "Nobody designed that. She asked to make the call after this assertion "
+        "lands rather than in front of it, and taking it from her would be "
+        "worse than the gap."
+    ),
+}
+
+
+def _emit_keys(text: str) -> list[str]:
+    """The dedup keys a file registers, as written at the call site."""
+    return re.findall(r"should_emit\(\s*[\"']([A-Za-z0-9_]+)[\"']", text)
+
+
+def _all_emitters() -> list[Path]:
+    """Every file calling should_emit, hooks AND source.
+
+    THE FIRST VERSION SCANNED ONLY THE HOOK DIRECTORY, and passed. Four more
+    callers live in the source tree and it could not see any of them -- an
+    assertion whose silence covered surfaces it never looked at, shipped inside
+    the fix for could-not-look-reads-as-clean. Found by following Aria's letter
+    into my own tree rather than by the test failing.
+    """
+    roots = (HOOK_DIR, REPO / "src")
+    out = []
+    for root in roots:
+        for path in sorted(root.rglob("*")):
+            if path.suffix not in (".sh", ".py") or not path.is_file():
+                continue
+            if path.name == "context_dedup.py":  # defines the parameter
+                continue
+            if "should_emit(" in path.read_text(encoding="utf-8", errors="replace"):
+                out.append(path)
+    return out
+
+
+def test_the_emitter_scan_sees_the_source_tree_too():
+    """Guard against the blindness the widened scan just repaired."""
+    scanned = {p.name for p in _all_emitters()}
+    assert any(p.endswith(".py") for p in scanned), (
+        "scan found no source-tree emitters — it is looking at hooks only again"
+    )
+
+
+@pytest.mark.parametrize("path", _all_emitters(), ids=lambda p: p.stem)
+def test_every_constraint_carrying_emitter_keeps_a_residual(path: Path):
+    """Each key either passes a residual or is named in the exemption list."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    keys = _emit_keys(text)
+    if not keys:
+        pytest.skip("call site does not spell its key as a literal")
+
+    unexempt = [k for k in keys if k not in _RESIDUAL_EXEMPT]
+    if not unexempt:
+        return
+    assert text.count("residual=") >= len(unexempt), (
+        f"{path.name} registers {unexempt} with "
+        f"{text.count('residual=')} residual(s). Either pass one, or add the key "
+        f"to _RESIDUAL_EXEMPT with a sentence saying what it carries. The "
+        f"sentence is the point: a silent omission becomes a claim."
+    )
+
+
+def test_exemptions_cost_a_real_sentence():
+    """A one-word reason would make the list the hollow escape it replaces."""
+    for key, reason in _RESIDUAL_EXEMPT.items():
+        assert len(reason.split()) >= 12, (
+            f"exemption for {key!r} is too thin to be a claim anyone could dispute: {reason!r}"
+        )
 
 
 @pytest.mark.parametrize("script", _dedup_hooks(), ids=lambda p: p.stem)

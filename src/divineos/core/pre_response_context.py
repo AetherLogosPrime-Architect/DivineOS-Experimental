@@ -1019,8 +1019,39 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                     "needs": needs,
                     "other_counts": other_counts if any(other_counts.values()) else {},
                 }
+                # RESIDUAL, added 2026-08-30. This surface opens by calling
+                # its contents "substrate-correctness requirements, not
+                # preferences I can defer" -- and then went completely silent
+                # from the second turn onward, leaving its own name and a hash.
+                # A constraint that describes itself as non-deferrable and
+                # then defers itself is the sharpest version of the shape.
+                #
+                # Found by widening the residual assertion to the source tree.
+                # The first version scanned only hooks and passed; four more
+                # callers lived here and it could not see one of them.
+                #
+                # ORDERED, not just chosen. Aria 2026-08-30 earned the third
+                # state hours after naming the first two: a floor can be
+                # present, correct and complete and still do nothing, because
+                # the line that leads is one the reader never breaks. So the
+                # first line here is the need that actually fired today --
+                # a survey that had not run reading as a clean result, one
+                # step from deleting sixty branches.
+                residual = (
+                    "  SURVIVES DEDUP -- the needs that fire most, in order:\n"
+                    "  Felt-success is a TRIGGER for verification, never "
+                    "verification itself. Before writing it worked, run the "
+                    "check.\n"
+                    "  Announcement is not action. Saying I will do X closes "
+                    "the loop in my head without doing it.\n"
+                    "  These are cost-when-unmet, not preferences. Violating "
+                    "one is structural, not a lapse of discipline."
+                )
                 emit_full, pointer = should_emit(
-                    "active_needs", motivation_text, semantic_key=semantic_key
+                    "active_needs",
+                    motivation_text,
+                    semantic_key=semantic_key,
+                    residual=residual,
                 )
                 if not emit_full and pointer:
                     motivation_text = pointer
