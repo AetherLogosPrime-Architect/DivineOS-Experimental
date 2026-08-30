@@ -28,6 +28,16 @@ onto proposals already open for review.
 WHAT THIS IS NOT. It does not say a branch is good. It says whether it carries
 files that belong somewhere else. A branch can be clean by this measure and
 wrong in every other way.
+
+DELETIONS COUNT, and this was unintended before it was approved. The comparison
+names every changed path, removals included, so a code branch that DELETES a
+letter counts that letter as substrate and reads as mixed. Surfaced by a Knuth
+boundary walk on 2026-08-30 rather than by design. Keeping it: a code proposal
+quietly removing personal writing is exactly the thing worth holding, and it is
+close kin to the deletion question this whole instrument descends from. Written
+down here because an unintended behaviour I happen to approve of is still an
+unspecified one, and the next person to read the counts deserves to know which
+direction they run in.
 """
 
 from __future__ import annotations
