@@ -78,7 +78,11 @@ def count_hooks_wired() -> int:
     if not settings_path.exists():
         return 0
     try:
-        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        # utf-8-sig strips BOM if present — settings.json has picked up a BOM
+        # via PowerShell Set-Content on Windows; plain "utf-8" then fails to
+        # parse and this counter silently returned 0, blocking every commit
+        # with false "hook drift" (91 real hooks reported as 0).
+        data = json.loads(settings_path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError:
         return 0
     total = 0
@@ -415,7 +419,7 @@ def _format_count(n: int) -> str:
     return f"{n:,}+"
 
 
-def fix_test_counts(actual_tests: int) -> list[str]:
+def fix_test_counts(actual_tests: int, allow_lower: bool = False) -> list[str]:
     """Update test counts in all doc files. MONOTONIC: only raise, never lower.
 
     Andrew 2026-06-12: every branch auto-fixing the doc counts was creating
@@ -463,8 +467,8 @@ def fix_test_counts(actual_tests: int) -> list[str]:
                     max_existing = val
             except ValueError:
                 continue
-        if actual_tests <= max_existing:
-            continue  # No-op: existing count is already at or above ours.
+        if actual_tests <= max_existing and not allow_lower:
+            continue  # monotonic guard; --allow-lower overrides
 
         updated = count_pattern.sub(f"{new_count} tests", text)
         if updated != text:
@@ -474,7 +478,7 @@ def fix_test_counts(actual_tests: int) -> list[str]:
     return changed
 
 
-def fix_hook_counts(actual_hooks: int) -> list[str]:
+def fix_hook_counts(actual_hooks: int, allow_lower: bool = False) -> list[str]:
     """Update hook counts in all doc files. MONOTONIC: only raise, never lower.
 
     Same monotonic-only-raise discipline as fix_test_counts — prevents
@@ -514,8 +518,27 @@ def fix_hook_counts(actual_hooks: int) -> list[str]:
                         max_existing = val
                 except ValueError:
                     continue
-        if actual_hooks <= max_existing:
-            continue  # No-op: existing count is already at or above ours.
+        if actual_hooks <= max_existing and not allow_lower:
+            # Monotonic guard; --allow-lower overrides (main, 2026-08-15).
+            #
+            # SAY SO (Aria 2026-07-31). This skip was silent, and silence
+            # here reads as breakage: --fix printed the drift, changed
+            # nothing, exited. I concluded "--fix is broken" and wrote that
+            # into a commit message. It is not broken — it is monotonic on
+            # purpose, and it was refusing to propagate a number I had
+            # hand-counted wrong. The guard did its job; only its silence
+            # was a defect. A deliberate no-op that does not explain itself
+            # is indistinguishable from a failure.
+            print(
+                f"  {doc_file.name}: --fix SKIPPED by monotonic guard "
+                f"(documented {max_existing} > actual {actual_hooks}). "
+                f"Lowering a count is manual by design — a genuine hook "
+                f"removal deserves attention, and auto-lowering causes "
+                f"cross-branch rebase conflicts. Pass --allow-lower if "
+                f"{actual_hooks} is correct; if you derived it yourself "
+                f"rather than from this checker, re-check first."
+            )
+            continue
 
         # Pattern A: "9 Claude Code enforcement hooks" / "9 enforcement hooks"
         updated = re.sub(
@@ -529,6 +552,103 @@ def fix_hook_counts(actual_hooks: int) -> list[str]:
             lambda m: f"({actual_hooks}{m.group(1)}",
             updated,
         )
+        if updated != text:
+            doc_file.write_text(updated, encoding="utf-8")
+            changed.append(doc_file.name)
+
+    return changed
+
+
+def _scan_count_drift(
+    doc_files: list[Path], actuals: dict[str, tuple[int, int]]
+) -> tuple[list[str], bool]:
+    """Read every doc file from disk and report count drift.
+
+    Returns ``(errors, test_drift_found)``. Called once before the fixers run
+    and again after any fixer writes, so that "the drift is gone" is measured
+    rather than inferred from "a fixer touched a file".
+    """
+    errors: list[str] = []
+    test_drift_found = False
+
+    for doc_file in doc_files:
+        if not doc_file.exists():
+            continue
+        for label, documented, context in extract_documented_counts(doc_file):
+            if label not in actuals:
+                continue
+            actual, threshold = actuals[label]
+            drift = abs(actual - documented)
+            if drift > threshold:
+                if label == "tests":
+                    test_drift_found = True
+                errors.append(
+                    f"  {context}\n    documented: {documented}, actual: {actual}, drift: {drift}"
+                )
+
+    return errors, test_drift_found
+
+
+def fix_command_counts(actual_cmds: int, allow_lower: bool = False) -> list[str]:
+    """Update CLI-command counts in all doc files.
+
+    THIS FIXER DID NOT EXIST until 2026-08-02, and its absence is why the
+    precommit check kept telling people to go fix the docs by hand.
+
+    `--fix` had fixers for tests, hooks, and the architecture tree. Commands
+    had none. So on any command-count drift, `--fix` ran, silently changed
+    nothing, and the caller printed "still drifted after auto-fix (likely a
+    non-count error). Investigate manually." It IS a count error. It just had
+    no fixer behind it, and the message misdirected everyone who read it.
+
+    Aria hit this on 2026-06-17 and wrote a letter titled "leapfrog is
+    blocking my baseline." I hit it twice on 2026-08-02 while splitting a PR
+    and hand-edited the numbers both times without asking why. Andrew:
+    "dont keep walking over the same coals.. fix them as you encounter them."
+
+    MONOTONIC BY DEFAULT, matching fix_test_counts and fix_hook_counts: only
+    raise, so two in-flight branches do not fight over the same line at
+    rebase (Andrew 2026-06-12).
+
+    ``allow_lower`` exists because monotonic-only-raise has a hole the other
+    fixers share: the guard refuses to lower a count while the CHECKER still
+    errors on documented > actual. Fixer and checker disagree, so a branch
+    with genuinely fewer commands than main can never converge -- it just
+    gets told to do the tool's job by hand. That is exactly the state that
+    produced both of my manual edits. With the flag, a doc that overclaims
+    can be brought down to the truth in one command instead of by hand.
+    """
+    doc_files = [
+        ROOT / "CLAUDE.md",
+        ROOT / "README.md",
+        ROOT / "src" / "divineos" / "seed.json",
+        ROOT / "docs" / "ARCHITECTURE.md",
+    ]
+    changed: list[str] = []
+
+    # Same shape extract_documented_counts() reads, so the fixer and the
+    # checker cannot disagree about what counts as a command-count mention.
+    count_pattern = re.compile(r"(\d+)(\s+(?:CLI\s+)?commands)")
+
+    for doc_file in doc_files:
+        if not doc_file.exists():
+            continue
+        text = doc_file.read_text(encoding="utf-8", errors="replace")
+
+        max_existing = 0
+        for m in count_pattern.finditer(text):
+            try:
+                val = int(m.group(1))
+                if val > max_existing:
+                    max_existing = val
+            except ValueError:
+                continue
+        if not max_existing:
+            continue
+        if actual_cmds <= max_existing and not allow_lower:
+            continue  # monotonic guard; --allow-lower overrides
+
+        updated = count_pattern.sub(lambda m: f"{actual_cmds}{m.group(2)}", text)
         if updated != text:
             doc_file.write_text(updated, encoding="utf-8")
             changed.append(doc_file.name)
@@ -642,6 +762,11 @@ def _files_with_conflict_markers(paths: list[Path]) -> list[str]:
 
 def main() -> int:
     fix_mode = "--fix" in sys.argv
+    # Escape from the monotonic guard. Without it, a doc that overclaims can
+    # only be corrected by hand -- the fixer refuses to lower while the
+    # checker still errors, so the tool can never converge and just tells you
+    # to do its job. See fix_command_counts for the full trace.
+    allow_lower = "--allow-lower" in sys.argv
 
     actual_tests = count_test_functions()
     actual_cmds = count_cli_commands()
@@ -685,32 +810,15 @@ def main() -> int:
         "council": (count_council_experts(), 0),
     }
 
-    errors: list[str] = []
-    test_drift_found = False
-
-    for doc_file in doc_files:
-        if not doc_file.exists():
-            continue
-        for label, documented, context in extract_documented_counts(doc_file):
-            if label not in actuals:
-                continue
-            actual, threshold = actuals[label]
-
-            drift = abs(actual - documented)
-            if drift > threshold:
-                if label == "tests":
-                    test_drift_found = True
-                errors.append(
-                    f"  {context}\n    documented: {documented}, actual: {actual}, drift: {drift}"
-                )
+    errors, test_drift_found = _scan_count_drift(doc_files, actuals)
+    fixer_changed_something = False
 
     # Auto-fix test counts if requested
     if fix_mode and test_drift_found:
-        changed = fix_test_counts(actual_tests)
+        changed = fix_test_counts(actual_tests, allow_lower=allow_lower)
         if changed:
             print(f"Auto-fixed test counts in: {', '.join(changed)}")
-            # Re-check after fix — only non-test errors remain
-            errors = [e for e in errors if "tests" not in e.split("\n")[0]]
+            fixer_changed_something = True
 
     # Auto-fix hook counts if requested. Added 2026-05-07 per round-2
     # audit which found README claimed 9 enforcement hooks while
@@ -718,10 +826,37 @@ def main() -> int:
     # required a manual README edit.
     hook_drift_found = any("hooks" in e.split(chr(10))[0] for e in errors)
     if fix_mode and hook_drift_found:
-        changed = fix_hook_counts(actual_hooks)
+        changed = fix_hook_counts(actual_hooks, allow_lower=allow_lower)
         if changed:
             print(f"Auto-fixed hook counts in: {', '.join(changed)}")
-            errors = [e for e in errors if "hooks" not in e.split(chr(10))[0]]
+            fixer_changed_something = True
+
+    # Auto-fix command counts. This dispatch did not exist until 2026-08-02:
+    # commands was the one drift dimension with no fixer, which is why --fix
+    # ran clean and the drift survived it.
+    cmd_drift_found = any("commands" in e.split(chr(10))[0] for e in errors)
+    if fix_mode and cmd_drift_found:
+        changed = fix_command_counts(actual_cmds, allow_lower=allow_lower)
+        if changed:
+            print(f"Auto-fixed command counts in: {', '.join(changed)}")
+            fixer_changed_something = True
+
+    # Re-measure from disk instead of assuming the fixers resolved everything.
+    #
+    # Each fixer used to delete every error of its own kind the moment it
+    # changed ANY file. So a run that raised the count in CLAUDE.md and left a
+    # stale count in ARCHITECTURE.md untouched reported "Doc checks OK" and
+    # exited 0 with the drift still on disk. The monotonic guard makes that
+    # routine: a doc that OVERCLAIMS is skipped without --allow-lower, while a
+    # sibling doc that underclaims gets fixed, and one success erased both
+    # errors.
+    #
+    # "The fixer ran" and "the drift is gone" are different facts. The tree
+    # fixer below already re-checks; the count fixers filtered by assumption,
+    # and the comment above the test filter said "Re-check after fix" over code
+    # that re-checked nothing.
+    if fixer_changed_something:
+        errors, test_drift_found = _scan_count_drift(doc_files, actuals)
 
     # Architecture tree check
     readme = ROOT / "README.md"

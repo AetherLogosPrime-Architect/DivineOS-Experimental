@@ -169,6 +169,7 @@ _WISDOM_PATH_PREFIXES = (
     "exploration/",
     "docs/substrate-knowledge/",
     "family/letters/",
+    ".divineos-shared/letters/",
     "docs/foundational_truths.md",
 )
 

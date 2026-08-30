@@ -20,6 +20,7 @@ claim 223d0e44 tracked the work).
 import hashlib
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -827,8 +828,15 @@ def backfill_chain_hashes() -> dict[str, Any]:
         conn.execute("BEGIN IMMEDIATE")
         rows = list(
             conn.execute(
+                # Same order verify_chain walks: rowid, the append order.
+                # These two had drifted apart — this one BUILT the chain in
+                # clock order while the walker READ it in append order, and two
+                # halves disagreeing about what "the chain" is produce a chain
+                # that can never verify. Caught by
+                # test_ledger_compressor_chain_repair 2026-08-13, immediately
+                # after the walker was corrected.
                 "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash, "
-                "chain_hash FROM system_events ORDER BY timestamp ASC, rowid ASC"
+                "chain_hash FROM system_events ORDER BY rowid ASC"
             )
         )
         prior_hash = _CHAIN_GENESIS
@@ -859,6 +867,43 @@ def backfill_chain_hashes() -> dict[str, Any]:
         conn.close()
 
 
+def _chain_result(
+    *,
+    ok: bool,
+    total: int,
+    verified: int = 0,
+    unchained_legacy: int = 0,
+    unchained_after: list[str] | None = None,
+    broken_at: str | None = None,
+    broken_reason: str | None = None,
+) -> dict[str, Any]:
+    """One constructor so every verify_chain() return has the same shape.
+
+    MAKE THE PARTIAL RESULT UNREPRESENTABLE (Hoare's lens, applied to my own
+    repair). verify_chain has eight return paths. When I added `verified`,
+    `unchained_legacy` and `unchained_after_chain_began` on 2026-08-18 I put
+    them on two of them, so a caller reading `verified` got None on exactly
+    the paths where something had gone wrong — could-not-measure rendering as
+    absent, inside the fix for could-not-measure rendering as measured.
+
+    Caught by running the probe and reading `verified=None` in the failure
+    line. Patching the other six by hand would leave the ninth path, whenever
+    someone adds it, free to omit them again. A constructor cannot.
+
+    `verified` is the only honest positive claim here: `total` counts rows
+    present, not rows walked, and conflating those is the original defect.
+    """
+    return {
+        "ok": ok,
+        "total": total,
+        "verified": verified,
+        "unchained_legacy": unchained_legacy,
+        "unchained_after_chain_began": list(unchained_after or []),
+        "broken_at": broken_at,
+        "broken_reason": broken_reason,
+    }
+
+
 def verify_chain() -> dict[str, Any]:
     """Walk the chain and verify each chain_hash. Returns dict with
     ok (bool), total (int), broken_at (event_id or None),
@@ -873,13 +918,51 @@ def verify_chain() -> dict[str, Any]:
       - anchor absent (pre-anchor legacy database) → chain-only check
         is honest about that with a diagnostic on ok=True.
     """
+    known_breaks_file = Path(__file__).resolve().parents[3] / "docs" / "known_chain_breaks.md"
+
+    def _known_chain_breaks() -> set[str]:
+        """Event ids of chain breaks already investigated and written down.
+
+        An entry is a claim that someone looked and found a cause that is not
+        tampering. The file holds the evidence beside the id, so the exemption
+        can be argued with rather than merely trusted.
+        """
+        try:
+            text = known_breaks_file.read_text(encoding="utf-8")
+        except OSError:
+            return set()
+        return set(re.findall(r"^-\s+`([0-9a-f-]{8,})`", text, re.MULTILINE))
+
     conn = _get_connection()
     try:
         rows = list(
             conn.execute(
+                # ROWID ALONE, not timestamp. The chain is built in APPEND
+                # order and rowid is the only faithful record of that. The
+                # timestamp is read by the caller BEFORE the insert, so two
+                # writers in the same instant can land with their clock
+                # readings inverted relative to the rows themselves.
+                #
+                # That happened on 2026-06-10 and every `divineos verify`
+                # since has called the ledger TAMPERED because of it.
+                # Measured 2026-08-13 across 24,312 events:
+                #     ORDER BY timestamp, rowid  ->  2 breaks
+                #     ORDER BY rowid             ->  1 break
+                # One of the two was manufactured by this sort scrambling an
+                # intact chain. Both "missing predecessors" were still in the
+                # table; they simply sorted in front of the rows chaining to
+                # them. The survivor at rowid 188 is a real concurrent-append
+                # race and is deliberately left standing, because it is true.
+                #
+                # The cost of getting this wrong was not a noisy alarm. An
+                # alarm that always cries TAMPERED cannot report tampering,
+                # and the obvious remedy for a permanently-broken chain is to
+                # rewrite the chain -- mutating an intact tamper-evidence
+                # record to satisfy the instrument that is misreading it. I
+                # had the repair drafted and was one approval from asking.
                 "SELECT event_id, timestamp, event_type, actor, payload, content_hash, "
                 "prior_hash, chain_hash FROM system_events "
-                "ORDER BY timestamp ASC, rowid ASC"
+                "ORDER BY rowid ASC"
             )
         )
         if not rows:
@@ -890,35 +973,85 @@ def verify_chain() -> dict[str, Any]:
                 "FROM ledger_head_anchor WHERE row_id = 1"
             ).fetchone()
             if anchor_row and anchor_row[1] > 0:
-                return {
-                    "ok": False,
-                    "total": 0,
-                    "broken_at": None,
-                    "broken_reason": (
-                        f"anchor says {anchor_row[1]} events but ledger is empty — "
-                        f"tail truncation (Fable finding #1)"
-                    ),
-                }
-            return {"ok": True, "total": 0, "broken_at": None, "broken_reason": None}
+                return _chain_result(
+                    ok=False,
+                    total=0,
+                    broken_at=None,
+                    broken_reason=f"anchor says {anchor_row[1]} events but ledger is empty — tail truncation (Fable finding #1)",
+                )
+            return _chain_result(
+                ok=True,
+                total=0,
+                broken_at=None,
+                broken_reason=None,
+            )
 
         expected_prior = _CHAIN_GENESIS
         last_chain_hash = None
         chain_event_count = 0
         last_event_id = None
+        known_breaks_seen: list[str] = []
+        # UNCHAINED ROWS ARE COUNTED AND POSITIONED, NOT SILENTLY SKIPPED.
+        #
+        # This loop used to read `if not stored_chain: continue` with no counter
+        # and no report. The hatch was added so databases predating the chain
+        # could still verify; `backfill_chain_hashes()` now serves that purpose,
+        # so the justification moved out and the artifact stayed. Council walk
+        # 2026-08-18, meta-principle: an escape hatch is a debt with no due date.
+        #
+        # WHAT IT COST. A row can decline the integrity walk by having no chain.
+        # A forged event written with a valid content_hash and NULL chain
+        # columns passes both halves of verification while being fully visible
+        # to every reader, and `divineos verify` prints INTEGRITY: PASS.
+        # Demonstrated on an isolated copy: a row reading
+        # "FORGED: Andrew authorized the bypass" verified clean.
+        #
+        # TWO POPULATIONS, ONE VALUE (Pearl). NULL arises from a row written
+        # before chaining existed -- legitimate, historical -- or from a write
+        # that bypassed append() now -- illegitimate. The column cannot tell
+        # them apart, but POSITION can: a genuine legacy row precedes every
+        # chained row. One inserted today does not. That temporal discriminator
+        # is what makes this fixable without a NOT NULL constraint, which would
+        # refuse to open an old database at all.
+        unchained_before_chain_began = 0
+        unchained_after_chain_began: list[str] = []
+        seen_a_chained_row = False
         for row in rows:
             event_id, ts, etype, actor, payload_json, content_hash, stored_prior, stored_chain = row
             if not stored_chain:
+                if seen_a_chained_row:
+                    # Newer than the oldest chained row, so it cannot be legacy.
+                    unchained_after_chain_began.append(event_id)
+                else:
+                    unchained_before_chain_began += 1
                 continue
+            seen_a_chained_row = True
             if stored_prior != expected_prior:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": event_id,
-                    "broken_reason": (
-                        f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., "
-                        f"expected={expected_prior[:12]}..."
-                    ),
-                }
+                # A break that has been investigated and written down is not a
+                # new finding. Same shape as the orphan-module backlog: the
+                # known set is recorded WITH its evidence, and anything not on
+                # it fails immediately.
+                #
+                # Without this the alarm is stuck. One real race in June meant
+                # every verify since said TAMPERED, and an alarm that always
+                # cries tampered cannot report tampering. Silencing it by
+                # repairing the link would have traded a true history for a
+                # quiet instrument.
+                known = _known_chain_breaks()
+                if event_id in known:
+                    known_breaks_seen.append(event_id)
+                    expected_prior = stored_chain
+                    last_chain_hash = stored_chain
+                    last_event_id = event_id
+                    chain_event_count += 1
+                    continue
+                return _chain_result(
+                    verified=chain_event_count,  # rows walked before the break, not zero
+                    ok=False,
+                    total=len(rows),
+                    broken_at=event_id,
+                    broken_reason=f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., expected={expected_prior[:12]}...",
+                )
             recomputed = _compute_chain_hash(
                 prior_hash=stored_prior,
                 event_id=event_id,
@@ -929,15 +1062,13 @@ def verify_chain() -> dict[str, Any]:
                 content_hash=content_hash,
             )
             if recomputed != stored_chain:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": event_id,
-                    "broken_reason": (
-                        f"chain_hash mismatch: stored={stored_chain[:12]}..., "
-                        f"recomputed={recomputed[:12]}..."
-                    ),
-                }
+                return _chain_result(
+                    verified=chain_event_count,  # rows walked before the break, not zero
+                    ok=False,
+                    total=len(rows),
+                    broken_at=event_id,
+                    broken_reason=f"chain_hash mismatch: stored={stored_chain[:12]}..., recomputed={recomputed[:12]}...",
+                )
             expected_prior = stored_chain
             last_chain_hash = stored_chain
             last_event_id = event_id
@@ -955,40 +1086,57 @@ def verify_chain() -> dict[str, Any]:
         if anchor_row is not None:
             anchor_chain, anchor_count, anchor_event_id = anchor_row
             if anchor_chain != last_chain_hash:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": last_event_id,
-                    "broken_reason": (
-                        f"head anchor chain_hash mismatch: "
-                        f"anchor={anchor_chain[:12]}..., "
-                        f"ledger_tip={(last_chain_hash or '')[:12]}... — "
-                        f"tail truncation or anchor tampering (Fable finding #1)"
-                    ),
-                }
+                return _chain_result(
+                    ok=False,
+                    total=len(rows),
+                    broken_at=last_event_id,
+                    broken_reason=f"head anchor chain_hash mismatch: anchor={anchor_chain[:12]}..., ledger_tip={(last_chain_hash or '')[:12]}... — tail truncation or anchor tampering (Fable finding #1)",
+                )
             if anchor_count != chain_event_count:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": last_event_id,
-                    "broken_reason": (
-                        f"head anchor event_count mismatch: "
-                        f"anchor={anchor_count}, ledger={chain_event_count} — "
-                        f"tail truncation (Fable finding #1)"
-                    ),
-                }
+                return _chain_result(
+                    ok=False,
+                    total=len(rows),
+                    broken_at=last_event_id,
+                    broken_reason=f"head anchor event_count mismatch: anchor={anchor_count}, ledger={chain_event_count} — tail truncation (Fable finding #1)",
+                )
             if anchor_event_id != last_event_id:
-                return {
-                    "ok": False,
-                    "total": len(rows),
-                    "broken_at": last_event_id,
-                    "broken_reason": (
-                        f"head anchor latest_event_id mismatch: "
-                        f"anchor={anchor_event_id}, ledger_tip={last_event_id} — "
-                        f"tail truncation or reorder (Fable finding #1)"
-                    ),
-                }
+                return _chain_result(
+                    ok=False,
+                    total=len(rows),
+                    broken_at=last_event_id,
+                    broken_reason=f"head anchor latest_event_id mismatch: anchor={anchor_event_id}, ledger_tip={last_event_id} — tail truncation or reorder (Fable finding #1)",
+                )
 
-        return {"ok": True, "total": len(rows), "broken_at": None, "broken_reason": None}
+        # THE CLAIM MUST MATCH WHAT WAS CHECKED. `total` is len(rows) and always
+        # was; the defect is that nothing beside it said how many of those rows
+        # were actually walked, so "Chain walked: 8 events / INTEGRITY: PASS"
+        # could be printed over a ledger where every row opted out. Two frames,
+        # one number (Einstein): in this function's frame `total` means "rows
+        # present"; in the reader's frame it means "rows verified".
+        #
+        # `verified` is the honest positive claim. `unchained_legacy` is a true
+        # fact about an old database, not a fault. `unchained_after_chain_began`
+        # is the fault, and it fails the check rather than being reported
+        # alongside a PASS — a row that appears after chaining started cannot
+        # have predated it.
+        if unchained_after_chain_began:
+            return _chain_result(
+                ok=False,
+                total=len(rows),
+                verified=chain_event_count,
+                unchained_legacy=unchained_before_chain_began,
+                unchained_after=unchained_after_chain_began,
+                broken_at=unchained_after_chain_began[0],
+                broken_reason=f"{len(unchained_after_chain_began)} row(s) carry no chain hash but appear AFTER chaining began — they cannot be legacy rows. First: {unchained_after_chain_began[0]}. A row with no chain declines the integrity walk; forged events are written exactly this way. Run backfill_chain_hashes() only if these are genuinely pre-chain.",
+            )
+        return _chain_result(
+            ok=True,
+            total=len(rows),
+            verified=chain_event_count,
+            unchained_legacy=unchained_before_chain_began,
+            unchained_after=[],
+            broken_at=None,
+            broken_reason=None,
+        )
     finally:
         conn.close()

@@ -608,26 +608,74 @@ def _count_gated_tool_calls(cutoff: float) -> int:
     compass_rudder so adding a new gated tool in one place
     automatically updates the active-session filter.
     """
+    gated, _total = _count_tool_calls_split(cutoff)
+    return gated
+
+
+def _count_tool_calls_split(cutoff: float) -> tuple[int, int]:
+    """Return (gated_calls, all_tool_calls) in the window.
+
+    2026-08-01 FIX. This read `system_events` for TOOL_CALL. The wrapper
+    stopped writing there on 2026-05-05 — see the migration note in
+    tool_wrapper.py: "the wrapper writes to `tool_logbook` instead of
+    `system_events`." The detector was never updated, so it has been
+    querying a table that has received zero TOOL_CALL rows for three
+    months. Measured: system_events TOOL_CALL = 0, tool_logbook
+    TOOL_CALL = 1176.
+
+    That constant 0 fell through the `gated_activity < threshold` guard
+    in _detect_block_allow_anomalies and returned early every time, so
+    `rudder_infrastructure_failure` — the detector whose entire job is
+    noticing the rudder has died — could never fire. Nor could
+    detect_uncalibrated_baselines, gated behind the same value.
+
+    WHY THIS RETURNS A PAIR. Pointing at the right table is not enough
+    on its own, and the "one-line fix" framing missed it: `Agent` and
+    `Task` appear nowhere in tool_logbook's 1201 rows, so the corrected
+    query still returns 0 today. That zero is honest — those tools were
+    not called — but it is INDISTINGUISHABLE from the blindness above.
+    Callers need both numbers to tell "quiet session" from "cannot
+    observe", which is the whole failure class this audit keeps finding.
+    """
     try:
         from divineos.core.compass_rudder import GATED_TOOL_NAMES
-        from divineos.core.ledger import get_events
+        from divineos.core.ledger import get_connection
     except ImportError:
-        return 0
+        return (0, 0)
     try:
-        # limit=20000 comfortably covers a week of high-activity sessions
-        # (100 calls/hr × 24 × 7 = 16800). Bumped from the 5000 used
-        # elsewhere per fresh-Claude addendum refinement 9.
-        events = get_events(event_type="TOOL_CALL", limit=20000)
+        conn = get_connection()
     except Exception:  # noqa: BLE001
-        return 0
-    count = 0
-    for e in events:
-        if e.get("timestamp", 0.0) < cutoff:
-            continue
-        payload = e.get("payload") or {}
-        if payload.get("tool_name") in GATED_TOOL_NAMES:
-            count += 1
-    return count
+        return (0, 0)
+    try:
+        total = conn.execute(
+            "SELECT COUNT(*) FROM tool_logbook WHERE event_type = 'TOOL_CALL' AND timestamp >= ?",
+            (cutoff,),
+        ).fetchone()[0]
+        names = sorted(GATED_TOOL_NAMES)
+        if not names:
+            return (0, int(total))
+        placeholders = ",".join("?" * len(names))
+        # nosec B608 — the f-string interpolates `placeholders` only, which is
+        # built one line above from `","join("?" * len(names))`: question marks
+        # and commas, nothing else. Every value is bound through the parameter
+        # tuple below, including each tool name. This is the standard safe way
+        # to build a variable-length IN clause, and bandit flags the shape
+        # rather than the content.
+        #
+        # Landed in #409 and has been failing bandit strict-mode since; this is
+        # the first commit after it to stage a file under src/divineos/, which
+        # is what triggers the scan, so it went unnoticed until now.
+        gated = conn.execute(
+            "SELECT COUNT(*) FROM tool_logbook "  # nosec B608
+            "WHERE event_type = 'TOOL_CALL' AND timestamp >= ? "
+            f"AND tool_name IN ({placeholders})",
+            (cutoff, *names),
+        ).fetchone()[0]
+    except Exception:  # noqa: BLE001 — table may not exist on a fresh install
+        return (0, 0)
+    finally:
+        conn.close()
+    return (int(gated), int(total))
 
 
 def _detect_block_allow_anomalies(window_seconds: float, now: float | None) -> list[Anomaly]:
@@ -662,11 +710,54 @@ def _detect_block_allow_anomalies(window_seconds: float, now: float | None) -> l
 
     # PR-1b: active-session signal is gated TOOL_CALL count, not
     # fires+allows. See _count_gated_tool_calls + addendum Q1.
-    gated_activity = _count_gated_tool_calls(cutoff)
+    gated_activity, total_tool_calls = _count_tool_calls_split(cutoff)
     rudder_events = len(fires) + len(allows)
 
+    # 2026-08-01: "no gated calls" and "cannot see gated calls" used to
+    # produce the identical silent early-return. They are opposite states
+    # and only one of them is safe.
+    #
+    # The discriminator must be a CONTRADICTION, not merely an absence. A
+    # first pass fired whenever the window held no TOOL_CALL rows — which
+    # also describes a fresh install and every unit test that mocks only
+    # rudder events. 13 existing tests went red, correctly. An alarm that
+    # fires on an empty machine is a false-alarm generator, and this audit
+    # exists to remove those rather than add one.
+    #
+    # Rudder events prove work ran. Zero recorded tool calls says none did.
+    # Both cannot be true, so the recording path is broken — which is
+    # precisely the 2026-05-05 wrapper migration, detectable without the
+    # detector needing to know any table name.
+    if total_tool_calls == 0 and rudder_events > 0:
+        anomalies.append(
+            Anomaly(
+                name="tool_call_observability_lost",
+                severity=AnomalySeverity.HIGH,
+                observation=(
+                    f"{rudder_events} rudder events fired in the "
+                    f"{window_seconds / 3600:.1f}h window but tool_logbook "
+                    "recorded 0 TOOL_CALL rows. Work demonstrably ran and was "
+                    "not recorded, so the gated-activity signal is unreliable "
+                    "and rudder_infrastructure_failure cannot be evaluated. "
+                    "This is not a clean result."
+                ),
+                detail={
+                    "gated_activity": gated_activity,
+                    "total_tool_calls": 0,
+                    "rudder_events": rudder_events,
+                    "window_hours": window_seconds / 3600,
+                },
+                recommendation=(
+                    "Verify the tool wrapper is emitting to tool_logbook. "
+                    "Historical cause: the wrapper moved from system_events to "
+                    "tool_logbook on 2026-05-05 and readers were not updated."
+                ),
+            )
+        )
+        return anomalies
+
     if gated_activity < _BLOCK_ALLOW_ACTIVE_SESSION_GATED_CALLS:
-        return anomalies  # quiet session; no signal
+        return anomalies  # genuinely quiet session, and we could see it
 
     # Full infrastructure failure — active session, rudder emitted 0 events
     if rudder_events == 0:

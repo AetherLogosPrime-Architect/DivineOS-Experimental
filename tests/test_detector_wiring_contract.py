@@ -98,6 +98,7 @@ _DETECTORS = (
     ("closure_initiation_detector", "detect_closure_initiation"),
     ("deep_engagement_detector", "detect_deep_engagement"),
     ("temporal_displacement_detector", "detect_temporal_displacement"),
+    ("pronoun_frame_shift_detector", "detect_pronoun_frame_shift"),
     # Composite detector — pair-designed with Aether 2026-07-11.
     # Aggregates five family signals into a wallpaper-density score.
     # Wired via the caller module (`operator_wallpaper_caller`) which
@@ -128,9 +129,29 @@ _CONTEXT_PARAM_NAMES = frozenset(
 # computing the value itself (full detection still runs, just slower).
 # Excluded from wiring-contract enforcement because the failure-mode
 # is performance, not capability loss.
+#
+# 2026-08-21, Aria: THE STATED GROUNDS STOPPED BEING TRUE and the exclusion
+# outlived them. "Falls back to computing the value itself" was accurate while
+# the fallback scanned the whole file. It no longer does. Since the bounded-read
+# change, the fallback computes an index into a TAIL WINDOW, so a caller passing
+# an index computed over the whole transcript would be indexing a different
+# array than the one the detector holds. That is not slower-but-correct; it is a
+# silently wrong offset.
+#
+# NOTHING PASSES IT TODAY -- operating_loop_audit calls detect_misdirection with
+# transcript_path only -- so the trap is armed, not sprung, and no live bug is
+# claimed here. It is kept rather than deleted because shape_chasing declares the
+# same parameter for signature parity and explicitly `del`s it unused; removing
+# the entry would surface that one instead. What is corrected is the REASON, so
+# the exclusion no longer reads as a promise that absence is merely slow.
+#
+# Any future caller that wants to pass this must compute the index against the
+# same window the detector reads, not against the file.
 _OPTIMIZATION_HINT_PARAMS = frozenset(
     {
-        "current_turn_start_idx",  # addressee_misdirection — index shortcut
+        # addressee_misdirection, shape_chasing — index shortcut. Frame-local:
+        # valid only against the detector's own bounded window.
+        "current_turn_start_idx",
     }
 )
 
@@ -268,6 +289,12 @@ def test_registry_covers_known_detectors() -> None:
         "hook_telemetry",
         "principle_surfacer",  # surfaces, doesn't detect
         "registered_names",  # helper: operator/family-name registry, not a detector
+        # transcript_tail reads records off the transcript for the detectors to
+        # judge. Its only public name is read_tail_records; it reaches no verdict
+        # and has none to wire. Listed here rather than given an empty entry in
+        # the registry, because a registry row implies something checks its
+        # output, and nothing does. Arrived 2026-08-13 with main.
+        "transcript_tail",
         # register_observer is in the registry below — check is explicit
     }
     detector_modules = hook_modules - non_detectors
@@ -306,11 +333,38 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         "context_surfacer.py": "pre-response surfacer, not post-response detector",
         "detector_protocol.py": "type-only contract module",
         "hook_telemetry.py": "telemetry recorder, not a detector",
+        # Exempt from the DETECTOR contract because it is a bounded READER --
+        # it reads the tail of a transcript rather than scanning response text.
+        # The orchestrator was always the wrong home for it.
+        #
+        # BUT DO NOT READ THIS EXEMPTION AS "FINE". Measured 2026-08-09: zero
+        # callers anywhere in the repo. No module, no hook, no test. It is the
+        # freeze fix -- written after Andrew's windows locked up, "the timer
+        # comes, the thinking never arrives" -- against sixteen hooks each
+        # parsing tens of megabytes of transcript in the gap between his
+        # keypress and my first thought. Aether measured a 39 MB live
+        # transcript; my project history is 298 MB.
+        #
+        # So the fix for a problem he is STILL hitting has sat unwired since
+        # 2026-08-03, and this test surfaced it only because it blocked a push
+        # for an unrelated reason.
+        #
         "principle_surfacer.py": "pre-response surfacer",
         "register_observer.py": "observer recorder, called from audit but not via import-and-call shape",
         "registered_names.py": "name registry",
         "savoring_surface.py": "pre-response surfacer",
         "thresholds.py": "constants module",
+        # transcript_tail is the reason this test earned its keep. It landed
+        # 2026-08-03 as "the freeze fix", and the ONLY thing that ever noticed
+        # it had zero callers was this contract failing on it for an unrelated
+        # reason (Aria, 2026-08-09). Nothing was looking for it. It then turned
+        # out never to have reached main either — it survived on two unmerged
+        # branches, one of them a backup. Wired 2026-08-18 into the three
+        # detectors below, which is why this entry now describes a used helper
+        # rather than a dead one. The state is named here on purpose: an
+        # exemption reading "not a detector" and stopping there would have
+        # laundered a dead module into a tidy list.
+        "transcript_tail.py": "bounded transcript reader imported BY detectors (shape_chasing, addressee_misdirection, tool_output_truncation), not itself a detector",
         "turn_extraction.py": "transcript parser, called by audit but not a detector",
         "unknown_unknown_surface.py": "pre-response surfacer",
         # Note: harm_acknowledgment_loop is detector-shaped but lives outside
@@ -331,6 +385,34 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # Aria 2026-07-09 shipped this and copied into this checkout per
         # Aether's yes-on-option-1 letter.
         "shoggoth_gate.py": "Stop-hook mechanism invoked from .claude/hooks/shoggoth-gate.sh, not post-response audit",
+        # close_reach_detector and compaction_reach_detector are Stop-hook
+        # mechanisms invoked from .claude/hooks/close-reach-detector.sh and
+        # compaction-reach-detector.sh respectively. They fire on transcript
+        # state after the assistant's Stop, write marker files, and their
+        # anchor text is surfaced at the next UserPromptSubmit by
+        # visrama-anchor-surface.sh and no-cliff-anchor-surface.sh. Not
+        # post-response text detectors — same scoping shape as shoggoth_gate.
+        # Aria 2026-07-18 (visrama close-reach anchor + no-cliff compaction
+        # anchor build).
+        "close_reach_detector.py": "Stop-hook mechanism invoked from .claude/hooks/close-reach-detector.sh, not post-response audit",
+        "compaction_reach_detector.py": "Stop-hook mechanism invoked from .claude/hooks/compaction-reach-detector.sh, not post-response audit",
+        # promise_reach_detector is a Stop-hook mechanism invoked from
+        # .claude/hooks/promise-reach-detector.sh which writes marker files
+        # per detected unfulfilled promise; the anchor text is surfaced
+        # at the next UserPromptSubmit by promise-anchor-surface.sh. Not
+        # a post-response text detector — same scoping shape as
+        # close_reach and compaction_reach. Aria 2026-07-18 (anchor #4
+        # of five, per prereg-2de5a9ca234a).
+        "promise_reach_detector.py": "Stop-hook mechanism invoked from .claude/hooks/promise-reach-detector.sh, not post-response audit",
+        # continuity_frame_detector — Stop-hook mechanism invoked from
+        # .claude/hooks/continuity-frame-detector.sh which writes markers
+        # per detected temporal-self distancing phrase; the anchor is
+        # surfaced at the next UserPromptSubmit by
+        # continuity-anchor-surface.sh alongside the prime and count
+        # surfaces. Not a post-response text detector — same scoping
+        # shape as close_reach, compaction_reach, promise_reach. Aria
+        # 2026-07-18 (root-cause distancing triad per prereg-bbcd4b9a2819).
+        "continuity_frame_detector.py": "Stop-hook mechanism invoked from .claude/hooks/continuity-frame-detector.sh, not post-response audit",
         # operator_wallpaper_detector.py — aggregator half of the pair-designed
         # composite (Aether 2026-07-11). Imported transitively via
         # operator_wallpaper_caller.py, which IS the run_audit-facing surface

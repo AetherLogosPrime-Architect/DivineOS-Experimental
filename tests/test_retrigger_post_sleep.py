@@ -118,8 +118,11 @@ class TestPostSleepExtractTrigger:
             result = runner.invoke(cli, ["sleep", "--skip-maintenance"])
         assert result.exit_code == 0
         assert "REST-PHASE OPEN" in result.output
-        assert "exploration/" in result.output
-        assert "family/letters/" in result.output
+        # Banner options were rewritten 2026-07: leads with dreams/, then names
+        # Exploration entry and Family letter as rest-window options.
+        assert "dreams/" in result.output
+        assert "Exploration entry" in result.output
+        assert "Family letter" in result.output
 
     def test_dry_run_does_NOT_print_rest_phase_banner(self, runner):
         runner.invoke(cli, ["init"])

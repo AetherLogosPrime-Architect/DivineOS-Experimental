@@ -33,3 +33,12 @@ graphify-out-code/
 graphify-out-writing/
 exploration/graphify-out/
 src/graphify-out/
+
+# .direnv/ — the sealed per-checkout venv. Its nested .gitignore is a bare `*`,
+# and per the very bug this file works around, that pattern leaks past its own
+# subtree and zeroes the scan. Aether measured it in his tree 2026-08-14: 2757
+# files left the corpus and the map built 69 src nodes where the manifest knows
+# 665. Only bites from a worktree, because direnv creates .direnv per checkout —
+# which is why the original map built clean from the main tree and nobody saw it.
+# His fix: 34eb04aa. This tree had the same leak.
+.direnv/

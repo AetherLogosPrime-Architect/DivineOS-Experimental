@@ -599,6 +599,52 @@ def _row_gate_failures() -> DashboardRow | None:
         return None
 
 
+def _row_gate_fires() -> DashboardRow | None:
+    """Surface how often gates REFUSED, which is not the same as failing.
+
+    Andrew 2026-08-13: "gates are primitive blocks.. ideally you should
+    never be hitting the gate.. if you are then it means automation a
+    doorman and a proper channel is required.. so that it all happens
+    before you ever reach the gate."
+
+    That makes every refusal a finding: a wall hit repeatedly is a missing
+    doorman, and the count is the priority order for building them. Note
+    the row above measures the opposite thing -- gate machinery breaking
+    and failing open. A gate that fires is working; it is the ABSENCE
+    upstream of it that this row is about.
+
+    Grouped by the gate's own headline so one wall reads as one row with a
+    count, rather than as a scatter of individual refusals.
+    """
+    try:
+        from divineos.core.failure_diagnostics import recent_failures
+
+        fires = recent_failures("gate_fire", window=500)
+        if not fires:
+            return None
+        cutoff = time.time() - _SECONDS_PER_DAY
+        recent = [f for f in fires if f.get("timestamp", 0) >= cutoff]
+        if not recent:
+            return None
+        counts: dict[str, int] = {}
+        for f in recent:
+            label = str(f.get("gate") or "unlabelled")
+            counts[label] = counts.get(label, 0) + 1
+        worst, worst_n = max(counts.items(), key=lambda kv: kv[1])
+        return DashboardRow(
+            area="Gate fires",
+            count=len(recent),
+            stale_count=worst_n,
+            drill_down="divineos briefing --full",
+            detail=(
+                f"{len(counts)} distinct wall(s) hit in 24h; most-hit "
+                f'({worst_n}x): "{worst[:48]}" — each is a doorman not built'
+            ),
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_directives() -> DashboardRow | None:
     """Surface filed directives in the briefing dashboard.
 
@@ -700,7 +746,7 @@ def _row_holding() -> DashboardRow | None:
             area="Holding room",
             count=len(items),
             stale_count=stale,
-            drill_down="divineos holding list",
+            drill_down="divineos hold list",
             preview=preview,
         )
     except _ERRORS:
@@ -998,14 +1044,45 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
         f"{n} from {src}" for src, n in sorted(source_counts.items(), key=lambda x: -x[1])
     )
 
+    # ONE ENTRY, ADDRESSED, ABOVE THE COUNT. Tannen's finding from the
+    # 2026-08-28 council walk on why this store had 186 filings and zero
+    # closes: the row was in STATUS register, and a number that never moves
+    # stops being about the reader. Status is furniture. Address is not.
+    #
+    # The count stays -- it is the honest scale and hiding it would be the
+    # opposite error. What changes is that a single named obligation is put
+    # in front of me in the second person before the aggregate, because
+    # "one hundred eighty-six pending" is a fact about a store and "you said
+    # you would fix this" is a fact about me.
+    #
+    # Cheapest of the four things that walk surfaced, and shipped in the turn
+    # it was conceived on purpose: Hofstadter's lens noted that a fix for the
+    # backlog naturally becomes the backlog's next entry. The bound on filing
+    # -- the load-bearing repair -- is a decision with Andrew, because the
+    # walk also found that the forcing has to come from a level this system
+    # does not author.
+    oldest = sorted_pending[0] if sorted_pending else None
+    if oldest is not None:
+        age_d = max(0, (now - (oldest.get("created_at") or now)) / _SECONDS_PER_DAY)
+        said = (oldest.get("content_excerpt") or "").replace("\n", " ").strip()
+        preview.insert(
+            0,
+            f"You said you would fix this {age_d:.0f} days ago and have not: "
+            f"{said[:110]}{'...' if len(said) > 110 else ''}",
+        )
+
     # Every pending entry is "stale" — it's an obligation that hasn't
     # been discharged. U-shape reorder will boost the row to the edges.
     return DashboardRow(
         area="Pending structural fixes",
         count=len(pending),
         stale_count=len(pending),
-        drill_down="-> cat ~/.divineos/pending_structural_fixes.json",
-        detail=f"filings that named a fix but no code shipped yet ({composition})",
+        drill_down="-> divineos psf list   (close one: divineos psf mark-done <id> --note ...)",
+        detail=(
+            f"filings that named a fix but no code shipped yet ({composition}). "
+            "Filing one discharges the urge to build it as completely as building "
+            "it would -- so this store is where intentions go to feel finished."
+        ),
         preview=preview,
     )
 
@@ -1248,6 +1325,7 @@ _ROW_FNS = [
     _row_preregs,
     _row_prereg_candidates,
     _row_gate_failures,
+    _row_gate_fires,
     _row_goals,
     _row_lessons,
     _row_drift_state,

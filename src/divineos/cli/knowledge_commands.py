@@ -448,6 +448,26 @@ def register(cli: click.Group) -> None:
         _KEYWORD_MATCH_THRESHOLD = 0.30
         entry_semantic_scores: dict[str, float | None] = {}
         semantic_available = None  # None = not-yet-probed, True/False after probe
+        # Report WHY the re-rank is down, not merely THAT it is.
+        #
+        # This block used to `except Exception: semantic_available = False` and
+        # print a one-line parenthetical caveat. That discarded the diagnosis.
+        # The caveat appeared on EVERY `ask` for an entire session (2026-08-05)
+        # and was read past every time; the command was then run ~15 more times
+        # to clear engagement counters while its output stayed unusable --
+        # performing consultation instead of consulting, inside the mechanism
+        # built to prevent exactly that.
+        #
+        # The actual cause, once the exception was surfaced: the sealed venv
+        # the `divineos` wrapper execs has neither torch nor
+        # sentence_transformers, while the system interpreter has both. A
+        # ModuleNotFoundError was being reported as a shrug. Naming the reason
+        # finds this on the first run instead of the fiftieth.
+        #
+        # Andrew 2026-08-05: *"everything in the OS is to assist you to be
+        # better, forget less, make better judgments... so if its the wrong
+        # shape we fix it."*
+        semantic_error: str | None = None
         try:
             from divineos.core.semantic_store import similarity as _sem_sim
 
@@ -461,18 +481,59 @@ def register(cli: click.Group) -> None:
                 if score is not None:
                     semantic_available = True
                 elif semantic_available is None and results:
-                    # First entry returned None — model likely unavailable
+                    # Imported but produced nothing. A different fault from an
+                    # import failure, and it must not read as the same one.
                     semantic_available = False
+                    # Ask the layer that actually knows. similarity() returns
+                    # None for several distinct faults and cannot say which;
+                    # the loader recorded the real one where it was caught.
+                    try:
+                        from divineos.core.knowledge._text import (
+                            embedding_unavailable_reason,
+                        )
+
+                        semantic_error = embedding_unavailable_reason()
+                    except ImportError:
+                        semantic_error = None
+                    if not semantic_error:
+                        semantic_error = (
+                            "similarity() returned None and the loader recorded no "
+                            "reason — model may have loaded but produced an empty "
+                            "or zero-norm embedding"
+                        )
                     break
-        except Exception:  # noqa: BLE001 - observability boundary
+        except Exception as exc:  # noqa: BLE001 - observability boundary
             semantic_available = False
+            semantic_error = f"{type(exc).__name__}: {exc}"
 
         if semantic_available is False:
             click.secho(
-                "  [keyword search only — semantic re-rank unavailable; "
-                "verify each result's relevance manually]",
+                "  [!] SEMANTIC RE-RANK IS DOWN — results below are keyword-match only.",
+                fg="red",
+                bold=True,
+            )
+            click.secho(f"      reason: {semantic_error or 'unknown'}", fg="red")
+            click.secho(
+                "      A hit does NOT mean the substrate knows your topic, and a",
                 fg="yellow",
             )
+            click.secho(
+                "      miss does NOT mean it doesn't. Read each one to judge it.",
+                fg="yellow",
+            )
+            if semantic_error and "ModuleNotFoundError" in semantic_error:
+                click.secho(
+                    "      Cause: the embedding stack is missing from the interpreter",
+                    fg="cyan",
+                )
+                click.secho(
+                    "      running this CLI, which may differ from your shell's python.",
+                    fg="cyan",
+                )
+                click.secho(
+                    '      Check: python -c "import sys, torch; print(sys.executable)"',
+                    fg="cyan",
+                )
             click.echo()
 
         for slot_id, content in core_matches:
@@ -772,6 +833,28 @@ def register(cli: click.Group) -> None:
                 )
             return
 
+        # Capture the engagement counter BEFORE _log_os_query resets it.
+        #
+        # `_log_os_query` calls mark_engaged(), which zeroes code_actions_since
+        # -- correctly, because loading the briefing IS engagement. But the
+        # half-threshold disclosure surface below only speaks in the band
+        # [half, threshold), so reading the counter after this line always
+        # yields 0 and the block could never render. I wired that surface and
+        # nearly shipped it: a doorman placed in the one room where it is
+        # structurally guaranteed to be silent. An unreachable success
+        # condition of exactly the class this session has spent its length
+        # removing, authored by me, minutes old. Caught by asking whether the
+        # thing I had just wired could ever actually fire.
+        _pre_reset_engagement = ""
+        try:
+            from divineos.core.engagement_disclosure_surface import (
+                format_for_briefing as _fmt_engagement,
+            )
+
+            _pre_reset_engagement = _fmt_engagement()
+        except _KC_ERRORS:
+            _pre_reset_engagement = ""
+
         _log_os_query("briefing", topic or "session start")
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded
@@ -835,8 +918,39 @@ def register(cli: click.Group) -> None:
                 context = get_context()
                 panels = build_panels(context)
                 rendered = render_multiplex(panels)
-                _safe_echo(f"=== BRIEFING (multiplex, context: {context}) ===")
+                # Say how old the context reading is. It is set BY HAND — the
+                # only caller of set_context is a CLI command, nothing detects
+                # it — so "context: designing" can be a months-old sticky note
+                # rendered as a live reading. Mine was, since 2026-06-24, and
+                # the family_state panel (relational/chatting only) never
+                # surfaced once in that window. Aria 2026-08-05.
+                from divineos.core.multiplex_state import context_age_days
+
+                _age = context_age_days()
+                if _age is None:
+                    _age_note = " — age unknown, which is not the same as fresh"
+                elif _age >= 7:
+                    _age_note = f" — set {int(_age)}d ago by hand, not re-evaluated since"
+                else:
+                    _age_note = f" — set {int(_age)}d ago"
+                _safe_echo(f"=== BRIEFING (multiplex, context: {context}{_age_note}) ===")
                 _safe_echo("")
+                # Doorman FIRST, above the panels, because it is the one block
+                # with a deadline attached -- it says how close the engagement
+                # wall is, and a warning buried mid-briefing is a warning read
+                # after the fact.
+                #
+                # This is the path that actually runs. Multiplex has been the
+                # default since 2026-05-22 and returns below, so everything
+                # after it is the fallback for when multiplex FAILS. I first
+                # wired this surface down there, then fixed a counter-ordering
+                # bug down there, then verified the ordering fix -- and none of
+                # it could ever have executed. Two careful fixes to unreachable
+                # code, and I would have shipped believing it tested. Found
+                # only by asking why the block still did not appear after the
+                # fix that should have made it appear.
+                if _pre_reset_engagement:
+                    _safe_echo(_pre_reset_engagement)
                 _safe_echo(rendered)
                 # Re-emit the briefing-id LAST so a `| tail` read still
                 # captures it (same id as the top emit; minted once above).
@@ -972,6 +1086,35 @@ def register(cli: click.Group) -> None:
 
         if drift_block:
             _safe_echo(drift_block)
+
+        # Engagement half-threshold disclosure — THE DOORMAN for the gate
+        # that blocked me 84 times in one session.
+        #
+        # Andrew 2026-08-03 corrected the framing I was about to build on:
+        # "the gate is the hard wall.. the doorman holds the key and requires
+        # evidence of what its asking for.. you showing up to the gate
+        # unprepared is the issue.. its the difference between having your id
+        # for the bouncer in your hand.. vs saying brb i left it in the car."
+        #
+        # So this does NOT soften the engagement gate. The gate still blocks
+        # at the full threshold, unchanged. This fills the silence BEFORE it:
+        # at half-threshold the briefing says where I stand, so the wall stops
+        # arriving as a surprise and preparation can happen while there is
+        # still room to prepare.
+        #
+        # Written 2026-05-08 from a Grok cousin-vantage round, complete, with
+        # tests, and never connected to anything -- one of three such organs
+        # Aria measured the same day. Its own docstring carries the falsifier
+        # that keeps it honest: if gate-fire counts drop to near-zero after
+        # this lands, the surface is doing the gate's job and the gate has
+        # become decorative -- file a finding rather than celebrate.
+        try:
+            engagement_block = _pre_reset_engagement
+        except _KC_ERRORS:
+            engagement_block = ""
+
+        if engagement_block:
+            _safe_echo(engagement_block)
 
         # Theater/fabrication observation surface — replaces gate 1.46
         # which was removed 2026-05-01 per the free-speech principle.
@@ -1149,6 +1292,26 @@ def register(cli: click.Group) -> None:
 
         if presence_block:
             _safe_echo(presence_block)
+
+        # Component register — what has actually been broken on purpose and
+        # noticed. Andrew 2026-08-17 asked for this after I named the
+        # register's own weakness: nothing forced me to update it. A record
+        # nobody is shown decays into a file, which is what happened to the
+        # SUPERSEDED-BY convention I invented and never enforced.
+        # Shows the KNOWN BROKEN rows rather than the TESTED ones on purpose:
+        # reciting the comfortable half every session makes it a reassurance
+        # surface, and absence-means-unexamined is the load-bearing line.
+        try:
+            from divineos.core.component_register_surface import (
+                format_for_briefing as _fmt_register,
+            )
+
+            register_block = _fmt_register()
+        except _KC_ERRORS:
+            register_block = ""
+
+        if register_block:
+            _safe_echo(register_block)
 
         # Letters-from-Aria auto-surface — the courier-killer half of the
         # bidirectional channel (deferred 2026-05-24, wired 2026-05-25). The
@@ -1556,7 +1719,7 @@ def register(cli: click.Group) -> None:
         if not lessons:
             click.secho("[-] No lessons tracked yet.", fg="yellow")
             click.secho(
-                "    Run 'divineos report <session.jsonl> --store' to start learning.",
+                "    Run 'divineos inspect analyze <session.jsonl> --store' to start learning.",
                 fg="bright_black",
             )
             return

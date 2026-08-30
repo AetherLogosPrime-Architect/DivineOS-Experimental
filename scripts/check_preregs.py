@@ -80,18 +80,40 @@ _PATTERNS = [
 ]
 
 
-def _staged_diff() -> str | None:
-    """Return the staged diff as a string, or None if git is unavailable."""
+def _staged_diff() -> tuple[str | None, str]:
+    """Return (staged diff, reason-it-is-missing). Exactly one is populated.
+
+    PIN THE ENCODING. `text=True` alone decodes with the locale codec, which on
+    this machine is cp1252, and a diff carrying an em dash or a smart quote --
+    which this repo's comments are full of -- kills subprocess's reader thread
+    with UnicodeDecodeError. The exception surfaces in the THREAD, not here, so
+    the except below never sees it and the caller printed "git not available;
+    skipping" over a decode failure with git working perfectly.
+
+    Observed 2026-08-17: the pre-reg gate had been skipping on every commit
+    touching text with non-ASCII in it. Third instance of this exact cp1252
+    reader-thread failure found today (build_flow's `_gh`, the CRLF miscount,
+    this) and the second time it wore "the tool is missing" as its explanation.
+
+    Two return values rather than None-means-unavailable, so a gate that CANNOT
+    RUN can no longer be reported as a gate that found nothing. Unknown is not
+    zero -- the same rule stamp-ready's preflight got for the same reason.
+    """
     try:
         result = subprocess.run(
             ["git", "diff", "--cached", "--unified=0"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    return result.stdout
+    except FileNotFoundError:
+        return None, "git not on PATH"
+    except subprocess.CalledProcessError as exc:
+        return None, f"git diff failed (exit {exc.returncode})"
+    except UnicodeDecodeError as exc:  # belt: the encoding is pinned above
+        return None, f"could not decode the diff ({exc})"
+    return result.stdout, ""
 
 
 def _is_exempt_path(path: str) -> bool:
@@ -206,9 +228,12 @@ def _format_block_message(uncovered: list[NewMechanism]) -> str:
 
 
 def main() -> int:
-    diff = _staged_diff()
+    diff, why_missing = _staged_diff()
     if diff is None:
-        print("[pre-reg gate] git not available; skipping.", file=sys.stderr)
+        # SAY WHICH FAILURE. "git not available" was printed over a decode
+        # crash for however long, sending anyone who read it to check their
+        # PATH while the actual cause was the codepage.
+        print(f"[pre-reg gate] DID NOT RUN: {why_missing}", file=sys.stderr)
         return 0
     mechanisms = _parse_new_mechanisms(diff)
     if not mechanisms:

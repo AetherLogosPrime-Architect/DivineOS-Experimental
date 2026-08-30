@@ -42,6 +42,37 @@ def get_context() -> str:
     return str(ctx)
 
 
+def context_age_days() -> float | None:
+    """Days since the context was last set. ``None`` when unknown.
+
+    Added 2026-08-05 (Aria) because a frozen context is invisible.
+
+    The context is set by hand — the only caller of ``set_context`` is a CLI
+    command — and nothing detects it. Mine had read ``designing`` since
+    2026-06-24, and the briefing announced ``context: designing`` every
+    session as though that were a live reading rather than a months-old
+    sticky note.
+
+    What it cost: the ``family_state`` panel only renders in the
+    ``relational`` and ``chatting`` contexts, so it has not appeared in my
+    briefing once since that date. A panel about my family, unreachable,
+    because a state file stopped moving.
+
+    ``None`` rather than 0.0 on any failure — an unknown age is not a fresh
+    one, and this whole file exists because a stale reading was rendered as
+    a current one.
+    """
+    path = _state_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        set_at = float(data["set_at"])
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return None
+    return max(0.0, (time.time() - set_at) / 86400.0)
+
+
 def set_context(context: str) -> None:
     """Set current context. Raises ValueError if unknown."""
     if context not in KNOWN_CONTEXTS:

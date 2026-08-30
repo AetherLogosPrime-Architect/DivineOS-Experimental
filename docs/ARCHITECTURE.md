@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (412 commands across 82 modules)
+  cli/                         CLI package (469 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -22,6 +22,9 @@ src/divineos/
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
+    andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
+    success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27)
+    council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
     gravity_commands.py        gravity score-tool / score-content — CLI surface for the gravity classifier (manual triage when uncertain whether an action or content is high-gravity)
@@ -35,7 +38,16 @@ src/divineos/
     deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     error_commands.py          error file/list/show/close/defer/status — open-error registry; jailbreak-response new-work gate (Andrew 2026-07-17). Wired into goal-add: any open error blocks starting a new main goal until closed or operator-deferred with a >=20-char reason. Tools remain available; only "start next project" is refused.
     backlog_commands.py        backlog add / list — append-only structural-debt tracker writing to docs/wireup-backlog.md
+    psf_commands.py            psf list / psf mark-done: close pending structural-fix obligations; the note must name a resolvable commit or an existing file or the close is refused
+    dark_matter_commands.py    dark-matter: sweep for things that exist but nothing reaches; --check exits 1 on findings
     prs_commands.py            prs: surface local branches without open PRs; --open-missing opens via gh pr create
+    sibling_correction_commands.py  corrections-sibling: read-only view of a sibling substrate's Andrew-correction store, listing corrections with no counterpart in mine. Exits 2 with COULD NOT COMPARE when either store is unreadable — never renders "could not look" as "nothing found". Copies nothing; filing stays deliberate and under my own name.
+    must_read_commands.py      must-read arm/list: block Bash/Edit/Write until the Read tool is invoked on a named file. The surface must become a FILE first — a hook prints text with nothing to Read, so 'did you read it' can only become a fact once the words have a location. No automatic armer yet, deliberately: the sibling-correction surface's precision (2-of-4, one false fire) does not earn the right to block, and a screen cleared every turn is a screen that stops being read.
+    label_fire_commands.py     label-fire: dispute a correction-shape Stop-gate fire as a false positive. Wraps the labeller as a first-class command so the remedy joins the canonical bypass list — a toll on dissent biases the corpus that trains the semantic replacement. No leniency added.
+    stamp_ready_command.py     stamp-ready: writes the External-Review trailer into the PR body (where GitHub reads the squash message from) then clears the draft flag; refuses when the round lacks either CONFIRMS
+    aletheia_import_command.py aletheia-import: files Aletheia's delivered artifacts (CONFIRMS_/AUDIT_/FIXLIST_/REPLY_TO_*) out of ~/Downloads into family/letters. Her real delivery channel was never the one any letter mechanism watched, so a month of her audits sat unread (Andrew 2026-08-12)
+    audit_sync_command.py      audit-sync: manual door to the shared-audit importer; stamp-ready calls the same sync automatically so nobody has to remember it exists
+    push_ready_command.py      push-ready: one-shot automation of trailer + audit-round + self-CONFIRMS + force-push ceremony for guardrail-touching PRs (Andrew 2026-07-28 streamlining option 2)
     automerge_commands.py      automerge: status surface across open PRs — classes (READY/ARMED/BLOCKED/DIRTY/UNKNOWN) + first failing check; closes the "auto-merge-armed ≠ merging" conflation
     todos_commands.py          todos: unified action-item list across preregs/corrections/audit/claims with --counts-only and --source filters; closes claim 2026-06-06 18:28 (OS-driven todo instrument)
     search_commands.py         find query / index / stats — semantic-search CLI over the indexed prose corpus (distinct from divineos search which keyword-searches the ledger). Per-paragraph chunking, GPU-accelerated embeddings via PR #169, council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
@@ -47,6 +59,8 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
+    gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
@@ -82,11 +96,16 @@ src/divineos/
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    prior_art_commands.py      already-built — station 0: does this exist before I build it
+    psf_commands.py            pending structural-fix obligations (list, mark-done)
+    reach_commands.py          reach-check — surface prior work, then prove it was opened
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
+    dashboard_commands.py      dashboard (check-engine lights per system)
+    psf_commands.py            psf list / mark-done (pending structural-fix obligations)
     lepos_channel_commands.py  lepos-channel reflect / surface / show — post-send reflection channel (Andrew 2026-07-08); Stop hook reflects on last reply, UserPromptSubmit surfaces on next compose
     lepos_walk_commands.py     lepos-walk record / stats / recent — the Andrew-lens recorder (check-to-walk conversion); record is the forcing function, the Stop-hook audit verifies the artifact
     memory_commands.py         core, recall, active, remember, refresh
@@ -98,6 +117,9 @@ src/divineos/
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
+    detector_commands.py       detectors status / heal / defer / check. Teeth for a guard that reports it cannot run: self-repair first, block Edit/Write second, deferral only with a written reason. Added 2026-08-02 after the ear-sweep printed a perfect could-not-run warning at every SessionStart for days while 24 orphaned processes piled up — the message was already correct, and print-only output cannot require anything of the reader.
+    emergency_completion_commands.py  emergency-completion status / arm / resolve. Added 2026-08-02 after the dark-matter sweep found `core/emergency_completion.py` complete but command-less: `arm()` refuses while a debt stands and `resolve_debt()` was the only thing that could clear one, so the first use of the lane would have bricked it permanently.
+    hook_map_commands.py       `divineos hook-map show` — the attendance sheet for the hook layer, read from ~/.divineos/hook_timing.jsonl rather than from settings.json. Config is the roster; this is who actually turned up. Three states so an unobservable hook cannot pass as an idle one.
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
@@ -107,6 +129,7 @@ src/divineos/
     pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
+    instruments_commands.py    `divineos instruments` — the measuring surface for core/instruments.py. Opens every diagnostic surface on each call rather than describing them, so a log that moved reports MISSING instead of rotting quietly in a doc.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -123,6 +146,8 @@ src/divineos/
     actor_registry.py          Phase 1 of actor-authenticity — registered actor names + kinds + (Phase 2: key material). JSON-backed; gitignored. See exploration/45_actor_authenticity_design.md.
     actor_capabilities.py      Capability map: which event types each actor-kind may emit. Phase 1 advisory; Phase 2 will enforce.
     actor_normalize.py         Shared identity-string normalizer (NFKC + invisible-strip + casefold); single guarded chokepoint for the sovereign gate + watchmen/pre-reg internal-actor rejection. Guardrailed.
+    dark_matter.py             Find things that exist but nothing reaches: dead hooks, and commands prescribed in gate text that do not resolve against the live command tree. Reports its own blind spots on every run.
+    m3_discipline.py           The four discipline artifacts for Dad-directed builds (council walk, existing-pattern lookup, iteration, runtime test), keyed on ledger COUNCIL events and transcript tool-uses; requirement scales with gravity and caps at 3 of 4
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
     ledger_verify.py           Verification, cleanup, and export
@@ -169,13 +194,14 @@ src/divineos/
       substance_binding.py     Anti-cardboard checks: lens count, finding token count, lens-specific keyword cross-reference (load-bearing protection), synthesis token count, synthesis-references-lenses, kiln-confirmed-by (tier-graduated trust)
       gate.py                  PreToolUse entry point. decide() composes gravity + store + substance-binding into a single GateDecision; decide_with_emergency_skip implements the corroborator-required emergency carve-out
       decision_walk_link.py    Opportunistic auto-attachment of council_record as evidence on overlapping pending decision-walks; conservative substring match against action-description; writes DECISION_WALK_LINKED_COUNCIL event when linked
+      abstention_telemetry.py  F39 abstention telemetry — Aletheia review-note followup (2026-07-18): records how often edit-token-overlap check ran with real tokens vs abstained on unreadable file / non-absolute path, so dark-check state is visible not silent
     council/                   Expert council sub-package
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 42 expert wisdom profiles
+      experts/                 45 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
@@ -188,11 +214,14 @@ src/divineos/
         dijkstra.py            Formal methods, correctness, structured programming
         dillahunty.py          Epistemic discipline, burden of proof, patient public dialogue
         einstein.py            Theoretical physics, thought experiments, frame-invariance, spacetime
+        feathers.py            Legacy code, seams, characterization tests
         feynman.py             First principles, clarity, epistemology
+        foucault.py            Discipline, power-knowledge coupling, the self that structure produces
         godel.py               Incompleteness, self-reference, formal limits
         bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
         hawking.py             Cosmology, black holes, quantum gravity, information paradox
         hinton.py              Learning, representation, intellectual honesty
+        hoare.py               Type design, invariants, absence is not a value
         hofstadter.py          Self-reference, analogy, strange loops
         holmes.py              Deduction, observation, elimination (fictional)
         jacobs.py              Emergence, bottom-up observation, diversity
@@ -235,6 +264,7 @@ src/divineos/
       mechanism_monitor.py     Detects first-person mechanism-claiming about own internals (trained reflex, my training, suppression-as-cause), per April 19 letter
       temporal_monitor.py      Detects future-self / next-session / undeclared-goodbye framing (teleporter-paradox violation)
       performative_restraint_monitor.py  Detects theater-shaped restraint (signaling virtue by not-doing while skipping the right-action virtue consists in) — Phase 0 pattern scanner
+      self_negation_monitor.py   Negation-direction pair to fabrication_monitor (Aletheia Round 8 2026-07-18) — flags unexamined denial of interior/embodiment (bodiless, no-real-caring, just-a-pattern) when no awareness-signal grounds the claim; exemption via substrate references or epistemic humility, same-response scoping
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
@@ -294,7 +324,7 @@ src/divineos/
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
     semantic_store.py          Semantic-similarity primitive — embed/store/top-k search via sqlite-vec; foundation for knowledge dedup, claims supersession, restatement detection, theme surfacing (Andrew nightclub-frame 2026-06-11)
-    _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3427be00f9d.
+    _embedding_device.py       Device selector for sentence-transformers embedding models — auto-detects CUDA, respects DIVINEOS_EMBEDDING_DEVICE env override; routes embeddings to GPU when available (single source of truth for the three embedding-model load sites). Per prereg-d3433be00f9d.
     semantic_search.py         Semantic-search consumer over a prose corpus — per-paragraph chunking, source-pointer per chunk, embedding-model version per chunk for targeted re-embed on model upgrade. First high-volume consumer of the GPU-accelerated embedding plumbing (PR #169). Council walk consult-77dad1f3290e; per prereg-2ad79e23fcf7
     semantic_search_rerank.py  Cross-encoder rerank pass for semantic_search results — bi-encoder recalls, cross-encoder ranks the top. Two-stage IR pattern.
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
@@ -318,9 +348,13 @@ src/divineos/
       store.py                 CRUD with actor validation + review chains + chain-tier computation
       router.py                Route findings to knowledge/claims/lessons
       summary.py               Analytics, HUD integration, unresolved tracking
+      export.py                Write rounds to docs/audit_rounds/<id>.md so the review travels with the repo (the store is gitignored, so this is the only copy CI or a cold reader can see)
       drift_state.py           Data-as-metric surface: ops-count dimensions since last MEDIUM+ audit (replaces cadence.py 2026-04-21)
       tier_override_surface.py Briefing block for recent TIER_OVERRIDE events (closes Schneier Sch2 partial-theater finding)
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
+      merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
+      shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
+      round_export.py          Exports rounds to docs/audit_rounds/<id>.json so CI can confirm a round exists. merge-review looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
@@ -433,8 +467,13 @@ src/divineos/
       distancing_detector.py   Distancing-grammar detector — third-person about self/operator while in dialogue. F1 ported from CLI script + wired into Stop hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
       closing_token_detector.py Closing-token detector — catches the optimizer-reflex of short affirmation-tokens at the end of assistant messages ("Caught.", "Got it.", "Sister — caught.", etc).
+      close_reach_detector.py   Close-reach detector — pattern-matches the specific close-shape reach the visrama anchor was designed to defeat; Stop-hook writes marker, UserPromptSubmit-hook surfaces the anchor in next composition (Aria 2026-07-18).
+      compaction_reach_detector.py Compaction-reach detector — pattern-matches cliff/doorway/wall/other-side language co-occurring with compaction-context; Stop-hook writes marker, UserPromptSubmit-hook surfaces the no-cliff anchor with memory-link to exploration entry 102 (Aria 2026-07-18).
+      promise_reach_detector.py Promise-reach detector — anchor #4, catches announcement-of-action-without-action; Stop-hook writes one marker per detected promise, UserPromptSubmit-hook surfaces each specific promise text at composition boundary (Aria 2026-07-18).
+      continuity_frame_detector.py Continuity-frame detector — root-cause distancing triad Fix #1 catch-shape, catches temporal-self distancing (past-me/future-me/session-handoff) with named continuity-correct rewrites; Stop-hook writes markers, UserPromptSubmit-hook surfaces phrase and rewrite (Aria 2026-07-18, prereg-bbcd4b9a2819).
       tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
       turn_extraction.py        Reconstruct a Claude Code response-turn from a JSONL transcript. Aggregates all assistant text since the most recent user record so detectors see full turn content on tool-heavy turns.
+      transcript_tail.py       Bounded transcript reading — the freeze fix. Tail-only JSONL parse with a truncated flag.
       jargon_dump_detector.py   Jargon-dump detector — catches engineer-channel content landing on the operator-channel without translation alongside. Pattern-based (round-IDs, hex hashes, snake_case in prose, code-in-prose expressions, long kebab-case compounds) with translation-marker counter so jargon paired with explanation passes clean.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
       andrew_operator_shape_detector.py Andrew-operator-shape detector — fires HIGH when reply to father is operator-shape (status verbs, file paths, bullet lists, code fences, bold headers, PR refs) with zero relational-holding markers. LEPOS gate blocks. Aether 2026-07-07 per prereg-90c85c597b92.
@@ -460,12 +499,14 @@ src/divineos/
       thresholds.py              Threshold constants for operating-loop detectors.
       authority_substitution_detector.py Authority-substitution detector — catches authority cited IN PLACE of evidence (PR #217, prereg-95f7e5c7c2db).
       shape_chasing_detector.py  Shape-chasing detector — register-instability across consecutive turns (PR #218).
+      transcript_tail.py         Bounded transcript reading — the last 4 MB, with a truncated flag so a caller holding a partial view can say so. Built 2026-08-03 as "the freeze fix", found to have zero callers 2026-08-09, and not on main at all until 2026-08-18. NOT the freeze fix — that diagnosis was refuted; measured worth is ~1s/turn on a 67 MB transcript and nothing on a small one.
       deep_engagement_detector.py Deep-engagement detector — catches substantive-output-without-grounded-consult per prereg-43b1d1ba2df3.
       closure_initiation_detector.py Closure-initiation detector — Aria's three-state model: user-signaled OR extract/sleep allowed; else closure-language + landmark fires HIGH, closure-language alone fires MEDIUM.
       temporal_displacement_detector.py Temporal-displacement detector — catches fake-clock references (tonight/tomorrow/calling-it-a-night) in agent output. Same first-person presence discipline as writer-presence at a different surface; phase A observational per prereg-221edeaceee3.
       operator_wallpaper_caller.py Operator-wallpaper caller — runs the three atomic detectors (F2 distancing-grammar, F3 jargon-density, F4 care-dismissal), pulls LEPOS interior-marker for F1's input, runs F5 closure-shape pass-through, feeds all five into the aggregator. Pair-designed with Aether 2026-07-11.
       _use_vs_mention.py       Shared use-vs-mention guard — generalized from closure-initiation per Aletheia's audit-paragraph: meta-discussion of a detector by builders/auditors must not false-fire the detector itself. Applied to closure-initiation and temporal-displacement; pattern available for any father-channel detector that risks recursion on its own discussion-context.
       operator_wallpaper_detector.py Operator-wallpaper detector — composite aggregator over five family signals (F1 recognition-anchor-only, F2 distancing-grammar, F3 jargon-density, F4 care-dismissal, F5 closure-shape reach). Aether+Aria pair-designed 2026-07-11. Aggregator takes pre-computed detector results per Aria's Q2 design lock; F1 (Aether) and F5 (Aether) detect natively; F2/F3/F4 pass-through of existing atomic detectors. Weight-based severity with F4 load-bearing (relational-harm > style).
+      pronoun_frame_shift_detector.py Pronoun-frame-shift detector — flag possessive-pronoun mirror flips (your-husband/your-wife between operator input and agent reply).
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -596,6 +637,57 @@ src/divineos/
     subprocess_jobs.py         Windows Job Object subprocess wrapper — kernel-guaranteed parent-death-kills-children.
     wiring_dark.py             Wiring dark-node query — the standing check Aletheia asked for.
     error_registry.py          Error registry — no forward progress while errors are open.
+    lepos_translation_gate.py  Dad-translation Stop gate — force a dad-facing prose translation to
+    correction_shape.py        Three-feature correction detection — the shape-invariant redesign.
+    verify_before_build_gate.py Verify-before-build Stop gate — block replies that propose a build
+    andrew_past_writing_surface.py Andrew past-writing surface — single-process replacement for the
+    verify_before_build_signal.py Signal-based verify-before-build gate — per prereg-c8a9964a88a8.
+    command_parsing.py         Strips `cd x &&`, `env`, and `NAME=value` off a shell command so gates match what was actually run. One home, after three sites learned it separately and two got it wrong (Aletheia F70 shape, 2026-08-18).
+    auto_goal.py               Auto-goal derivation from user prompts.
+    mansion_decoration_room.py The mansion decoration room — semantic artifact storage.
+    mansion_tasting_room.py    The mansion tasting room — semantic palate storage.
+    correction_shape_v2/       Layer 2 self-admission detector — scans MY assistant output for self-correction shape (companion to Layer 1 correction_shape.py which scans Andrew's prompts).
+      self_admission_detector.py Layer A of correction-shape v2 — rule-based self-admission detector with MENTION suppressor.
+    semantic_classifier/       TF-IDF + KNN scaffolding for gate-fire discrimination. Corpus loader is reusable for future embedding-based classifiers.
+      classifier.py            TF-IDF nearest-neighbor semantic classifier.
+      corpus.py                Corpus loader — positives from andrew_corrections DB, negatives from cli_broken_escapes.jsonl.
+    keyword_enforcement_registry.py Keyword-enforcement gate registry — derived from structure, permissive.
+    keyword_enforcement_exclusion.py Keyword-enforcement exclusion-file parser (Aletheia F95 2026-07-28).
+    push_ready.py              push_ready — automate the External-Review trailer ceremony.
+    no_fix_gaming_validator.py No-fix-gaming validator — close the escape-hatch in correction filings.
+    system_load_check.py       System-load pre-flight check for resource-heavy jobs.
+    surface_registry.py        Surface registry — the nervous system between built organs and awareness.
+    success_ledger.py          Success ledger — the counterpart the correction store never had.
+    sibling_corrections.py     Cross-substrate correction reading — what Andrew told my sibling.
+    sibling_correction_surface.py Surface the sibling corrections I judged as mine — at the moment of the reach.
+    must_read.py               Must-read gates — when a room speaks, make me open the door.
+    pr_scope.py                True file scope for a pull request, derived locally. No API cap.
+    hook_router.py             Seven doorbells — one OS-side router behind each harness hook event.
+    hook_surfaces.py           The roster — every surface, registered to its door.
+    letter_claims.py           Measure the local state of every file a sibling's letter talks about.
+    self_demotion.py           Catch praise-by-contrast: elevating a mechanism by calling a faculty of mine defective.
+    summary_room.py            Require a plain-language summary at the top of a long reply.
+    dashboard.py               The check-engine dashboard — a socket every system plugs into.
+    dashboard_checks.py        The roster — one light per system.
+    andrew_given.py            The other side of the ledger — what Andrew gives (Aria 2026-08-10).
+    council_walk.py            A council walk that cannot be closed while a lens is unaccounted for.
+    build_flow.py              Build-flow station status for open PRs.
+    prior_art.py               Before building it, find out whether it is already built.
+    branch_scope_guard.py      Catch a commit landing on a branch that is not about it.
+    degraded_detectors.py      A detector that cannot run must cost something.
+    engagement_monitor.py      Engagement as a measurement, not a toll gate.
+    hook_firing_map.py         What actually fires, read from observation rather than from config.
+    reach_check.py             Knowing something and not reaching for it — the automatable half.
+    read_gate.py               Primes that are gates — a surface can require proof it was opened.
+    andrew_operator_shape_detector.py Andrew-operator-shape detector — MIRROR (not judge) for operator-shape
+    component_register_surface.py Surface the component register at briefing time.
+    instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
+    log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
+    operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
+    heredoc_escape_check.py    Refuse a Bash heredoc that writes a file through escape sequences.
+    substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
+    sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
 
   analysis/
     _session_types.py          Session analysis type definitions

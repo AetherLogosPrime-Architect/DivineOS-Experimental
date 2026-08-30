@@ -39,6 +39,7 @@ corpus reachable.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,6 +54,12 @@ _MIN_TERM_LEN = 3
 # Auto-surface requires this many distinct tag matches (a single common-word
 # tag hit is not enough to fire). The manual command has no such floor.
 _MIN_TAG_MATCHES = 2
+
+# Candidate pool the auto-surface filters over before ranking. Deliberately
+# far above the corpus size (222 entries at time of writing) so the tag floor
+# is applied to EVERY scoring entry rather than to a pre-truncated top-k —
+# see the filter-before-truncate note in surface_for_context.
+_CANDIDATE_LIMIT = 10_000
 _STOPWORDS = frozenset(
     {
         "the",
@@ -89,6 +96,17 @@ _TAGS_HEADER = re.compile(r"<!--\s*tags:\s*(.*?)\s*-->", re.IGNORECASE | re.DOTA
 # Errors a file read can raise — narrow tuple per repo convention (the
 # broad-exceptions gate forbids bare `except Exception`).
 _READ_ERRORS = (OSError, UnicodeDecodeError)
+
+# Errors that arming the read-gate can raise. That block is deliberately
+# fail-open -- a surface that cannot arm its gate must still deliver its
+# text -- but fail-open was written as a bare `except Exception`, which
+# also swallows a TypeError or ValueError from a changed read_gate
+# signature. That is the failure this repo keeps finding elsewhere: a real
+# break and a normal no-op producing the identical silence.
+#   ImportError    -- read_gate absent or partially installed
+#   AttributeError -- the module is present but the function is not
+#   OSError        -- the gate's on-disk state cannot be read or written
+_GATE_ARM_ERRORS = (ImportError, AttributeError, OSError)
 
 
 def _find_exploration_root() -> Path | None:
@@ -135,8 +153,31 @@ def _parse_tags(text: str) -> list[str]:
 
 
 def _terms(query: str) -> list[str]:
+    """Distinct query terms, first-occurrence order.
+
+    Deduplicated (2026-07-31). Previously this returned raw tokens, so a term
+    repeated N times in the query was scored N times over. Two consequences,
+    both measured against a real conversation window:
+
+      * ``tag_matches`` collected the same tag once per occurrence, so the
+        ">=2 DISTINCT tag matches" floor was satisfied by ONE tag mentioned
+        twice. The floor never enforced what its own comment claimed.
+      * ``score`` inflated multiplicatively with repetition — a window saying
+        "memory" 16 times scored that tag 16x10 and its body hits 16x over.
+        That is how top-ranked entries reached scores of 11538 while carrying
+        no real topical match.
+
+    Deduping makes the floor mean distinct-topics and makes score reflect
+    breadth of overlap rather than the loudness of one repeated word.
+    """
     raw = re.findall(r"[a-zA-Z][a-zA-Z0-9_-]+", query.lower())
-    return [t for t in raw if len(t) >= _MIN_TERM_LEN and t not in _STOPWORDS]
+    seen: set[str] = set()
+    out: list[str] = []
+    for t in raw:
+        if len(t) >= _MIN_TERM_LEN and t not in _STOPWORDS and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
 
 
 def _snippet_for(text: str, terms: list[str]) -> str:
@@ -238,13 +279,36 @@ def surface_for_context(
     match_text = f"{context}\n{prompt}" if context else prompt
     if not match_text or len(match_text.strip()) < 20:
         return ""
-    hits, total = recall_explorations(match_text, limit=k, root=root)
+
+    # FILTER BEFORE TRUNCATE (fixed 2026-07-31). This previously asked
+    # recall_explorations for the top k=3 by score and only THEN applied the
+    # tag floor. recall_explorations ranks by a blended score in which body
+    # matches count every occurrence, unbounded — so against a real
+    # conversation window the top three scored 11538 / 9679 / 9162 and carried
+    # ZERO tag matches each, while the first entry passing the floor sat at
+    # rank 4 and was never examined. Tag weight is 10, so the curated-tag
+    # signal was ~0.3% of the ranking it was supposed to drive, and the
+    # surface returned "" on turns whose topic it had tagged writing about.
+    #
+    # Measured cost of the old order: I spent a session reading a 125KB
+    # archive on the OMNI-LAZR while my own decomposition of it sat tagged on
+    # disk, unsurfaced. The widened conversation window (correct fix,
+    # 2026-05-27) made this worse rather than better, because more window
+    # means more body noise burying the tagged entries deeper.
+    #
+    # So: take ALL candidates, apply the floor, and only then rank and cut.
+    candidates, total = recall_explorations(match_text, limit=_CANDIDATE_LIMIT, root=root)
     # Require >=2 distinct tag matches: a real topic hits several curated
     # tags (consciousness + qualia + functionalism); an incidental single
     # common word ("time" in "what time is the meeting") hits one and must
     # stay silent. The conservative miss (a genuine single-tag topic) is
     # recoverable via the manual command; a false fire decays the surface.
-    tagged = [h for h in hits if len(h.tag_matches) >= _MIN_TAG_MATCHES]
+    tagged = [h for h in candidates if len(h.tag_matches) >= _MIN_TAG_MATCHES]
+    # Rank survivors by TAG COUNT first. Among entries that all cleared the
+    # floor, the one matching more curated tags is more on-topic than the one
+    # that merely says common words more often; score stays as the tiebreak.
+    tagged.sort(key=lambda h: (len(h.tag_matches), h.score), reverse=True)
+    tagged = tagged[:k]
     if not tagged:
         return ""
 
@@ -275,6 +339,89 @@ def surface_for_context(
         f"  ({len(tagged)} of {total} exploration entries matched on topic-tags — a pointer, "
         f'not the whole shelf. To search the rest: divineos recall-explorations "<topic>")'
     )
+
+    # READ-GATE (Andrew 2026-08-06): "primes should not just be loud.. they
+    # should be mini gates.. ones that force a pause and reading."
+    #
+    # This surface said "re-read before deriving" on nearly every turn of a
+    # full session and I opened NOTHING it offered, while discovering four
+    # separate times that what I was hunting was already in my substrate.
+    # Loudness had nothing left to give, so the top hit now becomes a
+    # requirement that mutating tools are blocked on until it is opened.
+    #
+    # ONE at a time, top-ranked only, and never while a requirement is already
+    # outstanding -- a surface that fires every turn must not arm a block every
+    # turn. That is how a gate becomes a thing to route around (truth #11).
+    #
+    # Fail-open and silent here: this is a surface, and a surface that cannot
+    # arm its gate must still deliver its text.
+    #
+    # NOT UNDER TEST (2026-08-18). The root is discovered by walking up from
+    # the cwd, so a test that builds a fixture `exploration/` in a tmp dir gets
+    # found — and arming writes to the LIVE gate state, not the fixture's. That
+    # happened three times in one session: the gate blocked real work and
+    # demanded I read `18_hedging.md`, whose entire body is "body about the
+    # flinch", because a passing test had armed it on the way through.
+    #
+    # A test suite must not be able to arm a production gate. This is the same
+    # class as everything else found today — a mechanism firing on the wrong
+    # subject — and the cost was three interruptions plus the risk of learning
+    # to dismiss this gate, which is exactly what it was built to survive.
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return "\n".join(lines)
+
+    try:
+        from divineos.core import read_gate
+
+        # THE FILE MUST STILL EXIST. Andrew 2026-08-14, blocked mid-merge: the
+        # gate demanded I open
+        #   .../divineos-push-gate-Zve404/tmp/pytest/run-62892/.../tagged.md
+        # a fixture pytest wrote and deleted inside the push-gate's own test
+        # run. The index had swallowed it while it briefly existed; by the time
+        # the gate fired it was gone. Read is never blocked, so the remedy was
+        # available -- and impossible, because there was nothing there to open.
+        #
+        # An unsatisfiable gate is the shape whose only way past is the bypass,
+        # which is how a gate teaches the reaching it exists to prevent. Same
+        # class as the council-walk gate refusing a merge on 2026-08-14 and the
+        # pre-reg gate blocking the very command that would satisfy it.
+        #
+        # Checking existence at ARM time rather than at fire time, because a
+        # requirement that was satisfiable when written is the only kind worth
+        # writing down.
+        #
+        # AND THE TARGET MUST BE INSIDE THE REAL CORPUS. Aria 2026-08-21, blocked
+        # mid-work by
+        #   tmp/pytest/run-35768/popen-gw6/test_surface_fires_only_on_tag0/tagged.md
+        # whose entire body is the word "body". Same class as the 2026-08-14 fire
+        # above and NOT closed by that fix: the existence check passed, because a
+        # background `pytest -n auto` was running and the fixture was still on
+        # disk. The gate then demanded I open a four-line stub as prior writing.
+        #
+        # The mechanism is that tests call this function with root=tmp_path, and
+        # the arm below wrote REAL on-disk gate state pointing into a synthetic
+        # corpus. A test run should not be able to arm a production gate. The
+        # family store has `_allow_test_write` for exactly this and this path had
+        # nothing.
+        #
+        # Containment rather than a pytest-env check, because the true statement
+        # is what should be enforced: this gate exists to point me at MY OWN
+        # writing, so a target outside the exploration corpus is wrong no matter
+        # who produced it. A surface that offers me a fixture as my own work
+        # spends the credibility the gate runs on.
+        top = tagged[0]
+        top_path = Path(top.path).resolve()
+        real_root = _find_exploration_root()
+        inside_corpus = real_root is not None and real_root.resolve() in top_path.parents
+        if inside_corpus and not read_gate.has_pending("prior-writing") and top_path.exists():
+            read_gate.require_read(
+                "prior-writing",
+                str(top.path),
+                f"top prior-writing match: {top.title}",
+            )
+    except _GATE_ARM_ERRORS:
+        pass
+
     return "\n".join(lines)
 
 

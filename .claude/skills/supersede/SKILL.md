@@ -36,7 +36,7 @@ When I learn I was wrong, the old knowledge doesn't become noise — it becomes 
 
 4. **Verify the chain:**
    ```bash
-   divineos inspect knowledge --id <new-id>
+   divineos ask "<the superseded claim>"
    ```
    Confirm the supersession link is stored and the old entry now points to the new.
 

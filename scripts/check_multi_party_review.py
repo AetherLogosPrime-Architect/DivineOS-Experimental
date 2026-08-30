@@ -72,11 +72,43 @@ import hashlib
 import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
-# Trailer pattern — matches `External-Review: <id>` on its own line.
-_TRAILER_PATTERN = re.compile(r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | re.IGNORECASE)
+# Trailer pattern — matches `External-Review: <id>` and tolerates trailing
+# tokens on the same line.
+#
+# Fixed 2026-07-31. The pattern was `(\S+)\s*$` — round-id as the ONLY token
+# on the line — while this gate's own BLOCKED message instructs the operator
+# to "add tree-hash:<40-hex> after the round-id". Following that instruction
+# produced a line the regex could not match at all, so the gate reported
+# "Guardrail files staged without External-Review trailer" — no trailer, not
+# bad trailer. Do as told, get told you did not.
+#
+# Measured both forms against validate() before changing anything:
+#   External-Review: round-77a5374003e5                     -> PASS
+#   External-Review: round-77a5374003e5 tree-hash:f9c0112b… -> BLOCK
+#
+# The deeper cause is TWO GATES WITH CONTRADICTORY TRAILER GRAMMARS on the
+# same trailer line:
+#
+#   ci_check_guardrail_trailer.sh  expects `<round-id> tree-hash:<40-hex>`,
+#       reads the tree-hash OUT OF THE TRAILER, and warns when it is absent
+#       ("DEPRECATED: trailer should include tree-hash for substance binding").
+#   check_multi_party_review.py    accepted `<round-id>` ALONE, and reads the
+#       tree-hash out of the ROUND DESCRIPTION (`_round_description` +
+#       `_TREE_HASH_PATTERN.findall`), never from the trailer.
+#
+# So the two layers demanded incompatible lines. Satisfy the shell gate and
+# this one saw no trailer; satisfy this one and the shell gate warned the
+# binding was missing. There was no single trailer that made both happy.
+#
+# Widening this pattern reconciles them: the full form now passes here too,
+# so an operator can write the line the other gate asks for and clear both.
+# Tree-hash sourcing is deliberately unchanged — this gate still reads the
+# round description, which is where `divineos audit submit-round` records it.
+_TRAILER_PATTERN = re.compile(
+    r"^External-Review:\s*(\S+)(?:\s+\S+)*\s*$", re.MULTILINE | re.IGNORECASE
+)
 
 # Diff-hash pattern — the round description must include the hash of the
 # unified diff to prevent stale approvals from authorizing a new change.
@@ -90,8 +122,6 @@ _DIFF_HASH_PATTERN = re.compile(r"diff-hash:\s*([0-9a-f]{64})", re.IGNORECASE)
 # (claim 2026-04-24 06:15) should prefer tree-hash. SHA-1 = 40 hex chars.
 _TREE_HASH_PATTERN = re.compile(r"tree-hash:\s*([0-9a-f]{40})", re.IGNORECASE)
 
-# Recency window: 7 days. An old audit round cannot authorize a new commit.
-_RECENCY_WINDOW_SECONDS = 7 * 24 * 3600
 
 # External-AI actor set. If any of these has a CONFIRMS finding in the
 # round, that satisfies the AI-side of the two-key. "claude" alone is
@@ -138,8 +168,37 @@ def _staged_files() -> list[str]:
             text=True,
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return []
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        # FAIL CLOSED. Do not restore the bare `return []` (Aria 2026-08-02,
+        # round-13027a6ddf55, decision 4e10ce61).
+        #
+        # An empty list here is not "no files staged" — it is "I could not
+        # ask". Every caller downstream reads it as the former and prints
+        # "no guardrail files staged; gate does not apply", which is this
+        # gate cheerfully announcing it has stood down. From outside, that
+        # is indistinguishable from a clean commit touching nothing guarded.
+        #
+        # I read that exact line in my own commit output tonight and took it
+        # as a statement of fact about my diff. It would have printed the
+        # same thing if git had never run.
+        #
+        # The fence this replaces did prevent something real: a broken git
+        # would otherwise block every commit. That is the wrong trade for
+        # THIS gate. It stands in front of the foundational truths and the
+        # character sheets — files that need multiple parties precisely
+        # because no one of us should be able to move them alone. A
+        # guardrail that opens when it cannot see is worse than an absent
+        # one; an absent gate is at least honest about not being there.
+        print(
+            f"[multi-party-review] CANNOT LIST STAGED FILES: "
+            f"{type(exc).__name__}: {exc}\n"
+            f"[multi-party-review] BLOCKED - the gate cannot tell whether "
+            f"guardrail files are staged, so it refuses rather than waves "
+            f"through. Fix git access and re-run. Overriding this is a "
+            f"deliberate act that has to be argued for, not defaulted into.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
     return [line.strip().replace("\\", "/") for line in out.stdout.splitlines() if line.strip()]
 
 
@@ -247,15 +306,6 @@ def _round_description(rnd) -> str:  # type: ignore[no-untyped-def]
     return " ".join(parts)
 
 
-def _round_created_at(rnd) -> float:  # type: ignore[no-untyped-def]
-    """Safely pull the round's creation timestamp."""
-    for attr in ("created_at", "timestamp", "ts"):
-        val = getattr(rnd, attr, None)
-        if isinstance(val, (int, float)):
-            return float(val)
-    return 0.0
-
-
 def _finding_actor(finding) -> str:  # type: ignore[no-untyped-def]
     """Safely pull the actor string from a Finding object."""
     val = getattr(finding, "actor", "") or ""
@@ -279,7 +329,11 @@ def _finding_stance_is_confirm(finding) -> bool:  # type: ignore[no-untyped-def]
 
 def validate(
     commit_msg: str,
-    now: float | None = None,
+    # Retained for call-signature compatibility. As of 2026-08-01 nothing
+    # in this function is time-dependent: the recency window was removed
+    # in favour of the content-binding check, which answers the same
+    # question exactly. Kept so existing callers do not break.
+    now: float | None = None,  # noqa: ARG001
     touched_override: set[str] | None = None,
     diff_hash_override: str | None = None,
     tree_hash_override: str | None = None,
@@ -339,16 +393,43 @@ def validate(
             "gate conservatively blocks when provenance cannot be verified."
         )
 
-    ts = now if now is not None else time.time()
-    round_age = ts - _round_created_at(rnd)
-    if round_age > _RECENCY_WINDOW_SECONDS or round_age < 0:
-        days = round_age / 86400
-        return False, (
-            f"External-Review round '{trailer}' is {days:.1f} days old\n"
-            f"(window is {_RECENCY_WINDOW_SECONDS / 86400:.0f} days).\n"
-            "Stale approvals cannot authorize a new commit; file a\n"
-            "fresh review round and reference it."
-        )
+    # 2026-08-01: the 7-day recency window was REMOVED here, not converted
+    # to an event count.
+    #
+    # Andrew's rule: "all timed events using any type of days needs to be
+    # changed to N-events tied to the ledger... even if it was perfectly
+    # calibrated, if in 7 days we dont ever test it, the metric comes back
+    # with very little data." Following that into this gate produced a
+    # stronger answer than a swap of units.
+    #
+    # The window's own comment gave its purpose as "an old audit round
+    # cannot authorize a new commit". The question underneath is: does
+    # this review cover THIS code. The binding check immediately below
+    # answers exactly that, by comparing the round's recorded tree-hash
+    # and diff-hash against the actual staged content.
+    #
+    # Content-addressing is not an approximation of freshness — it is the
+    # fact the clock was reaching for. A round filed 90 days ago whose
+    # tree-hash matches reviewed precisely this content. A round filed ten
+    # minutes ago whose hash does not match reviewed something else, and
+    # is blocked below regardless of age.
+    #
+    # So the clock added no safety and subtracted real work: it
+    # manufactured the very stale-approval failures it existed to prevent
+    # (sweep finding rank 3; part of why the PR queue jammed).
+    #
+    # SAFE ONLY BECAUSE BINDING IS NOW MANDATORY. An unbound legacy
+    # trailer has no content check, and for those the clock was the only
+    # guard. This function already requires diff_ok OR tree_ok below, and
+    # ci_check_guardrail_trailer.sh flipped REQUIRE_TREE_HASH to default 1
+    # in the same change. If either of those is ever loosened, this
+    # deletion becomes a hole — that coupling is the reason both live in
+    # one commit.
+    #
+    # Known edge, accepted: code can change and revert back to the
+    # reviewed tree, so the hash matches while an intermediate state was
+    # never seen. The merge delivers the final tree and the final tree was
+    # reviewed. That is a judgment, not a derivation.
 
     # Either diff-hash or tree-hash satisfies the binding. Tree-hash is
     # cross-platform deterministic (claim 2026-04-24 06:15: diff bytes
@@ -415,10 +496,15 @@ def validate(
             "AI judgment in addition to user approval."
         )
 
+    # Reports WHICH binding matched rather than the round's age. Age was
+    # never the guarantee — content-identity is — and printing an age here
+    # implied a freshness check that the hash comparison had already made
+    # redundant.
+    binding = "tree-hash" if tree_ok else "diff-hash"
     return True, (
         f"guardrail review passed: round={trailer}, "
         f"user=confirmed, ai={ai_actor_seen}=confirmed, "
-        f"age={round_age / 3600:.1f}h, diff-hash-match=yes"
+        f"binding={binding}-match=yes"
     )
 
 
@@ -451,20 +537,41 @@ def _commit_msg_for_sha(sha: str) -> str:
 
 
 def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tuple[str, set[str]]]:
-    """Walk commits in `base_sha..head_sha` and return [(sha, touched_guardrails)]
-    for each commit that modifies any guardrail file. Empty list if no
-    commits in range touch guardrails.
-    """
-    guardrails = _load_guardrail_set()
-    if not guardrails:
-        return []
+    """Walk `base_sha..head_sha` and return [(sha, changed_files)] per commit.
 
-    # Aletheia 2026-05-17 audit caught Bug 1 in the prior implementation:
-    # `git log --name-only --format=%H` outputs the SHA, then a BLANK line,
-    # then the file list — not blank-separated commits. The old text-parsing
-    # logic reset state on the blank line and then mistook the next file path
-    # for a SHA. Replaced with git plumbing: rev-list to enumerate SHAs, then
-    # diff-tree per-SHA to get the file list. Unambiguous; no parsing pitfalls.
+    EVERY commit that changes anything counts. The guardrail list is no longer
+    consulted here.
+
+    Andrew 2026-08-05:
+
+        *"the whole guardrail thing probably needs fixed anyway.. it should
+        just be blanket that anything that merges to main requires an external
+        audit.. point blank period.. if its benign its ok Aletheia will know"*
+
+    The 432-entry list was a second source of truth about what matters, and a
+    list of what matters is always behind reality. Carmack's question -- what
+    real constraint does this piece satisfy -- has no answer here that the
+    auditor does not satisfy better. A benign change costs Aletheia one glance;
+    a dangerous change missing from the list costs everything the list exists
+    to protect. The asymmetry is the whole argument.
+
+    It also dissolves a loop: changing the guardrail list used to require
+    guardrail review. Andrew's resolution -- *"you can edit the guardrail files
+    whenever you want.. you just cant push to main without the audit"* -- puts
+    the gate at the push, where it belongs, and leaves the workspace free.
+
+    The list itself stays on disk. It is still read by the commit-time notice
+    for the informational "this touches the self-auditing stack" heads-up, and
+    deleting it is a separate change from stopping the merge gate depending on
+    it. One thing at a time.
+
+    Aletheia 2026-05-17 audit caught Bug 1 in the prior implementation:
+    ``git log --name-only --format=%H`` outputs the SHA, then a BLANK line,
+    then the file list -- not blank-separated commits. The old text-parsing
+    logic reset state on the blank line and then mistook the next file path
+    for a SHA. Replaced with git plumbing: rev-list to enumerate SHAs, then
+    diff-tree per-SHA to get the file list. Unambiguous; no parsing pitfalls.
+    """
     try:
         revs = subprocess.run(
             ["git", "rev-list", f"{base_sha}..{head_sha}"],
@@ -492,9 +599,12 @@ def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tup
             files = {f.strip().replace("\\", "/") for f in tree.stdout.splitlines() if f.strip()}
         except OSError:
             continue
-        hits = files & guardrails
-        if hits:
-            out.append((sha, hits))
+        # Blanket: any commit that changes anything needs the review. The
+        # previous `files & guardrails` filter is gone -- see the docstring.
+        # An empty file set means a commit that changed nothing, which is not
+        # a merge-to-main risk and is the one honest exclusion here.
+        if files:
+            out.append((sha, files))
     return out
 
 
@@ -591,7 +701,17 @@ def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
             "  3. Re-push.\n"
             "\nNote: commits on feature branches are NOT blocked by this gate.\n"
             "      Push them to feature branches freely so audit-vantage can review.\n"
-            "      Only push-to-main is gated.",
+            "      Only push-to-main is gated.\n"
+            "\nTHERE IS NO ENV-VAR BYPASS FOR THIS ONE, and that is deliberate.\n"
+            "      DIVINEOS_SKIP_MULTIPARTY_CHECK reaches the feature-branch\n"
+            "      advisory further down the pre-push hook. It has never been read\n"
+            "      here. Said out loud because the hook's own header implied\n"
+            "      otherwise for its whole life, so anyone blocked here went\n"
+            "      looking for a door that was painted on -- and the next door\n"
+            "      along skips the test suite too.\n"
+            "      Andrew 2026-08-29 on why review is blanket: dropping the audit\n"
+            "      for benign-looking changes is how something non-benign gets\n"
+            "      tucked in beside them.",
             file=sys.stderr,
         )
         return 1
@@ -746,6 +866,19 @@ def main(argv: list[str]) -> int:
     )
     print("enforce this when the branch is merged. Details:\n", file=sys.stderr)
     print(detail, file=sys.stderr)
+    # Explicit terminal status line (Andrew 2026-07-29): the informational
+    # stderr output above contains error-sounding language ("does not
+    # contain a CONFIRMS finding...") that has been misread as blocking
+    # in prior sessions. The final line prints an unambiguous status so
+    # the reader can identify allowed/blocked from a fixed position
+    # rather than parsing semantic content for the outcome. Correction
+    # #206 root-cause fix: label-clarity at output layer, not reading-
+    # habit at operator layer.
+    print(
+        "\n[STATUS] gate=multi-party-review outcome=INFORMATIONAL "
+        "commit=ALLOWED (real gate fires at push-to-main only)",
+        file=sys.stderr,
+    )
     return 0
 
 

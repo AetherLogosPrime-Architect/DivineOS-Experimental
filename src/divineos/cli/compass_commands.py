@@ -73,6 +73,12 @@ def register(cli: click.Group) -> None:
         """
         from divineos.core.moral_compass import SPECTRUMS, log_observation
 
+        # 2026-07-22 task #12: case-normalize spectrum name at CLI entry.
+        # Registry is lowercase-keyed; accepting mixed-case input reduces
+        # friction ("TRUTHFULNESS" vs "truthfulness"). Rejected earlier
+        # this session on typo-case; task #12 exemplar for CLI-lens
+        # normalization pattern.
+        spectrum = (spectrum or "").strip().lower()
         if spectrum not in SPECTRUMS:
             click.secho(
                 f"[!] Unknown spectrum '{spectrum}'. Valid: {', '.join(sorted(SPECTRUMS))}",
@@ -147,6 +153,9 @@ def register(cli: click.Group) -> None:
         """Show recent compass observations."""
         from divineos.core.moral_compass import SPECTRUMS, get_observations
 
+        # 2026-07-22 task #12: case-normalize (mirror of observe_cmd).
+        if spectrum:
+            spectrum = spectrum.strip().lower()
         if spectrum and spectrum not in SPECTRUMS:
             click.secho(f"[!] Unknown spectrum '{spectrum}'.", fg="red")
             return
@@ -468,6 +477,30 @@ def register(cli: click.Group) -> None:
             )
 
         _cr_clear()
+
+        # 2026-07-30 (prereg-81b268695979): dismiss-is-bypass wiring.
+        # Andrew directive: "dismissing is bypassing.. and unless you are
+        # literally chicken and egged then you do not bypass.. and if you
+        # do bypass that needs to auto trigger a root cause investigation
+        # and fix." Route dismissal through the same bypass telemetry that
+        # other bypasses use, so a pending psf entry files and blocks
+        # extract until closed with substantive evidence. Reason-field
+        # propagates verbatim into psf so future-me knows the class
+        # (FP-attribution vs substantive dismissal) at close time.
+        try:
+            from divineos.core.bypass_telemetry import record_bypass
+
+            record_bypass(
+                gate_name="compass-required",
+                env_var=f"bypass:dismiss:compass-ops:{kind}",
+                reason=reason,
+            )
+        except Exception as exc:  # noqa: BLE001 — fail-soft
+            click.secho(
+                f"[!] Bypass telemetry filing failed (marker already cleared): {exc}",
+                fg="yellow",
+            )
+
         click.secho(
             "    Marker cleared. If the same trigger-kind keeps firing and "
             "you keep dismissing it, the next briefing will surface the "

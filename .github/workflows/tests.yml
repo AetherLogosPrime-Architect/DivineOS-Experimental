@@ -62,6 +62,36 @@ jobs:
       run: |
         pytest tests/ -v --tb=short -m "not slow"
 
+    # F68 wire 2026-07-18 (Aletheia catch): pyproject.toml carries
+    # [tool.coverage.run/report] with fail_under=75, but nothing invoked
+    # coverage — the floor was a claim, not an enforcement. Same
+    # fabrication-shape as F45/F55/F48/F67 (capability fully built,
+    # correctly configured, never invoked).
+    #
+    # Sequencing per Aletheia: MEASURE FIRST, don't hard-gate. If the
+    # gate turned on before we knew the number, actual sub-75 coverage
+    # would turn every PR red and the predictable human response is to
+    # lower the threshold — converting an honest signal into a rubber
+    # stamp. So:
+    #   - This step runs coverage without --cov-fail-under, so it never
+    #     fails the build.
+    #   - The number publishes to the CI log so we know what real
+    #     coverage IS before deciding where to set the floor.
+    #   - Once measured, the follow-on PR sets --cov-fail-under at (or
+    #     just below) the actual number and ratchets upward from there.
+    - name: Measure test coverage (no hard gate on first run)
+      run: |
+        pytest tests/ --cov=src/divineos --cov-report=term-missing --cov-report=xml -m "not slow" --no-cov-on-fail || true
+      continue-on-error: true
+
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.xml
+        if-no-files-found: warn
+
     # Aether 2026-05-19: slow tests previously deselected with no place
     # they were ever run = invisibility-of-failure. Andrew: "nothing
     # should be pushed without being monitored for failures." This step

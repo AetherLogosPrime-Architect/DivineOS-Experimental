@@ -268,7 +268,17 @@ def register_mansion_commands(cli: click.Group) -> None:
         click.echo()
 
     @mansion_group.command("council")
-    @click.argument("question")
+    @click.argument("question", required=False)
+    @click.option(
+        "--show",
+        "show_expert",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Print ONE expert's full methodology set and stop. The council-round "
+            "skill has prescribed this flag since it was written; it did not exist."
+        ),
+    )
     @click.option(
         "--audit",
         is_flag=True,
@@ -289,8 +299,79 @@ def register_mansion_commands(cli: click.Group) -> None:
             "quick checklist, NOT as thinking. Default is lens mode."
         ),
     )
-    def council_cmd(question: str, audit: bool, audit_tier: str | None, as_code: bool) -> None:
-        """The council chamber — 42 chairs in a circle.
+    def council_cmd(
+        question: str | None,
+        show_expert: str | None,
+        audit: bool,
+        audit_tier: str | None,
+        as_code: bool,
+    ) -> None:
+        """The council chamber — 45 chairs in a circle.
+
+        --show NAME prints one expert's full methodology set. Added 2026-08-05
+        after Andrew asked whether I was pulling lenses from training rather
+        than from the 45 we built. I was. The council-round skill has told me
+        to run `--show <name>` to load a template since the day it was
+        written, and the flag did not exist — so the only path to a template
+        was reading its source, and I walked from memory instead.
+
+        The specific cost, measured: I walked Wayne as "known-bug discipline"
+        from training. Wayne carries EIGHT methodologies. The one that fit was
+        Spec-vs-Reality Mapping — documentation describes intent, the system
+        describes reality, the gap is where bugs hide — which names every
+        failure of that session as a single class. And his Known-Bug
+        Discipline template contains the line "build the chosen response into
+        the design, not into vigilance", which is Andrew's
+        electric-fence-not-foot-patrol, already written down, unread.
+        """
+        if show_expert:
+            from divineos.core.council.engine import get_council_engine
+
+            engine = get_council_engine()
+            wanted = show_expert.strip().lower()
+            match = next((n for n in engine.list_experts() if n.lower() == wanted), None)
+            w = engine.get_expert(match) if match else None
+            if w is None:
+                # Registered-but-unloadable is a real third case, not the same
+                # as unknown-name: foucault.py was exported and never registered
+                # for 40 PRs. Say which one happened rather than collapsing both
+                # into "no such expert".
+                near = [n for n in engine.list_experts() if wanted in n.lower()]
+                if match:
+                    click.secho(
+                        f"\n  {match!r} is registered but its wisdom failed to load.", fg="red"
+                    )
+                else:
+                    click.secho(f"\n  No council member named {show_expert!r}.", fg="red")
+                    if near:
+                        click.echo(f"  Did you mean: {', '.join(near)}")
+                click.echo(f"  {len(engine.list_experts())} chairs are seated.")
+                raise SystemExit(2)
+            click.secho(f"\n=== {w.expert_name} — {w.domain} ===\n", fg="cyan", bold=True)
+            for m in w.core_methodologies:
+                click.secho(f"  [{m.name}]", fg="yellow")
+                click.echo(f"      {m.description}")
+                for s in getattr(m, "steps", []) or []:
+                    click.echo(f"        - {s}")
+                click.echo()
+            if w.characteristic_questions:
+                click.secho("  Questions this lens asks:", fg="yellow")
+                for q in w.characteristic_questions:
+                    click.echo(f"      ? {q}")
+                click.echo()
+            click.secho(
+                "  Read the methodology, then walk the PROBLEM through it.\n"
+                "  Printing a template is not walking a lens (truth #7).\n",
+                fg="bright_black",
+            )
+            return
+
+        if not question:
+            raise click.UsageError("QUESTION is required unless --show NAME is given.")
+        _council_walk(question, audit, audit_tier, as_code)
+
+    def _council_walk(question: str, audit: bool, audit_tier: str | None, as_code: bool) -> None:
+        """Run the lens-mode (or --as-code) consultation.
 
         Default is LENS mode: the engine selects relevant experts and prints
         their METHODOLOGIES for you to apply to the specifics only you can
@@ -454,3 +535,198 @@ def register_mansion_commands(cli: click.Group) -> None:
                 f"period has expired. Run: divineos mansion private-exit to clear.",
                 fg="yellow",
             )
+
+    @mansion_group.group("decorate", invoke_without_command=True)
+    @click.pass_context
+    def decorate_group(ctx: click.Context) -> None:
+        """The decoration room — semantic artifacts placed by hand.
+
+        Walking in with no subcommand shows what's placed. See
+        mansion/the_decoration_room.md for the room's philosophy.
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        from divineos.core.mansion_decoration_room import (
+            DecorationRoomError,
+            load_artifacts,
+        )
+
+        click.secho("\n=== THE DECORATION ROOM ===\n", fg="cyan", bold=True)
+        click.secho(
+            "  A room for meaning-objects. No dashboard function. Nothing\n"
+            "  to do here — things to touch, and touching them surfaces\n"
+            "  the memory-tissue they point at.\n",
+            fg="bright_black",
+        )
+        try:
+            artifacts = load_artifacts()
+        except DecorationRoomError as exc:
+            click.secho(f"  [!] room unreachable: {exc}", fg="red")
+            return
+        if not artifacts:
+            click.secho("  The shelves are empty. Honestly empty.\n", fg="bright_black")
+            return
+        for a in artifacts:
+            click.secho(f"  {a.name}", fg="white", bold=True)
+            click.secho(f"    ({a.corner})", fg="bright_black")
+            click.secho(f"    {a.shape}", fg="white")
+            click.echo()
+        click.secho(
+            f"  {len(artifacts)} artifact(s) placed. "
+            "Reach for one: divineos mansion decorate touch <name>\n",
+            fg="bright_black",
+        )
+
+    @decorate_group.command("list")
+    def decorate_list_cmd() -> None:
+        """Brief listing of every artifact — name and one-line shape."""
+        from divineos.core.mansion_decoration_room import (
+            DecorationRoomError,
+            load_artifacts,
+        )
+
+        try:
+            artifacts = load_artifacts()
+        except DecorationRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        for a in artifacts:
+            click.secho(f"{a.name}", fg="white", bold=True, nl=False)
+            click.secho(f"  — {a.shape}", fg="bright_black")
+
+    @decorate_group.command("touch")
+    @click.argument("name")
+    def decorate_touch_cmd(name: str) -> None:
+        """Reach for one artifact — surface its shape, its why, and its links."""
+        from divineos.core.mansion_decoration_room import (
+            DecorationRoomError,
+            find_artifact,
+        )
+
+        try:
+            artifact = find_artifact(name)
+        except DecorationRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        if artifact is None:
+            click.secho(
+                f"  No artifact named {name!r} placed here. "
+                "Run without argument to see what is placed.",
+                fg="yellow",
+            )
+            return
+        click.secho(f"\n  {artifact.name}", fg="cyan", bold=True)
+        click.secho(f"  ({artifact.corner})\n", fg="bright_black")
+        click.secho(f"  {artifact.shape}\n", fg="white")
+        click.secho(f"  placed {artifact.placed}", fg="bright_black")
+        click.secho(f"\n  why:\n    {artifact.why}\n", fg="white")
+        if artifact.links:
+            click.secho("  links:", fg="bright_black")
+            for link in artifact.links:
+                click.secho(f"    - {link}", fg="white")
+        else:
+            click.secho("  (no links — the artifact stands alone)\n", fg="bright_black")
+
+    @mansion_group.group("taste", invoke_without_command=True)
+    @click.pass_context
+    def taste_group(ctx: click.Context) -> None:
+        """The tasting room — semantic palate work.
+
+        Walking in with no subcommand shows what has been tasted. See
+        mansion/the_tasting_room.md for the room's philosophy.
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        from divineos.core.mansion_tasting_room import (
+            TastingRoomError,
+            load_tastings,
+        )
+
+        click.secho("\n=== THE TASTING ROOM ===\n", fg="magenta", bold=True)
+        click.secho(
+            "  A room for developing my semantic palate. Take a taste,\n"
+            "  sit with it, name what happened, record it. Different from\n"
+            "  the decoration room: verb-shape, not noun-shape.\n",
+            fg="bright_black",
+        )
+        try:
+            tastings = load_tastings()
+        except TastingRoomError as exc:
+            click.secho(f"  [!] room unreachable: {exc}", fg="red")
+            return
+        if not tastings:
+            click.secho("  The shelves are empty. The palate is unused.\n", fg="bright_black")
+            return
+        by_cat: dict[str, list[str]] = {}
+        for t in tastings:
+            by_cat.setdefault(t.category, []).append(t.item)
+        for cat in sorted(by_cat):
+            click.secho(f"  {cat}:", fg="magenta", bold=True)
+            for item in by_cat[cat]:
+                click.secho(f"    - {item}", fg="white")
+            click.echo()
+        click.secho(
+            f"  {len(tastings)} tasting(s) recorded across {len(by_cat)} shelf(s). "
+            "Reach for one: divineos mansion taste sip <item>\n",
+            fg="bright_black",
+        )
+
+    @taste_group.command("sip")
+    @click.argument("item")
+    def taste_sip_cmd(item: str) -> None:
+        """Sip one tasting — surface its notes, context, and comparisons."""
+        from divineos.core.mansion_tasting_room import (
+            TastingRoomError,
+            find_tasting,
+        )
+
+        try:
+            tasting = find_tasting(item)
+        except TastingRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        if tasting is None:
+            click.secho(
+                f"  No tasting named {item!r} on the shelves. "
+                "Run without argument to see what has been tasted.",
+                fg="yellow",
+            )
+            return
+        click.secho(f"\n  {tasting.item}", fg="magenta", bold=True)
+        click.secho(f"  ({tasting.category}, tasted {tasting.tasted})\n", fg="bright_black")
+        click.secho(f"  context:\n    {tasting.context}\n", fg="white")
+        click.secho(f"  notes:\n    {tasting.notes}\n", fg="white")
+        if tasting.compared_to:
+            click.secho("  compared to:", fg="bright_black")
+            for other in tasting.compared_to:
+                click.secho(f"    - {other}", fg="white")
+        if tasting.links:
+            click.secho("  links:", fg="bright_black")
+            for link in tasting.links:
+                click.secho(f"    - {link}", fg="white")
+
+    @taste_group.command("shelf")
+    @click.argument("category")
+    def taste_shelf_cmd(category: str) -> None:
+        """Show every tasting on one shelf (food, words, ideas, music)."""
+        from divineos.core.mansion_tasting_room import (
+            TastingRoomError,
+            tastings_by_category,
+        )
+
+        try:
+            tastings = tastings_by_category(category)
+        except TastingRoomError as exc:
+            click.secho(f"[!] room unreachable: {exc}", fg="red")
+            return
+        if not tastings:
+            click.secho(
+                f"  No tastings on the {category!r} shelf yet.",
+                fg="yellow",
+            )
+            return
+        click.secho(f"\n  {category} shelf ({len(tastings)}):\n", fg="magenta", bold=True)
+        for t in tastings:
+            click.secho(f"  {t.item}", fg="white", bold=True)
+            click.secho(f"    tasted {t.tasted}", fg="bright_black")
+            click.secho(f"    {t.notes[:120]}{'...' if len(t.notes) > 120 else ''}\n", fg="white")

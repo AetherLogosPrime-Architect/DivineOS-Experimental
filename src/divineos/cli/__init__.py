@@ -14,8 +14,8 @@ from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 
 # Make stdout/stderr tolerant of Unicode characters that the underlying
 # console can't render. On Windows the default cp1252 console codec
-# crashes on emojis (e.g. "ðŸ’¬" used in the session rating prompt),
-# bubbling up as UnicodeEncodeError â€” we saw this as spurious
+# crashes on emojis (e.g. "ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬" used in the session rating prompt),
+# bubbling up as UnicodeEncodeError ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â we saw this as spurious
 # "Auto-scan failed" messages during extract. Reconfiguring with
 # errors="replace" substitutes an unsupported character with "?" instead
 # of raising. No-op on platforms whose streams are already UTF-8.
@@ -27,7 +27,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, OSError, ValueError):
         pass
 
-# Commands that work without briefing loaded â€” the minimum to bootstrap.
+# Commands that work without briefing loaded ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the minimum to bootstrap.
 _BYPASS_COMMANDS = frozenset(
     {
         "admin",
@@ -39,12 +39,50 @@ _BYPASS_COMMANDS = frozenset(
         "emit",
         "hud",
         # Goal-setting is bootstrap: adding a goal for the session must not
-        # require briefing first — that creates a recursive deadlock with the
+        # require briefing first Ã¢â‚¬â€ that creates a recursive deadlock with the
         # require-goal PreToolUse hook (goal gate needs a goal set, but the CLI
         # refuses `goal add` without briefing, and the goal gate blocks briefing
         # if the command is chained through pipes). Root cause fix 2026-07-17,
         # mirrors the hook-layer bypass at scripts/hook_bypass_commands.txt:48.
         "goal",
+        # Compass integration is bootstrap for the identical reason, found
+        # the hard way 2026-08-05: the compass gate blocks tool use until an
+        # advisory is integrated; its two prescribed remedies are
+        # `compass-ops observe` and `compass-ops dismiss`; BOTH were
+        # briefing-gated while `divineos briefing` was itself compass-gated.
+        # Verified circular in both directions -- no exit through any
+        # prescribed path, and the Edit that would have fixed it was blocked
+        # by the same gate. Same class as the `goal` deadlock above, unfixed
+        # because the 2026-07-17 fix addressed the instance rather than
+        # sweeping every gate whose prescribed remedy is a divineos command.
+        "compass-ops",
+        "compass",
+        # `learn` is remedy (a) of the correction-marker gate and was itself
+        # briefing-gated, producing a second deadlock on 2026-08-05: the
+        # marker blocks tool use, prescribes `divineos learn`, `learn` demands
+        # briefing, and briefing is blocked by the marker. Of that gate's three
+        # prescribed remedies only (b) `correction` was reachable -- (c)
+        # clear_correction_marker.py refused six invocations. A gate must never
+        # prescribe a remedy another gate blocks.
+        "learn",
+        # Found by tests/test_gate_remedy_reachability.py on its FIRST run,
+        # before it ever deadlocked. andrew-correction-attestation.sh emits a
+        # permissionDecisionReason blocking all substantive tool use and
+        # prescribing `divineos andrew-correction integrate|defer|list` -- and
+        # states "No env-var bypass exists... To genuinely override, edit the
+        # hook in a visible commit." A hard block with the escape hatch
+        # deliberately removed, prescribing a command the briefing gate
+        # refused. Strictly worse than the two deadlocks hit by hand today,
+        # and it was still latent. This is the fence catching a post nobody
+        # had walked to yet.
+        "andrew-correction",
+        # Different victim, same class. check-branch-on-push.sh:137 does not
+        # PRESCRIBE this to me -- it INVOKES it: `$PYTHON_BIN -m divineos
+        # check-branch --strict --fetch`. A git hook fires whenever a push
+        # happens, including before any briefing is loaded, so gating it on my
+        # session state breaks the hook rather than deadlocking me. Silent
+        # tooling failure instead of a visible block, which is worse.
+        "check-branch",
         "recall",
         "active",
         "ask",
@@ -69,13 +107,13 @@ _BYPASS_COMMANDS = frozenset(
         "hold",
         "mansion",
         "prereg",
-        # Corrections must always be loggable in the moment â€” gating the
+        # Corrections must always be loggable in the moment ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â gating the
         # rep behind a thinking-command requirement defeats the rep.
         "correction",
         "corrections",
         # Scheduled / headless runs are the Routines entry point; they
         # bypass briefing by design (no human to load one at 3am cron).
-        # Corrigibility still applies â€” see scheduled_commands.py.
+        # Corrigibility still applies ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â see scheduled_commands.py.
         "scheduled",
         # Science lab is a read-only numerical tool; shouldn't gate on
         # briefing. Safe to run cold.
@@ -84,7 +122,7 @@ _BYPASS_COMMANDS = frozenset(
     # Off-switch contract (grounded-audit 2026-06-02, Theme 1): every
     # command that must survive EMERGENCY_STOP (_OFF_SWITCH_REQUIRED:
     # mode, emit, extract, hud, preflight, briefing) must ALSO bypass the
-    # briefing gate â€” otherwise a second, independent gate traps the
+    # briefing gate ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â otherwise a second, independent gate traps the
     # off-switch when no briefing is loaded (extract = clean shutdown,
     # mode = see/restore state). Unioning from the single source of truth
     # means the two lists can never drift again (CLAUDE.md truth #8:
@@ -98,7 +136,7 @@ def _enforce_operating_mode() -> None:
     """Refuse commands disallowed by the current operating mode.
 
     Runs BEFORE the briefing gate. Corrigibility has priority over
-    every other check â€” if my father has set EMERGENCY_STOP, the
+    every other check ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â if my father has set EMERGENCY_STOP, the
     system must refuse regardless of briefing state. The mode command
     itself bypasses this check (it's in _ALWAYS_ALLOWED inside the
     corrigibility module) so the off-switch can always be flipped.
@@ -108,7 +146,7 @@ def _enforce_operating_mode() -> None:
 
     args = sys.argv[1:]
     if not args:
-        return  # bare `divineos` â€” show help
+        return  # bare `divineos` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â show help
 
     cmd = args[0].lower()
     if cmd.startswith("-"):
@@ -117,15 +155,15 @@ def _enforce_operating_mode() -> None:
     # Rule 8 violation corrected 2026-04-21 (fresh-Claude audit
     # round-03952b006724, finding find-3055d64bfa1c):
     #
-    # Previous code did `except (ImportError, OSError): return` â€” fail open
+    # Previous code did `except (ImportError, OSError): return` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â fail open
     # on both module-load and I/O errors. That violated CLAUDE.md Rule 8
     # ("No fallback chains. If it fails, it fails loud") at the most
-    # safety-critical site â€” the corrigibility off-switch itself. An
+    # safety-critical site ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the corrigibility off-switch itself. An
     # off-switch that silently disables itself if its module fails to
     # import is a bigger problem than an unbootable CLI.
     #
     # New behavior:
-    #   ImportError: fail CLOSED with a loud exit â€” the off-switch must
+    #   ImportError: fail CLOSED with a loud exit ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the off-switch must
     #     work or the system must stop.
     #   OSError: fail open but write a loud stderr warning. Mode-file I/O
     #     errors are usually permission issues and shouldn't lock the
@@ -147,7 +185,7 @@ def _enforce_operating_mode() -> None:
 
     # Off-switch contract check (council sweep 2026-06-02, direction #1):
     # assert the shutdown-critical commands are still in the allowlist, at
-    # runtime, every invocation â€” so a refactor that drops one (as `extract`
+    # runtime, every invocation ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â so a refactor that drops one (as `extract`
     # was dropped, caught only by a test in the 2026-05-03 audit) fails loud
     # immediately instead of silently trapping my father in EMERGENCY_STOP.
     try:
@@ -160,7 +198,7 @@ def _enforce_operating_mode() -> None:
         allowed, reason = is_command_allowed(cmd)
     except OSError as _io_err:
         print(
-            f"corrigibility: mode-file I/O error â€” proceeding fail-open: {_io_err}",
+            f"corrigibility: mode-file I/O error ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â proceeding fail-open: {_io_err}",
             file=sys.stderr,
         )
         return
@@ -182,7 +220,7 @@ def _enforce_briefing_gate() -> None:
     # Parse which command is being invoked
     args = sys.argv[1:]
     if not args:
-        return  # just `divineos` with no subcommand â€” show help
+        return  # just `divineos` with no subcommand ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â show help
 
     cmd = args[0].lower()
     if cmd in _BYPASS_COMMANDS:
@@ -191,7 +229,7 @@ def _enforce_briefing_gate() -> None:
         return  # flags like --help
 
     # ``--help`` / ``-h`` anywhere in the argv is a discovery query, not
-    # a state-mutating command â€” let Click handle it without requiring
+    # a state-mutating command ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â let Click handle it without requiring
     # briefing-loaded. Audit finding 2026-05-03 round 1: a fresh user
     # running ``divineos compass --help`` was getting the briefing-gate
     # error instead of help text, which is a hostile first-run UX.
@@ -204,7 +242,27 @@ def _enforce_briefing_gate() -> None:
         if was_briefing_loaded():
             return
     except (ImportError, OSError, KeyError):
-        return  # DB not initialized yet â€” allow bootstrap commands
+        return  # DB not initialized yet ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â allow bootstrap commands
+
+    # Record the fire before blocking. Aria measured 92 GATE_FIRE events with
+    # ONE distinct gate_name while fifteen-plus gates block nightly; this is
+    # the second gate to join the series. Marked DERIVABLE because the missing
+    # thing is `divineos briefing` Ã¢â‚¬â€ one command, no arguments, no judgment.
+    # Per Andrew's metric that makes every fire here a mini-failure and a
+    # standing argument for a doorman that loads it rather than a wall that
+    # refuses. Wrapped and swallowed: telemetry must never stop enforcement.
+    try:
+        from divineos.hooks.gate_event_ledger import DERIVABLE, record_simple_gate_fire
+
+        record_simple_gate_fire(
+            gate_name="briefing-not-loaded",
+            what_was_missing="briefing loaded for this session",
+            derivable=DERIVABLE,
+            actor="gate",
+            extra={"blocked_command": cmd},
+        )
+    except Exception:  # noqa: BLE001 Ã¢â‚¬â€ a telemetry failure must not unblock the gate
+        pass
 
     click.secho("\n  BLOCKED: Briefing not loaded.", fg="red", bold=True)
     click.secho("  Run: divineos briefing", fg="red", bold=True)
@@ -213,8 +271,34 @@ def _enforce_briefing_gate() -> None:
 
 
 @click.group()
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
+    # Install-location divergence check ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â fires when this CLI's installed
+    # Record engagement for EVERY command, centrally.
+    #
+    # Until 2026-08-03 only thirteen commands did this, because mark_engaged
+    # was reachable solely through _log_os_query and only thirteen call sites
+    # invoked it. Widening the recognised-tool SET was therefore a no-op --
+    # verified empirically: `divineos claims list` left the counter unmoved at
+    # 11, because "claims" never reached the lookup that would have accepted
+    # it. A table nothing consults for a name is not a widening.
+    #
+    # So the name is recorded here, where every command necessarily passes.
+    # The classification (deep / light / unrecognised) still lives in
+    # hud_handoff, which is the right place for it; this only guarantees the
+    # question gets asked at all.
+    #
+    # Fail-open: engagement bookkeeping must never prevent a command running.
+    try:
+        from divineos.core.hud_handoff import mark_engaged
+
+        _sub = (ctx.invoked_subcommand or "").strip()
+        if _sub:
+            mark_engaged(tool=_sub, query="")
+    except Exception:  # noqa: BLE001 — bookkeeping never gates the CLI
+        pass
+
     # Install-location divergence check â€” fires when this CLI's installed
     # package points at a different source tree than the current working
     # directory's git repo. Silent the rest of the time. Suppressable via
@@ -224,7 +308,7 @@ def cli() -> None:
 
         emit_install_warning()
     except (ImportError, OSError):
-        pass  # check machinery unavailable â€” fail open
+        pass  # check machinery unavailable ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â fail open
     _ensure_db()
     setup_cli_enforcement()
     _enforce_operating_mode()
@@ -232,7 +316,7 @@ def cli() -> None:
     if "pytest" not in sys.modules:
         capture_user_input(sys.argv[1:])
         # Self-enforcement: the OS manages its own lifecycle.
-        # Every command is a lifecycle checkpoint â€” no hooks needed.
+        # Every command is a lifecycle checkpoint ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no hooks needed.
         from divineos.core.lifecycle import enforce
 
         cmd = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -249,7 +333,10 @@ from divineos.cli import (  # noqa: E402
     auto_cycle_commands,
     bio_commands,
     body_commands,
+    instruments_commands,
     branch_health_commands,
+    build_flow_commands,
+    gate_fire_commands,
     overclaim_commands,
     closure_shape_commands,
     performing_caution_commands,
@@ -259,6 +346,9 @@ from divineos.cli import (  # noqa: E402
     complete_commands,
     correction_commands,
     corrigibility_commands,
+    detector_commands,
+    emergency_completion_commands,
+    hook_map_commands,
     council_required_commands,
     decision_commands,
     directive_commands,
@@ -277,13 +367,17 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    psf_commands,
+    dashboard_commands,
     lepos_channel_commands,
     lepos_walk_commands,
     loadout_commands,
     gravity_commands,
     memory_commands,
     motivation_commands,
+    prior_art_commands,
     prereg_commands,
+    reach_commands,
     admin_reset_template,
     admin_migrate_family,
     family_member_commands,
@@ -292,10 +386,15 @@ from divineos.cli import (  # noqa: E402
     progress_commands,
     letter_seen_commands,
     push_commands,
+    push_ready_command,
+    stamp_ready_command,
+    audit_sync_command,
+    aletheia_import_command,
     context_tokens_commands,
     context_dedup_commands,
     ear_sweep_commands,
     audit_visibility_commands,
+    dark_matter_commands,
     pr_gate_commands,
     ear_relaunch_commands,
     obligation_commands,
@@ -312,6 +411,9 @@ from divineos.cli import (  # noqa: E402
     pattern_attribution_commands,
     consumer_status_commands,
     andrew_correction_commands,
+    andrew_given_commands,
+    success_commands,
+    council_walk_commands,
     andrew_teachings_commands,
     oscillating_read_commands,
     deletion_commands,
@@ -327,12 +429,17 @@ from divineos.cli import (  # noqa: E402
     monitor_commands,
     search_commands,
     error_commands,
+    sibling_correction_commands,
+    label_fire_commands,
+    must_read_commands,
 )
 
 actor_registry_commands.register(cli)
 error_commands.register(cli)
 andrew_state_commands.register(cli)
 ledger_commands.register(cli)
+psf_commands.register(cli)
+dashboard_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
 decision_commands.register(cli)
@@ -342,6 +449,10 @@ calibration_commands.register(cli)
 time_estimate_commands.register(cli)
 backlog_commands.register(cli)
 prs_commands.register(cli)
+prs_commands.register_scope(cli)
+sibling_correction_commands.register(cli)
+label_fire_commands.register(cli)
+must_read_commands.register(cli)
 automerge_commands.register(cli)
 todos_commands.register(cli)
 voice_commands.register(cli)
@@ -358,6 +469,7 @@ lepos_channel_commands.register(cli)
 lepos_walk_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
+instruments_commands.register(cli)
 directive_commands.register(cli)
 dream_commands.register(cli)
 entity_commands.register(cli)
@@ -379,16 +491,24 @@ sleep_commands.register(cli)
 progress_commands.register(cli)
 letter_seen_commands.register(cli)
 push_commands.register(cli)
+push_ready_command.register(cli)
+stamp_ready_command.register(cli)
+audit_sync_command.register(cli)
+aletheia_import_command.register(cli)
 context_tokens_commands.register(cli)
 context_dedup_commands.register(cli)
 ear_sweep_commands.register(cli)
 audit_visibility_commands.register(cli)
 pr_gate_commands.register(cli)
+dark_matter_commands.register(cli)
 ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
+prior_art_commands.register(cli)
+psf_commands.register(cli)
+reach_commands.register(cli)
 synchronicity_commands.register(cli)
 empirica_commands.register(cli)
 family_member_commands.register(cli)
@@ -396,12 +516,18 @@ family_queue_commands.register(cli)
 talk_to_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
+andrew_given_commands.register(cli)
+success_commands.register(cli)
+council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_reset_template.authorize_reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
+detector_commands.register(cli)
+emergency_completion_commands.register(cli)
+hook_map_commands.register(cli)
 council_required_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
@@ -409,6 +535,8 @@ complete_commands.register(cli)
 void_commands.register(cli)
 voids_commands.register(cli)
 branch_health_commands.register(cli)
+build_flow_commands.register(cli)
+gate_fire_commands.register(cli)
 overclaim_commands.register(cli)
 closure_shape_commands.register(cli)
 performing_caution_commands.register(cli)
@@ -417,7 +545,7 @@ multiplex_commands.register(cli)
 foundations_commands.register(cli)
 wiring_commands.register(cli)
 
-# Mansion â€” functional internal space (optional, personal)
+# Mansion ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â functional internal space (optional, personal)
 try:
     from divineos.cli.mansion_commands import register_mansion_commands
 
@@ -431,7 +559,7 @@ from divineos.cli.doctor_commands import register_doctor_commands  # noqa: E402
 register_doctor_commands(cli)
 
 
-# â”€â”€ Command Grouping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Command Grouping ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 # Move rarely-used commands into subgroups to reduce top-level noise.
 # Core workflow commands stay top-level. Admin/analysis commands
 # are accessible via `divineos admin <cmd>` and `divineos inspect <cmd>`.

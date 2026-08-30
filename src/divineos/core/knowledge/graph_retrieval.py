@@ -69,8 +69,19 @@ def build_knowledge_cluster(
     connections: list[dict[str, Any]] = []
     seen: set[str] = {knowledge_id}
 
-    # max_depth reserved for multi-hop BFS — currently single-hop only
-    _ = max_depth
+    # Aletheia Round 5 F35 (2026-07-17): fail-loud on unsupported depth.
+    # This function is single-hop only; multi-hop BFS lives in
+    # find_related_cluster (relationships.py). Silently accepting-and-
+    # discarding max_depth > 1 was a false-promise API — a caller
+    # reasonably trusting the parameter would get downgraded recall with
+    # no error. Now the day a caller passes >1, they get told, not
+    # silently downgraded.
+    if max_depth > 1:
+        raise NotImplementedError(
+            f"build_knowledge_cluster is single-hop only (got max_depth="
+            f"{max_depth}). For multi-hop BFS use find_related_cluster in "
+            "relationships.py, which implements the full depth traversal."
+        )
 
     edges = get_edges(knowledge_id, direction="both", layer="semantic")
     for edge in edges[:max_neighbors]:

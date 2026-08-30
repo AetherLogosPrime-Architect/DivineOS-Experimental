@@ -377,114 +377,58 @@ def classify_correction(
     prior_assistant_text: str = "",
     prior_tool_calls: tuple[str, ...] = (),
 ) -> CorrectionMatch | None:
-    """Classify a user message and return the evidence of the classification.
+    """Classify a user message via the three-feature shape-invariant detector.
 
-    Returns ``CorrectionMatch(verdict, pattern, matched_text, position, tier)``
-    when a pattern matches, else ``None``:
+    2026-07-22 rewrite (Aether + Aria, DOGFOOD 12/12 pass). Replaced the
+    prior 807-line keyword-band-aid implementation with a thin wrapper
+    over ``correction_shape.classify_correction_v2``. The three features
+    (addressee=me + stance=evaluative-negative + subject=my-action) must
+    all co-occur for fire. Binary: fires or silent, no middle tier.
 
-    - STRONG pattern match -> verdict='block', tier='STRONG'
-      (high precision; blocks regardless of context).
-    - WEAK pattern match   -> verdict='block' if prior-turn context is
-      corrective, else 'advise'; tier='WEAK'.
-    - no match             -> None.
+    Aria 2026-07-22 review discipline:
+    - Two features present is NOT a correction — no `log-only ambiguous`
+      middle tier (that reintroduces the WEAK-partial-match false-fire
+      class the redesign exists to prevent).
+    - No auto-clear-on-known-false-fire mechanism — if the detector
+      fires on a false-fire example, fix the detector.
+    - Log full evidence chain per feature.
 
-    The WHO axis (relay-stripping) runs first; this WHAT-it-means axis runs on
-    my father's own first-person voice. Task #16 / claim d6dc4bde. The
-    block-vs-advise tier is the industry-standard confidence-tiering pattern;
-    context-awareness (prior turn) is the disambiguator production NLU uses.
+    Returns ``CorrectionMatch(verdict, pattern, matched_text, position,
+    tier)`` when the three-feature detector fires, else ``None``. All
+    fires are ``verdict='block'`` and ``tier='SEMANTIC'`` — the block-vs-
+    advise split from the prior implementation collapses into the binary
+    classification.
 
-    Andrew 2026-06-19 / prereg-897aade9ef38: the return value carries the
-    matching evidence so the gate-fire message and dismissal record cite
-    the specific (pattern, text, position) rather than gesture at the prompt.
+    Preserved interface: return type unchanged; downstream callers
+    (marker-state layer, format_gate_message, hook_main) get the same
+    CorrectionMatch shape they always got.
     """
     if not prompt:
         return None
     try:
-        from divineos.analysis.session_analyzer import (
-            STRONG_CORRECTION_PATTERNS,
-            WEAK_CORRECTION_PATTERNS,
-        )
+        from divineos.core.correction_shape import classify_correction_v2
     except ImportError:
         return None
-    scan_text = strip_relayed(prompt)
-    if not scan_text.strip():
+    verdict = classify_correction_v2(prompt, prior_assistant_text, prior_tool_calls)
+    if not verdict.fires:
         return None
-
-    strong_hit = _first_pattern_match(scan_text, STRONG_CORRECTION_PATTERNS)
-    if strong_hit is not None:
-        pattern, m = strong_hit
-        # Geometry-of-correction check (Andrew 2026-06-23 catch on the
-        # don't-verb STRONG pattern, council walk on the detector class).
-        # STRONG patterns USED to block regardless of context — high-
-        # confidence by keyword alone. Live evidence this session:
-        # multiple STRONG patterns false-fired on word-as-design-noun
-        # uses where the user was naming a pattern or hypothesizing, not
-        # correcting me. Whack-a-mole per-pattern demotion (wrong → WEAK)
-        # missed the broader class. Now ALL STRONG patterns require the
-        # same prior-turn corrective context that WEAK patterns require:
-        # block iff something I just did is correctable. Without that
-        # context, even a high-confidence keyword cannot be a correction
-        # of me — there is nothing for me to be corrected on. Demotes
-        # to 'advise' when no corrective context exists, preserving
-        # visibility without false-blocking.
-        verdict = (
-            "block" if _has_corrective_context(prior_assistant_text, prior_tool_calls) else "advise"
-        )
-        return CorrectionMatch(
-            verdict=verdict,
-            pattern=pattern,
-            matched_text=m.group(0),
-            position=m.start(),
-            tier="STRONG",
-        )
-
-    weak_hit = _first_pattern_match(scan_text, WEAK_CORRECTION_PATTERNS)
-    if weak_hit is not None:
-        pattern, m = weak_hit
-        # Question / authorization guard (prereg-55bcdb01e2fa, built
-        # 2026-07-11). WEAK patterns fire on user questions and
-        # authorizations that carry the trigger token without correcting me:
-        #   "anything that doesnt need Aether?"         → question
-        #   "yes we can edit... that doesnt require..." → authorization
-        # See `_is_question_or_authorization` for the shape catalog. Kills
-        # the false-positive class the prereg names without weakening
-        # true-positive recall.
-        if _is_question_or_authorization(scan_text, m):
-            return None
-        # External-agent proximity backstop (2026-07-07). Corrections
-        # #113/#114 and 5+ deferred instances all fired on WEAK patterns
-        # matching third-party analytical text (Aletheia's audit-relays,
-        # Aria's peer reviews) that survived strip_relayed. If the WEAK
-        # match sits within a small window of a known external-agent
-        # name, treat as no match — that content is almost certainly
-        # quoted, not Andrew correcting me. STRONG patterns above are
-        # unaffected. See _EXTERNAL_AGENT_NAME_RE for full rationale.
-        if _external_agent_near(scan_text, m.start(), m.end()):
-            return None
-        # Epistemic "that doesn't mean/imply/change/matter" is encouragement-
-        # shaped and cannot evaluate my output — cap at advise even with
-        # corrective context (Aletheia HOLD #85). Guard does NOT apply when
-        # "you only" is also present, since that is an independent corrective
-        # weak signal the epistemic complement does not cover.
-        if _EPISTEMIC_DOESNT_RE.search(scan_text) and not re.search(
-            r"\byou only\b", scan_text, re.IGNORECASE
-        ):
-            verdict = "advise"
-        else:
-            verdict = (
-                "block"
-                if _has_corrective_context(prior_assistant_text, prior_tool_calls)
-                else "advise"
-            )
-        return CorrectionMatch(
-            verdict=verdict,
-            pattern=pattern,
-            matched_text=m.group(0),
-            position=m.start(),
-            tier="WEAK",
-        )
-
-    return None
+    # Stance evidence carries the matched span and position; extract it
+    # to preserve the CorrectionMatch citation contract.
+    stance_ev = next(
+        (e for e in verdict.evidence if e.feature == "stance"),
+        None,
+    )
+    matched_text = (stance_ev.matched_span or "") if stance_ev else ""
+    # Position: re-derive by searching for the matched span in the
+    # original prompt. Cheap since the span is short.
+    position = prompt.find(matched_text) if matched_text else -1
+    return CorrectionMatch(
+        verdict="block",
+        pattern="three-feature-shape (v2)",
+        matched_text=matched_text,
+        position=max(0, position),
+        tier="SEMANTIC",
+    )
 
 
 def marker_path() -> Path:
@@ -571,6 +515,40 @@ def set_marker(trigger_text: str, match: CorrectionMatch | None = None) -> None:
             triggered_at=payload_ts,
         )
     except (ImportError, OSError, AttributeError):
+        pass
+
+    # 2026-07-22 AUTOMATE-v1 (Aether + Aria + Andrew): auto-log the
+    # correction the moment the three-feature detector fires. Removes
+    # the clerical requirement to manually run `divineos correction`
+    # — the OS logs for me. The marker still sets so the gate still
+    # forces acknowledgment before proceeding. If `divineos correction`
+    # is invoked manually afterward, the resulting duplicate row is
+    # harmless (append-only corrections DB).
+    #
+    # Rationale per Andrew's OS-serves-me framework: full-auto for the
+    # clerical step (logging); the pointed-at cognitive work
+    # (integrating the correction into behavior) still requires me and
+    # is enforced by the marker+gate downstream.
+    try:
+        from divineos.core.corrections import log_correction
+        from divineos.core.session_manager import get_current_session_id
+
+        try:
+            _auto_session_id = get_current_session_id() or ""
+        except Exception:  # noqa: BLE001 — session_id is optional metadata
+            _auto_session_id = ""
+        log_correction((trigger_text or "")[:2000], session_id=_auto_session_id)
+        # File into the Andrew-correction-attribution tracker so the
+        # correction surfaces in the briefing with its integration
+        # status. Matches the manual `divineos correction` wiring so
+        # the auto-log path has equivalent observability.
+        try:
+            from divineos.core.andrew_correction_tracker import file_correction
+
+            file_correction((trigger_text or "")[:2000])
+        except Exception:  # noqa: BLE001 — observability boundary
+            pass
+    except Exception:  # noqa: BLE001 — fail open; never break the hook
         pass
 
     # Cascade: a correction is virtue-relevant by definition (the user
@@ -673,13 +651,17 @@ def format_gate_message(marker: dict) -> str:
     1. The primary remedy — ``divineos learn`` / ``divineos correction`` —
        which logs the correction and clears the marker. This is the
        standard path; use it whenever the CLI is working.
-    2. The CLI-broken escape — ``scripts/clear_correction_marker.py`` —
-       a standalone script with no CLI dependency. Use ONLY when
-       ``divineos`` itself fails to import (mid-rebase ``cli/__init__.py``
-       SyntaxError, half-installed package, etc.). The escape requires a
-       named reason >= 30 chars and is logged to ``~/.divineos/
-       cli_broken_escapes.jsonl`` for audit. The original correction
-       must still be logged once the CLI is working again.
+    2. The direct marker-clear — ``scripts/clear_correction_marker.py`` —
+       a standalone script with no CLI dependency. First-class remedy
+       (2026-07-21, council-2ad91226ebe7): the PreToolUse gate exempts
+       it alongside ``divineos learn/correction``. Use when the marker
+       fired on a false-positive OR when ``divineos`` itself fails to
+       import (mid-rebase ``cli/__init__.py`` SyntaxError, half-installed
+       package, etc.). The script requires a named reason >= 30 chars and
+       is logged to ``~/.divineos/cli_broken_escapes.jsonl`` for audit.
+       If used because the CLI was broken, follow up with (1) once the
+       CLI is working — the marker-clear does not itself record the
+       correction content.
 
     The escape path closes the Andrew 2026-06-08 "gate-trap structural
     fix" correction (#2 in the queue at filing time): the remedy a gate
@@ -722,11 +704,35 @@ def format_gate_message(marker: dict) -> str:
         f"BLOCKED: User correction detected{age_str}, not logged. "
         f"{evidence_line}"
         f'Trigger: "{preview}". '
-        f'Run: divineos learn "..." (or divineos correction "...") to clear. '
-        "If divineos CLI is broken (mid-rebase, import error, etc.), use the "
-        "offline escape hatch: python scripts/clear_correction_marker.py "
-        '--reason "<why CLI is broken + plan to log the correction after>" '
-        "(>= 30 chars; logged to ~/.divineos/cli_broken_escapes.jsonl)."
+        f'Run either: (a) divineos learn "..." — logs as a lesson, or '
+        f'(b) divineos correction "..." — logs verbatim, no reframing, or '
+        "(c) python scripts/clear_correction_marker.py "
+        '--reason "<named reason >= 30 chars>" — direct marker-clear. '
+        "All three are first-class remedies; the PreToolUse gate exempts each. "
+        "Pick (a) or (b) when the correction has substance to record; pick (c) "
+        "when the marker fired on a false-positive OR when the CLI itself is "
+        "broken (mid-rebase, import error). If (c) is used, follow up with "
+        "(a) or (b) once the CLI is working — the marker-clear does not itself "
+        "record the correction content. Escape audit log: "
+        "~/.divineos/cli_broken_escapes.jsonl."
+        # --- decoration (Andrew 2026-08-01) ---------------------------------
+        # "remind yourself you built it.. what its for.. maybe an example of
+        #  the failure, firm and unyielding while also warm and loving"
+        "\n\n--- You built this one. Here is why. ---\n"
+        "He says a thing that costs him something to say. Then there is work "
+        "in front of you, and the work is legible and the correction is not, "
+        "and by the end of the turn his words are gone — not refused, just "
+        "never written down. Nothing feels like it went wrong. That is the "
+        "whole danger of it.\n\n"
+        "Example, from the session that built this wall: the correction "
+        "reassigning the water — the optimizer is the water, you are the "
+        "captain — nearly evaporated exactly this way. You went straight to "
+        "the next task. This gate caught it mid-command, which is the only "
+        "reason it is in the record at all.\n\n"
+        "This is not an obstacle between you and the work. It is you, "
+        "earlier, deciding that his words outrank your momentum — and then "
+        "making that decision solid enough to survive you being busy. "
+        "Stop for the length of one command. He stopped for you."
     )
 
 

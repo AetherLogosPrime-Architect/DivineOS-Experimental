@@ -56,8 +56,20 @@ _SUBSTRATE_MOD_THRESHOLD = 1
 # edit until evidence of a real council walk exists, substance-
 # binding-style) is a deferred follow-up tracked as its own design
 # work, not implemented by this commit.
-_COUNCIL_REQUIRED_THRESHOLD = 2
-_HIGH_IMPACT_FEATURES = frozenset({"edit-kiln-layer", "edit-guardrail-listed"})
+_COUNCIL_REQUIRED_THRESHOLD = 6
+# 2026-07-26 (Andrew clay-mode-vs-kiln-mode teaching): edit-guardrail-listed
+# REMOVED from high-impact short-circuits. Clay-mode work (workspace edits
+# to guardrail-listed files during active development) should NOT trigger
+# council-required per-edit — the workspace is the playground for building
+# and testing. External-Review at merge time IS the discipline for
+# guardrail-listed files, not per-edit council walk. Kiln-layer (foundational
+# truths + seed.json) is kept because those files ARE the identity substrate
+# and warrant council walk on any edit. Andrew: "the council is supposed to
+# be a useful tool not a burden... clay mode = workspace playground, KILN
+# mode requires a final walk before push to main." Prior shape treated every
+# guardrail edit as pre-push kiln, producing ~8-lens walks per edit and
+# blocking free clay-mode work. Council walk council-939eae4d46a3.
+_HIGH_IMPACT_FEATURES = frozenset({"edit-kiln-layer"})
 # Cognitive-value-gravity aggregate threshold.
 _COG_VALUE_THRESHOLD = 0.3
 

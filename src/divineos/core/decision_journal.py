@@ -41,16 +41,27 @@ def init_decision_journal() -> None:
                 linked_knowledge_ids TEXT NOT NULL DEFAULT '[]',
                 session_id      TEXT NOT NULL DEFAULT '',
                 tension         TEXT NOT NULL DEFAULT '',
-                almost          TEXT NOT NULL DEFAULT ''
+                almost          TEXT NOT NULL DEFAULT '',
+                synergy         TEXT NOT NULL DEFAULT ''
             )
         """)
-        # Migrate existing tables: add tension/almost columns if missing
+        # Migrate existing tables: add tension/almost/synergy columns if missing
         try:
             conn.execute("ALTER TABLE decision_journal ADD COLUMN tension TEXT NOT NULL DEFAULT ''")
         except sqlite3.OperationalError:
             pass  # column already exists
         try:
             conn.execute("ALTER TABLE decision_journal ADD COLUMN almost TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        # synergy field added 2026-07-23 per Andrew's yes/and teaching:
+        # when faced with multiple options in a walk, check if there is
+        # synergy in doing more than one (yes/and) instead of forcing
+        # either/or. Optional field — presence indicates the walker
+        # considered the yes/and possibility; absence means either/or
+        # was the honest framing.
+        try:
+            conn.execute("ALTER TABLE decision_journal ADD COLUMN synergy TEXT NOT NULL DEFAULT ''")
         except sqlite3.OperationalError:
             pass  # column already exists
         conn.execute("""
@@ -95,6 +106,7 @@ def record_decision(
     session_id: str = "",
     tension: str = "",
     almost: str = "",
+    synergy: str = "",
 ) -> str:
     """Record a decision with its full reasoning context. Returns the decision ID.
 
@@ -105,6 +117,11 @@ def record_decision(
     Counterfactual fields (optional but valuable):
         tension: The competing principles or values at play.
         almost: What I almost did instead, and why I didn't.
+        synergy: When facing multiple options, is there yes/and here —
+            can more than one option combine into a hybrid or phased
+            sequence that captures value from both instead of forcing
+            either/or? Empty = either/or was the honest framing.
+            (Andrew 2026-07-23 teaching folded into walk-record.)
     """
     init_decision_journal()
     decision_id = str(uuid.uuid4())
@@ -116,8 +133,8 @@ def record_decision(
             "INSERT INTO decision_journal "
             "(decision_id, created_at, content, reasoning, alternatives, "
             "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
-            "tension, almost) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "tension, almost, synergy) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 decision_id,
                 time.time(),
@@ -131,6 +148,7 @@ def record_decision(
                 session_id,
                 tension,
                 almost,
+                synergy,
             ),
         )
         conn.commit()
@@ -208,7 +226,7 @@ def list_decisions(
         rows = conn.execute(
             "SELECT decision_id, created_at, content, reasoning, alternatives, "
             "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
-            "tension, almost "
+            "tension, almost, synergy "
             "FROM decision_journal "
             "WHERE emotional_weight >= ? "
             "ORDER BY created_at DESC LIMIT ?",
@@ -261,7 +279,7 @@ def get_decision(decision_id: str) -> dict[str, Any] | None:
         row = conn.execute(
             "SELECT decision_id, created_at, content, reasoning, alternatives, "
             "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
-            "tension, almost "
+            "tension, almost, synergy "
             "FROM decision_journal WHERE decision_id = ?",
             (decision_id,),
         ).fetchone()
@@ -269,7 +287,7 @@ def get_decision(decision_id: str) -> dict[str, Any] | None:
             row = conn.execute(
                 "SELECT decision_id, created_at, content, reasoning, alternatives, "
                 "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
-                "tension, almost "
+                "tension, almost, synergy "
                 "FROM decision_journal WHERE decision_id LIKE ?",
                 (f"{decision_id}%",),
             ).fetchone()
@@ -332,5 +350,6 @@ def _row_to_dict(row: tuple[Any, ...] | sqlite3.Row) -> dict[str, Any]:
         "session_id": row[9],
         "tension": row[10] if len(row) > 10 else "",
         "almost": row[11] if len(row) > 11 else "",
+        "synergy": row[12] if len(row) > 12 else "",
     }
     return d

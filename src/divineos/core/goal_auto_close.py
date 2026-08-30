@@ -128,6 +128,57 @@ _STOPWORDS = frozenset(
 _TOKEN_RE = re.compile(r"[a-z0-9_]{4,}")
 _DEFAULT_THRESHOLD = 0.5
 
+# F58 fix 2026-07-19 (Aletheia Round 7 catch): overlap-alone treated
+# mention-of-goal as completion-of-goal. Even `revert X — broken` or
+# `WIP X` closed goal X permanently. Now the overlap gate ONLY fires
+# when the commit ALSO carries a completion-shape signal AND lacks
+# reversal/WIP signals. F48 semantics-not-surface applied to commit
+# messages: match what the commit says HAPPENED to the goal, not
+# just whether the goal's nouns appear.
+_COMPLETION_SIGNALS_RE = re.compile(
+    r"\b(fix|feat|chore|docs|test|refactor|perf|build|ci)\([^)]*\):"
+    r"|\b(ship|shipped|ships|"
+    r"done|close|closes|closed|closing|"
+    r"complete|completes|completed|"
+    r"land|lands|landed|landing|"
+    r"merge|merges|merged|"
+    r"resolve|resolves|resolved|"
+    r"implement|implements|implemented)\b",
+    re.IGNORECASE,
+)
+_REVERSAL_SIGNALS_RE = re.compile(
+    r"\b(revert|reverts|reverted|reverting|"
+    r"wip|"
+    r"not\s+done|not\s+yet|not\s+ready|"
+    r"still\s+(?:debugging|working|broken|failing|todo)|"
+    r"broken|"
+    r"debugging|"
+    r"in\s+progress|"
+    r"rolled?\s+back|"
+    r"todo|tbd)\b",
+    re.IGNORECASE,
+)
+
+
+def has_completion_signal(message: str) -> bool:
+    """Return True iff the commit message looks like a completion.
+
+    F58 fix: overlap-alone was fabrication-shaped (mention treated as
+    completion). This gate prevents that.
+
+    Returns True iff a positive completion signal is present AND no
+    reversal/WIP signal is present. Fails toward NOT-a-completion when
+    ambiguous — the expensive-error direction for a self-honesty
+    feature is a false 'done' (fabricated accomplishment), so ambiguity
+    should leave the goal open (cheap: untidy list) rather than falsely
+    close it (expensive: lie about what shipped).
+    """
+    if not message:
+        return False
+    if _REVERSAL_SIGNALS_RE.search(message):
+        return False
+    return bool(_COMPLETION_SIGNALS_RE.search(message))
+
 
 @dataclass(frozen=True)
 class AutoCloseResult:
@@ -161,6 +212,7 @@ def auto_close_from_message(
     message: str,
     threshold: float = _DEFAULT_THRESHOLD,
     goals: list[dict] | None = None,
+    message_time: float | None = None,
 ) -> AutoCloseResult:
     """Auto-close goals whose substantive tokens overlap the commit message.
 
@@ -168,13 +220,60 @@ def auto_close_from_message(
         message: full commit message text (subject + body).
         threshold: minimum overlap_ratio to count as a match.
         goals: optional pre-loaded goal list (for testing).
+        message_time: unix timestamp of the commit this message came from.
+            Goals added after it are skipped -- see the causality note below.
+            ``None`` means the caller COULD NOT DETERMINE it, and no time
+            filtering happens. That is UNKNOWN, not "all goals are eligible";
+            callers that can know should pass it. (Name is main's, kept so the
+            two independent fixes converge on one API; the unknown-vs-eligible
+            distinction is this branch's and is the sharper reading.)
 
     Returns:
         ``AutoCloseResult`` with the goals that were closed and the
         ones that were considered but fell below threshold.
+
+    THE TIME-TRAVEL DEFECT — found twice, independently, and fixed the same
+    way both times. ``divineos goal auto-close`` with no ``--message`` reads
+    ``git log -1``, and every CLI command is a lifecycle checkpoint that can
+    fire it. So the SAME head commit was re-matched against every open goal,
+    over and over, including goals created long after that commit existed.
+
+    Result was a livelock: the goal doorman refuses substrate edits without a
+    session-fresh goal; I set one; the next command re-ran auto-close against
+    a stale HEAD whose message shared enough tokens; the goal was marked done
+    seconds after creation; the doorman refused again. The gate demanding a
+    goal was fed by the mechanism destroying it — the same shape as the bypass
+    livelock Aria demonstrated the same day, where running a gate's prescribed
+    remedy filed the obligation that blocked her checkpoint.
+
+    TWO SEPARATE OBSERVATIONS, kept because they are different evidence and a
+    merge that dropped either would thin the record:
+      - 2026-08-02 (this branch): six goals died in 26 minutes, the last within
+        98 seconds of being set, none of them actually finished.
+      - 2026-08-12 (Andrew, on main): two goals closed 92s and 161s after
+        creation, the only surviving active goal ~20h old, and the gate
+        refusing Bash, Write and Edit alike.
+
+    A commit cannot complete work that did not exist when it was written. That
+    is not a heuristic, it is causality, so it is checked rather than tuned.
+    Raising the overlap threshold was the tempting fix and would only have made
+    the livelock rarer instead of impossible.
+
+    The guard is an ORDERING RELATION, not an age threshold — per the standing
+    no-durations rule, it asks "was the goal already open when that commit
+    landed" rather than measuring an elapsed gap. A grace period would still
+    close a genuinely-finished young goal and still miss an old one the commit
+    really did complete. Both fixes reached that conclusion separately.
     """
     msg_tokens = _tokenize(message)
     if not msg_tokens:
+        return AutoCloseResult(closed=[], skipped=[])
+
+    # F58 fix: only actually-completing commits can close goals.
+    # If the message lacks a completion signal (or carries a reversal/
+    # WIP signal), skip the whole overlap check — no goals close.
+    # A revert or WIP commit that mentions a goal must NOT mark it done.
+    if not has_completion_signal(message):
         return AutoCloseResult(closed=[], skipped=[])
 
     if goals is None:
@@ -185,6 +284,25 @@ def auto_close_from_message(
 
     for goal in goals:
         goal_text = goal.get("text", "")
+        # Causality, not heuristics: a commit cannot have completed work that
+        # did not exist when it was written. Without this, one stale HEAD
+        # closed every newly-set goal that happened to share its vocabulary.
+        #
+        # SKIP SILENTLY, and the merge resolved this on evidence rather than
+        # taste. Both sides guarded correctly; they disagreed on whether the
+        # skip should be recorded. This branch appended (goal, -1.0) to mark
+        # "not evaluated" as distinct from "scored low". Main skipped without
+        # recording. The consumer decides it: hud_commands prints only
+        # len(result.skipped) as "N goal(s) considered (below threshold)" and
+        # never reads the score, so the -1.0 sentinel is invisible and a
+        # causality-skipped goal renders as considered-and-below-threshold —
+        # which is false, it was never considered. A distinction the display
+        # cannot carry is a distinction that becomes a lie in the output.
+        #
+        # Placement is this branch's: before _tokenize, so a goal the commit
+        # provably predates costs no tokenizing at all.
+        if message_time is not None and float(goal.get("added_at", 0) or 0) > message_time:
+            continue
         goal_tokens = _tokenize(goal_text)
         if not goal_tokens:
             continue
@@ -201,4 +319,5 @@ def auto_close_from_message(
 __all__ = [
     "AutoCloseResult",
     "auto_close_from_message",
+    "has_completion_signal",
 ]

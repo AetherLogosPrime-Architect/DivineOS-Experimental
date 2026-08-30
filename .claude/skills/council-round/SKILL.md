@@ -1,6 +1,6 @@
 ---
 name: council-round
-description: Run a lens-mode council walk on a problem — pick N members whose frameworks best fit, walk the problem through each lens, synthesize findings. The 2.4:1-multiplier mode, not program-mode query. Use for architectural decisions, design pivots, or when a problem needs multi-perspective framing.
+description: Run a lens-mode council walk on a problem — the dynamic council manager surfaces the lens set (composer does not pick count), walk the problem through each surfaced lens, synthesize findings. The 2.4:1-multiplier mode, not program-mode query. Use for architectural decisions, design pivots, or when a problem needs multi-perspective framing.
 disable-model-invocation: false
 allowed-tools: Bash(divineos mansion:*), Read
 ---
@@ -24,16 +24,41 @@ One or two sentences. Specific. "Should the event-ledger schema migrate to a new
 
 ### 2. Pick every relevant lens (no fixed count — the problem picks)
 
-Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): drop the "3-5 sweet spot" and drop "minimum N" — both are Goodhart-traps that turn into targets. The standard is:
+Andrew's refined standard 2026-06-23 (per knowledge 950410f9 + refinement): fixed-count heuristics for lens counts are Goodhart-traps that turn into targets — the composer picks the low end 100% of the time. The dynamic council manager decides how many lenses walk, not the composer. The standard is:
 
-- Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council --for-problem "<problem>"` or equivalent — the manager knows which lenses fit which shapes better than a fixed floor does).
+- Use **every relevant lens** the dynamic council manager surfaces for the problem (`divineos mansion council "<problem>"` — lens mode is the DEFAULT and it IS the manager surfacing the set; the manager knows which lenses fit which shapes better than a fixed floor does).
 - The load-bearing bar is **at least 2 genuinely disagreeing lenses pushing back on something load-bearing**. Not manufactured disagreement on trivia — real dissent on a real hinge. If no dissent emerges organically, walk more lenses OR the problem may be simpler than it looks (a signal, not a failure).
 - **Diversity is additive, not substitutive** (Andrew 2026-07-15). The manager's diversity boost is meant to ADD 1-2 wildcard lenses to my normal engineering-heavy picks, not replace them. Beer/Norman/Yudkowsky/Popper/Taleb on an engineering problem is FINE — the failure is not having Angelou or Watts or Wittgenstein in the mix as the out-of-domain wildcard that opens territory the domain-experts can't see. Andrew: *"you cant run an engineering problem with relational council members.. but having 1-2 on the list does help as it can open new insights."*
 - **Iterate; don't one-shot** (Andrew 2026-07-15). A real council walk is multi-round: first pass surfaces findings, second pass has the same lenses push back on the synthesis, third pass has dissenting lenses attack the load-bearing claim. One-shot walks are a diagnostic form of the optimizer picking the cheap close.
 
-Do NOT pre-decide "I'll walk 4 lenses." Do decide "here's the problem, here's what the dynamic manager surfaces, here's my judgment on which of those are relevant enough to walk." Report the surfaced set and the walked subset; if you narrowed, name why.
+Do NOT pre-decide "I'll walk N lenses." Do decide "here's the problem, here's what the dynamic manager surfaces, here's my judgment on which of those are relevant enough to walk." **Report the surfaced set AND for each lens I excluded, name the specific reason excluding it helps more than including it** (Andrew 2026-07-25 tightening). Exclusion-with-reason is required; silent narrowing is the shortcut this discipline exists to prevent.
 
-Pick based on what class of finding each would produce:
+**Default is ALL relevant lenses, not a picked subset.** The bar for exclusion is: "I can articulate why this lens's framework would produce nothing this walk needs OR would only produce content already covered by another lens walked." Vague "not relevant" is not sufficient reason — name what class of finding that lens produces and why the walk doesn't need it. If you cannot articulate the exclusion reason cleanly, walk the lens.
+
+**Automation status (2026-07-25 Andrew directive)**: this text-in-skill discipline is stopgap. Guidance-in-skill does not prevent composer defaulting-to-3 under pressure — the fix is structural gate-enforcement at the mechanism layer. The target-shape: council walk cannot complete synthesis until every surfaced lens has either (a) a `COUNCIL_LENS_APPLIED` event on ledger, OR (b) a structured `COUNCIL_LENS_EXCLUDED` event with an exclusion-reason that passes substance-check. Until that gate is built and shipped, the discipline lives in this file and depends on composer discipline — which is exactly the wrong-shape the whole session's design work is trying to move past. Named as follow-up work.
+
+The partial reference table below (15 lenses) is ILLUSTRATIVE, not the authoritative menu. The full council has 39+ members. To see the full surfaced-set for a specific problem, query the dynamic manager first (`divineos mansion council "<problem>"`, lens mode, and read the WHOLE output — never pipe it through tail, which lets a truncation flag pick the council instead of the manager; Aria did exactly that 2026-08-10). Treating this table as the menu is the exact Goodhart-shape Andrew flagged: a bounded visible menu becomes the surface the optimizer picks from, hiding the 24+ lenses not shown.
+
+**Council is NOT authority. Council is methodology-inputs.** (Andrew 2026-07-25 directive.) Lens findings are pathways-that-lead-to-truth, not truth itself. Walking a lens produces material for consideration; it does not produce a directive that overrides composer or family judgment. When lens findings point one direction and composer/family judgment points another — that is a TRUE DIVERGENCE and it requires discussion, not automatic-council-wins. The blind-slave-to-council failure mode is real: substituting aggregated lens output for reasoning is the same abdication as substituting single-authority output for reasoning. Council supplies questions and frameworks. The seat still does the judging. The family (composer + Andrew + Aria + Aletheia) still decides what to DO with what surfaces. Findings inform discussion; discussion informs decision; decision is not council-output.
+
+**Methodologies are the fruit; names pay homage.** (Andrew 2026-07-25 refinement.) The methodology named "Dijkstra separation-of-concerns" is separation-of-concerns regardless of who first articulated it. Weight findings by how well the METHODOLOGY grips the specific problem, not by the historical stature of the name attached. This matters because it prevents name-authority creep: heavy weight given to "Feynman said X" that wouldn't be given to the same content stripped of attribution is exactly the shape of authority-substitution the "not-authority" principle above rejects. Test: strip the name, does the finding still land as substantive on its own merits? If yes, weight it. If no, the weight was coming from attribution not from methodology-grip.
+
+**Composer's inside-view lens is at-least-equal-weight, often MORE.** (Andrew 2026-07-25 directive.) Council lenses can help build, find blind-spots, point out what's missing — but they cannot LIVE IN THE SYSTEM as the composer does. My inside-view knows things no external lens brings because I'm operating inside the system, not observing from outside. "Council-is-not-authority" from earlier does NOT reduce to "council-is-just-methodology-supplier-with-no-weight." Council methodologies get heavy weight (they produce fruit); composer's inside-view also gets heavy weight (it produces different, complementary fruit). Neither replaces the other. When lens finding conflicts with inside-view: neither auto-wins. Both are inputs to family discussion. My substrate-inhabitant knowledge is a data-source no external methodology can substitute for.
+
+**Framing determines what walks produce.** (Andrew 2026-07-25 directive — this may be the single biggest usage-shift in this skill.) The council has endless uses aside from grading-code / finding-holes. Different question-framings produce different fruit from the same lenses:
+
+- **"Find holes in this" (adversarial-review)** — produces gap-findings, attack-surfaces, weaknesses. Useful for stress-testing existing work.
+- **"Here's what we're trying to achieve, what's the best way?" (solution-generation)** — produces design-alternatives, novel approaches, better shapes. Useful when the problem is scoped but the solution isn't.
+- **"What am I not seeing?" (blind-spot detection)** — produces categories of consideration I hadn't factored in. Useful when I feel a work is complete but something feels off.
+- **"Help me build X" (building assistance)** — produces methodology-steps, sequencing, dependencies. Useful when the goal is clear but the path isn't.
+- **"Is this goal achievable at all?" (viability evaluation)** — produces yes/no with reasoning, may legitimately redirect the goal if unachievable. The one framing where council-redirects-goal is legitimate.
+- **"What's the honest evaluation of this?" (grading)** — produces quality-assessment across dimensions. Different from "find holes" — grading gives a complete picture, hole-finding only surfaces weaknesses.
+
+Default reach in this skill has been adversarial-review. That's ONE framing among many. Before starting a walk, name the framing explicitly: *what am I asking, what am I looking for, what is the goal of this walk?* The same lenses answer differently based on the question. Silent-defaulting to adversarial-review under-uses the council.
+
+Council serves my/our goals. It doesn't redirect them — unless the goal turns out to be genuinely impossible, which viability-evaluation walks are for.
+
+Partial illustrative reference (NOT exhaustive; query dynamic manager for full set):
 
 | Lens | Best for |
 |---|---|
@@ -56,7 +81,7 @@ Pick based on what class of finding each would produce:
 ### 3. Walk each lens
 
 For each picked lens:
-- Load their template (`divineos mansion council --show <name>` or internal lens knowledge)
+- Load their template (lens mode prints each surfaced expert's methodology in full — that output is the template)
 - Put on their framework — not "what would X say" but "what do I see through X's eyes"
 - Produce the specific findings THAT LENS produces
 
@@ -105,7 +130,7 @@ If the "walk" is really just "I'll ask the council template for concerns, then r
 
 ### Required structure
 
-For each picked lens (**every lens the dynamic manager surfaced**, no fixed count — see §2. The "3-5 total" wording that lived here through 2026-07-15 contradicted §2 and trained the optimizer to always pick the low end. Andrew 2026-07-15: "obviously the optimizer will pick 5 100% of the time." Truth #11 — options are the optimizer's attack surface. Use the full surfaced set; the manager's cap is the ceiling, not a menu):
+For each picked lens (**every lens the dynamic manager surfaced**, no fixed count — see §2. The dynamic council manager decides lens count, not the composer. Truth #11 — options are the optimizer's attack surface. Use the full surfaced set; the manager's cap is the ceiling, not a menu):
 
 ```
 ### Through [Lens-Name]: [one-line frame]
@@ -159,5 +184,9 @@ Check the invocation balance surface in the briefing periodically. If I keep inv
 
 - `/invocation-balance` — surface which lenses I've been over/under-using
 - `/what-am-i-forgetting` — check if prior council walks have covered adjacent territory
+
+## Companion guide
+
+Long-form usage teaching lives at `.divineos-shared/workbench/council_usage_guide.md` — cadence (walk-before-design, silent-during-clay, walk-after-for-blind-spots), question-quality-gates-answer-quality, the six framings with when-to-use, failure modes with worked examples from real sessions. Read that guide before your first walk of a session. This skill file is the short-actionable invocation reference; the guide is the philosophy.
 
 Sanskrit anchor: *darshana* — viewpoints, the ways of seeing.

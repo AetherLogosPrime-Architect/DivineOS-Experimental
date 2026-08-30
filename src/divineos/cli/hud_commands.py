@@ -137,6 +137,28 @@ def register(cli: click.Group) -> None:
                         "(include the err-XXXX id in the goal text).",
                         fg="bright_black",
                     )
+                    # M3 chicken-and-egg lockdown fix (Andrew 2026-07-29):
+                    # earlier this session I hit this block, then went to
+                    # list open errors to name one, but `divineos error
+                    # list` is gated by the goal-fresh check — which
+                    # requires the goal I was trying to add. The block
+                    # gave instructions I could not follow because the
+                    # tooling to follow them was gated. Supply-the-ground
+                    # shape (same class as wallclock-prime): inline the
+                    # currently-open err-ids so the operator can name one
+                    # without needing to run another gated command.
+                    click.echo("")
+                    click.secho("    Currently open err-ids you can name:", fg="bright_black")
+                    for _e in open_errs[:10]:
+                        _eid = _e.get("error_id", "?")
+                        _title = (_e.get("title") or "").strip()[:70]
+                        click.secho(f"      {_eid}  {_title}", fg="bright_black")
+                    if len(open_errs) > 10:
+                        click.secho(
+                            f"      ... and {len(open_errs) - 10} more "
+                            "(run: divineos error list once a goal exists)",
+                            fg="bright_black",
+                        )
                     raise click.exceptions.Exit(1)
         except click.exceptions.Exit:
             raise
@@ -239,18 +261,41 @@ def register(cli: click.Group) -> None:
 
         from divineos.core.goal_auto_close import auto_close_from_message
 
+        # HEAD's timestamp travels with HEAD's message so the closer can
+        # refuse to close goals that did not exist when that commit landed.
+        # Without it a goal added after the commit was closed by it, at
+        # birth, which left has_session_fresh_goal() permanently false.
+        message_time: float | None = None
+        resolved: str = message or ""
+
         if message is None:
             try:
-                message = subprocess.check_output(
+                resolved = subprocess.check_output(
                     ["git", "log", "-1", "--pretty=%B"],
                     text=True,
                     stderr=subprocess.DEVNULL,
                 )
+                message_time = float(
+                    subprocess.check_output(
+                        ["git", "log", "-1", "--pretty=%ct"],
+                        text=True,
+                        stderr=subprocess.DEVNULL,
+                    ).strip()
+                )
             except (subprocess.CalledProcessError, FileNotFoundError):
                 click.secho("[-] Could not read HEAD commit message.", fg="red")
                 return
+            except ValueError:
+                # Message read fine but the timestamp did not parse. Run
+                # without the ordering check rather than skipping the
+                # close entirely, and say so -- a silent downgrade here
+                # is what let the original bug hide.
+                click.secho(
+                    "[!] Could not read HEAD's timestamp; running without the causality check.",
+                    fg="yellow",
+                )
 
-        result = auto_close_from_message(message, threshold=threshold)
+        result = auto_close_from_message(resolved, threshold=threshold, message_time=message_time)
         if not result.closed:
             click.secho("[~] No goals closed.", fg="bright_black")
             if result.skipped:

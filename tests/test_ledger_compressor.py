@@ -70,6 +70,70 @@ class TestAnalyzeLedger:
         for t in _COMPRESSIBLE_TYPES:
             assert t not in {"USER_INPUT", "SESSION_END", "SUPERSESSION", "CLARITY_STATEMENT"}
 
+    def test_compressible_types_no_forensic_shapes(self):
+        """F38 shrunken follow-on 2026-07-18: forensic event types must
+        never be compressible.
+
+        Forensic events (FIRED, VIOLATION, ERROR, AUDIT, DENIAL, BLOCK)
+        are records of enforcement or failure; they must persist for
+        audit and cannot be silently pruned. This guard fires on the
+        SHAPE of the type name so a new forensic event type added later
+        still gets caught without the guard needing to be updated.
+
+        See ledger_compressor.py line 86: 'FIRED events are deliberately
+        NOT in this set'. This test enforces that comment structurally.
+        """
+        # Per-type exemptions: types whose name matches a forensic marker
+        # but whose SEMANTICS are high-volume bookkeeping. Adding to this
+        # list is a design decision — comment the WHY inline.
+        #
+        # AGENT_LEARNING_AUDIT: name uses "audit" as noun-of-inspection
+        # (agent learning is being observed), not as forensic-enforcement.
+        # Same volume/character as AGENT_PATTERN. Rename follow-on filed
+        # 2026-07-18 (should become AGENT_LEARNING_TRACE); until then,
+        # exempted by name.
+        exemptions = {"AGENT_LEARNING_AUDIT"}
+
+        forensic_markers = ("FIRED", "VIOLATION", "ERROR", "AUDIT", "DENIAL", "BLOCK")
+        for t in _COMPRESSIBLE_TYPES:
+            if t in exemptions:
+                continue
+            for marker in forensic_markers:
+                assert marker not in t, (
+                    f"Compressible type {t!r} contains forensic marker "
+                    f"{marker!r}. Forensic events must persist for audit; "
+                    "they cannot be silently pruned. If this type is "
+                    "legitimately high-volume bookkeeping despite its "
+                    "name, add it to `exemptions` above with a comment "
+                    "naming WHY it's safe to compress, and file a "
+                    "rename follow-on."
+                )
+
+    def test_compressible_types_lockfile(self):
+        """F38 shrunken follow-on 2026-07-18: hash-lock the set.
+
+        Any addition or removal to _COMPRESSIBLE_TYPES must be
+        deliberate — updating this hash forces the change to show up
+        in review as an explicit acknowledgment. To update: run this
+        test, copy the actual hash from the failure message, update
+        EXPECTED_HASH below with a comment naming WHY the type was
+        added/removed.
+        """
+        import hashlib
+
+        canonical = "|".join(sorted(_COMPRESSIBLE_TYPES))
+        actual_hash = hashlib.sha256(canonical.encode()).hexdigest()[:16]
+        # 2026-07-18: 9 members — 8 AGENT_/TOOL_ high-volume bookkeeping
+        # types + COMPASS_RUDDER_ALLOW (Item 6 addition, ratios survive
+        # pruning per lines 82-85 of ledger_compressor.py).
+        EXPECTED_HASH = "a076ecfbcac41b01"
+        assert actual_hash == EXPECTED_HASH, (
+            f"_COMPRESSIBLE_TYPES changed. Actual hash: {actual_hash!r}. "
+            f"Current members (sorted): {sorted(_COMPRESSIBLE_TYPES)}. "
+            "If the change is intentional, update EXPECTED_HASH in this "
+            "test with a comment naming the type added/removed and WHY."
+        )
+
 
 class TestCompressLedger:
     def test_compress_removes_old_noise(self, tmp_path, monkeypatch):

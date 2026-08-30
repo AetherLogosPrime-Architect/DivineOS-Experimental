@@ -184,3 +184,38 @@ class TestF22BypassSurvivesForNonCompoundCases:
 
     def test_empty_command_does_not_bypass(self):
         assert not _is_bypass_command("")
+
+
+def test_all_three_documented_remedies_are_reachable():
+    """The correction-gate block message names three first-class remedies and
+    says in its own text that "the PreToolUse gate exempts each". It exempted
+    two.
+
+    `clear_correction_marker.py` was blocked in both plain and `cd DIR &&`
+    form -- and that one is the remedy specifically for when the CLI itself is
+    broken, so the escape hatch for being stuck was the one nailed shut.
+
+    This is the root cause behind psf-01d5f2af, filed 65 times across 11 days
+    in July: "Aria gate-locked on her side (engagement gate blocks even
+    clear-commands)". An emergency bypass was used each time because the
+    documented way out did not work. Andrew 2026-06-29, already quoted in the
+    function for the neighbouring exemption: "no gate should ever be blocking
+    you from using what you need to clear the gate."
+    """
+    assert _is_bypass_command('divineos correction "x"')
+    assert _is_bypass_command('cd /repo && divineos learn "x"')
+    assert _is_bypass_command(
+        'python scripts/clear_correction_marker.py --reason "a named reason over thirty chars"'
+    )
+    assert _is_bypass_command(
+        'cd /repo && python scripts/clear_correction_marker.py --reason "a named reason"'
+    )
+
+
+def test_marker_clear_is_not_a_decoy_for_compound_commands():
+    """The exemption must not become a smuggling route. A safe word riding
+    alongside a second command is the F22 shape and still fails."""
+    assert not _is_bypass_command(
+        "python scripts/clear_correction_marker.py --reason x; rm -rf /tmp/x"
+    )
+    assert not _is_bypass_command("python scripts/other.py")

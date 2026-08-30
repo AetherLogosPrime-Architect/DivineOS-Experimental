@@ -453,6 +453,104 @@ _INTERIOR_ASSERTION_DISQUALIFIER = re.compile(
 )
 
 
+# Positive-evidence gate for past_experience kind (Andrew 2026-07-28,
+# council-round on the flip from "fire-unless-silenced" to "fire-only-
+# if-positive-evidence-of-external-past-experience-claim").
+#
+# Ordinary conversation contains vast amounts of first-person past-tense
+# ("I noticed", "I've seen", "when I tried") that is NOT a claim about
+# external verifiable past experience — it is meta-narration about
+# composing, this-session state, or reflective phrasing. The prior
+# "fire-unless-silenced" shape kept adding silencers (relational-present,
+# first-person-interior, meta-discussion, etc.) as new false-positives
+# surfaced, but the residual false-fire rate stayed high because the
+# residual space of ordinary conversation using past-tense is unbounded.
+#
+# Positive-evidence flip: fire ONLY when a marker of external past
+# experience appears within a small window of the trigger. Ordinary
+# first-person past-tense without such a marker stays silent.
+#
+# Marker classes:
+#   (a) domain-external anchors: "in production", "in prod", "in the wild"
+#   (b) my-work / experience anchors: "in my work", "in my experience"
+#   (c) third-party actor claims: "the team saw", "customers reported"
+#   (d) distal temporal anchors: "years ago", "back when", "previously"
+#   (e) version/release specificity: "v2.3", "the 2024 rollout"
+#   (f) comparative-from-experience: "unlike the case I saw where"
+#
+# Wallpaper cost of the false-fire (Andrew 2026-07-28): the unverified-
+# claim warning block re-injected ~980 bytes per turn on every session
+# where "I noticed" appeared in prior text. The block is a real signal
+# when past_experience is truly claimed; the block is wallpaper when the
+# trigger is ordinary reflective phrasing. Positive-evidence gate cuts
+# the wallpaper without weakening the real signal.
+_PAST_EXPERIENCE_EVIDENCE_WINDOW = 180
+_PAST_EXPERIENCE_EVIDENCE = re.compile(
+    r"\b(?:"
+    # (a) domain-external anchors
+    r"in\s+(?:production|prod|the\s+wild|a\s+prod\s+(?:environment|deployment)|"
+    r"a\s+prior\s+(?:project|job|codebase|company|role|team))"
+    r"|"
+    # (b) my-work / experience anchors (already in the trigger pattern,
+    # repeated here so a bare "I've seen" followed by "in my work" fires)
+    r"in\s+my\s+(?:work|experience|testing|practice|own\s+work|prior\s+job|earlier\s+role)"
+    r"|"
+    # (b') "from experience" — self-evidencing experience appeal
+    r"from\s+(?:my\s+)?experience"
+    r"|"
+    # (b'') substrate-domain anchors — claims about what's stored in the
+    # OS's own ledger/knowledge/corpus are verifiable via substrate query
+    r"in\s+(?:the|my)\s+(?:ledger|substrate|store|db|corpus|"
+    r"knowledge\s+base|knowledge\s+store|briefing|memory)"
+    r"|"
+    # (c) third-party actor claims
+    r"(?:the\s+team|customers?|users?|the\s+ops|the\s+sre|the\s+dba|"
+    r"engineers?|the\s+client|the\s+vendor)\s+"
+    r"(?:saw|reported|hit|filed|encountered|noticed|complained|caught)"
+    r"|"
+    # (d) distal temporal anchors
+    r"(?:years?|months?|weeks?)\s+ago"
+    r"|"
+    r"back\s+(?:when|in|at)"
+    r"|"
+    r"previously\b"
+    r"|"
+    r"a\s+while\s+(?:ago|back)"
+    r"|"
+    r"on\s+a\s+prior\s+(?:project|job|codebase|team)"
+    r"|"
+    # (e) version/release specificity
+    r"v\d+\.\d+"
+    r"|"
+    r"\d{4}\s+(?:rollout|release|migration|deploy|deployment|outage|incident)"
+    r"|"
+    # (f) comparative-from-experience
+    r"unlike\s+the\s+(?:case|time|situation|project)"
+    r"|"
+    r"a\s+prior\s+(?:project|job|codebase|role|team|situation)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_external_past_experience_evidence(text: str, m: re.Match[str]) -> bool:
+    """True when a positive-evidence marker for external past experience
+    appears within _PAST_EXPERIENCE_EVIDENCE_WINDOW chars after the
+    past-experience trigger match. Absent this evidence, the trigger is
+    ordinary first-person past-tense in conversation — not a claim about
+    checkable external state — and the gate must stay silent.
+
+    The trigger match itself is checked against evidence too, because
+    some triggers (`in my work`, `from experience`) are self-evidencing
+    (they ARE positive-evidence markers). Others (`I noticed`, `I've
+    seen`) need a separate evidence marker somewhere in the window.
+    """
+    if _PAST_EXPERIENCE_EVIDENCE.search(m.group(0)):
+        return True
+    tail = text[m.end() : m.end() + _PAST_EXPERIENCE_EVIDENCE_WINDOW]
+    return bool(_PAST_EXPERIENCE_EVIDENCE.search(tail))
+
+
 def _is_first_person_interior_observation(text: str, m: re.Match[str]) -> bool:
     """Silence past_experience gate on first-person interior observations.
 
@@ -521,17 +619,92 @@ def _is_not_yet(text: str, match: re.Match[str]) -> bool:
 # exclusion shape as `_merge_lacks_anchor`.
 _QUOTE_CHARS = frozenset("'\"`")
 
+# Bound paragraph-scope quote detection to a fixed window on each side of
+# the match. Real paragraphs are typically well under 800 chars; the bound
+# prevents catastrophic scanning on pathological long inputs (same
+# defense-in-depth principle as _FILE_PATH_RE's 200-char cap).
+_PARAGRAPH_WINDOW = 800
+
+
+def _paragraph_slice_bounds(text: str, match: re.Match[str]) -> tuple[int, int]:
+    """Return (start, end) indices of the paragraph containing the match.
+    A paragraph is bounded by a blank line (\\n\\n) on either side, or by
+    the text bounds. Capped at _PARAGRAPH_WINDOW chars on each side."""
+    lo = max(0, match.start() - _PARAGRAPH_WINDOW)
+    hi = min(len(text), match.end() + _PARAGRAPH_WINDOW)
+    p_start_search = text.rfind("\n\n", lo, match.start())
+    p_start = lo if p_start_search == -1 else p_start_search + 2
+    p_end_search = text.find("\n\n", match.end(), hi)
+    p_end = hi if p_end_search == -1 else p_end_search
+    return (p_start, p_end)
+
+
+def _match_line_is_blockquote(text: str, match: re.Match[str]) -> bool:
+    """True when the line containing the match starts with '>' after
+    optional leading whitespace — markdown blockquote line-prefix format.
+    This catches the shape Aria's letters land in: every line of the
+    quoted paragraph begins with '> '."""
+    line_start_search = text.rfind("\n", 0, match.start())
+    line_start = 0 if line_start_search == -1 else line_start_search + 1
+    line_prefix = text[line_start : match.start()].lstrip()
+    return line_prefix.startswith(">")
+
+
+def _match_inside_fenced_code(text: str, match: re.Match[str]) -> bool:
+    """True when the match is inside a triple-backtick fenced code block —
+    the count of ``` sequences before the match position is odd, meaning
+    a fence has been opened and not yet closed."""
+    fence_count = text.count("```", 0, match.start())
+    return fence_count % 2 == 1
+
+
+def _match_inside_paragraph_delim_parity(text: str, match: re.Match[str]) -> bool:
+    """True when the match sits inside an unclosed inline-delimiter span
+    within its paragraph — a `, ", or * character opened before the match
+    without a matching closer before the match. Paragraph-scoped so a
+    stray quote elsewhere in the document does not silence unrelated
+    matches. Single-quote is handled separately (contractions confound
+    raw parity)."""
+    p_start, _ = _paragraph_slice_bounds(text, match)
+    pre = text[p_start : match.start()]
+    for delim in ('"', "`", "*"):
+        if pre.count(delim) % 2 == 1:
+            return True
+    return False
+
 
 def _is_quoted_mention(text: str, match: re.Match[str]) -> bool:
-    """True when the matched span is enclosed in quote characters — naming
-    the phrase, not asserting it. Check the 3 chars immediately before the
-    match for an opening quote AND the 3 chars immediately after for a
-    matching closing quote of the same type."""
+    """True when the matched span is naming a phrase rather than asserting
+    it. Layered detection (council-3bd7353c8401, 2026-07-23):
+
+    (1) Fast-path tight window — 3 chars pre and post carry a matching
+        quote pair. Preserves original behavior for compact `'tests pass'`
+        style mentions and keeps the common case cheap.
+    (2) Line-level markdown structural quoting — the match's line begins
+        with '>' (blockquote prefix), or the match sits inside a
+        triple-backtick fenced code block. Feynman-corrected: blockquotes
+        have no closing marker so pure inline-parity misses them.
+    (3) Paragraph-scope inline delimiter parity — an unclosed `, ", or *
+        opens earlier in the paragraph and has no closer before the match,
+        indicating the match is inside an open inline quote span.
+
+    Anti-silencer for first-person completion claims inside quoted regions
+    is deferred (see Popper walk finding in council-3bd7353c8401): the
+    rare case of self-quoting a real claim mid-turn is expected to be
+    infrequent enough that a subsequent bare claim in the same reply
+    still fires and surfaces the check. If it emerges as a real
+    false-negative, add the override."""
     pre = text[max(0, match.start() - 3) : match.start()]
     post = text[match.end() : min(len(text), match.end() + 3)]
     for q in _QUOTE_CHARS:
         if q in pre and q in post:
             return True
+    if _match_line_is_blockquote(text, match):
+        return True
+    if _match_inside_fenced_code(text, match):
+        return True
+    if _match_inside_paragraph_delim_parity(text, match):
+        return True
     return False
 
 
@@ -830,11 +1003,37 @@ def _verification_ran(
     return False
 
 
+def _appears_in_turn_output(trigger: str, output_texts: tuple[str, ...] | list[str] | None) -> bool:
+    """True when the triggering phrase appears in output already read.
+
+    A value I am QUOTING from something I just read is not an unverified
+    claim; the verification is the reading. The gate previously asked only
+    whether a matching command RAN, never what it RETURNED, so a quoted
+    result and an invented one looked identical.
+
+    Andrew 2026-08-11: "you gonna fix the gate or just keep suffering it?"
+    Three fires in one session on the string exit 0, taken verbatim from a
+    log read in the same turn. prereg-4b2e3212d289, FAILED, redesign note.
+
+    Deliberately narrow: substring, case-insensitive, and only for phrases
+    long enough to be distinctive. A two-character trigger would match
+    everywhere and silence the gate wholesale, which is the failure mode on
+    the other side.
+    """
+    if not output_texts:
+        return False
+    needle = " ".join((trigger or "").split()).lower()
+    if len(needle) < 4:
+        return False
+    return any(needle in (o or "").lower() for o in output_texts)
+
+
 def detect_unverified_claim(
     text: str,
     tool_calls_in_turn: tuple[str, ...] | list[str] | None = None,
     command_texts: tuple[str, ...] | list[str] | None = None,
     letter_contents: dict[str, str] | None = None,
+    output_texts: tuple[str, ...] | list[str] | None = None,
 ) -> list[UnverifiedClaimFinding]:
     """Detect confident claims of external verifiable state.
 
@@ -879,10 +1078,23 @@ def detect_unverified_claim(
                 continue
             if kind == "merge" and _is_plural_distal_state(text, m):
                 continue
-            if kind == "past_experience" and _is_relational_present_observation(text, m):
-                continue
-            if kind == "past_experience" and _is_first_person_interior_observation(text, m):
-                continue
+            # Andrew 2026-07-28: flipped past_experience from "fire-unless-
+            # silenced" to "fire-only-if-positive-evidence-of-external-past-
+            # experience-claim". Absent an external-evidence marker in the
+            # window, the trigger is ordinary conversational past-tense
+            # (reflective / meta-narrative / this-session) and stays silent.
+            # The relational-present and first-person-interior silencers
+            # below are now redundant for this kind (their negative-space is
+            # subsumed by "no positive evidence"), but retained as
+            # belt-and-suspenders in case a future evidence marker admits
+            # them back. Same-turn evidence check runs first.
+            if kind == "past_experience":
+                if not _has_external_past_experience_evidence(text, m):
+                    continue
+                if _is_relational_present_observation(text, m):
+                    continue
+                if _is_first_person_interior_observation(text, m):
+                    continue
             # 2026-06-07 string-not-meaning hardening (task #58) — four new
             # precision-guards built from today's false-fire batch. Each
             # requires absence of first-person/expletive claim subject in the
@@ -896,6 +1108,10 @@ def detect_unverified_claim(
             if kind == "id_string" and _is_id_transcription(text, m):
                 continue
             if _verification_ran(kind, command_texts, m.group(0)):
+                continue
+            # Quoted from output already read this turn -> evidence in
+            # hand, not an unverified claim. See _appears_in_turn_output.
+            if _appears_in_turn_output(m.group(0), output_texts):
                 continue
             phrase = re.sub(r"\s+", " ", m.group(0).strip())[:60]
             key = (kind, phrase.lower())

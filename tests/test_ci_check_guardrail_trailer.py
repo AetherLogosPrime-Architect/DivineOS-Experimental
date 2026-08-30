@@ -137,8 +137,79 @@ def test_guardrail_touch_without_trailer_blocks(repo):
     assert "BLOCKED" in result.stdout
 
 
-def test_guardrail_touch_with_trailer_passes(repo):
-    """A commit modifying a guardrail file with a trailer passes (presence-only)."""
+def test_net_diff_clean_passes_though_history_touched_guardrail(repo):
+    """A branch whose net diff lands nothing guardrail-listed passes, even when a
+    commit in its history touched one and carried no trailer.
+
+    This is the PR #407 shape, measured 2026-08-19. A branch carried a commit
+    modifying a guardrail file; main already held that content under a different
+    sha from an earlier squash-merge, so the file showed zero change in the net
+    diff. The old walk blocked on the historical commit, and no audit round could
+    ever clear it -- the review would have covered content that was not landing.
+    Andrew, 2026-08-13: "not every commit just every merge to main."
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
+    # Reverted before the merge -- so the net diff lands nothing.
+    head = _commit(repo, "revert: put it back", {"src/foo.py": "v1"})
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "lands no guardrail-listed file" in result.stdout
+
+
+def test_net_diff_landing_guardrail_still_blocks(repo):
+    """The narrowing removes no coverage: content actually landing still blocks.
+
+    Guards the failure mode where the net-diff shortcut is too eager and lets a
+    real guardrail change through untrailered.
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(repo, "feat: modify the guardrailed file", {"src/foo.py": "v2"})
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCKED" in result.stdout
+
+
+def test_guardrail_touch_with_unbound_trailer_now_blocks(repo):
+    """2026-08-01: REQUIRE_TREE_HASH default flipped 0 -> 1.
+
+    Presence-only used to be enough. It no longer is, and that tightening
+    is what makes the recency-window deletion in check_multi_party_review
+    safe -- an unbound trailer has no content check, so if these could
+    still pass, removing the clock would open a real hole. The two changes
+    are coupled on purpose.
+
+    MERGE NOTE 2026-08-21. This function arrived here as a conflict between
+    #412 and #433, and the resolution is semantic rather than textual. Both
+    branches added tests directly above this shared body. #433's side ended
+    with `test_guardrail_touch_with_trailer_passes`, whose docstring says a
+    presence-only trailer PASSES -- which is precisely the behaviour this
+    branch flips. Taking git's glue as offered would have bolted the old
+    name onto assertions that now demand returncode 1 and "tree-hash
+    binding": a test whose name claims the opposite of what it checks, which
+    is the same read-past-it defect class as a docstring describing a
+    predecessor's safety property. The old name is dropped because this
+    branch supersedes it; #433's two genuinely-new net-diff tests are kept
+    above, untouched.
+    """
     base = _commit(
         repo,
         "initial; add guardrail entry",
@@ -153,7 +224,31 @@ def test_guardrail_touch_with_trailer_passes(repo):
         {"src/foo.py": "v2"},
     )
     result = _run_script(repo, base, head)
+    assert result.returncode == 1, "an unbound trailer must not authorize a guardrail change"
+    assert "tree-hash binding" in result.stdout
+
+
+def test_unbound_trailer_still_passes_with_explicit_opt_out(repo, monkeypatch):
+    """The escape hatch remains, but it must be asked for out loud. A
+    transition window that nothing ever opted into is how this stayed open
+    from 2026-06-13 until today."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(
+        repo,
+        "feat: legacy trailer\n\nExternal-Review: round-abcdef123\n",
+        {"src/foo.py": "v2"},
+    )
+    monkeypatch.setenv("REQUIRE_TREE_HASH", "0")
+    result = _run_script(repo, base, head)
     assert result.returncode == 0, result.stdout + result.stderr
+    assert "DEPRECATED" in result.stdout
 
 
 def test_non_guardrail_commit_skipped_even_without_trailer(repo):
@@ -218,10 +313,14 @@ def _commit_get_tree_hash(repo: Path, sha: str) -> str:
     ).stdout.strip()
 
 
-def test_legacy_trailer_without_tree_hash_passes_with_deprecation_warning(repo):
-    """Phase 2 transition window: trailers without tree-hash still pass
-    so existing tooling doesn't break overnight, but emit a deprecation
-    warning naming the bypass shape."""
+def test_legacy_trailer_without_tree_hash_now_blocks_by_default(repo):
+    """Was: "still pass so existing tooling doesn't break overnight."
+
+    The tooling condition is met -- prepare-merge and the per-commit
+    trailer path both emit tree-hash -- so the window closed 2026-08-01.
+    An unbound trailer asserts a review happened without binding it to any
+    content, which is the substance-free form the whole Phase-2 binding
+    exists to end."""
     base = _commit(
         repo,
         "initial; add guardrail entry",
@@ -236,9 +335,8 @@ def test_legacy_trailer_without_tree_hash_passes_with_deprecation_warning(repo):
         {"src/foo.py": "v2"},
     )
     result = _run_script(repo, base, head)
-    assert result.returncode == 0
-    assert "DEPRECATED" in result.stdout
-    assert "tree-hash" in result.stdout
+    assert result.returncode == 1
+    assert "tree-hash binding" in result.stdout
 
 
 def test_tree_hash_binding_matching_passes(repo):
@@ -306,7 +404,97 @@ def test_tree_hash_binding_mismatch_blocks(repo):
     )
     result = _run_script(repo, base, head)
     assert result.returncode == 1
-    assert "tree-hash in trailer does not match" in result.stdout
+    assert "no trailer tree-hash matches" in result.stdout
+
+
+def test_squash_merge_many_trailers_one_matching_passes(repo):
+    """THE SQUASH-MERGE BUG (2026-08-01, reproduced on main at be48c290).
+
+    GitHub builds a squash commit's message by CONCATENATING the messages
+    of every commit in the branch. A branch with three stamped guardrail
+    commits produces a squash carrying three External-Review trailers,
+    each bound to its own intermediate tree. Exactly one of them -- the
+    branch tip's -- matches the squash result.
+
+    The gate used to read only the FIRST trailer, which is the earliest
+    commit's tree and therefore never the squash tree, so every
+    multi-commit guardrail merge blocked while the correct trailer sat
+    further down the same message.
+    """
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    head = _commit(repo, "placeholder\n", {"src/foo.py": "v2"})
+    actual_tree = _commit_get_tree_hash(repo, head)
+    stale_a = "aaaaaaaa" * 5
+    stale_b = "bbbbbbbb" * 5
+    # Ordering matters: the two non-matching trailers come FIRST, which is
+    # exactly the ordering a real squash produces.
+    new_msg = (
+        "squashed branch (#404)\n\n"
+        "* first commit\n"
+        f"External-Review: round-abcdef tree-hash:{stale_a}\n\n"
+        "* second commit\n"
+        f"External-Review: round-abcdef tree-hash:{stale_b}\n\n"
+        "* tip commit\n"
+        f"External-Review: round-abcdef tree-hash:{actual_tree}\n"
+    )
+    subprocess.run(
+        ["git", "commit", "--amend", "-F", "-"],
+        cwd=str(repo),
+        input=new_msg,
+        text=True,
+        check=True,
+        capture_output=True,
+    )
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    result = _run_script(repo, base, head)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "tree-hash binding verified" in result.stdout
+    # A squash-shaped pass must be distinguishable from an ordinary one.
+    assert "of 3 trailers matched" in result.stdout
+
+
+def test_squash_merge_many_trailers_none_matching_still_blocks(repo):
+    """The fix must not weaken the gate. Several trailers, none binding to
+    the actual tree, still blocks -- tree equality is the requirement and
+    multiplicity is not a way around it."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {
+            "scripts/guardrail_files.txt": "src/foo.py\n",
+            "src/foo.py": "v1",
+        },
+    )
+    stale_a = "aaaaaaaa" * 5
+    stale_b = "bbbbbbbb" * 5
+    stale_c = "cccccccc" * 5
+    head = _commit(
+        repo,
+        "squashed branch, all stamps stale\n\n"
+        f"External-Review: round-fake tree-hash:{stale_a}\n\n"
+        f"External-Review: round-fake tree-hash:{stale_b}\n\n"
+        f"External-Review: round-fake tree-hash:{stale_c}\n",
+        {"src/foo.py": "v2"},
+    )
+    result = _run_script(repo, base, head)
+    assert result.returncode == 1
+    assert "no trailer tree-hash matches" in result.stdout
+    # Every offered hash is surfaced so the failure is diagnosable.
+    assert stale_a in result.stdout
+    assert stale_c in result.stdout
 
 
 def test_require_tree_hash_env_blocks_legacy_trailers(repo, monkeypatch):
@@ -339,3 +527,97 @@ def test_root_commit_does_not_explode(repo):
     # Range = first..first is empty — the script should pass cleanly.
     result = _run_script(repo, first, first)
     assert result.returncode == 0
+
+
+# --- PR-body fallback under the flipped default -----------------------------
+#
+# Nothing in this file stubbed `gh` before 2026-08-21, so the PR-body rescue
+# path was dead in every test here. That blind spot is where the bug lived:
+# this branch flipped REQUIRE_TREE_HASH 0 -> 1 and then blocked its own six
+# pre-tree-hash commits, with b2867b5c — the commit that performed the flip —
+# among them, failing for lacking the binding it introduced.
+
+
+def _stub_gh(tmp_path: Path, monkeypatch, body: str) -> None:
+    """Put a fake `gh` on PATH returning *body* for `gh pr view`."""
+    bindir = tmp_path / "stub-bin"
+    bindir.mkdir(exist_ok=True)
+    gh = bindir / "gh"
+    gh.write_text(f"#!/bin/sh\ncat <<'GH_BODY_EOF'\n{body}\nGH_BODY_EOF\n", encoding="utf-8")
+    gh.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("PR_NUMBER", "412")
+
+
+def test_pr_body_rescues_unbound_trailer_under_flipped_default(repo, tmp_path, monkeypatch):
+    """A commit stamped before tree-hash existed, on the branch that turned the
+    requirement on, with a valid trailer in the PR body. The rescue used to be
+    gated on the trailer being ABSENT, so having stamped the commit was
+    strictly worse than never having stamped it."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "fix(gates): make content-binding mandatory\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "External-Review: round-f97fa965d232 tree-hash:" + "a" * 40)
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "predates the tree-hash requirement" in result.stdout
+    # Name which check actually carries the weight rather than implying a
+    # binding this path cannot verify.
+    assert "merge-review" in result.stdout
+
+
+def test_pr_body_without_trailer_still_blocks_under_flipped_default(repo, tmp_path, monkeypatch):
+    """The rescue must not become a hole in the flip. No trailer in the PR body
+    leaves the strict rule in force, and the message names the resolving
+    action."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "feat: legacy only\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "A PR description with no trailer line in it.")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 1, result.stdout
+    assert "missing tree-hash binding" in result.stdout
+    assert "adding one there resolves this" in result.stdout
+
+
+def test_pr_body_not_consulted_when_tree_hash_explicitly_disabled(repo, tmp_path, monkeypatch):
+    """Non-regression against the existing opt-out: with REQUIRE_TREE_HASH=0 a
+    legacy trailer still passes with the deprecation warning and the rescue
+    never runs. The stub body is deliberately valid — if the fallback fired
+    anyway, the deprecation warning would be replaced by the PR-body output."""
+    base = _commit(
+        repo,
+        "initial; add guardrail entry",
+        {"scripts/guardrail_files.txt": "src/foo.py\n", "src/foo.py": "v1"},
+    )
+    head = _commit(
+        repo,
+        "feat: legacy only\n\nExternal-Review: round-abcdef\n",
+        {"src/foo.py": "v2"},
+    )
+    _stub_gh(tmp_path, monkeypatch, "External-Review: round-f97fa965d232 tree-hash:" + "a" * 40)
+    monkeypatch.setenv("REQUIRE_TREE_HASH", "0")
+
+    result = _run_script(repo, base, head)
+
+    assert result.returncode == 0, result.stdout
+    assert "DEPRECATED" in result.stdout
+    assert "predates the tree-hash requirement" not in result.stdout

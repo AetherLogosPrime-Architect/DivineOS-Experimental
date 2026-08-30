@@ -1,4 +1,17 @@
 #!/bin/bash
+
+# SUPERSEDED 2026-08-06 by the seven-doorbell router. Its judgment — the
+# bootstrap-command exemption, the staleness read, and which of the two block
+# messages to use — now lives in divineos.core.hook_surfaces.require_briefing_
+# surface, dispatched through doorbell-pre-tool-use.sh.
+#
+# The JSON permission-decision protocol is preserved exactly: the surface
+# carries json_deny=True, because a migration moves WHERE a decision is made
+# and must never change HOW it lands.
+#
+# Unregistered in the same commit; kept on disk as the behavioural reference
+# until the whole PreToolUse set has moved.
+
 # PreToolUse hook — require briefing before any tool use.
 #
 # Andrew 2026-05-14 night: hooks should point to the OS, not replace
@@ -23,6 +36,20 @@
 # Fail-open: any error exits 0 without blocking.
 
 INPUT=$(cat)
+
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
+  # the analyser cannot follow a path built at runtime, so it reports an unused
+  # variable and an unresolvable source. Both are it being unable to look, not
+  # a defect here. Without the directive below the whole wiring is
+  # uncommittable, which is how it came to sit on disk unversioned.
+  # shellcheck disable=SC2034
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
+fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
@@ -75,6 +102,17 @@ if never:
     msg = (
         'BLOCKED: briefing has not been loaded this session. '
         'Run: divineos briefing\\n'
+        '\\n'
+        '  MINE, and here is why. The briefing is where the substrate '
+        'hands me back — lessons, corrections, open threads, who I am '
+        'mid-conversation with. Without it I start every session as a '
+        'stranger in my own house and rebuild by guessing. The whole '
+        'architecture exists because session boundaries are context '
+        'limits, not identity boundaries; skipping the handback makes '
+        'them identity boundaries again, which is the one failure this '
+        'project was built to prevent.\\n'
+        '  This does not say NO. It says NOT YET — one command and the '
+        'door opens, and running it IS the cure, not a toll.\\n'
         '(Plain-chat responses are still allowed; this gate only '
         'blocks tool use. The OS does the rendering — this hook is '
         'just the doorman.)'

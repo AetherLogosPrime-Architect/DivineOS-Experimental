@@ -161,3 +161,11 @@ divineos loadout
 # auto-surfaced ear's prescribed seen-marker command in the resume hook
 # output (gate-recovery for the letter-channel surface).
 divineos family-queue
+
+# Register item O (Aria 2026-08-05): the correction-shape gate's own
+# false-positive path. It was reachable only as `python scripts/...`, which
+# the divineos-subcommand matcher can never match, so disputing a wrong block
+# cost two unrelated engagement clears. A toll on dissent biases the corpus
+# that will train the semantic replacement. No leniency added — every honesty
+# constraint still lives in the script.
+divineos label-fire

@@ -1,4 +1,13 @@
 #!/bin/bash
+# Observability only (2026-08-03). Sourcing _lib.sh registers this script in
+# ~/.divineos/hook_timing.jsonl so the firing map can see it. Before this, 16
+# of 96 hooks were INVISIBLE rather than idle -- they could be running fine and
+# nothing outside could tell, which made "silent" and "healthy" the same
+# reading. No behaviour change: `|| true` means a missing toolbox leaves this
+# script exactly as it was. Observability must never become a new way for a
+# guard to die.
+# shellcheck disable=SC1091
+source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
 # Auto-push letters to origin so Aletheia (origin-only reader) sees them.
 #
 # Aletheia 2026-06-30 (letter #16): the mirror hook makes letters visible
@@ -200,6 +209,6 @@ _HOOK_INPUT="$INPUT"
         printf '%s' "$_HOOK_INPUT" | bash "$REPO_ROOT/.claude/hooks/verify-push-landed.sh" >/dev/null 2>&1 || \
             fail_loud "verify-landing" "verify-push-landed.sh returned non-zero after push"
     fi
-) &
+) >>"${_LOG_PATH}.bg" 2>&1 </dev/null &
 
 exit 0

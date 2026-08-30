@@ -5,6 +5,8 @@ Design: workbench/mesh_loop_ephemeral_task_worker_design.md
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 
 from divineos.core.mesh_loop import (
@@ -28,6 +30,17 @@ from divineos.core.mesh_loop import (
 # function-default + this). Automate it, not remember it.
 
 
+@pytest.mark.skip(
+    reason=(
+        "scripts/letter_watcher_task.py was RETIRED on chore/retire-delivery-cluster "
+        "(2026-08-16) with the rest of the arm/relaunch delivery cluster. Skipped "
+        "rather than deleted: the enumerative-coverage property it guards is a good "
+        "one, and if a watcher-shaped wiring layer returns, this is the test that "
+        "should come back with it. Deleting it would erase the requirement along "
+        "with the implementation. Caught at the push gate by the deletion-shape "
+        "alarm after I had reported it to Andrew as unrelated noise."
+    )
+)
 def test_wiring_covers_every_fire_action():
     """Every FireAction must be classified in either FIRING_ACTIONS or
     SKIP_ACTIONS at the wiring layer. Enforces enumerative coverage so

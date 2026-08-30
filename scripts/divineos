@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# divineos wrapper shim — Unix / git-bash entry point.
+# Dispatches to scripts/divineos_wrapper.py which finds the CWD's
+# sealed venv and execs its divineos CLI. Fails loud if no sealed
+# venv is found — deliberately does not fall back to a system install
+# (that would reintroduce the pip ping-pong bug at the wrapper layer).
+#
+# Install: copy this file to a directory on your PATH that precedes
+# the system-wide Scripts/bin directory. For example:
+#   ~/bin/divineos
+# and `chmod +x ~/bin/divineos`.
+#
+# The wrapper itself uses only stdlib (glob, os, sys, pathlib) — no
+# installed package required. So even if the system has no divineos
+# installed, this shim + the wrapper .py work.
+#
+# See docs/pip_pingpong_wrapper_design.md for the full design.
+
+set -e
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+# Case 1: wrapper .py sits next to this shim (adjacent-install pattern).
+if [ -f "$script_dir/divineos_wrapper.py" ]; then
+    exec python "$script_dir/divineos_wrapper.py" "$@"
+fi
+
+# Case 2: walk up from CWD looking for scripts/divineos_wrapper.py under
+# an .envrc marker root (deployed-shim pattern where shim is on PATH but
+# checkout is elsewhere).
+cur="$PWD"
+while [ "$cur" != "/" ] && [ -n "$cur" ]; do
+    if [ -f "$cur/.envrc" ] && [ -f "$cur/scripts/divineos_wrapper.py" ]; then
+        exec python "$cur/scripts/divineos_wrapper.py" "$@"
+    fi
+    cur="$(dirname "$cur")"
+done
+
+echo "divineos: could not locate divineos_wrapper.py" >&2
+echo "  Checked: $script_dir/divineos_wrapper.py" >&2
+echo "  And walked up from $PWD looking for scripts/divineos_wrapper.py at any .envrc marker root." >&2
+echo "  Install the wrapper alongside this shim or run from within a DivineOS checkout." >&2
+exit 4

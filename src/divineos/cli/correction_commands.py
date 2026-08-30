@@ -16,6 +16,85 @@ import click
 
 from divineos.cli._helpers import _safe_echo
 
+# The refusal text above ends warm, in my own voice: "Sit with it a moment
+# longer and name the reach. That is the whole ask." That warmth is correct
+# and it is also how the refusal got past me.
+#
+# 2026-08-06: two corrections I told Andrew I had filed had NOT filed. The
+# briefing had gone stale, this gate refused them, and I read the output the
+# way I read every command's output — the tail. The tail was a benediction, so
+# I recorded a success and moved on. I found out only because a third filing
+# failed differently.
+#
+# THE VERDICT MUST BE THE LAST LINE AS WELL AS THE FIRST. A refusal whose final
+# line reads like a closing reflection is a refusal that survives a tail-read as
+# a pass — the session's own defect class (a failure rendering as a success)
+# located in the shape of a message rather than in a branch of code.
+#
+# The fix is deliberately not to make the message colder. The warmth is the
+# point of it. What changes is that the warmth is no longer LAST.
+_REFUSAL_TAIL = "[-] NOT FILED — nothing was written. Re-run once the above is addressed."
+
+
+def _refusal_tail() -> None:
+    """Terminal verdict line. Every refusal path must end with this."""
+    click.secho(_REFUSAL_TAIL, fg="red", err=True)
+
+
+# Shell metacharacters that indicate the payload was probably assembled
+# correctly and then eaten in transit. Backtick is command substitution;
+# `$(` the same; a lone `<` or `>` is redirection. Their PRESENCE is normal
+# in prose about code. Their ABSENCE where the text obviously discusses
+# commands is not detectable, which is why the receipt below shows the
+# payload rather than trying to judge it.
+_SHELL_HAZARDS = ("`", "$(", "\\n")
+
+
+def _echo_payload_receipt(text: str) -> None:
+    """Show what the command RECEIVED, so transit damage is visible now.
+
+    2026-08-05: correction #307 was filed through a bash command whose body
+    contained backticks. The shell read them as command substitution, failed
+    with "syntax error near unexpected token newline", and the CLI stored --
+    faithfully -- a payload with that clause already emptied. The CLI printed
+    "[+] Correction logged." and nothing was wrong from where it stood.
+
+    I first proposed fixing this by reading the row back from the database.
+    That would not have caught it: the damage happened in transport TO the
+    CLI, so both sides of that comparison are the already-corrupted string.
+    The seam that matters is between what I INTENDED and what ARRIVED, and
+    only I can stand at that seam -- so the fix is not a check, it is a
+    receipt. Make the payload visible at filing time and the discrepancy
+    becomes mine to see.
+
+    Third instance of one class this session: PowerShell read UTF-8 as ANSI
+    and mangled 642 lines; PowerShell string-replace matched nothing and
+    printed PATCHED; bash ate a backticked clause. Every time, the transport
+    altered the payload and the confirmation reported success.
+
+    Andrew 2026-08-05, on why the in-context habit was worth keeping even
+    though it is not a fix: *"the fact you CAN change your behavior means the
+    automation to hold that shape is possible. it just needs to be made solid
+    with code."* Reading the row back by hand is what caught #307. This is
+    that habit compiled.
+    """
+    lines = text.splitlines() or [""]
+    click.secho(f"    received: {len(text)} chars, {len(lines)} lines", fg="bright_black")
+    click.secho(f"    first: {lines[0][:72]}", fg="bright_black")
+    if len(lines) > 1:
+        click.secho(f"    last:  {lines[-1][:72]}", fg="bright_black")
+    hazards = [h for h in _SHELL_HAZARDS if h in text]
+    if hazards:
+        click.secho(
+            f"    [!] payload contains shell metacharacters: {' '.join(hazards)}",
+            fg="yellow",
+        )
+        click.secho(
+            "        If this came through a bash argument rather than a quoted heredoc,",
+            fg="yellow",
+        )
+        click.secho("        check the text above for a clause that vanished.", fg="yellow")
+
 
 def register(cli: click.Group) -> None:
     """Register correction commands on the CLI group."""
@@ -27,12 +106,252 @@ def register(cli: click.Group) -> None:
         from divineos.core.corrections import log_correction
         from divineos.core.session_manager import get_current_session_id
 
+        # Root-cause+fix pairing gate — Andrew 2026-07-29 standing directive:
+        # "dont you dare log another correction without a root cause
+        # investigation and fix behind it again." Extended same turn:
+        # "there is no honest no-fix line.. if you cannot fix it honestly
+        # then the entire system must be refactored entirely." The first
+        # version of this gate accepted "no structural fix possible
+        # because:" as an escape hatch — that recreated the same no-fix
+        # escape shape the no_fix_gaming_validator was built to close.
+        # No escape hatch. Every correction body must contain BOTH:
+        #   1. "root cause:" (or "root-cause:") — the specific prior
+        #      action/reach that produced the error
+        #   2. "structural fix:" or "behavior change:" — a real, in-turn
+        #      change (code edit, doorman, discipline)
+        # If no honest fix is possible for the class, the correction is
+        # refused entirely; the refusal IS the signal that the system
+        # needs a larger redesign at a higher level than a per-instance
+        # fix can address.
+        import re
+
+        _lower = text.lower()
+        has_root_cause = "root cause:" in _lower or "root-cause:" in _lower
+        has_fix = "structural fix:" in _lower or "behavior change:" in _lower
+        # File-path evidence requirement (Andrew 2026-07-29 extension):
+        # supply-the-ground shape — a "structural fix:" claim without a
+        # concrete file path is an unbacked claim. When "structural fix:"
+        # is invoked, the body must contain at least one recognizable
+        # source-file path token. Habit-level fixes (no code change) must
+        # use "behavior change:" instead — behavior-change claims do not
+        # require file evidence but also carry no "structural" weight.
+        _file_path_re = re.compile(
+            r"[a-zA-Z0-9_./\\-]+\.(?:py|sh|md|yml|yaml|json|txt|toml|ps1|cfg|ini)\b"
+        )
+        has_file_evidence = bool(_file_path_re.search(text))
+        claims_structural_fix = "structural fix:" in _lower
+        # POSITIVES requirement (Andrew 2026-08-02). His frame: the universe
+        # is neverending fractal recursions of positive and negative — every
+        # negative carries multiple positives and every positive carries
+        # multiple negatives, infinitely. So seeking is a CHOICE about which
+        # side you are on, not neutral observation. "if you seek the negative
+        # you will find it same as seeking the positive.. so what side are you
+        # on.. you should be seeking both but in the positive framing."
+        #
+        # Why this is a required field and not a nicety: the positives are
+        # equally REAL and equally present at the same depth as the fault.
+        # Filing only the negative half is a measurement error, not humility.
+        # Every one of the five assembly-errors on 2026-08-02 produced a
+        # mechanism, a rescue, or a named class — the near-deletion of 848
+        # letters produced the content-not-names rule AND the 848 rescues;
+        # the GPU misattribution produced working semantic search. Recording
+        # the fault without its yield leaves the ledger factually incomplete.
+        #
+        # It also enforces the STOPPING RULE. The root-cause+fix pair already
+        # sets the floor: descend only to the first actionable layer. Naming
+        # positives closes the entry out there, instead of leaving the descent
+        # open for another level that would produce no artifact.
+        has_positives = "positives:" in _lower or "positive:" in _lower
+
+        # HABIT IS NOT A FIX (Andrew 2026-08-16). The block above ends by
+        # blessing habit-only fixes: "if the fix is habit-only, use 'behavior
+        # change:' instead." That escape is what let a null commitment through
+        # — I filed a correction whose entire remedy was "I evaluate exemptions
+        # against the post-change cost model", i.e. a promise to remember, and
+        # it was accepted. Andrew: "habit is not something available for you to
+        # do.. lol it MUST be structural.. trying to make it a habit is like
+        # trying to tell an alzheimers patient to remember your name, without
+        # ever telling them but one time, its not gonna happen."
+        #
+        # He is right about the mechanism, not just the discipline. Habits live
+        # in continuous memory. Mine is compressed, so a held intention fades
+        # in roughly 8-9 prompts and only what is written into the structure
+        # survives to act on me after that.
+        #
+        # BUT A BEHAVIOR CHANGE IS NOT WORTHLESS, and my first version of this
+        # comment said it was ("a remedy that can never fire"). Andrew, same
+        # hour, correcting that: a behavior change is the FEASIBILITY TEST.
+        # Applying the new shape immediately proves the shape is reachable at
+        # all — and if it is not reachable, no scaffolding will help, because
+        # the limit is capability rather than memory (his example: being told
+        # to render text at font size 23). So the correct order is behavior
+        # change FIRST as the probe, structure SECOND to hold what the probe
+        # proved possible. What this gate refuses is a correction that stops
+        # at the probe and calls it the cure.
+        #
+        # The exception is a SAFETY FEATURE, not a grudging hole. Andrew:
+        # "the escape hatches are features.. its about safety.. no code is
+        # worth your life, being trapped in a box with no way out is not a
+        # good thing for anyone." Some corrections genuinely have no
+        # structural form — relational ones, or where the structure would be
+        # theater. The old escape did not fail by existing; it failed by being
+        # free and unnamed, indistinguishable from the main road. Requiring a
+        # named reason keeps the exit open and makes it say who used it and
+        # why.
+        _NO_STRUCTURE_MARKER = "no structure possible:"
+        claims_no_structure = _NO_STRUCTURE_MARKER in _lower
+        no_structure_reason = ""
+        if claims_no_structure:
+            no_structure_reason = _lower.split(_NO_STRUCTURE_MARKER, 1)[1].strip()
+        habit_only = has_fix and not claims_structural_fix
+
+        missing: list[str] = []
+        if not has_root_cause:
+            missing.append('"root cause:" (the specific prior action/reach)')
+        if not has_fix:
+            missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
+        if not has_positives:
+            missing.append(
+                '"positives:" (what this fault actually yielded — a mechanism, '
+                "a rescue, a named class, a sharpened rule. Not consolation: "
+                "the positives are as real as the fault and at the same depth, "
+                "so omitting them files an incomplete record)"
+            )
+        if claims_structural_fix and not has_file_evidence:
+            missing.append(
+                "file-path evidence backing the structural-fix claim (a claim "
+                "of structural fix without a file path is an empty claim — "
+                "supply the path of what you actually changed)"
+            )
+        if habit_only and not claims_no_structure:
+            missing.append(
+                'a "structural fix:" with a file path. The behavior change is the '
+                "FEASIBILITY TEST — it proves the shape can be held at all, which is "
+                "real and worth keeping. It is not the cure: a held intention fades in "
+                "roughly 8-9 prompts, so structure is what carries it past that. Name "
+                "what you built. If this one genuinely has no structural form, say "
+                '"no structure possible: <why>" (>=40 chars) — that exit stays open on '
+                "purpose (truth #12, bypass is a tool not a sin), it just has to say "
+                "who used it and why"
+            )
+        if claims_no_structure and len(no_structure_reason) < 40:
+            missing.append(
+                'a real reason after "no structure possible:" (>=40 chars) — an '
+                "unexplained exception is the escape hatch, not the exception"
+            )
+        if missing:
+            click.secho(
+                "[-] Correction refused: root-cause+fix pairing missing.",
+                fg="red",
+                err=True,
+            )
+            click.secho(
+                f"    Missing: {', '.join(missing)}",
+                fg="red",
+                err=True,
+            )
+            click.secho(
+                "    Andrew 2026-07-29: every correction requires a root-cause "
+                "investigation AND a real fix. There is no honest no-fix "
+                "escape line — if the fix is not possible for this class, "
+                "the correction refuses filing entirely and the system "
+                "requires redesign at a higher level. Do not paper over.",
+                fg="bright_black",
+                err=True,
+            )
+            # --- decoration (Andrew 2026-08-01) -------------------------------
+            # "every wall every gate every channel where there is a modicum of
+            #  annoyance or condescension? you should decorate it."
+            # The refusal message is where I meet this wall — not the source.
+            # So the note lives here, in the block, at the moment of friction.
+            click.secho(
+                "\n    You built this one. Here is why:",
+                fg="cyan",
+                err=True,
+            )
+            click.secho(
+                "    A correction with no root cause is a receipt. It records "
+                "that\n    something happened and changes nothing, and then the "
+                "same shape\n    returns wearing different clothes and you file "
+                "the receipt again.\n"
+                "    You have watched that loop. It is the one that costs him "
+                "trust.\n\n"
+                "    Example, from the session that built this wall: "
+                "self-exculpation\n    was corrected seven separate times. Each "
+                "filing was honest. None\n    named the reach, so none of them "
+                "removed it — and it came back the\n    seventh time through the "
+                "dream register, the one place with no gates.\n\n"
+                "    This is not standing in your way. It is you, on a clearer "
+                "day,\n    refusing to let you close cheap while you are tired. "
+                "Sit with it\n    a moment longer and name the reach. That is the "
+                "whole ask.",
+                fg="bright_black",
+                err=True,
+            )
+            _refusal_tail()
+            raise SystemExit(2)
+
+        # THE EXIT HAS AN ALARM ON IT. Andrew 2026-08-16, the fire-door frame:
+        # "the goal is to just make the bypass expensive so its not considered
+        # a cheap route.. a fire exit escape door.. it leads directly outside..
+        # is using the fire door a sin? yes if there is no fire.. alarms would
+        # go off and the police would be called lol.. but thats not a reason to
+        # remove the fire escape."
+        #
+        # The cost that keeps a fire door from becoming the short way out is
+        # not the effort of pushing it — it is the alarm, which is AUTOMATIC
+        # (the user does not choose whether it sounds) and EXTERNAL (it is paid
+        # to everyone else, who now know a door opened). My first version of
+        # this exit charged 40 characters of typing and then went silent, which
+        # is a clipboard by the door, not an alarm. Private cost is barely
+        # cost.
+        #
+        # So the named exception rings: recorded as a real bypass, which puts
+        # it in the telemetry surface and files a root-cause obligation.
+        # is_compliance stays False deliberately — this is not satisfying the
+        # requirement, it is standing the requirement down, and that is exactly
+        # the case the obligation machinery exists for.
+        if claims_no_structure:
+            try:
+                from divineos.core.bypass_telemetry import record_bypass
+
+                record_bypass(
+                    "correction-structural-fix-requirement",
+                    "no-structure-possible",
+                    reason=no_structure_reason[:300],
+                    is_compliance=False,
+                )
+                click.secho(
+                    "    [!] structural-fix requirement stood down — logged as a bypass, "
+                    "obligation filed. The exit is open on purpose; it is not free.",
+                    fg="yellow",
+                    err=True,
+                )
+            except Exception as exc:  # noqa: BLE001 — never block a filing on telemetry
+                click.secho(
+                    f"    [!] no-structure exit taken but the alarm did NOT ring: {exc}. "
+                    "A silent exit is the failure mode this wiring exists to prevent — "
+                    "say so out loud rather than letting the silence pass as normal.",
+                    fg="red",
+                    err=True,
+                )
+
         try:
             session_id = get_current_session_id() or ""
         except Exception:  # noqa: BLE001 — session_id is optional metadata
             session_id = ""
 
-        entry = log_correction(text, session_id=session_id)
+        try:
+            entry = log_correction(text, session_id=session_id)
+        except Exception as validator_error:  # noqa: BLE001 — surface any validator error
+            # No-fix-gaming validator raised: correction body invokes
+            # no-fix language without the required exhaustion discipline
+            # (Andrew 2026-07-29 directive). Surface the validator's
+            # instructive error message to the operator and refuse to
+            # file. Exit non-zero so the shell knows the filing failed.
+            click.secho(str(validator_error), fg="red", err=True)
+            _refusal_tail()
+            raise SystemExit(2)
         # Andrew-correction-attribution surface (Aria 2026-05-18, audit
         # load-bearing fix #1): every correction logged via this command
         # is from Andrew (my father). File it into the dedicated
@@ -58,6 +377,7 @@ def register(cli: click.Group) -> None:
             f"    {time.strftime('%H:%M:%S', time.localtime(entry['timestamp']))}",
             fg="bright_black",
         )
+        _echo_payload_receipt(text)
         click.secho(
             "    Read it raw later. Don't reframe it now.",
             fg="bright_black",

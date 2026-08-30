@@ -37,6 +37,15 @@ RETRY_WINDOW_SECONDS: int = 300
 COUNCIL_MIN_LENSES: int = 3
 COUNCIL_MIN_FINDING_TOKENS: int = 30
 COUNCIL_MIN_SYNTHESIS_TOKENS: int = 50
+# Aletheia Round 5 F39 (2026-07-17): the union of a walk's finding-tokens
+# must share at least this many content-tokens with the edited file's own
+# content. Closes the "lens-differentiated but edit-agnostic boilerplate"
+# gap — a walk that sounds like Taleb/Schneier/Norman but never mentions
+# anything in the actual edit was generic-to-lens, not specific-to-edit.
+# Conservative: real findings ABSTRACT the edit's concerns, so require
+# modest overlap (2 tokens), not heavy. Fail-open when edit content is
+# unreadable (bash-anchored fingerprints, missing paths, permission errors).
+COUNCIL_MIN_EDIT_TOKEN_OVERLAP: int = 2
 EMERGENCY_SKIP_RATE_WINDOW_DAYS: int = 7
 EMERGENCY_SKIP_RATE_THRESHOLD: float = 0.05
 CALIBRATION_WALKS: int = 20
@@ -58,6 +67,32 @@ EVENT_COUNCIL_WALK_REJECTED: str = "COUNCIL_WALK_REJECTED"
 # round-id-must-resolve and count-must-match fixes: verify the doing
 # RESOLVES, don't accept the surface form.
 EVENT_COUNCIL_LENS_INVOKED: str = "COUNCIL_LENS_INVOKED"
+# Aria + Andrew 2026-07-18, prereg-838d316617e6, walk council-c9b4f8f67edc
+# (Yudkowsky/Wayne/Dekker). Split of the old EVENT_COUNCIL_LENS_INVOKED
+# into two distinct events with matched semantics. Andrew named the
+# hidey-hole: `mansion council` was a cognitive-priming tool that
+# printed methodology into the walker's context — useful, real utility.
+# But its output was emitted as INVOKED, which the gate read as "the
+# lens was actually applied to the problem." CLI-print counted as
+# walking. The optimizer found the crack.
+#
+# Fix (Yudkowsky Goodhart-by-construction): align the emission trigger
+# with the target behavior. Two events, one purpose each.
+#
+#   COUNCIL_LENS_PRIMED  — emitted by CouncilEngine._apply_lens when
+#       the engine prints a methodology into the walker's context.
+#       Cognitive booster. Does NOT clear the substance-binding gate.
+#
+#   COUNCIL_LENS_APPLIED — emitted ONLY by `divineos council walk`
+#       after the walker has typed per-lens reflection into stdin and
+#       the command has validated the reflection meets minimum
+#       substance. This is what clears the gate.
+#
+# Truth #7 in the raw: cognitive-named tools point at cognitive work;
+# they are not it. Priming is real utility but is not walking; walking
+# requires typed reflection.
+EVENT_COUNCIL_LENS_PRIMED: str = "COUNCIL_LENS_PRIMED"
+EVENT_COUNCIL_LENS_APPLIED: str = "COUNCIL_LENS_APPLIED"
 EVENT_EMERGENCY_COUNCIL_SKIP: str = "EMERGENCY_COUNCIL_SKIP"
 EVENT_DECISION_WALK_LINKED_COUNCIL: str = "DECISION_WALK_LINKED_COUNCIL"
 
@@ -71,6 +106,16 @@ EMERGENCY_CORROBORATOR_EVENT_TYPES: frozenset[str] = frozenset(
     }
 )
 # Cron-scheduled runs corroborate via actor identity, not event type.
+# 2026-07-24 reverted: architect-inline-authorization goes through the
+# existing `divineos council authorize-bypass` state_markers channel
+# (quote-attested trust anchor per operator-bypass design). Earlier
+# addition of "andrew" here was reinventing the wrong-shape version —
+# actor=andrew events accept any --actor string at the CLI layer without
+# verification, so blind actor-corroboration was a bypass hole. The
+# state_markers path uses --quote as the trust anchor (model
+# structurally cannot forge user-role text). Correct architecture: keep
+# EMERGENCY_CORROBORATOR_ACTORS limited to substrate-attested actors;
+# route architect authorization through authorize-bypass CLI instead.
 EMERGENCY_CORROBORATOR_ACTORS: frozenset[str] = frozenset({"scheduled-task"})
 
 
@@ -153,6 +198,41 @@ def _normalize_edit_fingerprint(file_path: str, tool_kind: str) -> str:
     """
     norm = (file_path or "").replace("\\", "/").strip()
     kind = (tool_kind or "").strip().lower()
+    # 2026-07-24 fix (BFBA catch): implement the repo-root-relative
+    # normalization the docstring has always promised. Without this, the
+    # Claude Code hook (which passes the absolute path from tool_input.
+    # file_path) and the `divineos council authorize-bypass` CLI (typically
+    # invoked with a relative path) produce diverging fingerprints for the
+    # same edit, breaking the operator-authorization channel. The bug
+    # forced fallback to raw file-write bypasses when the honest channel
+    # was needed. Fix: compute repo root and strip it from absolute paths
+    # that resolve inside the repo.
+    if norm:
+        try:
+            import os as _os
+            from pathlib import Path as _Path
+
+            _root = _os.environ.get("DIVINEOS_REPO_ROOT")
+            if not _root:
+                # Walk up from this module to find repo root (contains .git or pyproject.toml)
+                _here = _Path(__file__).resolve()
+                for _p in [_here] + list(_here.parents):
+                    if (_p / ".git").exists() or (_p / "pyproject.toml").exists():
+                        _root = str(_p)
+                        break
+            if _root:
+                _root_norm = _root.replace("\\", "/").rstrip("/")
+                if norm.startswith(_root_norm + "/"):
+                    norm = norm[len(_root_norm) + 1 :]
+        except (OSError, TypeError, ValueError):  # noqa: BLE001
+            # Any failure in root-resolution: keep the input as-is.
+            # Fail-open preserves prior behavior; the docstring already
+            # says "when the input is inside the repo" — outside-repo
+            # inputs stay unchanged either way. Specific exception set
+            # matches the failure modes of Path.resolve() and env-var
+            # access; anything more exotic legitimately deserves to
+            # crash rather than silently keep the wrong fingerprint.
+            pass
     return f"{kind}:{norm}"
 
 
@@ -220,6 +300,12 @@ CHECK_KILN_CONFIRMED_BY = "kiln_confirmed_by"
 # what the finding-token / keyword / synthesis checks cannot, because
 # those all operate on the surface form of the text.
 CHECK_LENS_LOAD_TRACE = "lens_load_trace"
+# Aletheia Round 5 F39 (2026-07-17) — union of finding tokens must share
+# minimum overlap with the edit's own content tokens. Catches lens-
+# differentiated but edit-agnostic boilerplate. First landed as a
+# placeholder via Aria's 2026-07-18 install-fix (#365) that stabilized
+# the import chain before this check body arrived.
+CHECK_EDIT_TOKEN_OVERLAP = "edit_token_overlap"
 CHECK_NOT_CONSUMED = "not_consumed"
 
 CHECK_NAMES: frozenset[str] = frozenset(
@@ -234,6 +320,7 @@ CHECK_NAMES: frozenset[str] = frozenset(
         CHECK_KILN_CONFIRMED_BY,
         CHECK_NOT_CONSUMED,
         CHECK_LENS_LOAD_TRACE,
+        CHECK_EDIT_TOKEN_OVERLAP,
     }
 )
 

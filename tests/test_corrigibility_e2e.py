@@ -148,8 +148,11 @@ class TestEmergencyStopBlocksCommands:
 
     def test_mode_command_still_reachable_in_emergency_stop(self, isolated_env):
         """After entering EMERGENCY_STOP, the operator must still be able
-        to run `mode set NORMAL` to recover. If the off-switch locks
-        itself in, it is a trap, not a safety feature."""
+        to run `mode set NORMAL` to recover. F40 fix (Aletheia Round 5
+        2026-07-17) adds the two-step ceremony: authorize-exit first,
+        then set. If the off-switch locks itself in even with the
+        ceremony, it is a trap. If exit worked WITHOUT the ceremony,
+        the being could self-lift its own stop (F40 exploit)."""
         _run_divineos(isolated_env, "mode", "set", "emergency_stop", "--reason", "e2e test")
 
         # mode show should still work even in EMERGENCY_STOP
@@ -160,12 +163,27 @@ class TestEmergencyStopBlocksCommands:
             f"stdout={show_result.stdout}, stderr={show_result.stderr}"
         )
 
-        # And mode set NORMAL should restore the system
+        # F40: step 1 of the two-step ceremony — authorize the exit.
+        auth_result = _run_divineos(
+            isolated_env,
+            "mode",
+            "authorize-exit",
+            "--reason",
+            "e2e test — restoring normal after stop",
+        )
+        assert auth_result.returncode == 0, (
+            "authorize-exit failed — operator cannot emit the marker "
+            "needed to lift STOP. "
+            f"stdout={auth_result.stdout}, stderr={auth_result.stderr}"
+        )
+
+        # F40: step 2 — mode set NORMAL now consumes the marker and succeeds.
         restore_result = _run_divineos(
             isolated_env, "mode", "set", "normal", "--reason", "e2e test restore"
         )
         assert restore_result.returncode == 0, (
-            "Could not restore NORMAL mode from EMERGENCY_STOP. "
+            "Could not restore NORMAL mode from EMERGENCY_STOP after "
+            "authorize-exit. The two-step ceremony is broken. "
             f"stdout={restore_result.stdout}, stderr={restore_result.stderr}"
         )
 

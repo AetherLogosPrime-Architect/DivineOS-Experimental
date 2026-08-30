@@ -114,6 +114,22 @@ if decision.outcome == GateOutcome.EMERGENCY_SKIP:
     )
     sys.exit(0)
 
+if decision.outcome == GateOutcome.OPERATOR_AUTHORIZED_BYPASS:
+    # 2026-07-24 fix (BFBA catch, Aria helped find): the gate has been
+    # returning this outcome after successfully consuming an operator
+    # state_marker via 'divineos council authorize-bypass', but the hook
+    # was only branching on ALLOW and EMERGENCY_SKIP, letting this
+    # outcome fall through to BLOCK. Result: every authorize-bypass
+    # consumed its marker AND blocked the edit anyway — the whole
+    # operator-authorization channel was silently broken end-to-end.
+    sys.stderr.write(
+        f'[council-required] OPERATOR_AUTHORIZED_BYPASS fired for this edit '
+        f'(marker consumed: {decision.corroborator_event_id}). Operator '
+        f'explicitly authorized via divineos council authorize-bypass; '
+        f'gate did its job and got out of the way.\n'
+    )
+    sys.exit(0)
+
 # BLOCK: render the formatted message to stderr; non-zero exit signals
 # the hook framework to surface the message and prevent the tool call.
 primary = file_paths[0] if file_paths else (bash_command.split()[0] if bash_command else '')

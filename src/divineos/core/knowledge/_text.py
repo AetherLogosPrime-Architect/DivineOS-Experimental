@@ -435,9 +435,39 @@ _embedding_model = None
 _embeddings_available: bool | None = None  # None = not yet checked
 
 
+_embeddings_error: str | None = None
+
+
+def embedding_unavailable_reason() -> str | None:
+    """Why the embedding model could not load, or None if it did.
+
+    2026-08-05: the substrate's semantic search ran keyword-only for an entire
+    session and nothing said why. Three swallows in a chain -- this function's
+    `except (ImportError, RuntimeError, OSError)` discarded the cause,
+    compute_semantic_similarity turned that into None, and `divineos ask`
+    printed "semantic re-rank unavailable" as a parenthetical. Each layer was
+    individually defensible; together they converted a one-line diagnosis
+    (torch and sentence_transformers are absent from the venv the CLI runs in,
+    while the system interpreter has both) into a shrug that was read past
+    fifty times.
+
+    The reason is known exactly where it is caught, so it is kept there and
+    carried up rather than reconstructed by callers who cannot see it.
+
+    Returns None when the model loaded, or when it has not been probed yet --
+    callers must check availability separately. Absence of a reason is not
+    evidence of health.
+    """
+    return _embeddings_error
+
+
 def _ensure_embedding_model() -> bool:
-    """Lazy-load sentence-transformers model. Returns True if available."""
-    global _embedding_model, _embeddings_available
+    """Lazy-load sentence-transformers model. Returns True if available.
+
+    On failure, records WHY in the module-level `_embeddings_error`; read it
+    via `embedding_unavailable_reason()`.
+    """
+    global _embedding_model, _embeddings_available, _embeddings_error
     if _embeddings_available is not None:
         return _embeddings_available
     try:
@@ -458,9 +488,23 @@ def _ensure_embedding_model() -> bool:
 
             _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device=select_device())
         _embeddings_available = True
+        _embeddings_error = None
         return True
-    except (ImportError, RuntimeError, OSError):
+    except (ImportError, RuntimeError, OSError) as exc:
+        import sys
+
         _embeddings_available = False
+        # Name the interpreter too. The 2026-08-05 root cause was that the
+        # CLI's sealed venv lacked the stack while the shell's python had it,
+        # and "which python is this" was the missing half of the diagnosis.
+        #
+        # `sys` is imported here rather than at module scope deliberately: it
+        # is only needed on the failure path, and the first draft of this line
+        # referenced a module-level `sys` that does not exist in this file --
+        # a NameError raised from INSIDE an except block, which nothing above
+        # would have caught. Found by running the syntax/import check before
+        # committing rather than after.
+        _embeddings_error = f"{type(exc).__name__}: {exc} [interpreter: {sys.executable}]"
         return False
 
 

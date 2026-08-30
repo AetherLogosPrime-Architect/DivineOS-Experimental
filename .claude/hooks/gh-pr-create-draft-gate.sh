@@ -19,6 +19,20 @@
 
 INPUT=$(cat)
 
+# remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
+if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
+  # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
+  # the analyser cannot follow a path built at runtime, so it reports an unused
+  # variable and an unresolvable source. Both are it being unable to look, not
+  # a defect here. Without the directive below the whole wiring is
+  # uncommittable, which is how it came to sit on disk unversioned.
+  # shellcheck disable=SC2034
+  HOOK_NAME="$(basename "$0")"
+  # shellcheck disable=SC1091
+  . "$(dirname "$0")/lib/remedy_allowlist.sh"
+  remedy_pass_through "$INPUT" || true  # fail-soft: non-zero from remedy_pass_through means NOT-A-REMEDY, which is the ordinary case for almost every command; under set -e that ordinary answer would abort this hook before it ran its own check. The function exits 0 itself when the command IS a remedy some other gate prescribed, so reaching this line at all already means allow-and-continue.
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
@@ -55,7 +69,16 @@ except Exception:
 
 if decision.blocked:
     print(decision.reason, file=sys.stderr)
-    sys.exit(1)
+    # Exit 2, NOT 1 (fixed 2026-08-01). A PreToolUse hook blocks the tool call
+    # only on exit 2; exit 1 is a non-blocking error — stderr is shown and the
+    # command runs anyway. This gate exited 1 for its whole life, so it had
+    # never once stopped a gh-pr-create. It printed a correct, well-written
+    # refusal into the void and the ready PR opened regardless, which is
+    # exactly what happened on PR #405.
+    #
+    # Every hook in this directory that does successfully block — the
+    # keyword doorman, the verify-before-build signal gate — uses 2.
+    sys.exit(2)
 sys.exit(0)
 "
 exit $?

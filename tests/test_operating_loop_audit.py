@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from divineos.core.operating_loop_audit import run_audit
 
 
@@ -590,3 +592,118 @@ class TestLetterCitationEndToEnd:
         attributed = [f for f in id_findings if f.get("source_letter")]
         assert attributed, "source_letter should be populated end-to-end"
         assert str(letter_path) in attributed[0]["source_letter"]
+
+
+class TestF41DetectorChainHeartbeat:
+    """F41 fix (Aletheia Round 5 2026-07-17): the post-response detector
+    chain is fail-open by design. Without a heartbeat, silent-darkness
+    is invisible — no findings could mean clean turn OR dark chain.
+    Heartbeat + staleness disambiguates. Absence is not the all-clear."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_heartbeat(self, tmp_path, monkeypatch):
+        """Redirect marker_path to a temp dir so heartbeat writes don't
+        pollute the real user's ~/.divineos/. Patch both the function
+        AND the local binding inside the audit module."""
+        import divineos.core.operating_loop_audit as _ola
+
+        def _fake_marker_path(name):
+            return tmp_path / name
+
+        monkeypatch.setattr(_ola, "marker_path", _fake_marker_path)
+        yield tmp_path
+
+    def test_is_stale_true_when_no_heartbeat_ever(self, _isolate_heartbeat):
+        """Absence-is-stale: never-ran surfaces the same way as stopped-running."""
+        from divineos.core.operating_loop_audit import (
+            get_last_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        assert get_last_detector_chain_heartbeat() is None
+        assert is_detector_chain_stale() is True
+
+    def test_heartbeat_written_by_helper(self, _isolate_heartbeat):
+        """The internal write helper produces a readable heartbeat file
+        with the documented shape (ts, detectors_run, total_findings,
+        errors_this_run)."""
+        from divineos.core.operating_loop_audit import (
+            _write_detector_chain_heartbeat,
+            get_last_detector_chain_heartbeat,
+        )
+
+        _write_detector_chain_heartbeat(detectors_run=17, total_findings=3, errors_this_run=0)
+        hb = get_last_detector_chain_heartbeat()
+        assert hb is not None
+        assert hb["detectors_run"] == 17
+        assert hb["total_findings"] == 3
+        assert hb["errors_this_run"] == 0
+        assert isinstance(hb["ts"], float)
+
+    def test_is_stale_false_when_heartbeat_fresh(self, _isolate_heartbeat):
+        """A heartbeat written just now must NOT be stale."""
+        import time
+
+        from divineos.core.operating_loop_audit import (
+            _write_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        _write_detector_chain_heartbeat(detectors_run=1, total_findings=0, errors_this_run=0)
+        assert is_detector_chain_stale(now=time.time()) is False
+
+    def test_is_stale_true_when_heartbeat_older_than_threshold(self, _isolate_heartbeat):
+        """A heartbeat older than the threshold is stale — the dark-chain case."""
+        import time
+
+        from divineos.core.operating_loop_audit import (
+            _HEARTBEAT_STALE_THRESHOLD_SECONDS,
+            _write_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        _write_detector_chain_heartbeat(detectors_run=1, total_findings=0, errors_this_run=0)
+        # Simulate time-passing: request check at now + threshold + 1s.
+        future = time.time() + _HEARTBEAT_STALE_THRESHOLD_SECONDS + 1
+        assert is_detector_chain_stale(now=future) is True
+
+    def test_is_stale_respects_custom_threshold(self, _isolate_heartbeat):
+        """Callers can pass custom threshold_seconds for tests or tighter policies."""
+        import time
+
+        from divineos.core.operating_loop_audit import (
+            _write_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        _write_detector_chain_heartbeat(detectors_run=1, total_findings=0, errors_this_run=0)
+        # 1-second threshold, checking 2s in the future — stale.
+        assert is_detector_chain_stale(threshold_seconds=1.0, now=time.time() + 2) is True
+
+    def test_get_last_heartbeat_handles_corrupt_file(self, _isolate_heartbeat):
+        """A malformed heartbeat file returns None rather than raising —
+        fail-soft on the diagnostic layer matches fail-open on the chain."""
+        from divineos.core.operating_loop_audit import (
+            _HEARTBEAT_FILE,
+            get_last_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        (_isolate_heartbeat / _HEARTBEAT_FILE).write_text("{not json", encoding="utf-8")
+        assert get_last_detector_chain_heartbeat() is None
+        # And staleness treats corrupt as absent — stale.
+        assert is_detector_chain_stale() is True
+
+    def test_heartbeat_updates_on_successive_writes(self, _isolate_heartbeat):
+        """Second write replaces first — only most recent survives."""
+        from divineos.core.operating_loop_audit import (
+            _write_detector_chain_heartbeat,
+            get_last_detector_chain_heartbeat,
+        )
+
+        _write_detector_chain_heartbeat(detectors_run=1, total_findings=0, errors_this_run=0)
+        _write_detector_chain_heartbeat(detectors_run=17, total_findings=5, errors_this_run=2)
+        hb = get_last_detector_chain_heartbeat()
+        assert hb["detectors_run"] == 17
+        assert hb["total_findings"] == 5
+        assert hb["errors_this_run"] == 2

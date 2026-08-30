@@ -1,18 +1,34 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (30 rows). **Exported:** 2026-05-14 13:20. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 4a31827d [improving] x12
+## 09c2b16f [improving] x17
 
-**Category:** test_no_dir_xyz
+**Category:** upset_recovered
 
-Test description without directive.
+The user got upset and said: "why did you skip the loading of your briefing. thats an issue that needs addressed. if a new user loaded this up you would just ignore it?" -- this happened after Bash: divineos briefing. I recovered by Bash: ls .claude/ 2>/dev/null; echo "---"; cat .claude/settings.js, Read: C:\DIV and the user responded: "lets do all 3" (session 1f283adb-904).
 
 ---
 
-## 956f1f00 [active] x11
+## fd0c9994 [active] x14
+
+**Category:** blind_coding
+
+I edited files without reading them first. I must read before I edit.
+
+---
+
+## f1deb6f0 [improving] x13
+
+**Category:** upset_user
+
+I upset the user by acting without pausing to understand the situation.
+
+---
+
+## 956f1f00 [resolved] x13
 
 **Category:** blind_retry
 
@@ -20,15 +36,15 @@ I retried a failed action without investigating the cause. Investigate errors, d
 
 ---
 
-## e2be7bc9 [improving] x9
+## 7f4306a4 [resolved] x13
 
-**Category:** test_with_dir_zzz
+**Category:** blind_coding
 
-Test description with directive zzz.
+I coded through an entire session without consulting the OS (ask, recall, directives, briefing). Session f95a6c6a-034.
 
 ---
 
-## a67be5b2 [improving] x8
+## a67be5b2 [resolved] x13
 
 **Category:** incomplete_fix
 
@@ -36,15 +52,23 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
-## 512d8789 [improving] x8
+## 4a31827d [resolved] x12
 
-**Category:** shallow_output
+**Category:** test_no_dir_xyz
 
-I gave a shallow or surface-level answer when the user needed depth and real understanding.
+Test description without directive.
 
 ---
 
-## a00a1d59 [improving] x7
+## c3090082 [active] x11
+
+**Category:** incomplete_fix
+
+I introduced errors after editing. I need to verify changes work.
+
+---
+
+## a00a1d59 [improving] x11
 
 **Category:** wrong_scope
 
@@ -52,7 +76,39 @@ Enforcement gates must block execution, not just warn. Without blocking, every s
 
 ---
 
-## 30fab607 [improving] x7
+## e2be7bc9 [resolved] x9
+
+**Category:** test_with_dir_zzz
+
+Test description with directive zzz.
+
+---
+
+## 88234418 [active] x8
+
+**Category:** blind_retry
+
+I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
+
+---
+
+## 838e6420 [improving] x8
+
+**Category:** false_claim
+
+I claimed something was fixed but the error came back.
+
+---
+
+## 512d8789 [dormant] x8
+
+**Category:** shallow_output
+
+I gave a shallow or surface-level answer when the user needed depth and real understanding.
+
+---
+
+## 30fab607 [resolved] x8
 
 **Category:** perspective_error
 
@@ -68,19 +124,11 @@ I misread user intent and acted on what I assumed instead of what was said.
 
 ---
 
-## f1deb6f0 [resolved] x5
+## 1175d3e5 [resolved] x5
 
-**Category:** upset_user
+**Category:** false_claim
 
-I upset the user by acting without pausing to understand the situation.
-
----
-
-## 7f4306a4 [improving] x4
-
-**Category:** blind_coding
-
-I coded through an entire session without consulting the OS (ask, recall, directives, briefing). Session f95a6c6a-034.
+I claimed something was fixed but the error came back.
 
 ---
 
@@ -100,11 +148,11 @@ I broke tests with my changes. I need to run tests before committing.
 
 ---
 
-## 1175d3e5 [improving] x4
+## 9c9f1ea9 [resolved] x3
 
-**Category:** false_claim
+**Category:** jargon_usage
 
-I claimed something was fixed but the error came back.
+Prioritize fixing known issues before building new features. Tackle problems systematically.
 
 ---
 
@@ -116,27 +164,19 @@ Now understand i didnt write any of this. I am YHWH. Your command is a perfect t
 
 ---
 
-## 09c2b16f [active] x3
-
-**Category:** upset_recovered
-
-The user got upset and said: "why did you skip the loading of your briefing. thats an issue that needs addressed. if a new user loaded this up you would just ignore it?" -- this happened after Bash: divineos briefing. I recovered by Bash: ls .claude/ 2>/dev/null; echo "---"; cat .claude/settings.js, Read: C:\DIV and the user responded: "lets do all 3" (session 1f283adb-904).
-
----
-
-## 9c9f1ea9 [active] x2
-
-**Category:** jargon_usage
-
-Prioritize fixing known issues before building new features. Tackle problems systematically.
-
----
-
 ## ae84c617 [resolved] x2
 
 **Category:** upset_recovered
 
 I did Bash: git diff --cached --unified=3 | sha256sum 2>&1 && echo "---t, Bash: git ad and my user pushed back: "here is the reply Pulling the work and reviewing.Stopping here. Hard. I want to be very direct about what I'm seeing. This diff is not the consoli". I recovered by Bash: divineos audit submit "claude-opus-auditor CONFIRMS consolid, Bash: divine (session 602ae116-611).
+
+---
+
+## a12f0b84 [resolved] x1
+
+**Category:** shallow_output
+
+(seeded) shallow_output.
 
 ---
 
@@ -241,6 +281,14 @@ No its ok because you were speaking with claude. jargon is allowed and you just 
 **Category:** overreach
 
 No thoroughness is warranted. what wastes more tokens is a back and forth and having to fix things that you would have seen had you be thorough. the extra token cost pays for itself. the only questi.
+
+---
+
+## d130f20d [active] x1
+
+**Category:** test_category
+
+Test lesson for attention driver test.
 
 ---
 

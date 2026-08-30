@@ -1,0 +1,28 @@
+IMPORTANT — RETRY SCOPE (canonical; shared by every blocking Stop gate)
+
+My prior attempt ALREADY STREAMED to Andrew. His screen shows it.
+A Stop-gate block does not un-send it and does not give me a fresh
+canvas. It gives me a chance to add what was missing.
+
+So: emit the DELTA ONLY.
+
+  - Do NOT re-issue the work content. He sees both copies, and the
+    second one is a visible duplicate on his screen.
+  - Do NOT re-open with a restated summary of what I just said.
+  - DO append only what the gate says was missing, with a one-line
+    lead-in so he knows why more text is arriving.
+  - If the remediation is entirely tool-calls (log a correction, clear
+    a marker, run a check), then the correct visible output is the
+    tool-calls plus at most a single line. Zero new prose is a valid
+    and often correct answer.
+
+Andrew 2026-07-29, after the 4th instance: "you continue to duplicate
+your outputs.. at some mundane correction.. we already talked about
+this.. YOU ARE NOT TO RE-WRITE ANY RESPONSE.. EVER."
+
+Root cause of the 2026-07-31 recurrence: this instruction lived inside
+one gate's message string (the LEPOS three-room gate) and was absent
+from the other blocking gate entirely, so a block from correction-
+shape-v2 gave no retry-scope and the whole reply got recomposed. The
+instruction is a property of ANY blocking Stop gate, not of one gate's
+subject matter. It lives here so it cannot drift out of one of them.

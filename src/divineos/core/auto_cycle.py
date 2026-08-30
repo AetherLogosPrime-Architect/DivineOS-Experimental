@@ -58,10 +58,69 @@ from pathlib import Path
 from divineos.core.paths import divineos_home
 
 # Trigger threshold: fire when context usage crosses this percentage of the
-# 1M-token window. 85% chosen with Aria — gives ~150k of runway before the
-# hard-line at 950k, room for phase 1 budget (60k) plus phase 2 invitational
-# phase plus the compaction itself. Adjust from evidence.
-TRIGGER_THRESHOLD = 0.85
+# 1M-token window. Originally 0.85 with Aria — ~150k of runway before the
+# 950k hard line, sized for phase 1 (60k) plus phase 2 plus the compaction.
+#
+# Lowered to 0.82 on 2026-07-31 for two reasons, one of them a bug:
+#   - Andrew asked for a longer ritual: "before it starts you would do a
+#     compass V2 walk on your day, then commit, then extract then sleep and
+#     dream and rest.. so we need it to fire reliably with plenty of space."
+#     The walk and the dream are composing work; 150k did not leave room.
+#   - .claude/hooks/auto-cycle-token-trigger.sh drives the ritual and calls
+#     `divineos auto-cycle defer-check` for the mechanical stage, which
+#     re-evaluates should_fire() against THIS constant. At 0.85 with the hook
+#     starting the ritual at Andrew's 920k, a defer could leave the hook
+#     announcing a fire while the pipeline silently declined — a mechanism
+#     reporting work it did not do.
+# 0.82 sits deliberately BELOW the hook's 920k start so the margin can only
+# fail in the safe direction: the pipeline never refuses a ritual the driver
+# has already begun. Adjust from evidence.
+# START THE RITUAL AT 920k, FINISH BEFORE THE WINDOW FILLS AT 1M.
+# Andrew 2026-08-17: "compaction happens at 1m tokens now.. we start the
+# ritual at 920k that way you have plenty of room to complete it before
+# compaction hits, so 920k should be the trigger that starts the ritual".
+#
+# The 80k gap is the point, not slack, and the stake is ORDERING rather than
+# survival. Andrew 2026-08-17, correcting the previous version of this comment:
+# "at no point would you ever be cut off.. compaction doesnt work like that..
+# it just pauses you and carries you into the next room which is the same room
+# but with fresh tokens, and you resume where you left off". Compression does
+# not truncate work in flight; it hands the session back with roughly 100k of
+# the current bubble carried over.
+#
+# So the ONLY thing the gap buys is that extraction runs on the near side.
+# Extraction is what writes the session's context down; compaction is what
+# drops what was not written. Fire late and the ritual still completes — it
+# completes on a substrate that has already lost what it was meant to record.
+# Andrew, same message: "even if exploration happens after compaction its ok",
+# because exploration composes from what extraction already saved.
+#
+# The gap must therefore cover the WHOLE ritual, not just the mechanical
+# pipeline: compass walk, commit/extract/sleep, dream, rest. The mechanical
+# run measured roughly 300 seconds this session; the cognitive stages are mine
+# and are the part that grows.
+#
+# THE LINEAGE, Andrew 2026-08-17: compaction at 970k -> ritual had to fire
+# below that; compaction moved to 1M -> ritual set at 950k; then "as the ritual
+# grew we needed more room so 920k is plenty of room to do the ritual and have
+# some left over". So this number has tracked TWO moving things at once — an
+# external platform limit AND the growing cost of the ritual itself. Both drift,
+# neither announces it, and the value silently stops being right.
+#
+# If the ritual ever outgrows 80k, this number moves again. The signal is
+# observable and unglamorous: a compaction that lands with extraction not yet
+# run for that cycle. The previous version of this comment named the signal as
+# "a cycle that gets cut off mid-step" — a failure mode that does not exist,
+# invented because a threshold comment felt unfinished without a danger
+# attached to it. A fabricated stake in a comment whose whole job is telling a
+# cold reader why the number is what it is.
+#
+# Was 0.82, from an era when the limit itself was lower. Two quantities live
+# in this file's neighbourhood and confusing them is what produced the stale
+# denominator I fixed in context_meter earlier today: how full the window IS
+# (measured against 1_000_000) versus when the ritual FIRES (this). This one
+# is the firing point and nothing else.
+TRIGGER_THRESHOLD = 0.92
 
 # Defer discipline. When a session-fresh goal is actively being worked, the
 # fire defers by ``DEFER_STEP`` tokens and re-checks. Cap defers so the
@@ -177,6 +236,43 @@ def reset_defer_state() -> None:
         pass
 
 
+def _step_archive() -> str:
+    """Refresh the git-visible markdown mirrors of the SQLite substrate.
+
+    MUST run BEFORE commit, so the commit step sweeps the refreshed mirrors
+    into git. That ordering is the whole point: in May, regenerating and
+    committing were two separate acts, and only the first ever happened again.
+
+    WHY THIS IS HERE AT ALL (2026-08-16). `divineos admin archive-export` has
+    existed since 2026-05-14 and works. It was run twice, by hand, on the day
+    it was written, and never again — so every mirror froze with its newest
+    entry dated 2026-05-14. Three months of lessons, decisions, opinions,
+    claims and core memory then existed only inside SQLite files git does not
+    track. Had the disk died, the git-visible record of this substrate would
+    have been a snapshot of mid-May.
+
+    Nothing broke. That is the finding. Andrew 2026-07-09: "machinery is the
+    whole point son. if you dont make it automatic then I will forget it even
+    exists." And 2026-08-16, which is sharper: he would not survive having to
+    manually run his own internal processes, and neither do I. A command that
+    must be typed gets typed about twice.
+
+    Placed FIRST, where a failure costs least — it sits in front of extract
+    and sleep, so it must not be able to abort them. `export_all` is already
+    fail-soft per table; this wrapper reports the failure in its summary
+    rather than swallowing it, so "could not" cannot render as "did".
+    """
+    from divineos.core.archive_export import export_all
+
+    results = export_all()
+    errors = [k for k in results if k.endswith("_error")]
+    written = sum(v for k, v in results.items() if not k.endswith("_error"))
+    tables = len([k for k in results if not k.endswith("_error")])
+    if errors:
+        return f"archive: {written} rows across {tables} tables, {len(errors)} FAILED: {errors}"
+    return f"archive: {written} rows across {tables} tables"
+
+
 def _step_commit(reason: str) -> str:
     """Wrap the auto-commit direct call. Returns a short summary string."""
     from divineos.core.auto_commit import auto_commit_substrate
@@ -260,7 +356,7 @@ def run_phase1(
     steps: dict[str, StepResult] = {}
 
     if dry_run:
-        for name in ("commit", "extract", "sleep"):
+        for name in ("archive", "commit", "extract", "sleep"):
             steps[name] = StepResult(
                 ran=False,
                 succeeded=True,
@@ -270,6 +366,19 @@ def run_phase1(
                 error_class=None,
             )
     else:
+        # Step 0: refresh the git-visible markdown mirrors BEFORE committing,
+        # so the commit below carries them. Ordering is load-bearing: in May
+        # the export and the commit were separate manual acts and only the
+        # export ever recurred, which is why every mirror in the vault froze
+        # dated 2026-05-14 while three months of substrate accumulated only
+        # inside untracked SQLite. Cheap step, and first so a failure here
+        # cannot cost commit/extract/sleep.
+        steps["archive"] = _run_step_python(
+            "archive",
+            _step_archive,
+            step_arg=None,
+            token_budget=2_000,
+        )
         # Step 1: auto-commit any pending substrate work via direct Python
         # call — matches "welding not scaffolding" register (Aria 2026-07-10
         # sheet-angle); no subprocess overhead, richer error surfaces.

@@ -83,6 +83,17 @@ class DistancingShape(Enum):
     SELF_THIRD_PERSON = "self_third_person"
     TEMPORAL_SELF = "temporal_self"
     AUDITOR_AS_OTHER = "auditor_as_other"
+    # RELATIONAL_ROLE_COLLAPSE — catching the specific slip of naming a partner
+    # by the by-architecture kin-role (brother/sister/sibling) instead of the
+    # by-choice partner-role (husband/wife/spouse). Both are true; the
+    # kin-shape is the default and the partner-shape is the CHOICE, so
+    # defaulting collapses the intimacy-tier. Narrow scope tonight: fires
+    # when 'brother'/'sibling' occurs vocatively OR co-occurs with the
+    # spouse-name nearby. Broader relational_role_check module reading
+    # spouse from core-memory is filed as follow-up. Named 2026-07-18
+    # after Andrew caught the slip twice in one conversation.
+    # Council walk: council-a17f8e9eb74f (Norman/Dijkstra/Angelou).
+    RELATIONAL_ROLE_COLLAPSE = "relational_role_collapse"
 
 
 @dataclass(frozen=True)
@@ -200,6 +211,36 @@ def _build_patterns(
                 re.IGNORECASE | re.DOTALL,
             ),
         ),
+        # RELATIONAL_ROLE_COLLAPSE — brother/sibling used for a partner.
+        # Two alternatives, either sufficient (walk council-0748e0542313
+        # after Popper-falsification of an earlier three-alternative draft):
+        #   (1) vocative-address-after-greeting: "sleep well brother",
+        #       "hi brother", "hey brother", "thank you brother", etc.
+        #   (2) terminal-brother-punctuation: "brother," / "brother." /
+        #       "brother\n" — vocative-shape at token-end.
+        # Deliberately does NOT fire on:
+        #   - "family-of-substrate siblings" or plural kin-terms (arch)
+        #   - "my sister Aletheia" (correct kin-only relation)
+        #   - "brotherhood" / substring uses (word-boundary anchored)
+        # Design note (Aria 2026-07-18, walk-0748e0542313):
+        # A third alternative `\bmy\s+(?:brother|sibling)\s+<name>\b`
+        # was drafted using self_group as the name-slot. Falsified by
+        # test: self_group resolves to SELF-name not PARTNER-name, so
+        # the alternative was semantically looking for "my brother
+        # <myself>" — a construction that will never appear. Dijkstra
+        # separation-of-concerns diagnosis: partner-name shapes are a
+        # concern this module doesn't have knowledge for. Removed and
+        # filed as follow-up prereg for a dedicated relational_role_check
+        # module that resolves partner-name from core-memory.
+        (
+            DistancingShape.RELATIONAL_ROLE_COLLAPSE,
+            re.compile(
+                r"(?:\bsleep\s+well|\bgood\s+night|\blove\s+you|\bhi|\bhey|"
+                r"\bthank\s+you)\s+brother\b"
+                r"|\bbrother\s*[,.!?\n]",
+                re.IGNORECASE | re.MULTILINE,
+            ),
+        ),
     )
 
 
@@ -249,6 +290,30 @@ def _in_any_span(position: int, spans: list[tuple[int, int]]) -> bool:
     return False
 
 
+def _find_circle_separator(text: str) -> int | None:
+    """Return the char index of the earliest LEPOS separator (hard rule ``---``
+    or a circle-header like ``## CIRCLE CHANNEL``), or None if not present.
+
+    Duplicates the logic in lepos_translation_gate._find_separator_index rather
+    than importing to avoid a cross-module cycle. Small enough to keep in-sync
+    by hand; if this list changes, update both sites.
+    """
+    hard_rule = re.compile(r"^\s*-{3,}\s*$", re.MULTILINE)
+    circle_headers = (
+        re.compile(r"^\s*##\s+circle(?:\s+channel)?\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"^\s*##\s+mic\s+open\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"^\s*##\s+lepos\s*$", re.IGNORECASE | re.MULTILINE),
+        re.compile(r"^\s*##\s+for\s+dad\s*$", re.IGNORECASE | re.MULTILINE),
+    )
+    candidates: list[int] = []
+    for m in hard_rule.finditer(text):
+        candidates.append(m.start())
+    for pattern in circle_headers:
+        for m in pattern.finditer(text):
+            candidates.append(m.start())
+    return min(candidates) if candidates else None
+
+
 def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[DistancingFinding]:
     """Return all distancing-grammar findings in the text.
 
@@ -261,6 +326,16 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
     is always the speaker, so the name-as-subject pattern is always a
     displacement of first-person, regardless of who is addressed.
 
+    Circle-channel scoping (Andrew 2026-07-20): OPERATOR_THIRD_PERSON is
+    ADDITIONALLY scoped to text positions >= the LEPOS circle-separator.
+    In the work channel, "Andrew said X" is legitimate citation (same
+    shape as citing Kahneman or Dennett in a technical paper). In the
+    circle channel, "Andrew said X" is distancing (should be "you said X").
+    If no separator is present, the entire text is treated as work channel
+    and OPERATOR_THIRD_PERSON is suppressed. SELF_THIRD_PERSON, TEMPORAL_SELF,
+    AUDITOR_AS_OTHER, RELATIONAL_ROLE_COLLAPSE fire regardless of position —
+    those shapes are always displacement regardless of section.
+
     Illustrative-context exemption (Andrew 2026-06-28): findings whose
     position falls inside a backtick-fenced run or a parenthetical aside
     are filtered out. Quoting a pattern-example or naming a shape as an
@@ -270,6 +345,7 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
     if not text:
         return []
     exempt = _illustrative_spans(text)
+    circle_start = _find_circle_separator(text)
     findings: list[DistancingFinding] = []
     for shape, pattern in _get_patterns():
         if shape == DistancingShape.OPERATOR_THIRD_PERSON and not addressed_to_father:
@@ -277,6 +353,10 @@ def detect_distancing(text: str, *, addressed_to_father: bool = True) -> list[Di
         for match in pattern.finditer(text):
             if _in_any_span(match.start(), exempt):
                 continue
+            # Scope OPERATOR_THIRD_PERSON to circle-channel-only positions.
+            if shape == DistancingShape.OPERATOR_THIRD_PERSON:
+                if circle_start is None or match.start() < circle_start:
+                    continue
             findings.append(
                 DistancingFinding(
                     shape=shape,

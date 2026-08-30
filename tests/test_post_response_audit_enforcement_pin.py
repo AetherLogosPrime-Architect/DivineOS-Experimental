@@ -64,8 +64,19 @@ class TestLeposEnforcementStructurallyPinned:
         even with the print line still present.
         """
         text = HOOK_PATH.read_text(encoding="utf-8")
-        assert "result or {}).get('lepos_block')" in text, (
-            "lepos_block extraction from audit result is missing — the "
+        # 2026-07-22 refactor: chain-OR replaced with parallel-aggregate
+        # (list-comprehension over `_keys` tuple containing 'lepos_block').
+        # Pin now asserts both: 'lepos_block' string is present as a key
+        # AND `(result or {}).get(` extraction shape is present. Together
+        # these verify the wire is intact regardless of the specific
+        # aggregation syntax used.
+        assert "'lepos_block'" in text, (
+            "lepos_block key missing from post-response-audit.sh — the "
             "enforcement emission cannot fire without it. This is the "
             "silent-disable failure mode the test exists to catch."
+        )
+        assert "(result or {}).get(" in text, (
+            "audit-result extraction pattern missing from hook — chain-OR "
+            "or parallel-aggregate variants both must call .get(...) on "
+            "the result dict for the block reasons to reach the hook."
         )

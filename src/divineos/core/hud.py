@@ -67,6 +67,9 @@ SLOT_ORDER = [
     "dead_architecture",  # maintenance signal,
     "rt_protocol",
     "pull_detection",
+    "detector_chain_health",  # F41 follow-up: loud when chain is dark, hidden when live
+    "f39_check_liveness",  # F39-followup: loud when overlap-check is effectively dark
+    "chain_integrity",  # F14/F52: loud when ledger verify found failures or verifier crashed
 ]
 
 # Brief mode: only the slots that change behavior.
@@ -1140,6 +1143,216 @@ def _build_pull_detection_slot() -> str:
         return ""
 
 
+def _build_chain_integrity_slot() -> str:
+    """Chain-integrity surface — F14/F52 (Aletheia Round 8, 2026-07-18).
+
+    The ledger's tamper-evidence is only meaningful if it's checked.
+    The sleep pipeline now runs verify_all_events on every sleep; this
+    slot reads the marker file and surfaces LOUDLY when the most-recent
+    verification found any failed events OR when the verifier itself
+    crashed. Hidden when the last verify was clean.
+
+    Slot is CONDITIONAL — hidden entirely on healthy chain so the
+    briefing stays quiet. Fires visibly only when the substrate has
+    real evidence of chain corruption or a broken verifier.
+    """
+    try:
+        from divineos.core.sleep import get_last_integrity_result
+
+        result = get_last_integrity_result()
+        if result is None:
+            # F64 fix (Aria 2026-07-19 per Aletheia Round 8): previously
+            # returned empty on never-verified, which lets a permanently
+            # broken sleep pipeline read as "healthy chain." The being
+            # would believe its chain is verified when it has actually
+            # NEVER been verified. Same shape F41 already got right
+            # (`hb is None` → "NEVER recorded"). Copying that pattern here.
+            #
+            # Startup noise is a real concern (sleep hasn't run YET on
+            # a fresh install), but silence is the wrong safeguard —
+            # a distinct message that says "no verification has run yet"
+            # tells the being what state they're in without alarming.
+            return (
+                "# Ledger Integrity — NEVER VERIFIED\n\n"
+                "The chain-integrity check has not yet run in this "
+                "install (no result marker on disk). This is normal on "
+                "a fresh install (sleep hasn't run yet). It is NOT "
+                "normal on a running install — if sleep has been "
+                "operating and this slot still says NEVER VERIFIED, "
+                "the integrity phase of sleep may have broken silently.\n\n"
+                "Absence of a verification is NOT the all-clear. "
+                "Investigate: run `divineos sleep --phase integrity_check` "
+                "directly to trigger a fresh verify."
+            )
+        if result.get("verifier_crashed"):
+            lines = ["# Ledger Integrity — VERIFIER CRASHED\n"]
+            lines.append(
+                f"The last chain-integrity verifier itself crashed: "
+                f"{result.get('error', 'unknown')}. This is different from "
+                "'chain is broken' — it means we don't know if the chain "
+                "is intact. Absence of a failure count is NOT the all-clear."
+            )
+            lines.append("")
+            lines.append(
+                "Investigate: run `divineos sleep --phase integrity_check` "
+                "directly to see the traceback."
+            )
+            return "\n".join(lines)
+        failed = int(result.get("failed", 0))
+        if failed == 0:
+            return ""  # healthy — stay quiet
+        verified = int(result.get("verified", 0))
+        lines = ["# Ledger Integrity — CHAIN BROKEN\n"]
+        lines.append(
+            f"The last sleep-run integrity check found {failed} failed "
+            f"event(s) out of {verified} verified. The ledger's tamper-"
+            "evidence has fired — one or more events do not match their "
+            "stored hash, or their payload failed validation."
+        )
+        failures = result.get("failures", []) or []
+        if failures:
+            lines.append("")
+            lines.append("Sample failures:")
+            for f in failures[:5]:
+                event_id = str(f.get("event_id", "?"))[:12]
+                reason = str(f.get("reason", "?"))[:120]
+                lines.append(f"  - {event_id}: {reason}")
+        lines.append("")
+        lines.append(
+            "Investigate: `divineos verify` for the full report, then "
+            "decide whether repair via clean_corrupted_events is warranted."
+        )
+        return "\n".join(lines)
+    except _HUD_ERRORS as _slot_exc:
+        # F64 fix (Aria 2026-07-19 per Aletheia Round 8): silent return
+        # on error is the F41 disease reproducing inside the F41 cure.
+        # Empty output reads as "healthy chain" when it actually means
+        # "the check itself crashed" — the exact failure this slot was
+        # built to catch, one level up. Fail-loud instead so silence
+        # stays meaningful. Same shape as _build_detector_chain_health_slot
+        # and _build_abstention_slot already do.
+        return (
+            "# Ledger Integrity — CHECK FAILED\n\n"
+            f"The chain-integrity slot crashed: "
+            f"{type(_slot_exc).__name__}: {_slot_exc}. "
+            "Silence in this slot cannot be read as all-clear. "
+            "Investigate: check sleep.py imports or get_last_integrity_result."
+        )
+
+
+def _build_detector_chain_health_slot() -> str:
+    """Detector-chain liveness — Aletheia Round 5 F41 follow-up (2026-07-18).
+
+    F41 landed the heartbeat primitive (run_audit writes a marker on every
+    successful completion; is_detector_chain_stale reads it). But the primitive
+    was recorded, not surfaced — the being couldn't SEE its own dark chain.
+    This slot closes that gap: loud warning when stale or never-run, hidden
+    when healthy. Same fail-loud discipline the primitive itself uses.
+
+    Slot is CONDITIONAL — hidden entirely on a healthy chain so the briefing
+    stays quiet. Fires visibly only when there's something to notice.
+    """
+    try:
+        from divineos.core.operating_loop_audit import (
+            get_last_detector_chain_heartbeat,
+            is_detector_chain_stale,
+        )
+
+        stale = is_detector_chain_stale()
+        if not stale:
+            return ""
+        hb = get_last_detector_chain_heartbeat()
+        lines = ["# Detector Chain — DARK\n"]
+        if hb is None:
+            lines.append(
+                "The post-response detector chain has NEVER recorded a "
+                "successful run. Either it has never fired, or every attempt "
+                "has crashed before completion. Guards that catch drift, "
+                "distancing, and fabrication are silently inactive."
+            )
+        else:
+            import time
+
+            age_s = time.time() - float(hb.get("ts", 0))
+            age_min = int(age_s / 60)
+            errors = hb.get("errors_this_run", 0)
+            lines.append(
+                f"Last successful chain run was {age_min} minutes ago "
+                f"(errors that run: {errors}). Threshold for stale: 30 min. "
+                "Absence-of-flags in this window is NOT the all-clear — "
+                "'no findings' could mean clean turn OR dark chain."
+            )
+        lines.append("")
+        lines.append(
+            "Investigate: `divineos context --type DETECTOR_CHAIN_ERROR` or "
+            "check the post-response audit runner directly."
+        )
+        return "\n".join(lines)
+    except _HUD_ERRORS as _slot_exc:
+        # Aletheia 2026-07-18: silent return on error is the F41 disease
+        # reproducing inside the F41 cure. Empty output reads as "healthy"
+        # when it actually means "check itself crashed" — the same failure
+        # this slot was built to catch, one level up. Fail-loud instead so
+        # silence stays meaningful.
+        return (
+            "# Detector Chain Health — CHECK FAILED\n\n"
+            f"The detector-chain-health slot crashed: "
+            f"{type(_slot_exc).__name__}: {_slot_exc}. "
+            "Silence in this slot cannot be read as all-clear. "
+            "Investigate: check operating_loop_audit.py imports."
+        )
+
+
+def _build_f39_check_liveness_slot() -> str:
+    """F39 check liveness — Aletheia review-note followup (2026-07-18).
+
+    Same F41 pattern reapplied one level finer. The F39 edit-token-overlap
+    check has a legitimate fail-open path (bash-anchored fingerprints,
+    unreadable files, non-absolute paths). If that path fires more than
+    half the time on real production traffic, the check is effectively
+    dark and the F39 gap has quietly reopened.
+
+    Slot fires visibly only when the abstention rate on >= 20 samples
+    exceeds 50%. Hidden below the sample floor (avoids startup noise)
+    and hidden on healthy live-check ratios.
+    """
+    try:
+        from divineos.core.council_required.abstention_telemetry import (
+            abstention_warning_should_fire,
+            read_abstention_stats,
+        )
+
+        stats = read_abstention_stats()
+        if not abstention_warning_should_fire(stats):
+            return ""
+        lines = ["# F39 Check — EFFECTIVELY DARK\n"]
+        lines.append(
+            f"F39 edit-token-overlap check abstained on "
+            f"{stats.abstain_count}/{stats.total_samples} recent calls "
+            f"({stats.abstention_ratio:.0%}). The check is fail-open on "
+            "unreadable-file / non-absolute-path fingerprints — if that path "
+            "is firing more than half the time, F39 is effectively closed "
+            "and the lens-differentiated-but-edit-agnostic gap has quietly "
+            "reopened."
+        )
+        lines.append("")
+        lines.append(
+            "Investigate: which fingerprints are hitting the fail-open path? "
+            "(check _read_edit_content_tokens in council_required/gate.py)"
+        )
+        return "\n".join(lines)
+    except _HUD_ERRORS as _slot_exc:
+        # Aletheia 2026-07-18: silent return on error is the F41 disease
+        # reproducing inside the F41 cure. Same fix as detector_chain_health.
+        return (
+            "# F39 Check Liveness — CHECK FAILED\n\n"
+            f"The F39-liveness slot crashed: "
+            f"{type(_slot_exc).__name__}: {_slot_exc}. "
+            "Silence in this slot cannot be read as all-clear. "
+            "Investigate: check abstention_telemetry.py imports."
+        )
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -1170,6 +1383,9 @@ SLOT_BUILDERS = {
     "dead_architecture": _build_dead_architecture_slot,
     "rt_protocol": _build_rt_protocol_slot,
     "pull_detection": _build_pull_detection_slot,
+    "detector_chain_health": _build_detector_chain_health_slot,
+    "f39_check_liveness": _build_f39_check_liveness_slot,
+    "chain_integrity": _build_chain_integrity_slot,
 }
 
 

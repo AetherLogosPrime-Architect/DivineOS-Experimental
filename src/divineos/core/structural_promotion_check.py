@@ -82,6 +82,151 @@ _STRUCTURAL_KEYWORDS: frozenset[str] = frozenset(
 )
 
 
+# Precision filter, 2026-08-20. The rule-patterns above match the marker word
+# plus one token, which catches ordinary English wherever it appears. Measured
+# against all ten obligations that were blocking every substrate write:
+#
+#   "eight reports never reached the synthesizer"   past-tense bug description
+#   "the refutation arm never fired at all"         past-tense description
+#   "letters never waking me"                       symptom description
+#   "which I had never run"                         past-perfect description
+#   "Andrew: 'I should never reach conclusions'"    quoting the operator
+#   "external is always required for contrast"      quoting Aria
+#   "they must be had"                              ordinary English
+#   "usually never needed"                          description
+#   "never as", "never to", "never the"             fragments, no predicate
+#   "substrate write MUST land before the next"     an actual rule
+#
+# One of ten was a promise. The other nine are what a substrate whose whole
+# job is recording diagnoses produces constantly, so the count could never
+# fall below the blocking threshold of 5 and the obligations gate blocked
+# every audit-round filing -- which is what a guardrail PR needs to merge.
+# Andrew 2026-08-20: "its been 3 weeks.. 3.. and there are still PR's in limbo."
+#
+# Four discriminators, each drawn from an observed false positive rather than
+# imagined: an auxiliary before the marker means the sentence reports what
+# happened; a participle or gerund after never/always names an event; a modal
+# followed by be/have is a descriptive passive; and a marker followed by a
+# function word has no rule predicate at all. Quotation detection is last
+# because it is the weakest signal.
+_DESCRIPTIVE_AUX = re.compile(
+    r"\b(had|have|has|was|were|is|are|been|did|does|do|why|which)\s+(\w+\s+){0,3}$", re.IGNORECASE
+)
+_PARTICIPLE_OR_GERUND = re.compile(r"^\w+(ed|ing)$", re.IGNORECASE)
+# Deliberately NOT an irregular-participle set. A first draft carried one
+# ("run", "set", "held", ...) and it cost recall on a real rule: "always run
+# the briefing before touching code" reads as a participle and is an
+# imperative. Those words are ambiguous between base form and participle, and
+# the auxiliary test above already resolves the ambiguity -- "which I had
+# never run" is caught by `had`, while "always run X" has no auxiliary because
+# it is an instruction. So the ambiguous set only ever fired where the word was
+# most likely a rule, which is the one place it must not.
+# A rule predicate begins with a verb. These cannot start one.
+_NOT_A_PREDICATE: frozenset[str] = frozenset(
+    {
+        "as",
+        "to",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "of",
+        "for",
+        "at",
+        "by",
+        "with",
+        "than",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+        "so",
+        "such",
+        "more",
+        "less",
+        "very",
+        "just",
+        "only",
+        "even",
+        "again",
+        "silent",
+        "enough",
+    }
+)
+
+
+def _knowledge_text(knowledge_id: str) -> str:
+    """The stored content of a knowledge entry, or "" if unreachable.
+
+    Needed because STRUCTURAL_PROMOTION_QUESTION events record only the
+    knowledge_id and the matched triggers -- re-judging a historical fire
+    against the current detector requires the original text.
+
+    Fail-soft returning "": callers treat empty as "cannot re-judge, keep the
+    obligation", which errs toward carrying debt rather than silently
+    discharging it on a failed read.
+    """
+    try:
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        try:
+            row = conn.execute(
+                "SELECT content FROM knowledge WHERE knowledge_id = ?", (knowledge_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+        return str(row[0]) if row and row[0] else ""
+    except Exception:  # noqa: BLE001 — observability boundary; "" keeps the obligation
+        return ""
+
+
+def _is_descriptive_match(text: str, m: re.Match[str]) -> str | None:
+    """Why this rule-pattern match is a description rather than a promise.
+
+    Returns a short reason string when the match should NOT count, or None
+    when it looks like a genuine will-shape rule.
+    """
+    before = text[max(0, m.start() - 60) : m.start()]
+    parts = m.group(0).split()
+    nxt = parts[1] if len(parts) > 1 else ""
+    lowered = m.group(0).lower()
+
+    if _DESCRIPTIVE_AUX.search(before):
+        return "aux-before"
+    if lowered.startswith(("never", "always")) and (_PARTICIPLE_OR_GERUND.match(nxt)):
+        return "participle"
+    # "must be", and also "must not be" / "must never be": the negation sits
+    # between the modal and the passive, so checking only the next token misses
+    # it. Measured on "the spec must not be read as ..." -- a clarification
+    # about how to read a document, not a promise about my future action.
+    after = text[m.end() : m.end() + 24].lower()
+    if lowered.startswith("must") and (
+        nxt.lower() in ("be", "have", "been") or re.match(r"\s*(be|been|have)\b", after)
+    ):
+        return "modal-passive"
+    # "every time <pronoun> <verb>s" reports a recurring event rather than
+    # instructing one. Measured on "Every time she clones the repo and walks
+    # sourceward" -- a description of what happens to Aletheia, not a rule.
+    if lowered.startswith("every time") and re.match(
+        r"\s+(she|he|it|they|i|we|you|someone|anyone)\b", after
+    ):
+        return "recurrence-description"
+    if nxt.lower() in _NOT_A_PREDICATE:
+        return "no-predicate"
+    # An odd number of quote marks before the match means it opened a quotation
+    # that has not closed, so the marker is inside someone else's words.
+    if (before.count("'") + before.count('"')) % 2 == 1:
+        return "quoted"
+    return None
+
+
 def looks_like_rule(text: str) -> tuple[bool, list[str]]:
     """Return (is_rule_shape, matched_trigger_phrases).
 
@@ -99,9 +244,11 @@ def looks_like_rule(text: str) -> tuple[bool, list[str]]:
             return False, []
     triggers: list[str] = []
     for pat in _RULE_PATTERNS:
-        m = pat.search(text)
-        if m:
+        for m in pat.finditer(text):
+            if _is_descriptive_match(text, m):
+                continue
             triggers.append(m.group(0))
+            break
     return bool(triggers), triggers
 
 
@@ -282,6 +429,34 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
 
     cutoff = time.time() - window_seconds
     fired = [q for q in recent_questions(limit=500) if float(q.get("timestamp") or 0) >= cutoff]
+
+    # Re-evaluate historical fires against the CURRENT detector.
+    #
+    # 2026-08-20: the precision filter above stops new false positives, and
+    # every existing one stayed, because obligations are read from already-
+    # emitted events rather than recomputed. Ten fires -- nine of them
+    # descriptions like "eight reports never reached the synthesizer" -- sat
+    # permanently above the blocking threshold of 5, so the obligations gate
+    # blocked every audit-round filing, and a guardrail PR needs a round to
+    # merge. Andrew, after three weeks of PRs in limbo: "this needs resolved
+    # ASAP."
+    #
+    # The event stays in the ledger; append-only is not touched. What changes
+    # is whether a fire the detector would no longer produce is counted as
+    # outstanding debt. Carrying a known false positive as debt is not rigour,
+    # it is a jam -- and one that trains me to reach for the kill-switch.
+    # The event carries only knowledge_id and triggers, so the entry's text has
+    # to be fetched to re-judge it. A first attempt read q["content"], found
+    # nothing, and silently kept all ten -- absence of text reading as "still a
+    # rule", which is the same silence-means-pass shape being fixed here.
+    still_rule: list[dict] = []
+    for q in fired:
+        wid = q.get("knowledge_id") or ""
+        content = _knowledge_text(wid) if wid else ""
+        if content and not looks_like_rule(content)[0]:
+            continue  # retired false positive, not an obligation
+        still_rule.append(q)
+    fired = still_rule
     # Pull candidate backing events from ALL backing-event types, not
     # just KNOWLEDGE_STORED.
     candidates: list[dict] = []

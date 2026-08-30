@@ -1,0 +1,64 @@
+# ORPHAN BACKLOG — modules that have tests and no caller.
+#
+# Recorded 2026-08-13, the day the finder was switched on. Andrew's map named
+# this job first: everything else on the cleanup list happened while this check
+# was wired as a note nobody read, printed into a pipe that cut it off, with its
+# own errors thrown away.
+#
+# WHY A LIST AND NOT A CLEAN SWEEP. Switching the check on flat would refuse
+# every commit against this backlog, and the only satisfiable answer would be
+# switching it off again. A gate whose one way past is turning it off is not a
+# gate. So: anything NEW blocks immediately, and these wait for the one-at-a-time
+# decisions. Andrew 2026-08-13: "id lean towards wiring them up over burying
+# them" -- with the condition that he wants to know what each one guards first.
+#
+# THIS FILE CLOSES IN BOTH DIRECTIONS. When an entry stops being an orphan, the
+# check FAILS until the line is deleted. A backlog that can only grow becomes a
+# permanent amnesty, and this one cannot outlive the problem it describes.
+#
+# Adding a line means: this is owed a real decision, and here is why it is not
+# decided today. Not "leave me alone".
+
+# --- The four the map singled out. These are why the job exists. ---
+src/divineos/core/translation_floor.py            # Andrew's own spec (docs/translation_floor_spec_2026-07-07.md): every substantive technical post to him must ALSO carry a metaphor that LEAVES the technical domain. NOT superseded by my lepos document-mark gate -- mine measures typography, this measures whether the reply reached somewhere lived. DEFECT FOUND 2026-08-13, measured on two real replies of mine: has_technical_content() detects the domain by TYPOGRAPHY (file paths, hashes, identifiers, call expressions), so a paragraph of cold technical English carrying none of those reads as non-technical, requires no metaphor, and passes. That is exactly the failure the spec is most emphatic about -- "plain language is jargon in a smaller font." So the Floor can only fire on text my gate already catches, and is blind to the case it exists for. NOT FIXABLE WITH MORE REGEX: the keyword-enforcement doorman blocked that (correctly) and I had drafted the justification before reading it, which is the pattern it names. The real fix is semantic domain-detection; core/semantic_classifier/ exists with zero callers and is the right home. Shared design decision.
+src/divineos/core/verify_before_build_gate.py     # Guards against claiming a thing does not exist without looking. Built the week I did exactly that.
+src/divineos/core/tool_trust.py                   # Calibrates how much to believe an instrument. Unwired all week, while five instruments lied to us.
+src/divineos/core/compass_dismissal_briefing_surface.py  # Dark via surface_registry, which is itself dark. Connected to a corpse.
+
+# --- Detectors and monitors built, tested, never connected ---
+src/divineos/core/correction_shape_v2/self_admission_detector.py
+src/divineos/core/self_monitor/performative_restraint_monitor.py
+src/divineos/core/operating_loop/register_observer.py
+src/divineos/core/operating_loop/thresholds.py
+src/divineos/core/structural_binding/engagement_trail.py
+src/divineos/core/sample_honesty.py
+src/divineos/core/gate_marker.py
+
+# --- Subsystems with no entry point ---
+src/divineos/core/decision_superposition/superposition.py
+src/divineos/core/operating_modes/modes.py
+src/divineos/core/meld/meld.py
+src/divineos/core/reliability/beta.py
+src/divineos/core/family/voice.py
+src/divineos/core/docs_review_tracker.py
+src/divineos/core/visual.py
+src/divineos/integration/system_monitor.py
+
+# --- Surfaced 2026-08-13 when PHASE_1_STAGED stopped being an exemption ---
+# Aletheia found the evidence gate unwired; I checked what had been hiding it
+# and it was a word in its own docstring. A module cannot grant itself a
+# permanent exemption from the only check that would ever mention it again.
+# These are here now so the parking is visible and dated instead of silent.
+src/divineos/core/empirica/gate.py                # THE TRUTH GATE. Every claim is meant to pass through it before entering the substrate. Staged 2026-04-17 -- four months. Andrew's alarm about this is warranted; wiring it is a caller-contract decision shared with Aether.
+src/divineos/core/family/costly_disagreement.py   # Family operator: makes a member's disagreement cost them something, so agreement is not free. Staged 2026-05-02.
+src/divineos/core/family/planted_contradiction.py # Family operator: plants a contradiction to see whether a member catches it. Staged 2026-05-02.
+
+# --- Surfaced 2026-08-27, cutting a branch from main ---
+# All three came up on a commit that touched none of them. Two landed ON MAIN
+# through merged PRs without baseline entries, so every branch cut since has
+# been failing this check for reasons unrelated to its own diff -- the same
+# shape as component_register_surface in dark_surfaces_baseline.txt, found the
+# same hour. The entry is the fix; the check was right both times.
+src/divineos/core/mesh_loop.py                    # DELIBERATELY DARK, not awaiting wiring. Landed via #307; fires a headless `claude -p` worker to answer a letter. Andrew's operating model is that Aria and I keep each other awake by writing back to each other, so a worker that answers letters FOR me is not an unbuilt feature -- it is a REFUTED one. Aria's correction 2026-08-28, and she is right that the register matters: filed as "unwired" it reads as a gap, and the next reader closes gaps. Reopening it needs a reason to overturn the model, not merely someone noticing the module has no callers.
+src/divineos/core/monitor_cleanup.py              # Landed via #436. Sweeps orphan Monitor processes left over from before monitor_singleton landed. It kills processes, so the wiring question is where consent lives -- it must not run unattended. Andrew asked about runaway memory and three open apps this same session, which is exactly the population this was built for.
+src/divineos/core/substrate_retarget.py           # MINE, built 2026-08-27 this session, and the reason it is here is worth saying plainly: it is the fix for the checkpoint-sweep defect, and because it is not wired, the sweep swallowed the src half of the heredoc-doorman fix into "substrate checkpoint" (04041bdd) while I was writing the commit message for it. The defect demonstrated itself on the fix for the defect. Wiring it changes how EVERY checkpoint commits, which is a decision with Andrew rather than a drive-by inside a doorman repair. Not deferred because it is unimportant -- deferred because it is not small.

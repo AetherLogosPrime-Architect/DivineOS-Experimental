@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from functools import lru_cache
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -111,7 +112,49 @@ def _commits_in_range(rev_range: str) -> list[tuple[str, str]]:
     Returns empty list when the range is invalid (e.g. shallow clone without
     enough history). Callers can decide whether to error or skip.
     """
-    out = _git("log", "--reverse", "--format=%h%x09%s", rev_range, allow_failure=True)
+    # --no-merges. A merge commit AUTHORS no functions -- everything `git show`
+    # reports for one was already written, and already scanned, on the side it
+    # came from. Including merges is not merely wasteful; it is the documented
+    # flake. This scan's footprint is bounded by "last N commits", and a merge
+    # commit's diff is unbounded. Merging main into a branch that had drifted
+    # produced one commit larger than the heuristic ever anticipated, and the
+    # xdist worker died on it -- the exact crash the window was narrowed twice
+    # to avoid (HEAD~30 -> HEAD~5 on 2026-07-03, HEAD~5 -> HEAD~3 on
+    # 2026-07-10).
+    #
+    # Both narrowings treated commit COUNT as the knob. Count was never the
+    # variable that mattered; per-commit footprint was, and it varies without
+    # bound. Excluding merges removes the unbounded case instead of guessing a
+    # smaller number a third time -- and costs no coverage, because a merge has
+    # no new functions to find.
+    #
+    # --first-parent, added 2026-08-17, is the OTHER HALF of that fix and the
+    # reason the flake above survived it. --no-merges drops merge COMMITS from
+    # the output; it does nothing to the RANGE. `HEAD~3..HEAD` means everything
+    # reachable from HEAD and not from HEAD~3, so the moment HEAD~3 sits on the
+    # far side of a merge the range swallows every commit that arrived through
+    # it. Measured on split/hook-firing-map immediately after merging main: the
+    # "last three commits" resolved to TWENTY-ONE, carrying 88 new functions
+    # into a scan that is O(functions x repo files). The same test finished in
+    # 1.41s on a linear checkout and timed out here.
+    #
+    # So the previous fix removed the one oversized commit and left the range
+    # free to substitute twenty smaller ones. Following first parents makes
+    # "last N commits" mean N commits of THIS branch's own development, which
+    # is what every narrowing in this comment was already trying to say.
+    #
+    # Not a new idea in this repo: scripts/ci_check_guardrail_trailer.sh has
+    # used --first-parent since it was written, for the same reason in its own
+    # words -- "skips commits absorbed via merge from an upstream remote".
+    out = _git(
+        "log",
+        "--reverse",
+        "--no-merges",
+        "--first-parent",
+        "--format=%h%x09%s",
+        rev_range,
+        allow_failure=True,
+    )
     rows: list[tuple[str, str]] = []
     for line in out.splitlines():
         if not line.strip():
@@ -184,6 +227,21 @@ def _scan_callers(functions: list[NewFunction]) -> None:
                 _scan_file(hook_file, by_name, is_test=False)
 
 
+@lru_cache(maxsize=None)
+def _patterns_for(name: str) -> tuple[re.Pattern[str], re.Pattern[str], re.Pattern[str]]:
+    """The three call-shape patterns for one name, compiled once.
+
+    They used to be rebuilt inside the per-name loop, which runs once per
+    file — so every pattern was recompiled several hundred times per run
+    for no gain. Cached per name instead.
+    """
+    return (
+        re.compile(rf"(?:^|\W){re.escape(name)}\s*\("),
+        re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]"),
+        re.compile(rf"^\s*{re.escape(name)}\s*,\s*$"),
+    )
+
+
 def _scan_file(
     py_file: Path,
     by_name: dict[str, list[NewFunction]],
@@ -194,7 +252,34 @@ def _scan_file(
     except (UnicodeDecodeError, OSError):
         return
     rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
+    lines = text.splitlines()
     for name, fns in by_name.items():
+        # WHY THIS AND NOT ANOTHER WINDOW NARROWING. The test that exercises
+        # this function records its scan window being cut twice for the same
+        # symptom — HEAD~30 to HEAD~5 in July, then HEAD~5 to HEAD~3 a week
+        # later — each time because the walk blew past its budget on a branch
+        # whose commits happened to be large. The window was never the cost.
+        # The cost is that this loop ran files x names x lines with three
+        # regexes recompiled inside it, so it scaled with how much the repo
+        # HOLDS rather than with how much changed. Narrowing the window
+        # shrinks the input to a walk that stays quadratic; this shrinks the
+        # walk.
+        #
+        # Aether wrote this paragraph and asked for it in the file rather than
+        # only in a commit message, because each of those two narrowings left
+        # a careful note explaining itself and each note made the NEXT
+        # narrowing look reasonable. A reader meeting those notes alone would
+        # conclude that shrinking the window is what you do when this gets
+        # slow. This is what stops a fourth.
+        #
+        # All three call shapes below require the literal name, so its
+        # absence from the file is a strict superset test: no pattern can
+        # match text that does not contain the substring. This is what
+        # takes the scan off its quadratic — the walk below ran over every
+        # line of every file for every candidate name regardless of
+        # whether the name appeared at all. Found by Aether 2026-08-26.
+        if name not in text:
+            continue
         # Three call shapes recognized as wiring:
         # (1) DIRECT call — function name followed by opening paren:
         #         func_name(arg)
@@ -214,11 +299,9 @@ def _scan_file(
         #     falsely surface as zero-callers. Caught 2026-06-04 when
         #     detect_engineer_drift_for_audit surfaced as orphan despite
         #     being passed to _run_detector at operating_loop_audit.py:445.
-        direct_pattern = re.compile(rf"(?:^|\W){re.escape(name)}\s*\(")
-        indirect_pattern = re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]")
-        multiline_pattern = re.compile(rf"^\s*{re.escape(name)}\s*,\s*$")
+        direct_pattern, indirect_pattern, multiline_pattern = _patterns_for(name)
         found = False
-        for line in text.splitlines():
+        for line in lines:
             stripped = line.lstrip()
             if stripped.startswith(f"def {name}"):
                 continue

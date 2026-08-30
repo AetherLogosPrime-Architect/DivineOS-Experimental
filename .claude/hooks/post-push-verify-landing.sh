@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# SUPERSEDED-BY: verify-push-landed.sh
+#
 # SUPERSEDED 2026-07-09 by verify-push-landed.sh (2026-06-04, older but
 # more robust — has retry loop + marker-file state that this simpler
 # draft lacks). Both implement the same "auto-confirm push landing"

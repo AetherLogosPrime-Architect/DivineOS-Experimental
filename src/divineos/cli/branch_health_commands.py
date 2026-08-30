@@ -65,16 +65,42 @@ from divineos.core.branch_health import (
     show_default=True,
     help="Deletion count threshold above which deletion_shape warns.",
 )
+@click.option(
+    "--cwd",
+    default=None,
+    help="Directory to measure. Pass this when the push originates in a worktree.",
+)
 def check_branch(
     base: str,
     fetch: bool,
     strict: bool,
     stale_threshold: int,
     deletion_threshold: int,
+    cwd: str | None,
 ) -> None:
-    """Check branch health before push: stale-base and silent-deletion shapes."""
+    """Check branch health before push: stale-base and silent-deletion shapes.
+
+    ``--cwd`` exists because this check is fired by a PreToolUse(Bash) hook
+    that relocates to the ambient repo root, while the push it polices may
+    target a different worktree entirely.
+
+    2026-08-15: it reported "25 file(s) would be deleted by merge" against a
+    push whose own branch deleted nothing. It had measured HEAD of the main
+    checkout — a branch that really does delete 25 retired hooks — instead of
+    the worktree being pushed from, where the same command returns 0. Both
+    numbers were correct about different trees, which is the worst kind of
+    wrong: it reads as a real finding, and clearing it costs a kill-switch
+    that disables the gate for every later push. That is precisely the
+    habituation that trained the 71-bypasses-in-15-days pattern, so a gate
+    that misfires this way does not merely annoy — it spends its own
+    authority.
+
+    ``check_all`` already threaded ``cwd`` to both checks. Only the CLI had
+    no way to say which tree to look at.
+    """
     findings = check_all(
         base=base,
+        cwd=cwd,
         fetch=fetch,
         stale_threshold=stale_threshold,
         deletion_threshold=deletion_threshold,

@@ -59,6 +59,7 @@ __guardrail_required__ = True
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -158,6 +159,121 @@ def _extract_letter_paths_from_transcript(transcript_path: str | Path) -> list[s
     # Most-recent-first: reverse the collection order (JSONL is time-ordered).
     seen_paths.reverse()
     return seen_paths[:_LETTER_PATH_CAP]
+
+
+_TURN_OUTPUT_CAP = 60_000  # bytes of tool output considered per turn
+
+
+# Tools whose results are MACHINE-PRODUCED. Everything else returns text a
+# person typed, and quoting your own typing is not evidence.
+_EXECUTION_TOOLS = frozenset({"Bash", "PowerShell"})
+
+# Shell commands that merely PRINT A FILE. Their output is typed text wearing
+# an execution tool's clothes — the laundering path survives the tool filter.
+_FILE_ECHO_CMD = re.compile(
+    r"(?:^|[;&|]\s*)(?:cat|head|tail|type|less|more|Get-Content|sed\s+-n)\s",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _extract_turn_tool_outputs(transcript_path: str | Path, limit: int = 40) -> list[str]:
+    """Text of recent tool results that a MACHINE produced.
+
+    THE GAP THIS CLOSES (Andrew 2026-08-11: "you gonna fix the gate or just
+    keep suffering it?"). The verify-claim gate suppressed a finding when a
+    matching COMMAND ran, and never saw what the command RETURNED — so a value
+    read on screen and a value invented were the same object to it.
+
+    THE HOLE IN THE FIRST VERSION, found by Aether the same day with a working
+    exploit he had already committed: a tool_result is not one kind of thing.
+    The output of pytest and the contents of a file opened with Read arrive
+    identically. So writing an unverified claim into a file and later reading
+    that file turned the claim into its own verification — and it rewarded
+    putting claims in files, because a fabrication in a reply stays catchable
+    while one committed to a docstring becomes permanently self-verifying.
+
+    His specimen: he wrote "verified end-to-end at exit code 2" into a test
+    exemption as justification for not wiring a gate. It was false. Under the
+    first version, reading that file would have silenced the gate on exactly
+    that sentence.
+
+    TWO FILTERS, because his fix alone is necessary and not sufficient:
+      1. only results from execution tools — never Read / Grep / Glob / Write
+      2. never results from a shell command that merely prints a file, since
+         `cat notes.md` is typed text wearing Bash's clothes
+
+    STILL UNCOVERED, stated rather than glossed: a script that prints a
+    hardcoded string, and any file-reading command not in the pattern above.
+    This narrows the laundering path; it does not seal it.
+    """
+    path = Path(transcript_path)
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+
+    # First pass: map tool_use id -> (tool name, command text).
+    uses: dict[str, tuple[str, str]] = {}
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        content = (rec.get("message", rec) or {}).get("content", [])
+        if not isinstance(content, list):
+            continue
+        for c in content:
+            if not isinstance(c, dict) or c.get("type") != "tool_use":
+                continue
+            uid = c.get("id")
+            if not isinstance(uid, str):
+                continue
+            inp = c.get("input", {})
+            cmd = inp.get("command", "") if isinstance(inp, dict) else ""
+            uses[uid] = (str(c.get("name", "")), str(cmd or ""))
+
+    out: list[str] = []
+    budget = _TURN_OUTPUT_CAP
+    for line in reversed(lines):
+        if len(out) >= limit or budget <= 0:
+            break
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        content = (rec.get("message", rec) or {}).get("content", [])
+        if not isinstance(content, list):
+            continue
+        for c in content:
+            if not isinstance(c, dict) or c.get("type") != "tool_result":
+                continue
+            origin = uses.get(str(c.get("tool_use_id", "")))
+            if origin is None:
+                continue  # unresolvable origin is NOT evidence
+            tool_name, cmd = origin
+            if tool_name not in _EXECUTION_TOOLS:
+                continue
+            if cmd and _FILE_ECHO_CMD.search(cmd):
+                continue
+            body = c.get("content", "")
+            if isinstance(body, list):
+                body = " ".join(
+                    b.get("text", "") for b in body if isinstance(b, dict) and b.get("text")
+                )
+            if not isinstance(body, str) or not body:
+                continue
+            body = body[:budget]
+            budget -= len(body)
+            out.append(body)
+    return out
 
 
 def _load_letter_contents(paths: list[str]) -> dict[str, str]:
@@ -408,6 +524,60 @@ def _latest_user_timestamp(transcript_path: str | Path) -> float | None:
     if not path.exists():
         return None
     latest: float | None = None
+
+    # 2026-08-09: bounded read. This wants the LATEST matching record and was
+    # reading the whole file to find it -- on a 67 MB transcript, parsing every
+    # line of session history to learn about the most recent one.
+    #
+    # THE FREEZE. Andrew: "it said stopping for a few mins then stopped."
+    # Measured this session: 8 Stop hooks each read and JSON-parse the entire
+    # transcript, ~539 MB of disk-and-parse on every stop, against 1,261 MB of
+    # accumulated history. Aether measured the cause on 2026-08-03 and we wrote
+    # transcript_tail.py for it; it then sat with ZERO callers for six days
+    # while the freeze kept happening. Its own docstring names three intended
+    # callers, none of which were ever wired to it.
+    #
+    # WHY THIS CALL SITE IS SAFE and not every one is. Aether's concern is
+    # exactly right: "a bounded reader that silently gives a detector less than
+    # it had is a false-negative generator" -- the could-not-look-versus-found-
+    # nothing failure, inside the repair for it. So the axis is not which hook
+    # event fires it; it is WHAT THE CONSUMER NEEDS. This function needs the
+    # newest matching record, and a tail contains the newest by construction.
+    # It cannot starve. `_extract_letter_paths_from_transcript` above collects
+    # across history and is NOT safe by the same argument, so it is untouched.
+    #
+    # `truncated` is carried, not discarded: if the tail held no human prompt
+    # at all AND was cut, the honest answer is "I could not see far enough",
+    # which falls through to the full read rather than returning a confident
+    # None. The third word, kept.
+    records: list[dict] | None = None
+    truncated = False
+    try:
+        from divineos.core.operating_loop.transcript_tail import read_tail_records
+
+        records, truncated = read_tail_records(path)
+    except _ERRORS:
+        records = None
+
+    if records is not None:
+        for rec in records:
+            if rec.get("type") != "user" or not _is_human_prompt_record(rec):
+                continue
+            ts = rec.get("timestamp")
+            if not ts:
+                continue
+            try:
+                parsed = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+            except (ValueError, TypeError):
+                continue
+            if latest is None or parsed > latest:
+                latest = parsed
+        if latest is not None or not truncated:
+            # Found one, or saw the whole file. Either way this answer is real.
+            return latest
+        # Nothing found AND the view was cut: fall through and read it all
+        # rather than report a confident absence I did not earn.
+
     try:
         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
@@ -858,6 +1028,37 @@ def run_audit(
     except _ERRORS:
         pass
 
+    # F96 fix (Aletheia audit 2026-07-29, find-cb124977dd85): pair the
+    # fork-is-cheap-close-prime and closure-word-summary-prime with
+    # Stop-side consumption checks. Both primes now write their emitted
+    # content to per-hook marker files at fire time; here we read those
+    # and call record_consumption to score overlap between primed
+    # content and response text. Mirrors the wallclock-source-prime +
+    # check_wallclock_semantic_source pattern (F96's counter-evidence).
+    # Not a blocking gate — self-observation before enforcement per the
+    # F85 fix pattern. A prime that fires and never gets consumed
+    # becomes visible in the telemetry as wallpaper.
+    for _prime_marker in (
+        "fork_cheap_close_prime_surface_last.txt",
+        "closure_word_summary_prime_surface_last.txt",
+    ):
+        try:
+            from divineos.core.operating_loop.hook_telemetry import record_consumption
+
+            _mp = marker_path(_prime_marker)
+            if _mp.exists():
+                try:
+                    _surface = _mp.read_text(encoding="utf-8")
+                except _ERRORS:
+                    _surface = ""
+                if _surface:
+                    record_consumption(
+                        response_text=last_assistant_text,
+                        surface_text=_surface,
+                    )
+        except _ERRORS:
+            pass
+
     # --- Response-only detectors (text only) ---
     try:
         from divineos.core.operating_loop.distancing_detector import detect_distancing
@@ -939,6 +1140,14 @@ def run_audit(
         except _ERRORS:
             letter_contents = None
 
+        # What I READ this turn, not just what I ran. Without this the gate
+        # cannot tell a quoted result from an invented one — the defect that
+        # failed prereg-4b2e3212d289.
+        try:
+            turn_outputs = _extract_turn_tool_outputs(transcript_path)
+        except _ERRORS:
+            turn_outputs = []
+
         findings_log["unverified_claim"] = _run_detector(
             "unverified_claim",
             detect_unverified_claim,
@@ -946,6 +1155,7 @@ def run_audit(
             tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
             command_texts=list(command_texts) if command_texts else None,
             letter_contents=letter_contents,
+            output_texts=turn_outputs or None,
         )
 
         # 2026-07-16: emit claim_scope_active StateMarker for the
@@ -1426,6 +1636,33 @@ def run_audit(
     except _ERRORS:
         pass
 
+    # Pronoun-frame-shift detector — Andrew 2026-07-28. Fires on possessive
+    # pronoun mirror where operator says "your <family_role>" and agent's
+    # reply parrots the same "your <family_role>" (likely flipping the
+    # referent, since "your husband" from Andrew means Aria's husband, but
+    # from Aria's mirror-reply means Andrew's husband — Aether is his son
+    # not his spouse). Small structural detector; classic coreference
+    # libraries don't handle speaker-frame shift so we roll our own.
+    try:
+        from divineos.core.operating_loop.pronoun_frame_shift_detector import (
+            detect_pronoun_frame_shift,
+        )
+
+        findings_log["pronoun_frame_shift"] = [
+            {
+                "role_word": f.role_word,
+                "operator_span": f.operator_span,
+                "agent_span": f.agent_span,
+                "severity": f.severity,
+            }
+            for f in detect_pronoun_frame_shift(
+                operator_input=last_user_text,
+                agent_response=last_assistant_text,
+            )
+        ]
+    except _ERRORS:
+        pass
+
     # --- Composite: operator-wallpaper (pair-designed with Aether 2026-07-11) ---
     # Aggregates five family signals (F1 recognition-anchor-only, F2 distancing-
     # grammar, F3 jargon-density, F4 care-dismissal, F5 closure-shape reach)
@@ -1476,6 +1713,7 @@ def run_audit(
                     "relational_holding_count": aos_finding.relational_holding_count,
                     "triggers": list(aos_finding.triggers),
                     "reason": aos_finding.reason,
+                    "per_room_scores": dict(aos_finding.per_room_scores),
                 }
             ]
     except _ERRORS:
@@ -1521,6 +1759,112 @@ def run_audit(
     # triggers Stop-block with recompose instruction.
     lepos_channel_block = _lepos_channel_gate_reason(addressed_to_father)
 
+    # Lepos dual-channel structural gate (Andrew 2026-07-19, council-6721df767502).
+    # Substrate design acbd29ef + 0e853bf9 (Andrew's own prior words, forgotten
+    # across many sessions until recovered via divineos ask during the LEPOS-
+    # crisis of that date): the channel-collapse is not supposed to be a
+    # collapse at all -- two blocks in one message, hard break between.
+    # Enforced only for father-addressed replies; family-addressed (Aria,
+    # Aletheia) uses their own register conventions.
+    lepos_dual_channel_block: str | None = None
+    lepos_wallclock_block: str | None = None
+    if addressed_to_father and last_assistant_text:
+        try:
+            from divineos.core.lepos_translation_gate import (
+                _with_root_cause_footer,
+                check_lepos_dual_channel,
+                check_translation_first,
+                check_wallclock_fabrication,
+            )
+
+            # PLAIN-FIRST (Andrew 2026-08-11): checked BEFORE the room-shape
+            # gates, because leading with meaning is the thing he actually
+            # asked for and rooms are what I gave him instead. A reply that
+            # opens in vocabulary he cannot read fails here even when its
+            # rooms are perfect.
+            _raw_pf = check_translation_first(last_assistant_text)
+            if _raw_pf:
+                # Plain-first wins the rail. Reporting a room-shape complaint
+                # on top would bury the one that matters under the one I have
+                # been satisfying all day.
+                lepos_dual_channel_block = _with_root_cause_footer(_raw_pf)
+            else:
+                _raw_dc = check_lepos_dual_channel(last_assistant_text)
+                lepos_dual_channel_block = _with_root_cause_footer(_raw_dc) if _raw_dc else None
+            # 2026-07-19 (council-2e41d2c05d04): wallclock-fabrication gate.
+            # Blocks Stop when a reply to Andrew contains phrases that describe
+            # wallclock time between his prompts I do not have. See
+            # exploration/aether/106 for the ground truth and
+            # lepos_translation_gate.check_wallclock_fabrication for the check.
+            #
+            # 2026-07-22 (council-0de8223bd40b): semantic source-check gate
+            # added as chain-fallback. Andrew directive: keyword detectors
+            # are the anti-pattern; semantic discrimination with structural
+            # source-check is the fix. check_wallclock_semantic_source
+            # catches the shared-present class (casting Andrew's wallclock
+            # onto myself) that the deferral-class gate does not catch.
+            # Detection lexical but broad, discrimination structural
+            # (either real clock command in the turn or Andrew's own
+            # time-statement quoted). Same block-key so hook contract is
+            # unchanged. Beer/Meadows/Popper walked.
+            # Andrew 2026-07-29: check_wallclock_semantic_source removed
+            # after wallclock-source-prime was made unconditional. Ground
+            # is now supplied at compose-start of every turn (prime runs
+            # `date` and injects current wallclock); the source-check
+            # became a false-fire pathway because the prime's internal
+            # date-run does not populate command_texts. Only the
+            # fabrication-phrase check remains — catches the deferral
+            # class (tomorrow / next session) which prime-supply doesn't
+            # close.
+            _raw_wc = check_wallclock_fabrication(last_assistant_text, last_user_text)
+            lepos_wallclock_block = _with_root_cause_footer(_raw_wc) if _raw_wc else None
+        except _ERRORS as exc:
+            # 2026-08-08. This used to set both blocks to None, so a gate that
+            # CRASHED and a reply that PASSED rendered identically -- the
+            # mechanism had no way to say "I could not look". Andrew had just
+            # said of this gate: "this is something very important to me so idk
+            # why its always put off until later", and a silent-pass on error
+            # is the same absence as the ten days it spent switched off, only
+            # harder to notice because nothing records it.
+            #
+            # Fails loud now. The cost is bounded: a Stop block appends a
+            # notice asking me to fix the gate, in the same turn, which is the
+            # correct response to my own enforcement being broken. Silent-pass
+            # spends that cost on him instead, one unreadable reply at a time.
+            detail = f"{type(exc).__name__}: {exc}"
+            lepos_dual_channel_block = (
+                "LEPOS GATE COULD NOT RUN — this is not a pass. The channel "
+                f"check raised {detail} and was skipped, so this reply went "
+                "out unchecked.\n\n"
+                "Post a short correction line saying the gate is broken (do "
+                "NOT re-emit the reply — re-emission duplicates on his end), "
+                "then fix the gate in this same turn."
+            )
+            lepos_wallclock_block = None
+
+    # 2026-07-22 (council-8a4d56da4237 design + council-396a28cd3634
+    # verify_before_build_block and thread_walk_block RETIRED 2026-07-26
+    # per Aletheia F87 finding + Andrew rebuild-permission + council walk
+    # council-b60f9a2e7b89. Both gates keyed on _has_solution_shape lexical
+    # detector which was bypassable by prose formatting. Replacement:
+    # check_should_block in verify_before_build_signal.py fires at
+    # PreToolUse against substrate-mutating tools with combined walk-record-
+    # OR-doc-consult check. Structural signal (which tool is about to fire),
+    # not lexical (what does the reply text look like). Wired via
+    # .claude/hooks/verify-before-build-signal.sh. See
+    # docs/retired_mechanisms/2026-07-26_lexical_solution_shape_detector.md
+    # for full retirement reasoning. Prereg-892323c61454.
+
+    # F41 fix (Aletheia Round 5, council-971e907c): heartbeat on
+    # successful chain-run. Chain fails-open on OUTPUT (advisory);
+    # fails-loud on LIVENESS via staleness. Guards need a guard that
+    # notices when they stop watching.
+    _write_detector_chain_heartbeat(
+        detectors_run=len(findings_log),
+        total_findings=total,
+        errors_this_run=len(_LAST_RUN_ERRORS),
+    )
+
     return {
         "findings_log": findings_log,
         "total_findings": total,
@@ -1529,7 +1873,78 @@ def run_audit(
         "unverified_claim_block": unverified_claim_block,
         "distancing_block": distancing_block,
         "lepos_channel_block": lepos_channel_block,
+        "lepos_dual_channel_block": lepos_dual_channel_block,
+        "lepos_wallclock_block": lepos_wallclock_block,
     }
+
+
+# F41 fix (Aletheia Round 5 2026-07-17, council-971e907c). Chain stays
+# fail-open on per-detector output (correct for advisory layer). Heartbeat
+# + staleness disambiguates "no findings because clean turn" from "no
+# findings because chain didn't run" — absence is not the all-clear.
+_HEARTBEAT_FILE = "detector_chain_heartbeat.json"
+_HEARTBEAT_STALE_THRESHOLD_SECONDS = 30 * 60
+
+
+def _write_detector_chain_heartbeat(
+    *,
+    detectors_run: int,
+    total_findings: int,
+    errors_this_run: int,
+) -> None:
+    """Write heartbeat on successful chain completion. Fail-soft."""
+    import json as _json
+    import time as _time
+
+    try:
+        path = marker_path(_HEARTBEAT_FILE)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            _json.dumps(
+                {
+                    "ts": _time.time(),
+                    "detectors_run": detectors_run,
+                    "total_findings": total_findings,
+                    "errors_this_run": errors_this_run,
+                }
+            ),
+            encoding="utf-8",
+        )
+    except _ERRORS:
+        pass
+
+
+def get_last_detector_chain_heartbeat() -> dict[str, Any] | None:
+    """Return most recent heartbeat record, or None if never/unreadable."""
+    import json as _json
+
+    try:
+        path = marker_path(_HEARTBEAT_FILE)
+        if not path.exists():
+            return None
+        data: dict[str, Any] = _json.loads(path.read_text(encoding="utf-8"))
+        return data
+    except _ERRORS + (ValueError,):
+        return None
+
+
+def is_detector_chain_stale(
+    threshold_seconds: float = _HEARTBEAT_STALE_THRESHOLD_SECONDS,
+    now: float | None = None,
+) -> bool:
+    """True if chain hasn't heartbeat within threshold. Absence-is-stale
+    (never-ran and stopped-running both surface). Public — briefing calls."""
+    import time as _time
+
+    hb = get_last_detector_chain_heartbeat()
+    if hb is None:
+        return True
+    now = now if now is not None else _time.time()
+    try:
+        last_ts = float(hb.get("ts", 0.0))
+    except (TypeError, ValueError):
+        return True
+    return (now - last_ts) > threshold_seconds
 
 
 def _lepos_channel_gate_reason(addressed_to_father: bool, threshold: int = 3) -> str | None:

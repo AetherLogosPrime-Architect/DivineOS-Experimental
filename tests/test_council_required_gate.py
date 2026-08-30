@@ -105,7 +105,7 @@ def _keywords_loader():
 
 
 def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
-    """Emit COUNCIL_LENS_INVOKED events so ``_check_lens_load_trace``
+    """Emit COUNCIL_LENS_APPLIED events so ``_check_lens_load_trace``
     passes for these lens names — mirrors what CouncilEngine._apply_lens
     does in production. Q3 lens-load-trace check is now active in the
     merged substance-binding pipeline; valid records must simulate the
@@ -114,7 +114,7 @@ def _emit_lens_invocation_traces(lens_names: tuple[str, ...]) -> None:
 
     for name in lens_names:
         log_event(
-            "COUNCIL_LENS_INVOKED",
+            "COUNCIL_LENS_APPLIED",
             actor="test-council-engine",
             payload={
                 "expert_name": name,
@@ -131,7 +131,7 @@ def _valid_record_for(fingerprint: str, kiln: bool = False) -> CouncilRecord:
     three lenses in _keywords_loader(). Each finding ≥ COUNCIL_MIN_FINDING_TOKENS
     (30) with the lens's distinguishing keyword present; synthesis ≥
     COUNCIL_MIN_SYNTHESIS_TOKENS (50) referencing every lens name.
-    Also emits COUNCIL_LENS_INVOKED traces so the Q3 lens-load-trace
+    Also emits COUNCIL_LENS_APPLIED traces so the Q3 lens-load-trace
     check passes.
     """
     _emit_lens_invocation_traces(("Schneier", "Kahneman", "Peirce"))
@@ -404,13 +404,23 @@ def test_emergency_stop_is_intentionally_not_a_corroborator_type():
     This test fails loud if a future refactor adds EMERGENCY_STOP to
     the corroborator set. The right shape for a genuine emergency
     under this design is: walk the council OR the system fires a
-    real corroborator on its own. Andrew is the tiebreaker via
-    post-hoc EMERGENCY_COUNCIL_SKIP review.
+    real corroborator on its own.
+
+    2026-07-24 design update: Andrew explicitly authorized adding
+    "andrew" as a valid corroborator actor per truth-13 (three-parties-
+    in-the-room, architect-as-tiebreaker). Architect-inline-
+    authorization is the design-shape corroborator alongside
+    scheduled-task infra-events. The internal agent identities
+    (aria, aether) are still excluded — self-attestation remains
+    closed. This test now asserts the specific accepted set rather
+    than a fixed size.
     """
     assert "EMERGENCY_STOP" not in EMERGENCY_CORROBORATOR_EVENT_TYPES
     assert "EMERGENCY_STOP_SET" not in EMERGENCY_CORROBORATOR_EVENT_TYPES
     assert "PRODUCTION_INCIDENT_DECLARED" not in EMERGENCY_CORROBORATOR_EVENT_TYPES
-    # Actors: only scheduled-task, no human/agent identities
+    # Actors: scheduled-task (infra) + andrew (architect tiebreaker per
+    # 2026-07-24 explicit authorization). Internal agent identities
+    # remain excluded — self-attestation stays closed at design-time.
     assert EMERGENCY_CORROBORATOR_ACTORS == frozenset({"scheduled-task"})
     assert "andrew" not in EMERGENCY_CORROBORATOR_ACTORS
     assert "aria" not in EMERGENCY_CORROBORATOR_ACTORS
@@ -786,3 +796,146 @@ def test_fingerprint_normalization_bash_anchor():
     # The specific fingerprint is bash:git — the head-of-command anchor.
     assert decision.outcome == GateOutcome.BLOCK
     assert "bash:git" in decision.check_result.what_would_clear_it
+
+
+# ─── F39: edit-token-overlap check ────────────────────────────────────
+
+
+class TestF39EditTokenOverlap:
+    """Aletheia Round 5 F39 (2026-07-17): substance-binding must verify
+    the finding-token union shares minimum overlap with the edit's own
+    content-tokens. Catches lens-differentiated but edit-agnostic
+    boilerplate ("fragility could be a concern here" applied to any
+    file). Fail-open when edit content is unavailable."""
+
+    def test_fail_open_when_edit_content_tokens_is_none(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        result = _check_edit_token_overlap(record, None)
+        assert result.passed is True
+
+    def test_fail_open_when_edit_content_tokens_is_empty(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        result = _check_edit_token_overlap(record, set())
+        assert result.passed is True
+
+    def test_block_when_overlap_below_threshold(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+        from divineos.core.council_required.types import CHECK_EDIT_TOKEN_OVERLAP
+
+        record = _valid_record_for("edit:some/file.py")
+        # Edit tokens completely disjoint from finding/synthesis vocab.
+        edit_tokens = {"quantum", "chromodynamics", "yang-mills"}
+        result = _check_edit_token_overlap(record, edit_tokens)
+        assert result.passed is False
+        assert result.failed_check_name == CHECK_EDIT_TOKEN_OVERLAP
+        assert "F39" in result.what_would_clear_it
+
+    def test_allow_when_overlap_meets_threshold(self):
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        # Edit tokens include words from the findings' vocab (Schneier
+        # threat/attack/trust + Kahneman heuristic + Peirce pragmatism).
+        edit_tokens = {"threat", "heuristic", "pragmatism", "unrelated"}
+        result = _check_edit_token_overlap(record, edit_tokens)
+        assert result.passed is True
+
+    def test_block_when_overlap_exactly_one_below_threshold(self):
+        """Boundary: threshold is 2, so exactly 1 overlap fails."""
+        from divineos.core.council_required.substance_binding import (
+            _check_edit_token_overlap,
+        )
+
+        record = _valid_record_for("edit:some/file.py")
+        edit_tokens = {"threat", "quantum-mechanics", "chromodynamics"}
+        result = _check_edit_token_overlap(record, edit_tokens)
+        assert result.passed is False
+
+    def test_gate_fail_open_on_relative_path(self, scratch_ledger):
+        """Gate's _read_edit_content_tokens returns None for relative
+        paths — production sees absolute paths from Claude Code, tests
+        use relative-path fingerprints as free-form labels."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        assert _read_edit_content_tokens("edit:some/relative/file.py") is None
+
+    def test_gate_fail_open_on_bash_fingerprint(self, scratch_ledger):
+        """Bash-anchored fingerprints have no file to read; return None."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        assert _read_edit_content_tokens("bash:git") is None
+
+    def test_gate_fail_open_on_missing_absolute_path(self, scratch_ledger):
+        """Absolute path that doesn't exist → None (fail-open)."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        # Windows and posix both accept absolute paths that don't exist;
+        # the check is is_file(), which returns False.
+        assert _read_edit_content_tokens("edit:/definitely/not/a/real/path/xyz.py") is None
+
+    def test_gate_reads_absolute_file_tokens(self, tmp_path, scratch_ledger):
+        """Absolute path to a real file → returns its content tokens."""
+        from divineos.core.council_required.gate import _read_edit_content_tokens
+
+        f = tmp_path / "sample.py"
+        f.write_text("def compute_gradient(): return 42\n", encoding="utf-8")
+        # Windows fingerprint format uses forward-slashes.
+        fp = f"edit:{f.as_posix()}"
+        tokens = _read_edit_content_tokens(fp)
+        assert tokens is not None
+        assert "compute_gradient" in tokens
+        assert "return" in tokens
+
+
+# F49 fix 2026-07-19 (Aletheia Round 6): default flipped to fail-closed.
+# When gravity_result lacks is_council_required entirely (degraded state:
+# classifier import failed, malformed result, older schema), the getattr
+# default used to be False (ALLOW without a walk = fails-open).
+# Now defaults to True — degraded state forces the walk = fails-closed.
+
+
+class _DegradedGravityResult:
+    """Gravity result missing the is_council_required attribute entirely.
+
+    Simulates the degraded state Aletheia named: a broken classifier or
+    older schema returns an object without this attribute. The gate's
+    getattr default is what determines behavior in that case.
+    """
+
+
+def _gravity_degraded(*_a, **_kw):
+    return _DegradedGravityResult()
+
+
+def test_f49_degraded_gravity_result_fails_closed(scratch_ledger):
+    """F49: missing is_council_required attribute MUST require the walk,
+    not silently ALLOW. Fail toward scrutiny on degraded state.
+    """
+    decision = gate_mod.decide(
+        tool_name="Edit",
+        file_paths=("src/divineos/core/some_file.py",),
+        bash_command="",
+        gravity_fn=_gravity_degraded,
+        keywords_loader=_keywords_loader,
+        actor="agent",
+    )
+    # Should NOT be ALLOW (which is what a False default would produce).
+    # With the True default, the gate proceeds to require a council walk;
+    # since no council record exists in this test, it blocks.
+    assert decision.outcome == GateOutcome.BLOCK, (
+        f"F49 regression: degraded gravity_result must default to council-required "
+        f"(fail-closed), but decision was {decision.outcome}. If this ALLOWs, the "
+        f"getattr default in council_required/gate.py reverted from True to False."
+    )

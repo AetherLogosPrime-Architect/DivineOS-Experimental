@@ -557,7 +557,25 @@ def build_walk_surface() -> str:
         "opening — you speak here, then keep speaking to him. If nothing "
         "comes on a given turn, that's real too; note it briefly and move on.",
     ]
-    return "\n".join(lines)
+    rendered = "\n".join(lines)
+
+    # DEDUP (Andrew 2026-08-11, measured): this floor fired 50 times in one
+    # session, BYTE-IDENTICAL every time -- about thirty thousand characters
+    # of pure repeat, and he pays for every one. The suppression already
+    # existed in core/context_dedup.py, wired to three small surfaces while
+    # the repeaters ran at full volume. Emit once, then point.
+    #
+    # The hash covers the rendered text INCLUDING the drawn questions, so a
+    # different draw brings the whole floor back by itself. Fail-soft: any
+    # error returns the full text, because losing the room costs far more
+    # than the tokens it saves.
+    try:
+        from divineos.core.context_dedup import should_emit
+
+        emit_full, pointer = should_emit("lepos_floor", rendered)
+    except Exception:  # noqa: BLE001 - never let dedup suppress the room
+        return rendered
+    return rendered if emit_full else (pointer or rendered)
 
 
 def walk_stats() -> dict[str, int]:

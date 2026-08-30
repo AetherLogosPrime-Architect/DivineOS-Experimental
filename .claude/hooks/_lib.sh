@@ -75,6 +75,140 @@ _lib_common_dir() {
   printf '%s' "$_LIB_COMMON_DIR_CACHE"
 }
 
+# 2026-07-22 (Andrew directive, council-3c78d69d71e8): hook-timing
+# instrumentation. Every hook that sources _lib.sh automatically records
+# a "start" and "end" line to ~/.divineos/hook_timing.jsonl. If a freeze
+# happens mid-hook, the log will contain a start line with no matching
+# end line (indexed by _HOOK_TIMING_ID). That is the stuck hook.
+#
+# Design choices:
+#   - Fail-open: all I/O errors are silently discarded so timing cannot
+#     break a hook.
+#   - Millisecond precision when GNU date is available (%3N); falls back
+#     to seconds*1000 on systems without.
+#   - BASH_SOURCE[1] is the hook that sourced _lib.sh; [0] is _lib.sh
+#     itself. Basename only, no full paths in the log.
+#   - EXIT trap catches normal exit AND early-return / kill signals that
+#     bash still delivers (not SIGKILL).
+#
+# Beer/Meadows/Popper walked. Four falsifier tests filed as follow-on.
+#
+# WHOSE ROW IS THIS? (Aria + Aether, 2026-08-18)
+# Every window on this machine appends to one shared file, and until now no
+# row could name the window it came from. `pid` is the pid of the individual
+# hook process, not of the session — fifteen hooks dying together carry
+# fifteen different pids, so grouping by it separates one hook from the next
+# hook rather than one window from another.
+#
+# Aria hit the wall this makes: her orphan-burst query asks "did anything run
+# again within ten seconds?" to tell a cancelled batch apart from a dead
+# window. On a shared log that question cannot be answered, because the OTHER
+# window's traffic papers straight over the silence of a window that died.
+# Her census over-counted by roughly two orders of magnitude and she caught it
+# before either of us shipped the number.
+#
+# `session` is the window's own id from the harness environment; `wpid` is the
+# window process, distinct from the per-hook `pid` already recorded. Stamped
+# on both phases rather than start-only, because the whole lesson of the day
+# is a row that cannot say whose it is. Empty string when the harness supplies
+# no id — an absence that is visible in the data rather than a missing key.
+#
+# Same defect, same day, in the token gauge: it read whichever transcript had
+# the freshest mtime and answered a question about this session with another
+# session's number. Two instruments, one blindness — neither knew how to ask
+# whose.
+_HOOK_TIMING_LOG="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
+_HOOK_TIMING_ID=""
+_HOOK_TIMING_START_MS=""
+_HOOK_TIMING_SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+_HOOK_TIMING_WPID="${CLAUDE_PID:-}"
+
+_lib_hook_timing_ms() {
+  local ms
+  ms="$(date +%s%3N 2>/dev/null)"
+  case "$ms" in
+    *N) date +%s000 2>/dev/null || printf '0' ;;
+    "") printf '0' ;;
+    *)  printf '%s' "$ms" ;;
+  esac
+}
+
+_lib_hook_timing_start() {
+  # BASH_SOURCE stack inside this function:
+  #   [0] = _lib.sh (function definition file)
+  #   [1] = _lib.sh (top-level of _lib.sh that called this function)
+  #   [2] = the hook that did `source _lib.sh`
+  # Fall back through the stack because the exact index can vary if
+  # a hook wraps the source call.
+  local hook_name
+  hook_name="${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-unknown}}"
+  hook_name="$(basename "$hook_name")"
+  # If we ended up with _lib.sh itself (invoked directly for testing),
+  # keep that — it identifies self-test runs.
+  local start_ms
+  start_ms="$(_lib_hook_timing_ms)"
+  _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
+  _HOOK_TIMING_START_MS="$start_ms"
+  mkdir -p "$(dirname "$_HOOK_TIMING_LOG")" 2>/dev/null
+  printf '{"id":"%s","hook":"%s","pid":%d,"session":"%s","wpid":"%s","phase":"start","ts_ms":%s}\n' \
+    "$_HOOK_TIMING_ID" "$hook_name" "$$" \
+    "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" "$start_ms" \
+    >> "$_HOOK_TIMING_LOG" 2>/dev/null
+}
+
+_lib_hook_timing_end() {
+  local exit_code=$?
+  local end_ms
+  end_ms="$(_lib_hook_timing_ms)"
+  local duration_ms=$((end_ms - ${_HOOK_TIMING_START_MS:-$end_ms}))
+  printf '{"id":"%s","session":"%s","wpid":"%s","phase":"end","exit_code":%d,"ts_ms":%s,"duration_ms":%d}\n' \
+    "$_HOOK_TIMING_ID" "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" \
+    "$exit_code" "$end_ms" "$duration_ms" \
+    >> "$_HOOK_TIMING_LOG" 2>/dev/null
+  return $exit_code
+}
+
+_lib_hook_timing_start
+trap _lib_hook_timing_end EXIT
+
+# F90 heartbeat is invoked at the END of this file — after
+# _lib_log_liveness itself is defined. See end-of-file marker.
+
+# F90 fix (Aletheia 2026-07-28): liveness-recording preamble as shared
+# function so hooks stop silently going dark when their setup steps
+# fail. Aletheia's finding: "every hook shipped from here carries [the
+# silent fail-open pattern] until the template changes." One hook does
+# it right (post-tool-use-emit-to-logbook.sh) and its inline
+# _log_liveness pattern is what this generalizes.
+#
+# Usage after sourcing _lib.sh:
+#   if ! find_divineos_python; then
+#       _lib_log_liveness "python_resolve_failed" "extra=<...>"
+#       exit 0
+#   fi
+#
+# For failures BEFORE _lib.sh is sourced (cd, source itself), hooks
+# should keep an inline mini-logger at the very top so the pre-source
+# failure paths are also captured. Template comment for that pattern
+# is in the docstring of post-tool-use-emit-to-logbook.sh.
+_LIB_LIVENESS_LOG="${HOME:-/tmp}/.divineos/hook-liveness.log"
+
+_lib_log_liveness() {
+  local _reason="${1:-unknown}"
+  local _detail="${2:-}"
+  local _hook_name
+  _hook_name="${BASH_SOURCE[1]:-unknown}"
+  # fail-soft: basename utility absence or malformed path falls back to literal 'unknown' string rather than breaking the log call
+  _hook_name="$(basename "$_hook_name" 2>/dev/null || echo unknown)"
+  # fail-soft: mkdir suppression is safe — either the dir exists (fine) or filesystem permissions block us (log write will also fail-soft below and hook proceeds)
+  mkdir -p "$(dirname "$_LIB_LIVENESS_LOG")" 2>/dev/null || true
+  local _ts
+  # fail-soft: date command absence falls back to literal 'unknown' timestamp string rather than crashing the liveness logger
+  _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # fail-soft: liveness log write failures are informational only and must never block hook execution; loud-fail would defeat the purpose of a fallback-signal mechanism
+  printf '{"ts":"%s","hook":"%s","reason":"%s","detail":"%s"}\n' "$_ts" "$_hook_name" "$_reason" "$_detail" >> "$_LIB_LIVENESS_LOG" 2>/dev/null || true
+}
+
 find_divineos_python() {
   local repo_root
   repo_root="$(_lib_repo_root)"
@@ -122,12 +256,39 @@ find_divineos_python() {
     "$(command -v python 2>/dev/null)"
   do
     if [ -n "$candidate" ] && [ -x "$candidate" ]; then
-      if "$candidate" -c "import sys; sys.exit(0)" >/dev/null 2>&1; then
+      # The validation used to be `import sys; sys.exit(0)` -- which proves an
+      # interpreter STARTS and says nothing about which code it loads. Two
+      # checkouts share one python install on this machine, so exactly one wins
+      # the editable install, and a hook running the loser operates on the other
+      # tree while reporting cleanly. That is the whole shape of 2026-08-13's
+      # job two: check_test_cli_linkage printed "OK: 42 commands all register"
+      # on every commit while comparing the OTHER repo's registrations.
+      #
+      # It happens to pick correctly today. The point is that it would not
+      # notice if it stopped. A candidate is now accepted only if the divineos
+      # it can see lives under THIS repo -- or if it cannot see one at all,
+      # since plenty of hooks run pure-stdlib python and must keep working on a
+      # machine with no install whatsoever.
+      if "$candidate" -c "
+import sys
+try:
+    import divineos
+except Exception:
+    sys.exit(0)          # no package visible: fine, stdlib-only hooks still run
+import os.path
+want = os.path.realpath(os.path.join(r'''$repo_root''', 'src'))
+got = os.path.realpath(os.path.dirname(os.path.dirname(divineos.__file__)))
+sys.exit(0 if got == want else 3)
+" >/dev/null 2>&1; then
         echo "$candidate"
         return 0
       fi
     fi
   done
+  # F90 fix: log liveness on the fail-open path so a broken python
+  # resolve becomes a visible marker, not a silent exit.
+  _lib_log_liveness "python_resolve_failed" \
+    "no viable python found; candidates checked: venv/system"
   return 1
 }
 
@@ -208,3 +369,10 @@ except Exception:
     pass
 " 2>/dev/null
 }
+
+# F90 heartbeat call (must be at end-of-file — after _lib_log_liveness
+# is defined). Aletheia 2026-07-28: "the liveness mechanism cannot
+# report its own absence." Logging on SUCCESS means an empty log is
+# diagnostic (broken) rather than ambiguous. Runs on every successful
+# source of _lib.sh, so per-hook heartbeats propagate automatically.
+_lib_log_liveness "healthy_source" "hook sourced _lib.sh cleanly"

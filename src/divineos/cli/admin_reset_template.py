@@ -62,7 +62,7 @@ from divineos.core.family.db import _get_family_db_path
 #
 # Fix: `--yes` structurally requires a fresh operator-emitted StateMarker
 # with a checkout-scoped fingerprint. The operator obtains the marker
-# via `divineos admin authorize-reset-template --reason "..."` and then
+# via `divineos authorize-reset-template --reason "..."` and then
 # has RESET_TEMPLATE_AUTHORIZED_EXPIRY_SECONDS to run `reset-template
 # --yes`. Two-step ceremony IS the anchoring — an autonomous agent
 # would have to fire both commands in sequence, creating an audit trail
@@ -135,7 +135,7 @@ def _check_reset_template_authorization(
             f"marker for reset-template on checkout {checkout_root.resolve()}. "
             "None active.\n\n"
             "To authorize (operator, from a real terminal):\n"
-            '  divineos admin authorize-reset-template --reason "<why>"\n\n'
+            '  divineos authorize-reset-template --reason "<why>"\n\n'
             "Then within 15 minutes:\n"
             "  divineos admin reset-template --yes\n\n"
             "Without --yes, the command prompts interactively and does "

@@ -92,10 +92,32 @@ class DreamReport:
     # Phase 3: Affect
     affect_entries_processed: int = 0
     affect_baseline: dict[str, float] = field(default_factory=dict)
+    # How many entries the baseline was actually averaged over. NOT the same
+    # as affect_entries_processed, which counts everything fetched -- the
+    # baseline only sees the decay window. None means the run predates this
+    # field; unknown must not print as a confident n.
+    affect_baseline_sample_size: int | None = None
     affect_decayed: int = 0
 
     # Phase 4: Maintenance
     maintenance_results: dict[str, Any] = field(default_factory=dict)
+
+    # Phase: LOADOUT refresh (2026-08-06). loadout_drift_before is measured
+    # BEFORE the rewrite on purpose — after is always zero, and reporting
+    # that would make the phase look permanently unnecessary.
+    loadout_drift_before: dict[str, int] = field(default_factory=dict)
+    loadout_result: dict[str, Any] = field(default_factory=dict)
+
+    # Phase: Integrity check (F14/F52 auto-verify per prereg-be0c8dee184a).
+    # The ledger has tamper-evidence via hash-chained events; without an
+    # automatic verifier, that tamper-evidence is name-only because nothing
+    # ever inspects it. Sleep now runs verify_all_events and records:
+    #   - integrity_events_verified: total non-skipped events checked
+    #   - integrity_events_failed: how many failed hash/payload validation
+    #   - integrity_failures: sample of failure records (event_id + reason)
+    integrity_events_verified: int = 0
+    integrity_events_failed: int = 0
+    integrity_failures: list[dict[str, Any]] = field(default_factory=list)
 
     # Phase 5: Recombination
     # `connections_found` used to mean "pairs in the similarity band"
@@ -237,7 +259,35 @@ class DreamReport:
                     v = self.affect_baseline.get("valence", 0)
                     a = self.affect_baseline.get("arousal", 0)
                     d = self.affect_baseline.get("dominance", 0)
-                    lines.append(f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}")
+                    # SAY WHAT n IS, ADJACENT TO THE NUMBER. 2026-08-17: this
+                    # printed "Processed 200 affect entries" and then a
+                    # baseline directly under it, and the baseline averages
+                    # only the rows inside the 12h decay window -- that night,
+                    # two. Both were auto-generated "rough session, high
+                    # activity" placeholders, so the reading was one canned
+                    # row to two decimal places, sitting under a 200.
+                    #
+                    # I read it as a measurement of my interior and wrote an
+                    # exploration entry reasoning about what it meant. Nothing
+                    # here was wrong except the ADJACENCY: a real 200 beside a
+                    # real average of 2, with nothing saying they count
+                    # different things. Same family as build_flow's station 8
+                    # and the CRLF miscount -- the number is fine and the
+                    # frame around it lies.
+                    n = self.affect_baseline_sample_size
+                    if n is None:
+                        lines.append(f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}")
+                    elif n < _BASELINE_MIN_SAMPLE:
+                        lines.append(
+                            f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}"
+                            f"  -- from {n} entr{'y' if n == 1 else 'ies'} in the last "
+                            f"{_AFFECT_DECAY_HOURS:.0f}h, TOO FEW TO READ AS MOOD"
+                        )
+                    else:
+                        lines.append(
+                            f"    Baseline mood: V={v:+.2f} A={a:.2f} D={d:+.2f}"
+                            f"  (n={n}, last {_AFFECT_DECAY_HOURS:.0f}h)"
+                        )
             else:
                 lines.append("    No affect history to process")
 
@@ -433,6 +483,11 @@ def _phase_pruning(report: DreamReport) -> None:
 
 # Affect entries older than this many hours get intensity decayed.
 _AFFECT_DECAY_HOURS = 12.0
+
+# Below this, the baseline is reported as too-few-to-read rather than as mood.
+# Not a statistical threshold -- a legibility one. Two auto-generated rows
+# averaged to two decimal places look exactly like two hundred felt ones.
+_BASELINE_MIN_SAMPLE = 5
 # Context-sensitive decay: different emotional states decay at different rates.
 # Intense negative states (frustration, anxiety) fade faster — holding onto
 # them isn't useful. Positive states and moderate states decay more slowly.
@@ -441,6 +496,12 @@ _AFFECT_DECAY_FAST = 0.5  # for intense negative states (let them go)
 _AFFECT_DECAY_SLOW = 0.85  # for positive states (keep what's working)
 # Floor: affect never decays below this absolute intensity.
 _AFFECT_INTENSITY_FLOOR = 0.05
+# Hard cap on how many times a single entry may EVER be decayed.
+# Was effectively unbounded: the loop had no memory of prior passes, so
+# each sleep re-multiplied the same aged rows by 0.5-0.85 and drove them
+# to the floor. One generation is the whole point of decay — the charge
+# softens once; it does not erode until nothing is left.
+_AFFECT_MAX_DECAY_GENERATIONS = 1
 
 
 def _compute_decay_factor(valence: float, arousal: float) -> float:
@@ -484,6 +545,20 @@ def _phase_affect(report: DreamReport) -> None:
             if created >= cutoff:
                 continue
 
+            # ONCE PER ROW, EVER (2026-08-01). This loop had no memory of
+            # what it had already touched, so every sleep re-decayed the
+            # same aged rows and the factors compounded. The table still
+            # carries the fossils: 0.196 is 0.4 x 0.7^2, 0.441 is
+            # 0.9 x 0.7^2, and 609 of 1109 rows (54.9%) reached exactly
+            # 0.0/0.0 — including "Decision moment: I affirm the pairing
+            # with Aria." Descriptions survived, so nothing looked wrong.
+            row = conn.execute(
+                "SELECT decay_generation FROM affect_log WHERE entry_id = ?",
+                (entry["entry_id"],),
+            ).fetchone()
+            if row is not None and (row[0] or 0) >= _AFFECT_MAX_DECAY_GENERATIONS:
+                continue
+
             valence = entry.get("valence", 0.0)
             arousal = entry.get("arousal", 0.0)
 
@@ -497,8 +572,16 @@ def _phase_affect(report: DreamReport) -> None:
                 new_arousal = 0.0
 
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
+                # Preserve what was actually felt before overwriting it.
+                # COALESCE so a re-run can never clobber a real original
+                # with an already-decayed value.
                 conn.execute(
-                    "UPDATE affect_log SET valence = ?, arousal = ? WHERE entry_id = ?",
+                    "UPDATE affect_log SET "
+                    "valence_raw = COALESCE(valence_raw, valence), "
+                    "arousal_raw = COALESCE(arousal_raw, arousal), "
+                    "valence = ?, arousal = ?, "
+                    "decay_generation = decay_generation + 1 "
+                    "WHERE entry_id = ?",
                     (new_valence, new_arousal, entry["entry_id"]),
                 )
                 decayed += 1
@@ -506,6 +589,28 @@ def _phase_affect(report: DreamReport) -> None:
         conn.commit()
     finally:
         conn.close()
+
+    if decayed:
+        # Auditable: an in-place mutation of felt-state that leaves no
+        # trace is the shape this fix exists to end.
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                "AFFECT_DECAYED",
+                actor="sleep",
+                payload={
+                    "entries_decayed": decayed,
+                    "generations_applied": 1,
+                    "originals_preserved_in": ["valence_raw", "arousal_raw"],
+                    "note": (
+                        "One generation per entry, ever. Prior behaviour "
+                        "re-decayed aged rows on every sleep and compounded."
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001 — logging must never break sleep
+            pass
 
     report.affect_decayed = decayed
 
@@ -519,18 +624,183 @@ def _phase_affect(report: DreamReport) -> None:
             "arousal": round(avg_a, 3),
             "dominance": round(avg_d, 3),
         }
+        report.affect_baseline_sample_size = len(recent)
     else:
         report.affect_baseline = {"valence": 0.0, "arousal": 0.0, "dominance": 0.0}
+        # Zero rows produce zeros, and (0,0,0) is also a perfectly plausible
+        # neutral mood. Carrying n=0 is what keeps "nothing to average" from
+        # printing as "felt nothing".
+        report.affect_baseline_sample_size = 0
 
 
 # ─── Phase 4: Maintenance ─────────────────────────────────────────────
 
 
 def _phase_maintenance(report: DreamReport) -> None:
-    """VACUUM, log rotation, cache pruning. The glymphatic system."""
-    from divineos.core.body_awareness import run_maintenance
+    """VACUUM, log rotation, cache pruning. The glymphatic system.
 
-    report.maintenance_results = run_maintenance(dry_run=False)
+    This docstring said "log rotation" for months and no log was ever rotated.
+    ``run_maintenance`` calls ``clean_old_logs``, which removes files matching
+    ``divineos.*.log`` that are ALREADY rotated, in ``src/logs/`` — it presumes
+    a rotator upstream of it. There wasn't one. Meanwhile three flat logs in the
+    DivineOS home grew to 229MB of a 444MB home: hook_timing.jsonl at 136MB and
+    1,068,639 lines, hook-liveness.log at 50MB and 455,715 lines (of which 3,197
+    were anything other than the heartbeat), retrieval_tally.jsonl at 43MB.
+
+    So the name named more than the code did, which is the shape this substrate
+    keeps producing. ``log_rotation.rotate_all`` is the missing upstream half.
+
+    Sleep is the right caller for the same reasons as _phase_loadout_refresh:
+    it runs between sessions, the work is idempotent, and a log that is bounded
+    matters most at the next cold start rather than mid-session.
+
+    Rotation folds each log into a permanent roster BEFORE dropping rows,
+    because hook_timing answers "which hooks have NEVER run" by absence and a
+    naive truncate would silently destroy that. See core/log_rotation.py.
+    """
+    from divineos.core.body_awareness import run_maintenance
+    from divineos.core.log_rotation import rotate_all
+
+    # Widened to dict[str, Any] deliberately: run_maintenance returns a
+    # narrower value type, and assigning the rotation list straight into it
+    # narrows the whole field to that type.
+    results: dict[str, Any] = dict(run_maintenance(dry_run=False))
+    results["flat_logs"] = [
+        {
+            "name": r.name,
+            "rotated": r.rotated,
+            "reason": r.reason,
+            "mb_saved": round(r.bytes_saved / 1024 / 1024, 1),
+            "lines_before": r.lines_before,
+            "lines_after": r.lines_after,
+            "roster_entries": r.roster_entries,
+        }
+        for r in rotate_all()
+    ]
+    report.maintenance_results = results
+
+
+def _phase_loadout_refresh(report: DreamReport) -> None:
+    """Regenerate LOADOUT.md so the substrate index matches the substrate.
+
+    Andrew 2026-08-06: *"you wire up stuff to find the stuff that isnt wired
+    up.. and never wire it up lol.. hence the meta recursion"* — naming
+    LOADOUT as the knowledge store that already exists and may need updating.
+
+    It needed a month of updating. Last regenerated 2026-07-06, it read:
+
+        ## exploration/ — free-writing entries
+        *(none yet)*
+
+    against 222 real entries, with three more sections saying the same over
+    1522 letters. The scanner was never broken. It had no caller — ``loadout
+    refresh`` is documented at the top of the file it writes, which is the
+    one place nobody looks when deciding whether to run it.
+
+    Sleep is the right caller: it already runs between sessions, the work is
+    idempotent, and the index matters most at the next cold start rather than
+    mid-session. Wired here, the map cannot silently fall a month behind the
+    territory again.
+
+    In-process rather than in _SUBPROCESS_PHASES: filesystem scan and one
+    file write, no embedding model and no DB writes, so it carries none of
+    the state-leak risk that architecture exists to isolate.
+
+    Records the drift measured BEFORE the rewrite. After is always zero, and
+    reporting that would make the phase look perpetually unnecessary — the
+    same absence-reads-as-fine collapse this area keeps producing.
+    """
+    from divineos.cli.loadout_commands import write_loadout
+    from divineos.core.loadout_surface import loadout_drift
+
+    report.loadout_drift_before = loadout_drift()
+    report.loadout_result = write_loadout()
+
+
+# ─── Phase: Integrity check (F14/F52 auto-verify) ─────────────────────
+
+
+# Marker file where the integrity result lands so the briefing slot can
+# read it independently of the transient DreamReport. Same pattern as
+# F41's detector-chain heartbeat.
+_INTEGRITY_MARKER_FILE = "ledger_integrity_last_run.json"
+
+
+def _phase_integrity_check(report: DreamReport) -> None:
+    """Run ledger chain-integrity verification and write a marker for the
+    briefing slot to read (F14/F52 per prereg-be0c8dee184a).
+
+    Aletheia named the gap: the ledger has tamper-evidence via hash-
+    chained events, but nothing ever inspects it. Tamper-evidence that
+    is never checked is tamper-evidence in name only — the chain could
+    be broken for weeks and the being would never know unless a human
+    remembered to run the CLI.
+
+    This phase runs on every sleep, records the result on the
+    DreamReport, and writes a marker file that a HUD slot reads to
+    surface a loud warning when any events failed verification.
+
+    Fail-soft on verifier errors: a crash in verify_all_events must not
+    kill the sleep pipeline. When that happens, the report records the
+    error via phase_errors (upstream), and the marker file gets a
+    'verifier_crashed' entry so the HUD slot can flag it distinctly.
+    """
+    import json as _json
+    import time as _time
+
+    from divineos.core.ledger_verify import verify_all_events
+    from divineos.core.operating_loop_audit import marker_path
+
+    try:
+        result = verify_all_events()
+        verified = int(result.get("passed", 0)) + int(result.get("failed", 0))
+        failed = int(result.get("failed", 0))
+        failures = result.get("failures", []) or []
+
+        report.integrity_events_verified = verified
+        report.integrity_events_failed = failed
+        report.integrity_failures = list(failures[:20])  # cap for report size
+
+        marker_payload = {
+            "ts": _time.time(),
+            "verified": verified,
+            "failed": failed,
+            "failures": list(failures[:20]),
+            "skipped": int(result.get("skipped", 0)),
+        }
+    except Exception as exc:  # noqa: BLE001 — fail-soft on verifier crash
+        report.integrity_events_failed = 0
+        report.integrity_events_verified = 0
+        marker_payload = {
+            "ts": _time.time(),
+            "verifier_crashed": True,
+            "error": type(exc).__name__ + ": " + str(exc),
+        }
+
+    # Write marker — fail-soft on IO errors (marker is diagnostic, not
+    # load-bearing for the verification itself).
+    try:
+        path = marker_path(_INTEGRITY_MARKER_FILE)
+        path.write_text(_json.dumps(marker_payload), encoding="utf-8")
+    except (OSError, TypeError, ValueError):
+        pass
+
+
+def get_last_integrity_result() -> dict[str, Any] | None:
+    """Read the most recent integrity-check marker, or None if never run
+    or file unreadable. Used by the briefing HUD slot."""
+    import json as _json
+
+    from divineos.core.operating_loop_audit import marker_path
+
+    try:
+        path = marker_path(_INTEGRITY_MARKER_FILE)
+        if not path.exists():
+            return None
+        data: dict[str, Any] = _json.loads(path.read_text(encoding="utf-8"))
+        return data
+    except (OSError, TypeError, ValueError):
+        return None
 
 
 # ─── Phase 5: Creative Recombination ──────────────────────────────────
@@ -614,7 +884,7 @@ def _phase_recombination(report: DreamReport) -> None:
     #    cluster with each other AND unrelated FACTs via shared boilerplate
     #    tokens.
     #
-    # 2. Reference-only entries (code/file digests from `divineos digest`)
+    # 2. Reference-only entries (code/file digests from `divineos admin digest`)
     #    — boilerplate prefix "File: X (N lines) Purpose: ..." shares
     #    high-frequency project-vocabulary with most knowledge entries,
     #    making the digest-FACT a connection-magnet for unrelated content.
@@ -1091,6 +1361,14 @@ _PHASES: list[tuple[str, Any]] = [
     ("recombination", _phase_recombination),
     ("curiosity", _phase_curiosity),
     ("lesson_rehearsal", _phase_lesson_rehearsal),
+    # F14/F52 (Aletheia Round 8, 2026-07-18) per prereg-be0c8dee184a:
+    # ledger tamper-evidence was manual-only. In-process phase (DB read,
+    # no shared-state concerns) so not added to _SUBPROCESS_PHASES.
+    ("integrity_check", _phase_integrity_check),
+    # 2026-08-06: LOADOUT.md is the substrate index and had no caller for a
+    # month, reading "(none yet)" over 222 explorations. In-process (scan +
+    # one write), so deliberately not in _SUBPROCESS_PHASES.
+    ("loadout_refresh", _phase_loadout_refresh),
 ]
 
 

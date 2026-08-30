@@ -233,7 +233,7 @@ class TestPhaseConsolidation:
                     context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
                     tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
                     session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
-                    almost TEXT DEFAULT '')"""
+                    almost TEXT DEFAULT '', synergy TEXT DEFAULT '')"""
             )
             for sid in ("s6", "s7", "s8"):
                 ledger_conn.execute(

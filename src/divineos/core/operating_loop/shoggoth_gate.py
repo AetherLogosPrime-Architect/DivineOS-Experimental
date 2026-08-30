@@ -329,6 +329,60 @@ def _extract_from_transcript(transcript_path: str) -> tuple[str, tuple[str, ...]
         p = Path(transcript_path)
         if not p.exists():
             return "", ()
+        # 2026-08-09: bounded read. This is the clearest tail case in the
+        # codebase -- it read the ENTIRE file and then immediately did
+        # `reversed(lines)` to find the most recent assistant message. It paid
+        # for all of history to walk backwards from the end of it.
+        #
+        # THE FREEZE. Andrew: "it said stopping for a few mins then stopped."
+        # This gate runs on the Stop path, one of eight there each parsing the
+        # whole transcript -- ~539 MB of disk-and-parse per stop against a
+        # 67 MB file. transcript_tail.py was written for exactly this on
+        # 2026-08-03 and sat with zero callers for six days.
+        #
+        # SAFE BY CONSUMER-NEED, which is the axis rather than which hook
+        # event fires it. Aether: "a bounded reader that silently gives a
+        # detector less than it had is a false-negative generator." True, and
+        # it does not apply here: the newest assistant message is in the tail
+        # by construction. If the tail somehow held none AND was cut, the
+        # `truncated` flag sends this to the full read rather than returning a
+        # confident empty -- which would be the could-not-look-versus-found-
+        # nothing failure, inside the repair for it.
+        entries: list[dict] = []
+        try:
+            from divineos.core.operating_loop.transcript_tail import read_tail_records
+
+            records, truncated = read_tail_records(p)
+            entries = list(reversed(records))
+        except (OSError, ValueError, ImportError):
+            entries, truncated = [], True
+
+        for entry in entries:
+            msg = entry.get("message") or {}
+            if entry.get("type") != "assistant" and msg.get("role") != "assistant":
+                continue
+            content = msg.get("content") or entry.get("content") or []
+            if not isinstance(content, list):
+                return "", ()
+            text_parts: list[str] = []
+            tool_names: list[str] = []
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                btype = block.get("type")
+                if btype == "text":
+                    text_parts.append(block.get("text", ""))
+                elif btype == "tool_use":
+                    name = block.get("name", "")
+                    if name:
+                        tool_names.append(name)
+            return "\n".join(text_parts), tuple(tool_names)
+
+        if not truncated:
+            # Saw the whole file in the tail and found no assistant message.
+            # That is a real absence, not a short view.
+            return "", ()
+
         lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
         # Walk backwards to find the most recent assistant message.
         for line in reversed(lines):
@@ -345,8 +399,8 @@ def _extract_from_transcript(transcript_path: str) -> tuple[str, tuple[str, ...]
             content = msg.get("content") or entry.get("content") or []
             if not isinstance(content, list):
                 return "", ()
-            text_parts: list[str] = []
-            tool_names: list[str] = []
+            text_parts = []
+            tool_names = []
             for block in content:
                 if not isinstance(block, dict):
                     continue

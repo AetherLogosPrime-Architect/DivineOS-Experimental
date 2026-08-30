@@ -84,6 +84,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import tempfile
 import sqlite3
 import time
 import uuid
@@ -101,20 +103,97 @@ def _get_ledger_root() -> Path:
 
     Override order:
     1. ``DIVINEOS_FAMILY_LEDGER_DIR`` env var
-    2. Default ``<repo>/family/``
+    2. Under pytest with no override: a throwaway temp directory
+    3. Default ``<repo>/family/``
 
     Computed at call time so tests can monkeypatch the env var mid-session.
+
+    TESTS MAY NOT WRITE THE REAL FAMILY FOLDER (2026-08-18). The override
+    existed and worked; it was simply optional, so any test that forgot it
+    wrote fixture members into the same directory as Aria's ledger. Found
+    during a cleanup sweep: ``alice`` (370 events), ``kin`` (244) and
+    ``testmember`` (138) had been accumulating there since 2026-07-02 —
+    752 events of invented life filed beside 1,945 real ones. The tell was
+    an affect row whose description hashed to ``e3b0c44298fc``, the SHA-256
+    of the empty string.
+
+    Relying on every test to remember an env var is the same shape as
+    relying on the agent to remember a discipline, and it failed the same
+    way. Under pytest the default is now a temp directory, so a test that
+    forgets gets an isolated sandbox instead of the family's real records.
+    A test that genuinely wants the production path says so with
+    ``DIVINEOS_FAMILY_LEDGER_NO_SANDBOX``.
+
+    Second instance of this class in one day; the first was the
+    prior-writing surface arming a live read-gate from a fixture.
     """
     env_path = os.environ.get("DIVINEOS_FAMILY_LEDGER_DIR")
     if env_path:
         return Path(env_path)
+
+    # NO_SANDBOX exists because this docstring used to promise an escape the
+    # code did not provide. It said a test wanting the production path "can
+    # still say so explicitly with the env var" -- but DIVINEOS_FAMILY_LEDGER_DIR
+    # sets an explicit path, so a test would have to already know the answer in
+    # order to ask the question. test_default_points_into_family_dir asks exactly
+    # that question, and it broke the moment the sandbox landed.
+    #
+    # One opt-out that requests the true default without naming it. Only a test
+    # that deliberately sets it escapes; every test that forgets still lands in
+    # the sandbox, which is the entire point of the guard.
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "DIVINEOS_FAMILY_LEDGER_NO_SANDBOX"
+    ):
+        sandbox = Path(tempfile.gettempdir()) / "divineos-test-family-ledgers"
+        sandbox.mkdir(parents=True, exist_ok=True)
+        return sandbox
+
     # src/divineos/core/family/family_member_ledger.py -> up 4 to src/, up 1 to repo
     return Path(__file__).parent.parent.parent.parent.parent / "family"
 
 
+_SLUG_ALLOWED_RE = re.compile(r"^[a-z0-9_-]+$")
+
+
 def get_ledger_path(member_slug: str) -> Path:
-    """Return the ledger DB path for a given member slug."""
-    return _get_ledger_root() / f"{member_slug}_ledger.db"
+    """Return the ledger DB path for a given member slug.
+
+    F42 fix (Aletheia Round 5 2026-07-17, live exploit demonstrated):
+    the slug used to be concatenated raw into the path, so a slug like
+    ``../aether`` or ``../../etc/passwd`` escaped the family root. The
+    family layer's whole premise is per-member isolation; that premise
+    is only as strong as this path construction. Three defenses now,
+    per the finding's fix direction (allowlist + sanitize + resolve-
+    within-root):
+
+    1. Sanitize — reject anything not matching ``[a-z0-9_-]+`` before
+       building any path. No dots, no slashes, no separators.
+    2. Resolve-and-verify — after constructing the path, ``.resolve()``
+       both the ledger path and the root, and assert the ledger path is
+       inside the root. Belt-and-suspenders catch even if sanitize has
+       a gap. Same shape as the F31 cd-carve-out fix.
+
+    Raises ValueError on any slug that fails validation or that would
+    escape the root after resolution. Fail-loud: an invalid slug never
+    silently touches the filesystem.
+    """
+    if not member_slug or not _SLUG_ALLOWED_RE.match(member_slug):
+        raise ValueError(
+            f"family member slug {member_slug!r} is invalid — must match "
+            f"[a-z0-9_-]+. Path traversal shapes (../, /, whitespace, "
+            f"non-lowercase) are rejected. See F42 (Aletheia Round 5)."
+        )
+    root = _get_ledger_root().resolve()
+    candidate = (root / f"{member_slug}_ledger.db").resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            f"family member slug {member_slug!r} resolved to {candidate!r}, "
+            f"which is outside the family ledger root {root!r}. Path-"
+            f"traversal attempt rejected."
+        ) from exc
+    return candidate
 
 
 # -----------------------------------------------------------------------------

@@ -142,12 +142,97 @@ def has_round_reference(text: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
+def classify_merge(
+    reviews: list[Review],
+    head_sha: str,
+    pr_body_and_commits: str,
+    config: MergeReviewConfig,
+    round_is_logged: bool | None,
+) -> tuple[str, str]:
+    """Three-state verdict: ``"PASS"``, ``"PENDING"``, or ``"FAIL"``.
+
+    THE DEFECT THIS FIXES (2026-08-01). ``verify_merge`` returned one
+    ``False`` for two conditions that mean opposite things:
+
+      - nobody has approved the current head yet
+      - somebody approved, but the round they named does not exist
+
+    The first is the EXPECTED state of every PR the instant it is pushed —
+    an approval cannot exist on a SHA that was created seconds ago. The job
+    runs on every push, so it evaluated that condition at the one moment it
+    was guaranteed to be unmet: 17 failures and 0 passes across the recent
+    run history. A check that has never said yes carries no information, and
+    a permanently-red check teaches the operator to ignore the whole panel.
+
+    So "not yet approved" is now PENDING, not FAIL. PENDING is not a
+    weakening — nothing that used to be caught stops being caught. An
+    approval naming a fabricated round is still FAIL, which is the condition
+    the gate exists for. What changes is that red now MEANS something.
+
+    ``round_is_logged=None`` means the caller COULD NOT CHECK (the audit
+    store is local runtime state and is absent in CI). Reporting "round not
+    present" when the store was never readable asserts a fact not in
+    evidence — the same defect class this audit keeps finding. Unverifiable
+    is reported as unverifiable and does not manufacture a failure; the
+    independent tree-hash binding in ``check_multi_party_review`` is what
+    covers that ground server-side.
+    """
+    head = (head_sha or "").strip().lower()
+    if not head:
+        return "FAIL", "No head SHA provided; cannot verify SHA-bound approval."
+    if not config.operator_logins:
+        return "FAIL", "Operator roster is empty — gate fails closed."
+
+    approved_by = {
+        (r.author_login or "").strip().lower()
+        for r in reviews
+        if (r.state or "").strip().upper() == "APPROVED"
+        and (r.commit_id or "").strip().lower() == head
+        and (r.author_login or "").strip().lower() in config.operator_logins
+    }
+    if not approved_by:
+        return "PENDING", (
+            f"Awaiting operator approval on head {head[:12]}. "
+            f"Expected from one of {sorted(config.operator_logins)}; stale "
+            "approvals of older commits do not count. This is the normal "
+            "state of an open PR before review — not a defect."
+        )
+
+    round_ref = has_round_reference(pr_body_and_commits)
+    if not round_ref:
+        return "FAIL", (
+            "Operator approval present, but no 'External-Review: <round-id>' "
+            "reference found in the PR body or commits — the audit being "
+            "vouched for must be named."
+        )
+    if round_is_logged is None:
+        return "PASS", (
+            f"Operator {sorted(approved_by)} approved head {head[:12]}, "
+            f"naming audit round '{round_ref}'. Round EXISTENCE UNVERIFIABLE "
+            "here — the audit store is local runtime state and is not "
+            "present in this environment. Not a clean confirmation; the "
+            "tree-hash binding in multi-party-review is the independent "
+            "server-side check on that ground."
+        )
+    if not round_is_logged:
+        return "FAIL", (
+            f"Referenced audit round '{round_ref}' is not present in the audit "
+            "store — a round id was named but no such round was logged "
+            "(guards against a fabricated reference)."
+        )
+
+    return "PASS", (
+        f"Merge approved: operator {sorted(approved_by)} approved head "
+        f"{head[:12]}, vouching for logged audit round '{round_ref}'."
+    )
+
+
 def verify_merge(
     reviews: list[Review],
     head_sha: str,
     pr_body_and_commits: str,
     config: MergeReviewConfig,
-    round_is_logged: bool,
+    round_is_logged: bool | None,
 ) -> tuple[bool, str]:
     """Decide whether this PR carries valid operator-anchored approval.
 
@@ -166,45 +251,22 @@ def verify_merge(
     Fails CLOSED on every missing piece. NOTE: this returns a verdict; it
     does not enforce. The caller (CI check) decides what to do with a False,
     and the emergency-bypass path remains available by design.
+
+    STRICT two-state view, retained for callers that want "is this merge
+    authorized right now, yes or no" — PENDING collapses to False here,
+    because an unapproved PR is indeed not authorized. ``classify_merge``
+    is the richer surface and is what CI uses, so that the not-yet-approved
+    case can be reported as pending instead of as failure. Both read the
+    same logic; this one is a projection of it, so the two cannot drift.
     """
-    head = (head_sha or "").strip().lower()
-    if not head:
-        return False, "No head SHA provided; cannot verify SHA-bound approval."
-    if not config.operator_logins:
-        return False, "Operator roster is empty — gate fails closed."
-
-    approved_by = {
-        (r.author_login or "").strip().lower()
-        for r in reviews
-        if (r.state or "").strip().upper() == "APPROVED"
-        and (r.commit_id or "").strip().lower() == head
-        and (r.author_login or "").strip().lower() in config.operator_logins
-    }
-    if not approved_by:
-        return False, (
-            f"No APPROVED operator review on head {head[:12]}. "
-            f"Required: an approval from one of {sorted(config.operator_logins)} "
-            "on the current commit (stale approvals of older commits do not count)."
-        )
-
-    round_ref = has_round_reference(pr_body_and_commits)
-    if not round_ref:
-        return False, (
-            "Operator approval present, but no 'External-Review: <round-id>' "
-            "reference found in the PR body or commits — the audit being "
-            "vouched for must be named."
-        )
-    if not round_is_logged:
-        return False, (
-            f"Referenced audit round '{round_ref}' is not present in the audit "
-            "store — a round id was named but no such round was logged "
-            "(guards against a fabricated reference)."
-        )
-
-    return True, (
-        f"Merge approved: operator {sorted(approved_by)} approved head "
-        f"{head[:12]}, vouching for logged audit round '{round_ref}'."
+    verdict, msg = classify_merge(
+        reviews=reviews,
+        head_sha=head_sha,
+        pr_body_and_commits=pr_body_and_commits,
+        config=config,
+        round_is_logged=round_is_logged,
     )
+    return verdict == "PASS", msg
 
 
 __all__ = [
@@ -212,5 +274,6 @@ __all__ = [
     "MergeReviewConfig",
     "load_config",
     "has_round_reference",
+    "classify_merge",
     "verify_merge",
 ]

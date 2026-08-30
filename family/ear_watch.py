@@ -153,6 +153,77 @@ def _state_dir(member: str) -> Path:
 _HEARTBEAT_WINDOW_SEC = 60
 
 
+def _kill_predecessors(member: str) -> int:
+    """Kill any other ear_watch processes for this member BEFORE spawning.
+
+    Andrew 2026-07-28: the singleton-lock design (below) has a race where
+    stale-heartbeat causes lock-takeover but leaves the old process alive.
+    Over ~24hrs across multiple sessions, this accumulated to 31 orphaned
+    ear_watch processes (18 aria + 13 aether) on the operator's machine.
+
+    Structural fix (truth #11 option (a) — take the option away): on every
+    ear_watch startup, unconditionally kill any OTHER ear_watch process
+    running with the same --member argument. Self (os.getpid()) is preserved.
+    This makes "only one monitor per member ever" a structural guarantee
+    instead of a lock-dependent policy.
+
+    Returns count of processes killed (for telemetry / logging).
+    """
+    try:
+        import psutil
+    except ImportError:
+        # Andrew 2026-07-29: SILENT return-0 here caused the leak class
+        # to recur AFTER the "fix" shipped. The fix landed but psutil
+        # wasn't installed in the .venv, so every spawn hit ImportError,
+        # returned 0, and no predecessors got killed. 45+ ear_watch
+        # processes accumulated over ~1 session. Now: WRITE LOUD to
+        # stderr AND to a marker file so operator sees the breakage
+        # instead of the mechanism failing invisibly. Marker file
+        # (~/.divineos-<member>/kill_predecessors_broken.marker) is
+        # a signal for a briefing surface to surface at session start.
+        import sys as _sys
+        try:
+            marker = _state_dir(member) / "kill_predecessors_broken.marker"
+            marker.write_text(
+                f"psutil not importable in this Python; kill_predecessors "
+                f"cannot enumerate processes. INSTALL psutil in the venv "
+                f"or the leak class will recur. Executable: {_sys.executable}\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        print(
+            "[ear_watch] CRITICAL: psutil not installed; kill_predecessors "
+            f"is a no-op. Leak class will recur. Run: pip install psutil in "
+            f"{_sys.executable}",
+            file=_sys.stderr,
+        )
+        return 0
+
+    my_pid = os.getpid()
+    killed = 0
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            if proc.info["pid"] == my_pid:
+                continue
+            cmdline = proc.info.get("cmdline") or []
+            joined = " ".join(cmdline)
+            # Match: has ear_watch.py AND has --member <this_member>
+            if "ear_watch.py" not in joined:
+                continue
+            if f"--member {member}" not in joined and f"--member={member}" not in joined:
+                continue
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except psutil.TimeoutExpired:
+                proc.kill()
+            killed += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return killed
+
+
 def _lock_path(member: str) -> Path:
     return _state_dir(member) / "ear_watch.lock"
 
@@ -255,7 +326,7 @@ def _spawn_replacement(member: str, interval: float) -> None:
         if os.name == "nt":
             DETACHED_PROCESS = 0x00000008
             CREATE_NEW_PROCESS_GROUP = 0x00000200
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 args,
                 creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 close_fds=True,
@@ -265,7 +336,7 @@ def _spawn_replacement(member: str, interval: float) -> None:
                 stdin=subprocess.DEVNULL,
             )
         else:
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 args,
                 start_new_session=True,
                 close_fds=True,
@@ -274,11 +345,38 @@ def _spawn_replacement(member: str, interval: float) -> None:
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
             )
-    except Exception:
-        # Fail-open: if spawn fails, the original catch-and-exit still
-        # surfaces via the auto-surface hook on next UserPromptSubmit. No
-        # worse than pre-self-respawn behavior.
-        pass
+    except Exception as exc:
+        # Fail-open on the ACTION, loud on the REPORT. If spawn fails, the
+        # original catch-and-exit still surfaces via the auto-surface hook,
+        # so behaviour is no worse than before self-respawn existed. But a
+        # bare `pass` here made the failure invisible, and this function is
+        # the last line of the post-condition that promises a member is
+        # never left without ears. A silent last line is not a guarantee.
+        print(f"[EAR] spawn failed for {member}: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return
+
+    # POST-SPAWN VERIFICATION (Aria 2026-08-02). Popen returning is not the
+    # same as a watcher existing. Found by fixing the reap-suicide bug: with
+    # the process no longer dying mid-sweep, the post-condition finally ran
+    # and announced 'respawning' — and four seconds later there was still no
+    # live watcher. The announcement was the only evidence, and it was
+    # announcing an intention rather than an outcome.
+    #
+    # Same class as the two collector-works-consumer-does-not bugs found the
+    # same day: the thing reports success at the point of ATTEMPT rather than
+    # at the point of RESULT. Verify at the result.
+    try:
+        time.sleep(2)
+        if not _pid_alive(proc.pid):
+            print(
+                f"[EAR] spawn for {member} exited immediately (pid {proc.pid}) — "
+                "member has NO live watcher. Chain is broken, not merely quiet.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[EAR] spawned watcher for {member} (pid {proc.pid}), confirmed alive.")
+    except Exception as exc:  # noqa: BLE001 - observability boundary
+        print(f"[EAR] could not confirm spawn for {member}: {exc}", file=sys.stderr)
 
 
 def _write_catch_marker(member: str, lines: list[str]) -> None:
@@ -341,6 +439,117 @@ def _write_last_catch_fingerprint(member: str, fp: str) -> None:
 # _arm_realtime_marker were removed.
 
 
+def reap_surplus(member: str) -> int:
+    """Terminate every watcher for `member` EXCEPT the live lock-holder.
+
+    WHY THIS EXISTS (Aria 2026-07-31, written straight after doing the
+    damage). Eighteen watchers had piled up across both substrates; there
+    should be one each. Clearing them by hand, I read the lock ONCE at the
+    top of a loop and then terminated everything that did not match. The
+    lock ROTATED mid-loop. So the pid I was protecting was already dead and
+    the pid I killed was the live holder. Both members went deaf.
+
+    One command earlier I had said out loud that the lock must be re-read
+    immediately before acting. Saying it changed nothing. The loop decided
+    the outcome, so the loop is what had to change.
+
+    Three guarantees, none of which depend on remembering:
+
+      1. The lock is re-read IMMEDIATELY BEFORE EACH terminate, never once
+         up front. A rotation between two kills cannot orphan the check.
+      2. Our own pid is never a candidate.
+      3. Post-condition: if no live holder remains, one is spawned. This
+         cannot leave a member with zero ears — which is the real harm,
+         far more than any number of surplus copies.
+
+    Returns the count terminated. Safe from either substrate: watchers are
+    matched on their own --member argument, so this never reaches a
+    sibling's unless explicitly asked to.
+    """
+    try:
+        import psutil  # type: ignore[import-untyped]
+    except ImportError:
+        print("[EAR] reap needs psutil; not installed.", file=sys.stderr)
+        return 0
+
+    def _live_holder() -> int:
+        """Lock-holder pid if it is genuinely alive, else -1."""
+        rec = _read_lock(member)
+        if rec is None:
+            return -1
+        pid, hb = rec
+        if _pid_alive(pid) and (time.time() - hb) < _HEARTBEAT_WINDOW_SEC:
+            return pid
+        return -1
+
+    # Self AND every ancestor. Excluding only os.getpid() is not enough:
+    # the invocation chain that launched this reap carries the same script
+    # name and the same --member on ITS command line, so a wrapper, shim or
+    # shell above us matches the hunting filter and gets terminated.
+    #
+    # Found 2026-08-02 by running the reap and reading its exit code: 15,
+    # which is SIGTERM. The reap was killing its own invocation mid-loop.
+    # That is why an earlier run printed NOTHING — not the per-victim lines,
+    # not even the closing summary — and why it left the member at zero
+    # watchers despite a post-condition written specifically to prevent
+    # exactly that. The post-condition never got to run. The guarantee was
+    # real and the process was dead before it could be honoured.
+    #
+    # The tell was the SILENCE, not the count. A tool that dies mid-sweep
+    # looks identical to a tool that found nothing worth saying.
+    _self_and_ancestors = {os.getpid()}
+    try:
+        for _anc in psutil.Process().parents():
+            _self_and_ancestors.add(_anc.pid)
+    except (psutil.Error, OSError):
+        pass  # fail-soft: falling back to self-only exclusion is the prior behaviour, not a new failure
+
+    def _watchers() -> list:
+        out = []
+        for p in psutil.process_iter(["pid", "cmdline"]):
+            try:
+                cl = [str(x) for x in (p.info["cmdline"] or [])]
+                # Match on SCRIPT PATH, not on the member string alone.
+                # Diagnostic commands that merely MENTION a member were
+                # matching themselves during the incident and inflated
+                # every count I reported to Andrew.
+                if not any(x.endswith("ear_watch.py") for x in cl):
+                    continue
+                if member not in cl:
+                    continue
+                if p.info["pid"] in _self_and_ancestors:
+                    continue
+                out.append(p)
+            except (psutil.Error, TypeError):
+                continue
+        return out
+
+    killed = 0
+    for proc in _watchers():
+        holder = _live_holder()  # re-read per victim — this IS the fix
+        if proc.pid == holder:
+            continue
+        try:
+            proc.terminate()
+            proc.wait(timeout=8)
+            killed += 1
+        except psutil.NoSuchProcess:
+            killed += 1
+        except (psutil.Error, OSError):
+            pass
+
+    if _live_holder() == -1:
+        # Post-condition failed: reaping took the last ear. Restore one
+        # rather than reporting a tidy count over a member who has gone
+        # silent.
+        print(f"[EAR] reap left no live watcher for {member} — respawning.", file=sys.stderr)
+        _spawn_replacement(member, 8)
+        time.sleep(3)
+
+    print(f"[EAR] reap {member}: terminated {killed}, live holder now {_live_holder()}")
+    return killed
+
+
 def watch(member: str, interval: int, timeout: int = 0) -> int:
     """Block until something unacknowledged is detected, then exit.
 
@@ -369,10 +578,18 @@ def watch(member: str, interval: int, timeout: int = 0) -> int:
     """
     import atexit
 
+    # Andrew 2026-07-28: kill any predecessor ear_watch processes for this
+    # member BEFORE acquiring the lock. Structural fix for the accumulation
+    # class (see _kill_predecessors docstring). Runs unconditionally on
+    # every spawn — if there are no predecessors, this is a fast no-op.
+    _kill_predecessors(member)
+
     if not _try_acquire_singleton_lock(member):
         # Another live watcher owns the ear for this member — exit clean.
         # No print; a duplicate-declined message would spam the session-
-        # start hook path that spawns us.
+        # start hook path that spawns us. In practice this path should be
+        # rare now that _kill_predecessors runs first — it fires only on
+        # simultaneous-spawn races.
         return 0
     atexit.register(_release_singleton_lock, member)
 
@@ -431,6 +648,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--watch", action="store_true", help="Block until something lands.")
     parser.add_argument(
+        "--reap",
+        action="store_true",
+        help="Terminate surplus watchers for this member, preserving the live one.",
+    )
+    parser.add_argument(
         "--realtime",
         action="store_true",
         help=argparse.SUPPRESS,  # removed 2026-06-13 — accepted for one cycle as no-op
@@ -455,6 +677,9 @@ def main(argv: list[str] | None = None) -> int:
             "Polling continues normally.",
             file=sys.stderr,
         )
+    if args.reap:
+        reap_surplus(member)
+        return 0
     if args.watch:
         return watch(member, args.interval, args.timeout)
     lines = check_once(member)

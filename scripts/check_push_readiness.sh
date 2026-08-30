@@ -84,9 +84,112 @@ done <<< "$HOOK_STDIN"
 #   0   — all gates passed
 #   10  — pytest failure (test-suite regression)
 #   20  — multi-party-review failure (missing External-Review trailer)
+#   24  — substrate files on a code branch (branch-scope failure)
 #   30  — infrastructure error (script missing, python missing, etc.)
 # Differentiated so the operator can distinguish failure-modes from the
 # pre-push exit code alone, without re-reading stderr.
+
+# ─── 0. Branch scope: is this carrying substrate it should not? ─────────
+#
+# THREE CONTAMINATED PUSHES IN ONE SESSION, and not one of them for lack of
+# a checker. The checker existed, worked, and named the files. I did not run
+# it. Remembering was the only thing standing between a checkpoint sweep and
+# the remote, and remembering failed three times:
+#
+#   first   139 substrate files pushed; found later by running it by hand
+#   second  142 added BETWEEN the repair commit and the push, carried along
+#   third   156 pushed without running the check at all
+#
+# Andrew's standing rule is automate rather than remember, and this is the
+# cleanest instance of it I have hit: a working instrument, an unwired
+# trigger, and a failure mode that is exactly "I forgot". Wired at PUSH
+# because that is where the cost lands — a contaminated commit is a local
+# nuisance, a contaminated push is what a reviewer has to wade through.
+#
+# STEP ZERO, ahead of the ~10-min suite, for two reasons. It is instant, and
+# its answer does not depend on any later gate: telling someone their branch
+# must be rebuilt only after they have waited out a full test run wastes the
+# run, since the rebuild invalidates it anyway.
+#
+# BLOCKING, unlike the pin check further down, and the difference is design
+# rather than mood. The pin check reports findings a human must weigh. This
+# answers a factual question carrying no judgement — are there substrate
+# files on a code branch — and there is no legitimate yes. A warning would
+# have nothing useful to say, and would become the fourth instrument I own
+# that reports something I then push past.
+#
+# CHECKS THE REFS BEING PUSHED, NOT HEAD. My first version read HEAD, which
+# is a different subject: push a clean branch while sitting on a dirty
+# checkout and it blocks the wrong thing; push a dirty branch from a clean
+# checkout and it passes one. Reporting a true measurement of the wrong
+# subject is the exact fault this session has been full of, and it nearly
+# went into the gate built to catch it.
+#
+# The one real case — pushing the substrate branch itself, where substrate is
+# the entire point — gets a named, loud escape rather than a silent exemption.
+if [[ "${DIVINEOS_SUBSTRATE_BRANCH:-0}" != "1" ]]; then
+    SCOPE_SCRIPT="$REPO_ROOT/scripts/check_branch_scope.py"
+    if [[ ! -f "$SCOPE_SCRIPT" ]]; then
+        # Absent tooling is reported, never silently treated as a pass.
+        echo "[push-readiness]   scope: SKIPPED — $SCOPE_SCRIPT missing" >&2
+    else
+        # Refs whose local-sha is not all-zero. A deletion introduces no
+        # commits, so it has no scope to check.
+        SCOPE_REFS=()
+        SCOPE_SAW_REF=0
+        while read -r _lref _lsha _rref _rsha; do
+            [[ -z "${_lref:-}" ]] && continue
+            SCOPE_SAW_REF=1
+            [[ "${_lsha:-}" =~ [^0] ]] && SCOPE_REFS+=("$_lsha")
+        done <<< "$HOOK_STDIN"
+
+        # Three states, and collapsing any two of them is a bug:
+        #
+        #   refs, some real      check those — the normal path
+        #   refs, all deletions  nothing introduced, nothing to check. Not a
+        #                        pass smuggled in: a deletion genuinely has
+        #                        no scope, and blocking someone from tidying
+        #                        a merged branch because their CHECKOUT is
+        #                        dirty would be the wrong subject again.
+        #   no refs at all       run by hand, no hook stdin. Fall back to
+        #                        HEAD and SAY which subject was used. An
+        #                        empty loop printing OK is could-not-look-
+        #                        reads-as-all-clear, the fault this whole
+        #                        gate exists to stop.
+        SCOPE_SUBJECT="the refs being pushed"
+        if [[ ${#SCOPE_REFS[@]} -eq 0 && "$SCOPE_SAW_REF" == "0" ]]; then
+            SCOPE_REFS=("HEAD")
+            SCOPE_SUBJECT="HEAD (no push refs on stdin)"
+        fi
+
+        if [[ ${#SCOPE_REFS[@]} -eq 0 ]]; then
+            echo "[push-readiness] Branch scope — skipped, every ref is a deletion"
+        else
+            echo "[push-readiness] Branch scope — $SCOPE_SUBJECT"
+            for _rev in "${SCOPE_REFS[@]}"; do
+                SCOPE_OUT="$(python "$SCOPE_SCRIPT" "$_rev" --list 2>&1)"
+                SCOPE_RC=$?
+                while IFS= read -r _line; do
+                    echo "[push-readiness]   $_line"
+                done <<< "$SCOPE_OUT"
+                case "$SCOPE_RC" in
+                    0) ;;
+                    1)
+                        echo "[push-readiness] BLOCKED — substrate on a code branch (exit 24)." >&2
+                        echo "[push-readiness] Land those files on the substrate branch and" >&2
+                        echo "[push-readiness] rebuild this one against main with the code only." >&2
+                        echo "[push-readiness] If this IS the substrate branch:" >&2
+                        echo "[push-readiness]   DIVINEOS_SUBSTRATE_BRANCH=1 git push" >&2
+                        exit 24
+                        ;;
+                    *)
+                        echo "[push-readiness]   scope: COULD NOT CHECK (exit $SCOPE_RC) — not a pass" >&2
+                        ;;
+                esac
+            done
+        fi
+    fi
+fi
 
 # ─── 1. Test suite ──────────────────────────────────────────────────────
 #
@@ -211,6 +314,32 @@ if [[ "$DELETION_ONLY" == "1" ]]; then
     echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
 elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
     echo "[push-readiness] DIVINEOS_SKIP_TESTS=1 — skipping pytest." >&2
+    # Record it. This is an ESCAPE, not compliance: it SUPPRESSES the check
+    # rather than satisfying it, so it files an obligation like any other.
+    #
+    # It did not, until 2026-08-02. The loudest documented bypass in this
+    # repo — printed by this very script in its own failure message — had
+    # never once appeared in bypass telemetry. Every quieter escape was
+    # counted while the advertised one stayed invisible, which made the
+    # bypass rate an undercount of precisely the wrong thing.
+    #
+    # Found by using it. I skipped tests on a letter-only push, went looking
+    # for my own obligation, and there was none. What made me look was that
+    # the skip had been UNNECESSARY: family/*.md is already covered by the
+    # low-impact fast path below, so the front door was open and I went
+    # through the window anyway.
+    #
+    # Fail-soft on purpose (|| true): a telemetry outage must never turn
+    # into a push failure. Recording the escape is not worth becoming one.
+    python - <<'PYEOF' 2>/dev/null || true  # fail-soft: telemetry outage must never become a push failure; recording an escape is not worth becoming one
+from divineos.core.bypass_telemetry import record_bypass
+
+record_bypass(
+    gate_name="push-readiness-tests",
+    env_var="DIVINEOS_SKIP_TESTS",
+    reason="pytest suppressed at push time via the documented emergency bypass",
+)
+PYEOF
 else
     CHANGED_FILES="$(_collect_changed_files)"
     if _all_changed_low_impact "$CHANGED_FILES"; then
@@ -220,6 +349,46 @@ else
         # Skip pytest; fall through to multi-party-review.
         : "${PYTEST_RC:=0}"
     else
+        # SYSTEM-LOAD PRE-FLIGHT (Andrew 2026-07-30, prereg-ca5fb15220ea):
+        # Multiple concurrent pre-push pytest suites crashed Andrew's
+        # machine 2026-07-30 by eating memory. Aether's subprocess_jobs.py
+        # (2026-07-13) handles orphan-cleanup AFTER a crash; this check
+        # PREVENTS the crash-cause by refusing to spawn pytest when the
+        # system is already too loaded. Threshold: 16 GB free memory
+        # (Andrew's call; single pytest costs ~5 GB per Aether's note,
+        # 16 GB gives real headroom above just-enough).
+        # Escape: DIVINEOS_SKIP_LOAD_CHECK=1 for genuine emergencies;
+        # name the reason in commit per bypass-is-a-tool discipline.
+        # PYTHONPATH prepend: system Python may have another checkout's
+        # divineos installed via `pip install -e .` — force resolution
+        # from THIS repo's src/ so the check uses the local file. Same
+        # shape as the worktree PYTHONPATH pattern at the pytest call
+        # sites below.
+        # MEMORY-SCALED WORKERS (Aria 2026-07-31). This used to be a
+        # spawn/no-spawn switch on 16 GB, followed further down by an
+        # unconditional `-n auto` — one worker per CORE. Demand scaled with
+        # cores while the gate measured memory, so a 16-core box could pass
+        # the check and then ask for far more than 16 GB. That product is
+        # what actually crashed the machine, not concurrency alone.
+        #
+        # Now one call answers both questions: refuse, or how wide. Strictly
+        # more conservative at every level — above 16 GB the fan-out is now
+        # capped by memory as well as cores; below it the suite may run
+        # narrower instead of not at all; below the hard floor it still
+        # refuses. See divineos.core.system_load_check for the invariant and
+        # the test grid that holds it.
+        LOAD_FLAG_FILE="$(mktemp)"
+        if ! PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+             python -m divineos.core.system_load_check --parallel-flag \
+             "pre-push pytest suite" >"$LOAD_FLAG_FILE"; then
+            rm -f "$LOAD_FLAG_FILE"
+            echo "[push-readiness] BLOCKED — system_load_check refused pytest spawn." >&2
+            echo "[push-readiness] See message above. Wait for existing heavy" >&2
+            echo "[push-readiness] work to finish or free memory before retrying." >&2
+            exit 1
+        fi
+        MEMORY_SCALED_FLAG="$(tr -d '\r\n' < "$LOAD_FLAG_FILE")"
+        rm -f "$LOAD_FLAG_FILE"
         echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
         # Run ONCE: capture combined output, then decide from the real exit code.
         # The old design ran the full suite twice (discard, then re-run on failure
@@ -259,11 +428,46 @@ else
         # "-n auto" worker pool. The slow gate was the bypass-pressure source
         # Aletheia flagged. Feature-detect xdist; fall back to serial silently
         # if not installed. Opt out via DIVINEOS_PUSH_GATE_NO_PARALLEL=1.
+        # The width now comes from MEMORY_SCALED_FLAG above, not a flat
+        # "-n auto". Explicit opt-out and missing-xdist still fall back to
+        # serial, and an empty flag (should not happen — the refusal path
+        # already exited) also degrades to serial rather than guessing.
+        # Strip git's per-invocation environment before handing off to pytest.
+        # ROOT CAUSE of the intermittent core.bare=true corruption, diagnosed by
+        # Aether 2026-08-08 after weeks of "git randomly breaks in every
+        # worktree" that we both reset by hand and neither attributed.
+        #
+        # git exports GIT_DIR and friends into hook processes. A pre-push hook
+        # runs with GIT_DIR pinned to the pushing worktree and every child
+        # inherits it - pytest, and every git subprocess a test spawns. GIT_DIR
+        # OVERRIDES cwd. So a test that carefully builds a scratch repo under
+        # its own tmp dir and runs `git init --bare` there hits the REAL
+        # repository and sets core.bare=true on it. Same mechanism put
+        # user.email=test@test in the live config.
+        #
+        # His direct evidence, GIT_TRACE_SETUP during a real push:
+        #   setup: git_dir: .../worktrees/wt-419
+        #   setup: cwd:     .../push-gate-XXXX/tmp/pytest/.../test_unstaged_0
+        # A command standing in a pytest tmp dir, aimed at the real repo.
+        #
+        # This is why it only ever appeared on push and never on a hand-run
+        # suite: no push, no GIT_DIR, no corruption. It was never a race.
+        #
+        # Taken from his working tree verbatim rather than rewritten - the fix
+        # exists on no shared ref yet, and a second differently-shaped version
+        # is the duplication we have paid for twice this week.
+        #
+        # Scrub every path-bearing git variable, not only GIT_DIR - leaving one
+        # behind reproduces the same bug through a narrower door.
+        GIT_ENV_SCRUB="env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES -u GIT_PREFIX -u GIT_NAMESPACE -u GIT_QUARANTINE_PATH"
         PYTEST_PARALLEL=""
         if [[ "${DIVINEOS_PUSH_GATE_NO_PARALLEL:-0}" != "1" ]]; then
             if python -c "import xdist" >/dev/null 2>&1; then
-                PYTEST_PARALLEL="-n auto"
+                PYTEST_PARALLEL="${MEMORY_SCALED_FLAG:-}"
             fi
+        fi
+        if [[ -n "$PYTEST_PARALLEL" ]]; then
+            echo "[push-readiness] pytest parallelism: $PYTEST_PARALLEL (memory-scaled)"
         fi
 
         if [[ -n "$PYTEST_SHA" ]] && command -v git >/dev/null && [[ "${DIVINEOS_PUSH_GATE_NO_WORKTREE:-0}" != "1" ]]; then
@@ -296,7 +500,7 @@ else
                 # Wrapped in subprocess_jobs so pytest+xdist workers die with parent.
                 # Root fix for 2026-07-13 leak where pytest workers survived parent
                 # bash death and ate ~2GB each. Per prereg-dae52c6ca269.
-                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
+                (cd "$PYTEST_WORKTREE" && PYTHONPATH="$PYTEST_WORKTREE/src${PYTHONPATH:+:$PYTHONPATH}" $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL) >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
                 # Normal-path cleanup — runs after pytest exits cleanly. The
                 # trap above covers the interrupt path; this call covers the
@@ -316,14 +520,27 @@ else
                 echo "[push-readiness] worktree isolation unavailable, running pytest in main worktree (concurrency-fragile)" >&2
                 # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split ("-n auto" is two tokens)
                 # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-                python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
+                $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
                 PYTEST_RC=$?
             fi
         else
             # No SHA available, or operator opted out of worktree isolation
             # via DIVINEOS_PUSH_GATE_NO_WORKTREE=1.
             # Wrapped per prereg-dae52c6ca269 — same rationale as the isolated path above.
-            python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+            #
+            # THIRD-BRANCH DRIFT (Aria 2026-07-31, found by being stuck behind
+            # it). Two of the three pytest invocations carried $PYTEST_PARALLEL
+            # and this one did not, so whenever control reached here the suite
+            # ran SERIAL — ~33 min against ~3-5 parallel — with nothing printed
+            # to say why. A push timed out at ten minutes and the stranded
+            # process read `pytest tests/ -q --tb=line`, no -n flag, which is
+            # what gave the bug away.
+            #
+            # Copy-paste multiplication: a flag added to the paths someone was
+            # looking at, and a sibling call site left behind. The
+            # divergence is invisible until you are waiting on the slow one.
+            # shellcheck disable=SC2086  # PYTEST_PARALLEL is intentionally word-split
+            $GIT_ENV_SCRUB python -m divineos.core.subprocess_jobs -- python -m pytest tests/ -q --tb=line $PYTEST_PARALLEL >"$PYTEST_LOG" 2>&1
             PYTEST_RC=$?
         fi
         if [[ $PYTEST_RC -ne 0 ]]; then
@@ -401,6 +618,34 @@ if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
     fi
 fi
 
+# ─── 2a-bis. Audit-export freshness ─────────────────────────────────────
+# Aria 2026-08-01, reading the export I had just shipped: "verification has
+# two questions and we've both only been asking the first — is it true, and
+# does anything read it?" Her sharper form: a record nothing breaks over is
+# a record nobody checks.
+#
+# Measured, she was right. CI verifies a round by reading
+# docs/audit_rounds/<id>.md, but a round that was never exported is reported
+# as merely 'unverifiable' and the gate PASSES. Nothing goes red, so the
+# export could fall arbitrarily far behind the store while the system kept
+# looking instrumented.
+#
+# This is the consumer that breaks. It runs where the store is actually
+# readable (the operator's machine at push time), never in CI. Non-fatal by
+# design: a stale export is a bookkeeping lapse, not a corrupt tree, and
+# blocking the push would be the same over-firing this session spent
+# deleting. Loud is the requirement; blocking is not.
+if [[ "${DIVINEOS_SKIP_EXPORT_FRESHNESS:-0}" != "1" ]]; then
+    if ! divineos audit export --check >/dev/null 2>&1; then
+        echo "" >&2
+        echo "[push-readiness] WARNING — audit export is behind the store." >&2
+        divineos audit export --check 2>&1 | sed 's/^/[push-readiness]   /' >&2 || true
+        echo "[push-readiness]   Pushing anyway; the review for those rounds" >&2
+        echo "[push-readiness]   is not readable on GitHub until you export." >&2
+        echo "" >&2
+    fi
+fi
+
 # ─── 2b. Multi-party-review blocking check ──────────────────────────────
 # Per Finding 78 (Aletheia 2026-05-18): default scope is block-at-main only
 # (feature-branch pushes pass freely so external auditor can fetch the
@@ -431,6 +676,80 @@ if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
             exit 20
         fi
         echo "[push-readiness]   multi-party-review: OK"
+    fi
+fi
+
+# ─── 3. Full-tree lint ──────────────────────────────────────────────────
+# Andrew 2026-08-13, after a duplicate-import F811 reached CI: "the CLI
+# testing we do internally before we push as well so that when we do merge
+# to main the CLI passes.. and if it doesnt (which there is a lint failure)
+# we fix the root cause on our end so we dont miss it in the next internal
+# test."
+#
+# The root cause is scope, not diligence. The pre-commit hook lints only
+# STAGED files, so anything that arrives another way — a rebase, a merge
+# resolution, an amend, a file edited and committed in a different sequence
+# — is never looked at locally. CI lints the whole tree, so the first place
+# the divergence shows up is a red badge on GitHub.
+#
+# This runs the same full-tree check CI runs, at the last moment before the
+# work leaves the machine. Blocking: a lint failure caught here costs one
+# command; the same failure caught on GitHub costs a round trip and a mark
+# on the Actions page that cannot be erased.
+if [[ "${DIVINEOS_SKIP_LINT_CHECK:-0}" != "1" ]]; then
+    if command -v ruff >/dev/null 2>&1; then
+        echo "[push-readiness] Full-tree lint (ruff)..."
+        if ! ruff check scripts/ src/ tests/ --output-format=concise >&2; then
+            echo "" >&2
+            echo "[push-readiness] BLOCKED — lint failures above (exit 21)." >&2
+            echo "[push-readiness] Fix them, or auto-fix with:" >&2
+            echo "[push-readiness]   ruff check scripts/ src/ tests/ --fix" >&2
+            echo "[push-readiness] Emergency bypass: DIVINEOS_SKIP_LINT_CHECK=1 git push" >&2
+            exit 21
+        fi
+        echo "[push-readiness]   lint: OK"
+    else
+        # Absent tooling is reported, never treated as a pass. A silent skip
+        # here would recreate exactly the blind spot this step exists to close.
+        echo "[push-readiness]   lint: SKIPPED — ruff not on PATH (CI will still check)" >&2
+    fi
+fi
+
+# --- Do the new tests pin anything? (warn-only, deliberately) --------------
+#
+# Aria's design, 2026-08-28, after I shipped a regression test that was green
+# on both sides of the fix it claimed to guard: "a test written to pin a fix
+# must be red against the code before the fix."
+#
+# PUSH-TIME, not commit-time, and scoped to tests changed in the diff. Her
+# reason: a full-suite rerun against an old tree on every commit is expensive
+# enough to get skipped, and a skipped check becomes another armed-and-unread
+# instrument.
+#
+# WARN-ONLY ON PURPOSE, and this is a judgement worth stating rather than
+# hiding. The branch it was built on already carries sixteen tests that pass
+# against their own baseline. Blocking on day one would make the tree
+# unpushable, and the only satisfiable answer would be switching the check off
+# -- which is how a gate dies. The sixteen are a backlog to read, not a wall to
+# rubber-stamp, and reading them is real work that does not belong inside a
+# push. Teeth follow the review, not the other way round.
+if [[ "${DIVINEOS_SKIP_PIN_CHECK:-0}" != "1" ]]; then
+    PIN_SCRIPT="$REPO_ROOT/scripts/check_tests_pin.py"
+    if [[ -f "$PIN_SCRIPT" ]]; then
+        echo "[push-readiness] Do the changed tests pin anything?"
+        # Warn-only must not mean silent-about-itself. Without capturing the
+        # status, a checker that CRASHED looks exactly like one that found
+        # nothing -- which is the armed-and-unheard shape this whole file
+        # exists to prevent, wearing a `|| true`.
+        PIN_OUT="$(python "$PIN_SCRIPT" 2>&1)"; PIN_RC=$?
+        while IFS= read -r pin_line; do
+            echo "[push-readiness]   $pin_line"
+        done <<< "$PIN_OUT"
+        case "$PIN_RC" in
+            0) : ;;
+            1) echo "[push-readiness]   pin: findings above (not blocking yet — see the script header)" ;;
+            *) echo "[push-readiness]   pin: COULD NOT CHECK (exit $PIN_RC) — this is not a pass" >&2 ;;
+        esac
     fi
 fi
 

@@ -78,6 +78,94 @@ _DIVINEOS_BASH_RE = re.compile(
 )
 
 
+# Commands that only LOOK. Small on purpose: anything not here counts, so the
+# failure direction is "the gate fires slightly too often", never "a write
+# slipped past". Andrew's cost-landscape rule read the other way round — I am
+# pricing an exemption, so the exemption must be the expensive thing to obtain.
+_READ_ONLY_COMMANDS = frozenset(
+    {
+        "grep",
+        "rg",
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "find",
+        "wc",
+        "echo",
+        "printf",
+        "pwd",
+        "stat",
+        "file",
+        "diff",
+        "which",
+        "basename",
+        "dirname",
+        "sort",
+        "uniq",
+        "cut",
+        "tr",
+        "column",
+        "true",
+        "test",
+        "[",
+    }
+)
+
+# git subcommands that only read. `git add`, `git commit`, `git checkout` and
+# friends are absent deliberately.
+_READ_ONLY_GIT = frozenset(
+    {"log", "show", "status", "diff", "branch", "ls-files", "ls-tree", "rev-parse", "grep", "blame"}
+)
+
+_WRITE_MARKERS = (">", ">>", "|&", "tee ", "sed -i", "sed --in-place")
+
+
+def _is_read_only_command(command: str) -> bool:
+    """True only if EVERY segment of this shell command merely looks.
+
+    Reading is thinking, and the engagement counter's own docstring says so.
+    It counted exploration anyway (2026-08-14), so four greps into an
+    investigation the gate would interrupt to demand the thinking that the
+    greps were.
+
+    Conservative by construction. Any redirection, any unrecognised program,
+    any in-place edit, and the whole command counts. A compound like
+    ``grep x && python write.py`` counts, because the cheap route out of a
+    read-exemption is dressing a write as a read.
+    """
+    if not command or not command.strip():
+        return False
+    lowered = command.lower()
+    if any(marker in lowered for marker in _WRITE_MARKERS):
+        return False
+    # Heredocs carry arbitrary payloads; never exempt one.
+    if "<<" in command:
+        return False
+    segments = re.split(r"&&|\|\||;|\||\n", command)
+    saw_one = False
+    for raw in segments:
+        seg = raw.strip()
+        if not seg:
+            continue
+        parts = seg.split()
+        head = parts[0]
+        if head == "cd":
+            continue  # positional, not an action
+        if head == "git":
+            if len(parts) < 2 or parts[1] not in _READ_ONLY_GIT:
+                return False
+        elif head == "sed":
+            # sed prints unless asked to edit; -i was already rejected above,
+            # but require the explicit print flag rather than assuming.
+            if "-n" not in parts:
+                return False
+        elif head not in _READ_ONLY_COMMANDS:
+            return False
+        saw_one = True
+    return saw_one
+
+
 def _is_divineos_command(command: str) -> bool:
     """True if this Bash invocation is running a `divineos <subcmd>`.
 
@@ -267,14 +355,38 @@ def _open_stderr_log_for_cmd(cmd: list[str]):
 
 
 def _rotate_stderr_logs(log_dir: Path, keep: int = 20) -> None:
-    """Keep at most ``keep`` most-recent .log files in log_dir; delete the rest."""
+    """Keep at most ``keep`` most-recent .log files in log_dir; delete the rest.
+
+    Empty logs are dropped first and unconditionally (2026-08-18). A file is
+    opened for EVERY invocation, before anyone knows whether it will fail, so a
+    silent success leaves a 0-byte file behind in a directory named
+    ``failures/``. Twenty-one had accumulated, and reading that folder gave
+    exactly the wrong answer: I reported them to Andrew as twenty-one moments
+    where something broke and recorded nothing. They were twenty-one successes.
+
+    Same defect as the hollow ledger files cleared the same day — a NAME that
+    misrepresents its contents, believed by the person who wrote it. A
+    directory called failures should hold failures, so an empty log is removed
+    rather than counted.
+    """
     try:
         files = sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
     except OSError:
         return
-    if len(files) <= keep:
+
+    remaining = []
+    for f in files:
+        try:
+            if f.stat().st_size == 0:
+                f.unlink()
+                continue
+        except OSError:
+            pass
+        remaining.append(f)
+
+    if len(remaining) <= keep:
         return
-    for old in files[:-keep]:
+    for old in remaining[:-keep]:
         try:
             old.unlink()
         except OSError:
@@ -481,11 +593,31 @@ def main() -> int:
     # Don't bump the counter for it. Named-thinking commands still clear the
     # counter via their own _log_os_query. Non-divineos Bash (git, python -c,
     # arbitrary scripts) still counts.
+    # 2026-08-14 (Andrew: "lets take a look" at the counters interrupting
+    # mid-investigation). record_code_action's own docstring has said since it
+    # was written: "Only called for actual writes — not Bash reads, not file
+    # exploration. Reading IS thinking. The gate exists to prevent blind
+    # editing without reflection, not to punish looking at the codebase."
+    #
+    # The code did the opposite. EVERY non-divineos Bash call counted,
+    # including pure looking. Measured: the counter went 2 -> 3 on a call that
+    # ran grep, ls and sed and wrote nothing. So four greps into an
+    # investigation the gate says "stop and think" — while reading, which is
+    # the thinking it is asking for.
+    #
+    # The 2026-05-08 fix that made Bash count was right (a session of pure
+    # Bash work sat at zero) and overshot by one category: exploration.
+    #
+    # GAMING ROUTE CLOSED DELIBERATELY. If reads are free, the cheap move is
+    # dressing a write as a read — `grep x && python script.py`. So EVERY
+    # segment must be recognisably read-only, any redirection makes it a
+    # write, and anything unrecognised counts. Unknown means it counts; the
+    # allowlist is small on purpose.
     if tool_name in ("Edit", "Write", "NotebookEdit", "Bash"):
         skip = False
         if tool_name == "Bash":
             command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
-            if _is_divineos_command(command):
+            if _is_divineos_command(command) or _is_read_only_command(command):
                 skip = True
         if not skip:
             _record_code_action()

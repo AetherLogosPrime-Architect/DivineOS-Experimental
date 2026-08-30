@@ -26,6 +26,7 @@ import time
 from typing import Any, Callable
 
 from divineos.core.council_required import store, substance_binding
+from divineos.core.council_required.substance_binding import _content_tokens
 from divineos.core.council_required.types import (
     CHECK_ARTIFACT_EXISTS,
     COUNCIL_RECENCY_MINUTES,
@@ -38,6 +39,66 @@ from divineos.core.council_required.types import (
     GateOutcome,
     _normalize_edit_fingerprint,
 )
+
+
+def _read_edit_content_tokens(fingerprint: str) -> set[str] | None:
+    """Extract content tokens from the target file for the F39 overlap
+    check (Aletheia Round 5, 2026-07-17).
+
+    Returns None (fail-open) when the fingerprint is not an ``edit:PATH``
+    file fingerprint, the path is empty, or the file can't be read.
+    Returns the extracted set (possibly empty) otherwise.
+
+    The overlap check itself treats None and empty-set both as fail-open;
+    the distinction matters only for debug logging. Fail-open is the
+    correct default: unavailable-file should not block otherwise-valid
+    walks — every other substance-binding check still runs.
+    """
+    if not fingerprint or ":" not in fingerprint:
+        return None
+    kind, _, path = fingerprint.partition(":")
+    if kind.strip().lower() not in {"edit", "write", "multiedit", "notebookedit"}:
+        return None
+    path = path.strip()
+    if not path:
+        return None
+    try:
+        from pathlib import Path
+
+        p = Path(path)
+        # Require absolute path — production tool invocations pass
+        # absolute paths (Claude Code normalizes them), while tests
+        # commonly use relative-path fingerprints as free-form labels.
+        # Restricting to absolute keeps the F39 check active where it
+        # matters and fail-open where it would over-fire on test scaffolds.
+        if not p.is_absolute():
+            return None
+        if not p.exists() or not p.is_file():
+            return None
+        content = p.read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        return None
+    return _content_tokens(content)
+
+
+def _record_edit_tokens_result(tokens: set[str] | None) -> None:
+    """F39-followup abstention telemetry (Aletheia 2026-07-18 review note).
+
+    Records whether ``_read_edit_content_tokens`` returned None (abstain)
+    or real tokens (live) at the two call sites that feed
+    ``substance_bind_record``. Same F41 pattern reapplied at finer grain:
+    fail-loud on liveness (via HUD slot reading the counter) while the
+    check itself stays fail-open. Fail-soft on import — telemetry never
+    breaks the gate.
+    """
+    try:
+        from divineos.core.council_required.abstention_telemetry import (
+            record_edit_tokens_result,
+        )
+
+        record_edit_tokens_result(is_none=(tokens is None))
+    except ImportError:
+        pass
 
 
 # Type alias for the gravity-classifier callable. Injected so the gate
@@ -148,7 +209,11 @@ def decide(
     classifier + expert-library import graph.
     """
     gravity_result = gravity_fn(tool_name, file_paths, bash_command)
-    is_council_required = bool(getattr(gravity_result, "is_council_required", False))
+    # F49 fix 2026-07-19 (Aletheia Round 6 catch): default was False
+    # (fails-open — degraded/missing attribute → ALLOW without a walk).
+    # Flipped to True so a broken gravity_result forces council walk
+    # rather than silently skipping the discipline. Fail toward scrutiny.
+    is_council_required = bool(getattr(gravity_result, "is_council_required", True))
     if not is_council_required:
         return GateDecision(outcome=GateOutcome.ALLOW)
 
@@ -229,10 +294,13 @@ def decide(
             fired_features = tuple(getattr(gravity_result, "fired_features", ()))
             is_kiln = is_kiln_layer_edit(fired_features)
             keywords = keywords_loader()
+            edit_tokens = _read_edit_content_tokens(fingerprint)
+            _record_edit_tokens_result(edit_tokens)
             bind_result = substance_binding.substance_bind_record(
                 retry_record,
                 is_kiln_layer=is_kiln,
                 expert_keywords_for_lens=keywords,
+                edit_content_tokens=edit_tokens,
             )
             if bind_result.passed:
                 # Retry allowance: record already consumed, do not re-consume.
@@ -260,10 +328,12 @@ def decide(
     is_kiln = is_kiln_layer_edit(fired_features)
     keywords = keywords_loader()
 
+    edit_tokens = _read_edit_content_tokens(fingerprint)
     bind_result = substance_binding.substance_bind_record(
         record,
         is_kiln_layer=is_kiln,
         expert_keywords_for_lens=keywords,
+        edit_content_tokens=edit_tokens,
     )
     if not bind_result.passed:
         return GateDecision(

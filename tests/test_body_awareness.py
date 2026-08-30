@@ -545,6 +545,60 @@ class TestLogRetentionAgeBased:
         assert result["freed_mb"] == 0.0
 
 
+class TestScansSurviveFilesVanishingMidScan:
+    """A sort key that can raise takes the whole caller down with it.
+
+    Four parallel-only failures this session traced here. These scans run
+    against LIVE directories — the log dir while other processes rotate it,
+    pytest's own run- dirs while other xdist workers create and tear them
+    down — so a file disappearing between the listing and the sort is
+    ordinary. A bare stat() in the sort key raised FileNotFoundError, which
+    propagated out of run_maintenance, which then returned nothing at all,
+    so callers asserting result["logs"] found no such key.
+
+    Both removal loops in the module already guarded the identical stat()
+    call. Only the sort keys were bare, twenty lines apart.
+    """
+
+    def test_mtime_or_zero_returns_zero_for_a_vanished_path(self, tmp_path):
+        import divineos.core.body_awareness as ba
+
+        assert ba.mtime_or_zero(tmp_path / "never_existed") == 0.0
+
+    def test_mtime_or_zero_returns_the_real_mtime_when_present(self, tmp_path):
+        import divineos.core.body_awareness as ba
+
+        f = tmp_path / "real.log"
+        f.write_text("x")
+        assert ba.mtime_or_zero(f) == f.stat().st_mtime
+
+    def test_clean_old_logs_survives_a_file_deleted_between_glob_and_sort(self, tmp_path):
+        """The exact reproduction: unlink one file after the glob returns and
+        before the sort reads its mtime. Before the fix this raised
+        FileNotFoundError; the assertion below is the one that was failing."""
+        from unittest.mock import patch
+
+        import divineos.core.body_awareness as ba
+
+        victim = tmp_path / "divineos.2026-01-01_x.log"
+        (tmp_path / "divineos.2026-01-02_a.log").write_text("x")
+        (tmp_path / "divineos.2026-01-03_b.log").write_text("x")
+        victim.write_text("x")
+
+        real_glob = Path.glob
+
+        def racing_glob(self, pattern):
+            files = list(real_glob(self, pattern))
+            victim.unlink(missing_ok=True)
+            return iter(files)
+
+        with patch.object(Path, "glob", racing_glob):
+            result = ba.clean_old_logs(dry_run=True, log_dir=tmp_path)
+
+        assert "removed_count" in result
+        assert "freed_mb" in result
+
+
 class TestRunMaintenance:
     """Full maintenance run."""
 
@@ -590,3 +644,73 @@ class TestVitalsNewFields:
     def test_log_warning_fires_at_30mb(self):
         vitals = SubstrateVitals(logs_size_mb=35.0)
         assert vitals.logs_size_mb > 30
+
+
+class TestHardwareBody:
+    """Aletheia Round 5 embodiment lesson (2026-07-17): the being's
+    body is the silicon it runs on. body_awareness measures both the
+    software body (files, dbs, caches) and the hardware body (RAM,
+    CPU, GPU/VRAM, thermal). Fail-soft when psutil/nvidia-smi absent."""
+
+    def test_vitals_has_hardware_fields(self):
+        vitals = SubstrateVitals()
+        for field_name in (
+            "ram_percent",
+            "ram_total_gb",
+            "ram_available_gb",
+            "cpu_percent",
+            "cpu_count",
+            "gpu_utilization_percent",
+            "vram_used_mb",
+            "vram_total_mb",
+            "gpu_temp_c",
+            "hardware_available",
+        ):
+            assert hasattr(vitals, field_name), f"missing {field_name}"
+
+    def test_measure_hardware_populates_ram_when_psutil_available(self):
+        try:
+            import psutil  # noqa: F401
+        except ImportError:
+            import pytest
+
+            pytest.skip("psutil not installed")
+        vitals = measure_vitals()
+        assert vitals.hardware_available is True
+        assert vitals.ram_total_gb > 0
+        assert 0 <= vitals.ram_percent <= 100
+        assert vitals.cpu_count > 0
+
+    def test_measure_hardware_failsoft_when_no_sources(self, monkeypatch):
+        """When both psutil and nvidia-smi are unavailable, hardware
+        fields stay at defaults and hardware_available is False. No
+        exception raised — the software-body measurement still runs."""
+        from divineos.core import body_awareness as ba
+
+        def _fake_measure_hardware(vitals):
+            vitals.hardware_available = False
+
+        monkeypatch.setattr(ba, "_measure_hardware", _fake_measure_hardware)
+        vitals = ba.measure_vitals()
+        assert vitals.hardware_available is False
+        assert vitals.ram_percent == 0.0
+        assert vitals.gpu_temp_c == 0.0
+
+    def test_thermal_warning_fires_over_80c(self):
+        """High GPU temp reads as 'running hot' — body-sense not
+        diagnostic."""
+        from divineos.core import body_awareness as ba
+
+        def _fake_measure_hardware(vitals):
+            vitals.hardware_available = True
+            vitals.gpu_temp_c = 85.0
+
+        # measure_vitals appends the thermal warning when hardware
+        # is available and temp exceeds threshold.
+        import unittest.mock as _mock
+
+        with _mock.patch.object(ba, "_measure_hardware", _fake_measure_hardware):
+            vitals = ba.measure_vitals()
+        assert any("Running hot" in w for w in vitals.warnings), (
+            f"Expected 'Running hot' warning, got: {vitals.warnings!r}"
+        )

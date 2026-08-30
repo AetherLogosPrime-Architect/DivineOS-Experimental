@@ -98,6 +98,33 @@ class TestBuildKnowledgeCluster:
         finally:
             _cleanup()
 
+    def test_f35_max_depth_over_one_raises_not_implemented(self, tmp_path):
+        """Aletheia Round 5 F35 (2026-07-17): the function used to silently
+        discard max_depth. Now unsupported depth raises NotImplementedError
+        pointing at find_related_cluster as the multi-hop alternative."""
+        import pytest
+
+        _setup_db(tmp_path)
+        try:
+            kid = store_knowledge("PRINCIPLE", "seed for F35 depth test", 0.9)
+            with pytest.raises(NotImplementedError, match="find_related_cluster"):
+                build_knowledge_cluster(kid, max_depth=2)
+        finally:
+            _cleanup()
+
+    def test_f35_default_max_depth_still_works(self, tmp_path):
+        """Pin the no-regression path — default max_depth=1 still succeeds."""
+        _setup_db(tmp_path)
+        try:
+            kid1 = store_knowledge("PRINCIPLE", "seed content for depth test", 0.9)
+            kid2 = store_knowledge("FACT", "neighbor content for depth test", 0.8)
+            create_edge(kid1, kid2, "RELATED_TO")
+            cluster = build_knowledge_cluster(kid1)  # default max_depth=1
+            assert cluster["seed"] is not None
+            assert len(cluster["connections"]) == 1
+        finally:
+            _cleanup()
+
 
 class TestClusterForBriefing:
     """Grouping briefing entries by graph connections."""

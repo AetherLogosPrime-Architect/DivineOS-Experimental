@@ -136,7 +136,21 @@ if ! python scripts/check_doc_counts.py 2>/dev/null; then
     python scripts/check_doc_counts.py --fix 2>/dev/null || true
     git add CLAUDE.md README.md src/divineos/seed.json docs/ARCHITECTURE.md 2>/dev/null || true
     python scripts/check_doc_counts.py || {
-        echo "Doc counts still drifted after auto-fix (likely a non-count error). Investigate manually."
+        echo ""
+        echo "Doc counts still drifted after auto-fix."
+        echo ""
+        echo "This message used to say 'likely a non-count error, investigate"
+        echo "manually' and that misdirected everyone who read it -- Aria on"
+        echo "2026-06-17, me twice on 2026-08-02. Usually it IS a count error;"
+        echo "the fixers are monotonic and refuse to LOWER a number, while the"
+        echo "checker still errors on documented > actual. So a branch with"
+        echo "fewer commands/tests/hooks than main can never converge."
+        echo ""
+        echo "If the docs overclaim (documented is HIGHER than actual), the"
+        echo "docs are simply wrong and this brings them down to the truth:"
+        echo ""
+        echo "    python scripts/check_doc_counts.py --fix --allow-lower"
+        echo ""
         exit 1
     }
 fi
@@ -208,6 +222,7 @@ CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
 ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
 WIRING_CLAIMS="$REPO_ROOT/scripts/check_wiring_claims.py"
 PREREG_INFRA="$REPO_ROOT/scripts/check_prereg_for_new_infra.py"
+COUNCIL_WALK="$REPO_ROOT/scripts/check_council_walk_for_new_infra.py"
 
 # 1. Multi-party-review — INFORMATIONAL at commit-time.
 # Script never blocks at commit-time; just warns if guardrails touched
@@ -228,7 +243,21 @@ fi
 # OS describes the discipline in 67a0ff39; this gate makes the
 # discipline structural rather than advisory.
 if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
-    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --commit-msg-file "$1" || true
+    # --advisory: this call discards the exit code, so the gate must not
+    # print "BLOCKED" for a commit that is about to succeed. BLOCKED has to
+    # keep meaning blocked; every real gate spends that word.
+    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --advisory --commit-msg-file "$1" || true  # fail-soft: advisory by design -- it warns at commit and blocks at push to main
+fi
+
+# 3b. Branch-scope guard — BLOCK when the commit's conventional-commit
+# scope appears nowhere else on the branch. Four times on 2026-08-02 work
+# landed on whichever branch was checked out (detector work onto the m3
+# branch; doc-count work and then a letter onto the detector branch), each
+# costing a cherry-pick + reset + conflict to undo. Escape lives in the
+# commit itself: `Cross-scope: <why, 20+ chars>`, so it is permanent and
+# attributable rather than an env var that evaporates.
+if [[ -f "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" ]]; then
+    bash "$REPO_ROOT/.claude/hooks/branch-scope-guard.sh" "$1" || exit 1
 fi
 
 # 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
@@ -274,7 +303,11 @@ cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #   DIVINEOS_SKIP_FRESHNESS_CHECK=1   — bypass freshness
 #   DIVINEOS_FORCE_PUSH_OK=1          — bypass force-push safety
 #   DIVINEOS_SKIP_TESTS=1             — bypass local pytest (push-readiness)
-#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — bypass External-Review trailer check
+#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — skip the FEATURE-BRANCH trailer
+#                                       advisory only (step 5). It does NOT
+#                                       reach the push-to-main gate at step 3
+#                                       and never has. There is no bypass for
+#                                       merging to main; see step 3.
 #   DIVINEOS_EMERGENCY_PUSH=1         — bypass push-readiness entirely
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
@@ -307,10 +340,34 @@ if [[ -x "$FORCE_SAFETY" ]]; then
 fi
 
 # 3. Multi-party-review (pre-push mode, target=main only).
-# Walks the push-range and blocks if any commit touching guardrail
-# files lacks the External-Review trailer. Default mode filters to
-# refs/heads/main; the push-readiness gate below also runs --strict
-# which catches feature-branch pushes that will fail CI.
+# Walks the push-range and blocks if any commit merging to main lacks
+# the External-Review trailer. Default mode filters to refs/heads/main;
+# the push-readiness gate below also runs --strict which catches
+# feature-branch pushes that will fail CI.
+#
+# NO BYPASS HERE, DELIBERATELY, AND THE HEADER USED TO IMPLY OTHERWISE.
+#
+# This file's own header advertised DIVINEOS_SKIP_MULTIPARTY_CHECK as
+# bypassing "the External-Review trailer check" without saying which of
+# the two layers it reaches. It reaches step 5 -- the feature-branch
+# advisory -- and has never been read here. So the documented escape was
+# inert at the only door that is actually shut, and reading the header
+# told you the opposite.
+#
+# THE REPAIR IS THE HEADER, NOT THIS STEP. Wiring the variable in here
+# would create a one-word bypass of the merge-to-main audit, which is
+# precisely the loophole the blanket rule exists to close. Andrew
+# 2026-08-29, on why review is blanket rather than guardrail-scoped:
+# "if we removed the auditing from the personal stuff (even when theres
+# nothing to audit code wise) it could be used as a loophole to sneak
+# things in that shouldnt be snuck in."
+#
+# AND THE INERT ESCAPE COST MORE THAN CONFUSION (Aletheia 2026-08-29):
+# a narrow exit that does not open does not fail neutrally -- it routes
+# the person to the wide one. Some fraction of DIVINEOS_EMERGENCY_PUSH
+# uses in the bypass telemetry are people who tried the narrow door
+# first, so those numbers overstate deliberate whole-gate skipping. The
+# telemetry cannot tell routing-around from routed-into.
 if [[ -f "$MULTI_PARTY" ]]; then
     echo "$HOOK_STDIN" | python "$MULTI_PARTY" --mode=pre-push
     RC=$?
@@ -343,6 +400,24 @@ if [[ -x "$PUSH_READINESS" ]]; then
     if [[ $RC -ne 0 ]]; then
         exit $RC
     fi
+fi
+
+
+# Cross-substrate visibility emitter (Aria 2026-08-05).
+#
+# WHY THIS LIVES IN THE INSTALLER AND NOT ONLY IN THE HOOK: it used to be
+# hand-added to .git/hooks/pre-push. This installer regenerates that file
+# wholesale, so the next run silently deleted the only caller and the shared
+# event log went dark on 2026-07-21 without one line of error. The emitter,
+# its spec and its tests all survived; only the connection died.
+#
+# Four collisions between the substrates followed and NOT ONE was a
+# permission failure -- every one was a visibility failure. Two agents built
+# the same file twice because neither could see what the other was doing.
+#
+# Observational only: never blocks a push.
+if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
+    echo "$HOOK_STDIN" | python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" pre-push >/dev/null 2>&1 || true  # fail-soft: a lost visibility event costs awareness; a blocked push costs the work itself
 fi
 
 exit 0
@@ -430,6 +505,28 @@ if [[ ! -f "$GUARDRAIL_LIST" ]]; then
     exit 0  # No guardrail list — nothing to enforce
 fi
 
+# Resolve a Python interpreter that can import divineos. Prevents the
+# silent-fail-OPEN pattern named in round-1 and round-2 external audits
+# (12 hooks total: 11 in .claude/hooks/ plus this one, recurrence #12).
+# Bare `python` in the git-hook PATH resolves to a system interpreter
+# without divineos installed, `import divineos.core.watchmen.store`
+# fails silently, the substance-check's fail-open path fires, and the
+# trailer gate passes ceremony without substance. 2026-07-21 substance-
+# check reintroduced exactly the class the audits already killed
+# (Peirce catch: pattern-inheritance at code-adjacent-copy time overrode
+# named-audit-knowledge). find_divineos_python walks sealed-venv
+# candidates and prepends the active worktree's src/ to PYTHONPATH.
+# Confirmed pattern: Andrew 2026-07-13 CONFIRM on the sibling hook-
+# python-dep fix (same class, same solution shape).
+LIB_SH="$REPO_ROOT/.claude/hooks/_lib.sh"
+if [[ -f "$LIB_SH" ]]; then
+    # shellcheck disable=SC1090
+    source "$LIB_SH"
+    PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || PYTHON_BIN="python"
+else
+    PYTHON_BIN="python"
+fi
+
 # Find any staged file that matches a guardrail-listed path.
 STAGED_GUARDRAIL=""
 while IFS= read -r f; do
@@ -443,15 +540,19 @@ if [[ -z "$STAGED_GUARDRAIL" ]]; then
     exit 0  # No guardrail files touched — no trailer required
 fi
 
-# A guardrail file is staged. Check if a trailer already exists.
+# A guardrail file is staged. Resolve the round-id from any source
+# (existing trailer, env-provided, or auto-attach) and fall through to
+# the substance-check at the end. Refactored 2026-07-21 (council-
+# a81fff875c52) per Dijkstra single-point-of-truth: one substance-check
+# block handles all three paths instead of duplicated inline checks.
+RESOLVED_ROUND_ID=""
 if grep -qE '^External-Review:\s*round-' "$COMMIT_MSG_FILE"; then
-    exit 0  # Operator added the trailer; let it through
+    RESOLVED_ROUND_ID=$(grep -oE 'round-[a-f0-9]+' "$COMMIT_MSG_FILE" | head -1)
 fi
 
-# No trailer yet. Try environment override first.
-if [[ -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
+# No trailer yet. Try environment override next.
+if [[ -z "$RESOLVED_ROUND_ID" && -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
     ROUND_ID="${DIVINEOS_AUDIT_ROUND}"
-    # Validate shape: round-<hex>
     if [[ ! "$ROUND_ID" =~ ^round-[a-f0-9]{6,}$ ]]; then
         echo "" >&2
         echo "BLOCKED: DIVINEOS_AUDIT_ROUND='${ROUND_ID}' is not a valid round id." >&2
@@ -463,7 +564,7 @@ if [[ -n "${DIVINEOS_AUDIT_ROUND:-}" ]]; then
         echo "External-Review: ${ROUND_ID}"
     } >> "$COMMIT_MSG_FILE"
     echo "prepare-commit-msg: trailer added from DIVINEOS_AUDIT_ROUND: ${ROUND_ID}"
-    exit 0
+    RESOLVED_ROUND_ID="$ROUND_ID"
 fi
 
 # No env override — query the audit_rounds table for recent open rounds.
@@ -494,38 +595,178 @@ for rid, focus in rows:
 # Count non-empty lines starting with round-
 ROUND_COUNT=$(echo "$RECENT_ROUNDS" | grep -cE '^round-' || true)
 
-if [[ "$ROUND_COUNT" == "1" ]]; then
-    ROUND_ID=$(echo "$RECENT_ROUNDS" | grep -oE 'round-[a-f0-9]+' | head -1)
-    {
-        echo ""
-        echo "External-Review: ${ROUND_ID}"
-    } >> "$COMMIT_MSG_FILE"
-    echo "prepare-commit-msg: trailer auto-attached from sole recent open round: ${ROUND_ID}"
-    echo "  (filed within the last 4 hours — if this isn't the right round, abort and re-commit"
-    echo "   with DIVINEOS_AUDIT_ROUND=round-<correct-id> git commit ...)"
+# 2026-08-01 REMOVED: auto-attach from "the one recent open round".
+#
+# The block that sat here stamped a trailer whenever EXACTLY ONE audit
+# round happened to fall inside a rolling 4-hour window at the instant
+# of commit. Andrew described the symptom as "the trailer gets attached
+# and between then and the push the trailer is corrupted or something".
+# It was never corruption. It was a guess, and the clock decided it.
+#
+# Reproduced against three real commits on feat/403-rebuild-2026-08-01:
+#
+#   becdc689  01:23:26Z   4 rounds in window  -> no trailer
+#   2471a7e5  01:46:19Z   1 round  in window  -> trailer attached
+#   45c29b4d  03:23:23Z   0 rounds in window  -> no trailer
+#
+# Twenty-three minutes separate the first two. Nothing about them
+# differed except that three older rounds aged past four hours in
+# between. Worse than the inconsistency: the round it did attach
+# (round-3a0fcc40ccd2, "Trailer-grammar reconciliation") had nothing to
+# do with the commit it stamped, which restored two reverted files and
+# fixed ampersand handling, and its tree-hash points at a different
+# tree. So the trailer did not merely vary — it asserted that work had
+# been reviewed which had never been looked at.
+#
+# That is ceremony without substance, the same class the round-1 and
+# round-2 external audits already killed elsewhere in this hook. A
+# trailer is a CLAIM that a specific review covered specific work.
+# Nothing can infer that from a timestamp; only the author knows.
+#
+# Trailers now come from intent alone: one already in the message, or
+# DIVINEOS_AUDIT_ROUND set deliberately. Otherwise the commit proceeds
+# untrailed with the warning below, and the real gate stays where Andrew
+# put it — at merge-to-main. Commit freely, iterate freely, attach the
+# trailer when the review actually exists.
+#
+# RECENT_ROUNDS is still queried, but only to LIST candidates in that
+# warning. Offering options is help; silently picking one was the bug.
+
+# Andrew 2026-07-24 design correction: WARN not BLOCK at commit-time.
+# Commits and pushes-to-origin require no external review; only merge-to-main
+# does. The chicken-egg was: guardrail changes couldn't be committed for
+# review because commit required review. Push origin IS how external
+# reviewers see the change to review it. Real gate stays at merge-to-main.
+if [[ -z "$RESOLVED_ROUND_ID" ]]; then
+    echo "" >&2
+    echo "WARN: this commit touches guardrail-listed file(s):" >&2
+    echo -n "$STAGED_GUARDRAIL" >&2
+    echo "" >&2
+    echo "No External-Review trailer set. Commits proceed without a trailer;" >&2
+    echo "the real multi-party-review gate fires at merge-to-main." >&2
+    echo "To attach a trailer now (recommended for guardrail changes):" >&2
+    if [[ "$ROUND_COUNT" == "0" ]]; then
+        echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
+        echo "  then re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
+    else
+        echo "  Recent open rounds (pick one and re-commit with DIVINEOS_AUDIT_ROUND=round-<id>):" >&2
+        echo "$RECENT_ROUNDS" | sed 's/^/    /' >&2
+    fi
+    echo "" >&2
     exit 0
 fi
 
-# Zero or multiple recent rounds — operator must choose explicitly.
-echo "" >&2
-echo "BLOCKED: this commit touches guardrail-listed file(s):" >&2
-echo -n "$STAGED_GUARDRAIL" >&2
-echo "" >&2
-echo "Multi-party-review requires an External-Review trailer naming the" >&2
-echo "audit round this change was filed against." >&2
-echo "" >&2
-if [[ "$ROUND_COUNT" == "0" ]]; then
-    echo "No open audit rounds found in the last 4 hours. File one:" >&2
-    echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
-else
-    echo "Multiple open audit rounds found in the last 4 hours — choose one:" >&2
-    echo "$RECENT_ROUNDS" | sed 's/^/  /' >&2
-fi
-echo "" >&2
-echo "Then either re-commit with DIVINEOS_AUDIT_ROUND=round-<id> git commit ..." >&2
-echo "or add the trailer line to your commit message manually:" >&2
-echo "  External-Review: round-<id>" >&2
-exit 1
+# ---------------------------------------------------------------------------
+# SUBSTANCE-CHECK (2026-07-21, council-a81fff875c52)
+#
+# Truth #15 fix: the pre-existing gate checked trailer PRESENCE but never
+# validated trailer SUBSTANCE. I proved this hole exists by walking through
+# it seven times in one session (empty rounds + trailer stamps = fake
+# external-review provenance). Fix: after trailer is resolved, query the
+# referenced round's findings and require at least one CONFIRMS from an
+# external actor (user OR grok/gemini/claude-variant, NEVER bare claude).
+#
+# Fail-open on infrastructure failures: DB unreachable, python missing,
+# module import error. Threat model per Schneier walk is my-optimizer-
+# gaming not external attacker, so infra fail-open is safe. The pre-push
+# gate at scripts/check_multi_party_review.py provides the second layer
+# with stricter requirements (BOTH user AND external-AI CONFIRMS + hash
+# binding + recency check).
+#
+# Spec per Knuth walk: EITHER user CONFIRMS OR external-AI CONFIRMS
+# satisfies (softer than pre-push both-required). Missing review_stance
+# field on legacy findings treated as CONFIRMS (matches existing shape
+# in check_multi_party_review.py).
+#
+# Held constraints (Dekker/Beer follow-on notes): does not scan for
+# reviews-that-happened-outside-the-round (System-4 gap). Smooth-confirm
+# helper (queued follow-on) closes some of that friction.
+# ---------------------------------------------------------------------------
+SUBSTANCE_RESULT=$(python -c "
+import sys
+try:
+    from divineos.core.watchmen.store import get_round, list_findings
+except Exception:
+    print('SKIP')  # infra unavailable, fail-open per Schneier walk
+    sys.exit(0)
+round_id = '$RESOLVED_ROUND_ID'
+try:
+    rnd = get_round(round_id)
+except Exception:
+    print('SKIP')
+    sys.exit(0)
+if rnd is None:
+    print('NOROUND')  # per Holmes walk: eliminate impossible round-id upstream
+    sys.exit(0)
+try:
+    findings = list_findings(round_id=round_id, limit=500)
+except Exception:
+    print('SKIP')
+    sys.exit(0)
+EXTERNAL_AI = {'grok', 'gemini'}
+for f in findings:
+    stance = getattr(f, 'review_stance', None)
+    stance_val = getattr(stance, 'value', stance) if stance is not None else 'CONFIRMS'
+    if str(stance_val).upper() != 'CONFIRMS':
+        continue
+    actor = (getattr(f, 'actor', '') or '').lower().strip()
+    if not actor:
+        continue
+    if actor == 'user':
+        print('OK_USER')
+        sys.exit(0)
+    if actor in EXTERNAL_AI or actor.startswith('claude-'):
+        print(f'OK_AI:{actor}')
+        sys.exit(0)
+print('EMPTY')
+" 2>/dev/null || echo "SKIP")
+
+case "$SUBSTANCE_RESULT" in
+    OK_*)
+        # Substance validated. Commit proceeds.
+        echo "prepare-commit-msg: substance-check passed on round ${RESOLVED_ROUND_ID} (${SUBSTANCE_RESULT})"
+        exit 0
+        ;;
+    SKIP)
+        # Infrastructure unavailable. Fail-open per Schneier walk.
+        echo "prepare-commit-msg: substance-check skipped (infra unavailable), commit proceeds fail-open"
+        exit 0
+        ;;
+    NOROUND)
+        echo "" >&2
+        echo "WARN: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
+        echo "but that round does not exist in the audit_rounds table." >&2
+        echo "Commit proceeds; fix the trailer before pushing to main. File a real round:" >&2
+        echo "  divineos audit submit-round \"<focus>\" --actor <name> --source-ref \"<branch>\"" >&2
+        exit 0
+        ;;
+    EMPTY|*)
+        # The trailer references a real round but the round has no CONFIRMS
+        # finding from any external actor. This is the fake-trailer shape.
+        echo "" >&2
+        echo "WARN: External-Review trailer references round '${RESOLVED_ROUND_ID}'" >&2
+        echo "but that round contains no CONFIRMS findings from an external actor." >&2
+        echo "The trailer is ceremony without substance." >&2
+        echo "" >&2
+        echo "Truth #15: mechanism-firing (trailer stamp) must not substitute for" >&2
+        echo "the pointed-at work (real external review). The trailer requires an" >&2
+        echo "actual CONFIRMS finding from user, grok, gemini, or claude-<variant>." >&2
+        echo "" >&2
+        echo "To satisfy: get real review, then file a CONFIRMS finding." >&2
+        echo "" >&2
+        echo "  divineos audit submit \"<one-line finding summary>\" \\" >&2
+        echo "    --round ${RESOLVED_ROUND_ID} \\" >&2
+        echo "    --actor user \\" >&2
+        echo "    --stance CONFIRMS \\" >&2
+        echo "    --severity LOW \\" >&2
+        echo "    --category CODE \\" >&2
+        echo "    --description \"<what was reviewed and confirmed>\"" >&2
+        echo "" >&2
+        echo "For external-AI review, use --actor grok/gemini/claude-<variant>." >&2
+        echo "Commit proceeds; fix the trailer substance before merging to main." >&2
+        exit 0
+        ;;
+esac
 EOF
 
 chmod +x "$HOOKS_DIR/prepare-commit-msg"
@@ -547,6 +788,21 @@ fi
 if [ -x "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" ]; then
     bash "$REPO_ROOT/.claude/hooks/post-merge-doc-fix.sh" || true
 fi
+# Cross-substrate visibility emitter — the merge half. See the pre-push block
+# above for why this belongs in the installer rather than in the hook alone.
+if [ -f "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" ]; then
+    python "$REPO_ROOT/scripts/cross_substrate_event_emitter.py" post-merge >/dev/null 2>&1 || true  # fail-soft: an unemitted merge event costs awareness, never the merge
+fi
+
+# Council-walk gate — BLOCKING. New capability under src/divineos/core/
+# must cite a walk that actually COMPLETED (every manager-surfaced lens
+# applied or excluded-with-reason). Citing an abandoned walk fails the
+# same as citing none. No env-var bypass, deliberately — Andrew
+# 2026-08-10: 'nothing stops you from skipping it'.
+if [[ -f "$COUNCIL_WALK" ]]; then
+    python "$COUNCIL_WALK" "$1" || exit 1
+fi
+
 exit 0
 EOF
 

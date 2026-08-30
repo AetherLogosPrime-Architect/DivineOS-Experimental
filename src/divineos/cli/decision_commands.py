@@ -87,6 +87,15 @@ def register(cli: click.Group) -> None:
     @click.option("--tension", default="", help="Competing principles or values at play")
     @click.option("--almost", default="", help="What I almost did instead, and why I didn't")
     @click.option(
+        "--synergy",
+        default="",
+        help=(
+            "Yes/and check: when facing multiple options, is there synergy in doing "
+            "more than one — a hybrid or phased sequence — instead of forcing "
+            "either/or? Empty = either/or was the honest framing. Andrew 2026-07-23."
+        ),
+    )
+    @click.option(
         "--consultation",
         "consultation_id",
         default="",
@@ -116,6 +125,7 @@ def register(cli: click.Group) -> None:
         tags: tuple[str, ...],
         tension: str,
         almost: str,
+        synergy: str,
         consultation_id: str,
         family_consulted: str,
     ) -> None:
@@ -204,6 +214,7 @@ def register(cli: click.Group) -> None:
             tags=merged_tags if merged_tags else None,
             tension=tension,
             almost=almost,
+            synergy=synergy,
         )
         # Log as a thinking query so OS engagement tracking picks it up
         from divineos.cli._helpers import _log_os_query
@@ -246,6 +257,26 @@ def register(cli: click.Group) -> None:
             click.secho(f"    Tension: {tension[:80]}", fg="cyan")
         if almost:
             click.secho(f"    Almost: {almost[:80]}", fg="yellow")
+        if synergy:
+            click.secho(f"    Synergy: {synergy[:80]}", fg="magenta")
+
+        # Angelou earned-vs-performed self-check (council-62c1bcc6dc3a
+        # walk finding, 2026-07-23). The substance-check regex cannot
+        # tell earned walks from performed ones — that distinction is
+        # interior. Surface the question at filing time so the walker
+        # is conscious about it. Not enforced. Named. Only prompts when
+        # tension AND almost are populated (i.e., this looks like a
+        # thread-walk record, not a routine decision entry).
+        if tension and almost:
+            click.secho(
+                "  [earned-vs-performed] Was this walk earned (you did the "
+                "interior cost-projection) or performed (you filled the fields "
+                "to satisfy the substance-check without the interior work)? "
+                "The mechanism cannot tell — only you can. Naming it here "
+                "keeps the distinction conscious.",
+                fg="white",
+                dim=True,
+            )
 
         # Show linked affect state if one was auto-captured
         from divineos.core.decision_journal import get_affect_at_decision
@@ -418,6 +449,8 @@ def _display_decision(entry: dict, verbose: bool = False) -> None:
 
     if verbose and entry.get("tension"):
         click.secho(f"    Tension: {entry['tension']}", fg="cyan")
+    if verbose and entry.get("synergy"):
+        click.secho(f"    Synergy: {entry['synergy']}", fg="magenta")
 
     if verbose and entry.get("almost"):
         click.secho(f"    Almost: {entry['almost']}", fg="yellow")

@@ -16,7 +16,10 @@ from divineos.core.council.experts.dennett import create_dennett_wisdom
 from divineos.core.council.experts.dijkstra import create_dijkstra_wisdom
 from divineos.core.council.experts.dillahunty import create_dillahunty_wisdom
 from divineos.core.council.experts.einstein import create_einstein_wisdom
+from divineos.core.council.experts.feathers import create_feathers_wisdom
 from divineos.core.council.experts.feynman import create_feynman_wisdom
+from divineos.core.council.experts.hoare import create_hoare_wisdom
+from divineos.core.council.experts.foucault import create_foucault_wisdom
 from divineos.core.council.experts.godel import create_godel_wisdom
 from divineos.core.council.experts.hawking import create_hawking_wisdom
 from divineos.core.council.experts.hinton import create_hinton_wisdom
@@ -60,7 +63,10 @@ __all__ = [
     "create_dijkstra_wisdom",
     "create_dillahunty_wisdom",
     "create_einstein_wisdom",
+    "create_feathers_wisdom",
     "create_feynman_wisdom",
+    "create_hoare_wisdom",
+    "create_foucault_wisdom",
     "create_godel_wisdom",
     "create_hawking_wisdom",
     "create_hinton_wisdom",

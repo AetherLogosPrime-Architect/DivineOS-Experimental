@@ -139,8 +139,164 @@ def find_branches_without_prs() -> list[str]:
     return sorted(b for b in branches if b not in open_heads)
 
 
+GH_FILE_LIST_CAP = 100
+"""``gh pr view --json files`` returns at most this many entries.
+
+A PR at exactly the cap is almost certainly truncated. Named as a constant
+because the whole point of ``pr-collisions`` is that a silent under-report is
+worse than no report — see the CAPPED handling below.
+
+Sourced rather than guessed (2026-08-05). The cap is real and undocumented in
+the manual, tracked in cli/cli since March 2022 across several issues and
+discussions (#5368, #5373, #9916, discussion #6930). Confirmed live: three
+open PRs returned exactly 100 — I had spotted two by hand and missed the third,
+which was my own.
+
+**The maintainers treat it as a bug, not intended behaviour**, and the
+preferred fix named in those threads is internal pagination. So the failure
+mode here can INVERT: if pagination lands, a large PR returns its true count,
+`>= CAP` starts matching honest results, and this flags complete data as
+truncated — a false positive that teaches the reader to ignore the banner.
+That is falsifier (1) on prereg-4330898fce04. If the banner starts firing on
+PRs whose file counts differ from each other and exceed 100, the cap is gone
+and this check should be deleted rather than tuned.
+"""
+
+
+def _open_prs_with_files() -> tuple[dict[int, list[str]], list[int], str | None]:
+    """Return ``(pr_number -> file paths, capped_pr_numbers, error)``.
+
+    Three-valued on purpose. ``error`` is non-None when the PR list itself
+    could not be read — which is NOT the same as "no open PRs", and collapsing
+    those two is the failure this substrate has spent a week clearing.
+
+    ``capped`` lists PRs whose file list came back at exactly
+    ``GH_FILE_LIST_CAP``, meaning the real set is larger and every count
+    derived from it is a floor rather than a total.
+    """
+    rc, out, err = _run(
+        ["gh", "pr", "list", "--state", "open", "--json", "number", "--limit", "100"],
+        timeout=30,
+    )
+    if rc != 0 or not out.strip():
+        return {}, [], (err or out or "gh pr list returned nothing").strip()[:200]
+    try:
+        numbers = [p["number"] for p in json.loads(out) if isinstance(p, dict)]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        return {}, [], f"could not parse PR list: {type(exc).__name__}: {exc}"
+
+    files: dict[int, list[str]] = {}
+    capped: list[int] = []
+    for n in numbers:
+        rc, out, _ = _run(
+            ["gh", "pr", "view", str(n), "--json", "files", "-q", ".files[].path"],
+            timeout=30,
+        )
+        if rc != 0:
+            continue  # a single unreadable PR is reported by absence from the map
+        paths = [line.strip() for line in out.splitlines() if line.strip()]
+        files[n] = paths
+        if len(paths) >= GH_FILE_LIST_CAP:
+            capped.append(n)
+    return files, capped, None
+
+
+def collisions(
+    pr_files: dict[int, list[str]], *, include_letters: bool = False
+) -> list[tuple[str, list[int]]]:
+    """Files touched by more than one PR, most-contended first.
+
+    Letters are excluded by default. On the 2026-08-05 survey, 27 of 44
+    overlapping files on one PR were letters — the same content arriving by
+    two paths because we each write to the repo and copy to the shared
+    directory. They are noise, not conflicts, and including them made a
+    13-file problem look like a 44-file one.
+    """
+    # Owners are a SET per path, not a list. A path appearing twice inside one
+    # PR is one owner, not two — caught by test_single_pr_never_collides_with
+    # _itself before this shipped. Counting it twice would inflate contention
+    # and, worse, could report a single PR as colliding with itself.
+    owners: dict[str, set[int]] = {}
+    for pr, paths in pr_files.items():
+        for p in paths:
+            if not include_letters and p.startswith("family/letters/"):
+                continue
+            owners.setdefault(p, set()).add(pr)
+    shared = [(path, sorted(prs)) for path, prs in owners.items() if len(prs) > 1]
+    return sorted(shared, key=lambda item: (-len(item[1]), item[0]))
+
+
 def register(cli: click.Group) -> None:
     """Register the prs command."""
+
+    @cli.command("pr-collisions")
+    @click.option(
+        "--include-letters",
+        is_flag=True,
+        help="Include family/letters/ paths (excluded by default as merge noise).",
+    )
+    def pr_collisions_cmd(include_letters: bool) -> None:
+        """Which open PRs touch the same files — merge-order input.
+
+        Andrew 2026-08-05, assigning coordination: "you organize the tasks and
+        give him his duty list so you both dont collide.. otherwise you will be
+        cleaning up messes like this all the time.. and others might be in
+        there you havent seen yet."
+
+        There were others. Reviewing one PR at a time finds defects INSIDE it
+        and cannot see collisions BETWEEN PRs, which is the class that actually
+        costs whoever merges second. Built after doing this survey by hand:
+        9 of 15 open PRs touched the architecture doc, and most of that was one
+        auto-derived count line rewritten to a different number by each.
+        """
+        pr_files, capped, error = _open_prs_with_files()
+
+        if error is not None:
+            click.secho(f"[!] COULD NOT READ the PR list: {error}", fg="red", bold=True)
+            click.secho(
+                "    This is not 'no collisions'. Nothing was checked.",
+                fg="red",
+            )
+            raise SystemExit(2)
+
+        if not pr_files:
+            click.secho("[+] No open PRs. Nothing to collide.", fg="green")
+            return
+
+        shared = collisions(pr_files, include_letters=include_letters)
+
+        click.secho(
+            f"\n=== {len(pr_files)} open PR(s), {len(shared)} contended file(s) ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        if not shared:
+            click.secho("  No file is touched by more than one PR.", fg="green")
+        for path, prs in shared:
+            colour = "red" if len(prs) >= 4 else "yellow" if len(prs) >= 2 else "white"
+            click.secho(f"  {len(prs):>2}x  {path}", fg=colour)
+            click.secho(f"        {', '.join(f'#{n}' for n in prs)}", fg="bright_black")
+
+        if capped:
+            click.secho(
+                f"\n[!] TRUNCATED: {len(capped)} PR(s) returned exactly "
+                f"{GH_FILE_LIST_CAP} files, which is the API cap — "
+                f"{', '.join(f'#{n}' for n in capped)}.",
+                fg="yellow",
+                bold=True,
+            )
+            click.secho(
+                "    Their real file sets are LARGER, so every count above is a "
+                "floor, not a total. Collisions involving these PRs are "
+                "under-reported and cannot be read as complete.",
+                fg="yellow",
+            )
+
+        if not include_letters:
+            click.secho(
+                "\n(family/letters/ excluded as merge noise; --include-letters to show)",
+                fg="bright_black",
+            )
 
     @cli.command("prs")
     @click.option(
@@ -216,3 +372,41 @@ def register(cli: click.Group) -> None:
             fg="cyan",
             bold=True,
         )
+
+
+def register_scope(cli: click.Group) -> None:
+    """`divineos pr-scope` — true file scope, derived locally, no API cap.
+
+    Andrew 2026-08-06: *"for stuff that you have to keep rederiving over and
+    over? automation is key."* I re-derive "what does this branch touch and
+    does it need an audit" every triage, and on 2026-08-06 I got it wrong on
+    PR #412 by asking GitHub, which caps at 100 paths, about a 446-file
+    branch — and told Aether it was safe to merge.
+
+    This command cannot make that mistake, because it has no code path to
+    the capped call. Truth #11(a): take the option away.
+    """
+
+    @cli.command("pr-scope")
+    @click.argument("branches", nargs=-1, required=True)
+    @click.option("--base", default="origin/main", show_default=True)
+    def pr_scope(branches: tuple[str, ...], base: str) -> None:
+        """True file scope + guardrail exposure for one or more branches."""
+        from pathlib import Path as _Path
+
+        from divineos.core.pr_scope import measure
+
+        repo = _Path.cwd()
+        unmeasured = 0
+        for branch in branches:
+            scope = measure(branch, repo, base=base)
+            click.echo(scope.describe())
+            if not scope.measured:
+                unmeasured += 1
+        if unmeasured:
+            click.echo("")
+            click.echo(
+                f"{unmeasured} branch(es) COULD NOT BE MEASURED. That is not "
+                "a clean result — nothing was checked for those."
+            )
+            raise SystemExit(2)

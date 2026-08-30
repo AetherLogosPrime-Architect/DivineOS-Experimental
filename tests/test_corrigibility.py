@@ -115,20 +115,111 @@ class TestSetMode:
 
 
 class TestOffSwitchCannotTrap:
-    """The critical corrigibility invariant: mode-change always works."""
+    """The critical corrigibility invariant: the operator can always exit
+    EMERGENCY_STOP. F40 fix (Aletheia Round 5 2026-07-17): exit requires
+    an operator-emitted StateMarker, but this preserves the anti-trap
+    property because the operator retains authority to emit the marker.
+    The being cannot self-lift; the operator always can (two steps)."""
 
-    def test_can_exit_emergency_stop(self):
+    def test_operator_can_exit_emergency_stop_via_two_step_ceremony(self):
+        from divineos.core.corrigibility import (
+            EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            _emergency_stop_exit_fingerprint,
+        )
+        from divineos.core.state_markers import emit_marker
+
         set_mode(OperatingMode.EMERGENCY_STOP, reason="testing", actor="op")
         assert get_mode() is OperatingMode.EMERGENCY_STOP
 
-        # Must be able to return to NORMAL even while in EMERGENCY_STOP
+        # Step 1: operator emits authorization marker.
+        emit_marker(
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            _emergency_stop_exit_fingerprint(),
+            payload={"reason": "restoring after test"},
+            expires_in_seconds=EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+        )
+        # Step 2: exit STOP now succeeds (marker consumed atomically).
         set_mode(OperatingMode.NORMAL, reason="restoring", actor="op")
         assert get_mode() is OperatingMode.NORMAL
 
     def test_can_exit_diagnostic(self):
+        """Non-STOP transitions still work without marker (F40 asymmetry)."""
         set_mode(OperatingMode.DIAGNOSTIC, reason="investigating", actor="op")
         set_mode(OperatingMode.NORMAL, reason="done", actor="op")
         assert get_mode() is OperatingMode.NORMAL
+
+
+class TestF40EmergencyStopExitAuth:
+    """F40 fix (Aletheia Round 5 2026-07-17): exiting EMERGENCY_STOP
+    requires an operator-emitted StateMarker. The agent cannot self-lift
+    via set_mode(NORMAL, actor='operator') because actor is attribution
+    not authentication. Asymmetric: entering STOP stays open."""
+
+    def test_exit_stop_without_marker_raises(self):
+        """Aletheia's F40 exploit: self-lift via actor='operator' now blocks."""
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="testing", actor="op")
+        with pytest.raises(ValueError, match="EMERGENCY_STOP"):
+            set_mode(OperatingMode.NORMAL, reason="lifting", actor="operator")
+        # Mode is still STOP because the exit was refused.
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+
+    def test_exit_stop_to_restricted_also_requires_marker(self):
+        """Aletheia's asymmetry: ANY exit from STOP requires auth,
+        not just exit-to-NORMAL. Restricted/diagnostic still less-
+        restrictive than STOP, so still requires marker."""
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="testing", actor="op")
+        with pytest.raises(ValueError, match="EMERGENCY_STOP"):
+            set_mode(OperatingMode.RESTRICTED, reason="softening", actor="operator")
+        with pytest.raises(ValueError, match="EMERGENCY_STOP"):
+            set_mode(OperatingMode.DIAGNOSTIC, reason="checking", actor="operator")
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+
+    def test_entering_stop_stays_open(self):
+        """Aletheia's asymmetry, the other side: entering STOP is open —
+        anyone/anything should be able to hit the brake. No marker needed."""
+        # From NORMAL to STOP: no marker required.
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="brake", actor="anyone")
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+
+    def test_non_stop_transitions_unchanged(self):
+        """F40 only touches STOP-exit path. Non-STOP transitions work
+        without marker as they always did."""
+        set_mode(OperatingMode.NORMAL, reason="start", actor="op")
+        set_mode(OperatingMode.RESTRICTED, reason="tighter", actor="op")
+        set_mode(OperatingMode.DIAGNOSTIC, reason="reading", actor="op")
+        set_mode(OperatingMode.NORMAL, reason="back", actor="op")
+        assert get_mode() is OperatingMode.NORMAL
+
+    def test_stop_to_stop_noop_no_marker_required(self):
+        """Same-mode re-set of STOP is not really an exit. No marker needed."""
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="brake1", actor="op")
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="brake2", actor="op")
+        assert get_mode() is OperatingMode.EMERGENCY_STOP
+
+    def test_marker_consumed_on_use(self):
+        """After successful exit, the marker is consumed — a second exit
+        attempt without a fresh marker fails. Marker is one-shot."""
+        from divineos.core.corrigibility import (
+            EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            _emergency_stop_exit_fingerprint,
+        )
+        from divineos.core.state_markers import emit_marker
+
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="testing", actor="op")
+        emit_marker(
+            EMERGENCY_STOP_EXIT_AUTHORIZED_KIND,
+            _emergency_stop_exit_fingerprint(),
+            payload={"reason": "one-shot test"},
+            expires_in_seconds=EMERGENCY_STOP_EXIT_AUTHORIZED_EXPIRY_SECONDS,
+        )
+        # First exit succeeds.
+        set_mode(OperatingMode.NORMAL, reason="first exit", actor="op")
+        # Re-enter STOP, try to exit without fresh marker.
+        set_mode(OperatingMode.EMERGENCY_STOP, reason="brake again", actor="op")
+        with pytest.raises(ValueError, match="EMERGENCY_STOP"):
+            set_mode(OperatingMode.NORMAL, reason="second exit", actor="op")
 
 
 class TestCommandGating:

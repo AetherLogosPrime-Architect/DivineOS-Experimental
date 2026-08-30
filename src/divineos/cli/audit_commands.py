@@ -160,6 +160,96 @@ def validate_external_confirm_inputs(
     )
 
 
+def _anchor_after(description: str, label: str) -> str:
+    """The 40-hex token following ``label`` in a confirm's description.
+
+    NO REGEX, and the keyword-doorman is why. Its standing lesson -- proven
+    twice on this file -- is that the pattern is usually unnecessary and
+    literal checks are clearer and cannot over-match. That applies exactly
+    here: a confirm description is PROSE, and a pattern hunting for a label
+    near a hash can match the words inside a sentence ABOUT a hash. Splitting
+    on whitespace and demanding the very next token be forty hex characters
+    cannot do that, and a reader can verify it by eye.
+    """
+    tokens = description.split()
+    for i, token in enumerate(tokens[:-1]):
+        if token.lower().rstrip(":") != label:
+            continue
+        candidate = tokens[i + 1].strip(".,;)").lower()
+        if len(candidate) == 40 and all(c in "0123456789abcdef" for c in candidate):
+            return candidate
+    return ""
+
+
+def anchor_state_for_round(
+    round_id: str,
+    branch: str,
+    remote: str = "origin",
+    main_ref: str = "origin/main",
+) -> tuple[str, str]:
+    """Does this round's external CONFIRM still cover the branch as it stands?
+
+    Returns (state, detail) where state is one of:
+
+      holds        the reviewed change is unchanged -- exact tree, or a
+                   catch-up whose patch-id still matches
+      stale        the reviewed change MOVED; re-audit rather than merge on it
+      unanchored   the confirm predates content binding and records no anchor,
+                   so drift since cannot be detected either way
+      cannot-check the round, the confirm, or git could not be read
+
+    EXTRACTED SO THE BOARD AND THE COMMAND ANSWER FROM ONE PLACE. Station
+    eight needed this and `confirm-holds` already did it; copying the logic
+    would have produced two answers to one question that drift apart -- the
+    defect that left three council lenses unwalkable earlier this month, and
+    the one that let a schema exemption sit in one list while a comment
+    claimed it was in two.
+
+    CANNOT-CHECK IS NOT A PASS and the caller must keep it distinct. This is
+    the last station before a merge; a failed read reported as a clean one is
+    the whole class of fault this station has been accumulating.
+    """
+    try:
+        from divineos.core.watchmen.store import list_findings
+    except Exception:  # noqa: BLE001 - store unavailable is cannot-check, not stale
+        return "cannot-check", "audit store not importable"
+
+    try:
+        findings = list_findings(round_id=round_id, limit=200)
+    except Exception as exc:  # noqa: BLE001 - unreadable, which is not absent
+        return "cannot-check", f"{type(exc).__name__}: {exc}"
+
+    ext = [
+        f
+        for f in findings
+        if (getattr(f, "actor", "") or "").lower() in _EXTERNAL_AI_ACTORS
+        and "CONFIRMS" in (getattr(f, "title", "") or "")
+    ]
+    if not ext:
+        return "cannot-check", f"no external-AI CONFIRM in round {round_id}"
+
+    desc = getattr(ext[-1], "description", "") or ""
+    rec_tree = _anchor_after(desc, "tree")
+    rec_pid = _anchor_after(desc, "patch-id")
+    if not rec_tree and not rec_pid:
+        return "unanchored", "confirm records no tree-hash or patch-id"
+
+    _git_capture(["git", "fetch", remote, branch], timeout=60)
+    cur_tree = _git_capture(["git", "rev-parse", f"{remote}/{branch}^{{tree}}"])
+    cur_pid = compute_branch_patch_id(f"{remote}/{branch}", main_ref)
+    if not cur_tree and not cur_pid:
+        return "cannot-check", f"could not resolve {remote}/{branch}"
+
+    ok, reason, _basis = validate_external_confirm_inputs(
+        actor=getattr(ext[-1], "actor", ""),
+        claimed_tree=rec_tree,
+        actual_tree=cur_tree or "",
+        claimed_patch_id=rec_pid,
+        actual_patch_id=cur_pid or "",
+    )
+    return ("holds" if ok else "stale"), reason
+
+
 def _git_capture(args: list[str], timeout: int = 30) -> str | None:
     """Run a git command; return stripped stdout, or None on any failure."""
     import subprocess
@@ -211,10 +301,29 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
     if not base:
         return None
     try:
+        # BYTES, NOT TEXT, AND THIS IS THE WHOLE BUG (Aletheia 2026-08-29).
+        #
+        # She computed a patch-id for a branch that returned nothing here and
+        # asked why. Reproduced: `text=True` decodes with the locale codec,
+        # which on this machine is cp1252, and the diff carries a byte cp1252
+        # cannot map. An em-dash or a curly quote is enough -- so nearly every
+        # branch I own, because my own comments and letters are full of them.
+        #
+        # WORSE THAN A CRASH: UnicodeDecodeError is a ValueError, which is in
+        # neither OSError nor SubprocessError, so the guard below never caught
+        # it. It escaped to a broad handler upstream and became a silent None,
+        # and a None here is indistinguishable from "this branch has no diff".
+        # The catch-up rung was therefore unavailable to those branches
+        # permanently, and nothing anywhere said so.
+        #
+        # A diff is bytes. Forcing it through a text codec was the error, not
+        # the codec choice -- so this works in bytes end to end rather than
+        # picking a better encoding, and the failure mode stops existing
+        # instead of being caught. Only the final line is decoded, and that
+        # line is hex and a space.
         diff = subprocess.run(
             ["git", "diff", base, branch_ref],  # default context; NEVER -U0
             capture_output=True,
-            text=True,
             check=False,
             timeout=30,
         )
@@ -224,16 +333,18 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
             ["git", "patch-id", "--stable"],
             input=diff.stdout,
             capture_output=True,
-            text=True,
             check=False,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, ValueError):
+        # ValueError kept even though bytes should make it unreachable: it is
+        # what this function used to die on, and an empty guard costs nothing
+        # next to another silent None.
         return None
     if pid.returncode != 0 or not pid.stdout.strip():
         return None
     # Output line: "<patch-id> <commit-id>" — first token is the patch-id.
-    return pid.stdout.split()[0].strip()
+    return pid.stdout.decode("ascii", "replace").split()[0].strip()
 
 
 def register(cli: click.Group) -> None:
@@ -1240,6 +1351,56 @@ def register(cli: click.Group) -> None:
                 fg="yellow",
             )
 
+    @audit_group.command("export")
+    @click.argument("round_ids", nargs=-1)
+    @click.option(
+        "--for-branch",
+        default=None,
+        help="Export every round whose focus names this branch.",
+    )
+    def audit_export_cmd(round_ids: tuple[str, ...], for_branch: str | None) -> None:
+        """Write rounds to docs/audit_rounds/ so CI can see they exist.
+
+        The merge-review gate checks that the round named in the trailer is
+        logged. It looked that up in the local event ledger, which no GitHub
+        runner has, so that requirement failed on every run regardless of who
+        approved what. Exporting puts the round where the gate can read it --
+        and in the PR diff, where the operator reads it before approving.
+        """
+        from pathlib import Path
+
+        from divineos.core.watchmen.round_export import export_round
+        from divineos.core.watchmen.store import list_rounds
+
+        targets = list(round_ids)
+        if for_branch:
+            targets.extend(
+                rnd.round_id
+                for rnd in list_rounds(limit=500)
+                if for_branch in (getattr(rnd, "focus", "") or "")
+            )
+        targets = list(dict.fromkeys(t for t in targets if t))
+
+        if not targets:
+            click.secho("[!] Name at least one round-id, or pass --for-branch.", fg="red")
+            raise click.exceptions.Exit(1)
+
+        repo = Path.cwd()
+        missing: list[str] = []
+        for round_id in targets:
+            path = export_round(repo, round_id)
+            if path is None:
+                missing.append(round_id)
+                click.secho(f"[!] {round_id}: not in the local store; nothing to export.", fg="red")
+                continue
+            click.secho(f"[+] {round_id} -> {path.relative_to(repo)}", fg="green")
+
+        if missing:
+            # A partial export that exits 0 would read as "all exported" to
+            # any caller that checks the exit code, which is how the trailer
+            # work kept reporting success over commits it had not touched.
+            raise click.exceptions.Exit(1)
+
     @audit_group.command("prepare-merge")
     @click.argument("round_id")
     @click.option(
@@ -1289,7 +1450,6 @@ def register(cli: click.Group) -> None:
         Phase 3 (deferred): substrate-aware merge tooling that auto-attaches
         when a round is confirmed.
         """
-        import time as _time
 
         from divineos.core.watchmen.store import get_round, list_findings
 
@@ -1351,31 +1511,22 @@ def register(cli: click.Group) -> None:
             )
             raise click.exceptions.Exit(1)
 
-        # Validate recency. Use the same window as the gate (14 days).
-        _RECENCY_DAYS = 14
-        created_at = getattr(rnd, "created_at", None) or getattr(rnd, "timestamp", None) or 0
-        if isinstance(created_at, str):
-            try:
-                # ISO format fallback
-                import datetime as _dt
-
-                created_at = _dt.datetime.fromisoformat(
-                    created_at.replace("Z", "+00:00")
-                ).timestamp()
-            except Exception:  # noqa: BLE001
-                created_at = 0
-        age_days = (_time.time() - float(created_at)) / 86400.0 if created_at else 999.0
-        if age_days > _RECENCY_DAYS:
-            click.secho(
-                f"[!] Round '{round_id}' is {age_days:.1f} days old "
-                f"(recency window is {_RECENCY_DAYS} days).",
-                fg="red",
-            )
-            click.secho(
-                "    Stale rounds cannot authorize a new merge. File a fresh round.",
-                fg="bright_black",
-            )
-            raise click.exceptions.Exit(1)
+        # 2026-08-01: recency check REMOVED here, matching the deletion in
+        # scripts/check_multi_party_review.py.
+        #
+        # This copy said 14 days; the gate that actually blocks said 7. The
+        # comment even claimed "the same window as the gate". So merge-prep
+        # blessed rounds aged 8-14 days and stamped them, and the pre-push
+        # gate then rejected the result — the tooling built to prevent stale
+        # approvals was manufacturing them. Sweep finding rank 3.
+        #
+        # Andrew's rule is that day-windows are the wrong metric class: an
+        # untested week returns almost no data. Here the honest replacement
+        # is not an event count but nothing at all, because the question
+        # ("does this review cover this code?") is answered exactly by the
+        # tree-hash / diff-hash binding the gate already enforces. A round
+        # whose hash matches reviewed precisely this content, whatever its
+        # age; one whose hash does not is blocked regardless.
 
         # All validations pass. Compose the ready-to-paste message.
         focus = getattr(rnd, "focus", "") or ""
@@ -1391,10 +1542,14 @@ def register(cli: click.Group) -> None:
         click.echo()
         click.echo(title)
         click.echo()
+        # This line lands verbatim in the squash-merge commit on main, so it
+        # must not assert a recency window that no longer exists. What the
+        # gate actually verifies is two CONFIRMS from distinct actor types
+        # plus a content binding between the round and the code.
         click.echo(
             f"Reviewed via audit round {round_id} "
-            f"(operator-CONFIRMS + external-AI-CONFIRMS, age {age_days:.1f}d, "
-            f"within {_RECENCY_DAYS}d recency window)."
+            f"(operator-CONFIRMS + external-AI-CONFIRMS, "
+            f"content-bound to the reviewed tree)."
         )
         click.echo()
         # Phase 2 (2026-06-13): include tree-hash suffix so the server-side
@@ -1431,12 +1586,32 @@ def register(cli: click.Group) -> None:
                 fg="cyan",
             )
         else:
+            # This message used to call the round-id-only trailer LEGACY and
+            # tell the reader to re-run from inside a git repo. Both halves
+            # were false by 2026-08-27, and the second wasted the reader in a
+            # specific way: I ran it from inside the repo, was told to run it
+            # from inside the repo, and went hunting a defect that did not
+            # exist.
+            #
+            # The no-tree-hash default was FLIPPED DELIBERATELY on 2026-06-18
+            # by Andrew, because a tree-hash predicted from HEAD cannot match
+            # the squash commit once main moves between predict-time and
+            # squash-time. Round-id-only is the current correct form, not a
+            # degraded one. Substance-binding lives in the per-commit trailers
+            # and in the round's external-AI confirm, which binds tree and
+            # patch-id.
+            #
+            # The command's own --help said all of that while this message said
+            # the opposite. A warning contradicting the help beside it is the
+            # painted-door class living in an instrument rather than a comment:
+            # it answers the reader's question, wrongly, at the moment they ask.
             click.secho(
                 "Paste the block above into the GitHub squash-merge commit message field.\n"
-                "[!] Trailer is in LEGACY form (no tree-hash). The server-side gate will\n"
-                "    emit a DEPRECATED warning. Re-run from inside a git repo to include\n"
-                "    tree-hash binding, or pass --no-tree-hash to suppress this notice.",
-                fg="yellow",
+                "Trailer carries the round id only, which is the current form: a\n"
+                "tree-hash predicted before the squash cannot match the tree after it\n"
+                "once main has moved. Substance stays bound through the per-commit\n"
+                "trailers and the round's external-AI confirm.",
+                fg="cyan",
             )
 
     @audit_group.command("pr-merge-check")

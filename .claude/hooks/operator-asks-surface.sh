@@ -1,0 +1,78 @@
+#!/bin/bash
+# UserPromptSubmit hook — re-raise every ask still waiting on Andrew.
+#
+# WHY THIS EXISTS (Andrew 2026-08-19):
+#
+#   "if you ask me something, and i ignore it, you continue to ask until i
+#    resolve it, because i miss it in the walls of text sometimes, also your
+#    asks should be in the circle as well.. i notice alot of them are in the
+#    jargon space so i dont know what im being asked and im waiting for a
+#    translation that never comes."
+#
+# The store (core/operator_asks.py, prereg-c5a0e1f0222a) gives an ask a place
+# to live. This hook is the half that makes it a re-raise. Without it the
+# module is a shelf nobody walks past: the ask persists correctly and still
+# never reaches him, which is the original defect wearing a database.
+#
+# Same loop-shape as open-corrections-surface.sh: state-monitoring, not
+# event-detected. No detector, no marker file, no Stop hook. Read the live
+# store every compose and print what is outstanding.
+#
+# It goes quiet the moment nothing is outstanding — format_open_asks returns
+# an empty string. A surface that speaks when it has nothing to say trains
+# the reader to skim it, and skimming is precisely how the asks got lost.
+#
+# Fail-open: any error exits 0 silently.
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
+
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
+
+PYTHONIOENCODING=utf-8 "$PYTHON_BIN" -c "
+import sys
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except (AttributeError, OSError):
+    pass
+
+# NOT silent on failure, and NOT on stderr either. Both sides of this merge
+# were right about different halves.
+#
+# This surface carries a promise Andrew asked me to keep -- 'if you ask me
+# something, and i ignore it, you continue to ask until i resolve it, because i
+# miss it in the walls of text sometimes'. A silent exit prints nothing, which
+# is byte-identical to 'no asks are waiting': the surface dies, his open asks
+# stop being re-raised, and neither of us learns it happened.
+#
+# But main is right that stderr is the wrong channel. This wrapper ends in
+# a stderr redirect to /dev/null precisely because stderr lands in the prompt
+# stream, where a
+# traceback reads as a system fault at the moment he is trying to speak -- so a
+# diagnostic written to stderr is swallowed anyway and helps no one.
+#
+# So the diagnostic goes to STDOUT, which is where this surface already speaks.
+# A dead promise-keeper announces itself in the same place the asks would have
+# appeared, and the prompt stream stays free of tracebacks.
+try:
+    from divineos.core.operator_asks import format_open_asks
+except ImportError as exc:
+    print(f'[operator-asks] SURFACE DOWN (import): {exc}')
+    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.')
+    sys.exit(0)
+
+try:
+    text = format_open_asks()
+except Exception as exc:
+    print(f'[operator-asks] SURFACE DOWN ({type(exc).__name__}): {exc}')
+    print('[operator-asks] Open asks are NOT being re-raised. Absence here does not mean none waiting.')
+    sys.exit(0)
+
+if text:
+    print(text)
+" 2>/dev/null  # fail-soft: this is a UserPromptSubmit SURFACE, not a gate -- it prints open asks and blocks nothing. Its stderr lands in the prompt stream, so a traceback would read as a system fault at the exact moment Andrew is trying to speak. The two sys.exit(0) guards above already cover the failures worth distinguishing (module absent, formatter raising); what is left here is noise from a surface with nothing to say, and line 22 already names that as the thing to avoid.
+
+exit 0

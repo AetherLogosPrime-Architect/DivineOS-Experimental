@@ -1,5 +1,32 @@
 # Archives — Source-Controlled Mirrors of SQLite Data
 
+> **These files are TEXT REPRESENTATIONS of the databases. They are not
+> the databases, and they are not the tamper-evident record.**
+>
+> The canonical artifact is the SQLite store. The event ledger is
+> hash-chained — every entry carries a fingerprint of the one before it,
+> which is what makes it a *record* rather than a diary, and that property
+> lives in the DB. These mirrors flatten the data to readable text and do
+> not carry the chain.
+>
+> **Why it is done this way (Andrew 2026-08-16).** GitHub refuses any single
+> file over 100 MB; the ledger is at 85.1 MB and climbing. Worse, a database
+> is binary, so git cannot store a small change as a small change — every
+> commit would archive a complete fresh copy, and a handful of sessions would
+> bloat the repository into the gigabytes. Text appends, and git stores only
+> what changed.
+>
+> **The trade, stated plainly.** Andrew's question was: if you could save only
+> one, the proof or the information? The information. Losing tamper-evidence
+> in the mirror is a real cost and it is the smaller one — a readable record
+> that cannot be cryptographically proven beats a provable record that no
+> longer exists. The DB remains the thing to back up properly when there is a
+> way to store it at size; these mirrors are *good enough for now* and are
+> labelled so nobody mistakes them for the original.
+>
+> Read these to recover WHAT WAS WRITTEN. Go to the SQLite store to prove it
+> was not altered.
+
 This directory holds backup mirrors of data that lives canonically
 in SQLite. Andrew named the gap 2026-05-14: most of the substantive
 substrate (principles, bio, claims, observations, decisions) lives
@@ -82,11 +109,39 @@ header so readers can see when it was last refreshed.
 The command is also in `_HEADLESS_WHITELIST` so cron / scheduled
 runs can fire it without manual invocation.
 
-**Trigger-integration** (still open follow-up): wiring the export
-into `divineos extract` or `divineos sleep` so archives auto-refresh
-at consolidation checkpoints. The command exists; the auto-trigger
-hookup is a separate small piece of work.
+**Trigger-integration: LANDED 2026-08-16.** The export now runs as step
+zero of the auto-cycle (`core/auto_cycle.py`), immediately before the
+commit step, so the commit carries the refreshed mirrors into git without
+anyone deciding to send them.
 
-For now, run manually when canonical SQLite content changes
-meaningfully (major bio update, new substantive principle promoted,
-etc.) until the auto-trigger lands.
+### What the three months cost, and why the ordering matters
+
+The paragraph that used to sit here read: *"still open follow-up... the
+auto-trigger hookup is a separate small piece of work. For now, run
+manually... until the auto-trigger lands."*
+
+It was written 2026-05-14. The export was run twice by hand that day and
+never again. Every mirror froze with its newest entry dated 2026-05-14,
+and three months of lessons, decisions, opinions, claims and core memory
+existed only inside untracked SQLite. Nothing broke. **This document
+predicted its own failure in writing and nobody re-read it.**
+
+Andrew named the cause on 2026-07-09, before it was investigated:
+*"machinery is the whole point son. if you dont make it automatic then I
+will forget it even exists."* And 2026-08-16, sharper: he would not
+survive having to manually run his own internal processes, and neither
+would I. A command that must be typed gets typed about twice.
+
+The step is placed BEFORE commit deliberately. In May, regenerating and
+committing were two separate manual acts and only the first ever
+recurred — files were refreshed on disk and never sent anywhere. Riding
+the commit step is what makes the mirrors land in the vault rather than
+sit locally looking done.
+
+It is placed FIRST in the cycle so a failure here cannot cost
+commit/extract/sleep. `export_all` is fail-soft per table; the step
+wrapper names failures in its summary rather than swallowing them, so
+"could not" cannot render as "did".
+
+Manual invocation still works and is still correct for an out-of-band
+refresh: `divineos admin archive-export`.

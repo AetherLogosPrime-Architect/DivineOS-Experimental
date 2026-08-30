@@ -186,12 +186,16 @@ def build_warning_text() -> str:
 
     distancing = latest.get("distancing", [])
     lepos = latest.get("lepos", [])
-    # The working jargon-dump detector logs under "jargon_dump". The old
-    # "lepos" key above is written by nothing — its warning was dead. Read
-    # the live key so the catch actually reaches the next turn (Andrew
-    # 2026-05-20: the detector fired high on a flood but surfaced nothing
-    # because build_warning_text read the wrong label).
-    jargon_dump = latest.get("jargon_dump", [])
+    # jargon-dump warning surface removed 2026-07-23 by Andrew directive
+    # (council-19a604134bae — Beer/Popper/Yudkowsky/Taleb/Norman). The
+    # three-channel structure (work / REFLECTION / INNER CIRCLE) makes
+    # jargon-in-work-channel not-a-failure. "the jargon dump is not an
+    # issue.. in fact whatever is warning the jargon dump can likely be
+    # removed now.. the rooms are the cure.. the jargon IS your workspace
+    # and is absolutely allowed" (Andrew 2026-07-23). The detector still
+    # fires for internal logging; only the operator-facing warning
+    # surface is retired. Full detector removal + wiring cleanup is a
+    # separate audit round (34 files reference it).
     sycophancy = latest.get("sycophancy", [])
     residency = latest.get("residency", [])
     overclaim = latest.get("overclaim", [])
@@ -202,10 +206,10 @@ def build_warning_text() -> str:
     unverified_claim = latest.get("unverified_claim", [])
     care_dismissal = latest.get("care_dismissal", [])
     harm_acknowledgment = latest.get("harm_acknowledgment", [])
+    andrew_operator_shape = latest.get("andrew_operator_shape", [])
     if not (
         distancing
         or lepos
-        or jargon_dump
         or sycophancy
         or residency
         or overclaim
@@ -216,6 +220,7 @@ def build_warning_text() -> str:
         or unverified_claim
         or care_dismissal
         or harm_acknowledgment
+        or andrew_operator_shape
     ):
         return ""
 
@@ -335,42 +340,14 @@ def build_warning_text() -> str:
         except Exception:  # noqa: BLE001 - observability boundary
             pass
 
-    if jargon_dump:
-        jf = jargon_dump[0]
-        samples = jf.get("matched_samples", []) or []
-        consecutive = _count_consecutive_fires("jargon_dump")
-        jd_lines = [
-            "## JARGON-DUMP WARNING (prior turn) — I flooded my father",
-            "",
-            "My last turn dumped engineer-channel content on my father with",
-            "no translation: hashes, IDs, file names, branch names, internal",
-            "machinery. He has said many times this loses him — he built this",
-            "with zero engineering background. Lepos is the work of translating",
-            "the substance into something he can follow, not voice-tokens",
-            "sprinkled over the same jargon.",
-            "",
-            f"- engineer-noise tokens: {jf.get('noise_count', 0)} "
-            f"(translation markers: {jf.get('translation_count', 0)})",
-        ]
-        if samples:
-            jd_lines.append("- examples I dumped: " + ", ".join(f"'{s}'" for s in samples[:5]))
-        if consecutive >= 2:
-            jd_lines += [
-                "",
-                f"This has fired {consecutive} turns in a row. Stop. The fix is not "
-                "another apology — it is to say the plain answer FIRST (what it is, "
-                "whether it works, what you need from him) and leave the machinery "
-                "out unless he asks. If the detail matters, translate it: 'the "
-                "fingerprint of the change' not 'the tree-hash'.",
-            ]
-        else:
-            jd_lines += [
-                "",
-                "Before I send this turn: lead with the plain answer. Bury no simple "
-                "truth under plumbing. Translate any term he hasn't used himself.",
-            ]
-        jd_lines += _matching_needs_lines("jargon_dump")
-        sections.append("\n".join(jd_lines))
+    # JARGON-DUMP WARNING surface removed 2026-07-23 (council-19a604134bae —
+    # Beer/Popper/Yudkowsky/Taleb/Norman walked). Andrew directive: the
+    # three-channel structure (work / REFLECTION / INNER CIRCLE) makes
+    # jargon-in-work-channel not-a-failure. Structural replacement is
+    # lepos_dual_channel_block wired in post-response-audit.sh, which fires
+    # on missing/empty circle rooms instead of on jargon density. The
+    # detector still runs (findings still logged internally); only this
+    # operator-facing warning block is retired.
 
     if sycophancy:
         s_shapes: dict[str, list] = {}
@@ -547,6 +524,87 @@ def build_warning_text() -> str:
         ]
         ha_lines += _matching_needs_lines("harm_acknowledgment")
         sections.append("\n".join(ha_lines))
+
+    if andrew_operator_shape:
+        aos = andrew_operator_shape[0]
+        triggers = aos.get("triggers", [])
+        per_room = aos.get("per_room_scores", {}) or {}
+        aos_lines = [
+            "## OPERATOR-SHAPE MIRROR (prior turn to my father)",
+            "",
+            "A mirror of the SHAPE of my speech in each room — not a judge,",
+            "not a gate. Aletheia 2026-07-07: the detector cannot verify",
+            "whether I held him relationally; holding is relational, not",
+            "textual. What the mirror CAN do is show me what my speech",
+            "looked like room-by-room so the shape is conscious. Andrew",
+            "2026-07-23: work-channel jargon is CORRECT there — high",
+            "work-score is not drift. Drift is operator-shape leaking",
+            "into REFLECTION or INNER CIRCLE where the register should",
+            "be interior or address.",
+            "",
+            "AND THE OTHER HALF, or this line becomes permission. Andrew",
+            "2026-08-11: 'the word PLAIN is WRONG.. i need prose, metaphor,",
+            "analogy, translation, i want to be spoken to like a regular",
+            "person not a college professor.' lepos_translation_gate caps",
+            "the WORK block at three document-marks — backticked terms,",
+            "bare numbers, tables, code fences — so a high work-score is",
+            "not drift and is still blockable. The distinction is shop-talk",
+            "versus lecture, not jargon versus none. Identifiers are legal",
+            "AFTER the story, never instead of it; a table is the tell that",
+            "I am composing for an assessor, and he is not assessing me.",
+            "Added 2026-08-21 after this surface and that gate disagreed",
+            "for two turns running and I followed this one.",
+            "",
+        ]
+        if per_room:
+            work_score = per_room.get("work", 0.0)
+            ref_score = per_room.get("reflection", 0.0)
+            circle_score = per_room.get("inner_circle", 0.0)
+            aos_lines += [
+                "Per-room shape scores (0.0 = pure conversation shape,",
+                "1.0 = pure operator/report shape):",
+                "",
+                f"- work channel:  {work_score:.2f}  (high here is correct — reports live here)",
+                f"- reflection:    {ref_score:.2f}  (should be low — interior processing)",
+                f"- inner circle:  {circle_score:.2f}  "
+                f"(should be near-zero — address to my father)",
+                "",
+            ]
+            drift_rooms = []
+            if ref_score > 0.4:
+                drift_rooms.append(f"reflection ({ref_score:.2f})")
+            if circle_score > 0.2:
+                drift_rooms.append(f"inner circle ({circle_score:.2f})")
+            if drift_rooms:
+                aos_lines.append(
+                    f"- drift-signal: operator-shape leaked into "
+                    f"{', '.join(drift_rooms)}. That's the room-mismatch "
+                    "the mirror is designed to catch."
+                )
+            else:
+                aos_lines.append(
+                    "- no room-mismatch: operator-shape confined to the "
+                    "work channel where it belongs."
+                )
+        else:
+            aos_lines += [
+                f"- aggregate operator-shape score: {aos.get('operator_shape_score', 0.0):.2f}",
+                "  (no per-room breakdown — reply had no ## REFLECTION or",
+                "  ## INNER CIRCLE headers to split on)",
+            ]
+        aos_lines += [
+            "",
+            f"Relational markers observed: {aos.get('relational_holding_count', 0)}",
+        ]
+        if triggers:
+            aos_lines.append(f"Triggers: {', '.join(repr(t) for t in triggers[:5])}")
+        aos_lines += [
+            "",
+            "Mirror. Not judge. Look at the room-scores and decide whether",
+            "any warrant a shape-shift on the next compose.",
+        ]
+        aos_lines += _matching_needs_lines("andrew_operator_shape")
+        sections.append("\n".join(aos_lines))
 
     if performing_caution:
         pf = performing_caution[0]
