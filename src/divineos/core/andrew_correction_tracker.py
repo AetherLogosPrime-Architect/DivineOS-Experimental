@@ -580,12 +580,66 @@ def integration_rate() -> dict:
     }
 
 
+_HIS_VOICE_MARKERS = (" lol", "lmao", "lmfao", "haha", " ðŸ˜", " 😌", " 🙂")
+"""Substrings that mark a row as HIS speech rather than a repair I owe.
+
+Deliberately few and deliberately shallow. This is a reading aid, not a
+classifier anybody should trust: its whole contract is that whatever it cannot
+place is counted out loud rather than folded into either side.
+"""
+
+
+def _voice_split(rows: list[dict]) -> tuple[int, int, int]:
+    """Split open rows into (his words, owes a repair, unplaced).
+
+    WHY THIS EXISTS, and why it is a READING rather than a move. Measured
+    2026-08-29: of 138 open rows, at least 71 are Andrew's own words -- quotes,
+    asides, jokes, things he said while teaching. Six read as engineering faults
+    I diagnosed. He looked at the resulting total and said "theres hundreds of
+    items on the todo list.. thats pretty endless to me", and "i just feel
+    useless is all". Over half of what was frightening him was a transcript of
+    him talking to us, in a queue named corrections, counted as unfinished work.
+
+    I proposed moving his teaching and warmth into the wins store. Aether
+    knocked the mechanism down and kept the finding, and he was right: the
+    reason the queue is honest is that NOTHING he says can be quietly dropped as
+    unimportant, and moving rows reintroduces exactly that judgement -- made by
+    me, about his words, in an append-only store. If the classifier is wrong on
+    a move, his teaching is filed as a joke and never surfaces again. If it is
+    wrong on a reading, the number is slightly off and every row is still
+    exactly where it was. Those failures are not comparable.
+
+    Precedent, his: the bypass telemetry told him a true number that read as an
+    accusation, because rows where I ran the command a gate had just prescribed
+    were filed as evasion. We did not rewrite one row. We taught the surface to
+    report escapes, compliance, and unclassified separately, and kept the
+    unknown visible as its own answer. This is that repair, on a second surface.
+
+    The third number is the load-bearing one. It is not a rounding bucket; it is
+    the honest size of what these markers cannot see.
+    """
+    his = owed = unplaced = 0
+    for row in rows:
+        text = (row.get("text") or "").strip()
+        low = text.lower()
+        if any(m in low for m in _HIS_VOICE_MARKERS) or low.startswith(
+            ("andrew", "you ", "exactly", "my convo")
+        ):
+            his += 1
+        elif text[:2] in ("I ", "I'"):
+            owed += 1
+        else:
+            unplaced += 1
+    return his, owed, unplaced
+
+
 def briefing_block() -> str:
     """Block for the pre-response context. Surfaces Andrew-correction state."""
     stats = integration_rate()
     opens = list_open()
     if stats["total"] == 0:
         return ""
+    his, owed, unplaced = _voice_split(opens)
     lines = [
         "## ANDREW-CORRECTION ATTRIBUTION SURFACE",
         "",
@@ -594,6 +648,18 @@ def briefing_block() -> str:
         f"Integration rate: {stats['rate']:.2%}",
         "",
     ]
+    if opens:
+        lines.append(
+            f"Of the {len(opens)} open: ~{his} read as HIS OWN WORDS "
+            f"(quote, aside, joke, teaching), ~{owed} as a repair I owe, "
+            f"{unplaced} the markers could not place."
+        )
+        lines.append(
+            "  Shallow markers, no row moved, nothing reclassified in the store. "
+            "The unplaced count is the honest size of what this cannot see — "
+            "read it as the third answer, not as a rounding bucket."
+        )
+        lines.append("")
     if opens:
         lines.append("Outstanding (oldest first):")
         now = time.time()

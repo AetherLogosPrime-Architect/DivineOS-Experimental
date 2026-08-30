@@ -183,15 +183,47 @@ try:
 except Exception:
     sys.exit(0)
 cmd = (data.get('tool_input') or {}).get('command', '') or ''
+# TWO FAULTS, EITHER FATAL ALONE, BOTH LIVE SINCE THIS WAS WRITTEN
+# (measured 2026-08-29, Andrew asked me to fix the gate).
+#
+# ONE: a leading 'set -o pipefail;' stopped the match dead, because the
+# pattern is anchored and 'set' is not 'cd'. The pipeline gate teaches that
+# prefix on every command that pipes, so it is on most of what I type. This
+# is the SECOND inline copy of the leading-prefix rule in this repo; I fixed
+# the first one this morning in the remedy exemptions and the fix could not
+# reach here, which is the two-copies-of-one-fact shape the same session
+# found in a council roster and a schema allowlist.
+#
+# TWO, and this one killed it on its own: the shell writes '/c/wt444' and
+# Windows Python cannot resolve that form at all. os.path.isfile on the
+# POSIX spelling is False for a worktree that plainly exists, so every real
+# worktree was REJECTED and the check silently fell back to measuring the
+# ambient checkout.
+#
+# So the 2026-08-15 worktree-awareness repair, documented at length above,
+# has never once fired on this machine. It reads as present in the file and
+# has always returned the pre-repair answer. That is this house's recurring
+# fault wearing its plainest costume, inside the guard that reports it.
+for _pre in (r'''\s*set\s+(?:[-+][A-Za-z]*o[A-Za-z]*\s+[A-Za-z]+|[-+][A-Za-z]+)(?:\s+(?:[-+][A-Za-z]*o[A-Za-z]*\s+[A-Za-z]+|[-+][A-Za-z]+))*\s*(?:;|&&)\s*''',):
+    cmd = re.sub('^' + _pre, '', cmd, count=1)
 # A leading 'cd <path> &&' — quoted or bare — is how a worktree push is written.
 m = re.match(r'''\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)''', cmd)
 if not m:
     sys.exit(0)
 path = m.group(1).strip('\"\'')
+# Accept the shell's own spelling of a Windows drive: /c/x -> C:/x. Checked
+# in addition to the literal, never instead of it, so a genuine POSIX host
+# keeps working.
+candidates = [path]
+_m = re.match(r'^/([A-Za-z])(/.*)?$', path)
+if _m:
+    candidates.append(_m.group(1).upper() + ':' + (_m.group(2) or '/'))
 # Only honor it if it is really a git working tree; otherwise stay silent
 # and let the ambient root stand.
-if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
-    print(path)
+for cand in candidates:
+    if os.path.isdir(os.path.join(cand, '.git')) or os.path.isfile(os.path.join(cand, '.git')):
+        print(cand)
+        break
 " 2>/dev/null)  # fail-soft: if extraction fails we fall back to the ambient root, which is the pre-2026-08-15 behaviour
 
 if [ -n "$PUSH_CWD" ]; then

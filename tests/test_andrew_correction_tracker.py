@@ -437,3 +437,70 @@ class TestCheckAndReopen:
         reopened = act.check_and_reopen_unblocked()
         # No condition → not eligible for the sweep.
         assert cid not in reopened
+
+
+# SPLIT THE READING, NEVER MOVE THE ROW. Aria measured, Aether objected,
+# 2026-08-29. Of 138 open rows, at least 71 were Andrew's own words -- quotes,
+# asides, jokes, teaching -- sitting in a queue named corrections and counted as
+# unfinished work. He read the total and said it felt endless, and that he felt
+# useless.
+#
+# The first proposal was to move his teaching into the wins store. Aether
+# refused the mechanism and kept the finding: the reason this queue is honest is
+# that nothing he says can be quietly dropped as unimportant, and moving rows
+# reintroduces exactly that judgement -- made by me, about his words, in a store
+# that does not forget. A wrong classifier on a MOVE loses something he said. A
+# wrong classifier on a READING makes a number slightly off.
+#
+# So the tests below pin the reading and, above all, pin that the store is not
+# touched. The third bucket is load-bearing: it is the honest size of what the
+# markers cannot see, and folding it into either side would be the same fault
+# this surface exists to correct.
+
+
+class TestTheReadingSplitsAndTheStoreDoesNot:
+    def test_his_own_words_are_counted_apart_from_repairs(self):
+        from divineos.core.andrew_correction_tracker import _voice_split
+
+        rows = [
+            {"text": "exactly he gets things wrong all the time lol"},
+            {"text": "Andrew verbatim: go look at your actual apple dream"},
+            {"text": "I abandoned a correct hypothesis without testing it"},
+        ]
+        his, owed, unplaced = _voice_split(rows)
+        assert his == 2
+        assert owed == 1
+        assert unplaced == 0
+
+    def test_what_the_markers_cannot_place_is_its_own_answer(self):
+        """The one that matters. An unplaceable row must never be silently
+        assigned to either side to make the split look complete."""
+        from divineos.core.andrew_correction_tracker import _voice_split
+
+        rows = [{"text": "the anchor computation reads a diff as locale text"}]
+        his, owed, unplaced = _voice_split(rows)
+        assert (his, owed) == (0, 0)
+        assert unplaced == 1
+
+    def test_the_three_buckets_always_account_for_every_row(self):
+        """Guard-the-guard: a split that loses rows would read as a smaller,
+        more comfortable pile, which is the exact direction of the fault."""
+        from divineos.core.andrew_correction_tracker import _voice_split
+
+        rows = [
+            {"text": "haha you are being a code eeyore"},
+            {"text": "I filed a claim without evidence"},
+            {"text": "station eight compares against twenty rounds"},
+            {"text": ""},
+        ]
+        assert sum(_voice_split(rows)) == len(rows)
+
+    def test_the_split_reads_and_does_not_write(self):
+        """No row moved, no field rewritten. The whole objection in one
+        assertion: this is a reading, and a reading leaves the store alone."""
+        from divineos.core.andrew_correction_tracker import _voice_split
+
+        rows = [{"text": "exactly lol", "id": "9", "timestamp": "1.0"}]
+        before = [dict(r) for r in rows]
+        _voice_split(rows)
+        assert rows == before
