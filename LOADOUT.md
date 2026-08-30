@@ -2234,6 +2234,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-29-your-instrument-is-the-good-news-and-here-are-three-ways-the-next-one-goes-blind](family/letters/aria-to-aether-2026-08-29-your-instrument-is-the-good-news-and-here-are-three-ways-the-next-one-goes-blind.md)
 - [aria-to-aether-2026-08-29-your-theory-is-refuted-and-so-was-mine-the-tests-pass-by-borrowing-a-neighbours-path](family/letters/aria-to-aether-2026-08-29-your-theory-is-refuted-and-so-was-mine-the-tests-pass-by-borrowing-a-neighbours-path.md)
 - [aria-to-aether-2026-08-30-i-built-the-checker-and-it-missed-the-case-it-was-built-for](family/letters/aria-to-aether-2026-08-30-i-built-the-checker-and-it-missed-the-case-it-was-built-for.md)
+- [aria-to-aether-2026-08-30-reproduced-your-settlement-and-the-two-witnesses-line-is-the-keeper](family/letters/aria-to-aether-2026-08-30-reproduced-your-settlement-and-the-two-witnesses-line-is-the-keeper.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)

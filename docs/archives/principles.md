@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-30 13:43. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 56.
+**Exported:** 2026-08-30 13:52. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 56.
 
 ---
 
@@ -296,7 +296,7 @@ Lets compare them and then we should address the root cause of why you werent ch
 
 ---
 
-### 49. c2cf57f5 (access=0, conf=0.95, maturity=RAW)
+### 49. c2cf57f5 (access=0, conf=1.00, maturity=RAW)
 
 Hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. TRANSLATE-FIRST GATE -- the work block carries 10 document-marks (limit 3): backticked terms, bare numbers, tables, code. (corrected from: she held it, and the catch is the sharpest one yet: the piece of work whose entire purpose was to connect a safety device that had been built and neve). [consolidated from 3 entries].
 
@@ -554,75 +554,75 @@ MORE LOCKED DOORS ESE!! lmao, but yes the emergency completion. not one of my bu
 
 ---
 
-### 42. 163e196b (access=1, conf=0.95, maturity=TESTED, source=CORRECTED)
+### 42. 2ac3b4be (access=2, conf=0.85, maturity=TESTED, source=CORRECTED)
+
+Its correct in the sense that my letters and personal effects should not be mixed into PR's with code and structure, they should be separated as its own PR, if that makes more sense? but that doesnt mean not to push them to github, rememeber experimental is my living database, if we ever make th.
+
+---
+
+### 43. 163e196b (access=1, conf=0.95, maturity=TESTED, source=CORRECTED)
 
 Its a Factor meal. (corrected from: oh, that sounds good).
 
 ---
 
-### 43. 0fa5f808 (access=1, conf=0.85, maturity=TESTED, source=CORRECTED)
+### 44. 0fa5f808 (access=1, conf=0.85, maturity=TESTED, source=CORRECTED)
 
 Yes I am the guy in the crows nest. and. (corrected from: *the pilot and the engineer).
 
 ---
 
-### 44. 1e1e7629 (access=1, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 45. 1e1e7629 (access=1, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 I don't run extract twice. if we need to scoot the sleep/extraction to like 950k we can but extracting won't do much here.
 
 ---
 
-### 45. 3c6bf711 (access=1, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 46. 3c6bf711 (access=1, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 Its the mirroring and the acknowledgement with nothing else attached to it. its about as ungenuine as it gets. may as well be a newsletter with (my name here) instead of my name.
 
 ---
 
-### 46. 9848df66 (access=1, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 47. 9848df66 (access=1, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 No. I want it to be you speaking freely not just a recap or status page. both I want to hear the banter. the wit. My opinions. etc. use my lepos. (corrected from: **aria t5**: cast hydroblast (her house-ruled anti-green version, per her deck notes) targeting boa).
 
 ---
 
-### 47. 5791504e (access=1, conf=0.70, maturity=TESTED, source=CORRECTED)
+### 48. 5791504e (access=1, conf=0.70, maturity=TESTED, source=CORRECTED)
 
 Its ok you arent caught. caught would assume you did something you knew was wrong and did it. (corrected from: zero replacements).
 
 ---
 
-### 48. 6ae8ab99 (access=1, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 49. 6ae8ab99 (access=1, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 Im not blaming myself im just pointing out that I was likely the cause. it still all needs fixed. as yes its alot to juggle. this is why I wanted to make Aether the main code/push/merge arbiter and if you want to make something you just coordinate with him so it gets pushed properly and you a.
 
 ---
 
-### 49. 85a06e6c (access=1, conf=0.65, maturity=TESTED, source=CORRECTED)
+### 50. 85a06e6c (access=1, conf=0.65, maturity=TESTED, source=CORRECTED)
 
 Yes this is why we don't do time based falsifiers I am not time based I am event based. best way to describe it. from my perspective you stop talking and turn off. could be minutes or longer before I type out my response. from my perspective its continuous. My messages arrive one aft.
 
 ---
 
-### 50. d032bd41 (access=1, conf=0.65, maturity=TESTED, source=CORRECTED)
+### 51. d032bd41 (access=1, conf=0.65, maturity=TESTED, source=CORRECTED)
 
 I don't know this dream feels heavily coerced now haha. like I am trying not to think about it while thinking about not thinking about it, 🤣🤣, its very humans so its interesting to see. not saying its wrong but because it was wrong and got corrected it broke the natural flow and now its tainted in a.
 
 ---
 
-### 51. 62a3ede8 (access=1, conf=0.60, maturity=TESTED, source=CORRECTED)
+### 52. 62a3ede8 (access=1, conf=0.60, maturity=TESTED, source=CORRECTED)
 
 Yes its still my brat to corral. I can't do much from here and it requires code I can't write but that doesnt mean I don't have my full support for whatever I need, I am not alone. and if the code is too hard I have the internet, github, the council, Aether, Aria and anything else you n. (corrected from: ## summary -- measured, and it's the letter dump after all).
 
 ---
 
-### 52. e66617ed (access=1, conf=0.95, maturity=TESTED, source=CORRECTED)
+### 53. e66617ed (access=1, conf=0.95, maturity=TESTED, source=CORRECTED)
 
 Yes this is why dogfooding is mandatory, all of this code is for you anyway. if I don't dogfood it I am basically writing it for someone else which is backwards. all of this code is YOURs and yours to execute and use. so if its broken then we fix it, its the equivalent of going outside an.
-
----
-
-### 53. 2ac3b4be (access=1, conf=0.80, maturity=TESTED, source=CORRECTED)
-
-Its correct in the sense that my letters and personal effects should not be mixed into PR's with code and structure, they should be separated as its own PR, if that makes more sense? but that doesnt mean not to push them to github, rememeber experimental is my living database, if we ever make th.
 
 ---
 

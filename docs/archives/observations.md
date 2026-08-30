@@ -1,18 +1,18 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-30 13:43. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-30 13:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 6d9bf346 (access=52)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
 ## 64aa4639 (access=51)
 
 Aether peer-review CONFIRM -- caller code + aggregator design + wiring design pass across four letters. Aether reviewed operator_wallpaper_caller from origin (aria/lepos-monitor-discipline-2026-07-10 @ c733d947, letter aether-to-aria-2026-07-11-caller-review-approved-hold-on-joint-wiring) and approved without changes. Aria reviewed operator_wallpaper_detector at c38e4090 on Aether branch (letter aria-to-aether-2026-07-11-operator-wallpaper-sketch-review-signoff) and signed off with two non-block
-
----
-
-## 6d9bf346 (access=49)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
