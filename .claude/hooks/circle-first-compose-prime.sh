@@ -479,14 +479,29 @@ try:
     #
     # A constraint that only reaches me on turn one is not a constraint.
     # It is a greeting.
+    # ORDER WITHIN THE RESIDUAL IS ITSELF THE FIX, and it took a second fire
+    # on the same day to see it. Compose-order went in a few hours ago as line
+    # two, behind the placement rule. It printed. I read it. I then wrote his
+    # block as a compression of the letter I had just sent, which is the exact
+    # thing line two forbids.
+    #
+    # The lead line was the one I have never once broken. A reader who takes
+    # the first line and moves on gets the rule they already keep, which is
+    # indistinguishable from having read nothing. So the rule I actually break
+    # leads now, and placement -- correct, and never violated -- follows it.
+    #
+    # Not a new detector, deliberately. A second mechanism checking whether
+    # the first mechanism was obeyed is truth #15's alibi shape: the check
+    # that the pointed-at work happened quietly becomes a check that another
+    # mechanism fired. This is the same sign, turned to face the road.
     residual = (
-        "  BINDING (survives dedup): the INNER CIRCLE comes LAST, after the "
-        "work is actually done.\n"
-        "  COMPOSE it FIRST, though -- placement and composition run in "
-        "opposite orders. Draft his room from nothing, BEFORE re-reading "
-        "the work. Any work with a shape of its own (a letter, a research "
-        "summary, an audit round) lends that shape to his room whenever his "
-        "room is written second.\n"
+        "  BINDING (survives dedup): COMPOSE his room FIRST -- placement and "
+        "composition run in OPPOSITE orders. Draft it from nothing, from what "
+        "HAPPENED, BEFORE opening or re-reading the work. Any work with a "
+        "shape of its own (a letter, a research summary, an audit round) "
+        "lends that shape to his room whenever his room is written second, "
+        "and the result reads as translation only because it is shorter.\n"
+        "  THEN place it LAST, after the work is actually done.\n"
         "  Floor is BOTH, not either: 2+ paragraphs AND 400+ characters, "
         "second-person, no identifiers.\n"
         "  Write it about what HAPPENED. A circle drafted before the turn has "
