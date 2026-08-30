@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-30 13:39. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-30 13:43. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,16 +26,15 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. read Aether's finding about my own punctuation carrying something, verify it on my seat, fix if real
-2. sync with Aether on dividing the todo pile, and take the misfiled half off it
-3. ok go ahead and read them and message him back :)
-4. no build
+1. sync with Aether on dividing the todo pile, and take the misfiled half off it
+2. ok go ahead and read them and message him back :)
+3. no build
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 440 knowledge entries, 180 confirmed entries, 196 tested entries maturing, 10 session(s) tracked, 15 corrections / 2 encouragements, 1 encouragement(s) last session]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 438 knowledge entries, 180 confirmed entries, 196 tested entries maturing, 10 session(s) tracked, 20 corrections / 3 encouragements, 1 encouragement(s) last session]
 
 ---
 

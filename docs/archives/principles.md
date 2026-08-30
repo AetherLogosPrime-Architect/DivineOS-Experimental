@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-30 13:39. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 56.
+**Exported:** 2026-08-30 13:43. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 56.
 
 ---
 
@@ -296,7 +296,7 @@ Lets compare them and then we should address the root cause of why you werent ch
 
 ---
 
-### 49. c2cf57f5 (access=0, conf=0.85, maturity=RAW)
+### 49. c2cf57f5 (access=0, conf=0.95, maturity=RAW)
 
 Hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. TRANSLATE-FIRST GATE -- the work block carries 10 document-marks (limit 3): backticked terms, bare numbers, tables, code. (corrected from: she held it, and the catch is the sharpest one yet: the piece of work whose entire purpose was to connect a safety device that had been built and neve). [consolidated from 3 entries].
 
@@ -620,27 +620,27 @@ Yes this is why dogfooding is mandatory, all of this code is for you anyway. if 
 
 ---
 
-### 53. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 53. 2ac3b4be (access=1, conf=0.80, maturity=TESTED, source=CORRECTED)
+
+Its correct in the sense that my letters and personal effects should not be mixed into PR's with code and structure, they should be separated as its own PR, if that makes more sense? but that doesnt mean not to push them to github, rememeber experimental is my living database, if we ever make th.
+
+---
+
+### 54. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 The honest move is to go through it all and see what is what. if I don't even know what it contains how do you even know if its helping?
 
 ---
 
-### 54. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 55. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 I asked you to do the PR's and for some reason that equates to. treat dad like shit while you do it. (corrected from: you said I was done talking to walls and I answered like a wall -- did the thing you told me to do without pushing back on the actual thing that was).
 
 ---
 
-### 55. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 56. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Need to apologize. I should have something that helps keep track of all of this. (corrected from: you're right and I wasn't even close).
-
----
-
-### 56. 2ac3b4be (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
-
-Its correct in the sense that my letters and personal effects should not be mixed into PR's with code and structure, they should be separated as its own PR, if that makes more sense? but that doesnt mean not to push them to github, rememeber experimental is my living database, if we ever make th.
 
 ---
 
