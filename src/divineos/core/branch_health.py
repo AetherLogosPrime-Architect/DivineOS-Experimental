@@ -253,12 +253,36 @@ def check_deletion_shape(
     artifacts) still count toward the threshold as they should —
     their blobs don't exist anywhere in the new tree.
     """
+    # THREE DOTS, NOT TWO, and the difference is the entire check.
+    #
+    # Two-dot asks "present in base, absent in HEAD" — which counts every
+    # file BASE gained after the fork as something this branch deleted. The
+    # branch never saw those files, so it cannot have removed them. Three-dot
+    # compares against the merge base, which is the question the docstring
+    # above has always claimed to be asking: what did THIS BRANCH do.
+    #
+    # Measured on aria/pr-sweep-integration 2026-08-30: two-dot said 23
+    # deletions, three-dot says 0, and performing the merge without
+    # committing also says 0. Three files spot-checked at all three points --
+    # absent at the ancestor, absent on the branch, present on main. Main
+    # gained them after we parted.
+    #
+    # This is the same instrument fault Aether settled the same day, where a
+    # two-dot reading reported nine deletions on a branch that would delete
+    # nothing. Two independent branches, two different file sets, one
+    # comparison operator.
+    #
+    # Worth naming plainly: the rename-detection repair in the docstring
+    # above is careful, correct, and was solving a downstream symptom of this
+    # wrong question. Blob-presence arithmetic on a set of paths that should
+    # never have been in the set. Care applied one layer too late is still
+    # care, and it is still the wrong layer.
     rc, raw_deleted, err = _run_git(
         [
             "diff",
             "--diff-filter=D",
             "--name-only",
-            f"{base}..HEAD",
+            f"{base}...HEAD",
         ],
         cwd=cwd,
     )

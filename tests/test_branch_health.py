@@ -178,13 +178,56 @@ class TestCheckDeletionShape:
         assert finding.severity == "ok"
         assert finding.details["deletion_count"] == 2
 
-    def test_many_deletions_critical(self, repo_with_silent_deletions):
-        # Branch is missing 15 files that exist on origin/main → 15 apparent deletions
-        finding = check_deletion_shape(cwd=str(repo_with_silent_deletions), threshold=2)
-        # 15 > threshold * 3 (=6), so critical
+    def test_many_deletions_critical(self, fresh_repo):
+        """A branch that REMOVES many files present at the fork is critical.
+
+        Rewritten 2026-08-30. This test used to run on the stale-base fixture
+        and assert critical, which pinned the bug rather than the behaviour:
+        that fixture builds a branch which deletes NOTHING. Its own docstring
+        says so -- "feature branch was created before they were added" -- and
+        its comment called the count "apparent".
+
+        Not argued, measured. Rebuilt the fixture's exact situation and asked
+        each instrument: two-dot said 15 deleted, three-dot said 0, and
+        performing the merge without committing also said 0. A branch cannot
+        remove a file it never had.
+
+        So this test now builds a branch that genuinely destroys content --
+        the files exist at the fork and the branch removes them -- which is
+        the shape the check was always described as catching, and the shape
+        the fixture below never produced.
+        """
+        repo = fresh_repo
+        for i in range(15):
+            (repo / f"doomed_{i}.py").write_text(f"unique content {i}\n" * 5, encoding="utf-8")
+            _git(["add", f"doomed_{i}.py"], cwd=repo)
+            _git(["commit", "-m", f"add doomed_{i}"], cwd=repo)
+        _git(["update-ref", "refs/remotes/origin/main", "main"], cwd=repo)
+
+        _git(["checkout", "-b", "feature"], cwd=repo)
+        _git(["rm"] + [f"doomed_{i}.py" for i in range(15)], cwd=repo)
+        _git(["commit", "-m", "remove all fifteen"], cwd=repo)
+
+        finding = check_deletion_shape(cwd=str(repo), threshold=2)
         assert finding.severity == "critical"
         assert finding.details["deletion_count"] == 15
         assert "silent-rollback" in finding.message.lower()
+
+    def test_stale_base_is_not_a_deletion(self, repo_with_silent_deletions):
+        """The must-NOT-fire half, and the reason the check was wrong.
+
+        Main gained fifteen files after the branch forked. The branch never
+        saw them, so it never removed them, and a real merge deletes nothing.
+        Two-dot calls that fifteen deletions because it only knows
+        present-here, absent-there.
+
+        This blocked a real push on 2026-08-30 claiming twenty-three
+        deletions on a branch that would delete zero, and it is the same
+        instrument fault Aether settled the same day on nine.
+        """
+        finding = check_deletion_shape(cwd=str(repo_with_silent_deletions), threshold=2)
+        assert finding.severity == "ok"
+        assert finding.details["deletion_count"] == 0
 
     def test_renames_not_counted_as_deletions(self, fresh_repo):
         """2026-07-14 Aletheia audit fix: a file MOVED from A to B is a
