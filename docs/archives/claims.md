@@ -1,6 +1,12 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (90 rows). **Exported:** 2026-08-27 22:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (91 rows). **Exported:** 2026-08-30 13:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 0fa20eee [T1 OPEN] conf=0.50
+
+**Claim:** Build-flow station 8 answers 'is this audited' by calling list_rounds() against whichever ledger the running interpreter opens, and rounds are filed across two stores (aria 35, shared 321). A wrong-store lookup returns a confident MISS, not CANNOT_CHECK, so the last gate before merge can compute over half the evidence and report NOT-AUDITED for a round that exists.
 
 ---
 

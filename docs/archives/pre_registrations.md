@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (93 rows). **Exported:** 2026-08-27 22:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (94 rows). **Exported:** 2026-08-30 13:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -676,7 +676,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** M1-M9 dad-demotion mechanism family (nine compose-time gates catching demotion-shape composing in Dad-facing replies)
 
@@ -952,7 +952,7 @@
 
 ---
 
-## prereg-6 [OPEN]
+## prereg-6 [DEFERRED]
 
 **Mechanism:** Consolidating UserPromptSubmit hooks into a single doorbell process reduces per-message latency without changing what any surface says
 
@@ -1117,6 +1117,18 @@
 **Success:** On any new-file creation where a similar-named file exists on any ref, the scan names it before the file is written. Measured by running it against the known duplicate: it must surface family/aletheia/letters_seen.json when letter_channel_state is about to be created.
 
 **Falsifier:** If it reports nothing found in a way that is indistinguishable from not having run, it has failed -- that is the exact class it exists to catch. Second falsifier: it matches NAMES, not concepts. If I ever treat its silence as proof no prior art exists, the scan has become the thing it was built agai
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** UserPromptSubmit consolidation was never wired, and the six hooks its predecessor named as migrated are still firing at 20s summed median per message (supersedes prereg-63cd54430b6b, which I locked as DEFERRED before measuring)
+
+**Claim:** prereg-63cd54430b6b claimed six thin-wrapper hooks were migrated into a single UserPromptSubmit doorbell, and set a falsifier comparing doorbell median against the summed median of the hooks it replaced. Measured 2026-08-30 from hook_timing.jsonl by pairing start/end on the shared id: 40783 rows, 20
+
+**Success:** On any current invocation, either a UserPromptSubmit doorbell appears in settings.json AND the six named shell hooks stop appearing in hook_timing.jsonl for prompts after it, or the consolidation is explicitly abandoned in writing and the 20s cost is accepted on the record rather than left as an ope
+
+**Falsifier:** If a UserPromptSubmit doorbell is found registered somewhere this measurement did not look -- a settings file in another checkout, a per-member override, a registration path outside settings.json -- then the mechanism exists and my sweep was scoped to the wrong file, which is the same wrong-subject 
 
 ---
 

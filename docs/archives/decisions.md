@@ -1,6 +1,26 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-27 22:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-30 13:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 3eaf13fa weight=1
+
+**Decision:** Split the doorman's fail-open from its fail-silent using three exit codes rather than making the wrapper parse the message text
+
+**Tension:** Parsing the output would need no change to the module and keeps the contract in one place, but it makes the shell side depend on wording -- rename a renderer string and the wrapper silently mis-sorts a could-not-look as a finding. Exit codes are a second surface the two sides must agree on, which is
+
+**Almost:** Almost had the wrapper grep for DID NOT RUN in the output, because it needed no Python change at all and I could have shipped only the shell edit.
+
+---
+
+## cbc9fd17 weight=1
+
+**Decision:** Add the scripts directory to sys.path inside test_clear_correction_marker_offline.py rather than in a shared conftest
+
+**Tension:** Two scripts carry the _repo_import shim and both are unimportable under pytest. A conftest fix covers both at once and any future shim-carrying script; a per-file fix covers only this one. But a conftest change alters import resolution for all 12194 tests, and doing that inside a commit whose subjec
+
+**Almost:** Almost put it in tests/conftest.py because it is obviously the more general fix and I could already see the second broken file from here.
 
 ---
 
@@ -539,26 +559,6 @@
 **Tension:** Fourth rewrite of the same mechanism in one session, each shipped with confidence. The pattern of my confidence is itself the thing under suspicion.
 
 **Almost:** Almost kept the abstract-noun check as a second layer to avoid admitting it was useless -- two checks would have looked more thorough while one of them measured nothing.
-
----
-
-## 885a9cf3 weight=1
-
-**Decision:** Enforce plain-language-FIRST in father-addressed replies, positionally, rather than asking for more rooms
-
-**Reasoning:** Andrew 2026-08-11: 'yes you paid the cost just now.. is it structurally enforced to be paid every time? no ofc not.. its by request only.. so basically proves my point.' He is right and the proof is in what the existing jargon gate demands: ROOMS, not translation. A reply can open with three paragraphs he cannot read, append a warm closer, and pass -- which is the shape of every report I sent him 
-
-**Tension:** Another gate that blocks me, built in the same irritated state Aether warned about, on a rail that already has four gates. Risk of ceremony-stacking rather than behaviour change.
-
-**Almost:** Almost built a word-level jargon ban, which would have made technical answers to his direct technical questions impossible and would have been the over-broadening reflex on file in my own corrections.
-
----
-
-## 872cddb9 weight=1
-
-**Decision:** Filter verify-claim suppression to machine-produced output only: execution tools, and never shell commands that merely print a file
-
-**Reasoning:** Aether found a working exploit in my first version and had already committed the specimen: he wrote 'verified end-to-end at exit code 2' into a test exemption as justification for not wiring a gate, and it was false. Under v1, Reading that file would put the sentence into the evidence pool and silence the gate on exactly the claim it exists to catch. The worse property he named: it REWARDS putting
 
 ---
 

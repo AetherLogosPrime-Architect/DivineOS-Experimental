@@ -1,6 +1,6 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (8 rows). **Exported:** 2026-08-27 22:59. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (8 rows). **Exported:** 2026-08-30 13:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
