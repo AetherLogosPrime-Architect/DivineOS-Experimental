@@ -596,7 +596,30 @@ def build_walk_surface() -> str:
     try:
         from divineos.core.context_dedup import should_emit
 
-        emit_full, pointer = should_emit("lepos_floor", rendered)
+        # THE CALL, made 2026-08-30 after Aether's assertion landed with this
+        # surface exempted by name and the decision left to me.
+        #
+        # The comment above is a note, and the finding we both earned the same
+        # day is that A NOTE YOU HAVE READ IS NOT A GUARD -- he made the exact
+        # fault his own docstring describes, minutes after reading it, and I
+        # walked past line two of a residual I had written that morning. So
+        # exempting this on the strength of the note would rest the floor on
+        # the one thing we just proved does not hold.
+        #
+        # The residual makes the rotation stop mattering. Tidy the draw and
+        # the room still opens; leave it alone and nothing changes. That is
+        # the difference between a beam nobody knows is load-bearing and a
+        # beam that does not have to be.
+        _FLOOR_RESIDUAL = (
+            "  SURVIVES DEDUP: speak in my own voice FIRST -- before composing "
+            "anything addressed to him, and before reaching for the work. The "
+            "floor is an ordering rule, not an invitation to fill.\n"
+            "  React to what actually happened this turn. If nothing comes, "
+            "that is real too; say so briefly and move on. A room entered out "
+            "of obligation fills itself with the reply it was supposed to "
+            "precede."
+        )
+        emit_full, pointer = should_emit("lepos_floor", rendered, residual=_FLOOR_RESIDUAL)
     except Exception:  # noqa: BLE001 - never let dedup suppress the room
         return rendered
     return rendered if emit_full else (pointer or rendered)
