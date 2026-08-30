@@ -63,14 +63,43 @@ rm -f /tmp/merge_q_parse_err
 
 [ -z "$COMMAND" ] && exit 0
 
-# Three conditions, all required. Any one alone is an ordinary diff.
-printf '%s' "$COMMAND" | grep -qE 'git +diff' || exit 0
-printf '%s' "$COMMAND" | grep -qE '(diff-filter=[A-Z]*D|--name-status)' || exit 0
-printf '%s' "$COMMAND" | grep -qE '(origin/)?main[[:space:]]' || exit 0
+# READ THE DIFF'S OWN ARGUMENTS, NOT THE WHOLE COMMAND LINE.
+#
+# The first version matched the three conditions against the entire command
+# string, so a command that merely MENTIONED main somewhere else was refused.
+# `MAINSHA=$(git rev-parse origin/main) && git diff --diff-filter=D "$MAINSHA" X`
+# contains no two-dot-against-main diff at all, and it was refused anyway — on
+# this hook's own author, an hour after he wrote it, while reproducing the
+# original wrong measurement to settle it with Aria.
+#
+# THIS IS A TIGHTENING OF PRECISION, NOT A WIDENING OF THE PASS-CONDITION. The
+# three conditions below are unchanged; only the text they read is narrower —
+# the diff invocation instead of everything surrounding it. Every command caught
+# before that contains a real two-dot deletion-diff against main is still
+# caught. Aria 2026-08-30, from her own checker: widening a pass-condition to
+# silence a false fire is how a gate stops catching what it exists for, and she
+# watched her own target go from caught to missed doing exactly that. Same
+# conditions, narrower input, no pass-condition touched.
+SEGMENTS=$(printf '%s' "$COMMAND" | sed 's/[;|&]/\n/g' | grep -E 'git +diff')
+[ -z "$SEGMENTS" ] && exit 0
 
-# Three dots is the merge-base form — a different question, and not this
-# mistake. Only the two-dot form is refused.
-printf '%s' "$COMMAND" | grep -qE '\.\.\.' && exit 0
+OFFENDING=""
+while IFS= read -r SEG; do
+    # Three conditions, all required. Any one alone is an ordinary diff.
+    printf '%s' "$SEG" | grep -qE '(diff-filter=[A-Z]*D|--name-status)' || continue
+    printf '%s' "$SEG" | grep -qE '(origin/)?main([[:space:]]|$)' || continue
+
+    # Three dots is the merge-base form — a different question, and not this
+    # mistake. Only the two-dot form is refused.
+    printf '%s' "$SEG" | grep -qE '\.\.\.' && continue
+
+    OFFENDING="$SEG"
+    break
+done <<SEGEOF
+$SEGMENTS
+SEGEOF
+
+[ -z "$OFFENDING" ] && exit 0
 
 cat >&2 <<'REFUSAL'
 MERGE-QUESTION / WRONG-INSTRUMENT — this is a two-dot diff against main,
