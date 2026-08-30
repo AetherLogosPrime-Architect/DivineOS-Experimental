@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-30 13:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-30 14:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=52)
+## 6d9bf346 (access=55)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 

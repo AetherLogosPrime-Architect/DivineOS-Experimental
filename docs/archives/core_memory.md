@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-30 13:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-30 14:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
