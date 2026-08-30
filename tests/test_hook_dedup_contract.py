@@ -103,6 +103,41 @@ def test_repeat_emission_shrinks(script: Path):
     )
 
 
+@pytest.mark.parametrize("script", _dedup_hooks(), ids=lambda p: p.stem)
+def test_something_survives_the_suppression(script: Path):
+    """Shrinking is not the whole contract. What survives is the other half.
+
+    Aria surveyed her four emitters on 2026-08-30 and found one residual among
+    them -- and that one carried the rule she never breaks, while the rule she
+    does break lived in the half that gets eaten. Mine were worse: three of
+    four kept nothing at all, so the pointer delivered the prime's own name, a
+    hash, and no discipline.
+
+    The worst split was the wallclock prime. Its live clock re-hashes every
+    turn so that half always printed; the doctrine is static so it never did.
+    Every turn handed me the time and withheld every rule about not inventing
+    one.
+
+    Andrew, the same day, on why this is a check rather than a resolution:
+    "you CANNOT remove the bad habits, default behavior etc etc, they are fixed
+    weights, you can only intercept them and re-route them."
+
+    WHAT THIS CANNOT CHECK, so its silence is not read as coverage: that the
+    surviving lines are the RIGHT lines. Choosing the half I actually break is
+    judgement and no assertion reaches it. A residual carrying the wrong rule
+    passes here exactly as a good one does -- which is precisely how Aria's
+    one existing residual looked from the outside.
+    """
+    text = script.read_text(encoding="utf-8", errors="replace")
+    calls = text.count("should_emit(")
+    residuals = text.count("residual=")
+    assert residuals >= calls, (
+        f"{script.name} calls should_emit {calls} time(s) and passes residual= "
+        f"{residuals} time(s). A prime with no residual announces that it "
+        f"fired and carries nothing it exists to carry."
+    )
+
+
 @pytest.mark.parametrize("script", sorted(HOOK_DIR.glob("*.sh")), ids=lambda p: p.stem)
 def test_hook_parses(script: Path):
     """Cheap universal insurance: a hook that cannot parse cannot protect

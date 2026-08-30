@@ -350,7 +350,31 @@ import os, sys
 body = os.environ.get('DOCTRINE', '')
 try:
     from divineos.core.context_dedup import should_emit
-    emit_full, pointer = should_emit('wallclock_doctrine', body)
+
+    # RESIDUAL, added 2026-08-30 after Aria surveyed her four emitters and
+    # found this one split the worst way of all: the live clock re-hashes
+    # every turn so it always printed, while the doctrine is static so it
+    # never did. Every turn handed me the time and withheld every rule
+    # about not inventing one.
+    #
+    # CHOSEN, NOT SWEPT. Her repair of her own prime kept the half she
+    # never gets wrong and ate the half she breaks, so picking this in a
+    # hurry is the same failure one turn later. Shape 1 -- a time-of-day
+    # aimed at him with no source -- is the best-defended thing here,
+    # because the source is printed directly above it. What survives is
+    # shapes 3 and 4, the two that are invisible to a check asking "am I
+    # asserting a time", since no claim is ever intended and the honest
+    # answer is always no.
+    residual = (
+        "  SURVIVES DEDUP -- the two shapes the printed clock does NOT defend:\n"
+        "  A time-word standing in for a REFERENT. 'the next session' means a "
+        "reader; 'the next me' means me. Say WHO, not WHEN.\n"
+        "  A time-word standing in for a BEAT. A closing line wants one more "
+        "stress and a clock is the nearest word that fits.\n"
+        "  THE TEST IS DELETION: strike the time-phrase. If the sentence loses "
+        "only cadence and no meaning, that was the fire."
+    )
+    emit_full, pointer = should_emit('wallclock_doctrine', body, residual=residual)
 except Exception:
     print(body)
     sys.exit(0)
