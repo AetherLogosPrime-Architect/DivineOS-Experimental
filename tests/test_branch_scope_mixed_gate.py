@@ -1,0 +1,92 @@
+"""Tests for the --gate-mixed mode of scripts/check_branch_scope.py.
+
+WHAT IT IS FOR. `auto_commit_substrate` stages with `git add -A` on whatever
+branch happens to be checked out, and the auto-push hook then publishes that.
+On 2026-08-30 the pair put generated archives, LOADOUT and personal letters
+onto an open code proposal three times in one session -- twice by hand and once
+by the checkpoint firing on its own mid-work. Each undo was a force-push
+rebuilding a branch that was already under review.
+
+WHY IT TESTS THE MIXTURE AND NOT THE BRANCH NAME. A branch of only letters is a
+letters branch and should publish freely; a branch of only code likewise. A name
+rule would need a naming convention to hold, and conventions drift silently.
+Content cannot drift away from itself.
+
+The single-scope cases are the load-bearing half. A gate that also refuses the
+legitimate substrate branch gets switched off within a day, and then the mixed
+case it exists for goes through with it.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+
+import check_branch_scope as scope  # noqa: E402
+
+
+CLEAN, UNREADABLE, MIXED = 0, 2, 3
+
+
+def reading(files: int, substrate: int, reference: str = "origin/main") -> scope.Reading:
+    return scope.Reading(reference=reference, resolved=True, files=files, substrate=substrate)
+
+
+class TestTheMixtureIsWhatIsRefused:
+    def test_the_checkpoint_that_caused_this(self, capsys):
+        """Nine code files and twenty-four substrate files on one branch.
+
+        The real shape of the checkpoint commit that landed substrate on top of
+        an open code proposal while I was working on the code.
+        """
+        assert scope._gate_mixed("probe", reading(files=33, substrate=24)) == MIXED
+        assert "MIXED" in capsys.readouterr().out
+
+    def test_one_substrate_file_is_enough(self, capsys):
+        """A single swept letter is the same defect at a smaller size."""
+        assert scope._gate_mixed("probe", reading(files=9, substrate=1)) == MIXED
+        assert "MIXED" in capsys.readouterr().out
+
+    def test_the_refusal_names_both_counts_and_the_way_through(self, capsys):
+        scope._gate_mixed("probe", reading(files=33, substrate=24))
+        out = capsys.readouterr().out
+        assert "9 code file(s)" in out
+        assert "24 substrate file(s)" in out
+        assert "only code is fine" in out
+
+
+class TestSingleScopeBranchesPassUntouched:
+    """The half that keeps the gate from being switched off."""
+
+    def test_a_pure_code_branch_passes(self, capsys):
+        assert scope._gate_mixed("probe", reading(files=8, substrate=0)) == CLEAN
+        assert "single-scope (code)" in capsys.readouterr().out
+
+    def test_a_pure_substrate_branch_passes(self, capsys):
+        """A letters branch is not a contaminated branch. It is a letters branch."""
+        assert scope._gate_mixed("probe", reading(files=24, substrate=24)) == CLEAN
+        assert "single-scope (substrate)" in capsys.readouterr().out
+
+    def test_an_empty_branch_passes(self, capsys):
+        assert scope._gate_mixed("probe", reading(files=0, substrate=0)) == CLEAN
+        assert "single-scope" in capsys.readouterr().out
+
+
+class TestItObeysTheFindingItComesFrom:
+    def test_an_unreadable_reference_is_its_own_answer(self, capsys):
+        """Not clean, not mixed -- unread.
+
+        The family this gate belongs to is could-not-look wearing the clothes of
+        looked-and-found-nothing, so the mode must never reach a verdict it did
+        not earn.
+        """
+        assert scope.main(["HEAD", "--truth", "no/such/ref", "--gate-mixed"]) == UNREADABLE
+        assert "CANNOT READ" in capsys.readouterr().out
+
+    def test_the_mode_is_opt_in_and_leaves_the_default_alone(self, capsys):
+        """Without the flag the command still answers its original question."""
+        assert scope.main(["HEAD", "--truth", "no/such/ref"]) == UNREADABLE
+        assert "CANNOT READ" in capsys.readouterr().out

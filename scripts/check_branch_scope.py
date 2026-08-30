@@ -118,6 +118,43 @@ def substrate_paths(branch: str, reference: str) -> list[str]:
     return [p for p in out.splitlines() if p.startswith(_SUBSTRATE_PREFIXES)]
 
 
+def _gate_mixed(branch: str, truth: Reading) -> int:
+    """Exit 3 when a branch carries BOTH code and substrate. For publishers.
+
+    WHY MIXING RATHER THAN PRESENCE. A branch made entirely of letters is a
+    letters branch and is exactly right; a branch made entirely of code is a
+    code branch and is exactly right. Neither needs holding. The damage is the
+    mixture: substrate swept into a proposal that is under review for its code,
+    which happened three times in one day on 2026-08-30 -- twice by hand and
+    once by the checkpoint that commits with `git add -A` on whatever branch it
+    finds itself on.
+
+    Testing the MIXTURE rather than the branch NAME matters. A name rule needs
+    a naming convention to hold, and conventions drift silently; content cannot
+    drift away from itself. It also means a branch is judged by what it carries
+    rather than by what it was called when it was created.
+    """
+    code = truth.files - truth.substrate
+
+    if truth.substrate and code:
+        print(
+            f"[scope] MIXED: {code} code file(s) and {truth.substrate} substrate "
+            f"file(s) on {branch}, measured against {truth.reference}."
+        )
+        for path in substrate_paths(branch, truth.reference)[:10]:
+            print(f"    {path}")
+        print(
+            "[scope] A branch of only code is fine. A branch of only substrate is "
+            "fine. This one is both, so publishing it puts personal writing into a "
+            "proposal under review for its code."
+        )
+        return 3
+
+    kind = "substrate" if truth.substrate else "code"
+    print(f"[scope] single-scope ({kind}); nothing to separate.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Report a branch against main and against its base, side by side."
@@ -126,12 +163,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--truth", default="origin/main", help="the reference that decides")
     parser.add_argument("--base", default=None, help="the stacked base, if not the upstream")
     parser.add_argument("--list", action="store_true", help="name the offending paths")
+    parser.add_argument(
+        "--gate-mixed",
+        action="store_true",
+        help="exit 3 if the branch carries BOTH code and substrate; for automated publishers",
+    )
     args = parser.parse_args(argv)
 
     truth = read_against(args.branch, args.truth)
     if not truth.resolved:
         print(f"[scope] CANNOT READ {args.truth} -- this says nothing about {args.branch}.")
         return 2
+
+    if args.gate_mixed:
+        return _gate_mixed(args.branch, truth)
 
     base_name = args.base or base_of(args.branch)
     print(f"[scope] {args.branch}")
