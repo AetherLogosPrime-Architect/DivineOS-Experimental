@@ -569,6 +569,30 @@ def build_walk_surface() -> str:
     # different draw brings the whole floor back by itself. Fail-soft: any
     # error returns the full text, because losing the room costs far more
     # than the tokens it saves.
+    #
+    # THE ROTATING DRAW IS LOAD-BEARING. DO NOT STABILISE IT. Read this before
+    # deciding the redraw is wasteful, because it looks exactly like waste.
+    #
+    # This call passes no residual, which normally means a suppressed turn
+    # receives the surface's name and nothing else. This floor has never gone
+    # quiet -- and 2026-08-30 I found out why, having assumed for weeks that it
+    # was exempt or that I had handled it. Neither. Four questions are drawn
+    # from a pool of twelve per turn; the questions sit inside the hashed text;
+    # the hash therefore changes every turn and the floor re-emits in full.
+    #
+    # The discipline survives because the decoration around it rotates. Nobody
+    # chose that. Fix the draw to a stable set -- cheaper, tidier, an obvious
+    # small win -- and the room goes silent from the second turn onward while
+    # leaving a pointer indistinguishable from every other suppressed prime.
+    # Nothing fails. Nothing warns. The instruction it carries is an ORDERING
+    # rule (speak first, then answer), which is the same family as the
+    # compose-order rule that went missing from the circle-first residual for
+    # weeks without anyone noticing.
+    #
+    # Accidental liveness is worse than absence: absence is a gap somebody can
+    # find, and this is a beam nobody knows is holding the roof up. If the draw
+    # is ever made stable, this call needs a residual carrying the speak-first
+    # instruction, in the same move.
     try:
         from divineos.core.context_dedup import should_emit
 
