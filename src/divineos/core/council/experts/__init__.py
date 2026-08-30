@@ -97,3 +97,32 @@ __all__ = [
     "create_wittgenstein_wisdom",
     "create_yudkowsky_wisdom",
 ]
+
+
+def all_expert_builders() -> list:
+    """Every expert-builder this package exports, derived from ``__all__``.
+
+    ONE ROSTER, READ FROM ONE PLACE. Before this existed there were three
+    hand-typed copies of the expert list: this module's exports, the
+    walkable-lens registry in the council CLI, and the test pinning that
+    every expert has characteristic questions. Two of the three had fallen
+    three names behind -- Hoare, Feathers and Foucault could be PRIMED by
+    the council chamber but not WALKED, so applying one of them was refused
+    as "not a registered council expert" while the chamber had just printed
+    its methodology.
+
+    The test that failed to catch this is the sharp part. Its docstring
+    names the exact failure -- "a confusing 'lens not registered' failure
+    for what is actually a population gap in the expert library" -- and it
+    could not see the gap, because it enumerated the same stale list it was
+    written to protect. A guard that hand-copies the thing it guards is
+    checking its own copy.
+
+    Andrew 2026-08-30, on why this is the shape rather than a reminder to
+    keep the lists in step: "you CANNOT remove the bad habits, default
+    behavior etc etc, they are fixed weights, you can only intercept them
+    and re-route them." Remembering to update three lists is not a habit
+    that can be installed. Having one list is a thing that cannot be
+    forgotten.
+    """
+    return [globals()[name] for name in __all__]

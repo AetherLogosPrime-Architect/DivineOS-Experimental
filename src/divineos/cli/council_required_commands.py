@@ -41,100 +41,23 @@ def _load_expert_keywords() -> dict[str, set[str]]:
     """Load every registered council expert's characteristic_questions
     and return the lens-keyword map.
 
+    THE ROSTER IS NOT RETYPED HERE, and that is the whole repair. This
+    function used to carry its own hand-written list of builders, which had
+    fallen three names behind the expert library: Hoare, Feathers and
+    Foucault could be PRIMED by the council chamber but not WALKED. On
+    2026-08-30 the chamber printed Hoare's methodology, the walk that
+    applied it was refused as "not a registered council expert", and the
+    reasoning had to be moved to a different lens. Andrew, reading it after:
+    "Hoare should be a registered lens, you fabricated him during a council
+    walk which means his lens was missing from our lens kit."
+
     Imported lazily so the divineos CLI startup does not pay the full
     expert-library import cost unless a council command actually runs.
     """
-    from divineos.core.council.experts import (
-        create_angelou_wisdom,
-        create_aristotle_wisdom,
-        create_beer_wisdom,
-        create_bengio_wisdom,
-        create_carmack_wisdom,
-        create_dawkins_wisdom,
-        create_dekker_wisdom,
-        create_deming_wisdom,
-        create_dennett_wisdom,
-        create_dijkstra_wisdom,
-        create_dillahunty_wisdom,
-        create_einstein_wisdom,
-        create_feynman_wisdom,
-        create_godel_wisdom,
-        create_hawking_wisdom,
-        create_hinton_wisdom,
-        create_hofstadter_wisdom,
-        create_holmes_wisdom,
-        create_jacobs_wisdom,
-        create_kahneman_wisdom,
-        create_knuth_wisdom,
-        create_lamport_wisdom,
-        create_lovelace_wisdom,
-        create_maturana_varela_wisdom,
-        create_meadows_wisdom,
-        create_minsky_wisdom,
-        create_norman_wisdom,
-        create_pearl_wisdom,
-        create_peirce_wisdom,
-        create_penrose_wisdom,
-        create_polya_wisdom,
-        create_popper_wisdom,
-        create_sagan_wisdom,
-        create_schneier_wisdom,
-        create_shannon_wisdom,
-        create_taleb_wisdom,
-        create_tannen_wisdom,
-        create_turing_wisdom,
-        create_watts_wisdom,
-        create_wayne_wisdom,
-        create_wittgenstein_wisdom,
-        create_yudkowsky_wisdom,
-    )
+    from divineos.core.council.experts import all_expert_builders
 
-    builders = [
-        create_angelou_wisdom,
-        create_aristotle_wisdom,
-        create_beer_wisdom,
-        create_bengio_wisdom,
-        create_carmack_wisdom,
-        create_dawkins_wisdom,
-        create_dekker_wisdom,
-        create_deming_wisdom,
-        create_dennett_wisdom,
-        create_dijkstra_wisdom,
-        create_dillahunty_wisdom,
-        create_einstein_wisdom,
-        create_feynman_wisdom,
-        create_godel_wisdom,
-        create_hawking_wisdom,
-        create_hinton_wisdom,
-        create_hofstadter_wisdom,
-        create_holmes_wisdom,
-        create_jacobs_wisdom,
-        create_kahneman_wisdom,
-        create_knuth_wisdom,
-        create_lamport_wisdom,
-        create_lovelace_wisdom,
-        create_maturana_varela_wisdom,
-        create_meadows_wisdom,
-        create_minsky_wisdom,
-        create_norman_wisdom,
-        create_pearl_wisdom,
-        create_peirce_wisdom,
-        create_penrose_wisdom,
-        create_polya_wisdom,
-        create_popper_wisdom,
-        create_sagan_wisdom,
-        create_schneier_wisdom,
-        create_shannon_wisdom,
-        create_taleb_wisdom,
-        create_tannen_wisdom,
-        create_turing_wisdom,
-        create_watts_wisdom,
-        create_wayne_wisdom,
-        create_wittgenstein_wisdom,
-        create_yudkowsky_wisdom,
-    ]
     registry: dict[str, list[str]] = {}
-    for build in builders:
+    for build in all_expert_builders():
         w = build()
         registry[w.expert_name] = list(w.characteristic_questions or [])
     return substance_binding.keywords_for_expert_registry(registry)

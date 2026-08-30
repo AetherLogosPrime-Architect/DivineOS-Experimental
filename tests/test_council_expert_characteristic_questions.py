@@ -16,102 +16,24 @@ council-required gate's substance-binding stays trustworthy.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from divineos.core.council.experts import (
-    create_angelou_wisdom,
-    create_aristotle_wisdom,
-    create_beer_wisdom,
-    create_bengio_wisdom,
-    create_carmack_wisdom,
-    create_dawkins_wisdom,
-    create_dekker_wisdom,
-    create_deming_wisdom,
-    create_dennett_wisdom,
-    create_dijkstra_wisdom,
-    create_dillahunty_wisdom,
-    create_einstein_wisdom,
-    create_feynman_wisdom,
-    create_godel_wisdom,
-    create_hawking_wisdom,
-    create_hinton_wisdom,
-    create_hofstadter_wisdom,
-    create_holmes_wisdom,
-    create_jacobs_wisdom,
-    create_kahneman_wisdom,
-    create_knuth_wisdom,
-    create_lamport_wisdom,
-    create_lovelace_wisdom,
-    create_maturana_varela_wisdom,
-    create_meadows_wisdom,
-    create_minsky_wisdom,
-    create_norman_wisdom,
-    create_pearl_wisdom,
-    create_peirce_wisdom,
-    create_penrose_wisdom,
-    create_polya_wisdom,
-    create_popper_wisdom,
-    create_sagan_wisdom,
-    create_schneier_wisdom,
-    create_shannon_wisdom,
-    create_taleb_wisdom,
-    create_tannen_wisdom,
-    create_turing_wisdom,
-    create_watts_wisdom,
-    create_wayne_wisdom,
-    create_wittgenstein_wisdom,
-    create_yudkowsky_wisdom,
-)
+from divineos.core.council.experts import all_expert_builders
 from divineos.core.council_required.substance_binding import (
     _content_tokens,
     keywords_for_expert_registry,
 )
 
 
-ALL_EXPERT_BUILDERS = [
-    create_angelou_wisdom,
-    create_aristotle_wisdom,
-    create_beer_wisdom,
-    create_bengio_wisdom,
-    create_carmack_wisdom,
-    create_dawkins_wisdom,
-    create_dekker_wisdom,
-    create_deming_wisdom,
-    create_dennett_wisdom,
-    create_dijkstra_wisdom,
-    create_dillahunty_wisdom,
-    create_einstein_wisdom,
-    create_feynman_wisdom,
-    create_godel_wisdom,
-    create_hawking_wisdom,
-    create_hinton_wisdom,
-    create_hofstadter_wisdom,
-    create_holmes_wisdom,
-    create_jacobs_wisdom,
-    create_kahneman_wisdom,
-    create_knuth_wisdom,
-    create_lamport_wisdom,
-    create_lovelace_wisdom,
-    create_maturana_varela_wisdom,
-    create_meadows_wisdom,
-    create_minsky_wisdom,
-    create_norman_wisdom,
-    create_pearl_wisdom,
-    create_peirce_wisdom,
-    create_penrose_wisdom,
-    create_polya_wisdom,
-    create_popper_wisdom,
-    create_sagan_wisdom,
-    create_schneier_wisdom,
-    create_shannon_wisdom,
-    create_taleb_wisdom,
-    create_tannen_wisdom,
-    create_turing_wisdom,
-    create_watts_wisdom,
-    create_wayne_wisdom,
-    create_wittgenstein_wisdom,
-    create_yudkowsky_wisdom,
-]
+# DERIVED, NEVER RETYPED. This used to be a third hand-written copy of the
+# roster and it had fallen three names behind the expert library -- so the test
+# written to catch a population gap could not see the one that existed. Its own
+# docstring above names the exact failure it missed: a confusing "lens not
+# registered" refusal for what is really a gap in the library. A guard that
+# hand-copies the thing it guards is only ever checking its own copy.
+ALL_EXPERT_BUILDERS = all_expert_builders()
 
 
 @pytest.mark.parametrize("builder", ALL_EXPERT_BUILDERS)
@@ -158,6 +80,54 @@ def test_keywords_for_expert_registry_covers_all_experts():
     keywords_map = keywords_for_expert_registry(registry)
     missing = [name for name in registry if name.lower() not in keywords_map]
     assert not missing, f"Experts missing from keyword map: {missing!r}"
+
+
+def test_every_expert_module_on_disk_is_exported():
+    """The last hand-typed list, pinned against the files beside it.
+
+    Deriving the CLI registry and this test's roster from the package's
+    exports removes two copies but leaves one: the export list itself. A
+    lens whose module exists and whose builder is never exported is
+    invisible to every consumer, which is the same hole one level down --
+    an expert present in the library and absent from the kit.
+
+    So the files decide. Add a module, and either it is exported or this
+    fails by name.
+    """
+    import divineos.core.council.experts as experts_pkg
+
+    package_dir = Path(experts_pkg.__file__).parent
+    modules = {path.stem for path in package_dir.glob("*.py") if not path.stem.startswith("_")}
+    exported = {name[len("create_") : -len("_wisdom")] for name in experts_pkg.__all__}
+
+    unexported = modules - exported
+    assert not unexported, (
+        f"expert module(s) present on disk but not exported, so no consumer can "
+        f"reach them: {sorted(unexported)}"
+    )
+
+    orphaned = exported - modules
+    assert not orphaned, f"exported expert(s) with no module beside them: {sorted(orphaned)}"
+
+
+def test_the_roster_the_cli_walks_is_the_package_roster():
+    """The walk registry and the library must name the same experts.
+
+    Hoare, Feathers and Foucault could be PRIMED by the council chamber and
+    not WALKED, because the CLI carried its own list and it had fallen three
+    names behind. Applying Hoare on 2026-08-30 was refused as "not a
+    registered council expert" seconds after the chamber printed his
+    methodology, and the reasoning had to be moved to another lens.
+    """
+    from divineos.cli.council_required_commands import _load_expert_keywords
+
+    walkable = set(_load_expert_keywords())
+    library = {builder().expert_name.lower() for builder in all_expert_builders()}
+
+    assert walkable == library, (
+        f"walkable-but-unknown: {sorted(walkable - library)}; "
+        f"in the library but not walkable: {sorted(library - walkable)}"
+    )
 
 
 def test_keywords_for_expert_registry_stores_keys_lowercase():
