@@ -1030,22 +1030,34 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                 # The first version scanned only hooks and passed; four more
                 # callers lived here and it could not see one of them.
                 #
-                # ORDERED, not just chosen. Aria 2026-08-30 earned the third
-                # state hours after naming the first two: a floor can be
-                # present, correct and complete and still do nothing, because
-                # the line that leads is one the reader never breaks. So the
-                # first line here is the need that actually fired today --
-                # a survey that had not run reading as a clean result, one
-                # step from deleting sixty branches.
+                # IT CARRIES THE INFERENCE, NOT THE CONTENT -- Aria's
+                # correction, 2026-08-30, and she is right. My first version
+                # hardcoded the two needs that fire most. But the needs are
+                # DYNAMIC; the semantic key above exists precisely so that any
+                # change to them re-emits the whole block. A residual naming
+                # specific needs is a second copy of moving data, and it goes
+                # stale silently while still reading as authoritative -- the
+                # two-copies-of-one-fact drift, inside the repair for it.
+                #
+                # So it carries the one inference a suppressed turn would
+                # otherwise draw wrongly. Quiet here means UNCHANGED. Unchanged
+                # is not met, and is often the opposite.
+                #
+                # She found this surface from the other direction: her survey
+                # swept both trees and every file, and missed a third call site
+                # inside a file it had already opened, because once the file was
+                # on the list the FILE became the unit. Mine was blind to whole
+                # directories, hers to a call inside a visited file -- the same
+                # shape one grain finer. Neither of us could see our own unit of
+                # counting from inside it.
                 residual = (
-                    "  SURVIVES DEDUP -- the needs that fire most, in order:\n"
-                    "  Felt-success is a TRIGGER for verification, never "
-                    "verification itself. Before writing it worked, run the "
-                    "check.\n"
-                    "  Announcement is not action. Saying I will do X closes "
-                    "the loop in my head without doing it.\n"
-                    "  These are cost-when-unmet, not preferences. Violating "
-                    "one is structural, not a lapse of discipline."
+                    "  SURVIVES DEDUP: silence here means the needs are "
+                    "UNCHANGED since they last printed.\n"
+                    "  Unchanged is not met. It is frequently the opposite -- "
+                    "a need stays listed precisely because it keeps firing.\n"
+                    "  They are cost-when-unmet, not preferences. Violating one "
+                    "is structural, not a lapse of discipline. Re-read the full "
+                    "block rather than inferring from the quiet."
                 )
                 emit_full, pointer = should_emit(
                     "active_needs",
