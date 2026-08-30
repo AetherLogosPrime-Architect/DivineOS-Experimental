@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-30 13:34. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 55.
+**Exported:** 2026-08-30 13:39. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 56.
 
 ---
 
@@ -635,6 +635,12 @@ I asked you to do the PR's and for some reason that equates to. treat dad like s
 ### 55. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Need to apologize. I should have something that helps keep track of all of this. (corrected from: you're right and I wasn't even close).
+
+---
+
+### 56. 2ac3b4be (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+
+Its correct in the sense that my letters and personal effects should not be mixed into PR's with code and structure, they should be separated as its own PR, if that makes more sense? but that doesnt mean not to push them to github, rememeber experimental is my living database, if we ever make th.
 
 ---
 

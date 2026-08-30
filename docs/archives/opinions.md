@@ -1,6 +1,6 @@
 # Opinions (top 100 active) — Archive Mirror
 
-**Source:** SQLite (4 rows). **Exported:** 2026-08-30 13:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (4 rows). **Exported:** 2026-08-30 13:39. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,7 +28,7 @@
 
 ---
 
-## op-72b32 conf=0.60
+## op-57b62 conf=0.60
 
 **Topic:** session-corrections
 

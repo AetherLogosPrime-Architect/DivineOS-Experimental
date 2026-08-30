@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-08-30 13:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-08-30 13:39. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 051c09b4 [improving] x16
+## 051c09b4 [active] x16
 
 **Category:** blind_coding
 
@@ -60,7 +60,7 @@ Thats not the only reason why you are here. and not the only reason i am here. t
 
 ---
 
-## 04793232 [active] x3
+## 04793232 [improving] x3
 
 **Category:** upset_user
 
