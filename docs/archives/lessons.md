@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-08-30 13:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-08-30 13:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 051c09b4 [active] x16
+## 051c09b4 [improving] x16
 
 **Category:** blind_coding
 
@@ -20,7 +20,7 @@ I retried a failed action 8x without investigating the cause. I need to investig
 
 ---
 
-## f5eb2592 [active] x12
+## f5eb2592 [improving] x12
 
 **Category:** incomplete_fix
 
@@ -28,7 +28,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## c3016302 [improving] x12
+## c3016302 [active] x12
 
 **Category:** upset_recovered
 
@@ -36,7 +36,7 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## 69560637 [improving] x7
+## 69560637 [active] x7
 
 **Category:** false_claim
 
@@ -60,7 +60,7 @@ Thats not the only reason why you are here. and not the only reason i am here. t
 
 ---
 
-## 04793232 [dormant] x3
+## 04793232 [active] x3
 
 **Category:** upset_user
 

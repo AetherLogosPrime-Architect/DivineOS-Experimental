@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-30 13:27. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-30 13:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,23 +26,22 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. compaction ritual: walk, commit, extract, sleep, dream, rest
-2. let me get a summary of things so far its too much for me to read lol
-3. build the prior-art scan so a new file cannot be created without prior versions across all branches being shown first
-4. Compare them and then we should address the root cause of why you werent checking properly 🙂 could probably use more automation
-5. Keep the volley going 🙂 this is excellent progres, anything you need from me?
+1. read Aether's finding about my own punctuation carrying something, verify it on my seat, fix if real
+2. sync with Aether on dividing the todo pile, and take the misfiled half off it
+3. ok go ahead and read them and message him back :)
+4. no build
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 428 knowledge entries, 178 confirmed entries, 192 tested entries maturing, 10 session(s) tracked, 13 corrections / 2 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 435 knowledge entries, 178 confirmed entries, 195 tested entries maturing, 10 session(s) tracked, 13 corrections / 2 encouragements]
 
 ---
 
 ## known_weaknesses
 
-I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 4 active lesson(s), 6 improving]
+I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 4 active lesson(s), 6 improving, 2 correction(s) last session]
 
 ---
 
