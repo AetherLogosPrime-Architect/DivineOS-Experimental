@@ -111,6 +111,47 @@ def base_of(branch: str) -> str | None:
     return upstream or None
 
 
+def substrate_deletions(branch: str, reference: str) -> list[str] | None:
+    """Substrate files the reference HAS that merging this branch would remove.
+
+    Returns the paths, [] when there are none, or None when the comparison
+    could not be made -- three answers, because collapsing two of them into one
+    value is the fault this file keeps finding elsewhere.
+
+    THE TWO-DOT FORM IS DELIBERATE and is the whole difference from the reading
+    above. `read_against` uses three dots -- merge-base(reference, branch) --
+    which answers "what did this branch add" and is right for contamination.
+    That form CANNOT see this: a file that landed on the reference after the
+    branch diverged is simply not in it. Two dots compares the trees as they
+    stand, which is what a merge actually proposes.
+
+    So the checker was never WRONG about deletions. It was silent about them,
+    and silence read as clean. Named 2026-08-29 after a branch taken from a
+    pre-merge point would have proposed removing three letters from the
+    reference -- caught only because git printed error lines that another check
+    of mine had swallowed.
+
+    Aletheia, on why this outranks the contamination it sits beside: "the wrong
+    reading was the tidier one. 'You have extra files here' invites cleanup;
+    'you are about to delete four hours of someone's work from main' invites a
+    stop."
+    """
+    if not _resolve(reference):
+        return None
+    code, out = _git("diff", "--name-status", "--diff-filter=D", reference, branch)
+    if code != 0:
+        return None
+    removed: list[str] = []
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        path = parts[-1].strip()
+        if path.startswith(_SUBSTRATE_PREFIXES):
+            removed.append(path)
+    return removed
+
+
 def substrate_paths(branch: str, reference: str) -> list[str]:
     code, out = _git("diff", "--name-only", f"{reference}...{branch}")
     if code != 0:
@@ -154,6 +195,29 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  vs {base.reference:<34} COULD NOT READ")
     else:
         print("  (no stacked base; the two readings would be the same)")
+
+    # ASKED BEFORE THE CONTAMINATION QUESTION, on purpose. Both can be true at
+    # once, and if only one message survives the reader's attention it should
+    # be this one -- extra files are noise a reviewer drops, a removed letter
+    # may exist nowhere else.
+    removed = substrate_deletions(args.branch, args.truth)
+    if removed is None:
+        print(f"  deletions vs {args.truth}: COULD NOT CHECK -- this is not a clean answer.")
+    elif removed:
+        print(
+            f"[scope] WOULD DELETE {len(removed)} substrate file(s) that {args.truth} has. "
+            "This branch is older than the reference; merging it as-is REMOVES them."
+        )
+        for path in removed[:20]:
+            print(f"    {path}")
+        if len(removed) > 20:
+            print(f"    ...and {len(removed) - 20} more.")
+        print(
+            "[scope] Catch up first (merge the reference in), then re-run. "
+            "Do not resolve this by re-adding files by hand -- the branch being "
+            "stale is the cause, and the files are the symptom."
+        )
+        return 1
 
     if truth.substrate:
         if args.list:
