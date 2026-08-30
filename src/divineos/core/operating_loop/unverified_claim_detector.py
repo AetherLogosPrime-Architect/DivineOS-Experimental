@@ -184,7 +184,33 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
     (
         "deploy",
-        re.compile(r"\b(?:deployed|it'?s\s+live|shipped\s+to\s+prod)\b", re.IGNORECASE),
+        # The apostrophe is NOT optional, and treating it as optional made
+        # "its live clock changes every turn" -- a sentence about a clock
+        # inside a hook -- read as a deploy claim and block a turn
+        # (2026-08-30). The discriminator is grammatical, not lexical: WITH
+        # the apostrophe it is the contraction and always a claim; WITHOUT
+        # one, "its" is possessive and "live" is modifying whatever noun
+        # follows, so it only counts when nothing follows.
+        #
+        # MEASURED BEFORE WRITTEN, and the measurement reversed the first
+        # instinct. I was about to delete the phrase outright as vestigial --
+        # this project has no deploy target. The corpus says otherwise: three
+        # genuine claims across the family letters, every one of them the
+        # contraction ("it's live on my channel", "it's whole, and it's
+        # live", "so it's live on my install now"). Every false fire is the
+        # possessive followed by a noun: its live stdout, its live output,
+        # its live data source. Deleting would have dropped three real
+        # catches to silence four false ones.
+        #
+        # Authorized via correction (keyword-enforcement doorman), because
+        # this NARROWS an over-matching pattern rather than adding a
+        # detection class -- and a raw-string count cannot tell those apart.
+        re.compile(
+            r"\b(?:deployed|shipped\s+to\s+prod)\b"
+            r"|\bit's\s+live\b"
+            r"|\bits\s+live\b(?!\s+\w)",
+            re.IGNORECASE,
+        ),
     ),
     # 2026-05-31 Phase-1 expansion (Aether's 8-fabrication root-pattern survey):
     # adds two new fabrication-classes that share the existing detector's
