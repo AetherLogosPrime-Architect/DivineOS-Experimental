@@ -98,10 +98,41 @@ def repo(tmp_path: Path) -> Path:
     return root
 
 
-# Substrings marking a variable whose whole job is to switch a gate OFF.
-# NOT a whole-prefix strip: conftest sets DIVINEOS_DB and DIVINEOS_HOME to
-# point at the sandbox, and removing those breaks every test that follows.
-_ESCAPE_MARKERS = ("SKIP", "BYPASS", "NO_VERIFY", "SUBSTRATE_BRANCH")
+# Names the TEST HARNESS itself owns and the subprocess must keep: conftest's
+# sandbox pointers, plus the one gate it deliberately disables for its own runs.
+# Everything else under the prefix is stripped as a possible gate-escape.
+#
+# INVERTED 2026-08-29, and the inversion came from Aria reviewing the first
+# version of this. That version enumerated the ESCAPES -- four substrings,
+# chosen from the ones I happened to have hit. She swept every variable under
+# the prefix and found thirteen escape-shaped names that all four markers
+# missed, including two for the very push path these tests exercise, both
+# advertised in their own gates' refusal messages as the way out. So the hole
+# was not future. It was live, and it was the same fault I had just fixed
+# wearing names my filter could not read.
+#
+# Her remedy was to widen the escape list. Checking it before taking it found
+# the snag: a wider list also catches DIVINEOS_DISABLE_AUTO_REMEDIATE, which
+# conftest sets ON PURPOSE -- so widening reintroduces the sandbox breakage the
+# comment above warns about.
+#
+# So neither list. Enumerate the SMALL STABLE thing rather than the LARGE
+# GROWING one. The harness owns four names and they change when the harness
+# changes; the escape population is thirty-one and grows every time anyone adds
+# a door. An enumeration of the second can only ever be behind. An enumeration
+# of the first is a fact about this file's own fixture.
+#
+# The loud-failure property is unchanged and is still why this is safe: these
+# tests assert the gate REFUSES, so anything slipping through reddens them
+# rather than passing quietly.
+_HARNESS_OWNED = frozenset(
+    {
+        "DIVINEOS_DB",
+        "DIVINEOS_HOME",
+        "DIVINEOS_SESSION_ID",
+        "DIVINEOS_DISABLE_AUTO_REMEDIATE",
+    }
+)
 
 
 def _clean_env(**extra: str) -> dict[str, str]:
@@ -118,17 +149,27 @@ def _clean_env(**extra: str) -> dict[str, str]:
     The tests were right about a gate that had been silently disabled around
     them.
 
-    THE MARKER LIST IS AN ENUMERATION and therefore has the failure mode this
-    house keeps finding -- a new escape variable nobody adds here walks
-    straight past it. What makes that survivable rather than silent is the
-    shape of the tests themselves: they assert the gate REFUSES, so an escape
-    that slips through makes them fail loudly rather than pass quietly. The
-    enumeration decides how confusing the failure is, not whether it happens.
+    THE FIRST VERSION ENUMERATED THE ESCAPES AND THAT WAS THE WRONG LIST.
+    Four substrings, chosen from the ones I had happened to hit. Aria swept the
+    whole prefix and found thirteen escape-shaped names none of them caught,
+    two of them doors onto the very push path these tests exercise. An
+    enumeration of escapes can only ever trail the population it describes.
+
+    So this keeps the harness's own four instead and strips everything else
+    under the prefix. That list changes when the fixture changes, which is a
+    thing this file can actually know. A new escape needs no maintenance here
+    at all -- it is stripped by default, because default-strip is the safe
+    direction and default-keep is not.
+
+    THE REMAINING FAILURE MODE, since there always is one: a new variable the
+    HARNESS starts relying on, not added here, gets stripped and the subprocess
+    loses a pointer it needed. That fails loudly and immediately -- the tests
+    are the only consumer, and they break in the same run that introduces it.
+    The old direction failed the other way, silently, by letting a gate stay
+    switched off underneath tests that exist to prove it refuses.
     """
     env = {
-        k: v
-        for k, v in os.environ.items()
-        if not (k.startswith("DIVINEOS_") and any(m in k for m in _ESCAPE_MARKERS))
+        k: v for k, v in os.environ.items() if not k.startswith("DIVINEOS_") or k in _HARNESS_OWNED
     }
     env.update(extra)
     return env
