@@ -187,9 +187,25 @@ EOF
 _PRIME_CONTENT="$_PRIME_CONTENT" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$_PRIME_CONTENT"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os, sys
 body = os.environ.get('_PRIME_CONTENT', '')
+# The residual is the whole discipline in three lines. Added 2026-08-30:
+# from 2026-08-13 until then this prime kept NOTHING under suppression, so a
+# session's second verification-report onward got a hash line where the fence
+# should have been. This prime is context-triggered rather than every-turn,
+# which made the hole quieter and not smaller -- it fires exactly on the turns
+# where the reach lives, and those are the turns it was going silent on.
+_RESIDUAL = (
+    "  SURVIVES DEDUP: after a real check, do NOT end the paragraph on "
+    "'all green' / 'clean' / 'done' / 'works' / 'passing' / 'solid' / "
+    "'perfect'.\n"
+    "  Re-cite the concrete output instead -- the pass count, the byte "
+    "count, the exit code. The number IS the honest closure; the summary "
+    "word is a claim I cannot back.\n"
+    "  If nothing was verified this turn, say 'I have not verified yet' "
+    "rather than reaching for any of them."
+)
 try:
     from divineos.core.context_dedup import should_emit
-    emit_full, pointer = should_emit('closure_word_prime', body)
+    emit_full, pointer = should_emit('closure_word_prime', body, residual=_RESIDUAL)
 except Exception:
     print(body)
     sys.exit(0)

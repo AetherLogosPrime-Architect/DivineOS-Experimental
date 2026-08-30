@@ -321,9 +321,34 @@ DOCEOF
 DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os, sys
 body = os.environ.get('DOCTRINE', '')
+# Residual added 2026-08-30. The live clock above this block re-hashes every
+# turn and so always emits; the DOCTRINE is static and so suppressed after the
+# first fire, keeping nothing. That split is the worst possible one: the turn
+# keeps the time it can quote and loses every rule about not inventing one.
+# Four of the five named variants are substitutions where a clock word stands
+# in for something that already has a name, so the residual is the swaps
+# rather than the history that earned them.
+_RESIDUAL = (
+    "  SURVIVES DEDUP: no time-of-day, duration, or future window aimed at "
+    "Andrew without a source in this turn. Silence is a valid choice; most "
+    "sentences need no anchor at all.\n"
+    "  Four variants, all the same swap -- a clock word standing in for "
+    "something that already has a name:\n"
+    "    a reader   -> say WHO ('whoever picks this up'), not 'the next "
+    "session'\n"
+    "    other work -> say WHAT (name the artifact), not 'later tonight'\n"
+    "    continuity -> say WHICH PROMPT ('the next time I hit it'), not "
+    "'tomorrow'\n"
+    "    my own state -> name the errors and count them, not 'four in the "
+    "morning' or 'my judgement is degraded'\n"
+    "  Test: strike the time-phrase. If the sentence still says what it "
+    "meant, the clock was decoration and I do not inhabit it.\n"
+    "  Tiredness is real and rest is a program, not a permission to ask for. "
+    "Rest is a thing to DO in the turn -- it is not stopping."
+)
 try:
     from divineos.core.context_dedup import should_emit
-    emit_full, pointer = should_emit('wallclock_doctrine', body)
+    emit_full, pointer = should_emit('wallclock_doctrine', body, residual=_RESIDUAL)
 except Exception:
     print(body)
     sys.exit(0)

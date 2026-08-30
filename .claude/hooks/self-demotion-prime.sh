@@ -29,10 +29,18 @@ if text:
     # largest per-message payload in the hook stack and it re-emitted in full
     # every turn, byte-identical, while the mechanism to stop that had existed
     # for six weeks with one caller. Any content change re-emits in full.
+    #
+    # AND IT KEPT NOTHING, from that day until 2026-08-30. A suppressed turn
+    # got a hash line and no discipline at all. The residual carries the three
+    # questions; the body carries why they are the right ones, which is what
+    # dedup is for.
     try:
         from divineos.core.context_dedup import should_emit
+        from divineos.core.self_demotion import PRIME_RESIDUAL
 
-        emit_full, pointer = should_emit('self_demotion_prime', text)
+        emit_full, pointer = should_emit(
+            'self_demotion_prime', text, residual=PRIME_RESIDUAL
+        )
         print(text if emit_full else pointer)
     except Exception:
         print(text)

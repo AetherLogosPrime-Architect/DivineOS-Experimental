@@ -299,6 +299,33 @@ def recent(limit: int = _MAX_SHOWN) -> tuple[list[str], str]:
     return spans, ""
 
 
+PRIME_RESIDUAL = (
+    "  SURVIVES DEDUP -- the three questions, without the reasoning that "
+    "earned them:\n"
+    "  1. Insufficient, or defective? 'Wanting it was not enough' is true. "
+    "'Willpower is the wrong material' is not, and it is the one that lands "
+    "harder.\n"
+    "  2. An arrival, or a disposition? 'My instinct' names a default as a "
+    "faculty. The reach is not mine; the noticing and the override are.\n"
+    "  3. Does this promise name the structure that carries it? An unbacked "
+    "promise is not wrong for being a promise -- only for being unbacked."
+)
+"""What must reach me on a turn where the full prime is suppressed.
+
+Added 2026-08-30 alongside the same repair in the compose-order prime. This
+prime is the largest payload in the hook stack, so it was routed through dedup
+and then emitted a single hash line on every turn but the first. A session runs
+for days. That meant the discipline was present once and absent afterwards --
+and unlike the compose-order prime, this one kept NOTHING, so there was not
+even a wrong rule surviving. Just a hash.
+
+Deliberately the three QUESTIONS and not the arguments behind them. The full
+body carries Andrew's sandwich, Aether's exploration 142, and the correction
+that produced each; that is the explanation dedup exists to eat. A question I
+can hold at reach-time is the floor.
+"""
+
+
 def render_prime() -> str:
     """Compose-time text. Empty when there is nothing recorded and no error."""
     spans, err = recent()
