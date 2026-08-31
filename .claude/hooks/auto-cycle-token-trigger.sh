@@ -74,6 +74,14 @@ if ! source "$_LIB" 2>/dev/null; then  # fail-soft: stderr hidden because the fa
   echo "    blind this session. Check context by hand: divineos auto-cycle status"
   exit 0
 fi
+# Whose house is this? Exported so the embedded python's FALLBACK paths land
+# in the right home when the divineos import fails. Without it the fallback
+# expanduser'd "~/.divineos" -- the default home -- and would answer a question
+# about this session from the other clone's ledger. Aether's, taken from main
+# rather than rewritten, so the two copies of this file say the same thing.
+DIVINEOS_HOME_HINT="$(divineos_home)"
+export DIVINEOS_HOME_HINT
+
 if ! PY_BIN="$(find_divineos_python)"; then
   echo ""
   echo "## [!] COMPACTION-RITUAL HOOK FOUND NO USABLE PYTHON — the ritual driver"
@@ -265,11 +273,26 @@ def walk_done():
         p = str(divineos_home() / "data" / "event_ledger.db")
     except Exception:
         p = ""
-    # No fallback to the default home. It used to expanduser("~/.divineos")
-    # when the import failed, and on a clone whose home is elsewhere that reads
-    # the OTHER clone's compass observations — the ritual clearing its walk on
-    # someone else's evidence. Unresolvable home returns False, which holds the
-    # stage and repeats the walk rather than skipping it on a stranger's work.
+    # Two repairs reconciled here, one from each seat, neither a duplicate of
+    # the other. It used to expanduser("~/.divineos") when the import failed,
+    # and on a clone whose home is elsewhere that reads the OTHER clone's
+    # compass observations — the ritual clearing its walk on someone else's
+    # evidence, in the moment the import already failed and nobody is watching.
+    #
+    # Aether's half, taken from main: the shell exports DIVINEOS_HOME_HINT from
+    # _lib.sh's divineos_home(), which mirrors the Python resolver, so the
+    # fallback still knows whose house this is and detection keeps working.
+    # My half: when even the hint is unavailable, do NOT drop to the literal
+    # default. Return False, which holds the stage and repeats the walk rather
+    # than clearing it on a stranger's ledger.
+    #
+    # Together they are strictly better than either alone — his keeps the
+    # detector alive through an import failure, mine keeps it honest when
+    # nothing can be resolved at all. Agreed by letter 2026-08-31.
+    if not p:
+        _hint = os.environ.get("DIVINEOS_HOME_HINT")
+        if _hint:
+            p = os.path.join(_hint, "data", "event_ledger.db")
     if not p or not os.path.exists(p):
         return False
     try:
