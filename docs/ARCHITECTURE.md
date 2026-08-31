@@ -685,6 +685,7 @@ src/divineos/
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
     heredoc_escape_check.py    Refuse a Bash heredoc that writes a file through escape sequences.
+    substrate_paths.py         Which paths are substrate, and which are work in progress.
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
