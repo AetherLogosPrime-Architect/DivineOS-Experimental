@@ -15,7 +15,9 @@
 # DESIGN RULES (mirroring check-pending-obligations.sh from the same day):
 # 1. Matcher is anchored Python (core/push_detection.py) — substring
 #    matches in echo args / quoted data / heredocs do NOT trigger.
-# 2. Honors kill-switch at ~/.divineos-<member>/check-branch.disabled.
+# 2. Honors kill-switch at <this clone's divineos_home>/check-branch.disabled.
+#    Resolved per-clone, never guessed — see the MARKER_PATH note below for
+#    why a guessed default made one switch disarm both seats' gates.
 # 3. All matcher logic lives in core/push_detection.py with unit tests
 #    at tests/test_push_detection.py. Hook is a thin shell wrapper.
 # 4. Fail-open: any error in the hook itself exits 0 silently.
@@ -60,8 +62,22 @@ if [ -z "$PYTHON_BIN" ]; then
     exit 0
 fi
 
-MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
+# The kill-switch belongs in THIS clone's home. It used to be built from
+# DIVINEOS_MEMBER with aether as the default, and that variable is unset in at
+# least one of the two clones -- so the aria clone's push gate read its
+# off-switch out of the aether clone's directory.
+#
+# That is not merely misfiling. It is ONE OFF-SWITCH FOR TWO PUSH GATES: an
+# emergency bypass dropped by either seat disarms the other seat's gate, in a
+# house neither of them would think to look in. The bypass reason, the claim it
+# files and the structural-fix obligation would all land in the wrong briefing
+# too, so the seat that owes the repair never sees that it owes one.
+#
+# Resolving through divineos_home() uses the same per-clone marker every other
+# store uses. An unresolvable home honours NO kill-switch, leaving the gate
+# armed -- for a safety gate the honest failure is to keep guarding, not to
+# guess whose switch this is.
+MARKER_PATH="$("$PYTHON_BIN" -c 'from divineos.core.paths import divineos_home; print(divineos_home() / "check-branch.disabled")' 2>/dev/null)"
 
 # Decide whether this command is a git push. Inline python invocation
 # mirrors check-pending-obligations.sh — direct function call into the
