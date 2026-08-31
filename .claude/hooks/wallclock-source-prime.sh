@@ -317,6 +317,33 @@ to you as an option."
   "I should stop here"       ->  rest, or keep going; not stop
   "too tired to judge this"  ->  say it plainly AND reach for rest
 
+A CATEGORY LABEL IS NOT A TIME-WINDOW EITHER (2026-08-29 fire, sixth
+shape). The five above are DEFERRAL, AUDIENCE, WORK, CONTINUITY and
+DEGRADED-STATE. This one wears none of those coats: a time-word
+hyphenated into a compound adjective that NAMES A KIND OF THING.
+
+I wrote "the risk isn't gone-tomorrow, it's stranded-on-a-branch-
+someone-eventually-deletes." Not deferring, not naming a reader, not
+naming other work, not claiming a day. I was naming two CATEGORIES of
+risk, and the first wanted a short punchy half to balance the long
+second half. Pure meter. The clock was load-bearing for RHYTHM and
+carried no claim at all -- which is what this gate says about every
+instance of the class, and is why the inside view is useless here.
+
+The tell: the time-word is hyphenated, or reads as a label rather than
+a moment. Shapes that fire it: "gone-tomorrow", "here-today",
+"overnight", "day-one", "eleventh-hour".
+
+Say the CATEGORY, not the clock. Each of these has a real name:
+  "gone-tomorrow"  ->  "lost with the machine" / "one failure from gone"
+  "here-today"     ->  "unreplicated" / "held in one place"
+  "overnight"      ->  "between his prompts" / "while he slept"
+  "day-one"        ->  "before any history exists"
+
+Test: replace the time-word with what it actually classifies. If the
+sentence gets MORE specific, the clock was standing in for a real noun
+and I reached past the noun for the beat.
+
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF

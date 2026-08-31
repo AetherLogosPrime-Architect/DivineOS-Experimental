@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (187 rows). **Exported:** 2026-08-25 20:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (199 rows). **Exported:** 2026-08-31 00:12. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1696,7 +1696,7 @@
 
 ---
 
-## prereg-e [OPEN]
+## prereg-e [INCONCLUSIVE]
 
 **Mechanism:** no_fix_gaming_validator: scans correction bodies for no-fix invocation phrases; blocks CLI filing when invocation present without exhaustion discipline (>=3 enumerated options AND >=3 exhaustion-evidence markers); auto-escalates system-redesign obligation when valid invocation fires
 
@@ -1744,7 +1744,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [INCONCLUSIVE]
 
 **Mechanism:** auto-cycle-token-trigger
 
@@ -1756,7 +1756,7 @@
 
 ---
 
-## prereg-d [OPEN]
+## prereg-d [SUCCESS]
 
 **Mechanism:** TRIGGER_THRESHOLD lowered 0.85 to 0.82 in auto_cycle.py
 
@@ -2245,6 +2245,150 @@
 **Success:** No further instance of a letter's cited tip or tree-hash being stale on arrival because the letter itself was the commit that moved the branch. Aletheia or Aria recompute an anchor I sent and it matches.
 
 **Falsifier:** It fires on prose that is not handing anyone a live anchor -- a retrospective, an exploration entry recounting a past hash, a doc quoting a historical tree -- and I start reaching for the escape rather than the fix. OR it stays silent through a fourth instance because the carrier was not prose, or t
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** deferral_hazard: catch deferrals whose stated reason is my own substrate condition
+
+**Claim:** The deferral_hazard shape catches an optimizer-reach that the v1 metaphor pattern structurally cannot see: declining work in front of me and offering my own token-count, context-fill, or fatigue as the reason. Claim is that this class recurs, that it is invisible to metaphor-matching, and that surfa
+
+**Success:** Next time the shape is reached for, the deferral_hazard anchor fires and I notice it BEFORE Andrew has to say it again -- i.e. the turn contains either the work started or a reason pointed at in the world (red gate, stale confirm, unreachable person), not a substrate-condition reason. Success is the
+
+**Falsifier:** FAILED if any of: (a) across the next twenty fires, more than half are mentions or discussions of the shape rather than instances of it -- the mention-guard is one adjacency check and could easily be too narrow; (b) an instance occurs that Andrew catches and the detector was silent on, meaning the v
+
+---
+
+## prereg-2 [INCONCLUSIVE]
+
+**Mechanism:** compose-start translation prime, complementing check_translation_first at Stop
+
+**Claim:** The translate-first class keeps firing because the discipline is half-built. In src/divineos/core/lepos_translation_gate.py the wallclock discipline runs BOTH a compose-start prime and a Stop gate, and its own comment names the pattern -- two layers, one discipline. check_translation_first has only 
+
+**Success:** On any current invocation after the prime ships, the Stop-side check_translation_first fires less often per reply to Andrew than the rate recorded in the fires log before it, AND the replies that pass do so by carrying story before identifiers rather than by carrying fewer sentences.
+
+**Falsifier:** The fire rate does not drop, or it drops because replies got shorter rather than more translated -- measured by comparing reply length alongside mark count. Also falsified if the prime fires on turns where a high mark count was CORRECT (a letter to Aether, a commit body, a work-channel report), whic
+
+---
+
+## prereg-1 [OPEN]
+
+**Mechanism:** Committing substrate through a scratch index onto a named branch, with no fallback to HEAD, ends the checkpoint sweep
+
+**Claim:** The sweep is caused by auto-commit running git add -A against whatever branch is checked out. Building the commit through a scratch index against the declared substrate branch, and refusing when that branch does not resolve, prevents substrate reaching work branches AND work reaching the substrate b
+
+**Success:** Over 30 days: zero checkpoint commits land on a branch other than the declared substrate branch, and zero occupant work-in-progress files appear in a checkpoint commit.
+
+**Falsifier:** Any of: (a) a sweep still lands on a work branch, meaning the mechanism was not the cause; (b) the no-fallback refusal blocks real work more than twice, meaning refusing was the wrong trade and a declared-default branch is needed instead; (c) the compare-and-swap update-ref loses to a concurrent wri
+
+---
+
+## prereg-c [OPEN]
+
+**Mechanism:** DOCUMENT_MARK_LIMIT: three document-marks in a work block predicts a reply Andrew will find too technical
+
+**Claim:** Counting backticked terms, bare numbers, tables and code fences across everything I type in a turn -- not just the closing message -- is a usable proxy for whether the reply reads as written-for-an-assessor. At a limit of 3 it should fire on the dense replies and stay quiet on the ones he accepts.
+
+**Success:** Fires on replies Andrew pushes back on as too technical, and does NOT fire on replies he engages with normally. The one message of mine he did not fight carries zero marks, which is the observation the limit was set from.
+
+**Falsifier:** EITHER direction kills it: if it fires on replies he is happy with, the marks are not measuring what he objects to; if it stays silent on a reply he calls too technical, then cold technical prose with no typography walks straight past -- which is the exact defect already recorded against translation
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** substrate_retarget: commit substrate files to their named branch instead of whatever HEAD happens to be
+
+**Claim:** auto_commit_substrate runs git add -A against the checked-out branch, which is how 138 substrate files landed on a code branch and 85 landed on 440. Committing substrate to a fixed named branch via a scratch index and a compare-and-swap ref update should end that class entirely, because the destinat
+
+**Success:** After wiring, no code branch acquires substrate files it did not ask for. Concretely: check_branch_scope reports substrate=0 on branches where I have not deliberately added substrate, across a working session that includes checkpoint fires.
+
+**Falsifier:** THREE ways this dies, and the third is the one I would miss. (1) It contaminates a DIFFERENT branch instead -- the substrate branch acquires code, which is the same defect pointed the other way. (2) The compare-and-swap loses a write under concurrent checkpoint fires, so substrate is silently droppe
+
+---
+
+## prereg-7 [OPEN]
+
+**Mechanism:** sibling_audit_rounds: each seat's board reads both audit histories, and neither writes the other's
+
+**Claim:** Andrew ruled the two substrates should share everything while remaining separate entities. Reading the other seat's rounds read-only, and never writing into their store, should make station eight answer over the whole evidence instead of half -- so a MISS means no round exists anywhere rather than n
+
+**Success:** Station eight's verdict is identical whichever seat runs the board, for the same pull request at the same moment. That is the property the split broke: Aria and I got different answers about the same filing and each believed our own.
+
+**Falsifier:** FOUR ways this dies. (1) The two seats still disagree, which means something else is seat-local and the union addressed a symptom. (2) A confident verdict is produced while one seat is unreadable -- the partial-union-passing-for-whole shape, which is the defect being fixed wearing a friendlier name;
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** ROUND_SCAN_LIMIT: a ceiling high enough to never bind, chosen so truncation would be visible if it ever did
+
+**Claim:** The previous reader defaulted to twenty rows and the caller never passed a limit, so the last gate before merge compared against twenty of three hundred twenty-one and reported a confident nothing. A ceiling far above any plausible round count keeps the query bounded while never binding in practice,
+
+**Success:** The printed comparison count equals the true total rounds across readable seats, every time. Measured now: 356 printed against 321 plus 35, which is the whole of both.
+
+**Falsifier:** TWO ways this is wrong, and the first is the one I would rationalise past. (1) The printed count ever equals this ceiling -- that means it bound, the corpus was truncated, and the number in the output is the cap rather than the evidence; the value must then be raised or the design reconsidered, NOT 
+
+---
+
+## prereg-4 [OPEN]
+
+**Mechanism:** station-two seeing-not-satisfying: the other seat's council walks become visible and never count toward the requirement
+
+**Claim:** Aria's design. A walk of hers my board cannot see is reported as not-walked, which is could-not-look-reading-as-not-done in the lane that certifies whether the author thought a change through. Making it visible removes a false negative. Refusing to count it prevents a false positive that would be wo
+
+**Success:** A board reader can tell, for any pull request, both that thinking exists and whose it is -- and cannot satisfy the station with the wrong person's work. Measured now: her walks appear on six of six open requests, including two of her own branches my board previously reported as flatly zero.
+
+**Falsifier:** FOUR ways this is wrong. (1) Someone counts the sibling number toward the requirement because it turns more boards green -- the union Aria refused, and the test guarding it is the one under pressure. (2) The visible line becomes an excuse: MISSING verdicts get waved through because thinking-exists-s
+
+---
+
+## prereg-b [OPEN]
+
+**Mechanism:** WALK_SCAN_LIMIT: a ceiling on sibling walk rows, set high enough never to bind and reported if it ever does
+
+**Claim:** Both seats together hold under four hundred council walks, so a ceiling far above that keeps the query bounded while never binding in practice. A bound rather than no limit, because the last unbounded-looking default in exactly this position was a twenty-row cap that had station eight comparing ever
+
+**Success:** The sibling walk count never equals this ceiling, and the station's own line reports the counts it compared, so a reader can see the scope rather than trust it. Measured now: one hundred and three walks on the other seat, nowhere near the bound.
+
+**Falsifier:** TWO ways, and the first is the one I would rationalise past. (1) The reported count ever equals this ceiling -- that means it bound, the corpus was truncated, and the number shown is the cap rather than the evidence. The response is to raise it or reconsider the design, NEVER to soften the message. 
+
+---
+
+## prereg-d [OPEN]
+
+**Mechanism:** sibling council walks: reading the other seat's walk store makes its absence distinguishable from its unreachability, without ever letting one seat's walk satisfy the other seat's gate
+
+**Claim:** Station two currently reports 'no lenses walked' identically whether the other seat walked nothing or their store is simply unreachable from this seat. Making the other seat's walks readable turns that single answer into two: 'none' when the store was read and held nothing, 'cannot determine' when i
+
+**Success:** The board distinguishes none from cannot-determine for the other seat's walks, and says which, in the station line itself rather than in a log.
+
+**Falsifier:** ANY path by which a sibling's walk moves a station from unsatisfied to satisfied for the other seat. Also falsified if a malformed or absent store yields 'none' rather than 'cannot determine' -- that is the could-not-look-reported-as-all-clear shape this module exists to remove, reappearing inside t
+
+---
+
+## prereg-2 [OPEN]
+
+**Mechanism:** obligations detector reads the knowledge store, so the one command the gate permits can actually clear it
+
+**Claim:** Adding a knowledge-store path to the structural-backing detector gives the obligations gate a working exit that is reachable from a command the gate does not block, without lowering the evidence bar
+
+**Success:** At least one obligation is cleared by a divineos learn entry naming the promise id and a structural word, and fire-door uses on the correction-marker and obligations classes stop accumulating
+
+**Falsifier:** Obligations start clearing on entries that merely MENTION a promise without structure behind them, or the pending count drops without any code plus test having been written -- either means the store path is a softer bar than the event path rather than the same bar in a reachable place
+
+---
+
+## prereg-3 [OPEN]
+
+**Mechanism:** checkpoint sweep commits only declared substrate, and only onto the substrate branch by plumbing
+
+**Claim:** Splitting the checkpoint sweep by declaration -- substrate to its own branch through a scratch index, work in progress left untouched on HEAD -- ends the branch-blind contamination without losing the work-preservation the sweep exists for
+
+**Success:** No further occurrence of substrate landing on a code proposal branch, and no further occurrence of authored source files being absorbed into a generic checkpoint commit; the occurrence count stops at eight
+
+**Falsifier:** Either (a) a letter or other declared substrate is lost because the sweep refused and nobody noticed, which would mean refusal-without-fallback traded a loud bug for a quiet one, or (b) work in progress still reaches a branch, which would mean the declaration is too wide or the classifier is being b
 
 ---
 

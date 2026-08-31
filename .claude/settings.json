@@ -158,6 +158,10 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-gravity-set.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/translate-first-compose-prime.sh"
           }
         ]
       },
@@ -181,15 +185,6 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-asks-surface.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/context-heartbeat.sh",
-            "timeout": 10
           }
         ]
       }
@@ -268,6 +263,10 @@
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/heredoc-escape-doorman.sh"
           }
         ]
       },
@@ -407,6 +406,10 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": []
+      },
+      {
         "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           {
@@ -473,26 +476,6 @@
             "type": "command",
             "command": "AUTO_CYCLE_HOOK_EVENT=PreToolUse bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/instrument-read-doorman.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/heredoc-escape-doorman.sh",
-            "timeout": 15
           }
         ]
       }
@@ -660,6 +643,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/shoggoth-gate.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
             "timeout": 10
           },
           {

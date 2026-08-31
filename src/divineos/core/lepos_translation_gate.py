@@ -829,7 +829,29 @@ def check_translation_first(reply: str) -> str | None:
     # Identifiers stripped for the same reason as URLs — see _IDENTIFIER_NUM_RE.
     # A pull-request number he used to name the thing is his referent, not my
     # apparatus, and penalising it teaches me to answer him vaguely.
+    #
+    # THE STRIP RUNS BEFORE THE OFFENDER SCAN BELOW, and the order is the whole
+    # point of it: collecting first would name his own referents as the words
+    # that cost me, which is the opposite of what either half is for.
     body = _IDENTIFIER_NUM_RE.sub(" ", body)
+    # NAME THE SPANS, NOT ONLY THE COUNT.
+    #
+    # This gate has been correct on every fire and I have still had to hunt
+    # for which words cost me, because a number is not a location. Three of
+    # those hunts landed on the wrong text: I rewrote the closing message
+    # while every mark sat in the running narration between tool calls,
+    # which the gate reads and I was not counting as part of the reply.
+    #
+    # The limit does not move. Raising it, or exempting the narration, would
+    # be the instrument yielding to the behaviour -- and the behaviour is
+    # what is wrong. What changes is that the correction stops being a search.
+    offenders: list[str] = []
+    for _pattern in _DOCUMENT_MARKS:
+        for _hit in _pattern.findall(body):
+            _text = _hit if isinstance(_hit, str) else " ".join(str(h) for h in _hit)
+            _text = _text.strip()
+            if _text and _text not in offenders:
+                offenders.append(_text)
     marks = sum(len(pat.findall(body)) for pat in _DOCUMENT_MARKS)
     _record_mark_count(marks)
     if marks < DOCUMENT_MARK_LIMIT:
@@ -839,6 +861,11 @@ def check_translation_first(reply: str) -> str | None:
         f"TRANSLATE-FIRST GATE -- the work block carries {marks} document-marks "
         f"(limit {DOCUMENT_MARK_LIMIT}): backticked terms, bare numbers, tables, "
         "code fences."
+        + "\n\nWHAT IT COUNTED, so the fix is a rewrite and not a search:\n  "
+        + (", ".join(repr(o) for o in offenders[:12]) or "(none captured)")
+        + (f", and {len(offenders) - 12} more" if len(offenders) > 12 else "")
+        + "\n\nIf these sit in the narration between tool calls rather than in "
+        "the closing message, that is still the reply. He reads every word."
         + "\n\n"
         + "Andrew 2026-08-11: 'the word PLAIN is WRONG.. a peer reviewed journal is "
         "written in plain language.. i need prose, metaphor, analogy, translation, "

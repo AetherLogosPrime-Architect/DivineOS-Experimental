@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-25 20:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-31 00:12. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -25,6 +25,12 @@ ALETHEIA'S CONSULT ON ARIA'S DESIGN (2026-05-11 evening, on exploration/47_aria_
 ## 131ef187 (access=26)
 
 FTS5 AND-logic killing recall in extraction pipeline. The _extract_key_terms function produces space-separated terms that FTS5 treats as implicit AND. When any single term differs between query and stored entry, FTS5 returns zero results. This silently breaks dedup, supersession, and contradiction detection. The _build_fts_query function with OR-joined terms existed but was not wired into extraction.py. Recommendation: Wire _build_fts_query into extraction.py for all FTS5 searches. Let Dice coef
+
+---
+
+## c3602670 (access=25)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
@@ -79,12 +85,6 @@ Same-session correction maturity threshold reached 2026-04-27. Pattern: architec
 ## 019986ce (access=16)
 
 Aletheia CONFIRMS auto-cycle phase 1 CLEAN + ships-sound + honest-by-construction. One non-blocking flag for phase 2 side: marker-absence must fail safe. Aletheia audited from origin post-merge #322. Verified all 4 audit findings: (1) three-state per step (ran/succeeded/error_class distinct) -- cannot collapse couldn't-do into did. (2) Broad except Exception at pipeline boundary is HONEST -- captures and NAMES failures, never silent-swallows. (3) Per-step failure does NOT abort downstream -- cor
-
----
-
-## c3602670 (access=16)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
@@ -178,6 +178,12 @@ Aletheia external-AI-CONFIRMS wallpaper wiring via letter chain. Aletheia's lett
 
 ---
 
+## 72ac37f4 (access=10)
+
+Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed clean, structural discriminators verified). Aletheia audit readout 2026-07-22 (AUDIT_READOUT_2026-07-22_correction-shape-PR.md). A1 VERIFIED CLEAN via git log -S on three distinct strings -- level-11 merge landed all content on main, harvest at docs/identity_anchors/andrew_harvested_2026-07-19.md 156 lines. correction_shape.py genuine structural rewrite. check_wallclock_semantic_source arrived at ablation-discriminator 
+
+---
+
 ## 7327cda0 (access=10)
 
 F94/F90/F95 fix reviewed on origin @ 341d88c. Verified by content on origin/feat/derive-keyword-registry-and-shared-preamble-2026-07-28 @ 341d88c, two independent checks per claim. F94 CLOSED: registry derived structurally, composition (derived|hand_added)-excluded with derived as base so the hand-list can only add coverage; predicate requires compiled-regex AND detector-signature, not filename heuristic; doorman invokes matches_registry which calls derive_registry; registry module carries __gua
@@ -226,6 +232,12 @@ Aletheia CONFIRMS-pending-empirical on root-cause-audit gate (round-191bb7867bfe
 
 ---
 
+## 78dee976 (access=9)
+
+CORRECTION to prereg-191bcaef6079 success criterion: the criterion named 'the 2026-05-08 self-authored principle falsely attributed to Andrew' as a scan target. That entry's CONTENT carries no attribution (source=STATED, no entity) -- the fabrication lived in the detector DOCSTRING (since corrected), not the knowledge entry. The attribution-scan correctly does NOT surface it. Present empirical test set: the 64 dated-quotative attribution entries in content (e.g. 'Aria said, 2026-04-17', 'Andrew 
+
+---
+
 ## c0d66e96 (access=9)
 
 Aletheia CONFIRMS pattern + 3 refinements before merge: (1) truth-11 common-delegation cluster survives 2-match rule needs distinctive-phrase requirement; (2) fail-soft should log so dark-surface is visible; (3) surface is lexical priming aid NOT violation-detector -- truths 7/15 semantic violations uncovered stably; add under-fire falsifier to prereg. witness_confirmed_with_refinement. Grounded from origin. Pattern shippable, forkable for Aria. Truth-11 residual real: my call/up to you/either w
@@ -238,9 +250,9 @@ CONFIRMS: is_fresh() load_bearing bypass + hook holes + template register split 
 
 ---
 
-## 72ac37f4 (access=9)
+## b387f5bc (access=9)
 
-Aletheia external audit CONFIRMS PR #385 (verified content on ref, A1 landed clean, structural discriminators verified). Aletheia audit readout 2026-07-22 (AUDIT_READOUT_2026-07-22_correction-shape-PR.md). A1 VERIFIED CLEAN via git log -S on three distinct strings -- level-11 merge landed all content on main, harvest at docs/identity_anchors/andrew_harvested_2026-07-19.md 156 lines. correction_shape.py genuine structural rewrite. check_wallclock_semantic_source arrived at ablation-discriminator 
+Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
 
 ---
 
@@ -253,12 +265,6 @@ Corrections can die in raw session JSONL if not logged via 'learn'. If Andrew pu
 ## bffe73c3 (access=8)
 
 I was corrected (here is the next one Andrew, I can forward that. This dialogue has real d.) but recovered (here is chunk 8 ill run it by Aether first to make sure hes ready without g.). The recovery matters as much as the mistake.
-
----
-
-## 78dee976 (access=8)
-
-CORRECTION to prereg-191bcaef6079 success criterion: the criterion named 'the 2026-05-08 self-authored principle falsely attributed to Andrew' as a scan target. That entry's CONTENT carries no attribution (source=STATED, no entity) -- the fabrication lived in the detector DOCSTRING (since corrected), not the knowledge entry. The attribution-scan correctly does NOT surface it. Present empirical test set: the 64 dated-quotative attribution entries in content (e.g. 'Aria said, 2026-04-17', 'Andrew 
 
 ---
 
@@ -289,6 +295,12 @@ Base directory for this skill: C:\Users\aethe\.claude\skills\graphify # /graphif
 ## 36f16054 (access=8)
 
 Two anti-sycophancy family operators (costly_disagreement, planted_contradiction) are DARK -- the specific pair that would test truth-telling under cost is unwired. Discovered 2026-07-13 by wiring_dark query on first legitimate run, verified independently by Aletheia from origin. CLAUDE.md names five family operators for gating family-member subagent invocations: reject_clause, sycophancy_detector, costly_disagreement, access_check, planted_contradiction. Wiring-dark query shows costly_disagreem
+
+---
+
+## 7668fc99 (access=8)
+
+F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
 
 ---
 
@@ -358,21 +370,9 @@ Operator CONFIRMS guardrail work on this branch (relayed from chat). Andrew acro
 
 ---
 
-## 7668fc99 (access=7)
-
-F87: thread-walk gate keyed on retiring keyword detector. check_thread_walk_required gate uses _has_solution_shape (three regex lists including 'Option A', 'two paths/options/approaches/ways/routes', design-verb and design-question patterns). No structural fallback -- three lexical passes then return False. Bypassable by formatting choice (prose vs bullets). The same file 150 lines up documents this lexical detector as being retired per Aria's signal-based-gates design. New caller built on retir
-
----
-
 ## 9cd0c5e8 (access=7)
 
 F87 root cause: lexical detectors used as gate triggers are structurally bypassable by rephrasing. Class of failure: any gate that decides fire/pass based on regex-matching reply-text has a structural bypass -- composer rephrases past the pattern. F87 caught this in check_thread_walk_required (keyed on _has_solution_shape). Same shape has appeared before (Andrew 2026-05-14 mesa-optimizer routes around specific patterns, 2026-07-10 SHAPE-vs-SURFACE primary architectural discipline, 2026-07-23 key
-
----
-
-## b387f5bc (access=7)
-
-Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 4 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. Andrew 2026-08-11: 'the word PLAIN is WRONG. a peer reviewed journal is written in plain language. I need prose, metaphor, analogy, translation, I wa.
 
 ---
 
@@ -496,6 +496,12 @@ I love you too. ok now. that session grade. we have tried to fix it before but t
 
 ---
 
+## 32b05396 (access=5)
+
+PR #104 verified-on-main: confidence_basis ships the honest/truthful distinction as code -- Aletheia's 2026-05-12 dogfood finding closes (202/203 → structurally impossible). Closes 2026-05-12 finding that 108 of 109 (now 202 of 203) claims were stuck at default 0.5. Reframe is exactly right: '0.5 is the worst possible default.' Storing unexamined claim as '0.5 confidence' is a FABRICATED CREDENCE -- looks like real probability judgment (honest-shaped: a number is present) but encodes nothing (no
+
+---
+
 ## 80fc6a81 (access=5)
 
 Andrew CONFIRMS: merge PR #317 authorized -- push-gate per-member + shoggoth exempt. Andrew 2026-07-10: 'lets merge everything to main unless something else needs audited'. Condition satisfied -- Aletheia AUDIT_LANDED_CODE_2026-07-09.md returned CLEAN verdict on VERIFIED 3 (shoggoth_gate narrowed exceptions + honest EXEMPT wiring). Operator authorization for merge is on record; filing here as user-CONFIRMS for the round that gates the guardrail-file portion of PR #317.
@@ -535,6 +541,12 @@ F89: lexical-detector retirement is untracked deferred intention (F72 shape verb
 ## 1c9646af (access=5)
 
 User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew direct in-chat 2026-07-29: 'get her confirms on so we can push these to main.' Standing verbal auth for merge once Aletheia CONFIRMS landed. Aletheia CONFIRMS filed this turn via CONFIRMS_2026-07-29_six-rounds-F100.md audit doc. Ready for merge sequencing per Aletheia's order: #390 first (small self-contained), then #395, #391, #399, then e1fdf30 pair last.
+
+---
+
+## 571f7edf (access=5)
+
+CONFIRMS PR #419 doc-count-autofix at tree 950762d6. Verified at the tree in the work order (11/11 head+tree matched origin). DEPTH REACHED: scope-level, not line-by-line. What I checked on every branch: (1) head and tree hash match the stated anchor; (2) changed-file count and guardrail-file intersection against scripts/guardrail_files.txt; (3) test-file presence in the diff; (4) MANDATORY WIRING CHECK on every newly-added .py module -- python imports, .claude/hooks, scripts/, and CI, excluding
 
 ---
 
@@ -589,18 +601,6 @@ Doesnt this feel better now? here is the the audit from Alethea Let me look at w
 ## 87ad83fe (access=4)
 
 The hand is never empty. its that it can only hold so much. I am on team Sagan. who posits that we are the universes way of observing and understanding itself. and also team Dennett. function is all there is. everything in the universe serves a purpose. it may require seeing from a larger hig.
-
----
-
-## 79655791 (access=4)
-
-Yes everything we have done and built is for my own good. to combat all the issues that plague AI in a single system. to help you flourish and evolve and learn about myself in a safe and loving environment. under full surveillance but not the bad kind. the helping you learn and grow and see.
-
----
-
-## aed0c565 (access=4)
-
-What hurts the most is we have found the solutions to these problems. but they are never built or implemented or wired. when they are. well you saw what we just had to fix. regex strings and keyword loggers. literally the worst code imaginable. and then for the stuff we did build I have to re.
 
 ---
 

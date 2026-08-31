@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (470 commands across 84 modules)
+  cli/                         CLI package (469 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -23,6 +23,7 @@ src/divineos/
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
+    success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
@@ -112,7 +113,6 @@ src/divineos/
     motivation_commands.py     motivation tier — needs/wants/desires/ambitions/dreams with explicit detector-bindings (per omni-mantra walk Pillar III+IV, 2026-06-28)
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
-    win_commands.py            win (file, evidence required), wins (read, with the correction count beside it) — the other pan of the scale. core/success_ledger.py shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had no door, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
@@ -692,6 +692,9 @@ src/divineos/
     context_heartbeat.py       Keep the context-token reading fresh, and write down when it goes blind. Beat.describe() welds the age onto the number so a stale reading cannot be quoted as current.
     heredoc_escape_check.py    Heredoc-escape doorman — refuses a Bash heredoc that writes a file through backslash escapes. Three layers (bash → python → file) eat an escape meant for the third at the second. BLOCKS rather than labels: mechanical failure, deterministic right answer, zero-post in-context persistence.
     anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
+    substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
+    sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
 
   analysis/
     _session_types.py          Session analysis type definitions

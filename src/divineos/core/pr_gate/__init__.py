@@ -28,6 +28,7 @@ recourse via the integrity-audit workflow.
 from __future__ import annotations
 
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 
@@ -116,15 +117,57 @@ def has_draft_flag(command: str) -> bool:
     return bool(_DRAFT_FLAG_RE.search(strip_quoted(command)))
 
 
-def branch_files_changed(repo_root: str | None = None) -> list[str]:
-    """Files touched by commits on current branch ahead of origin/main.
+def head_ref_of(command: str) -> str:
+    """The branch this `gh pr create` opens a PR FOR.
+
+    THE GATE USED TO ASK ABOUT THE WRONG BRANCH. It measured
+    ``origin/main...HEAD`` unconditionally — whichever branch the caller
+    happened to be standing in — while ``gh pr create --head <other>``
+    opens a PR for a branch that may share nothing with the checkout.
+
+    Caught 2026-08-29 opening a letters-only PR from a code branch. The
+    gate refused it for touching four code files, named all four, and
+    every one of them lived on the checkout rather than on the branch
+    under review. Its advice happened to be right, which is one input
+    away from being wrong the same way.
+
+    PARSED WITH THE REAL TOKENISER, NOT A PATTERN. The keyword-doorman
+    refused a regex here and was right to: shlex already knows what a
+    command-line argument is, including the quoting my pattern fumbled,
+    and a token comparison is auditable by eye in a way a character
+    class is not.
+
+    ``gh`` itself defaults ``--head`` to the current branch, so falling
+    back to HEAD matches its behaviour rather than inventing one.
+    """
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        # Unbalanced quotes: the caller's command will not run either, so
+        # answering about HEAD costs nothing and guessing costs precision.
+        return "HEAD"
+    for i, token in enumerate(tokens):
+        if token.startswith("--head="):
+            return token[len("--head=") :] or "HEAD"
+        if token in ("--head", "-H") and i + 1 < len(tokens):
+            return tokens[i + 1]
+    return "HEAD"
+
+
+def branch_files_changed(repo_root: str | None = None, ref: str = "HEAD") -> list[str]:
+    """Files touched by commits on ``ref`` ahead of origin/main.
 
     Returns empty list on any git error — fail-open: we'd rather let
-    a legitimate PR through than block on git errors.
+    a legitimate PR through than block on git errors. An unresolvable
+    ``ref`` lands here too, so a PR for a branch this checkout cannot
+    see opens ready rather than being refused. That is this gate's
+    existing bias rather than a new one — its whole failure posture is
+    allow, and the cost of a wrong allow here is a missing draft flag,
+    never a merge.
     """
     try:
         proc = subprocess.run(
-            ["git", "diff", "--name-only", "origin/main...HEAD"],
+            ["git", "diff", "--name-only", f"origin/main...{ref}"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -174,7 +217,8 @@ def check_pr_create_safe(command: str, repo_root: str | None = None) -> GateDeci
     if has_draft_flag(command):
         return GateDecision(blocked=False)
 
-    changed = branch_files_changed(repo_root=repo_root)
+    head = head_ref_of(command)
+    changed = branch_files_changed(repo_root=repo_root, ref=head)
     if not changed:
         return GateDecision(blocked=False)
 

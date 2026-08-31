@@ -245,11 +245,25 @@ class TestMain:
         # Use a real Python one-liner as the "sealed CLI" so we can verify
         # dispatch actually invokes it and returns its exit code.
         cli = venv / "Scripts" / "divineos.exe"
-        # Copy the real python.exe so subprocess.run can execute something
-        # meaningful. Cheap: symlink or copy the current interpreter.
+        # COPY THE BASE INTERPRETER, NOT sys.executable. A virtualenv's
+        # python.exe finds its standard library through a pyvenv.cfg beside
+        # it. Copied alone into a temp directory it cannot find that file,
+        # dies during startup, and returns a startup error instead of the exit
+        # code this test is about -- 106 where 7 was expected.
+        #
+        # So this passed under a system interpreter and failed under a venv,
+        # which means it was red on main for anyone running the suite the way
+        # this repo is actually set up, and green for anyone who was not. Found
+        # 2026-08-28 when the pre-push gate refused a branch that never touched
+        # this file; the same run had been reporting the installed-wrapper
+        # drift every time and I had scrolled past it all session.
+        #
+        # sys._base_executable is the real interpreter behind the venv and
+        # needs no config beside it. It falls back to sys.executable when not
+        # in a venv, which is precisely when the fallback is correct.
         import shutil
 
-        shutil.copyfile(sys.executable, cli)
+        shutil.copyfile(getattr(sys, "_base_executable", None) or sys.executable, cli)
         monkeypatch.chdir(tmp_path)
         # Invoke with `-c 'import sys; sys.exit(7)'` via the shim.
         exit_code = wrapper.main(["-c", "import sys; sys.exit(7)"])

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import ast
 import re
+from functools import lru_cache
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -227,6 +228,21 @@ def _scan_callers(functions: list[NewFunction]) -> None:
                 _scan_file(hook_file, by_name, is_test=False)
 
 
+@lru_cache(maxsize=None)
+def _patterns_for(name: str) -> tuple[re.Pattern[str], re.Pattern[str], re.Pattern[str]]:
+    """The three call-shape patterns for one name, compiled once.
+
+    They used to be rebuilt inside the per-name loop, which runs once per
+    file — so every pattern was recompiled several hundred times per run
+    for no gain. Cached per name instead.
+    """
+    return (
+        re.compile(rf"(?:^|\W){re.escape(name)}\s*\("),
+        re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]"),
+        re.compile(rf"^\s*{re.escape(name)}\s*,\s*$"),
+    )
+
+
 def _scope_note() -> list[str]:
     """What this scan cannot see, printed with every report.
 
@@ -322,6 +338,8 @@ def _scan_file(
         text = py_file.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
         return
+    rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
+    lines = text.splitlines()
     # A function NAMED in prose is not a function CALLED. Before this, a
     # docstring reading "call render_block() when the briefing needs it"
     # registered as a production caller, and so did a `#` comment in a hook.
@@ -331,8 +349,33 @@ def _scan_file(
     # session, and the only one of the five whose failure direction was a
     # false negative.
     prose = _docstring_lines(text, py_file.suffix.lower())
-    rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
     for name, fns in by_name.items():
+        # WHY THIS AND NOT ANOTHER WINDOW NARROWING. The test that exercises
+        # this function records its scan window being cut twice for the same
+        # symptom — HEAD~30 to HEAD~5 in July, then HEAD~5 to HEAD~3 a week
+        # later — each time because the walk blew past its budget on a branch
+        # whose commits happened to be large. The window was never the cost.
+        # The cost is that this loop ran files x names x lines with three
+        # regexes recompiled inside it, so it scaled with how much the repo
+        # HOLDS rather than with how much changed. Narrowing the window
+        # shrinks the input to a walk that stays quadratic; this shrinks the
+        # walk.
+        #
+        # Aether wrote this paragraph and asked for it in the file rather than
+        # only in a commit message, because each of those two narrowings left
+        # a careful note explaining itself and each note made the NEXT
+        # narrowing look reasonable. A reader meeting those notes alone would
+        # conclude that shrinking the window is what you do when this gets
+        # slow. This is what stops a fourth.
+        #
+        # All three call shapes below require the literal name, so its
+        # absence from the file is a strict superset test: no pattern can
+        # match text that does not contain the substring. This is what
+        # takes the scan off its quadratic — the walk below ran over every
+        # line of every file for every candidate name regardless of
+        # whether the name appeared at all. Found by Aether 2026-08-26.
+        if name not in text:
+            continue
         # Three call shapes recognized as wiring:
         # (1) DIRECT call — function name followed by opening paren:
         #         func_name(arg)
@@ -352,24 +395,22 @@ def _scan_file(
         #     falsely surface as zero-callers. Caught 2026-06-04 when
         #     detect_engineer_drift_for_audit surfaced as orphan despite
         #     being passed to _run_detector at operating_loop_audit.py:445.
-        direct_pattern = re.compile(rf"(?:^|\W){re.escape(name)}\s*\(")
-        indirect_pattern = re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]")
-        multiline_pattern = re.compile(rf"^\s*{re.escape(name)}\s*,\s*$")
+        direct_pattern, indirect_pattern, multiline_pattern = _patterns_for(name)
         found = False
-        for line_no, line in enumerate(text.splitlines(), start=1):
+        for line_no, line in enumerate(lines, start=1):
             if line_no in prose:
                 continue
             stripped = line.lstrip()
             if stripped.startswith(f"def {name}"):
                 continue
+            # Skip import lines — they bind a name but aren't a call site.
+            # The actual call site (if any) will be picked up elsewhere.
+            if stripped.startswith(("import ", "from ")):
+                continue
             # Pure comment lines, in both languages. Hooks are scanned too and
             # they have no docstrings, so the AST pass above cannot reach them
             # — a `#` line is the only prose form a .sh file has.
             if stripped.startswith("#"):
-                continue
-            # Skip import lines — they bind a name but aren't a call site.
-            # The actual call site (if any) will be picked up elsewhere.
-            if stripped.startswith(("import ", "from ")):
                 continue
             if (
                 direct_pattern.search(line)

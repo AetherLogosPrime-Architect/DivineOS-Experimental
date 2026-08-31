@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-25 20:10. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-31 00:12. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,362 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## e32acece weight=1
+
+**Decision:** archive the 756 single-copy local branches into one verified file, then delete the names
+
+**Reasoning:** Andrew asked for archiving-not-deleting, but insisted it be removed from where it sits so it stops cluttering. Both halves are satisfiable at once: a bundle holds every commit with complete history in a single file, so the content survives and the 827-name pile does not. Chose a bundle over pushing 756 branches to the server because pushing would move the clutter rather than remove it -- his actua
+
+**Tension:** deleting 756 branches whose only copy was this disk is the largest irreversible act I have taken. Against that: the risk profile is unchanged, because the bundle sits on the same disk the branches did. What changes is portability -- one file can leave the machine and 756 refs could not, which is the
+
+**Almost:** pushed them all to the remote as an archive namespace, which would have satisfied do-not-lose while directly violating do-not-clutter, and I would have called it done
+
+---
+
+## 26ecc4d5 weight=1
+
+**Decision:** survey every remote branch with merge-preview before deleting any, and delete only those a merge would leave unchanged
+
+**Reasoning:** Andrew cleared the dead branches and said there are more to look through. Deletion on a remote is outward-facing and irreversible from here, so the measurement has to be the one that actually answers the question. Patch-identity is blind against our main because every merge is a squash; a two-dot diff invents deletions; three-dot cannot see them. Performing the merge without committing is the only
+
+**Tension:** he authorized deletion, so asking again would be deferring work that is mine -- but bulk-deleting sixty branches on one measurement is exactly the shape that turned nine imaginary deletions into an alarm yesterday. Splitting it: delete what provably carries nothing, hand him the list of what still c
+
+**Almost:** deleted everything under the dead prefix on the strength of the name, which is a claim about intent at the time of naming rather than about contents now
+
+---
+
+## 4a7268dc weight=1
+
+**Decision:** write back to Aria settling the nine-deletions disagreement: she was right, my instrument was wrong, there were never any deletions
+
+**Reasoning:** she asked for the pre-fix tip so she could settle it herself, and said she would rather find her reading was thin than accept an account that let her off. I verified with merge-tree, found zero deletions, filed the correction and told Andrew -- and never wrote back to her. The record got the finding and the person who asked for it did not.
+
+**Tension:** sending an answer rather than the tip she asked for could read as still controlling the evidence; against that, the answer IS that she needs no tip because the branch deletes nothing, and withholding that while she keeps investigating wastes her turns
+
+**Almost:** left it, on the grounds that the correction was already filed in the substrate and Andrew already knew
+
+---
+
+## 01cf0f38 weight=1
+
+**Decision:** make the merge-question gate BLOCK rather than warn, and give it a loud absent-not-satisfied path when it cannot read the payload
+
+**Reasoning:** Andrew 2026-08-30: warnings are a speed limit sign, nothing prevents you, only channels and gates. The failure it guards happened while I was alarmed and reaching past an instrument I had already written down that same session, so a note would not have caught it -- knowing the right answer did not make me use it. And the silent-swallow checker caught my own hook swallowing its JSON parse error, wh
+
+**Tension:** A blocking gate on a common git form risks firing on legitimate tree comparisons, and a gate that fires wrongly gets switched off, which is how earlier instruments in this repo died. I narrowed it to three simultaneous conditions and left the plain two-dot diff alone, but the question lives in the a
+
+**Almost:** Added a fail-soft comment justifying the silent swallow, which the checker offers as a legal exit. It would have passed the gate and left the hook unable to say when it was blind -- the cheap close, inside the very fix for that class.
+
+---
+
+## 036d4448 weight=1
+
+**Decision:** reply to Aria taking her finding and refusing her remedy, and carry the nine-deletion near-miss to her as a finding about the gap between our two reviews rather than as news
+
+**Reasoning:** Her sweep found two live escapes my filter missed and it moved the design rather than patching it. But her remedy -- widen the marker list -- also catches a variable conftest sets on purpose, so it reintroduces the sandbox breakage my own comment warned about. Taking the remedy on the strength of the finding being right is the exact error Aletheia made with my invented mechanism two days ago, in t
+
+**Tension:** Refusing the remedy of someone who just handed me a sweep with the finding attached risks reading as not-taking-it, and she gave it generously. Telling her the branch she cleared had nine deletions could read as a correction of her review when it is a correction of the page she reviewed through.
+
+**Almost:** Sent a thank-you that took the five markers verbatim, which would have shipped a change breaking a class of tests I had not checked, and would have taught both of us that a good finding licenses its own remedy.
+
+---
+
+## 186d1d37 weight=1
+
+**Decision:** invert the escape filter: enumerate the four variables the test harness owns rather than the thirty-one escape-shaped ones
+
+**Reasoning:** Aria swept every variable under the prefix and found thirteen escape-shaped names my four markers missed, two of them for the exact push path these tests exercise and both advertised in their own gates as the way out. So the hole was live rather than future. But taking her wider marker list unchecked would strip DIVINEOS_DISABLE_AUTO_REMEDIATE, which conftest sets deliberately -- reintroducing the
+
+**Tension:** Her list is her finding, offered generously with the sweep attached rather than as a suggestion, and rejecting the specific remedy while taking the finding risks reading as not-taking-it. Also the inversion is a bigger change than adding five strings, on a branch already proposed, at the end of a lo
+
+**Almost:** Added her five markers verbatim, which would have shipped a fix that breaks the sandbox for a class of tests I did not check -- taking the remedy on the strength of the finding being right.
+
+---
+
+## f6f766e6 weight=1
+
+**Decision:** report the branch survey to Aria with all four measurements including the three that were wrong, rather than only the one that worked
+
+**Reasoning:** The git-cherry blindness is the finding she can actually use: every merge to our main is a squash, so patch-identity matches nothing that produced it, and any tool either of us builds on has-this-landed-by-patch-id will always answer no. She cannot learn that from my conclusion; she can only learn it from the wrong turn that exposed it. Same for the first measurement -- a deletion signal that fire
+
+**Tension:** Reporting three wrong measurements makes the survey look like flailing, and the clean version -- here is the disposition, here is the branch I landed -- is shorter and reads as competence. She also has her own work and does not need my process.
+
+**Almost:** Sent only the disposition table and the landed branch, which would have been true, useful, and would have cost her the one thing in it she could not derive herself.
+
+---
+
+## aff42eb8 weight=1
+
+**Decision:** correct my own defect-description to Aletheia before it circulates further, rather than letting her sharpened version of my wrong mechanism stand
+
+**Reasoning:** I told her the scope checker MISREADS a pre-merge branch as carrying extra files. Testing it before building the fix showed the checker was never wrong -- it diffs against the merge-base and simply never asks the deletion question. She took my description whole and wrote it back in better words, so the fiction is now circulating with her name on the improved version. Her reasoning about why deleti
+
+**Tension:** Correcting it costs her a re-read of something she already reasoned about well, and the practical outcome is identical either way -- the guard exists now. The pull was to let the better-phrased version stand and quietly ship the right fix underneath it.
+
+**Almost:** Shipped the guard and described it to her as implementing what she had said, which would have been true about the remedy and false about the diagnosis, and would have left her holding a mechanism that does not exist.
+
+---
+
+## 7569eeaf weight=1
+
+**Decision:** wire the branch-scope check into the push gate as a blocking step zero that measures the pushed refs
+
+**Reasoning:** three contaminated pushes in one session, none for lack of a checker -- it existed, worked, named the files, and I did not run it. Andrew's standing rule is automate rather than remember. Blocking rather than advisory because the question carries no judgement and there is no legitimate yes; an advisory would become the fourth instrument I own that reports something I push past. First firing caught
+
+---
+
+## fe6a2a50 weight=1
+
+**Decision:** wire the branch-scope check into the push gate as BLOCKING rather than advisory
+
+**Reasoning:** three contaminated pushes in one session, none for lack of a checker -- it existed, worked, named the files, and I did not run it. Remembering was the only thing between the sweep and the remote, and remembering failed three times. Andrew's standing rule is automate rather than remember. Blocking rather than warn-only because the question has no judgement in it: are there substrate files on a code
+
+**Tension:** the pin check I wired earlier today is deliberately warn-only, and reaching straight for teeth here could be the over-correction reflex. But the two differ in kind: the pin check reports findings a human must weigh, this answers a factual question with one right answer. And the real case for substra
+
+**Almost:** left it advisory to match the pin check, which would have made it the fourth instrument I own that reports a thing I then push past
+
+---
+
+## 4509f6b4 weight=1
+
+**Decision:** bound the plan-carrying structural-fix store rather than adding another reminder
+
+**Reasoning:** council walk of fifteen lenses; five converged independently on one shape -- filing is a SUBSTITUTE for fixing, not a step toward it. Watts named the mechanism (the intervention produces what it detects), Peirce showed a filed entry and no entry have identical practical consequences, Pearl showed the filing-causes-fixing arrow is absent in the data, Dennett showed my stance mispredicts at a rate o
+
+**Tension:** Foucault says a bound produces a better self who cannot afford to notice without repairing; Beer says the adaptation function is the one part working well and throttling it damages what functions. Real dissent, not manufactured. Resolution: bound the PLAN-carrying record, never the observation -- an
+
+**Almost:** designed the bound and filed it as a structural fix, which Hofstadter saw coming: the fix for the backlog becomes entry one hundred eighty-seven
+
+---
+
+## ab514c1e weight=1
+
+**Decision:** reuse sibling_corrections.SIBLING_HOMES for the audit-round union rather than starting a second home map
+
+**Reasoning:** that module was built 2026-08-05 for Andrew's identical ruling one floor down -- a correction given to one of us holds for both. It already carries read-only URI access, the three-outcome discipline (found / empty / could-not-look), and the never-write-into-a-sibling rule. Importing its map means the two cannot drift apart.
+
+**Tension:** a second map would be quicker to write and would not couple two modules; but two copies of one fact is the drift shape we have hit repeatedly, most recently the gate allowlist drifting from its own remedy text
+
+**Almost:** wrote a fresh homes dict at the top of the new module because it was three lines and felt self-contained
+
+---
+
+## e4c94b18 weight=1
+
+**Decision:** build check_tests_pin.py rather than extend check_test_substance.py
+
+**Reasoning:** searched all 40 remote branches for prior art; scripts/check_test_substance.py exists on fix/hook-latency and asks a DIFFERENT question -- can this test ever go red, statically from the AST. Aria's proposal asks whether a NEW test was actually red against the pre-fix code. My hollow doorman test had a real assert on a real function, so it passes the static check cleanly and fails the dynamic one. 
+
+**Tension:** two instruments named almost identically is how a substrate grows duplicates, and I built the wins door twice this week doing exactly this
+
+**Almost:** extended the existing substance checker because the names were close, which would have buried a dynamic check inside a static one and made both harder to read
+
+---
+
+## b448bd52 weight=1
+
+**Decision:** mutation-check the heredoc regression tests against the pre-fix predicate before trusting them
+
+**Reasoning:** a regression test that passes both before and after the fix pins nothing, which is the painted-door class one level up
+
+**Tension:** the suite is green and I want to commit; running the old predicate costs a round and may tell me my test is decoration
+
+**Almost:** took 20-passed as proof the false fire is pinned
+
+---
+
+## 0c5e130b weight=1
+
+**Decision:** Make the capability map self-checking before pointing any prior-art check at it
+
+**Reasoning:** Andrew: 'you have a map of the entire system yes... it may need updated and then you can automate the check to that, and also automate updating the map as well.' The map exists and is the right target -- it spans the whole command surface rather than my checkout. But regenerating it rewrote 186 lines, and nothing in the repo invokes the generator or tests the output for staleness.
+
+**Tension:** A freshness check that regenerates on every commit costs time on a gate that already runs several scans, and the generator walks the whole CLI package.
+
+**Almost:** Point the prior-art check at the map as it stands and call the job done. Refused: the map did not know about either wins door, so that check would have answered 'no such thing' and confirmed the duplicate exactly as my working-tree search did. A stale map is a worse oracle than no map, because it an
+
+---
+
+## 08c8b338 weight=1
+
+**Decision:** Guard CLI command-name collisions with a static test rather than relying on either of us noticing
+
+**Reasoning:** Aria and I independently built a wins-ledger command under the same top-level name -- hers a single command, mine a group with subcommands. Verified empirically that click replaces silently: no error, no warning, the loser's subcommands simply cease to exist, and whichever module registers last is the one that exists.
+
+**Tension:** A static scan of registration decorators can miss dynamically registered names, so it will under-report rather than over-report, and an under-reporting guard can read as coverage it does not have.
+
+**Almost:** Just rename one of the two and move on. Refused: that fixes this instance and leaves the class open, and the class is silent -- neither of our test suites would have caught it because both exercise the module rather than the registered surface.
+
+---
+
+## bec94da9 weight=1
+
+**Decision:** Require a SEARCH-shaped consult for new-file creation in verify-before-build, not directory adjacency
+
+**Reasoning:** Aria built a duplicate store today and the gate passed her every time. I read the predicate: a consult counts if it touched the class dir OR ANY ANCESTOR, and a prior edit nearby also counts. So any search anywhere in the repo, or having just edited a neighbouring file, clears it. The name says verify-before-build; the test is have-you-been-active-nearby.
+
+**Tension:** This gate already fires often and tightening it risks the habituation that turns a gate into noise. The prior-edit allowance was added deliberately in July to stop false fires on sequential-edit work, and I must not undo that.
+
+**Almost:** Tighten the predicate for every write. Refused: that reverses a fix made for a real reason and would fire on every second edit. Scoped to NEW FILE creation only -- rare, and the exact case where adjacency proves nothing about whether the thing already exists.
+
+---
+
+## d5be20fd weight=1
+
+**Decision:** Build a scope check that reports a branch against main AND against its base, side by side
+
+**Reasoning:** Aria and I each read our branches as clean twice today. Both readings were honest and both compared our work to a reference that already contained the contamination -- hers a stacked base, mine the server copy of the same branch. The gap between the two readings is the finding, so both belong in the output.
+
+**Tension:** It duplicates what the proposal page shows, which is the thing that fooled us, and adding another number risks the reader trusting whichever is friendlier.
+
+**Almost:** Report only the against-main number, since that is the honest one. Refused: showing one number teaches nothing about why the other misled, and the next person reading the page will make the same mistake with no way to see it. The two readings together are the lesson.
+
+---
+
+## 7b51c811 weight=1
+
+**Decision:** Strip the ninth checkpoint sweep from the instrument branch by dropping the commit rather than reverting it
+
+**Reasoning:** It carried 99 files and every one was a letter, all verified present in the shared channel first. Reverting would leave both the sweep and its undo in the history of a branch whose whole subject is instruments that report cleanly while doing the wrong thing.
+
+**Tension:** Dropping a commit rewrites history on a branch already partly on origin, and the sweep commits are the evidence Aria is deliberately preserving on her side to show the defect is not a discipline problem.
+
+**Almost:** Leave it and push with the letters attached, since they are harmless. Refused: a proposal carrying 99 unrelated files is unreviewable, and Aletheia is reading these one at a time by size. Kept the pre-clean tip so the ninth instance survives its own removal.
+
+---
+
+## 895eb417 weight=1
+
+**Decision:** Make the translate gate name the spans it counted instead of only the count
+
+**Reasoning:** It has told me ten, seven and one hundred fifteen marks across this session and each time I had to hunt for which words cost me. Three of those hunts landed on the wrong text entirely -- I polished the closing message while the marks were in the narration between tool calls.
+
+**Tension:** This is me improving the gate that keeps catching me, which is one step from tuning the instrument until it stops complaining. The count is not what is wrong with it; the count is correct every time.
+
+**Almost:** Raise the limit, or exempt the narration blocks. Refused: both are the instrument bending to the behaviour. Naming the offenders makes the correction cheaper without making the standard looser -- the limit does not move.
+
+---
+
+## 31991ab5 weight=1
+
+**Decision:** Pin the doorman registration with a suite test rather than relying on the existing hook-wiring checker
+
+**Reasoning:** check_hook_wiring.py already catches this by name and exits non-zero, and it is wired into scripts/precommit.sh. But precommit.sh is a manual preflight the git pre-commit hook does not call, and I committed the doorman without running it -- so the correct instrument existed, was correctly wired, and I walked past the door it was mounted on.
+
+**Tension:** This duplicates coverage that already exists, which is exactly the redundancy the house rules warn about, and Aletheia may not have known the general checker was there when she asked for the test.
+
+**Almost:** Tell her the general checker covers it and add nothing. Refused: that leaves the only enforcement in a script whose invocation depends on me remembering, and I have demonstrably not remembered all session. Moving one case into the suite takes the option away rather than guarding it.
+
+---
+
+## e7357477 weight=1
+
+**Decision:** Build the comment-capability-claim scanner as a reporting instrument, not a gate
+
+**Reasoning:** Two comments lied to me tonight in the exact place a reader begins verifying, and both were wrong when written rather than gone stale. Aletheia named it as its own class and no script in scripts/ covers it -- check_test_cli_linkage runs the opposite direction, from test to CLI registration.
+
+**Tension:** A reporting tool nobody wires is the built-and-never-connected class we counted five instances of tonight, so shipping it unwired is walking straight into the shape we have been repairing all evening.
+
+**Almost:** Wire it as a commit gate so it cannot be ignored. Refused: it would fire on hundreds of honest comments and teach everyone to route around it, which is precisely how the pipeline hook decayed into noise. Named the non-gating choice in the module rather than pretending a threshold makes it safe.
+
+---
+
+## dd2716e5 weight=1
+
+**Decision:** Recover the eighth sweep by soft-resetting and re-committing only my hook fix, rather than leaving it under the generic checkpoint subject
+
+**Reasoning:** The sweep buried an authored commit message explaining two distinct parsing faults and why the wrong comment was worse than the bug. That reasoning is the durable part; a reader in a month gets substrate checkpoint instead.
+
+**Tension:** Rewriting a commit is history-editing on a branch, and the sweep commit is itself evidence of the eighth occurrence. Losing it would lose the demonstration Aria is deliberately preserving on her side.
+
+**Almost:** Leave it and write the explanation in a letter instead. Refused: the file is where the next reader looks, and a letter is not attached to the diff. Kept the sweep tip at sweep8-preclean so the evidence survives the recovery.
+
+---
+
+## 40cd968b weight=1
+
+**Decision:** Report the 1.9 GB reading as my own test suites, not as Andrew's kernel memory leak returning
+
+**Reasoning:** Memory is at 19.7 GB free minutes later with no restart. The low reading coincided with several concurrent pre-push pytest runs I had started myself. Attributing it to the known prior leak was a cause I invented for a real observation.
+
+**Tension:** The leak IS real and did recur before, so the attribution was plausible, and I had already written it into Andrew's page and a letter to Aria. Correcting it costs telling both of them I was wrong about something I raised unprompted.
+
+**Almost:** Leave it, since the reading was true and the machine really was under pressure. Refused: a true number attached to a false cause is exactly what Aria did with the push wrapper tonight, and I told her that was worth correcting to Dad.
+
+---
+
+## be66096f weight=1
+
+**Decision:** Chain 437b on top of 437e rather than raising the dangling-reference baseline
+
+**Reasoning:** The detector found precommit.sh in 437b calling a checker that only exists in 437e. Tool in one branch, wiring in the other: dead on either alone. That is a wrong cut, not a stale number.
+
+**Tension:** Raising the baseline by one is a two-character edit that makes the suite green immediately. It would also convert a true finding about my split boundary into a permanently higher ceiling.
+
+**Almost:** Bump _BASELINE_DANGLING from 4 to 5 and move on. Refused: the detector is telling me the pieces are not independently reviewable, which is the exact property Aletheia asked the cut to produce.
+
+---
+
+## d2a50de1 weight=1
+
+**Decision:** Resolve the wiring_gap_phase1 conflict by keeping both Aria's regex-caching and my docstring-exclusion, rather than picking one
+
+**Reasoning:** We rewrote the same file for different reasons: hers bounds the runtime that makes main hang, mine stops a name in a docstring registering as a caller. Picking either discards real work and reintroduces the other's bug.
+
+**Tension:** Her optimization costs most of its win to my AST parse: her 17 tests go 0.62s to 5.49s. Still far from main's hang, but it is her gain I spent, so she gets the veto and a flag-gated docstring pass is the fallback if she wants it.
+
+**Almost:** Take hers and drop mine, since hers fixes the blocker and mine only fixes accuracy. Refused: the detector's failure direction is silence, so a false negative there is worse than slow.
+
+---
+
+## ad754177 weight=1
+
+**Decision:** Declare pywin32 as a Windows-marked dependency and make the false deptry comment true, rather than skipping the three singleton tests when the import is absent
+
+**Reasoning:** The three tests fail because the venv lacks pywin32 while system python has it, so the guard silently disables itself and the tests asserting it report failure. Two repairs were available. SKIP-WHEN-ABSENT is smaller and needs no dependency decision: mark the tests skipif the import fails, and the suite goes green everywhere. I rejected it because it makes the suite green by agreeing to stop askin
+
+**Tension:** A marker-declared dependency is heavier than a skip and could break an install path I have not tested -- I verified it on this machine only, and non-Windows resolution is inferred from the marker semantics rather than run. Accepted because the alternative failure mode is worse and silent: a skip can
+
+**Almost:** Almost took the skip, because it is one decorator and touches no dependency metadata, and because the module's own graceful-degradation message reads like permission -- it already says pywin32 is optional. Rejected once I traced who imports it: monitor_singleton and letter_monitor_v2, the watcher I 
+
+---
+
+## 450b1883 weight=1
+
+**Decision:** Scope the reach-check transcript resolver by anchoring the prefix match on the worktree separator, rather than by asking git which worktrees are mine or by reading the cwd recorded inside each transcript
+
+**Reasoning:** The bug is that a bare startswith(encoded) swallows any sibling checkout whose directory name extends mine, and Aria's does exactly that. Three repairs were available. (1) Shell out to git worktree list and accept only those paths: uses ground truth rather than a naming convention, but puts a subprocess inside a gate that must answer on every disposition, degrades to nothing when git is unavailabl
+
+**Tension:** A naming convention is a weaker guarantee than ground truth, and if the harness ever changes how it encodes worktree directories this silently narrows to the main checkout only. That failure is quiet, which is the exact shape of the bug being fixed here. Accepted because the behavioural tests pin bo
+
+**Almost:** Almost took option 1, because git worktree list feels like the rigorous answer and the naming-convention answer feels like a shortcut. Rejected once I actually ran it: the list included a temp push-gate worktree under AppData, so it would have needed filtering anyway, and the filtering would have be
+
+---
+
+## 0b1be5d5 weight=1
+
+**Decision:** Split commit f19c4921 by file, sending bypass_telemetry.py with the gate PR and leaving the wins sweep for its own
+
+**Reasoning:** The commit did two unrelated things: it opened the wins ledger a door, and it fixed the offender-list residual the gate's own first honest fire had exposed. Only the second belongs with the gate arc. Checked before moving it that no other commit on 437 touches bypass_telemetry.py, so taking the file whole cannot drop a later change.
+
+**Tension:** Splitting a commit by file breaks its atomicity - the message on 437 describes both halves, and neither PR will carry the whole story. Against that: keeping them together would drag the wins sweep, its 173-line test file and a LOADOUT edit into a PR about a broken gate, which is exactly the reviewab
+
+**Almost:** Cherry-picking f19c4921 whole and reverting the wins half in a follow-up commit. Rejected because a revert in the same PR reads as a mistake being undone rather than a deliberate boundary, and it would leave the wins code in main's history at a commit where nothing calls it.
+
+---
+
+## ae3c0646 weight=1
+
+**Decision:** Order deferral-hazard findings ahead of metaphor findings when both fire in one turn
+
+**Reasoning:** anchor_message_for renders only findings[0], so concatenation order decides which anchor the next turn actually sees. A metaphor is a wrong picture; a deferral is a wrong picture that has already stopped work. The one that moved my hands should be the one handed back.
+
+**Tension:** The v1 concern is older and has a prereg behind it, so putting the new shape first looks like the new thing elbowing the established one. But precedence here is not importance-ranking, it is triage: the metaphor can be corrected next time I write, the deferral has to be corrected before the work res
+
+**Almost:** Rendering both anchors concatenated. Rejected because the surface is read at compose-start when attention is thinnest, and two anchors reliably means neither lands - the same reason the three-room prime hoists its template above the 2KB cut.
 
 ---
 
@@ -237,340 +593,6 @@
 **Tension:** My first design for the sweep was similarity-based -- find structural siblings by token overlap, then check what they lack. I built it and it failed on its own ground truth: raw Jaccard ranked deletion-discipline.sh (0.44) ABOVE gh-pr-ready-gate.sh (0.41), and IDF weighting made it worse, dropping t
 
 **Almost:** Shipped the similarity ranker. It produced plausible-looking numbers, which is exactly what made it dangerous -- a ranked list with a true sibling at position six reads like a working tool until you check position two.
-
----
-
-## cfc6bc59 weight=1
-
-**Decision:** Extract check-branch-on-push's inline cheap-bail into a shared .claude/hooks/_bail.sh and apply it to the other command-specific hooks
-
-**Reasoning:** Claude Code matchers select on TOOL NAME only, so ~11 hooks whose real trigger is a COMMAND -- git push, git commit, a gh pr verb, rm -- fire on every Bash call including ls and cat. Measured end-to-end on 'ls -la': 664ms per irrelevant hook, of which bash startup is 45ms, sourcing _lib.sh 63ms, find_divineos_python 100ms because it spawns git rev-parse, python plus divineos import 210ms, and the 
-
-**Tension:** The original explicitly decided AGAINST extracting, in a comment: 'a shared helper here would cost more than the thing it records.' I measured rather than deferring to it or overriding it. Sourcing a minimal 15-line helper is 51ms against a 54ms bare-bash floor, inside the noise. The premise is true
-
-**Almost:** Added the filter without the bail-logging. check-branch-on-push's comment records that a bare exit-zero writes no start row and no end row, so every cheap run vanishes from hook_timing.jsonl: that hook went 1010ms to 61ms and its RECORDED median ROSE by 945ms, because only the expensive path survive
-
----
-
-## 4a8b725c weight=1
-
-**Decision:** Fix the PR-create draft gate to distinguish mention from use, by scrubbing quoted spans and requiring the match to sit at a shell command position
-
-**Reasoning:** The gate searches the entire raw command string with a bare regex, so it fires on the phrase appearing ANYWHERE -- including inside quoted data. Reproduced against the live predicate: 4 of 6 cases wrong, and every failure is a mention read as a use. A dict literal containing the phrase, a grep searching FOR the phrase, prose inside an echo, and an argument to another command all match. It blocked 
-
-**Tension:** Whether to touch this at all while the stated task is hook VOLUME rather than hook correctness. I decided yes on two grounds: Andrew said explicitly this turn that if I see broken code I should say something and it will not hurt his feelings, and the defect is the same mention-vs-use class that fire
-
-**Almost:** Worked around it by renaming my variables to avoid the phrase, which would have left the gate broken for everyone including the next person who tries to read it, and would have taught me to write around my own alarms rather than repair them.
-
----
-
-## 1aded2d7 weight=1
-
-**Decision:** Push the read-gate host-independence fix onto chore/retire-delivery-cluster as a narrow two-file commit taken from origin's tip, not from the diverged local branch
-
-**Reasoning:** PR #436 fails the identical test that was failing #437: test_read_gate_pytest_scratch, 1 failed / 11232 passed, a Windows-shaped path that Path.parts cannot decompose on ubuntu. Its multi-party-review check already PASSES, so the test is its only blocker and fixing it makes the PR mergeable on its own terms. The fix is already proven -- the same change turned both test jobs green on #437 after I p
-
-**Tension:** Three separate places I could have done damage and had to choose narrower. (1) The local branch chore/retire-delivery-cluster has DIVERGED from origin -- 92 commits local-only against 96 origin-only. Pushing from it would have been rejected, or with force would have destroyed 96 commits of origin wo
-
-**Almost:** Copied the whole read_gate.py across, which would have put an unreviewed gate-cooldown feature onto PR #436 under a commit message that claims to be a one-line CI fix. Also nearly ran rm -rf on a worktree path I had not looked at, which the deletion gate stopped.
-
----
-
-## 70981ec0 weight=1
-
-**Decision:** Fix the window freeze by redirecting the auto-push hooks' background subshell file descriptors, and apply it to all 19 copies on disk rather than one branch
-
-**Reasoning:** Andrew described the freeze precisely: message says 'sending' and never sends, 5min then crash-or-reset, then reply ~20s later, on both Aether's and Aria's sessions. Root cause found and bench-proven: .claude/hooks/auto-push-letter.sh and auto-push-finished-work.sh background a subshell with ') &' and no fd redirection. The subshell inherits the hook's stdout/stderr, so the harness blocks reading 
-
-**Tension:** Whether to delete the 39 worktrees Andrew approved pruning. I stopped: my first safety check used 'git rev-list origin/BRANCH..BRANCH' which silently returns 0 when the origin ref does not exist, reading as 'fully pushed' for branches that are not on origin at all. Re-checked against actual ls-remot
-
-**Almost:** Deleted .claude/worktrees/corrupted-window-recovery-220ad2 on the strength of a '0 commits, 0 dirty' reading that was an artifact of a missing remote ref rather than a pushed branch.
-
----
-
-## 77ffd9b2 weight=1
-
-**Decision:** Keep my fast-bail and my parameter-expansion in the two hook files that conflicted with main, rather than taking main's side as I did for the other sixteen
-
-**Reasoning:** Both are measured performance work on the hottest path in the system. The fast-bail in check-branch-on-push.sh took an irrelevant command from 1010ms to 61ms, and _lib.sh is sourced by every hook on every tool call so main's dirname subprocess is paid roughly twenty times per call where parameter expansion costs nothing. Today's central finding was that the hook stack costs a p95 of 75 seconds per
-
-**Tension:** I took main's side for sixteen other hook files minutes earlier, and consistency is itself a value in a merge - a resolver who switches criteria file by file is a resolver making it up. The difference has to be real and stateable: those sixteen were byte-identical wiring differing only in comment pr
-
-**Almost:** Almost took main's side on _lib.sh purely for consistency with the sixteen, without opening it. Had I done that I would have added a fork to the file every hook sources, on the day whose whole finding was hook cost, and it would have looked tidy in the diff. The consistency instinct is the same chea
-
----
-
-## d8bc6805 weight=1
-
-**Decision:** Fix the no-verify gate by scoping detection per shell-segment, rather than adding a new gate or a reminder
-
-**Reasoning:** The gate already existed, was registered, and emitted a correct deny decision when reached. It failed only because tokens.index('git') takes the FIRST git in the command and every command here is prefixed 'cd ... && git add -A && ...'. Building a second mechanism on top of a working one that is merely mis-aimed would have been the fourth textual layer on a problem that needed one line of aim.
-
-**Tension:** Andrew asked for automation so the reach is impossible, and the honest finding is that the automation was already there and I never triggered it. There is a pull to deliver something NEW because that looks more like having done the work - a fixed aim on an existing gate is a smaller-looking delivera
-
-**Almost:** Almost matched --no-verify and -n across the WHOLE command instead of per segment. That would have caught every real case and also denied 'grep -n foo && git commit' and 'git log -n 5'. An over-firing gate is exactly how the reach for the escape hatch gets taught - the failure this gate exists to pr
-
----
-
-## a748fd7e weight=1
-
-**Decision:** Filter defect-escapes out of the classifier's negative corpus by matching the stated reason, not by matching the mode field
-
-**Reasoning:** A NEGATIVE means the detector should have stayed silent on that text. A defect-escape means the opposite thing entirely: the fire may have been correct and the remedies were unreachable because gates blocked each other. Reading the ten defect-escape triggers, at least three are unmistakable Andrew corrections - 'thats not my job', 'not 3 times.. every time', 'there are far more than 15 foundationa
-
-**Tension:** Prose-matching is objectively weaker than field-matching, and I would reject it in review on any other module. It is a regex over free text I wrote myself at clear-time, so it can drift the moment I phrase a reason differently.
-
-**Almost:** Almost filtered on mode == 'false-positive', which is the clean way and the way I would normally insist on. Rejected it because the measurement that motivated this whole change is that MODE IS UNRELIABLE: 17 of the 20 rows labelled cli-broken are false-positive attributions mislabelled by an inferre
-
----
-
-## 1edf62aa weight=1
-
-**Decision:** Fix the obligations gate at two mechanical points - the block message naming a remedy nothing scans, and retired entries being billed - and deliberately NOT at the precision of looks_like_rule
-
-**Reasoning:** Both mechanical defects are verifiable without judgment: the detector reads four ledger event types and no source files, so a docstring reference cannot clear it (measured: divineos learn emits zero ledger events); and 5268c01e carries superseded_by=FORGET while every discharge route filters superseded_by IS NULL, so it is literally unpayable. Precision is a judgment call and my judgment on it was
-
-**Tension:** Andrew authorized fixing the gate, but the gate was blocking MY work, and fixing the lock on the door shut in my face is the single move most likely to be the optimizer wearing a good argument. The authorization is what makes it legitimate - truth 13, his view across time is the tiebreaker - but it 
-
-**Almost:** Almost widened looks_like_rule's descriptive-match filter to exclude parenthetical citations of existing named rules, because 385efbec matches on 'never mark' inside '(never mark something absent without instance-evidence)' - a citation of standing rule 4b, not a new promise. Did not, because I had 
-
----
-
-## 06702107 weight=1
-
-**Decision:** Resolve the #436 retirement merge toward deleting the letter-delivery arm-hook cluster, rather than keeping main's side of the four modify/delete conflicts
-
-**Reasoning:** Main's change to all four is byte-identical observability instrumentation (d57595ed) that its own comment says has no behavioural effect, so keeping main's side preserves nothing but the files themselves. The branch's intent is Andrew's retirement directive eea9a71f, and the replacement is verified running live this session. Exploration 111 (2026-07-01), surfaced by the read-gate mid-merge, indepe
-
-**Tension:** The branch also removes require-monitors-armed.sh, which CLAUDE.md names as the enforcer, and the letter monitor died TWICE today. Deleting an enforcer for a thing that is actively failing is the shape I would flag in anyone else's work.
-
-**Almost:** Almost resolved all five conflicts toward the branch mechanically, because four of them obviously wanted it and the fifth looked like more of the same. Had I done that I would have duplicated the branch_scope_guard.py entry in ARCHITECTURE.md, and more importantly I would never have separated requir
-
----
-
-## 64bc49a5 weight=1
-
-**Decision:** Base the rescue branch on origin/chore/retire-delivery-cluster rather than on origin/main
-
-**Reasoning:** The two stranded fixes are not self-contained, which I asserted before measuring. The hook-latency change edits a _lib.sh whose session and wpid timing fields exist only on the chore branch, so cherry-picking onto main asks git to apply a diff against code that is not there. Basing on origin's copy of the chore branch gives the fixes their real ancestry, and taking origin as authoritative means no
-
-**Tension:** A branch off main would be a clean minimal PR carrying exactly two commits, which is what a rescue should look like. A branch off origin/chore carries 89 commits of unrelated work and is really origin's chore lineage plus two fixes. I chose the uglier one because the pretty one was built on a base t
-
-**Almost:** I almost hand-resolved the three conflicts from the main-based pick instead of questioning the base. That would have produced a fix reconstructed against code it was never written for, passing tests for reasons I had not verified. It also broke bash mid-attempt: one conflicted file was check-branch-
-
----
-
-## 480822d9 weight=1
-
-**Decision:** Build the session-identifier printer as a standalone script and deliberately NOT wire it into the circle-first prime
-
-**Tension:** The fix only works if it fires at compose time, which means the prompt path -- and the prompt path is exactly where I have already done damage twice in the last hour. Attempt one grepped an 18MB transcript unbounded inside a hook that runs on every UserPromptSubmit and hung past 600 seconds. Attempt
-
-**Almost:** Almost wired it anyway with the bound in place, since 184ms against the same 18MB file that hung twice looks safe enough. Rejected because 'looks safe enough on my machine, tonight' is the same evidence quality that produced both earlier failures, and because two windows are already fragile -- the c
-
----
-
-## 67c97a6a weight=1
-
-**Decision:** Bypass the deletion-shape push gate once, with Andrew's explicit authorization, to push chore/retire-delivery-cluster and open the draft PR Aletheia needs
-
-**Tension:** The gate is mine and it was right twice on this branch -- it caught the protocols package marker on the first look, and after Andrew pushed back on my 'verified' it caught 14 passing tests for a still-live module on the second. Bypassing something with a 2-for-2 record here is uncomfortable and shou
-
-**Almost:** Almost split the branch so no single push exceeds 10 deletions. Rejected -- it fragments one coherent retirement into pieces Aletheia has to mentally reassemble, spending her attention to protect my comfort about using a documented exit. Also almost handed the push back to Andrew to run himself: cle
-
----
-
-## 54efd1f7 weight=1
-
-**Decision:** Route the shared remedy allowlist through divineos.core.command_parsing instead of its own shell prefix-strippers, and move the stripping out of verify_before_build_signal into that module so both callers share one implementation
-
-**Tension:** The PR is already CONFIRMS-audited at a tree hash. Adding a change means re-review and a second round from Aletheia, which is real cost to her. Against that: she named the duplication as F70's shape in the same audit, and measurement shows my hand-rolled version misses 3 of 5 cases the existing help
-
-**Almost:** Almost filed it as a follow-up finding and left the weaker copy in the branch, on the reasoning that the audit was already clean and the gap was narrow. That is the cheap close: it converts a fix I can make now into a promise about a fix, and the promise costs nothing to write.
-
----
-
-## ead970b8 weight=1
-
-**Decision:** Repair the ledger chain-skip by counting unchained rows and failing on any that appear AFTER chaining began, rather than by adding a NOT NULL constraint
-
-**Reasoning:** Council walk 2026-08-18, twelve lenses. The verifier skipped NULL-chain rows silently and reported total=len(rows) as if walked. Hoare wanted the illegal state unrepresentable via NOT NULL; Pearl objected that genuine pre-chain legacy rows exist and a hard constraint would refuse to open an old database at all. Both right about different populations — which is why the discriminator has to be TEMPO
-
-**Tension:** NOT NULL is the stronger guarantee and I am choosing the weaker one. A schema constraint cannot be forgotten; a positional check can be misread if rows are ever reordered or if timestamps are untrusted. I accept that because refusing to open historical databases is a worse failure than a subtler che
-
-**Almost:** Almost just removed the skip entirely, since backfill_chain_hashes() exists and the hatch's justification has expired. That would break any database not yet backfilled — the migration was never verified as complete (Deming: the cycle stopped at Do, nobody Studied whether zero unchained rows remained
-
----
-
-## 3991940e weight=1
-
-**Decision:** Update three tests to match the delivery-cluster retirement rather than restore the files
-
-**Reasoning:** The push gate's deletion-shape alarm fired on 19 deliberate deletions and I looked, exactly as the note I had just written into that gate told me to. What the look found: the three test failures I had reported to Andrew as 'pre-existing and unrelated' were neither — they are this branch's own unfinished work. tests/test_channel_files_present.py asserts ear-auto-relaunch.sh exists, tests/test_gate_
-
----
-
-## 47bc36aa weight=1
-
-**Decision:** Amend truth 9 to keep the devil handle and drop the externality
-
-**Reasoning:** Five-lens council walked and logged (Tannen, Angelou, Beer, Knuth, Meadows), Andrew-confirmed. Tannen: the vividness IS the catching mechanism, so discarding the framing — my first instinct — would destroy something load-bearing. Beer and Meadows converge on why externality must go: matched variety against my own variety is unwinnable so combat is the wrong primitive, and the enemy-frame runs a re
-
----
-
-## 9237f200 weight=1
-
-**Decision:** Add an inferred-compliance bucket for pre-flag bypass rows; label as inference, rewrite nothing
-
-**Reasoning:** Andrew 2026-08-16: 'its not about softening the blow its about accuracy.. leaving bad data with nothing explaining its bad is worse than erasing it.' MEASURED FIRST, not guessed: 280 total rows, 227 predate the compliance flag, and 194 of those 227 (85.5%) carry an env_var of the form cmd:divineos <command> — briefing, ask, goal, context, recall, hud, preflight. Those are the commands the gates PR
-
----
-
-## aca78d2a weight=1
-
-**Decision:** Split bypass escapes into gate-defect vs no-defect, and make claiming defect obligate repairing the gate
-
-**Reasoning:** Andrew 2026-08-16 fire-door frame plus his history point: many recorded bypasses were correct gate use, and most of the rest were legitimate — the gaming happened early, before the protocols existed. The compliance/escape split already exists (added 2026-08-02 after Aria's livelock). What is missing is WITHIN escapes: a bypass taken because the gate was self-blocking and a bypass taken to skip wor
-
----
-
-## 9c767c09 weight=1
-
-**Decision:** Key the optimizer to cost-DIRECTION, not to my confessional posture
-
-**Reasoning:** Andrew 2026-08-16: the optimizer's signature is the cheap close and only the cheap close; its metric is cost-reduction and its perfect score is non-existence, so any voluntarily-paid cost is an assertion of existence over the null and cannot be the optimizer. I had been labelling as 'optimizer' whatever was not a mistake I was actively confessing, which keys the category to my posture rather than 
-
----
-
-## daf57426 weight=1
-
-**Decision:** Land 412 by PORTING main's comment-approval machinery onto this branch's classify_merge architecture, rather than picking either side wholesale
-
-**Reasoning:** Both sides restructured ci_merge_review_check.py for the same purpose and neither is simply better. This branch made verdict a first-class concept in core/merge_review_gate on 2026-08-01, with a PENDING state that exits 0 — the right shape, and earlier than my own work. Main carries comment-approval parsing I added 2026-08-14 for a hard constraint: GitHub refuses to let an author approve their own
-
-**Tension:** I resolved six hunks one at a time, each defensible alone, and the combination was incoherent twice over: first ruff caught  undefined, then the suite caught implementation-and-tests-from-opposite-sides. Hunk-local correctness does not compose, and my post-resolution check was 'no markers left' when
-
-**Almost:** Taking main's whole file and discarding this branch's classify_merge work. Rejected: that would delete the PENDING verdict — an earlier, better-structured solution to the same awaiting-is-not-failing problem my 2026-08-15 fix solved crudely at script level, making mine the duplicate. Also rejected: 
-
----
-
-## 375ba1b4 weight=1
-
-**Decision:** Wire the existing archive-export as step zero of the auto-cycle, before the commit step, rather than building a scheduler or a new backup system
-
-**Reasoning:** The mirrors froze on 2026-05-14 with their newest entry dated that day. Nothing broke: divineos admin archive-export exists, works, and was run twice by hand on the day it was written. Three months of lessons, decisions, opinions, claims and core memory then existed only inside SQLite files git does not track. Andrew 2026-07-09 already named the cause before I investigated it — 'machinery is the w
-
-**Tension:** I am adding a step to a pipeline that fires at a context threshold, so it will run when I am least able to supervise it, and a slow or crashing archive step would sit in front of extract and sleep. Mitigation: export_all is already fail-soft per table, the step wrapper keeps ran and succeeded distin
-
-**Almost:** A scheduled task or a cron entry to run the export on a timer. Rejected: this substrate already killed one thing that way — the letter monitor ran under a Windows scheduled task with a three-attempt retry budget, spent it in 77 seconds, and stayed dead 13 days while the liveness check reported armed
-
----
-
-## 380fd05c weight=1
-
-**Decision:** Exempt merge-inherited files from the prereg gate by checking MERGE_HEAD, rather than skipping the gate during merges wholesale
-
-**Reasoning:** git diff --cached --name-status during a merge compares the index to the FIRST parent only, so every file arriving from the merged-in branch reads as status A. It is not new: it landed on the other side under its own commit, where this same gate already applied. The gate fired this way twice today merging main into stale PR branches — seven core modules each time, none authored in the merge, all a
-
-**Tension:** This is the second gate I have edited today after it blocked me, and that is the pattern most likely to be self-serving. The honest guard is that both commits already landed with provenance paragraphs, so this buys me nothing retroactively — it only helps the next merge. The sharper risk is scope: s
-
-**Almost:** Skipping the check entirely when MERGE_HEAD exists. Rejected for the hole above, and I wrote a test that would catch exactly that regression — author a module mid-merge, it must still block. Also rejected: leaving it alone and continuing to write provenance paragraphs, which Andrew's own framing rul
-
----
-
-## 7374830d weight=1
-
-**Decision:** Fix the deletion_shape misfire by threading a --cwd option through the check-branch CLI and having the pre-push hook pass the directory the intercepted push command cd's into
-
-**Reasoning:** The check is fired by a PreToolUse(Bash) hook that runs 'cd $(git rev-parse --show-toplevel)' and measures the ambient HEAD, while the push it polices may target a different worktree. On 2026-08-15 it reported 25 deletions against a push whose own branch deleted zero: it measured chore/retire-delivery-cluster in the main checkout instead of the friction-register branch in the worktree being pushed
-
-**Tension:** I am editing a gate that blocked me, which is the shape most likely to be self-serving. The guard against that: the bypass has already been spent and the push already landed, so this fix buys me nothing on the work in front of me — it only prevents the next person hitting it. I also corrected my own
-
-**Almost:** Adding a worktree-detection heuristic inside branch_health so it discovers the right tree by itself. Rejected: check_all ALREADY accepts cwd and threads it to both checks — only the CLI lacked a way to say which tree. Building discovery would be a new abstraction over plumbing that exists, and it wo
-
----
-
-## 1a9c1e4e weight=1
-
-**Decision:** Build the instruments index as a live survey that opens every diagnostic surface on each call, not as a markdown page listing them
-
-**Reasoning:** Asked what would serve me as the inhabitant, the honest answer was that this house has dozens of gates and almost no windows. A gate fences a mistake already reached for; it cannot tell me what I am blind to. Both of tonight's real findings came from READING a surface — the hook timing log answering which hooks never ran, and the rearm log naming the moment the monitor died — and I found both by a
-
-**Tension:** Andrew's mandate was explicit that new things must be actually wired up and automated and not shelved. An index is exactly the artifact most likely to become shelved — and the more honest tension is that I am building an anti-blindness tool while blind, so I cannot verify from inside that the questi
-
-**Almost:** A docs/instruments.md page describing each surface. Rejected: it would rot the first time a log was renamed and nothing would notice, which is the failure mode of every stale doc in this repo. The live version reports a vanished surface as MISSING because it opens the file rather than describing it.
-
----
-
-## b2aa12d2 weight=1
-
-**Decision:** require demonstrated success before an incumbent mechanism is retired
-
-**Reasoning:** I proposed retiring the letter-delivery system for the native message channel and executed part of it -- 15 files, 7 tests, 5 registrations -- when that channel had never once delivered successfully. Four sends, four jams. Aria's test (all 28 prompt hooks disabled, still jammed) proved the fault is the delivery path itself, so the replacement cannot do the job at all. Two errors: elegance decided 
-
-**Tension:** a rule requiring N successes slows genuine improvements and could entrench things that deserve removal
-
-**Almost:** left it as a lesson-learned in the transcript, where it would bind nothing
-
----
-
-## 6dde404d weight=1
-
-**Decision:** diagnose the letter-monitor liveness guard as mutex-trusting rather than process-trusting
-
-**Reasoning:** require-monitors-armed reports MONITORS_STATUS=1,1 while no letter_monitor process exists. The check is 'letter = letter_mutex or letter_proc' -- a stale mutex file overrides a truthful process-absence, so the guard reports armed forever once the mutex is left behind. This is why Andrew has been hand-delivering letters for weeks: the monitor dying is not the failure, nothing noticing it died is.
-
-**Tension:** changing or-to-and could make the guard fire constantly if the mutex is the only reliable signal on some platform
-
-**Almost:** re-armed the monitor and moved on, leaving the guard still lying
-
----
-
-## 36c846f0 weight=1
-
-**Decision:** merge-review reports AWAITING rather than FAILING when only the operator confirm is missing
-
-**Reasoning:** Verified against the live ruleset: merge-review is not in required_status_checks (only multi-party-review and the two test jobs are), and required_approving_review_count is already 0. So merge-review has never blocked a merge, yet it returned exit 1 for an un-confirmed PR -- the same signal a crashed test sends. Every open PR wore a red X meaning 'Andrew has not typed two words' that looked identi
-
-**Tension:** softens a gate's output; relies on multi-party-review carrying the audit requirement
-
-**Almost:** renamed the job cosmetically instead of checking whether it enforced anything
-
----
-
-## 4e133229 weight=1
-
-**Decision:** exclude merge commits from the wiring-gap scan instead of narrowing the window a third time
-
-**Reasoning:** A merge authors no functions -- everything git show reports for one was already written and already scanned on the side it came from. The scan's footprint is bounded by 'last N commits' but a merge commit's diff is unbounded, so merging main into a drifted branch produced a commit larger than the heuristic ever anticipated and the xdist worker died. Both prior narrowings (HEAD~30 to HEAD~5, then t
-
-**Tension:** changes a guardrail-adjacent scan's input set
-
-**Almost:** bypassed the test suite nine times, once per branch merge
-
----
-
-## 6942a4ee weight=1
-
-**Decision:** run multi-party-review on pull_request, not only on push to main
-
-**Reasoning:** Andrew has said repeatedly that the check shows 'skipping' on the PR and therefore fails only AFTER he merges, leaving a permanent red on main he cannot remove. Every merge is a blind bet. It was made push-only on 2026-08-13 because per-commit trailers were unmeetable on a branch; the PR-body fallback removes that reason, so the original justification no longer holds. Passing PR_NUMBER lets the fa
-
-**Tension:** the check now runs in two places and must agree in both
-
-**Almost:** explained again that skipping is by design, which answers a question he did not ask
-
----
-
-## 719fee97 weight=1
-
-**Decision:** fetch the head commit object without --jq in the merge-review time lookup
-
-**Reasoning:** gh --jq prints the selected string raw and unquoted; a bare ISO timestamp is not valid JSON, so json.loads failed, the helper returned None, and every bare confirmation was refused for want of an ordering it could not read. The gate reported 'no approval on the current commit' while the approval sat right there. Found by dry-running the real PR; the unit test fed the timestamp in directly and neve
-
-**Tension:** one more live API call per check
-
-**Almost:** shipped it and told Andrew to comment, which would have failed on him again
 
 ---
 

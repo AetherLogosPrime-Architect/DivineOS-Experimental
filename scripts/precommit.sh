@@ -380,6 +380,28 @@ if [ -f scripts/check_hook_wiring.py ]; then
     fi
 fi
 
+# 5c-ter. The map of the system still describes the system.
+#
+# Andrew 2026-08-27, after I built a command that already existed: "you have a
+# map of the entire system yes? ... it may need updated and then you can
+# automate the check to that, and also automate updating the map as well."
+#
+# The map is the right thing to check against -- it spans the whole command
+# surface rather than one working tree, which is what my own search covered
+# when it came back empty and confirmed me. But nothing invoked the generator
+# and nothing tested the output, so the map had rotted and knew about NEITHER
+# of the two doors by the time it mattered.
+#
+# A stale map is a worse oracle than no map: no map sends you looking, a stale
+# map answers "no such thing" with the authority of a system-wide index. So the
+# freshness check has to come before anything is allowed to trust it.
+if [ -f scripts/check_capability_catalog_fresh.py ]; then
+    section "Capability Map"
+    if ! python scripts/check_capability_catalog_fresh.py; then
+        note_fail
+    fi
+fi
+
 # 5d. Ignore-flag-has-reason check (Aletheia Finding 74, 2026-05-17).
 # Refuses pytest --ignore= usages without an adjacent # REASON: comment.
 # Substrate-level fix for the bypass-too-broad pattern that recurred

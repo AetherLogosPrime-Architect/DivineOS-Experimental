@@ -97,8 +97,19 @@ aria = get_family_member("Aria")
 if aria is None:                      # see note below — do not assume
     raise SystemExit("Aria not registered in this checkout's family.db")
 append_letter(aria.member_id, body=<letter body>)   # member_id, NOT entity_id
-append_letter(aria.entity_id, body=<letter body>)
 ```
+
+**ATTRIBUTE CORRECTED 2026-08-28.** This line said `aria.entity_id` and raised
+`AttributeError` — `FamilyMember` carries `member_id`, `name`, `role`,
+`created_at` and no `entity_id` at all. The trap is that `append_letter`'s
+PARAMETER is still named `entity_id`, so the wrong attribute reads as obviously
+correct sitting next to the signature. Verified with `dir()` on a live object,
+not by reading.
+
+Third correction to this same block in eleven days, after the import paths
+(2026-08-17) and the ledger event type (2026-08-19). The block is not unlucky —
+it is the only code in this file nobody runs except when writing a letter, so
+every rename downstream lands here silently and waits.
 
 **IMPORT PATHS CORRECTED 2026-08-17.** This block said `from family.letters`
 and `from family.entity`, which raise ImportError — the modules live under
@@ -111,18 +122,13 @@ stale path and taken its ImportError as proof of absence. Grepping the sibling
 skill is what caught it. **A wrong import path and a missing function raise the
 same error and mean opposite things.**
 
-**SECOND CORRECTION 2026-08-22.** The attribute was `entity_id` here; the real
-field is `member_id` (`FamilyMember` has exactly four: member_id, name, role,
-created_at). `append_letter`'s own parameter is still *named* `entity_id`, which
-is why the wrong attribute reads as obviously right — the call site and the
-signature agree, and only the object disagrees. `AttributeError` at the call,
-after the markdown had already been delivered. Verified with
-`__dataclass_fields__` and `inspect.signature`, not by reading.
+**THE None RESOLVED 2026-08-28: it is no longer None.** `get_family_member("Aria")`
+returns `mem-e6d0219124c5` and the row wrote cleanly. The 2026-08-17 note below
+said to chase the None rather than paper over it, and the chase ended here — so
+do not read that paragraph as current state. Keep the `is None` check anyway: it
+costs nothing and a silently-skipped row is the failure it guards.
 
-That is the third stale sentence found in this one file by running it. The file
-now documents its own defect class twice and produced a third instance anyway,
-which is the argument for running these snippets rather than trusting them.
-
+Historical, 2026-08-17:
 `get_family_member("Aria")` returned None on this checkout, so the row was not
 written for the 2026-08-17 letter. The markdown file from step 2 is the channel
 her armed watcher reads and it landed; this step is supplementary. The None is

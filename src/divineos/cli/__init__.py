@@ -379,7 +379,6 @@ from divineos.cli import (  # noqa: E402
     prior_art_commands,
     prereg_commands,
     reach_commands,
-    win_commands,
     admin_reset_template,
     admin_migrate_family,
     family_member_commands,
@@ -414,6 +413,7 @@ from divineos.cli import (  # noqa: E402
     consumer_status_commands,
     andrew_correction_commands,
     andrew_given_commands,
+    success_commands,
     council_walk_commands,
     andrew_teachings_commands,
     oscillating_read_commands,
@@ -510,7 +510,6 @@ correction_commands.register(cli)
 # Registered directly beside correction_commands on purpose: the two ledgers
 # are a pair, and the wins half spent three weeks with no door at all while
 # this line's neighbour had a command and a blocking gate (2026-08-25).
-win_commands.register(cli)
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
@@ -523,6 +522,7 @@ talk_to_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
 andrew_given_commands.register(cli)
+success_commands.register(cli)
 council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)
