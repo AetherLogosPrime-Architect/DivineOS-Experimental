@@ -166,7 +166,21 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 # lookup, so walk-detection silently returned false and the machine sat at
 # stage 1 through every probe — a false pass that looked like correct
 # "holds without evidence" behavior. Two knobs, not one.
-STATE_DIR="${AUTO_CYCLE_STATE_DIR:-${HOME}/.divineos}"
+#
+# The default was hardcoded to ~/.divineos, which is the DEFAULT home rather
+# than THIS clone's home. Per-clone separation (paths.py, 2026-05-17, added for
+# exactly this pair of checkouts) routes each clone to its own home through a
+# .divineos_data_home marker, and this line stepped around the whole mechanism.
+# Every ritual this clone has run wrote its notes into the other clone's
+# drawer. Nothing collided — the session key is a hash of the transcript path,
+# which differs per clone — but nothing was separated either, and a check built
+# to catch this kind of mix-up cannot see a hook that never asks.
+#
+# The evidence checks below already resolve through divineos_home(). Only the
+# state path did not, so the driver read one clone's ledger while writing the
+# other clone's state.
+RESOLVED_HOME="$("$PY_BIN" -c 'from divineos.core.paths import divineos_home; print(divineos_home())' 2>/dev/null)"  # fail-soft: an import failure lands on the historical default below, which is where existing state already sits — the wrong drawer beats no drawer
+STATE_DIR="${AUTO_CYCLE_STATE_DIR:-${RESOLVED_HOME:-${HOME}/.divineos}}"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 STATE_FILE="${STATE_DIR}/ritual_${SESSION_KEY}.json"
 
@@ -251,9 +265,12 @@ def walk_done():
         p = str(divineos_home() / "data" / "event_ledger.db")
     except Exception:
         p = ""
+    # No fallback to the default home. It used to expanduser("~/.divineos")
+    # when the import failed, and on a clone whose home is elsewhere that reads
+    # the OTHER clone's compass observations — the ritual clearing its walk on
+    # someone else's evidence. Unresolvable home returns False, which holds the
+    # stage and repeats the walk rather than skipping it on a stranger's work.
     if not p or not os.path.exists(p):
-        p = os.path.expanduser("~/.divineos/data/event_ledger.db")
-    if not os.path.exists(p):
         return False
     try:
         c = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
