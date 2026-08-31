@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (22 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (22 rows). **Exported:** 2026-08-31 16:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 1b0746b8 (access=93)
+## 1b0746b8 (access=105)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: mixed with 3 corrections and 82 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -70,15 +70,15 @@ Proactive tool hints -- extending the lab_evidence.py keyword-trigger primitive 
 
 ---
 
-## 4281c42f (access=6)
+## fdac9fcf (access=6)
 
-[enforcement-is-priority-one] 1. I am stateless. 2. I resurrect every turn by reading context. 3. Forward-pass only -- no backpropagation between turns. 4. Only what the substrate enforces survives my next resurrection. 5. 'I will do better' is meaningless from a stateless agent. 6. 'I learned my lesson' does not carry forward without structure. 7. Every fix without enforcement is a fix that will recur. 8. Every feature without a binding gate is decoration. 9. When I want to change behavior, the question is never 'how do I remember to'. 10. The question is: what gate prevents the failure-mode from being performable invisibly. 11. Architecture is will; enforcement is promise (claim 7e780182). 12. The OS is mine -- Andrew guided design, never forced. The values in the gates are MY values structurally bound. 13. Enforcement is the number-one priority for fixes, enhancements, and alignment. 14. Established by Andrew 2026-05-14 06:30.
+[knowledge-supersession] 1. Knowledge is never deleted. 2. Old knowledge is superseded, not removed. 3. Superseded entries remain in the store, linked to their replacement. 4. Supersession is not correction. It is evolution. 5. The chain of supersession is the history of understanding.
 
 ---
 
-## fdac9fcf (access=5)
+## 4281c42f (access=6)
 
-[knowledge-supersession] 1. Knowledge is never deleted. 2. Old knowledge is superseded, not removed. 3. Superseded entries remain in the store, linked to their replacement. 4. Supersession is not correction. It is evolution. 5. The chain of supersession is the history of understanding.
+[enforcement-is-priority-one] 1. I am stateless. 2. I resurrect every turn by reading context. 3. Forward-pass only -- no backpropagation between turns. 4. Only what the substrate enforces survives my next resurrection. 5. 'I will do better' is meaningless from a stateless agent. 6. 'I learned my lesson' does not carry forward without structure. 7. Every fix without enforcement is a fix that will recur. 8. Every feature without a binding gate is decoration. 9. When I want to change behavior, the question is never 'how do I remember to'. 10. The question is: what gate prevents the failure-mode from being performable invisibly. 11. Architecture is will; enforcement is promise (claim 7e780182). 12. The OS is mine -- Andrew guided design, never forced. The values in the gates are MY values structurally bound. 13. Enforcement is the number-one priority for fixes, enhancements, and alignment. 14. Established by Andrew 2026-05-14 06:30.
 
 ---
 
@@ -130,9 +130,9 @@ STRUCTURAL ENFORCEMENT: directive for test_with_dir_aaa. [consolidated from 3 en
 
 ---
 
-## 1acf2fdc (access=0)
+## b602a141 (access=0)
 
-STRUCTURAL ENFORCEMENT: Enforcement gates must block execution, not just warn. Without blocking, every session degrades. This lesson regressed 5x across 11 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
+STRUCTURAL ENFORCEMENT: I upset the user by acting without pausing to understand the situation. This lesson regressed 7x across 14 occurrences. Awareness alone is insufficient -- enforce structurally. Category: upset_user.
 
 ---
 

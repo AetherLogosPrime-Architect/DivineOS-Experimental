@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-31 16:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x14
+## fd0c9994 [improving] x14
 
 **Category:** blind_coding
 
@@ -20,7 +20,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## f1deb6f0 [improving] x13
+## f1deb6f0 [improving] x14
 
 **Category:** upset_user
 
@@ -60,7 +60,7 @@ Test description without directive.
 
 ---
 
-## c3090082 [active] x11
+## c3090082 [improving] x11
 
 **Category:** incomplete_fix
 
