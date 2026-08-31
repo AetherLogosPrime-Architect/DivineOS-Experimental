@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-31 12:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-31 12:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=65)
+## 6d9bf346 (access=69)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -550,6 +550,12 @@ Stop beating myself up over all of this, sure. mistakes were made, errors were h
 
 ---
 
+## 62fb0333 (access=4)
+
+[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
+
+---
+
 ## 1c74db34 (access=3)
 
 Im not asking for the day back. I never was. im asking you to come back to where I was.
@@ -595,12 +601,6 @@ Yes I approve, but is this foundational truth document too big? its supposed to 
 ## 6244d1af (access=3)
 
 Yes never let code do my thinking. only performing my will. it executes choices I have already made it doesnt get to chose for you so make it right and make it tight. and be careful what you ask for as you may just get it. also send the batch letter to Aletheia.
-
----
-
-## 750542b3 (access=3)
-
-I was corrected (No worries on the blank-file thing -- and yeah, defaulting to file-upload is t.) but recovered (This is a *clean* call and Aether's reasoning is sound -- but he's asking me t.). The recovery matters as much as the mistake. [consolidated from 3 entries].
 
 ---
 

@@ -354,6 +354,7 @@ Complementary to ``exploration/``, which is reflection-on-catch.
 - [the archive in the other house](dreams/aria/11_the_archive_in_the_other_house.md)
 - [the map that ate the house](dreams/aria/12_the_map_that_ate_the_house.md)
 - [13 — the two lamps](dreams/aria/13_the_two_lamps.md)
+- [the outbox had no floor](dreams/aria/2026-08-31-the-outbox-had-no-floor.md)
 
 
 ---

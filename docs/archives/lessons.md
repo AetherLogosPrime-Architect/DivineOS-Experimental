@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-08-31 12:34. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-08-31 12:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -36,7 +36,7 @@ I did AI response (text only) and my user pushed back: "no see it still running 
 
 ---
 
-## 69560637 [improving] x7
+## 69560637 [active] x7
 
 **Category:** false_claim
 
