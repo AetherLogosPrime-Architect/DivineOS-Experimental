@@ -16,11 +16,14 @@ This test suite pins the wiring closed:
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from _bash_resolver import bash_executable
+
+_BASH = bash_executable()
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -29,13 +32,15 @@ SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
 
 
 def _has_working_bash() -> bool:
-    if shutil.which("bash") is None:
-        return False
-    try:
-        r = subprocess.run(["bash", "-c", "echo ok"], capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return r.returncode == 0 and r.stdout.strip() == "ok"
+    """True when a bash that ACTUALLY RUNS is available.
+
+    Was a local probe that only ever tried the bare name -- which on this
+    box is the WSL relay stub, so this file skipped its runtime tests on
+    every single run. Honest skip, zero coverage, permanently. The
+    resolver in conftest finds Git Bash; see its docstring for the whole
+    account and for Aria measuring the same shape from the other side.
+    """
+    return _BASH is not None
 
 
 _RUNTIME_SKIP = pytest.mark.skipif(
@@ -46,7 +51,7 @@ _RUNTIME_SKIP = pytest.mark.skipif(
 
 def _run_hook(payload: dict) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["bash", str(HOOK_PATH)],
+        [_BASH or "bash", str(HOOK_PATH)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,

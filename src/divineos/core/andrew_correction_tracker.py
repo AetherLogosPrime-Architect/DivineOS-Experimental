@@ -258,7 +258,49 @@ def integrate(correction_id: int, evidence: str) -> bool:
         conn.close()
     if ok:
         _write_attestation_marker()
+        _close_structural_fix_twin(correction_id, evidence)
     return ok
+
+
+def _close_structural_fix_twin(correction_id: int, evidence: str) -> None:
+    """Close the pending-structural-fix row this correction spawned, if any.
+
+    ``correction`` files a parallel psf obligation whenever its text is
+    structural-fix-shaped. Until 2026-08-25 nothing ever closed one, so a
+    correction could carry an evidence pointer here and still read as
+    outstanding on the briefing's obligations row. Measured that day: 50 of
+    the 187 correction-sourced rows were already INTEGRATED on this side.
+
+    Fail-soft — the correction is integrated either way. A tracker that could
+    refuse an integration because its mirror misbehaved would be worse than
+    the drift it is fixing. The swallow is deliberate and it is also why
+    tests/test_correction_closes_psf_twin.py exists: a bare except around code
+    that has never run once is indistinguishable from code that does nothing.
+    The first draft of this function called a ``get_correction_text`` that does
+    not exist, which would have raised NameError into this handler and left the
+    mirror looking wired while never closing a single row.
+    """
+    try:
+        from divineos.core.structural_fix_tracker import close_twin_for_text
+
+        conn = _conn()
+        try:
+            row = conn.execute(
+                "SELECT correction_text FROM andrew_corrections WHERE id = ?",
+                (correction_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        text = row[0] if row else ""
+        if not text:
+            return
+        close_twin_for_text(
+            text,
+            f"Closed via andrew-correction #{correction_id} INTEGRATED. "
+            f"Evidence: {evidence.strip()[:400]}",
+        )
+    except Exception:  # noqa: BLE001 — mirror upkeep never blocks integration
+        pass
 
 
 # Correction-reference patterns for auto-integration from commit messages.

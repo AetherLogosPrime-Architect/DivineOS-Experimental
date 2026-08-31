@@ -43,6 +43,100 @@ _REASON_PATTERN = re.compile(r'DIVINEOS_NO_VERIFY_REASON=(?:"([^"]+)"|\'([^\']+)
 _MIN_REASON_LEN = 8
 
 
+_HEREDOC_RE = re.compile(
+    r"""<<-?\s*(['\"]?)(\w+)\1.*?^\2\s*$""",
+    re.DOTALL | re.MULTILINE,
+)
+
+
+def _strip_heredocs(cmd: str) -> str:
+    """Remove heredoc BODIES before tokenising. They are data, not commands.
+
+    MENTION IS NOT USE (2026-08-22). shlex.split flattens a heredoc, so the
+    body of `git commit -F - <<EOF ... EOF` arrives as bare tokens and the
+    gate reads the COMMIT MESSAGE as a second command. This gate blocked its
+    own fix: the message documented the bug by quoting
+    `git commit --no-verify -m x` as an example, and that example was parsed
+    as a real invocation.
+
+    The failure is self-selecting in the worst way -- the commit messages most
+    likely to quote --no-verify are the ones explaining a --no-verify defect,
+    so the gate fires hardest on the work that repairs it. Same shape as
+    _strip_quoted_spans in the lepos translation gate: a checker that cannot
+    tell talking-about from doing.
+
+    Only the body is removed; the command line that opens the heredoc is kept,
+    so a genuine `git commit --no-verify -F - <<EOF` is still caught.
+    """
+    return _HEREDOC_RE.sub(" ", cmd)
+
+
+_SHELL_SEPARATORS = ("&&", "||", ";", "|", "&")
+
+# `-n` is git commit's short form of --no-verify. Scoped per segment because
+# `-n` means entirely different things to other commands.
+_NO_VERIFY_FLAGS = ("--no-verify", "-n")
+
+
+def _segments(tokens: list[str]) -> list[list[str]]:
+    """Split a token list on shell separators into independent commands."""
+    out: list[list[str]] = [[]]
+    for tok in tokens:
+        if tok in _SHELL_SEPARATORS:
+            out.append([])
+        else:
+            out[-1].append(tok)
+    return [seg for seg in out if seg]
+
+
+def _has_unverified_git_write(tokens: list[str]) -> str | None:
+    """The subcommand of a git commit/push carrying a no-verify flag, else None.
+
+    FIRST-GIT-WINS WAS THE BUG (2026-08-22, Andrew: "fix the reaching using
+    automation so it does it automatically").
+
+    This used to read ``tokens.index("git")`` -- the FIRST git in the whole
+    command -- take the token after it as the subcommand, and return allow if
+    that was not commit/push. So::
+
+        git add -A && git commit --no-verify     -> first git is `add` -> ALLOWED
+
+    which is the single most common shape a commit takes. The gate was not
+    hanging, not unregistered and not misconfigured; it was anchored to a
+    position I am almost never in. Measured that day: it denied
+    ``git commit --no-verify -m x`` and went silent on the same commit behind
+    ``cd ... && git add -A && ...``. Two --no-verify commits went through
+    unchallenged in one session, and the gate's own telemetry showed a single
+    lifetime use of the reason variable -- a gate that looked disciplined
+    because almost nothing ever reached it.
+
+    Segment-scoped rather than whole-command: a flag must belong to the git
+    invocation it is being read against. Checking ``"-n" in tokens`` globally
+    would fire on ``grep -n foo && git commit``, which is the over-fire that
+    teaches me to reach for the escape hatch.
+    """
+    for seg in _segments(tokens):
+        if len(seg) < 2 or seg[0] != "git":
+            # `env FOO=bar git commit ...` and `sudo git ...` shapes: find git
+            # anywhere in the segment, since a segment is one command.
+            try:
+                gi = seg.index("git")
+            except ValueError:
+                continue
+        else:
+            gi = 0
+        sub = seg[gi + 1] if gi + 1 < len(seg) else ""
+        if sub not in ("commit", "push"):
+            continue
+        # `-n` is --no-verify for COMMIT and --dry-run for PUSH. Treating them
+        # alike would deny `git push -n`, a harmless rehearsal, and an
+        # over-firing gate is how the reach for the escape hatch gets taught.
+        flags = _NO_VERIFY_FLAGS if sub == "commit" else ("--no-verify",)
+        if any(flag in seg[gi:] for flag in flags):
+            return sub
+    return None
+
+
 def decide(tool_input: dict[str, Any] | None) -> dict[str, Any] | None:
     """Decide whether a Bash command containing --no-verify should pass.
 
@@ -60,18 +154,13 @@ def decide(tool_input: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
 
     try:
-        tokens = shlex.split(cmd)
+        tokens = shlex.split(_strip_heredocs(cmd))
     except ValueError:
         # Malformed shell quoting — let it through; another gate catches.
         return None
 
-    if "git" not in tokens:
-        return None
-    git_idx = tokens.index("git")
-    subcommand = tokens[git_idx + 1] if git_idx + 1 < len(tokens) else ""
-    if subcommand not in ("commit", "push"):
-        return None
-    if "--no-verify" not in tokens:
+    subcommand = _has_unverified_git_write(tokens)
+    if subcommand is None:
         return None
 
     # --no-verify on git commit/push. Demand an inline reason.

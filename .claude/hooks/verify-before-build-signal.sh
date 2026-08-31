@@ -84,9 +84,26 @@ try:
         bash_command=bash_command,
     ):
         sys.exit(0)
-except Exception:
-    # Bypass check raised — fail-open per Aria third-bug catch.
-    pass
+except Exception as _bypass_exc:
+    # FAIL-OPEN ON PURPOSE, AND NOW IT SAYS SO OUT LOUD. Falling through here is
+    # correct -- a broken bypass-reader must not wall off the authorized escape
+    # (the third-bug catch she made). What was wrong is that it did it silently.
+    #
+    # The comment above told a code reader. It told the operator nothing at the
+    # moment it happened, which is the entire class this session has been
+    # pulling out of the house: a documented swallow still produces no signal
+    # at runtime. deletion-discipline was migrated for exactly this.
+    #
+    # Found 2026-08-25 by check_swallowing_gates.py on its first run -- the
+    # detector Aletheia asked for instead of a calendar reminder. My own
+    # hand-count of this class had said ZERO live instances, and it was wrong
+    # here: my scratch pattern could not see a swallow with a comment between
+    # the except and the pass.
+    sys.stderr.write(
+        "  [verify-before-build] bypass check raised ("
+        + type(_bypass_exc).__name__ + ": " + str(_bypass_exc)
+        + "); failing OPEN, so an authorized bypass was neither consumed nor "
+        "confirmed. This is not the same as no bypass being present.\n")
 
 try:
     msg = check_should_block(

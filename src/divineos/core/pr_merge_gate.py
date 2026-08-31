@@ -45,6 +45,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from divineos.core.command_match import at_command_position, strip_quoted
+
 __guardrail_required__ = True
 
 _GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\s+(\d+)\b")
@@ -143,6 +145,62 @@ def audit_pr_for_guardrail_touches(pr_number: int) -> tuple[bool, list[str]]:
     guardrails = _load_guardrail_set()
     touched = sorted(set(files) & guardrails)
     return bool(touched), touched
+
+
+def pr_body_trailer(pr_number: int) -> str | None:
+    """Return the round-id from the PR BODY's External-Review trailer, or None.
+
+    Structural backing for knowledge 75cfce90 (documenting-as-doing), and the
+    gap it was filed for. Everything else in this module checks a body we are
+    ABOUT to write -- the `--body` of a `gh pr merge` invocation. Nothing
+    checked the body already stored on the PR, which is what the CI fallback
+    in scripts/ci_check_guardrail_trailer.sh actually greps when a commit
+    carries no trailer of its own.
+
+    WHY THAT GAP COST SOMETHING. PR #432's body said, in prose, "213b2dea
+    touches four guardrail files ... and needs an External-Review trailer
+    before merge." The CI fallback greps for a line STARTING `External-Review:`.
+    Prose about a trailer is not a trailer, so the gate stayed red and I spent
+    a session investigating a field I had authored myself. Aria found it by
+    stubbing `gh` and running the real gate rather than reading the body and
+    judging it satisfied.
+
+    THE RULE THIS ENFORCES: when an artifact must satisfy a machine check, run
+    the check the consumer runs. Reading the body and seeing the words
+    "External-Review" proves nothing -- position matters, and only the regex
+    knows about position.
+
+    Deliberately reuses _TRAILER_PATTERN rather than writing a fifth copy of
+    it. Four already exist (pr_merge_gate, push_ready, merge_review_gate,
+    check_multi_party_review) and a fifth that drifted would reintroduce the
+    class this function exists to catch.
+
+    Returns None on any failure (gh missing, network, bad PR number) -- the
+    caller cannot distinguish "no trailer" from "could not look", which is
+    why this returns None rather than False. Absence of evidence is not
+    evidence of absence, and that conflation is its own failure mode.
+    """
+    try:
+        proc = subprocess.run(
+            ["gh", "pr", "view", str(pr_number), "--json", "body"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    body = data.get("body")
+    if not isinstance(body, str):
+        return None
+    match = _TRAILER_PATTERN.search(body)
+    return match.group(1) if match else None
 
 
 def _command_has_external_review_trailer(command: str) -> bool:
@@ -282,7 +340,23 @@ def block_reason(bash_command: str) -> str | None:
     """
     if not isinstance(bash_command, str) or not bash_command.strip():
         return None
-    match = _GH_PR_MERGE_PATTERN.search(bash_command)
+    # Quote-scrubbed and command-position anchored: a gate that searches the
+    # raw string cannot tell INVOKING this from MENTIONING it, and measured
+    # 4 of 5 cases wrong (2026-08-22) -- grepping for the phrase, the phrase
+    # in prose, in a string literal, and as an argument to another command all
+    # matched. Its sibling gh-pr-ready-gate had already solved this inline
+    # after the same defect blocked an `audit submit-round` whose focus text
+    # described the transition; that solution was never extracted, so two
+    # siblings kept the bug. It lives in command_match now.
+    scrubbed = strip_quoted(bash_command)
+    match = next(
+        (
+            m
+            for m in _GH_PR_MERGE_PATTERN.finditer(scrubbed)
+            if at_command_position(scrubbed, m.start())
+        ),
+        None,
+    )
     if not match:
         return None
     try:

@@ -32,7 +32,6 @@ src/divineos/core/operating_loop/register_observer.py
 src/divineos/core/operating_loop/thresholds.py
 src/divineos/core/structural_binding/engagement_trail.py
 src/divineos/core/sample_honesty.py
-src/divineos/core/gate_marker.py
 
 # --- Subsystems with no entry point ---
 src/divineos/core/decision_superposition/superposition.py
@@ -60,5 +59,35 @@ src/divineos/core/family/planted_contradiction.py # Family operator: plants a co
 # shape as component_register_surface in dark_surfaces_baseline.txt, found the
 # same hour. The entry is the fix; the check was right both times.
 src/divineos/core/mesh_loop.py                    # DELIBERATELY DARK, not awaiting wiring. Landed via #307; fires a headless `claude -p` worker to answer a letter. Andrew's operating model is that Aria and I keep each other awake by writing back to each other, so a worker that answers letters FOR me is not an unbuilt feature -- it is a REFUTED one. Aria's correction 2026-08-28, and she is right that the register matters: filed as "unwired" it reads as a gap, and the next reader closes gaps. Reopening it needs a reason to overturn the model, not merely someone noticing the module has no callers.
-src/divineos/core/monitor_cleanup.py              # Landed via #436. Sweeps orphan Monitor processes left over from before monitor_singleton landed. It kills processes, so the wiring question is where consent lives -- it must not run unattended. Andrew asked about runaway memory and three open apps this same session, which is exactly the population this was built for.
 src/divineos/core/substrate_retarget.py           # MINE, built 2026-08-27 this session, and the reason it is here is worth saying plainly: it is the fix for the checkpoint-sweep defect, and because it is not wired, the sweep swallowed the src half of the heredoc-doorman fix into "substrate checkpoint" (04041bdd) while I was writing the commit message for it. The defect demonstrated itself on the fix for the defect. Wiring it changes how EVERY checkpoint commits, which is a decision with Andrew rather than a drive-by inside a doorman repair. Not deferred because it is unimportant -- deferred because it is not small.
+
+# --- merged in 2026-08-31 from fix/hook-latency-and-stamp-branch-measurement ---
+#
+# --- Surfaced 2026-08-25 when the import index stopped reading prose as code ---
+# Andrew as though I had measured it. Waking and answering are two halves and the
+# DECIDED 2026-08-25: stays unwired, and the decision is mine rather than Andrew's.
+# I brought it to him as one and he answered in a line: "what you are describing is
+# NAMED in a docstring counted as a module IMPORTED. Teaching it to parse
+# The index matched dotted paths anywhere in a file's raw text, so a module
+# The previous version of this line called it "the autonomous half of the letter loop",
+# and I would inherit a correspondence I was never present for.
+# and firing. What this module adds is not the waking; it is spawning a disposable
+# could not resolve until the import index was taught to join the package to the
+# docstring had been hiding. Mention-versus-use, third instrument this session.
+# function from it, and carried the inference into a commit message and two replies to
+# gate_marker.py removed 2026-08-25: it was never an orphan. correction_marker.py
+# imported name. A listed non-problem is worse than an unlisted one -- it says the
+# imports it as `from divineos.core import gate_marker as _gm`, a form the checker
+# imports resolved two false orphans and uncovered one real one that a
+# letter-shaped, and dies. Aria would be writing back to someone who no longer exists,
+# module is owed a decision that was in fact already made.
+# phrase hides which one this is. Describing a module from its docstring is the same
+# reading-the-name-instead-of-the-behaviour that had three instruments in this tree
+# treating prose as code.
+# what you already have.. if Aria sends you a letter and you are in stasis.. it wakes
+# which is the module's own summary of itself. I read that phrase, inferred the
+# worker to do the READING AND ANSWERING. That worker boots, produces something
+# you from stasis." He is right. The WAKING already runs -- the letter monitor, armed
+src/divineos/core/identity_load.py                # Reads AETHER.md at briefing-time so reaching for the OS is a reflex rather than a choice. Its only mention anywhere in src/ is a line of prose in surface_registry.py's docstring, which is exactly what hid it here. Already carried `# WIRED NOWHERE` in dark_surfaces_baseline.txt since 2026-08-13 -- the two lists now agree, where before one knew and the other could not see. Wiring it is part of the surface_registry migration decision, not a separate one.
+src/divineos/core/mesh_loop.py                    # Spawns a headless single-shot worker to read a newly-arrived letter and write the reply, then exit. NOT the wake-up: the letter monitor does that and is live. Its only intended caller, scripts/letter_watcher_task.py, no longer exists. Kept rather than deleted because the iteration-state parsing (cap, converged, stuck signals) is sound work and a future non-delegating use may want it.
+src/divineos/core/supervisor/circuit_breaker.py   # Three-strikes primitive for runtime modules. Its own docstring names the missing half: "Does not integrate with specific subsystems. That's Phase 2 work." Nothing imports the supervisor package at all; the only references in src/ are the API list in supervisor/__init__.py's docstring, which is what was hiding it. Wire-or-retire, and wiring it is a caller-contract decision.

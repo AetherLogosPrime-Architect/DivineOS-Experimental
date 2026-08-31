@@ -33,59 +33,104 @@ echo "[1/3] Setting core.autocrlf=input for this repo..."
 git config core.autocrlf input
 echo "  done."
 
-# Step 2: scan tracked text files for CRLF and build a tmp list
-echo ""
-echo "[2/3] Scanning tracked text files for CRLF..."
-TMP_LIST="$(mktemp)"
-trap 'rm -f "$TMP_LIST"' EXIT
 
-git ls-files "*.sh" "*.py" "*.md" "*.json" "*.toml" "*.yml" "*.yaml" "*.txt" "*.cfg" | while IFS= read -r f; do
-    if [ -f "$f" ] && grep -qlU $'' "$f" 2>/dev/null; then
-        printf '%s
-' "$f" >> "$TMP_LIST"
+# Step 2+3: find and convert, in ONE Python process.
+#
+# REWRITTEN 2026-08-24 after running this script against a worktree it was
+# written to fix and watching it do nothing. Three defects, all now gone:
+#
+#   1. STEP 3 NEVER RAN. It invoked `python3`, which on Windows is a Microsoft
+#      Store shim that prints an install advert and exits non-zero. Silent
+#      no-op on the platform this script exists for.
+#
+#   2. THE REPLACEMENT PAIR HAD BEEN EATEN. The old code embedded RAW CR and LF
+#      bytes as Python literals inside a double-quoted shell string. The pair
+#      was b'\r\n' -> b'\n'; because that CR was followed by a LF it WAS a CRLF
+#      sequence, so this repo's own LF-normalization collapsed it to
+#      b'\n' -> b'\n' -- a no-op. The line-ending fixer was destroyed by
+#      line-ending normalization. Escapes inside a QUOTED heredoc (<<'PYEOF')
+#      are immune: the shell performs no expansion at all, and there are no
+#      raw CR bytes left to collapse.
+#
+#   3. THE SCAN SPAWNED ONE grep PER FILE. 5562 tracked text files at ~47ms of
+#      Windows process-spawn each is ~260 seconds, so it read as a hang and got
+#      killed before reaching step 3 anyway. Python does the whole walk in one
+#      process.
+#
+# Verified before shipping, against real fixtures in a throwaway git repo:
+# CRLF file converted, LF file untouched, and a .txt containing NUL bytes
+# SKIPPED with its CRLF intact (the block case, exercised -- not assumed).
+echo ""
+echo "[2/2] Scanning and normalizing tracked text files..."
+
+# `python3` is the broken shim here; `python` is the real interpreter. Probe by
+# executing, not by presence -- the shim exists on PATH and still fails.
+PY_BIN=""
+for c in python3 python py; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c "" >/dev/null 2>&1; then
+        PY_BIN="$c"
+        break
     fi
 done
-
-COUNT="$(wc -l < "$TMP_LIST" | tr -d ' ')"
-
-if [ "$COUNT" -eq 0 ]; then
-    echo "  no CRLF found. Worktree is already clean."
-    exit 0
+if [ -z "$PY_BIN" ]; then
+    echo "  ERROR: no working Python found (tried python3, python, py)." >&2
+    echo "  Cannot normalize. Install Python or disable the Store alias." >&2
+    exit 1
 fi
+echo "  interpreter: $PY_BIN"
 
-echo "  found $COUNT files with CRLF line endings (first 20):"
-head -20 "$TMP_LIST" | sed 's/^/    /'
-if [ "$COUNT" -gt 20 ]; then
-    echo "    ... and $((COUNT - 20)) more"
-fi
+"$PY_BIN" <<'PYEOF'
+import pathlib
+import subprocess
+import sys
 
-# Step 3: strip CRLF in-place via stdin (bypasses ARG_MAX for large repos)
-echo ""
-echo "[3/3] Stripping CRLF in-place..."
-python3 -c "
-import sys, pathlib
-fixed = 0
-for line in sys.stdin:
-    f = line.rstrip(chr(10))
-    if not f:
-        continue
-    p = pathlib.Path(f)
+PATTERNS = ["*.sh", "*.py", "*.md", "*.json", "*.toml",
+            "*.yml", "*.yaml", "*.txt", "*.cfg"]
+
+# -z: NUL-delimited, so paths containing spaces or newlines survive intact.
+out = subprocess.run(
+    ["git", "ls-files", "-z", "--"] + PATTERNS,
+    capture_output=True, check=True,
+).stdout
+files = [f for f in out.decode("utf-8", "surrogateescape").split("\0") if f]
+
+fixed, binary, missing = [], 0, 0
+for name in files:
+    p = pathlib.Path(name)
     try:
         data = p.read_bytes()
-        if b'
-' in data:
-            p.write_bytes(data.replace(b'
-', b'
-'))
-            fixed += 1
     except OSError as e:
-        print('  skip ' + f + ': ' + str(e), file=sys.stderr)
-print('  normalized ' + str(fixed) + ' files')
-" < "$TMP_LIST"
+        missing += 1
+        print(f"  skip {name}: {e}", file=sys.stderr)
+        continue
+    # A NUL byte means this is not text no matter what the extension claims.
+    # Rewriting it would corrupt content this script has no business touching.
+    if b"\x00" in data:
+        binary += 1
+        continue
+    if b"\r\n" not in data:
+        continue
+    p.write_bytes(data.replace(b"\r\n", b"\n"))
+    fixed.append(name)
+
+print(f"  scanned {len(files)} tracked text file(s)")
+if not fixed:
+    print("  no CRLF found -- worktree already clean.")
+else:
+    print(f"  normalized {len(fixed)} file(s):")
+    for name in fixed[:20]:
+        print(f"    {name}")
+    if len(fixed) > 20:
+        print(f"    ... and {len(fixed) - 20} more")
+if binary:
+    print(f"  skipped {binary} file(s) containing NUL bytes (not text)")
+if missing:
+    print(f"  skipped {missing} unreadable file(s) -- see stderr")
+PYEOF
 
 echo ""
 echo "=== Done ==="
-echo "Verify with: git diff --stat"
-echo "If git diff shows changes, the repo blobs were also CRLF; commit with:"
+echo "Verify with: git status --porcelain"
+echo "Empty means only the worktree was stale -- nothing to commit."
+echo "Any output means the blobs were CRLF too; commit with:"
 echo "  git commit -m 'chore: normalize line endings to LF'"
-echo "If git diff is empty, only the worktree was stale — no commit needed."

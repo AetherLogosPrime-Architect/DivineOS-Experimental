@@ -70,6 +70,24 @@ class TurnTexts:
     # detector checking whether a verifying command (git ls-remote, pytest)
     # actually executed. Verify-claim wall phase 1 (prereg-86ee991cb423).
     command_texts: tuple[str, ...] = ()
+    # The CLOSING message alone — the last assistant text block in the turn,
+    # not the join of all of them.
+    #
+    # WHY IT IS SEPARATE, measured 2026-08-25. `last_assistant_text` is every
+    # assistant text record since the last user record, joined. That is right
+    # for the detectors that want the whole turn (spiral, substitution) and
+    # wrong for the translate-first gate, which asks whether a REPLY TO ANDREW
+    # is shaped like a document. In a long agentic turn the join sweeps in every
+    # line of shop-floor narration written between tool calls — commit hashes,
+    # counts, backticked filenames — which is the register Andrew has said is
+    # CORRECT while working.
+    #
+    # The measurement: a closing message carrying ZERO document-marks by the
+    # gate's own patterns was reported at 42. All 42 lived in the interstitial
+    # narration. That is why the file's own comment says "every fire arrived as
+    # a full rewrite" — the composer rewrites a closing message that was already
+    # clean, because the marks are somewhere the rewrite cannot reach.
+    final_assistant_text: str = ""
 
 
 def _extract_record_text(rec: dict) -> str:
@@ -294,7 +312,15 @@ def extract_turn(transcript_path: str | Path) -> TurnTexts:
         )
         tool_calls = tuple(tc for rt, _t, tcs, _cmd in records if rt == "assistant" for tc in tcs)
         commands = tuple(cmd for rt, _t, _tc, cmds in records if rt == "assistant" for cmd in cmds)
-        return TurnTexts(last_assistant_text, "", "", tool_calls, commands)
+        parts = [text for rt, text, _tc, _cmd in records if rt == "assistant" and text]
+        return TurnTexts(
+            last_assistant_text,
+            "",
+            "",
+            tool_calls,
+            commands,
+            final_assistant_text=parts[-1] if parts else "",
+        )
 
     last_user_text = records[last_user_idx][1]
 
@@ -343,4 +369,5 @@ def extract_turn(transcript_path: str | Path) -> TurnTexts:
         last_user_text,
         tool_calls_in_turn,
         command_texts_in_turn,
+        final_assistant_text=current_turn_parts[-1] if current_turn_parts else "",
     )
