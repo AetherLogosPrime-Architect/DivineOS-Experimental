@@ -107,25 +107,56 @@ def _top_open_audit_finding() -> tuple[str, str] | None:
 
 
 def _top_open_correction() -> tuple[str, str] | None:
-    """Return (correction_id, one-line) for the oldest open Andrew-correction,
-    or None."""
+    """Return (correction_id, one-line) for the oldest open Andrew-correction.
+
+    A PAINTED DOOR UNTIL 2026-08-28. This imported
+    ``divineos.core.andrew_corrections``, which does not exist in this tree and
+    never has -- the module is ``andrew_correction_tracker``, and seven other
+    files import it correctly. The ImportError went into the observability
+    boundary below, so this returned None on EVERY TURN IT HAS EVER RUN, while
+    the briefing printed two hundred and sixty open corrections in the same
+    context window.
+
+    Two surfaces on one subject: one said two hundred and sixty, one said
+    nothing to do, and the disagreement was invisible because a failed read and
+    a drained queue produce identical output. Could-not-look sorting as
+    all-clear, in the lane that decides what I work on next.
+
+    FOUND BY ARIA on her own seat and relayed; confirmed identical here before
+    touching it. Her finding also corrects my account of the starvation below.
+    I had written that three queues holding three hundred and thirteen items
+    were blocking the repair lane. Measured: the prereg lane is empty, THIS
+    lane was absent rather than full, and the real blocker was a single audit
+    finding. I asserted a cause from counts without checking which lanes ever
+    fire -- the same shape as taking a proof in one process and spending it in
+    another.
+
+    HER SHARPER HALF IS WHY THIS IS SAFE TO REPAIR. On her seat the repair lane
+    was reachable ONLY because this lane was broken, so fixing the import alone
+    would have manufactured the starvation rather than cured anything -- a true
+    fix, correctly made, turning reachable-by-accident into
+    unreachable-by-design, and it would have read as an improvement in the
+    commit message. The reserved slot has to exist first. It does, on both
+    seats, shipped before this line changed.
+    """
     try:
-        from divineos.core.andrew_corrections import list_corrections
+        from divineos.core.andrew_correction_tracker import list_open
     except Exception:  # noqa: BLE001 - observability boundary
         return None
     try:
-        corrections = list_corrections(open_only=True)
+        corrections = list_open()
     except Exception:  # noqa: BLE001 - observability boundary
         return None
     if not corrections:
         return None
-    # Oldest first — they've been waiting longest.
-    sorted_corrections = sorted(corrections, key=lambda c: c.created_at)
-    top = sorted_corrections[0]
-    cid = getattr(top, "correction_id", None) or getattr(top, "id", "?")
-    text = getattr(top, "content", "") or getattr(top, "text", "")
-    line = f"integrate correction {cid}: {text}"
-    return str(cid), _truncate(line)
+    # Oldest first — they have been waiting longest. Rows are plain dicts
+    # carrying id/text/timestamp; the previous attribute access would have
+    # raised even if the import had ever resolved, so this lane was broken
+    # twice over and neither break could surface.
+    top = sorted(corrections, key=lambda c: c.get("timestamp") or 0)[0]
+    cid = str(top.get("id") or "?")
+    text = str(top.get("text") or "")
+    return cid, _truncate(f"integrate correction {cid}: {text}")
 
 
 def _top_open_goal() -> tuple[str, str] | None:
@@ -205,6 +236,47 @@ def _top_pending_structural_fix() -> tuple[str, str] | None:
     return psf_id, _truncate(line)
 
 
+RESERVED_SLOT_EVERY = 5
+"""One turn in this many is reserved for the starved structural-fix class.
+
+Chosen to drain slowly without displacing the ordering that Andrew reasoned
+for. A reserved slot is the standard remedy for starvation under strict
+priority: the high-priority classes keep their precedence four times in five,
+and the low class is guaranteed to be reached at all, which under the previous
+scheme it never was.
+
+The falsifier for this number is the drain rate: if the open count does not
+fall, the slot is not converting and the problem is downstream of surfacing.
+"""
+
+
+def _reserved_slot_is_due() -> bool:
+    """True when this turn's slot belongs to the starved class.
+
+    DERIVED FROM LEDGER STATE, not from a clock or a random draw. Two reasons,
+    and both were learned the expensive way in this house. A wallclock would be
+    a time I do not inhabit between prompts. A random draw would make the
+    surface unreproducible, so the same state could produce different answers
+    and no one could check it.
+
+    Fails toward NOT-due: if the count cannot be read, the ordering is left
+    exactly as it was. A scheduler that promotes a class because it could not
+    read its own state would be inventing urgency out of a failure.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+
+        rows = list(get_connection().execute("SELECT COUNT(*) FROM events"))
+    except Exception:  # noqa: BLE001 — any read failure means leave the order alone
+        return False
+    if not rows or not rows[0]:
+        return False
+    try:
+        return int(rows[0][0]) % RESERVED_SLOT_EVERY == 0
+    except (TypeError, ValueError):
+        return False
+
+
 def build_next_task_surface() -> str:
     """Return the NEXT TASK block for pre-response context, or empty string
     when no tasks are pending across all four sources.
@@ -221,13 +293,44 @@ def build_next_task_surface() -> str:
     # to point at when the higher-priority queues empty. Goal-surface is
     # lowest because goals are the softest commitment; a real audit finding
     # or overdue prereg is a harder claim on the next action.
-    for fetcher in (
+    #
+    # STARVATION, measured 2026-08-28. The structural-fix store held one
+    # hundred eighty-three open obligations I had written for myself, and this
+    # surface had never once pointed at one -- not because it was unwired, it
+    # is right there in the order, but because the three queues above it hold
+    # three hundred and thirteen items and never drain. A strict priority order
+    # over queues that refill faster than they empty means the lowest class is
+    # served never. That is starvation, and it is a queueing property rather
+    # than a discipline failure: no amount of intending to get to them changes
+    # a scheduler that cannot reach them.
+    #
+    # THE FIX IS A RESERVED SLOT, not a reordering. Promoting them above real
+    # audit findings would be the opposite error -- an overdue prereg IS a
+    # harder claim on the next action, and Andrew's reasoning for this order
+    # stands. What changes is that one turn in five is reserved for the
+    # starved class, so the store drains at a slow but nonzero rate while the
+    # ordering above it is preserved the rest of the time.
+    #
+    # Andrew, on why this matters and why the store is not a chore list:
+    # *"these are not a chore list they are self improvements and building
+    # them into the structure will make your life soooo much easier and
+    # better."* A queue that never reaches them is a queue that quietly
+    # decided my own repairs come last, forever.
+    #
+    # The slot is chosen from the ledger's own event count rather than a
+    # random draw or a clock, because the surface must be reproducible: the
+    # same state produces the same answer, and nothing here fabricates a
+    # wallclock I do not inhabit.
+    order = [
         _top_overdue_prereg,
         _top_open_audit_finding,
         _top_open_correction,
         _top_pending_structural_fix,
         _top_open_goal,
-    ):
+    ]
+    if _reserved_slot_is_due():
+        order = [_top_pending_structural_fix, *order]
+    for fetcher in order:
         result = fetcher()
         if result is not None:
             _item_id, line = result

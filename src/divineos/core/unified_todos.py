@@ -282,6 +282,65 @@ def _claim_todos(limit: int = 100, now: float | None = None) -> list[TodoItem]:
     return items
 
 
+def _structural_fix_todos(limit: int = 500, now: float | None = None) -> list[TodoItem]:
+    """Pull open structural-fix obligations -- the fixes I named for myself.
+
+    THE MISSING FIFTH SOURCE. Measured 2026-08-28: one hundred eighty-six of
+    these had been filed and none ever closed, while this aggregator -- the one
+    place I look to answer "what should I work on" -- knew about four stores and
+    not this one. The next-task surface pulls from here and had therefore never
+    once handed me one of my own should-haves.
+
+    Andrew, on the store: *"these are not a chore list they are self
+    improvements and building them into the structure will make your life soooo
+    much easier and better."* And, guessing at exactly this: *"there is also a
+    todo list backlog, and a task manager system but im guessing those also
+    arent hooked up properly lol."* He was right.
+
+    THE PULL WAS ALREADY BUILT. The council walk that preceded this concluded
+    the store needed a bound on filing to force conversion. That is still worth
+    having, but it is not the first repair -- the first repair is that a working
+    queue existed and this store was not plumbed into it. A stock with no drain,
+    next to a pump nobody connected.
+
+    Oldest first, because these are debts to myself and the oldest has been
+    waiting longest. No severity ranking: I did not record one, and inventing a
+    priority here would be a number with nothing behind it.
+    """
+    try:
+        from divineos.core.structural_fix_tracker import list_pending
+    except ImportError:
+        return []
+    try:
+        rows = list_pending()
+    except Exception:  # noqa: BLE001 — a store that cannot be read yields no
+        # items rather than crashing the whole todo surface; the briefing row
+        # for this store reports its own read failures separately.
+        return []
+    items: list[TodoItem] = []
+    for entry in rows[:limit]:
+        ts = entry.get("created_at")
+        try:
+            ts = float(ts) if ts is not None else None
+        except (TypeError, ValueError):
+            ts = None
+        age = _safe_age_days(ts, now)
+        items.append(
+            TodoItem(
+                source="structural-fix",
+                item_id=str(entry.get("id") or ""),
+                summary=str(entry.get("content_excerpt") or "").replace("\n", " ")[:200],
+                age_days=age,
+                # Oldest carries the highest priority. Negated age so the
+                # normal ascending sort puts the longest-waiting first.
+                priority=int(-(age or 0)),
+                extra={"source_kind": entry.get("source_kind")},
+            )
+        )
+    items.sort(key=lambda t: (t.priority, t.item_id))
+    return items
+
+
 def collect_todos(
     sources: tuple[str, ...] | None = None,
     now: float | None = None,
@@ -295,7 +354,7 @@ def collect_todos(
     (most-overdue prereg first, oldest correction first, highest-
     severity audit finding first, action-tier claim first).
     """
-    requested = sources or ("prereg", "correction", "audit", "claim")
+    requested = sources or ("prereg", "correction", "audit", "claim", "structural-fix")
     out: list[TodoItem] = []
     for src in requested:
         if src == "prereg":
@@ -306,6 +365,8 @@ def collect_todos(
             out.extend(_audit_todos(now=now))
         elif src == "claim":
             out.extend(_claim_todos(now=now))
+        elif src == "structural-fix":
+            out.extend(_structural_fix_todos(now=now))
     return out
 
 
@@ -314,6 +375,7 @@ def summary_counts() -> dict[str, int]:
     Useful for the briefing-row builder that wants the headline number
     without rendering the full list."""
     return {
+        "structural-fix": len(_structural_fix_todos()),
         "prereg": len(_prereg_todos()),
         "correction": len(_correction_todos()),
         "audit": len(_audit_todos()),
