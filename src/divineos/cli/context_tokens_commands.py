@@ -69,5 +69,14 @@ def register(cli: click.Group) -> None:
         # itself, because the 2026-08-18 failure was not a wrong count — it
         # was a right count belonging to somebody else, read off a display
         # that gave no hint the question had been answered about a stranger.
+        # ...and WHEN. A reading is the last turn the transcript recorded,
+        # not a live gauge. Across a compaction the final pre-compaction
+        # block still reads near-full while the window it describes is
+        # gone, so a stale number can be quoted as current without
+        # anything looking wrong. Printed beside the count for the same
+        # reason the pinned note is: the display is where the question
+        # gets answered or silently skipped.
+        if snap.usage_timestamp:
+            click.echo(f"  read from turn stamped {snap.usage_timestamp}")
         if not snap.pinned:
             click.echo(f"  [!] {snap.note}")

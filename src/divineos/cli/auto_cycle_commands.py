@@ -80,6 +80,21 @@ def _guess_context_pct() -> float:
     return float(total) / 1_000_000.0
 
 
+def _usage_stamp() -> str:
+    """When the usage block behind the current reading was written.
+
+    Display-only companion to ``_guess_context_pct``, which returns a
+    bare float and so cannot carry it. Empty string when unavailable —
+    a missing stamp prints nothing rather than a guess.
+    """
+    try:
+        from divineos.core.context_tokens import get_context_snapshot
+
+        return str(get_context_snapshot().usage_timestamp or "")
+    except Exception:  # noqa: BLE001 - observability boundary
+        return ""
+
+
 def _has_active_goal_progress(window_sec: int = 300) -> bool:
     """Heuristic: has a substrate goal been touched in the last window?
 
@@ -131,6 +146,14 @@ def status_cmd() -> None:
         click.echo(
             f"  context: {ctx_pct * 100:.1f}%  threshold: {auto_cycle.TRIGGER_THRESHOLD * 100:.0f}%"
         )
+        # When the reading was taken, on the same line of sight as the
+        # number. This surface's percentage was quoted as current on
+        # 2026-08-27 when it came from the last block before a
+        # compaction — true of a window that no longer existed. Nothing
+        # on screen could have shown that.
+        stamp = _usage_stamp()
+        if stamp:
+            click.echo(f"    read from turn stamped {stamp}")
     click.echo(f"  active goal progress: {has_active}")
     click.echo(f"  defers used: {defers_used}/{auto_cycle.MAX_DEFERS}")
     click.echo(f"  would fire: {fire}  ({reason})")
