@@ -1361,9 +1361,9 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/void/` | 28 | VOID — adversarial-sandbox subsystem. |
 | `core/push_orchestrator/` | 26 | Push orchestrator — foreground git push with file-lock serialization |
 | `core/pr_gate/` | 18 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
+| `core/context_tokens/` | 15 | Context-tokens — honest token-count gauge from session transcript. |
 | `core/expectation_tracking/` | 15 | Expectation tracking — what I expected vs what surfaced. |
 | `core/meld/` | 14 | The Meld — temporary shared workspace between two distinct selves. |
-| `core/context_tokens/` | 12 | Context-tokens — honest token-count gauge from session transcript. |
 | `core/ear_sweep/` | 11 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
 | `core/andrew_state/` | 10 | andrew_state — mutual-catch primitive for Andrew-observation channel. |
 | `core/consequence_chain/` | 10 | Consequence chain — Karma as explicit decision → outcome → lesson trace. |
@@ -1373,10 +1373,10 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/letter_seen_router/` | 8 | Letter-seen routing — detect a letter Read and mark it seen. |
 | `core/calibration/` | 7 | (no package docstring) |
 | `core/supervisor/` | 6 | Supervisor — circuit-breaker / chronic-failure handling. |
+| `core/uncommitted_work_check/` | 6 | Pre-extraction commit-discipline gate. |
 | `core/voice_guard/` | 6 | Voice-guard — pre-output audit primitives. |
 | `core/reliability/` | 5 | Reliability — Bayesian confidence with uncertainty. |
 | `core/correction_shape_v2/` | 4 | Correction-shape v2 — Layer-2 detector for MY self-corrections in my own output. |
-| `core/uncommitted_work_check/` | 4 | Pre-extraction commit-discipline gate. |
 | `core/corrigibility_tool_gate/` | 3 | Wire EMERGENCY_STOP into the Bash/Edit/Write tool channel. |
 | `core/semantic_classifier/` | 3 | Semantic classifier for gate-fire discrimination. |
 | `core/shape/` | 2 | Shape-primitive library — CONDITION-check helpers for keyword-based gates. |

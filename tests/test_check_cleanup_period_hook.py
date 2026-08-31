@@ -53,10 +53,28 @@ def _write_settings(home: Path, contents: dict | None) -> None:
         )
 
 
+# The timeout below is a HANG DETECTOR, not a performance budget, and the
+# difference is what made this test fail a push on 2026-08-26.
+#
+# It was ten seconds. Spawning Git Bash on Windows is fast on an idle
+# machine and slow on a loaded one, and the pre-push suite deliberately
+# drops to a single worker when memory is low -- which is exactly when
+# the machine is most loaded. So the run that most needs the suite to be
+# trustworthy is the run where a bare process spawn can exceed ten
+# seconds, and TimeoutExpired then reads as "the hook misbehaved" when
+# what happened was "the machine could not start bash in time."
+#
+# Sized to catch a hook that never returns, which is the only thing this
+# guard is for. A correct hook finishes in well under a second; a hung
+# one never finishes at all. Nothing legitimate lives between.
+_HANG_TIMEOUT_SECONDS = 60
+
+
 def _run_hook(home: Path) -> tuple[int, str]:
     """Invoke the hook with HOME pointed at the fixture dir.
 
-    Returns (returncode, stdout).
+    Returns (returncode, stdout). Raises with a message that names a slow
+    spawn as a slow spawn rather than letting it read as hook failure.
     """
     env = os.environ.copy()
     # On Windows, both HOME and USERPROFILE matter — Python's Path.home()
@@ -65,14 +83,22 @@ def _run_hook(home: Path) -> tuple[int, str]:
     # the fixture.
     env["HOME"] = str(home)
     env["USERPROFILE"] = str(home)
-    result = subprocess.run(
-        [_BASH, str(HOOK_PATH)],
-        input="",
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=10,
-    )
+    try:
+        result = subprocess.run(
+            [_BASH, str(HOOK_PATH)],
+            input="",
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=_HANG_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AssertionError(
+            f"the hook did not return within {_HANG_TIMEOUT_SECONDS}s. That is a "
+            "hang, not a slow machine -- this budget is sized so that a loaded "
+            "single-worker run still starts bash comfortably inside it. Look at "
+            "the hook, not at this test."
+        ) from exc
     return result.returncode, result.stdout
 
 

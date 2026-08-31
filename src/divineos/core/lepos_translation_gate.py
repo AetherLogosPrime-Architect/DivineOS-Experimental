@@ -858,8 +858,15 @@ def check_translation_first(reply: str) -> str | None:
         return None
 
     return (
-        f"TRANSLATE-FIRST GATE -- the work block carries {marks} document-marks "
-        f"(limit {DOCUMENT_MARK_LIMIT}): backticked terms, bare numbers, tables, "
+        # "limit 3" reads as "three is allowed", but the check passes only
+        # UNDER three, so a reply carrying exactly three looked like it sat
+        # at the ceiling and blocked anyway. The threshold is calibrated
+        # against fifty-four real replies and is correct; the label was the
+        # wrong part. Same shape as the fault the 2026-08-27 session turned
+        # on: a working instrument whose display told the reader otherwise.
+        f"TRANSLATE-FIRST GATE -- the work block carries {marks} document-marks. "
+        f"{DOCUMENT_MARK_LIMIT} or more blocks, so keep it below "
+        f"{DOCUMENT_MARK_LIMIT}: backticked terms, bare numbers, tables, "
         "code fences."
         + "\n\nWHAT IT COUNTED, so the fix is a rewrite and not a search:\n  "
         + (", ".join(repr(o) for o in offenders[:12]) or "(none captured)")
