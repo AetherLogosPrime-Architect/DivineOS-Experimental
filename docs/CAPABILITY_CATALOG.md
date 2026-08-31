@@ -21,9 +21,9 @@ Commands that DO report usage:
 | command | recorded invocations |
 |---|---|
 | `ask` | 441 |
-| `briefing` | 233 |
+| `briefing` | 235 |
 | `decide` | 151 |
-| `compass` | 131 |
+| `compass` | 135 |
 | `context` | 86 |
 | `recall` | 49 |
 | `lessons` | 36 |
@@ -1341,7 +1341,7 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/knowledge/` | 706 | Knowledge sub-package — tiered re-exports for performance. |
 | `core/operating_loop/` | 247 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
-| `core/watchmen/` | 179 | Watchmen — External Validation as a Native Runtime Capability. |
+| `core/watchmen/` | 182 | Watchmen — External Validation as a Native Runtime Capability. |
 | `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
 | `core/pre_registrations/` | 65 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |

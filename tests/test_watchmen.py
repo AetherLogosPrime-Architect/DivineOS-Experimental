@@ -195,6 +195,35 @@ class TestReservedExternalVantageShapes:
         assert _validate_actor("new-independent-service") == "new-independent-service"
         assert _validate_actor("some-third-party-tool") == "some-third-party-tool"
 
+    def test_the_guard_stops_the_lazy_reach_and_not_a_determined_one(self):
+        """The limit, made executable instead of left in a council walk.
+
+        Same behaviour as the test above, read from the other side. The one
+        above says an unlisted name onboards, which is the feature. This says
+        an unlisted name that MEANS external-vantage onboards just the same,
+        which is the cost of the feature — a fixed list is a boundary someone
+        walks around rather than through.
+
+        Every name below reads as an outside reviewer to any human skimming
+        the audit record, and none is on the list. Anyone reaching for the
+        obvious word is stopped; anyone willing to pick a synonym is not.
+
+        Kept as a passing test rather than an xfail because these are not
+        bugs to be fixed by lengthening the list — lengthening it just moves
+        the boundary and the next synonym walks around the new one. What
+        holds is the seat declining to type any of them, which no test can
+        observe. Schneier lens, council walk on this branch; Aria 2026-08-30
+        asked for the claim to live in the code and not only in the review.
+        """
+        for walkaround in (
+            "outside-eyes",
+            "reviewer-2",
+            "audit-partner",
+            "impartial-review",
+            "external_auditor",  # underscore, not hyphen
+        ):
+            assert _validate_actor(walkaround) == walkaround
+
 
 # ── Round Submission ─────────────────────────────────────────────────
 

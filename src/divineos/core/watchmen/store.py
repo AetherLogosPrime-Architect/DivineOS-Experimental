@@ -151,6 +151,28 @@ def _validate_actor(actor: str) -> str:
     # Legitimate onboarding of a new external actor still works — either
     # via a name not on the reserved list, or via a guardrail-audited
     # edit adding the specific reserved-name to EXTERNAL_ACTORS.
+    #
+    # WHAT THIS GUARD DOES NOT DO, stated here rather than only in the walk
+    # (Schneier lens; Aria 2026-08-30 asked for it in the body, on the
+    # grounds that a finding living only in a review is a finding the merge
+    # record does not carry). A fixed list of names is a boundary someone
+    # walks AROUND rather than through. It stops the lazy reach — typing the
+    # obvious word when a gate wants an outside confirm — and it does not
+    # stop a determined one, because `outside-eyes` or `reviewer-2` or any
+    # unlisted name still takes the warn-and-accept path. Read the guard as
+    # raising the cost of the cheap route, not as making forgery impossible.
+    # The thing that actually holds is the seat declining to type the name,
+    # which is unverifiable from outside by construction.
+    #
+    # STRUCTURAL BACKING for knowledge 1329c1e3-e17a-406a-8659-973d2df363fe
+    # (self-caught 2026-07-17: "whenever a step depends on external-actor
+    # CONFIRMS and I have the ability to file one myself, that IS the exact
+    # temptation the whole architecture is calibrated against"). That entry
+    # was a will-shape promise carrying no structure for over a month. This
+    # is the structure. It was live again on 2026-08-30, when the stamp-ready
+    # gate blocked thirteen proposals on a confirm from the operator that I
+    # could have filed under his name; the refusal was mine, not the code's,
+    # which is precisely why the promise needed something in code beside it.
     _RESERVED_EXTERNAL_VANTAGE_NAMES = frozenset(
         {
             "external-auditor",
