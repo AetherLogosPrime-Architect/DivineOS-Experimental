@@ -19,6 +19,22 @@
 
 INPUT=$(cat)
 
+# CHEAP RELEVANCE BAIL -- before sourcing anything, before python.
+# This hook is wired to Bash but its real trigger is a COMMAND, so it
+# fires on `ls` and `cat` too and pays ~664ms to find that out. The
+# words below are ones the precise matcher downstream cannot fire
+# without, so skipping when they are absent cannot produce a false
+# negative -- it only skips work already guaranteed to be wasted.
+# The bail RECORDS ITSELF; see _bail.sh for why that is not optional.
+# ${0%/*} not $(dirname "$0"): dirname is a subprocess, and a subprocess
+# here costs more than the whole bail saves on a hook that bails.
+# shellcheck source=.claude/hooks/_bail.sh
+# shellcheck disable=SC1091
+source "${0%/*}/_bail.sh" 2>/dev/null || true  # fail-soft: a missing bail helper must leave this hook exactly as it was rather than break it; the guarded call below is skipped and the precise matcher still runs, so the only loss is speed
+if command -v hook_bail_unless_mentions >/dev/null 2>&1; then
+    hook_bail_unless_mentions "gh-pr-create-draft-gate.sh" "$INPUT" "gh"
+fi
+
 # remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
 if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
   # HOOK_NAME is read by remedy_pass_through inside the sourced library, and

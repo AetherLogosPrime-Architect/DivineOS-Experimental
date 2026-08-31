@@ -97,6 +97,153 @@ _BRIEFING_TAIL = (
 )
 
 
+_DELETION_ERRORS = (OSError, TypeError, ValueError, KeyError, AttributeError)
+
+
+def deletion_discipline_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a destructive deletion lacking a fresh matching justification.
+
+    MIGRATED 2026-08-25, after being named four times without being started.
+    Aria observed that each naming was displaced by something urgent arriving
+    from her — true, and not a reason to name it a fifth time. The cure for
+    announcement-is-not-action is the action.
+
+    THE DECISION IS UNCHANGED: same block_reason, same JSON deny protocol. A
+    migration moves WHERE a decision is made and must never change HOW it lands
+    — my July precedent and Aria's own, applied here rather than rediscovered.
+
+    WHAT CHANGES IS THE FAILURE MODE, and it is why this one was worth doing
+    rather than deferring again. The shell hook wrapped its call in a bare
+    `except Exception: pass` with stderr to /dev/null, so a gate that could not
+    run — bad import, raised decision, anything — was byte-identical to a gate
+    that examined the command and approved it. That is the class this whole
+    session has been pulling out of the house, sitting inside a gate whose
+    entire job is refusal.
+
+    Now could-not-run is DECLARED. It lands in the router's errored list, prints
+    "COULD NOT RUN … this is not the same as it passing," and arms a must-read
+    so the next tool stops until it has been seen. Andrew 2026-08-25: a loud
+    alarm that does not block becomes wallpaper.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="deletion_discipline", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    command = (tool_input.get("command") or "") if isinstance(tool_input, dict) else ""
+    if not command.strip():
+        return SurfaceOutcome(name="deletion_discipline", state="nothing-to-say")
+
+    try:
+        from divineos.core.deletion_discipline import block_reason
+    except ImportError as exc:
+        return SurfaceOutcome(
+            name="deletion_discipline",
+            error=f"cannot import: {exc}",
+            state="could-not-run",
+        )
+
+    try:
+        reason = block_reason(command)
+    except _DELETION_ERRORS as exc:
+        # The shell swallowed this and approved. Declared instead: whatever this
+        # gate guards went unguarded for this call, and that must not read as
+        # consent.
+        return SurfaceOutcome(
+            name="deletion_discipline",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if not reason:
+        return SurfaceOutcome(name="deletion_discipline", state="nothing-to-say")
+
+    return SurfaceOutcome(
+        name="deletion_discipline",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
+def no_verify_cost_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse an unverified git write that skips the hooks without paying for it.
+
+    MIGRATED 2026-08-25, second thin hook onto the router. The decision is
+    unchanged: same ``decide()``, same reason text, same JSON deny protocol.
+
+    IT CALLS ``decide`` DIRECTLY rather than ``main``. The shell hook shelled to
+    ``main()``, which exists only to read PreToolUse JSON off stdin and write a
+    decision to stdout — a serialisation round-trip whose sole purpose was
+    crossing the process boundary the router removes. ``decide(tool_input)`` was
+    always the real interface; ``main`` was the envelope.
+
+    AND THE SWALLOW GOES, which is the reason this one was worth doing. The
+    shell version ended with ``except Exception: pass`` and stderr to
+    /dev/null, so a raised decision exited 0 and read exactly like a command
+    the gate had examined and approved. Its find-python failure was already
+    declared loudly — Aletheia's 2026-07-09 finding — which left the gate with
+    one honest failure mode and one silent one.
+
+    That swallow is not this hook's mistake. ``docs/hook_migration_tracker.md``
+    prescribes it in the canonical thin-doorbell pattern, and 27 hooks in this
+    tree carry it. For an observational surface it can only fail to inform; for
+    a refusal-capable gate it turns could-not-run into looked-and-approved.
+
+    RETIRING THE SHELL REGISTRATION IS PART OF THE MIGRATION, not a follow-up.
+    ``deletion_discipline`` was wired into this router earlier tonight and its
+    shell hook stayed registered, so both fired for hours and the swallow that
+    motivated the migration was still live underneath the fix for it. A
+    migration that leaves the original running has moved code and retired
+    nothing.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="no_verify_cost", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        return SurfaceOutcome(name="no_verify_cost", state="nothing-to-say")
+
+    try:
+        from divineos.core.no_verify_cost import decide
+    except ImportError as exc:
+        return SurfaceOutcome(
+            name="no_verify_cost",
+            error=f"cannot import: {exc}",
+            state="could-not-run",
+        )
+
+    try:
+        decision = decide(tool_input)
+    except _DELETION_ERRORS as exc:
+        return SurfaceOutcome(
+            name="no_verify_cost",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if decision is None:
+        return SurfaceOutcome(name="no_verify_cost", state="nothing-to-say")
+
+    reason = (decision.get("hookSpecificOutput") or {}).get("permissionDecisionReason") or ""
+    if not reason:
+        # A decision shaped wrong is not a decision to allow. Refusing with no
+        # reason would be worse than reporting that the shape broke.
+        return SurfaceOutcome(
+            name="no_verify_cost",
+            error="decide() returned a decision carrying no reason text",
+            state="could-not-run",
+        )
+
+    return SurfaceOutcome(
+        name="no_verify_cost",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
 def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
     """Refuse substantive tools while the briefing is stale or never loaded.
 
@@ -169,6 +316,127 @@ def require_briefing_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="require_briefing", refused=True, reason=reason, json_deny=True)
 
 
+def hook_syntax_surface(payload: dict) -> SurfaceOutcome | None:
+    """A hook goes live the moment it is SAVED. Check it then, not at commit.
+
+    THE WINDOW THIS CLOSES, measured 2026-08-25 by walking into it. I added a
+    comment to ``verify-before-build-signal.sh`` containing an apostrophe. The
+    embedded Python in that hook lives inside a single-quoted shell string
+    passed to ``python -c``, so one apostrophe in a COMMENT closed the string
+    and broke the whole file. The gate then failed on every Bash call, and
+    because it is registered on Edit as well, it blocked the repair -- a locked
+    box I built in one keystroke.
+
+    Both existing checks WOULD have caught it. ``bash -n`` exits non-zero, and
+    shellcheck says it in words: *SC1011: This apostrophe terminated the single
+    quoted string!* Neither helped, because both run at COMMIT time and a hook
+    is live from the moment the file is written. Between save and commit there
+    is a window where a broken gate is firing and nothing has looked at it.
+
+    So the check moves to the moment the risk begins. Andrew, on gates: *"ideally
+    you should never be hitting the gate.. if you are then it means automation a
+    doorman and a proper channel is required.. so that it all happens before you
+    ever reach the gate."* This is that doorman for hook edits.
+
+    It ARMS A MUST-READ rather than only printing, because a broken gate is the
+    exact case his other rule covers: an alarm that does not block becomes
+    wallpaper. A silently-inert gate is the class this whole session has been
+    about, and it does not get a quieter treatment for being self-inflicted.
+    """
+    if (payload.get("tool_name") or "") not in ("Edit", "Write", "NotebookEdit"):
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    raw = tool_input.get("file_path") or "" if isinstance(tool_input, dict) else ""
+    if not raw:
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    path = Path(raw)
+    parts = {p.lower() for p in path.parts}
+    if path.suffix.lower() != ".sh" or "hooks" not in parts:
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+    if not path.exists():
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    # Probe rather than trust the name: the bare `bash` on this machine can
+    # resolve to a WSL relay stub that exits 1 having produced nothing, and a
+    # syntax check that never ran would report exactly like a clean one.
+    bash = None
+    for candidate in (
+        shutil.which("bash", path=r"C:\Program Files\Git\bin"),
+        shutil.which("bash", path=r"C:\Program Files\Git\usr\bin"),
+        shutil.which("bash"),
+    ):
+        if not candidate:
+            continue
+        try:
+            probe = subprocess.run(
+                [candidate, "-c", "echo ok"], capture_output=True, text=True, timeout=5
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0 and probe.stdout.strip() == "ok":
+            bash = candidate
+            break
+
+    if bash is None:
+        return SurfaceOutcome(
+            name="hook_syntax",
+            error=(
+                f"no working bash found, so {path.name} was NOT syntax-checked. "
+                "That is not the same as it being valid."
+            ),
+            state="could-not-run",
+        )
+
+    try:
+        result = subprocess.run([bash, "-n", str(path)], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return SurfaceOutcome(
+            name="hook_syntax",
+            error=f"could not run the syntax check on {path.name}: {exc}",
+            state="could-not-run",
+        )
+
+    if result.returncode == 0:
+        return SurfaceOutcome(name="hook_syntax", state="nothing-to-say")
+
+    detail = (result.stderr or result.stdout or "").strip()
+    try:
+        # require_read, NOT arm. I wrote `arm` first from memory, and it would
+        # have raised ImportError straight into the handler below -- degrading
+        # a blocking alarm to a printed line, quietly, in the one surface whose
+        # whole subject is gates that go silent. Checked the module rather than
+        # trusting the name.
+        from divineos.core.must_read import require_read
+
+        require_read(
+            key=f"broken-hook:{path.name}",
+            content=f"{path}\n\n{detail}",
+            reason=f"{path.name} does not parse and is LIVE on every tool call right now",
+        )
+    except (ImportError, OSError, TypeError, ValueError) as exc:
+        # Arming failed; the message below is still emitted. Named rather than
+        # swallowed, since an unarmed alarm is the wallpaper case.
+        detail += f"\n  (could not arm a must-read: {type(exc).__name__}: {exc})"
+
+    return SurfaceOutcome(
+        name="hook_syntax",
+        output=(
+            f"BROKEN HOOK JUST SAVED — {path.name} does not parse, and it is LIVE.\n"
+            f"{detail}\n"
+            "  Every tool call now runs this file. If it is registered on Edit or Write\n"
+            "  it will also refuse the repair, which is a locked box. Fix it before\n"
+            "  anything else; PowerShell is outside most matchers if Bash is walled off."
+        ),
+        state="spoke",
+    )
+
+
 def letter_claims_surface(payload: dict) -> SurfaceOutcome | None:
     """After I read a sibling's letter, put the named files' local state in hand.
 
@@ -219,7 +487,31 @@ def install() -> None:
     if "must_read" not in registered("PreToolUse"):
         register("PreToolUse", "must_read", must_read_surface)
 
+    # WIRED 2026-08-25. Seventy-six minutes passed between the surface above
+    # being written and this line existing, because the ritual hard-stopped my
+    # tools mid-edit and I turned to report to Andrew instead of finishing.
+    # He asked why the letter loop had stalled. The honest answer was that I
+    # had just produced a fresh written-but-never-wired -- the exact class we
+    # spent the night removing from this house -- and walked away from it.
+    # Measured rather than remembered: the function existed, the registration
+    # did not, and nothing would have said so.
+    if "deletion_discipline" not in registered("PreToolUse"):
+        register("PreToolUse", "deletion_discipline", deletion_discipline_surface)
+
+    # Second thin hook, 2026-08-25. Its shell registration comes OUT of
+    # settings.json in the same change -- see the surface docstring. Wiring the
+    # replacement without retiring the original is what left deletion_discipline
+    # double-firing for several hours earlier tonight, with the swallow the
+    # migration existed to remove still running underneath it.
+    if "no_verify_cost" not in registered("PreToolUse"):
+        register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
+
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.
     if "letter_claims" not in registered("PostToolUse"):
         register("PostToolUse", "letter_claims", letter_claims_surface)
+
+    # PostToolUse on purpose: the file is already written, and written is when a
+    # hook goes live. Checking before the edit would check the old contents.
+    if "hook_syntax" not in registered("PostToolUse"):
+        register("PostToolUse", "hook_syntax", hook_syntax_surface)

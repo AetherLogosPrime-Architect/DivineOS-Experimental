@@ -420,6 +420,6 @@ PYEOF
         printf '%s' "$_HOOK_INPUT" | bash "$REPO_ROOT/.claude/hooks/verify-push-landed.sh" >/dev/null 2>&1 || \
             log_row "fail" "verify-landing" "branch=$BRANCH verify-push-landed.sh returned non-zero"
     fi
-) &
+) >>"${_LOG_PATH}.bg" 2>&1 </dev/null &
 
 exit 0

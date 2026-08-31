@@ -59,10 +59,29 @@
 # hook is still a separate process (cache does not survive across hooks
 # — that is what the single-process consolidation will fix), but the
 # quick-win takes the redundant calls out of the picture cheaply.
+# 2026-08-20: derive the root from THIS FILE's own path before paying for
+# git. _lib.sh always lives at <repo>/.claude/hooks/_lib.sh, so the root is
+# two directories up -- a fact that does not need a subprocess to discover.
+# git rev-parse cost ~39ms and ran on every hook, on every tool call.
+#
+# Verified, not assumed: the derived path is accepted only if it actually
+# contains .claude/hooks/_lib.sh. If this file is ever moved, symlinked or
+# vendored somewhere else, the check fails and git answers as before. A
+# cheaper path that can be silently wrong is worse than the spawn -- that is
+# the defect class this whole session has been about.
 _LIB_REPO_ROOT_CACHE=""
 _lib_repo_root() {
   if [ -z "$_LIB_REPO_ROOT_CACHE" ]; then
-    _LIB_REPO_ROOT_CACHE="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+    local _self="${BASH_SOURCE[0]:-}"
+    local _guess=""
+    case "$_self" in
+      */.claude/hooks/*) _guess="${_self%/.claude/hooks/*}" ;;
+    esac
+    if [ -n "$_guess" ] && [ -f "$_guess/.claude/hooks/_lib.sh" ]; then
+      _LIB_REPO_ROOT_CACHE="$_guess"
+    else
+      _LIB_REPO_ROOT_CACHE="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+    fi
   fi
   printf '%s' "$_LIB_REPO_ROOT_CACHE"
 }
@@ -123,7 +142,30 @@ _HOOK_TIMING_START_MS=""
 _HOOK_TIMING_SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
 _HOOK_TIMING_WPID="${CLAUDE_PID:-}"
 
+# NO SPAWN ON THE COMMON PATH. Measured 2026-08-20, after Andrew reported
+# freezing for seven minutes with the token count stuck: sourcing this file
+# cost 207ms before a hook did any work, against a 25ms floor for bash
+# itself, and 26 hooks pay it on EVERY tool call. Under real load each hook
+# averaged ~2s and the stack summed to 40.8s typical / 73.8s p95 per call --
+# minutes of dead screen across a multi-tool turn, and an interrupt that
+# cannot land until the whole chain drains.
+#
+# `date` is an external process and this ran it twice per hook, start and
+# end. $EPOCHREALTIME is a bash-5 builtin holding seconds.microseconds, so
+# the common path now costs zero processes for the same millisecond output.
+#
+# The date fallback stays for bash 4 and for any shell where the builtin is
+# unset. Removing a spawn must not quietly become removing the capability --
+# that is the shape of half tonight's other defects.
 _lib_hook_timing_ms() {
+  local er="${EPOCHREALTIME:-}"
+  case "$er" in
+    *.*)
+      local _s="${er%%.*}" _f="${er#*.}"
+      printf '%s%s' "$_s" "${_f:0:3}"
+      return
+      ;;
+  esac
   local ms
   ms="$(date +%s%3N 2>/dev/null)"
   case "$ms" in
@@ -142,14 +184,23 @@ _lib_hook_timing_start() {
   # a hook wraps the source call.
   local hook_name
   hook_name="${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-unknown}}"
-  hook_name="$(basename "$hook_name")"
+  # Parameter expansion rather than basename: same result, no process. See
+  # the spawn-removal note in _lib_log_liveness for the measurement.
+  hook_name="${hook_name##*/}"
+  hook_name="${hook_name:-unknown}"
   # If we ended up with _lib.sh itself (invoked directly for testing),
   # keep that — it identifies self-test runs.
   local start_ms
   start_ms="$(_lib_hook_timing_ms)"
   _HOOK_TIMING_ID="${hook_name}-$$-${start_ms}"
   _HOOK_TIMING_START_MS="$start_ms"
-  mkdir -p "$(dirname "$_HOOK_TIMING_LOG")" 2>/dev/null
+  # Parameter expansion, not $(dirname ...): this file is sourced by every
+  # hook on every tool call, so a subprocess here is paid ~20 times per call.
+  # The [ -d ] guard skips mkdir entirely once the directory exists, which is
+  # every run after the first. Kept over main's unconditional dirname during
+  # the 2026-08-22 merge for that reason -- same behaviour, no fork.
+  local _tdir="${_HOOK_TIMING_LOG%/*}"
+  [ -d "$_tdir" ] || mkdir -p "$_tdir" 2>/dev/null
   printf '{"id":"%s","hook":"%s","pid":%d,"session":"%s","wpid":"%s","phase":"start","ts_ms":%s}\n' \
     "$_HOOK_TIMING_ID" "$hook_name" "$$" \
     "$_HOOK_TIMING_SESSION" "$_HOOK_TIMING_WPID" "$start_ms" \
@@ -198,15 +249,90 @@ _lib_log_liveness() {
   local _detail="${2:-}"
   local _hook_name
   _hook_name="${BASH_SOURCE[1]:-unknown}"
-  # fail-soft: basename utility absence or malformed path falls back to literal 'unknown' string rather than breaking the log call
-  _hook_name="$(basename "$_hook_name" 2>/dev/null || echo unknown)"
-  # fail-soft: mkdir suppression is safe — either the dir exists (fine) or filesystem permissions block us (log write will also fail-soft below and hook proceeds)
-  mkdir -p "$(dirname "$_LIB_LIVENESS_LOG")" 2>/dev/null || true
+  # THREE SPAWNS REMOVED (2026-08-20). This function runs on every source of
+  # _lib.sh -- so on every hook, on every tool call -- and it launched
+  # basename, mkdir and date each time. Nine processes per tool call across
+  # the 26 hooks, for one line of log. Parameter expansion, a -d test and a
+  # printf builtin do the same work without leaving the shell.
+  # fail-soft: an empty or odd path degrades to the literal string rather than breaking the log call
+  _hook_name="${_hook_name##*/}"
+  _hook_name="${_hook_name:-unknown}"
+  local _dir="${_LIB_LIVENESS_LOG%/*}"
+  # fail-soft: only pay for mkdir when the directory is actually absent; permissions failures fall through to the log write, which is itself fail-soft
+  [ -d "$_dir" ] || mkdir -p "$_dir" 2>/dev/null || true
   local _ts
-  # fail-soft: date command absence falls back to literal 'unknown' timestamp string rather than crashing the liveness logger
-  _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  # printf %(fmt)T is a bash-4.2 builtin; -1 means "now". The date fallback
+  # stays for older shells -- dropping a spawn must not drop the capability.
+  if ! printf -v _ts '%(%Y-%m-%dT%H:%M:%SZ)T' -1 2>/dev/null; then  # fail-soft: %(fmt)T is a bash>=4.2 builtin and errors loudly on older shells; the swallow keeps that noise out of hook stderr while the date fallback below supplies the same timestamp
+    _ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"  # fail-soft: if date is also unavailable the literal 'unknown' is written, because a liveness logger that crashes the hook would cause the outage it exists to report
+  fi
   # fail-soft: liveness log write failures are informational only and must never block hook execution; loud-fail would defeat the purpose of a fallback-signal mechanism
   printf '{"ts":"%s","hook":"%s","reason":"%s","detail":"%s"}\n' "$_ts" "$_hook_name" "$_reason" "$_detail" >> "$_LIB_LIVENESS_LOG" 2>/dev/null || true
+}
+
+divineos_home() {
+  # Print the per-agent data home. Shell mirror of paths.divineos_home().
+  #
+  # WHY THIS EXISTS. Aria measured it 2026-08-25: twenty-five hooks reach for
+  # `$HOME/.divineos` by hand, because _lib.sh offered nothing else to reach
+  # for. In HER tree the writer resolves to `.divineos-aria` while those
+  # readers point at `.divineos` -- so surfaces have been firing at her off
+  # findings her substrate never produced.
+  #
+  # Measured from my side, which is the half she could not see: the hardcoded
+  # path IS my home. `divineos_home()` here resolves to `~/.divineos` and the
+  # hardcode resolves to the same directory. So these are not twenty-five
+  # broken files. They are twenty-five files that hardcode MY home, work
+  # perfectly in my tree, and quietly hand her my data in hers.
+  #
+  # That distinction matters for the triage. There is no category of
+  # "hardcoded and fine" -- a hardcode is correct here only by coincidence of
+  # whose checkout it runs in. Two categories remain: per-agent state uses
+  # this resolver, genuinely-shared state names the shared path EXPLICITLY so
+  # sharing is a decision rather than a leftover.
+  #
+  # Resolution order matches the Python resolver exactly, first match wins:
+  #   1. DIVINEOS_HOME env var
+  #   2. .divineos_data_home marker, walking up from CWD
+  #   3. same marker in the repo root
+  #   4. ~/.divineos
+  #
+  # Deliberately NOT creating the directory -- same contract as the Python
+  # side, callers ensure existence before writing.
+  if [ -n "${DIVINEOS_HOME:-}" ]; then
+    printf '%s' "$DIVINEOS_HOME"
+    return 0
+  fi
+
+  local dir marker
+  dir="$PWD"
+  while [ -n "$dir" ] && [ "$dir" != "/" ]; do
+    marker="$dir/.divineos_data_home"
+    if [ -f "$marker" ]; then
+      # First non-empty, non-comment line, whitespace trimmed.
+      local val
+      val="$(grep -v '^[[:space:]]*#' "$marker" 2>/dev/null | grep -v '^[[:space:]]*$' | head -1 | tr -d '[:space:]')"  # fail-soft: an unreadable or malformed marker falls through to the repo-root check and then to the default, which is the same degradation the Python resolver has; a hook must not die because a marker file is odd
+      if [ -n "$val" ]; then
+        printf '%s' "$val"
+        return 0
+      fi
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  local repo_root
+  repo_root="$(_lib_repo_root)"
+  marker="$repo_root/.divineos_data_home"
+  if [ -f "$marker" ]; then
+    local val
+    val="$(grep -v '^[[:space:]]*#' "$marker" 2>/dev/null | grep -v '^[[:space:]]*$' | head -1 | tr -d '[:space:]')"  # fail-soft: as above -- a bad marker degrades to the default rather than taking the hook down with it
+    if [ -n "$val" ]; then
+      printf '%s' "$val"
+      return 0
+    fi
+  fi
+
+  printf '%s' "$HOME/.divineos"
 }
 
 find_divineos_python() {
@@ -238,17 +364,37 @@ find_divineos_python() {
   # required: (a) also check the parent repo's .venv via
   # --git-common-dir; (b) validate each candidate runs
   # `-c "import sys; sys.exit(0)"` before returning it.
+  # TWO PASSES, so the common case pays for nothing it does not use.
+  # 2026-08-20: --git-common-dir was spawned unconditionally, and so were both
+  # `command -v` lookups, before the loop had a chance to find the venv sitting
+  # in this very checkout -- which is where it is essentially every time. The
+  # candidate order already said the local venv wins; the setup did not listen.
+  #
+  # Pass 1 is the local venv and costs no processes to assemble. Only if it
+  # comes up empty do we pay for the worktree's parent repo and PATH lookups.
+  # The ORDER of candidates is unchanged, so which interpreter wins is exactly
+  # what it was -- this changes when the lookups happen, never their priority.
+  local candidate
+  for candidate in \
+    "$repo_root/.venv/bin/python" \
+    "$repo_root/.venv/Scripts/python.exe" \
+    "$repo_root/venv/bin/python"
+  do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+      if "$candidate" -c "import sys; sys.exit(0)" >/dev/null 2>&1; then
+        echo "$candidate"
+        return 0
+      fi
+    fi
+  done
+
   local common_dir
   common_dir="$(_lib_common_dir)"
   local main_repo=""
   if [ -n "$common_dir" ] && [ -d "$common_dir" ]; then
     main_repo="$(dirname "$(cd "$common_dir" && pwd)")"
   fi
-  local candidate
   for candidate in \
-    "$repo_root/.venv/bin/python" \
-    "$repo_root/.venv/Scripts/python.exe" \
-    "$repo_root/venv/bin/python" \
     "$main_repo/.venv/bin/python" \
     "$main_repo/.venv/Scripts/python.exe" \
     "$main_repo/venv/bin/python" \

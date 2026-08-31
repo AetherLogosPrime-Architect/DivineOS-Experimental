@@ -138,11 +138,28 @@ if tool_name == 'Write':
     new_content = tool_input.get('content', '') or ''
     # For Write on existing file, compare against current disk content
     old_content = ''
+    baseline_read = True
     try:
         if fp_resolved.exists():
             old_content = fp_resolved.read_text(encoding='utf-8')
-    except Exception:
-        pass
+    except Exception as _exc:
+        # FAILS CLOSED, AND NOW SAYS SO. Found by Aria 2026-08-25, who ran this
+        # arithmetic instead of reading it -- I read it the same hour, saw that
+        # an unreadable baseline leaves old_count at zero and therefore pushes
+        # toward the refusal, wrote 'fails closed, fine', and stopped.
+        #
+        # The direction is right and the REFUSAL IS WRONG. An unchanged file
+        # whose baseline could not be read looks like it added every pattern it
+        # already had, so the message explains a delta that does not exist and
+        # nothing tells the reader the comparison had no left-hand side.
+        # Verified both ways on identical content: readable baseline allows,
+        # swallowed baseline refuses.
+        baseline_read = False
+        sys.stderr.write(
+            '[keyword-doorman] could not read the existing file to compare against ('
+            + type(_exc).__name__ + ': ' + str(_exc) + '). Treating its pattern count '
+            'as zero, so any pattern in the new content reads as an addition. '
+            'A refusal below may be describing a delta that does not exist.\n')
     old_count = count_regex_patterns(old_content)
     new_count = count_regex_patterns(new_content)
     if new_count <= old_count:
@@ -208,7 +225,18 @@ except Exception:
     pass
 
 # BLOCK
-print(f'''KEYWORD-ENFORCEMENT-DOORMAN — this substrate-mutation adds {delta} new regex pattern(s) to {matched_registry}, a file classified as keyword-enforcement gate.
+#
+# The caveat rides in the REFUSAL, not only on stderr. A refusal is the thing
+# actually read; a stderr line beside it is not, and this gate's whole subject
+# is the difference between a message and a thing nobody receives.
+_caveat = ''
+if not baseline_read:
+    _caveat = (
+        '\n[!] THE COMPARISON HAD NO LEFT-HAND SIDE. The existing file could not be read, '
+        'so its pattern count was taken as zero and everything already in it reads as new. '
+        'The count below may be describing an addition that did not happen. Check the file '
+        'before answering the question this gate is asking.\n')
+print(f'''KEYWORD-ENFORCEMENT-DOORMAN — this substrate-mutation adds {delta} new regex pattern(s) to {matched_registry}, a file classified as keyword-enforcement gate.{_caveat}
 
 Andrew 2026-07-27: keyword detectors as ENFORCEMENT are the wrong shape (infinite whack-a-mole, easy to subvert, always false-firing). Adding more regex to patch regex-false-fires is the exact anti-pattern that walked the composer on this same file the same day.
 

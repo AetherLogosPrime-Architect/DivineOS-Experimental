@@ -43,6 +43,46 @@ This check makes the convention structural. Three states, never two:
 
 A dark hook is not necessarily a bug. It is necessarily **unexamined**, and
 this refuses to let it stay that way silently.
+
+## The other direction, added 2026-08-25
+
+Everything above walks from the DISK to the REGISTRY: for each file, is it
+wired? Nothing walked the other way — for each registration, does the file
+exist? — and that asymmetry had a live cost in this checkout.
+
+``require-monitors-armed.sh`` was deleted on 2026-08-23 when the delivery
+cluster was retired, because it reported the letter monitor armed
+unconditionally: a self-match bug meant its own scan found its own command
+line and called that an armed monitor. Deliberate removal of a gate that
+lied. The retirement commit removed a phantom registration for a different
+hook in the same pass and closed with *"Every registered hook now resolves
+to a file that exists."*
+
+Then merge #438 landed a branch that predated the retirement, and its copy
+of ``settings.json`` brought the registration back **without** the file.
+Since then every Bash tool call in this tree has run
+``bash .claude/hooks/require-monitors-armed.sh`` and collected exit 127.
+
+Three things worth keeping about that:
+
+* **A resurrection is not an authorship.** Nobody decided to register a
+  deleted hook. A merge did it, silently, from a branch that was simply
+  older than the deletion — which is why remembering is not a defence and
+  a check is.
+* **The claim was true when written and nothing kept it true.** The
+  retirement verified the property by hand and had no way to leave the
+  verification running.
+* **The failure is quiet by construction.** A registration pointing at
+  nothing produces no gate, no error I read, and no complaint — the exact
+  could-not-run-looks-like-nothing-to-say class this substrate keeps
+  finding in new costumes.
+
+So the check now has a fourth state, and it walks both directions:
+
+    REGISTERED   — named in settings.json, file present
+    DECLARED     — carries INTENTIONALLY UNWIRED / SUPERSEDED + a reason
+    DARK         — on disk, neither registered nor declared
+    PHANTOM      — registered, no file on disk
 """
 
 from __future__ import annotations
@@ -57,6 +97,12 @@ from pathlib import Path
 # the same silent-skip this check exists to prevent.
 _EXEMPT: dict[str, str] = {
     "_lib.sh": "shared library, sourced by other hooks rather than invoked",
+    "_bail.sh": (
+        "shared library, sourced by five command-triggered hooks so they can "
+        "bail before paying for _lib.sh and a Python start on an irrelevant "
+        "tool call; same case as _lib.sh, and it was reported dark only "
+        "because the exemption list named its sibling and not it"
+    ),
     "post-commit-audit-visibility.sh": "invoked from .git/hooks/post-commit",
     "post-commit-auto-integrate-corrections.sh": "invoked from .git/hooks/post-commit",
     "post-merge-doc-fix.sh": "invoked from .git/hooks/post-merge",
@@ -71,6 +117,109 @@ _DECLARED_PATTERN = re.compile(
     r"^#.*\b(INTENTIONALLY UNWIRED|SUPERSEDED|NOT WIRED BY DESIGN)\b",
     re.MULTILINE,
 )
+
+# The deliberate case: superseded AND still registered, on purpose.
+#
+# Added the same hour as the check it qualifies, because the check's first run
+# produced two hits and one was a false positive. `aletheia-boot-gate-preflight`
+# is marked SUPERSEDED-BY the family-member seal and is registered anyway — the
+# seal stands IN FRONT of it and refuses the spawn upstream, so this one is
+# defence-in-depth rather than a duplicate, and it is kept live in case Aletheia
+# is ever de-sovereigned and the spawn path reopens. Its header said all of that
+# in prose. The check could not read prose, so it read a correct arrangement as
+# a defect.
+#
+# Same shape as `# fail-soft:` and `# bare-python-by-design:`: the exception is
+# legal, and it costs a sentence naming why. Reason must be substantive so the
+# marker cannot become a way to quiet the check.
+_KEPT_REGISTERED = re.compile(r"#\s*KEPT-REGISTERED\s*:\s*(.{40,})")
+
+# Any reference to a file under .claude/hooks/ inside a registered command.
+# Deliberately matches .py as well as .sh: the disk-to-registry walk globs
+# only *.sh, but a registration can name either, and a phantom .py hook fails
+# exactly as silently as a phantom .sh one.
+_HOOK_REFERENCE = re.compile(r"\.claude[/\\]hooks[/\\]([\w.-]+\.(?:sh|py))")
+
+
+def phantoms(hooks_dir: Path, settings: Path) -> tuple[list[str], str | None]:
+    """Hook files named in settings.json that do not exist on disk.
+
+    Returns ``(names, error)``. As everywhere else here, an unreadable
+    settings.json yields an error rather than an empty list — "could not look"
+    must never render as "looked, found nothing".
+
+    Walks the PARSED structure rather than the raw text, and that is not a
+    style preference. The first version scanned the blob, which meant a command
+    written with Windows separators appears in the file with the backslash
+    JSON-escaped, and a pattern looking for one backslash saw nothing. A
+    phantom-registration check that goes silent on a whole class of
+    registration is the very defect it was written to find, one level up. Its
+    own test caught it, after it had already run green against the live tree.
+    """
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return [], f"cannot read {settings}: {exc}"
+
+    named: set[str] = set()
+    events = data.get("hooks", {}) if isinstance(data, dict) else {}
+    for groups in events.values():
+        for group in groups if isinstance(groups, list) else []:
+            for hook in (group or {}).get("hooks", []):
+                command = (hook or {}).get("command", "")
+                if isinstance(command, str):
+                    named.update(m.group(1) for m in _HOOK_REFERENCE.finditer(command))
+
+    return sorted(name for name in named if not (hooks_dir / name).exists()), None
+
+
+def retired_but_registered(hooks_dir: Path, settings: Path) -> tuple[list[str], str | None]:
+    """Hooks whose own header declares them retired, still wired to fire.
+
+    THE FOURTH DIRECTION, added 2026-08-25. The three above are
+    registered-with-no-file, on-disk-and-never-wired, and registered-twice. This
+    one is a file that SAYS it is finished and has not stopped.
+
+    ``require-briefing.sh`` carried ``SUPERSEDED 2026-08-06 by the
+    seven-doorbell router`` on line 3 and stayed registered for nineteen days,
+    firing on every tool call beside the surface that replaced it — with its own
+    ``except Exception: pass`` still live underneath. Its sibling
+    ``must-read-gate.sh`` was migrated in the same commit and WAS unregistered,
+    so the retirement was understood, performed once, and not repeated for the
+    second file.
+
+    Nothing could catch it, because ``classify`` walks from the disk and reads a
+    SUPERSEDED marker as a satisfying answer to *why is this not registered?* It
+    never asked the opposite question. A declaration that the work is finished,
+    sitting on top of the work still running, is announcement-is-not-action
+    written into a header comment and left there.
+    """
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return [], f"cannot read {settings}: {exc}"
+
+    named: set[str] = set()
+    events = data.get("hooks", {}) if isinstance(data, dict) else {}
+    for groups in events.values():
+        for group in groups if isinstance(groups, list) else []:
+            for hook in (group or {}).get("hooks", []):
+                command = (hook or {}).get("command", "")
+                if isinstance(command, str):
+                    named.update(m.group(1) for m in _HOOK_REFERENCE.finditer(command))
+
+    out: list[str] = []
+    for name in sorted(named):
+        path = hooks_dir / name
+        if not path.exists():
+            continue  # a phantom; the check above owns that one
+        try:
+            head = path.read_text(encoding="utf-8", errors="replace")[:2000]
+        except OSError:
+            continue
+        if _DECLARED_PATTERN.search(head) and not _KEPT_REGISTERED.search(head):
+            out.append(name)
+    return out, None
 
 
 # A hook can be wired without appearing in settings.json. `session-init-once.sh`
@@ -150,20 +299,65 @@ def classify(hooks_dir: Path, settings: Path) -> tuple[dict[str, list[str]], str
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    result, error = classify(root / ".claude" / "hooks", root / ".claude" / "settings.json")
+    hooks_dir = root / ".claude" / "hooks"
+    settings = root / ".claude" / "settings.json"
+    result, error = classify(hooks_dir, settings)
 
     if error:
         print(f"CANNOT CHECK HOOK WIRING — {error}")
         print("This is not 'all hooks wired'. Nothing was checked.")
         return 1
 
+    ghosts, ghost_error = phantoms(hooks_dir, settings)
+    if ghost_error:
+        print(f"CANNOT CHECK FOR PHANTOM REGISTRATIONS — {ghost_error}")
+        print("This is not 'no phantoms'. That direction was not checked.")
+        return 1
+
+    zombies, zombie_error = retired_but_registered(hooks_dir, settings)
+    if zombie_error:
+        print(f"CANNOT CHECK FOR RETIRED-BUT-REGISTERED HOOKS — {zombie_error}")
+        print("This is not 'none retired'. That direction was not checked.")
+        return 1
+
     dark = result["DARK"]
     print(
         f"hooks: {len(result['REGISTERED'])} registered, "
-        f"{len(result['DECLARED'])} declared-unwired, {len(dark)} dark"
+        f"{len(result['DECLARED'])} declared-unwired, {len(dark)} dark, "
+        f"{len(ghosts)} phantom, {len(zombies)} retired-but-registered"
     )
-    if not dark:
+
+    if zombies:
+        print("")
+        print("RETIRED BUT STILL REGISTERED — the file says it is finished and it is running:")
+        for name in zombies:
+            print(f"  - {name}")
+        print("")
+        print("Its header carries SUPERSEDED / INTENTIONALLY UNWIRED and settings.json still")
+        print("calls it, so it fires beside whatever replaced it. Where the replacement is a")
+        print("router surface, the retired copy's silent-swallow is live underneath the fix")
+        print("for it.")
+        print("")
+        print("Either unregister it, or delete the marker if the retirement was abandoned.")
+        print("A declaration on top of the thing still running is worse than no declaration.")
+
+    if ghosts:
+        print("")
+        print("PHANTOM REGISTRATIONS — named in settings.json, no file on disk:")
+        for name in ghosts:
+            print(f"  - {name}")
+        print("")
+        print("Every tool call matching these runs `bash` against a path that does not")
+        print("exist and collects exit 127. No gate runs, and nothing says so — which is")
+        print("indistinguishable from a gate that looked and approved.")
+        print("")
+        print("Usually a merge from a branch older than the deletion. Remove the")
+        print("registration, or restore the file if the deletion was the mistake.")
+
+    if not dark and not ghosts and not zombies:
         return 0
+    if not dark:
+        return 1
 
     print("")
     print("DARK HOOKS — written, not registered, and not saying why:")

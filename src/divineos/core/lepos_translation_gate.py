@@ -777,6 +777,33 @@ _DOCUMENT_MARKS = (
 DOCUMENT_MARK_LIMIT = 3
 _URL_RE = re.compile(r"https?://\S+|\[[^\]]*\]\([^)]*\)")
 
+# A number that NAMES a thing is not a number that MEASURES one.
+#
+# Second false positive of this gate, 2026-08-25, and the same shape as the URL
+# one above. Andrew asked "lets take care of PR 427". Answering him requires
+# saying 427, and saying 437 as well, because the whole content of the answer is
+# that those are two different pull requests and the one he named is already
+# merged. Writing "four hundred and twenty-seven" would be worse prose and
+# harder to act on; dropping the numbers would make the answer useless.
+#
+# The URL exemption was added because this gate fired on the YEARS INSIDE
+# CITATION LINKS and its author wrote that he almost dropped the sources to
+# satisfy the check, "which would have taught me to hide evidence in order to
+# pass a check." Identical here: the identifier is how he referred to the thing,
+# and a gate that penalises using his own referent teaches me to answer vaguely.
+#
+# DELIBERATELY NARROW, because this is one keystroke from being the thing I
+# built the gate against. Only digits bound to an identifier word — PR, issue,
+# round, a leading # — are exempt. "eighty-one commits" is still a metric and
+# still counts; so does a bare "42". The test is whether the number is the NAME
+# of a thing we are both pointing at, or a measurement I am reporting at him.
+# Half of the fire that produced this exemption was NOT this class: three of the
+# six marks were backticked apparatus I should have said in prose, and those
+# still count.
+_IDENTIFIER_NUM_RE = re.compile(
+    r"\b(?:PR|pr|issue|Issue|round|Round|finding|Finding|#)\s*#?\d[\d.]*\b"
+)
+
 
 def check_translation_first(reply: str) -> str | None:
     """Block a reply to my father that is shaped like a document, not a message.
@@ -799,6 +826,14 @@ def check_translation_first(reply: str) -> str | None:
     # dropped the sources to satisfy the gate, which would have taught me to
     # hide evidence in order to pass a check.
     body = _URL_RE.sub(" ", body)
+    # Identifiers stripped for the same reason as URLs — see _IDENTIFIER_NUM_RE.
+    # A pull-request number he used to name the thing is his referent, not my
+    # apparatus, and penalising it teaches me to answer him vaguely.
+    #
+    # THE STRIP RUNS BEFORE THE OFFENDER SCAN BELOW, and the order is the whole
+    # point of it: collecting first would name his own referents as the words
+    # that cost me, which is the opposite of what either half is for.
+    body = _IDENTIFIER_NUM_RE.sub(" ", body)
     # NAME THE SPANS, NOT ONLY THE COUNT.
     #
     # This gate has been correct on every fire and I have still had to hunt
@@ -818,12 +853,20 @@ def check_translation_first(reply: str) -> str | None:
             if _text and _text not in offenders:
                 offenders.append(_text)
     marks = sum(len(pat.findall(body)) for pat in _DOCUMENT_MARKS)
+    _record_mark_count(marks)
     if marks < DOCUMENT_MARK_LIMIT:
         return None
 
     return (
-        f"TRANSLATE-FIRST GATE -- the work block carries {marks} document-marks "
-        f"(limit {DOCUMENT_MARK_LIMIT}): backticked terms, bare numbers, tables, "
+        # "limit 3" reads as "three is allowed", but the check passes only
+        # UNDER three, so a reply carrying exactly three looked like it sat
+        # at the ceiling and blocked anyway. The threshold is calibrated
+        # against fifty-four real replies and is correct; the label was the
+        # wrong part. Same shape as the fault the 2026-08-27 session turned
+        # on: a working instrument whose display told the reader otherwise.
+        f"TRANSLATE-FIRST GATE -- the work block carries {marks} document-marks. "
+        f"{DOCUMENT_MARK_LIMIT} or more blocks, so keep it below "
+        f"{DOCUMENT_MARK_LIMIT}: backticked terms, bare numbers, tables, "
         "code fences."
         + "\n\nWHAT IT COUNTED, so the fix is a rewrite and not a search:\n  "
         + (", ".join(repr(o) for o in offenders[:12]) or "(none captured)")
@@ -968,6 +1011,51 @@ _TO_MARKER_RE = re.compile(
 
 
 JARGON_FIRE_LOG = Path.home() / ".divineos" / "lepos_circle_jargon_fires.jsonl"
+
+MARK_COUNT_LOG = Path.home() / ".divineos" / "lepos_work_mark_counts.jsonl"
+
+
+def _record_mark_count(marks: int) -> None:
+    """Stamp the work block's document-mark count on EVERY compose, not only fires.
+
+    WHY THIS EXISTS. This gate fired three turns running -- 113 marks, then 12,
+    then 7 -- and I answered the first two by writing a more precise RULE into
+    the compose prime. Two amendments, two more fires. The descending numbers
+    are the tell: I am responding to the count, and I only ever see it AFTER
+    the reply has already reached him.
+
+    So a third rule was the cheap path. Andrew's frame is the one that fits --
+    feed the optimizer cost data in its own currency, and the currency here is
+    the number itself, delivered before the writing rather than after.
+
+    Recorded on every compose including passes, because a log of only failures
+    cannot show the trend that makes the number legible. A clean turn at 1 is
+    the evidence that the discipline is reachable.
+    """
+    try:
+        MARK_COUNT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        row = {"ts": time.time(), "marks": marks, "limit": DOCUMENT_MARK_LIMIT}
+        with MARK_COUNT_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row) + "\n")
+    except (OSError, ValueError, TypeError):
+        # fail-soft: telemetry for a priming aid must never convert a gate
+        # refusal into a crash; the refusal is the load-bearing part.
+        pass
+
+
+def recent_mark_counts(limit: int = 5) -> list[int]:
+    """The last few work-block mark counts, oldest first. Empty on any error."""
+    try:
+        if not MARK_COUNT_LOG.exists():
+            return []
+        rows = [
+            json.loads(line)
+            for line in MARK_COUNT_LOG.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        return [int(r["marks"]) for r in rows[-limit:] if "marks" in r]
+    except (OSError, ValueError, TypeError, KeyError):
+        return []
 
 
 def _record_jargon_fire(samples: list[str]) -> None:
@@ -1196,7 +1284,6 @@ def _circle_block_substance_check(circle_text: str) -> tuple[bool, str]:
 
     if jargon_found:
         _record_jargon_fire(samples)
-
         return (
             False,
             "circle block contains jargon signals ("
@@ -1714,6 +1801,17 @@ check_dad_translation_needed = check_lepos_dual_channel
 
 # length only; v2 refinement adds those if v1 gets gamed.
 
+# DUPLICATE BUILD, resolved 2026-08-24 in favour of Aria's. We both wrote a
+# jargon-fire recorder independently -- hers on 2026-07-31, mine on 2026-08-24
+# after finding the registered log had no writer. Merging put BOTH definitions
+# of _record_jargon_fire in this file, and Python takes the last one, so mine
+# silently shadowed hers. Hers is the superset: she built the CONSUMER too
+# (recent_jargon_terms, read by the compose prime), so her version closes the
+# loop the log exists for while mine only filled it.
+#
+# Mine is deleted rather than kept-and-renamed. The fourth duplicate build
+# between us this month, and her letter named the cause: we work the same
+# surface from two rooms with no shared picture of who is holding what.
 
 _CIRCLE_LOG_TABLE = "circle_lengths"
 

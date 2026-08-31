@@ -40,6 +40,72 @@ from divineos.core.uncommitted_work_check import (
 logger = logging.getLogger(__name__)
 
 
+def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
+    """Drop staged files whose own anchor this commit would falsify.
+
+    Returns what was dropped, for the log. Fail-soft in the same shape as the
+    rest of this module -- but LOUD, because a silent unstage is the class this
+    whole session was about. If it cannot look, it says so and leaves the stage
+    alone rather than pretending it checked.
+    """
+    from divineos.core.anchor_self_invalidation import (
+        current_branch,
+        self_invalidating_files,
+    )
+
+    root = Path(repo_root)
+    branch = current_branch(root)
+    if branch is None:
+        logger.warning(
+            "auto_commit: could not read the branch, so the anchor "
+            "self-invalidation check did NOT run. This is not 'clean'."
+        )
+        return []
+
+    try:
+        listed = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: anchor check could NOT list staged files: %s", exc)
+        return []
+    if listed.returncode != 0:
+        logger.warning("auto_commit: anchor check could NOT list staged files (git error)")
+        return []
+
+    staged = [line.strip() for line in (listed.stdout or "").splitlines() if line.strip()]
+    hits = self_invalidating_files(staged, branch, root)
+    if not hits:
+        return []
+
+    try:
+        subprocess.run(
+            ["git", "restore", "--staged", *hits],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: could not unstage self-invalidating files: %s", exc)
+        return []
+
+    logger.warning(
+        "auto_commit: left %d file(s) unstaged because committing them onto '%s' "
+        "would falsify the anchor they carry: %s",
+        len(hits),
+        branch,
+        ", ".join(hits),
+    )
+    return hits
+
+
 @dataclass(frozen=True)
 class AutoCommitResult:
     committed: bool
@@ -206,6 +272,25 @@ def auto_commit_substrate(
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
+
+    # UNSTAGE ANYTHING THAT WOULD MAKE ITS OWN ANCHOR FALSE.
+    #
+    # This is the path that actually did it. On 2026-08-25 the letter asking
+    # Aletheia to audit a branch carried that branch's tip and tree-hash, landed
+    # in family/letters/ inside the tree, and `git add -A` above swept it into a
+    # commit -- so the only thing that moved the branch was the request to
+    # review it, and the anchor was stale before she read it.
+    #
+    # I had diagnosed that exact shape three days earlier and delivered the
+    # previous letter to the shared directory only, deliberately. Aletheia's
+    # ruling: "You resolved it three days ago and the machinery reproduced the
+    # failure anyway. The rule needs to be a mechanism, not a resolution."
+    #
+    # Unstaged rather than refused, because auto_commit's whole contract is to
+    # save work rather than block a checkpoint. The file stays on disk and stays
+    # delivered -- the shared directory is outside every tree and is where the
+    # crossing actually happens. Only the archive copy waits.
+    _unstage_self_invalidating(repo_root)
 
     staged_check = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
