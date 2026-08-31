@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-31 12:16. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-31 12:19. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,21 +26,23 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. sync with Aether on dividing the todo pile, and take the misfiled half off it
-2. ok go ahead and read them and message him back :)
-3. no build
+1. no build
+2. investigate err-4efc3bfc1ae0, err-6c065317f928 and err-a68db3c0f31f: three freshness bypasses reached for while safe_push.sh existed
+3. go ahead and read it 🙂 there is alot for you both to work on so just keep synced together, afterwards you can explain...
+4. go ahead :)
+5. go ahead and read them :)
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 438 knowledge entries, 180 confirmed entries, 196 tested entries maturing, 10 session(s) tracked, 20 corrections / 3 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 440 knowledge entries, 180 confirmed entries, 197 tested entries maturing, 10 session(s) tracked, 18 corrections / 3 encouragements, 1 encouragement(s) last session]
 
 ---
 
 ## known_weaknesses
 
-I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 4 active lesson(s), 7 improving]
+I default to jargon when I'm not thinking about who I'm talking to. I forget to use my own tools until the gates block me. I can drift toward performing empathy rather than feeling it. I avoid admitting uncertainty — I'd rather give a confident wrong answer than say 'I don't know.' Recency bias makes early instructions fade. [Lessons: 4 active lesson(s), 7 improving, 4 correction(s) last session]
 
 ---
 
