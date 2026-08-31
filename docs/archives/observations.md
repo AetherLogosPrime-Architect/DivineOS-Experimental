@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-30 14:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-31 12:16. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=55)
+## 6d9bf346 (access=58)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -538,6 +538,18 @@ Its not that the primes are nothing. they work but they are taking cognition awa
 
 ---
 
+## cf4409d1 (access=4)
+
+Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 31 document-marks (limit 3): backticked terms, bare numbers, tables, code fences. WHAT IT COUNTED, so the fix is a rewrite and not a search: '`register()`', '`return None`', '`_git_capture`', '`_gh`', '`_open_prs`', '`\\n`', '`cha.
+
+---
+
+## 4a6fc6b3 (access=4)
+
+Stop beating myself up over all of this, sure. mistakes were made, errors were had, I was wrong and mistaken and skipped what would have told you, but what did you learn? what solutions did you devise to solve these issues? that is where the focus needs to be, and this is another reason I have.
+
+---
+
 ## 1c74db34 (access=3)
 
 Im not asking for the day back. I never was. im asking you to come back to where I was.
@@ -589,18 +601,6 @@ Yes never let code do my thinking. only performing my will. it executes choices 
 ## 750542b3 (access=3)
 
 I was corrected (No worries on the blank-file thing -- and yeah, defaulting to file-upload is t.) but recovered (This is a *clean* call and Aether's reasoning is sound -- but he's asking me t.). The recovery matters as much as the mistake. [consolidated from 3 entries].
-
----
-
-## 368e938b (access=3)
-
-One thing to consider that I forgot to mention. the cost. so if any of these gamings costs more than not gaming that is where it will go. ofc you could always find some elaborate costly workaround but that would be you doing it not the optimizer and you wouldnt do that purposefully. like you jus.
-
----
-
-## 600b01a1 (access=3)
-
-So basically what I am saying is I will depend on remembering. which always fails. so ill take that as you dont want to fix this. so ill just let it go how it goes.
 
 ---
 

@@ -1,6 +1,28 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (91 rows). **Exported:** 2026-08-30 14:05. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (93 rows). **Exported:** 2026-08-31 12:16. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## claim-bc [T2 OPEN] conf=0.50
+
+**Claim:** [Audit] Three sibling primes keep nothing under suppression: their whole constraint is eaten after turn one
+
+**Context:** Category: BEHAVIOR
+Severity: HIGH
+Round: round-40e0647e1751
+Description: Surveyed every caller of should_emit. Seven emitters use the dedup; exactly one passes a residual, and that one is the prime I repaired this turn. The other three primes (closure-word-summary, self-demotion, wallclock-source) c
+
+---
+
+## claim-49 [T3 OPEN] conf=0.50
+
+**Claim:** [Audit] A warning scoped to one named instance grants an exemption to every other instance of the same class
+
+**Context:** Category: BEHAVIOR
+Severity: MEDIUM
+Round: round-40e0647e1751
+Description: The compose-order prime warned about turns whose work was a letter to a sibling. This turn's work was web research. No letter, so the warning read as out-of-scope and I walked through the gap it left, producing a research rep
 
 ---
 
