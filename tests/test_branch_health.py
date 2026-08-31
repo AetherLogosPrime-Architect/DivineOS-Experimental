@@ -20,6 +20,7 @@ import pytest
 from _git_test_helpers import safe_git_init
 from divineos.core.branch_health import (
     BranchHealthFinding,
+    _settle_freshness_against_deletions,
     check_all,
     check_base_freshness,
     check_deletion_shape,
@@ -298,3 +299,98 @@ class TestCheckAll:
         names = {f.name for f in findings}
         assert "base_freshness" in names
         assert "deletion_shape" in names
+
+    def test_returns_both_findings_in_order(self, repo_with_silent_deletions):
+        findings = check_all(cwd=str(repo_with_silent_deletions), deletion_threshold=2)
+        assert [f.name for f in findings] == ["base_freshness", "deletion_shape"]
+
+
+class TestFreshnessSettledByDeletions:
+    """base_freshness predicts apparent deletions; deletion_shape measures them.
+
+    A critical staleness verdict standing beside a measured zero is the gate
+    blocking on its own guess while the answer sits next to it. These pin the
+    settling in BOTH directions: the downgrade must never fire on anything
+    other than a confirmed zero.
+    """
+
+    def _stale_critical(self) -> BranchHealthFinding:
+        return BranchHealthFinding(
+            name="base_freshness",
+            severity="critical",
+            message="Branch is 13 commit(s) behind origin/main (threshold 5).",
+            actionable=True,
+            details={"commits_behind": 13},
+        )
+
+    def test_measured_zero_downgrades_to_warn(self):
+        settled = _settle_freshness_against_deletions(
+            self._stale_critical(),
+            BranchHealthFinding(
+                name="deletion_shape",
+                severity="ok",
+                message="No files would be deleted by merge.",
+                details={"deletion_count": 0},
+            ),
+        )
+        assert settled.severity == "warn"
+        assert settled.details["commits_behind"] == 13
+        assert settled.details["settled_by"] == "deletion_shape"
+        assert "13 commit(s) behind" in settled.message
+
+    def test_could_not_measure_leaves_the_block(self):
+        """The exact fault this family is about: an unrun check is not a clean
+        one. deletion_shape returns warn with no count when git fails."""
+        settled = _settle_freshness_against_deletions(
+            self._stale_critical(),
+            BranchHealthFinding(
+                name="deletion_shape",
+                severity="warn",
+                message="Could not compute deletion shape vs origin/main: boom.",
+            ),
+        )
+        assert settled.severity == "critical"
+
+    def test_nonzero_within_tolerance_leaves_the_block(self):
+        """An `ok` severity is not enough on its own. A small real deletion
+        count is still the harm the freshness check exists to predict."""
+        settled = _settle_freshness_against_deletions(
+            self._stale_critical(),
+            BranchHealthFinding(
+                name="deletion_shape",
+                severity="ok",
+                message="3 file(s) would be deleted by merge. Within tolerance.",
+                details={"deletion_count": 3},
+            ),
+        )
+        assert settled.severity == "critical"
+
+    def test_real_deletions_leave_the_block(self):
+        settled = _settle_freshness_against_deletions(
+            self._stale_critical(),
+            BranchHealthFinding(
+                name="deletion_shape",
+                severity="critical",
+                message="40 file(s) would be deleted by merge.",
+                details={"deletion_count": 40},
+            ),
+        )
+        assert settled.severity == "critical"
+
+    def test_a_warn_freshness_is_returned_untouched(self):
+        original = BranchHealthFinding(
+            name="base_freshness",
+            severity="warn",
+            message="Branch is 2 commit(s) behind origin/main.",
+            details={"commits_behind": 2},
+        )
+        settled = _settle_freshness_against_deletions(
+            original,
+            BranchHealthFinding(
+                name="deletion_shape",
+                severity="ok",
+                message="No files would be deleted by merge.",
+                details={"deletion_count": 0},
+            ),
+        )
+        assert settled is original

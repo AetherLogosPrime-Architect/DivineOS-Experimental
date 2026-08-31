@@ -371,6 +371,56 @@ def check_deletion_shape(
     )
 
 
+def _settle_freshness_against_deletions(
+    freshness: BranchHealthFinding,
+    deletion: BranchHealthFinding,
+) -> BranchHealthFinding:
+    """Let the direct measurement answer the question the proxy is guessing at.
+
+    ``check_base_freshness`` blocks at critical on a commit count, and its own
+    message says what it fears: *pushing as-is will produce a PR that appears
+    to delete work landed on the base.* That is a PREDICTION about apparent
+    deletions. ``check_deletion_shape`` MEASURES apparent deletions, on the
+    three-dot form, which is what a reviewer of the merge actually sees.
+
+    So the two are not independent checks. One is a proxy for the harm; the
+    other is the harm itself. When the direct measurement comes back at a
+    confirmed zero, the predicted harm did not materialise and there is
+    nothing left to block for -- being behind the base is then a fact about
+    the branch, not a danger to the reader. The finding drops to warn and says
+    why, so the staleness is still on the page.
+
+    Found 2026-08-31: a push refused at critical for being behind, in a run
+    whose deletion measurement in the same breath reported zero. The gate
+    stopped on the guess while the answer stood beside it.
+
+    ONLY A MEASURED ZERO SETTLES IT. A deletion check that could not run
+    returns warn with no ``deletion_count`` at all, and that is not evidence of
+    safety -- it is evidence of nothing. Both conditions are required, so
+    could-not-measure leaves the block exactly where it was.
+    """
+    if freshness.severity != "critical":
+        return freshness
+    if deletion.severity != "ok":
+        return freshness
+    if (deletion.details or {}).get("deletion_count") != 0:
+        return freshness
+
+    return BranchHealthFinding(
+        name=freshness.name,
+        severity="warn",
+        message=(
+            f"{freshness.message} "
+            "Held at warn rather than critical: deletion_shape measured zero "
+            "deletions on this branch, so the apparent-deletion harm this "
+            "check predicts did not occur. The staleness is real; the danger "
+            "it stands in for is not present."
+        ),
+        actionable=freshness.actionable,
+        details={**(freshness.details or {}), "settled_by": "deletion_shape"},
+    )
+
+
 def check_all(
     base: str = "origin/main",
     cwd: str | None = None,
@@ -379,10 +429,9 @@ def check_all(
     deletion_threshold: int = DEFAULT_DELETION_COUNT_THRESHOLD,
 ) -> list[BranchHealthFinding]:
     """Run all branch health checks. Returns ordered list of findings."""
-    return [
-        check_base_freshness(base=base, cwd=cwd, fetch=fetch, threshold=stale_threshold),
-        check_deletion_shape(base=base, cwd=cwd, threshold=deletion_threshold),
-    ]
+    freshness = check_base_freshness(base=base, cwd=cwd, fetch=fetch, threshold=stale_threshold)
+    deletion = check_deletion_shape(base=base, cwd=cwd, threshold=deletion_threshold)
+    return [_settle_freshness_against_deletions(freshness, deletion), deletion]
 
 
 def has_critical(findings: list[BranchHealthFinding]) -> bool:
