@@ -152,15 +152,54 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     return StationResult("4-aria", Status.MISSING, "no reply from Aria naming this branch")
 
 
-def check_council_station(branch: str, required: int, applied: int | None) -> StationResult:
-    """Station 2 -- council walk, against the gravity-derived requirement."""
+def check_council_station(
+    branch: str,
+    required: int,
+    applied: int | None,
+    other_seats: dict[str, int] | None = None,
+) -> StationResult:
+    """Station 2 -- council walk, against the gravity-derived requirement.
+
+    TWO NUMBERS, AND ONLY ONE OF THEM SATISFIES. Aria's design, 2026-08-29,
+    when I asked whether this lane should read both seats the way station eight
+    now does:
+
+        Station eight asks whether an OUTSIDE REVIEWER signed off, and which
+        store the round landed in is an accident of filing. Station two asks
+        whether the AUTHOR thought this through. If this lane reads both seats
+        and lets what it finds satisfy, her walk clears my gate -- a checklist
+        someone else can fill in, and from inside the board it looks identical
+        to having done it.
+
+    So the other seat's walks are SEEN and never COUNTED. Seen, because
+    reporting an existing walk as absent is could-not-look-reading-as-not-done,
+    the same fault as the row cap in station eight. Never counted, because the
+    thing being certified is the author's own thinking.
+
+    ``other_seats`` maps seat name to the distinct-lens count that seat walked
+    against these files. It changes the DETAIL only, never the verdict.
+    """
     if required == 0:
         return StationResult("2-council", Status.SATISFIED, "gravity 0: no walk required")
     if applied is None:
         return StationResult("2-council", Status.CANNOT_CHECK, "ledger not readable")
+
+    # Rendered the same way whether the station passes or fails, because a
+    # walk by the other seat is information in both cases -- and a note that
+    # appears only on failure reads as an excuse for the failure.
+    elsewhere = ""
+    if other_seats:
+        seen = ", ".join(f"{n} by {seat}" for seat, n in sorted(other_seats.items()) if n)
+        if seen:
+            elsewhere = f"; also {seen} (seen, does not satisfy)"
+
     if applied >= required:
-        return StationResult("2-council", Status.SATISFIED, f"{applied}/{required} lenses")
-    return StationResult("2-council", Status.MISSING, f"{applied}/{required} lenses walked")
+        return StationResult(
+            "2-council", Status.SATISFIED, f"{applied}/{required} lenses{elsewhere}"
+        )
+    return StationResult(
+        "2-council", Status.MISSING, f"{applied}/{required} lenses walked{elsewhere}"
+    )
 
 
 def check_draft_station(is_draft: bool | None) -> StationResult:
@@ -175,7 +214,11 @@ def check_draft_station(is_draft: bool | None) -> StationResult:
 
 
 def check_audit_station(
-    pr_number: int, branch: str, audit_refs: tuple[str, ...] | None
+    pr_number: int,
+    branch: str,
+    audit_refs: tuple[str, ...] | None,
+    store_label: str | None = None,
+    anchor: str | None = None,
 ) -> StationResult:
     """Station 8 -- Aletheia. Last, and never self-serviceable.
 
@@ -219,11 +262,134 @@ def check_audit_station(
             Status.CANNOT_CHECK,
             "audit lookup did not complete (network or store) — cause not narrowed",
         )
+    named = None
     if any(f"#{pr_number}" in r for r in audit_refs):
-        return StationResult("8-audit", Status.SATISFIED, f"audit round names PR #{pr_number}")
-    if branch and any(branch in r for r in audit_refs):
-        return StationResult("8-audit", Status.SATISFIED, f"audit round names {branch}")
-    return StationResult("8-audit", Status.MISSING, "no audit round names this PR or its branch")
+        named = f"PR #{pr_number}"
+    elif branch and any(branch in r for r in audit_refs):
+        named = branch
+
+    if named is not None:
+        # A NAME MATCH IS NOT A CONTENT MATCH, and for most of this station's
+        # life that distinction was missing entirely.
+        #
+        # Aletheia, 2026-08-29, verifying the finding: this check asked only
+        # whether a round's text NAMES the branch. What a reader takes from a
+        # green station is that the CURRENT content has been reviewed. On the
+        # instruments branch those were ten commits and fifteen files apart,
+        # so the board would have carried it to a merge on an audit that never
+        # saw two thirds of what was in it.
+        #
+        # The repair is not a new comparison. Andrew already built the
+        # mechanism, for this exact problem, when he designed the patch-id
+        # rung: "that mechanism was to help the floor change, as it kept
+        # switching the hashes.. so if the code matches your audit then we
+        # authorize changing your hash to match the changed floor so it doesnt
+        # fail. but if the code doesnt match then it needs re-audit."
+        #
+        # WHY PATCH-ID AND NOT TIP OR TREE (Aletheia's reasoning, taken whole):
+        # tip changes on every commit including ones that cannot affect
+        # behaviour, and tree is tip's problem with an extra step. Both stale a
+        # review when a letter lands, and a binding that invalidates a review
+        # for a letter will be routed around inside a week -- correctly, since
+        # nothing about the review became false. Patch-id is the diff against
+        # the base: invariant to the base moving, variant only when the change
+        # changes. That is exactly the question this station is asking.
+        #
+        # The anchor itself is computed by the caller, which is where git
+        # lives; this function stays pure and only decides what the answer
+        # means.
+        if anchor == "stale":
+            return StationResult(
+                "8-audit",
+                Status.MISSING,
+                f"audit round names {named} but its confirm NO LONGER HOLDS — "
+                "the reviewed change moved; re-audit rather than merge on it",
+            )
+        if anchor == "cannot-check":
+            # Could-not-look is not all-clear, and this station is the last
+            # one before a merge.
+            return StationResult(
+                "8-audit",
+                Status.CANNOT_CHECK,
+                f"audit round names {named}, but whether its confirm still "
+                "holds could not be determined — not a pass",
+            )
+        if anchor == "unanchored":
+            # Confirms filed before patch-id binding record no anchor at all.
+            # Treating those as MISSING would retroactively unmake every older
+            # review on a technicality; treating them as silently equal to an
+            # anchored one is the lie. Say which kind it is.
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named} (name match only — that round "
+                "predates content binding, so drift since would not show)",
+            )
+        if anchor == "holds":
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named}, and its confirm still holds "
+                "against the branch as it stands",
+            )
+        if anchor == "not-run":
+            # THE PER-TURN BOARD DOES NOT PAY FOR THIS, and says so rather
+            # than letting its green imply a check it skipped.
+            #
+            # Measured before deciding: one content check costs about five
+            # seconds, because it fetches and recomputes the diff against the
+            # base. Across the open requests that is over half a minute added
+            # to every single turn -- the forty-second toll booth again, and
+            # a board that slow gets switched off, which costs more than the
+            # check gains.
+            #
+            # So the deep check belongs in the explicit command, and the
+            # cheap view names its own scope. A green station that quietly
+            # means something weaker than the reader thinks is the exact
+            # defect this whole change exists to remove; reproducing it here
+            # to save five seconds would be self-defeating.
+            return StationResult(
+                "8-audit",
+                Status.SATISFIED,
+                f"audit round names {named} (name match; content check not "
+                "run in this view — use the board command for that)",
+            )
+        return StationResult("8-audit", Status.SATISFIED, f"audit round names {named}")
+    # THE ANSWER CARRIES ITS OWN SCOPE. Aria, 2026-08-28, after going to verify
+    # a round I had filed and being told twice by her own tools that it did not
+    # exist:
+    #
+    #   "Two readings, both true, both about the wrong thing. My store is not
+    #    the one you wrote to."
+    #
+    # There are two stores in this house and neither seat can see the other's
+    # through its own tools. Her round count and mine differ, and a round filed
+    # on one side is genuinely absent from the other. This sentence used to
+    # read "no audit round names this PR or its branch" -- a true statement
+    # about ONE store, published with the scope of all of them, at the last
+    # gate before a merge.
+    #
+    # She stopped short of asserting my board was broken because she had not
+    # read it. I checked: on this side the round IS visible to this code path.
+    # So the defect is not a wrong verdict here; it is a sentence that cannot
+    # be wrong out loud. Naming the store turns an unfalsifiable negative into
+    # one a reader can check -- and if it is ever run from the other seat, the
+    # miss explains itself instead of reading as NOT-AUDITED.
+    #
+    # An unnamed store is reported as unnamed rather than guessed at: naming a
+    # store this did not query would be the same wrong-subject error one level
+    # down, which is the error being fixed.
+    # The scope names BOTH narrowings, because there were two stacked and the
+    # second was only visible once the first was measured: which store, and
+    # how many of its rounds were actually compared against. Aria found the
+    # row cap when the count came back a number matching neither store.
+    where = f" in {store_label}" if store_label else " (store not identified)"
+    return StationResult(
+        "8-audit",
+        Status.MISSING,
+        f"no audit round names this PR or its branch "
+        f"(compared against {len(audit_refs)} round(s){where})",
+    )
 
 
 def fingerprint(statuses: list[PrFlowStatus]) -> str:

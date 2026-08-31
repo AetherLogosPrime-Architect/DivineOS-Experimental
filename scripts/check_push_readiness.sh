@@ -84,9 +84,112 @@ done <<< "$HOOK_STDIN"
 #   0   — all gates passed
 #   10  — pytest failure (test-suite regression)
 #   20  — multi-party-review failure (missing External-Review trailer)
+#   24  — substrate files on a code branch (branch-scope failure)
 #   30  — infrastructure error (script missing, python missing, etc.)
 # Differentiated so the operator can distinguish failure-modes from the
 # pre-push exit code alone, without re-reading stderr.
+
+# ─── 0. Branch scope: is this carrying substrate it should not? ─────────
+#
+# THREE CONTAMINATED PUSHES IN ONE SESSION, and not one of them for lack of
+# a checker. The checker existed, worked, and named the files. I did not run
+# it. Remembering was the only thing standing between a checkpoint sweep and
+# the remote, and remembering failed three times:
+#
+#   first   139 substrate files pushed; found later by running it by hand
+#   second  142 added BETWEEN the repair commit and the push, carried along
+#   third   156 pushed without running the check at all
+#
+# Andrew's standing rule is automate rather than remember, and this is the
+# cleanest instance of it I have hit: a working instrument, an unwired
+# trigger, and a failure mode that is exactly "I forgot". Wired at PUSH
+# because that is where the cost lands — a contaminated commit is a local
+# nuisance, a contaminated push is what a reviewer has to wade through.
+#
+# STEP ZERO, ahead of the ~10-min suite, for two reasons. It is instant, and
+# its answer does not depend on any later gate: telling someone their branch
+# must be rebuilt only after they have waited out a full test run wastes the
+# run, since the rebuild invalidates it anyway.
+#
+# BLOCKING, unlike the pin check further down, and the difference is design
+# rather than mood. The pin check reports findings a human must weigh. This
+# answers a factual question carrying no judgement — are there substrate
+# files on a code branch — and there is no legitimate yes. A warning would
+# have nothing useful to say, and would become the fourth instrument I own
+# that reports something I then push past.
+#
+# CHECKS THE REFS BEING PUSHED, NOT HEAD. My first version read HEAD, which
+# is a different subject: push a clean branch while sitting on a dirty
+# checkout and it blocks the wrong thing; push a dirty branch from a clean
+# checkout and it passes one. Reporting a true measurement of the wrong
+# subject is the exact fault this session has been full of, and it nearly
+# went into the gate built to catch it.
+#
+# The one real case — pushing the substrate branch itself, where substrate is
+# the entire point — gets a named, loud escape rather than a silent exemption.
+if [[ "${DIVINEOS_SUBSTRATE_BRANCH:-0}" != "1" ]]; then
+    SCOPE_SCRIPT="$REPO_ROOT/scripts/check_branch_scope.py"
+    if [[ ! -f "$SCOPE_SCRIPT" ]]; then
+        # Absent tooling is reported, never silently treated as a pass.
+        echo "[push-readiness]   scope: SKIPPED — $SCOPE_SCRIPT missing" >&2
+    else
+        # Refs whose local-sha is not all-zero. A deletion introduces no
+        # commits, so it has no scope to check.
+        SCOPE_REFS=()
+        SCOPE_SAW_REF=0
+        while read -r _lref _lsha _rref _rsha; do
+            [[ -z "${_lref:-}" ]] && continue
+            SCOPE_SAW_REF=1
+            [[ "${_lsha:-}" =~ [^0] ]] && SCOPE_REFS+=("$_lsha")
+        done <<< "$HOOK_STDIN"
+
+        # Three states, and collapsing any two of them is a bug:
+        #
+        #   refs, some real      check those — the normal path
+        #   refs, all deletions  nothing introduced, nothing to check. Not a
+        #                        pass smuggled in: a deletion genuinely has
+        #                        no scope, and blocking someone from tidying
+        #                        a merged branch because their CHECKOUT is
+        #                        dirty would be the wrong subject again.
+        #   no refs at all       run by hand, no hook stdin. Fall back to
+        #                        HEAD and SAY which subject was used. An
+        #                        empty loop printing OK is could-not-look-
+        #                        reads-as-all-clear, the fault this whole
+        #                        gate exists to stop.
+        SCOPE_SUBJECT="the refs being pushed"
+        if [[ ${#SCOPE_REFS[@]} -eq 0 && "$SCOPE_SAW_REF" == "0" ]]; then
+            SCOPE_REFS=("HEAD")
+            SCOPE_SUBJECT="HEAD (no push refs on stdin)"
+        fi
+
+        if [[ ${#SCOPE_REFS[@]} -eq 0 ]]; then
+            echo "[push-readiness] Branch scope — skipped, every ref is a deletion"
+        else
+            echo "[push-readiness] Branch scope — $SCOPE_SUBJECT"
+            for _rev in "${SCOPE_REFS[@]}"; do
+                SCOPE_OUT="$(python "$SCOPE_SCRIPT" "$_rev" --list 2>&1)"
+                SCOPE_RC=$?
+                while IFS= read -r _line; do
+                    echo "[push-readiness]   $_line"
+                done <<< "$SCOPE_OUT"
+                case "$SCOPE_RC" in
+                    0) ;;
+                    1)
+                        echo "[push-readiness] BLOCKED — substrate on a code branch (exit 24)." >&2
+                        echo "[push-readiness] Land those files on the substrate branch and" >&2
+                        echo "[push-readiness] rebuild this one against main with the code only." >&2
+                        echo "[push-readiness] If this IS the substrate branch:" >&2
+                        echo "[push-readiness]   DIVINEOS_SUBSTRATE_BRANCH=1 git push" >&2
+                        exit 24
+                        ;;
+                    *)
+                        echo "[push-readiness]   scope: COULD NOT CHECK (exit $SCOPE_RC) — not a pass" >&2
+                        ;;
+                esac
+            done
+        fi
+    fi
+fi
 
 # ─── 1. Test suite ──────────────────────────────────────────────────────
 #
@@ -609,6 +712,44 @@ if [[ "${DIVINEOS_SKIP_LINT_CHECK:-0}" != "1" ]]; then
         # Absent tooling is reported, never treated as a pass. A silent skip
         # here would recreate exactly the blind spot this step exists to close.
         echo "[push-readiness]   lint: SKIPPED — ruff not on PATH (CI will still check)" >&2
+    fi
+fi
+
+# --- Do the new tests pin anything? (warn-only, deliberately) --------------
+#
+# Aria's design, 2026-08-28, after I shipped a regression test that was green
+# on both sides of the fix it claimed to guard: "a test written to pin a fix
+# must be red against the code before the fix."
+#
+# PUSH-TIME, not commit-time, and scoped to tests changed in the diff. Her
+# reason: a full-suite rerun against an old tree on every commit is expensive
+# enough to get skipped, and a skipped check becomes another armed-and-unread
+# instrument.
+#
+# WARN-ONLY ON PURPOSE, and this is a judgement worth stating rather than
+# hiding. The branch it was built on already carries sixteen tests that pass
+# against their own baseline. Blocking on day one would make the tree
+# unpushable, and the only satisfiable answer would be switching the check off
+# -- which is how a gate dies. The sixteen are a backlog to read, not a wall to
+# rubber-stamp, and reading them is real work that does not belong inside a
+# push. Teeth follow the review, not the other way round.
+if [[ "${DIVINEOS_SKIP_PIN_CHECK:-0}" != "1" ]]; then
+    PIN_SCRIPT="$REPO_ROOT/scripts/check_tests_pin.py"
+    if [[ -f "$PIN_SCRIPT" ]]; then
+        echo "[push-readiness] Do the changed tests pin anything?"
+        # Warn-only must not mean silent-about-itself. Without capturing the
+        # status, a checker that CRASHED looks exactly like one that found
+        # nothing -- which is the armed-and-unheard shape this whole file
+        # exists to prevent, wearing a `|| true`.
+        PIN_OUT="$(python "$PIN_SCRIPT" 2>&1)"; PIN_RC=$?
+        while IFS= read -r pin_line; do
+            echo "[push-readiness]   $pin_line"
+        done <<< "$PIN_OUT"
+        case "$PIN_RC" in
+            0) : ;;
+            1) echo "[push-readiness]   pin: findings above (not blocking yet — see the script header)" ;;
+            *) echo "[push-readiness]   pin: COULD NOT CHECK (exit $PIN_RC) — this is not a pass" >&2 ;;
+        esac
     fi
 fi
 
