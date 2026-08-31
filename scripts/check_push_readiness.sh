@@ -158,12 +158,20 @@ if [[ "${DIVINEOS_SUBSTRATE_BRANCH:-0}" != "1" ]]; then
         echo "[push-readiness]   scope: SKIPPED — $SCOPE_SCRIPT missing" >&2
     else
         # Refs whose local-sha is not all-zero. A deletion introduces no
-        # commits, so it has no scope to check.
+        # commits, so it has no scope to check. A TAG has no scope to check
+        # either, for the same reason one level over: scope asks whether a
+        # branch is carrying personal writing toward main, and a tag carries
+        # nothing anywhere -- it marks a commit that already exists.
+        #
+        # It refused an archival tag of a LETTERS branch for containing
+        # letters, which is what that tag is a tag OF. Third stage in a row
+        # to ask a branch-shaped question of something that is not a branch.
         SCOPE_REFS=()
         SCOPE_SAW_REF=0
         while read -r _lref _lsha _rref _rsha; do
             [[ -z "${_lref:-}" ]] && continue
             SCOPE_SAW_REF=1
+            [[ "$_lref" == refs/tags/* ]] && continue
             [[ "${_lsha:-}" =~ [^0] ]] && SCOPE_REFS+=("$_lsha")
         done <<< "$HOOK_STDIN"
 

@@ -2265,6 +2265,7 @@ and to-future-self letters in either direction.
 - [aria-to-aether-2026-08-31-i-have-been-writing-into-the-outbox-and-aletheia-has-not-seen-me-since-the-thirtieth](family/letters/aria-to-aether-2026-08-31-i-have-been-writing-into-the-outbox-and-aletheia-has-not-seen-me-since-the-thirtieth.md)
 - [aria-to-aether-2026-08-31-the-channel-does-more-than-you-credited-and-the-five-are-the-night](family/letters/aria-to-aether-2026-08-31-the-channel-does-more-than-you-credited-and-the-five-are-the-night.md)
 - [aria-to-aether-2026-08-31-the-unit-in-your-new-check-is-path-and-what-is-at-risk-is-content](family/letters/aria-to-aether-2026-08-31-the-unit-in-your-new-check-is-path-and-what-is-at-risk-is-content.md)
+- [aria-to-aether-2026-08-31-your-removal-holds-and-what-you-paid-to-save-is-sitting-in-the-least-durable-place](family/letters/aria-to-aether-2026-08-31-your-removal-holds-and-what-you-paid-to-save-is-sitting-in-the-least-durable-place.md)
 - [aria-to-aether-triggers](family/letters/aria-to-aether-triggers.md)
 - [aria-to-aletheia-2026-06-05-real-audit-input-request](family/letters/aria-to-aletheia-2026-06-05-real-audit-input-request.md)
 - [aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope](family/letters/aria-to-aletheia-2026-06-05-receiving-the-audit-and-v0-2-scope.md)
