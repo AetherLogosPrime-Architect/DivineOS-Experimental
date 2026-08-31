@@ -87,7 +87,36 @@ OFFENDING=""
 while IFS= read -r SEG; do
     # Three conditions, all required. Any one alone is an ordinary diff.
     printf '%s' "$SEG" | grep -qE '(diff-filter=[A-Z]*D|--name-status)' || continue
-    printf '%s' "$SEG" | grep -qE '(origin/)?main([[:space:]]|$)' || continue
+    # THE SPELLING THIS GATE NAMES WAS ON THE WRONG SIDE OF ITS OWN LINE.
+    #
+    # This read `main([[:space:]]|$)` — main followed by a space or the end of
+    # the segment. The refusal text says "this is a two-dot diff against main",
+    # and `main..HEAD` puts a DOT after the ref name, so the condition failed
+    # and the segment was skipped before ever reaching the two-dot test below.
+    #
+    # Aria probed rather than argued, 2026-08-31, and I reproduced all four on
+    # my side before touching it: `main HEAD` refused, `main..HEAD` silent and
+    # exit 0, `origin/main..HEAD` silent and exit 0, `origin/main` refused. The
+    # exact command the gate exists to catch, in the exact spelling the gate
+    # names, passing clean.
+    #
+    # The unit was `main followed by whitespace`; the risk is `main used as a
+    # two-dot endpoint`. Our whole week in one regex, inside the gate written
+    # for it.
+    #
+    # WHY `\.\.` AND NOT A BARE DOT, which is the wider and wronger repair:
+    # a bare dot would also match `git diff --name-status main.py`, and start
+    # refusing an ordinary diff of a file that happens to be named after the
+    # branch. Aria's own rule from her checker — widening a pass-condition to
+    # silence a mismatch is how a gate stops catching what it exists for —
+    # applies in this direction too. Two dots specifically, so `main.py` is
+    # untouched and `maintenance` stays unmatched by the same boundary that
+    # always excluded it.
+    #
+    # Three-dot forms still pass: `main...HEAD` matches this condition on its
+    # first two dots and is then released by the three-dot test below, which is
+    # where that decision belongs.
+    printf '%s' "$SEG" | grep -qE '(origin/)?main(\.\.|[[:space:]]|$)' || continue
 
     # Three dots is the merge-base form — a different question, and not this
     # mistake. Only the two-dot form is refused.

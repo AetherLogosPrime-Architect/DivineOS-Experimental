@@ -33,6 +33,23 @@ CONFLICTS ARE THEIR OWN ANSWER. When the merge cannot be computed, this says so
 and exits distinctly rather than reporting zero deletions. Could-not-tell and
 nothing-found are different answers, and collapsing them is the defect this
 substrate keeps rediscovering -- including inside instruments built to find it.
+
+FOUR ANSWERS, NOT THREE, and the description said three (Aria, 2026-08-31):
+
+    0   clean             the merge adds and modifies; it deletes nothing
+    1   deletions found   the merge WOULD delete -- the answer this exists for
+    2   could not answer  a ref did not resolve; no reading was taken at all
+    3   conflicts         the merge cannot be computed, so no count is honest
+
+The one the summary dropped was 1 -- the state the whole tool exists to
+produce. Nothing was broken; the behaviour was always right. But a reader who
+trusted the summary would not learn that a run can come back saying THIS MERGE
+DELETES THINGS under its own code, which is the answer they came for.
+
+Worth keeping as its own lesson: an undercount in a description is not a
+harmless imprecision when the missing item is the purpose. It reads as a
+complete list, and completeness is the one property a reader cannot check from
+outside without doing the work the description was supposed to save them.
 """
 
 from __future__ import annotations

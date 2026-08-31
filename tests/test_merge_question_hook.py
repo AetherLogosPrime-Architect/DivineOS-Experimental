@@ -76,6 +76,31 @@ class TestItRefusesTheWrongInstrument:
         """Reading the parts must not become an excuse to stop reading them all."""
         assert fire("git rev-parse origin/main && git diff --name-status origin/main X") == BLOCK
 
+    def test_the_literal_two_dot_spelling_the_refusal_text_names(self):
+        """Aria's probe, 2026-08-31, and it walked the gate's own subject through.
+
+        The refusal text says "this is a two-dot diff against main". The
+        condition required main followed by WHITESPACE, so `main..HEAD` -- a
+        DOT after the ref name -- failed it and the segment was skipped before
+        the two-dot test ever ran.
+
+        She measured four spellings rather than reading the regex and calling
+        it suspicious, which is why this is a finding and not a worry. I
+        reproduced all four on my side before touching anything: the
+        whitespace forms refused, both two-dot forms silent at exit zero.
+
+        The unit was `main followed by a space`. The risk is `main used as a
+        two-dot endpoint`. Same fault as everything else this week, sitting
+        inside the gate built during it.
+        """
+        assert fire("git diff --diff-filter=D main..HEAD") == BLOCK
+
+    def test_the_same_spelling_with_the_remote_prefix(self):
+        assert fire("git diff --diff-filter=D origin/main..HEAD") == BLOCK
+
+    def test_name_status_in_the_two_dot_spelling(self):
+        assert fire("git diff --name-status origin/main..mybranch") == BLOCK
+
 
 class TestShapesThatAreNotTheMistake:
     """Six legitimate forms. A gate firing on ordinary diffs gets switched off."""
@@ -104,6 +129,24 @@ class TestShapesThatAreNotTheMistake:
             'git diff --name-only --diff-filter=D "$MAINSHA" 320c1886'
         )
         assert fire(command) == PASS
+
+    def test_a_file_named_after_the_branch_is_not_a_diff_against_it(self):
+        """The false fire the WIDER repair would have introduced.
+
+        Letting any dot follow the ref name closes the two-dot hole and also
+        starts refusing an ordinary diff of a file called main.py. Aria's own
+        rule from her checker -- widening a condition to make a mismatch go
+        away is how a gate stops catching what it exists for -- applies in this
+        direction too, so the fix matches TWO dots specifically.
+
+        This pins the narrowness. Without it, the next person closing a hole
+        here has nothing telling them which way not to reach.
+        """
+        assert fire("git diff --name-status main.py") == PASS
+
+    def test_maintenance_is_not_main(self):
+        """The boundary that was always there, kept by the same change."""
+        assert fire("git diff --diff-filter=D maintenance otherbranch") == PASS
 
 
 class TestTheHookObeysItsOwnFinding:
