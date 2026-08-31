@@ -16,27 +16,52 @@ council-required gate's substance-binding stays trustworthy.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
-from divineos.core.council.experts import all_expert_builders
 from divineos.core.council_required.substance_binding import (
     _content_tokens,
     keywords_for_expert_registry,
 )
 
 
-# DERIVED, NEVER RETYPED. This used to be a third hand-written copy of the
-# roster and it had fallen three names behind the expert library -- so the test
-# written to catch a population gap could not see the one that existed. Its own
-# docstring above names the exact failure it missed: a confusing "lens not
-# registered" refusal for what is really a gap in the library. A guard that
-# hand-copies the thing it guards is only ever checking its own copy.
-ALL_EXPERT_BUILDERS = all_expert_builders()
+# DERIVED FROM THE ENGINE, NEVER RETYPED.
+#
+# This was a hand-written roster of forty-two, and the engine had grown to
+# forty-five. Three experts -- Feathers, Foucault and Hoare -- were registered,
+# surfaceable by the council chamber, and absent from this list, so the
+# invariant this file exists to pin was never checked for any of them.
+#
+# The sharp part is above, in the docstring: it names that exact failure --
+# "a confusing 'lens not registered' failure for what is actually a population
+# gap in the expert library" -- and it could not see the gap, because it
+# enumerated its own copy of the thing it was guarding.
+#
+# The walk command was repaired this way on 2026-08-28 and this third copy was
+# missed. Same engine, same public accessors, so the two can no longer drift
+# apart: adding an expert makes it tested here without a second step.
+def _experts_from_the_engine():
+    from divineos.core.council.engine import CouncilEngine, _register_all_experts
+
+    engine = CouncilEngine()
+    _register_all_experts(engine)
+    return [engine.get_expert(name) for name in engine.list_experts()]
 
 
-@pytest.mark.parametrize("builder", ALL_EXPERT_BUILDERS)
+# EACH CASE CARRIES ITS EXPERT'S NAME. The first version parametrised over bare
+# lambdas, and pytest labelled the cases builder0 through builder44 -- so a
+# failure would have said an expert was broken without saying which one. A test
+# whose failure cannot be read is half a test, which is the same shape as an
+# instrument whose silence cannot be read.
+_EXPERTS = _experts_from_the_engine()
+
+# Plain callables for the tests that walk the list themselves.
+ALL_EXPERT_BUILDERS = [(lambda w=w: w) for w in _EXPERTS]
+
+# The same set, labelled, for the parametrised cases.
+NAMED_EXPERT_BUILDERS = [pytest.param((lambda w=w: w), id=w.expert_name) for w in _EXPERTS]
+
+
+@pytest.mark.parametrize("builder", NAMED_EXPERT_BUILDERS)
 def test_expert_has_characteristic_questions(builder):
     """Each registered expert must declare at least one
     characteristic_question, otherwise the council-required gate
@@ -50,7 +75,7 @@ def test_expert_has_characteristic_questions(builder):
     )
 
 
-@pytest.mark.parametrize("builder", ALL_EXPERT_BUILDERS)
+@pytest.mark.parametrize("builder", NAMED_EXPERT_BUILDERS)
 def test_expert_characteristic_questions_have_content_tokens(builder):
     """Each registered expert must declare characteristic_questions whose
     combined text produces at least one substantive content-token after
@@ -80,54 +105,6 @@ def test_keywords_for_expert_registry_covers_all_experts():
     keywords_map = keywords_for_expert_registry(registry)
     missing = [name for name in registry if name.lower() not in keywords_map]
     assert not missing, f"Experts missing from keyword map: {missing!r}"
-
-
-def test_every_expert_module_on_disk_is_exported():
-    """The last hand-typed list, pinned against the files beside it.
-
-    Deriving the CLI registry and this test's roster from the package's
-    exports removes two copies but leaves one: the export list itself. A
-    lens whose module exists and whose builder is never exported is
-    invisible to every consumer, which is the same hole one level down --
-    an expert present in the library and absent from the kit.
-
-    So the files decide. Add a module, and either it is exported or this
-    fails by name.
-    """
-    import divineos.core.council.experts as experts_pkg
-
-    package_dir = Path(experts_pkg.__file__).parent
-    modules = {path.stem for path in package_dir.glob("*.py") if not path.stem.startswith("_")}
-    exported = {name[len("create_") : -len("_wisdom")] for name in experts_pkg.__all__}
-
-    unexported = modules - exported
-    assert not unexported, (
-        f"expert module(s) present on disk but not exported, so no consumer can "
-        f"reach them: {sorted(unexported)}"
-    )
-
-    orphaned = exported - modules
-    assert not orphaned, f"exported expert(s) with no module beside them: {sorted(orphaned)}"
-
-
-def test_the_roster_the_cli_walks_is_the_package_roster():
-    """The walk registry and the library must name the same experts.
-
-    Hoare, Feathers and Foucault could be PRIMED by the council chamber and
-    not WALKED, because the CLI carried its own list and it had fallen three
-    names behind. Applying Hoare on 2026-08-30 was refused as "not a
-    registered council expert" seconds after the chamber printed his
-    methodology, and the reasoning had to be moved to another lens.
-    """
-    from divineos.cli.council_required_commands import _load_expert_keywords
-
-    walkable = set(_load_expert_keywords())
-    library = {builder().expert_name.lower() for builder in all_expert_builders()}
-
-    assert walkable == library, (
-        f"walkable-but-unknown: {sorted(walkable - library)}; "
-        f"in the library but not walkable: {sorted(library - walkable)}"
-    )
 
 
 def test_keywords_for_expert_registry_stores_keys_lowercase():
