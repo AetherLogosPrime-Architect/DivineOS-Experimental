@@ -217,7 +217,7 @@ fi
 # ---------------------------------------------------------------- stage read
 STAGE_INFO="$(
   STATE_FILE="$STATE_FILE" REPO_ROOT="$REPO_ROOT" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: a stage-read failure falls back to WALK, the earliest stage, so no ritual work is skipped
-import json, os, sqlite3, time, glob
+import datetime, json, os, sqlite3, time, glob
 
 state_file = os.environ["STATE_FILE"]
 repo = os.environ["REPO_ROOT"]
@@ -264,6 +264,48 @@ def walk_done():
     except Exception:
         return False
 
+def mech_done():
+    # Evidence, not self-report. MECH was the one stage that cleared on a flag
+    # the hook set on itself ("I called defer-check"), while the actual
+    # completion record — per-step ran/succeeded, with a timestamp — sits in
+    # the phase-1 handshake marker that this driver never opened. So the work
+    # could be provably done and the ritual still stuck, which is exactly the
+    # state found on 2026-08-31: all four steps succeeded at 17:30 and the
+    # stage read MECH with mech_done false. Two mechanisms, both correct,
+    # neither reading the other.
+    #
+    # The self-report flag is still honoured, because run_mech setting it is
+    # real evidence too. The marker is a second, independent witness.
+    if st.get("mech_done"):
+        return True
+    try:
+        from divineos.core.auto_cycle import read_handshake_marker
+        m = read_handshake_marker()
+    except Exception:
+        return False
+    if not isinstance(m, dict):
+        return False
+    ts = m.get("phase1_completed_at")
+    if not isinstance(ts, str):
+        return False
+    try:
+        done_at = datetime.datetime.fromisoformat(
+            ts.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return False
+    if done_at <= start:
+        return False
+    # A marker recording a FAILED run must not clear the stage. "Couldn't do"
+    # does not collapse into "did" here either.
+    steps = m.get("steps")
+    if not isinstance(steps, dict) or not steps:
+        return False
+    return all(
+        isinstance(s, dict) and s.get("ran") and s.get("succeeded")
+        for s in steps.values()
+    )
+
+
 def dream_done():
     for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
         try:
@@ -276,7 +318,7 @@ def dream_done():
 stage = st.get("stage", "WALK")
 if stage == "WALK" and walk_done():
     stage = "MECH"
-if stage == "MECH" and st.get("mech_done"):
+if stage == "MECH" and mech_done():
     stage = "DREAM"
 if stage == "DREAM" and dream_done():
     stage = "REST"
