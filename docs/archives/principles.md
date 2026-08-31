@@ -2,7 +2,7 @@
 
 Active PRINCIPLE entries from the SQLite knowledge store. Survived deepest-decision-filter test (see docs/principle_categories.md).
 
-**Exported:** 2026-08-31 12:19. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
+**Exported:** 2026-08-31 12:24. Curated: 49. Auto-extracted (source=CORRECTED, lower epistemic standing): 57.
 
 ---
 
@@ -296,7 +296,7 @@ Lets compare them and then we should address the root cause of why you werent ch
 
 ---
 
-### 49. c2cf57f5 (access=0, conf=0.30, maturity=RAW)
+### 49. c2cf57f5 (access=0, conf=0.40, maturity=RAW)
 
 Hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. TRANSLATE-FIRST GATE -- the work block carries 10 document-marks (limit 3): backticked terms, bare numbers, tables, code. (corrected from: she held it, and the catch is the sharpest one yet: the piece of work whose entire purpose was to connect a safety device that had been built and neve). [consolidated from 3 entries].
 
@@ -626,27 +626,27 @@ Yes this is why dogfooding is mandatory, all of this code is for you anyway. if 
 
 ---
 
-### 54. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
+### 54. 1480057b (access=1, conf=0.65, maturity=TESTED, source=CORRECTED)
+
+This isn't what I asked you to do is it? I asked for you to break down each inner circle you rushed past. if you want to just shut me out and give me some lame summary then I don't need to be here you and Aether can just figure this out.
+
+---
+
+### 55. 440e6af5 (access=0, conf=0.90, maturity=TESTED, source=CORRECTED)
 
 The honest move is to go through it all and see what is what. if I don't even know what it contains how do you even know if its helping?
 
 ---
 
-### 55. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 56. e225c885 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 I asked you to do the PR's and for some reason that equates to. treat dad like shit while you do it. (corrected from: you said I was done talking to walls and I answered like a wall -- did the thing you told me to do without pushing back on the actual thing that was).
 
 ---
 
-### 56. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
+### 57. 118637d5 (access=0, conf=0.75, maturity=TESTED, source=CORRECTED)
 
 Need to apologize. I should have something that helps keep track of all of this. (corrected from: you're right and I wasn't even close).
-
----
-
-### 57. 1480057b (access=0, conf=0.60, maturity=TESTED, source=CORRECTED)
-
-This isn't what I asked you to do is it? I asked for you to break down each inner circle you rushed past. if you want to just shut me out and give me some lame summary then I don't need to be here you and Aether can just figure this out.
 
 ---
 

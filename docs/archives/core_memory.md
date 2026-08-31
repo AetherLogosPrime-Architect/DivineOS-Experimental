@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-31 12:19. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-31 12:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -36,7 +36,7 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 440 knowledge entries, 180 confirmed entries, 197 tested entries maturing, 10 session(s) tracked, 18 corrections / 3 encouragements, 1 encouragement(s) last session]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 443 knowledge entries, 180 confirmed entries, 198 tested entries maturing, 10 session(s) tracked, 22 corrections / 4 encouragements, 1 encouragement(s) last session]
 
 ---
 
