@@ -56,8 +56,20 @@ source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_li
 
 INPUT=$(cat)
 
+# The log belongs in THIS clone's home. It was ${HOME}/.divineos, the default
+# home rather than the resolved one, so BOTH clones have been appending failure
+# markers to a single file that only one of them resolves to. Read on
+# 2026-08-31: my own git-commit failure sits interleaved between two of his,
+# and neither of us had ever opened it. A hook built to make silent strands
+# visible was shouting in a room the other seat does not stand in -- which is
+# the same silence it exists to end, relocated rather than removed.
+# Provisional, so the cd-failure path below still has somewhere loud to write.
+# Upgraded to the resolved home immediately after the cd -- resolution has to
+# happen from inside the repo, because paths.py finds the per-clone marker by
+# walking up from the working directory, and a bare `python` from the wrong
+# directory imports the other clone's tree and answers about ITS home.
 _LOG_PATH="${HOME}/.divineos/auto-push-letter.log"
-mkdir -p "${HOME}/.divineos" 2>/dev/null || true
+mkdir -p "$(dirname "$_LOG_PATH")" 2>/dev/null || true
 
 # fail_loud <stage> <reason> — write a JSONL failure marker and exit 0.
 # Fail-open on action, fail-loud on reporting.
@@ -77,6 +89,20 @@ fail_loud() {
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || fail_loud "cd-repo-root" "could not cd to repo root: $REPO_ROOT"
+
+# Now inside the repo, retarget the log at THIS clone's home. Resolved through
+# the same per-clone marker every other store uses, and through the toolbox's
+# python rather than a bare one, because the global editable install points at
+# whichever clone was installed last. An unresolvable home keeps the
+# provisional path -- a marker in the wrong drawer still beats no marker.
+if _RESOLVED_PY=$(find_divineos_python 2>/dev/null) && [ -n "$_RESOLVED_PY" ]; then
+    _RESOLVED_HOME=$("$_RESOLVED_PY" -c \
+        "from divineos.core.paths import divineos_home; print(divineos_home())" 2>/dev/null)
+    if [ -n "$_RESOLVED_HOME" ]; then
+        _LOG_PATH="${_RESOLVED_HOME}/auto-push-letter.log"
+        mkdir -p "$_RESOLVED_HOME" 2>/dev/null || true
+    fi
+fi
 
 # Extract file_path from PostToolUse Write/Edit payload; normalize
 # Windows backslashes (same fix as mirror-letters-to-shared.sh 2026-06-29).
@@ -185,7 +211,20 @@ STAGED_COUNT=$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
 [ "${STAGED_COUNT:-0}" -gt 0 ] || exit 0
 
 BASENAME=$(basename "$FILE_PATH")
-git commit -m "letter(auto): $BASENAME" 2>/dev/null || fail_loud "git-commit" "git commit failed for $REL_PATH"
+# Capture the commit's own output instead of discarding it. The 2>/dev/null
+# here wrote a marker saying "git commit failed for <path>" and threw away the
+# only sentence that says WHY -- and a commit-msg gate's refusal is exactly the
+# kind of thing that lands there. Read on 2026-08-31: a marker of mine recorded
+# a failed commit with no reason, so I guessed at the cause and told Andrew the
+# guess. A hook whose whole discipline is fail-loud-on-reporting must not
+# report an outcome while dropping its cause.
+# TAIL, not head. A probe on 2026-08-31 captured 3669 bytes from a refused
+# commit and the first 800 were ruff and mypy warming up -- the gate's actual
+# refusal is the last thing printed. Keeping the head would have preserved the
+# preamble and dropped the verdict, which is the same wrong-end choice this
+# whole repair is about.
+_commit_out=$(git commit -m "letter(auto): $BASENAME" 2>&1) || \
+    fail_loud "git-commit" "git commit failed for $REL_PATH: $(printf '%s' "$_commit_out" | tail -c 800)"
 
 # Push with prose-only scoping. Backgrounded so the hook doesn't block
 # the tool-flow on the network round-trip. verify-push-landed.sh is
