@@ -1,6 +1,26 @@
 #!/bin/bash
 # PreToolUse hook — doorman on hand-rolled scans of my own diagnostic surfaces.
 #
+# INTENTIONALLY UNWIRED, and this line is the examination the wiring check
+# asks for rather than a way to quiet it. 2026-08-31: the check reported this
+# file dark -- written, unregistered, saying nothing about why -- and its own
+# docstring is right that a dark hook is not necessarily a bug, it is
+# necessarily UNEXAMINED.
+#
+# So, examined. This is a BLOCKING doorman on the tool path, and the thing it
+# blocks is a shape I reach for constantly: hand-rolling a scan of surfaces the
+# instruments command already covers better. Registering a refusal that fires
+# on that reach is a real behaviour change on every tool call, and it wants its
+# own testing pass against the live command stream before it goes in -- not a
+# ride-along inside a commit about branch scope.
+#
+# Distinguish this from its sibling. context-heartbeat.sh was ALSO dark and was
+# wired the same day, because there the unwired state was a gap rather than a
+# decision: the CLI documented it as already running every round, which made
+# that sentence false. Silent instrumentation that costs nothing goes in;
+# a blocking refusal waits for its own pass. Two dark hooks, two different
+# honest answers.
+#
 # WHY THIS FILE EXISTS. 2026-08-24: Andrew asked whether the compose-prime's
 # rules were earning their cost. Answering that needs to know which primes are
 # preventing violations and which are not, which needs the fire-logs. So I wrote

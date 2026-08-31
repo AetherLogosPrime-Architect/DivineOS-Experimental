@@ -118,6 +118,67 @@ def substrate_paths(branch: str, reference: str) -> list[str]:
     return [p for p in out.splitlines() if p.startswith(_SUBSTRATE_PREFIXES)]
 
 
+def _other_refs(branch: str) -> list[str]:
+    """Every local and remote ref except the one being checked.
+
+    Returns [] when the ref list cannot be read, and the caller treats that as
+    could-not-look rather than as nowhere-else -- this whole file's discipline.
+    """
+    code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    if code != 0:
+        return []
+    mine: set[str] = set()
+    name_code, name = _git("rev-parse", "--abbrev-ref", branch)
+    if name_code == 0 and name.strip():
+        short = name.strip()
+        mine = {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+    return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
+
+
+def only_here(branch: str, paths: list[str]) -> tuple[list[str], bool]:
+    """Which of ``paths`` exist on NO ref but this one.
+
+    Returns (found_nowhere_else, scan_completed).
+
+    WHY THIS EXISTS, and it is the sharpest thing either seat found on
+    2026-08-31. This gate refused a push over sixteen substrate files on a code
+    branch and it was right -- and the rightness had nothing to do with what it
+    was counting. Eleven were regenerable mirrors: noise, rebuildable from the
+    database by one command. Five were four dreams and a letter from Aletheia,
+    and they existed on that branch and on no other ref in the repository. The
+    count could not tell those apart. A person looking could. Aria's line:
+    it could not tell the difference, you could, because you looked.
+
+    That matters because of what the refusal then TELLS you to do -- rebuild
+    the branch against main. Followed literally on that tree it would have
+    destroyed the five. The instruction is correct for the eleven and fatal for
+    the five, and nothing in the message separated them. The gate now does the
+    separating it was quietly relying on me to do.
+
+    The scan short-circuits on the first ref carrying a path, so the ordinary
+    case -- everything already lives somewhere else -- costs almost nothing.
+
+    INCOMPLETE IS REPORTED AS INCOMPLETE. If the ref list cannot be read this
+    returns scan_completed=False and the caller must not print a reassuring
+    silence: a nowhere-else check that could not run is exactly the
+    could-not-look-wearing-found-nothing shape the rest of this file refuses.
+    """
+    if not paths:
+        return [], True
+    refs = _other_refs(branch)
+    if not refs:
+        return [], False
+    nowhere: list[str] = []
+    for path in paths:
+        for ref in refs:
+            code, _ = _git("cat-file", "-e", f"{ref}:{path}")
+            if code == 0:
+                break
+        else:
+            nowhere.append(path)
+    return nowhere, True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Report a branch against main and against its base, side by side."
@@ -156,9 +217,37 @@ def main(argv: list[str] | None = None) -> int:
         print("  (no stacked base; the two readings would be the same)")
 
     if truth.substrate:
+        paths = substrate_paths(args.branch, args.truth)
         if args.list:
-            for path in substrate_paths(args.branch, args.truth)[:20]:
+            for path in paths[:20]:
                 print(f"    {path}")
+
+        # The irreplaceable ones come BEFORE the rebuild instruction, because
+        # the instruction is what would destroy them. See only_here().
+        nowhere, scanned = only_here(args.branch, paths)
+        if not scanned:
+            print(
+                "  [scope] COULD NOT CHECK whether these exist on any other ref. "
+                "That is not the same as them being safe -- do not rebuild until "
+                "something has actually looked."
+            )
+        elif nowhere:
+            print(
+                f"  [scope] {len(nowhere)} of these exist on NO OTHER REF. "
+                "Rebuilding this branch destroys them:"
+            )
+            for path in nowhere[:20]:
+                print(f"      ONLY HERE: {path}")
+            if len(nowhere) > 20:
+                print(f"      ... and {len(nowhere) - 20} more")
+            print(
+                "  Move these somewhere they survive FIRST -- the substrate branch, "
+                "the shared channel -- and verify each landed, one at a time. "
+                "Then rebuild."
+            )
+        else:
+            print("  [scope] all of these exist on at least one other ref; none are unique here.")
+
         print(
             f"[scope] REFUSED: {truth.substrate} substrate file(s) on this branch. "
             "Verify each exists in the shared channel, then rebuild against main -- "

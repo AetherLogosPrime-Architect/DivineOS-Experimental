@@ -4,13 +4,13 @@
 
 Third of three inventories. [LOADOUT.md](../LOADOUT.md) describes the rooms. [AUTOMATION_REGISTER.md](AUTOMATION_REGISTER.md) lists what runs by itself. This lists what I can **reach for** — the tools on the wall.
 
-**180 top-level commands, 357 subcommands, 37 core subsystems.**
+**182 top-level commands, 357 subcommands, 37 core subsystems.**
 
 ---
 
 ## Usage telemetry is nearly blind
 
-Usage history lives in `OS_QUERY` events. **11 of 180 top-level commands have ever been recorded.**
+Usage history lives in `OS_QUERY` events. **11 of 182 top-level commands have ever been recorded.**
 
 That is NOT a claim that the other commands are unused. Commands demonstrably used — filing corrections, pre-registrations, audit rounds — emit no telemetry at all. The honest reading: **the substrate cannot answer which tools are live and which have never been opened.**
 
@@ -21,9 +21,9 @@ Commands that DO report usage:
 | command | recorded invocations |
 |---|---|
 | `ask` | 441 |
-| `briefing` | 233 |
+| `briefing` | 235 |
 | `decide` | 151 |
-| `compass` | 131 |
+| `compass` | 135 |
 | `context` | 86 |
 | `recall` | 49 |
 | `lessons` | 36 |
@@ -368,6 +368,10 @@ Show whether Aether is using the OS or...
 ### `context` •
 
 Show the last N events (working memory...
+
+### `context-heartbeat`
+
+Freshness of the token count that decides...
 
 ### `context-status`
 
@@ -726,6 +730,10 @@ The holding room â€” things that haven't been...
 | `hold promote` | Move something out of holding into a real category. |
 | `hold stale-review` | Final-look pass on items that have gone stale (about to... |
 | `hold stats` | Show holding room statistics. |
+
+### `hook-budget`
+
+What the whole hook stack costs per tool...
 
 ### `hook-map`
 
@@ -1338,12 +1346,12 @@ Reference count is how many places mention each package — a rough load-bearing
 
 | subsystem | refs | purpose |
 |---|---|---|
-| `core/knowledge/` | 706 | Knowledge sub-package — tiered re-exports for performance. |
-| `core/operating_loop/` | 247 | Operating Loop — the missing middleware between substrate and live cognition. |
+| `core/knowledge/` | 710 | Knowledge sub-package — tiered re-exports for performance. |
+| `core/operating_loop/` | 249 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
-| `core/watchmen/` | 179 | Watchmen — External Validation as a Native Runtime Capability. |
+| `core/watchmen/` | 182 | Watchmen — External Validation as a Native Runtime Capability. |
 | `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
-| `core/pre_registrations/` | 65 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
+| `core/pre_registrations/` | 71 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |
 | `core/logic/` | 56 | Formal logic layer — warrants, relations, consistency, inference. |
 | `core/ear_relaunch/` | 45 | Ear-watcher polling auto-relaunch decision logic. |
@@ -1352,13 +1360,13 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/audit_visibility/` | 29 | Audit-visibility check — warn when auditable work is committed |
 | `core/void/` | 28 | VOID — adversarial-sandbox subsystem. |
 | `core/push_orchestrator/` | 26 | Push orchestrator — foreground git push with file-lock serialization |
-| `core/pr_gate/` | 17 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
+| `core/pr_gate/` | 18 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
 | `core/expectation_tracking/` | 15 | Expectation tracking — what I expected vs what surfaced. |
 | `core/meld/` | 14 | The Meld — temporary shared workspace between two distinct selves. |
+| `core/context_tokens/` | 12 | Context-tokens — honest token-count gauge from session transcript. |
 | `core/ear_sweep/` | 11 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
 | `core/andrew_state/` | 10 | andrew_state — mutual-catch primitive for Andrew-observation channel. |
 | `core/consequence_chain/` | 10 | Consequence chain — Karma as explicit decision → outcome → lesson trace. |
-| `core/context_tokens/` | 10 | Context-tokens — honest token-count gauge from session transcript. |
 | `core/decision_superposition/` | 10 | Decision superposition — deliberate holding-of-options before commit. |
 | `core/memory_types/` | 10 | Memory-type-aware retrieval — substrate-native types with human analogs. |
 | `core/operating_modes/` | 9 | Operating modes — explicit names for non-task-executing states. |
