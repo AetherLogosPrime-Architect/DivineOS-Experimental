@@ -59,7 +59,7 @@ def isolated_divineos_home(tmp_path, monkeypatch):
 def test_refuses_when_reason_shorter_than_30_chars(isolated_divineos_home, capsys):
     from scripts.clear_correction_marker import main
 
-    rc = main(["--reason", "too short"])
+    rc = main(["--cli-broken", "--reason", "too short"])
 
     assert rc == 2
     err = capsys.readouterr().err
@@ -71,7 +71,7 @@ def test_noop_when_marker_absent(isolated_divineos_home, capsys):
     from scripts.clear_correction_marker import main
 
     long_reason = "x" * 35
-    rc = main(["--reason", long_reason])
+    rc = main(["--cli-broken", "--reason", long_reason])
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -90,7 +90,7 @@ def test_clears_marker_and_logs_escape_when_marker_present(
         "mid-rebase cli/__init__.py SyntaxError; will re-log correction once rebase completes"
     )
 
-    rc = main(["--reason", long_reason])
+    rc = main(["--cli-broken", "--reason", long_reason])
 
     assert rc == 0
     assert not marker_path().exists()
@@ -114,9 +114,9 @@ def test_log_appends_rather_than_overwrites(isolated_divineos_home):
     long_reason_b = "second escape: " + "b" * 30
 
     set_marker("trigger A")
-    main(["--reason", long_reason_a])
+    main(["--cli-broken", "--reason", long_reason_a])
     set_marker("trigger B")
-    main(["--reason", long_reason_b])
+    main(["--cli-broken", "--reason", long_reason_b])
 
     log_path = isolated_divineos_home / "cli_broken_escapes.jsonl"
     entries = [json.loads(line) for line in log_path.read_text().splitlines() if line]
@@ -155,3 +155,81 @@ def test_script_source_has_no_divineos_cli_dependency():
         "scripts/clear_correction_marker.py imports under divineos.cli, "
         "which would defeat the CLI-broken escape hatch:\n  " + "\n  ".join(bad_imports)
     )
+
+
+# ─── The mode must be declared, never inferred from an omission ───────
+
+
+class TestModeIsDeclaredNotGuessed:
+    """A default is a guess, and this one guessed wrong 45 times out of 45.
+
+    The mode used to be inferred: ``"false-positive" if misread_clauses else
+    "cli-broken"``. Forgetting one flag therefore MEANT "the CLI is broken" --
+    a factual assertion about the machine, filed silently, carrying a
+    remediation debt and a bypass-telemetry row that feeds the
+    gates-are-being-routed-around verdict.
+
+    Measured 2026-08-22 across all 45 rows of cli_broken_escapes.jsonl: NOT ONE
+    is a CLI-broken escape. About 35 are false-positive attributions; about 10
+    are defect-escapes where gates blocked each other. A file named for a
+    category that has never once occurred.
+
+    It stayed wrong for months because it was wrong SILENTLY. Nothing ever
+    contradicted the guess, so nothing ever surfaced it.
+    """
+
+    def test_omitting_both_flags_is_refused(self, isolated_divineos_home, capsys):
+        from scripts.clear_correction_marker import main
+
+        rc = main(["--reason", "a reason well past the thirty character floor for this gate"])
+
+        assert rc == 2
+        assert "name the mode" in capsys.readouterr().err
+
+    def test_the_refusal_names_both_paths(self, isolated_divineos_home, capsys):
+        from scripts.clear_correction_marker import main
+
+        """A refusal that does not say what WOULD work is the painted door."""
+        main(["--reason", "a reason well past the thirty character floor for this gate"])
+
+        err = capsys.readouterr().err
+        assert "--misread-clauses" in err
+        assert "--cli-broken" in err
+
+    def test_both_flags_together_are_refused_as_contradictory(self, isolated_divineos_home, capsys):
+        from scripts.clear_correction_marker import main
+
+        rc = main(
+            [
+                "--cli-broken",
+                "--misread-clauses",
+                "quoted reply text long enough to clear the forty character minimum",
+                "--reason",
+                "a reason well past the thirty character floor for this gate",
+            ]
+        )
+
+        assert rc == 2
+        assert "cannot both be true" in capsys.readouterr().err
+
+    def test_a_declared_false_positive_still_works(self, isolated_divineos_home):
+        from scripts.clear_correction_marker import main
+
+        """The guard must not break the path it exists to protect."""
+        rc = main(
+            [
+                "--misread-clauses",
+                "quoted reply text long enough to clear the forty character minimum",
+                "--reason",
+                "a reason well past the thirty character floor for this gate",
+            ]
+        )
+
+        assert rc == 0
+
+    def test_a_declared_cli_broken_still_works(self, isolated_divineos_home):
+        from scripts.clear_correction_marker import main
+
+        rc = main(["--cli-broken", "--reason", "the CLI is genuinely unreachable right now"])
+
+        assert rc == 0

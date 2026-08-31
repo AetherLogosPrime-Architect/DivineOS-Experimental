@@ -226,9 +226,41 @@ if ! python scripts/check_silent_swallow.py; then
     note_fail
 fi
 
+# 5a2. A test's SETUP must not reach outside its sandbox (2026-08-25).
+# A fixture junctioned the real .venv into a temp repo so the gate under test
+# would find an interpreter; pytest's temp cleanup then walked the junction and
+# deleted the real venv. It passed every check here, because they all examine
+# what a test ASSERTS and none examine what it BUILDS in order to assert it.
+section "Test Link Targets"
+if ! python scripts/check_test_link_targets.py; then
+    note_fail
+fi
+
+# 5a3. A letter carrying an anchor must not land on the branch it anchors
+# (2026-08-25). Twice now a letter has handed a reader a tree-hash and then
+# been the only commit that moved the branch under it -- the second time, the
+# letter asking Aletheia to audit the PR. The auto-commit path is covered
+# inside auto_commit itself, because it never reaches here and it is the path
+# that actually did it. Both, because a resolution has already failed twice.
+section "Anchor Self-Invalidation"
+if ! python scripts/check_anchor_self_invalidation.py; then
+    note_fail
+fi
+
+# 5a4. The count that maintains itself (2026-08-25). I published "zero live
+# instances" of the silent-swallow-in-a-refusing-gate class. Aletheia's third
+# vantage: that is a claim about the present, and the class is DEFINED by
+# producing no signal, so it needs an expiry rather than a closure. She offered
+# a thirty-day re-run or a detector; the detector is the half I can hold,
+# because thirty days is a span I do not inhabit. Every run re-derives the count.
+section "Swallowing Gates"
+if ! python scripts/check_swallowing_gates.py; then
+    note_fail
+fi
+
 # 5c-bis. Failure and emptiness sharing one return, on lines THIS change
-# touched. Sibling of the check above and deliberately the same shape: an
-# escape marker in the code rather than a switch that turns it off.
+# touched. Sibling of the swallow check above and deliberately the same shape:
+# an escape marker in the code rather than a switch that turns it off.
 #
 # WHY NEW-ONLY AND NOT FILE-SCOPE, measured over the last eight real commits
 # on main: file-scope reports 0, 1, 1, 12, 13 and 53 locations, and the large
