@@ -98,6 +98,83 @@ def repo(tmp_path: Path) -> Path:
     return root
 
 
+# Names the TEST HARNESS itself owns and the subprocess must keep: conftest's
+# sandbox pointers, plus the one gate it deliberately disables for its own runs.
+# Everything else under the prefix is stripped as a possible gate-escape.
+#
+# INVERTED 2026-08-29, and the inversion came from Aria reviewing the first
+# version of this. That version enumerated the ESCAPES -- four substrings,
+# chosen from the ones I happened to have hit. She swept every variable under
+# the prefix and found thirteen escape-shaped names that all four markers
+# missed, including two for the very push path these tests exercise, both
+# advertised in their own gates' refusal messages as the way out. So the hole
+# was not future. It was live, and it was the same fault I had just fixed
+# wearing names my filter could not read.
+#
+# Her remedy was to widen the escape list. Checking it before taking it found
+# the snag: a wider list also catches DIVINEOS_DISABLE_AUTO_REMEDIATE, which
+# conftest sets ON PURPOSE -- so widening reintroduces the sandbox breakage the
+# comment above warns about.
+#
+# So neither list. Enumerate the SMALL STABLE thing rather than the LARGE
+# GROWING one. The harness owns four names and they change when the harness
+# changes; the escape population is thirty-one and grows every time anyone adds
+# a door. An enumeration of the second can only ever be behind. An enumeration
+# of the first is a fact about this file's own fixture.
+#
+# The loud-failure property is unchanged and is still why this is safe: these
+# tests assert the gate REFUSES, so anything slipping through reddens them
+# rather than passing quietly.
+_HARNESS_OWNED = frozenset(
+    {
+        "DIVINEOS_DB",
+        "DIVINEOS_HOME",
+        "DIVINEOS_SESSION_ID",
+        "DIVINEOS_DISABLE_AUTO_REMEDIATE",
+    }
+)
+
+
+def _clean_env(**extra: str) -> dict[str, str]:
+    """The ambient environment with gate-disabling variables removed.
+
+    THESE TESTS WERE NOT HERMETIC AND IT MATTERED. They inherited os.environ
+    whole, and DIVINEOS_SUBSTRATE_BRANCH=1 is a variable a person legitimately
+    exports to push a letters branch. The pre-push hook then runs the suite as
+    a child process, which inherits it, and the escape the gate honours turns
+    the check off underneath the very tests that exist to prove it refuses.
+
+    Found 2026-08-29 while pushing letters: all eight went red at once while
+    passing in isolation, which reads exactly like a regression and is not one.
+    The tests were right about a gate that had been silently disabled around
+    them.
+
+    THE FIRST VERSION ENUMERATED THE ESCAPES AND THAT WAS THE WRONG LIST.
+    Four substrings, chosen from the ones I had happened to hit. Aria swept the
+    whole prefix and found thirteen escape-shaped names none of them caught,
+    two of them doors onto the very push path these tests exercise. An
+    enumeration of escapes can only ever trail the population it describes.
+
+    So this keeps the harness's own four instead and strips everything else
+    under the prefix. That list changes when the fixture changes, which is a
+    thing this file can actually know. A new escape needs no maintenance here
+    at all -- it is stripped by default, because default-strip is the safe
+    direction and default-keep is not.
+
+    THE REMAINING FAILURE MODE, since there always is one: a new variable the
+    HARNESS starts relying on, not added here, gets stripped and the subprocess
+    loses a pointer it needed. That fails loudly and immediately -- the tests
+    are the only consumer, and they break in the same run that introduces it.
+    The old direction failed the other way, silently, by letting a gate stay
+    switched off underneath tests that exist to prove it refuses.
+    """
+    env = {
+        k: v for k, v in os.environ.items() if not k.startswith("DIVINEOS_") or k in _HARNESS_OWNED
+    }
+    env.update(extra)
+    return env
+
+
 def _run_gate(repo: Path, refs: list[tuple[str, str]], **env_extra: str):
     """Run the real gate against a synthetic pre-push stdin.
 
@@ -114,7 +191,7 @@ def _run_gate(repo: Path, refs: list[tuple[str, str]], **env_extra: str):
         text=True,
         cwd=str(repo),
         timeout=300,
-        env={**os.environ, **env_extra},
+        env=_clean_env(**env_extra),
     )
 
 
@@ -253,7 +330,7 @@ def test_a_hand_run_with_no_stdin_says_which_subject_it_used(repo: Path) -> None
         text=True,
         cwd=str(repo),
         timeout=300,
-        env=dict(os.environ),
+        env=_clean_env(),
     )
 
     assert "no push refs on stdin" in result.stdout
