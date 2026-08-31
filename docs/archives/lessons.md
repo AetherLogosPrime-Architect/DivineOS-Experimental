@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-31 00:12. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -20,7 +20,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## f1deb6f0 [improving] x14
+## f1deb6f0 [improving] x13
 
 **Category:** upset_user
 
@@ -60,7 +60,7 @@ Test description without directive.
 
 ---
 
-## c3090082 [improving] x11
+## c3090082 [active] x11
 
 **Category:** incomplete_fix
 
@@ -92,7 +92,7 @@ I retried a failed action 1x without investigating the cause. I need to investig
 
 ---
 
-## 838e6420 [active] x8
+## 838e6420 [improving] x8
 
 **Category:** false_claim
 
