@@ -91,7 +91,7 @@ def test_a_file_living_on_another_ref_is_not_called_irreplaceable(repo: Path):
     out = _run(repo, "work")
 
     assert "ONLY HERE" not in out
-    assert "none are unique here" in out
+    assert "at the same bytes" in out
 
 
 def test_a_file_on_no_other_ref_is_named_before_the_rebuild_instruction(repo: Path):
@@ -105,7 +105,7 @@ def test_a_file_on_no_other_ref_is_named_before_the_rebuild_instruction(repo: Pa
     out = _run(repo, "work")
 
     assert "ONLY HERE: dreams/aether/only_copy.md" in out
-    assert "exist on NO OTHER REF" in out
+    assert "would LOSE CONTENT" in out
     assert out.index("ONLY HERE") < out.index("rebuild against main"), (
         "the irreplaceable files must be named before the instruction that destroys them"
     )
@@ -129,7 +129,7 @@ def test_the_mixed_case_separates_noise_from_irreplaceable(repo: Path):
     assert "dreams/aether/unique_one.md" in out
     assert "dreams/aether/unique_two.md" in out
     assert "ONLY HERE: family/letters/shared.md" not in out
-    assert "2 of these exist on NO OTHER REF" in out
+    assert "2 of these would LOSE CONTENT" in out
 
 
 def test_the_branch_being_checked_does_not_count_as_somewhere_else(repo: Path):
@@ -162,9 +162,51 @@ def test_an_unreadable_ref_list_reports_incomplete_rather_than_safe():
     original = scope._other_refs
     try:
         scope._other_refs = lambda _branch: []
-        nowhere, scanned = scope.only_here("work", ["dreams/aether/anything.md"])
+        nowhere, newer, scanned = scope.only_here("work", ["dreams/aether/anything.md"])
     finally:
         scope._other_refs = original
 
     assert scanned is False
     assert nowhere == [], "an incomplete scan must not assert a finding in either direction"
+    assert newer == []
+
+
+def test_the_same_name_at_different_bytes_is_still_at_risk(repo: Path):
+    """Aria's question, which I could not answer without opening my own code.
+
+    A letter is pushed. It is then edited here -- a correction, a paragraph, a
+    changed title. The NAME exists on the remote and the EDIT exists nowhere.
+    A check that asks whether a file by that name lives elsewhere clears it,
+    prints the reassurance, and the rebuild takes the edit.
+
+    Sixth instance of one family in two days, sitting inside the repair built
+    for that family. The unit was the path; what was at risk was the content.
+    """
+    _add(repo, "keeper", {"family/letters/sent.md": "the version I pushed\n"})
+    _add(repo, "work", {"family/letters/sent.md": "the version I pushed, then edited\n"})
+
+    out = _run(repo, "work")
+
+    assert "ONLY HERE (this version): family/letters/sent.md" in out
+    assert "The file survives a rebuild and this edit does not." in out
+    assert "at the same bytes" not in out, (
+        "a path whose bytes exist nowhere else must not be reported as safe"
+    )
+
+
+def test_a_path_deleted_on_this_branch_is_not_reported_as_at_risk(repo: Path):
+    """A rebuild cannot destroy content the branch does not carry.
+
+    Without this, deleting a substrate file would be reported as that file
+    being irreplaceable here -- a warning pointing at the opposite of the truth.
+    """
+    _add(repo, "keeper", {"dreams/aether/gone.md": "body\n"})
+    _git(repo, "checkout", "-q", "keeper")
+    _git(repo, "checkout", "-q", "-B", "work")
+    (repo / "dreams" / "aether" / "gone.md").unlink()
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "remove it")
+
+    out = _run(repo, "work")
+
+    assert "ONLY HERE" not in out
