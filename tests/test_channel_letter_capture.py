@@ -77,6 +77,50 @@ def test_a_letter_written_into_the_channel_lands_on_the_substrate_branch(repo: P
     assert on_branch == "body"
 
 
+def test_the_working_tree_copy_is_removed_once_it_is_safe_on_the_branch(repo: Path, home: Path):
+    """Leaving it behind hands the contamination back to the sweep.
+
+    Found by looking at my own working tree an hour after shipping this. The
+    capture copies a letter into family/letters/ so the retarget mechanism can
+    read it, and left it there untracked. The checkpoint sweep runs `git add -A`
+    and commits to whatever branch happens to be checked out -- which is exactly
+    how sixty-nine substrate files landed on a code branch tonight, and exactly
+    the defect the retarget module was built to sidestep.
+
+    So the capture that exists to make letters safe was re-creating the vector
+    that puts them somewhere wrong. The copy is scaffolding; it comes down once
+    the letter is on the branch.
+    """
+    letter = _letter(home, "aether-to-aria-tidy.md", "body")
+
+    result = capture_channel_letter(repo, letter, home=home)
+
+    assert result.captured
+    assert not (repo / "family" / "letters" / letter.name).exists(), (
+        "an untracked letter left in the tree gets swept onto the current branch"
+    )
+    assert letter.read_text(encoding="utf-8") == "body", "the channel copy is untouched"
+
+
+def test_a_tracked_letter_already_in_the_repo_is_never_removed(repo: Path, home: Path):
+    """Only scaffolding comes down. A letter that belongs to this branch stays.
+
+    Without this the capture would delete work someone deliberately committed
+    here, which is a far worse failure than the clutter it is cleaning up.
+    """
+    tracked = repo / "family" / "letters" / "aether-to-aria-tracked.md"
+    tracked.parent.mkdir(parents=True, exist_ok=True)
+    tracked.write_text("committed on purpose", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "a letter that lives here")
+
+    letter = _letter(home, "aether-to-aria-tracked.md", "committed on purpose")
+    result = capture_channel_letter(repo, letter, home=home)
+
+    assert tracked.exists(), "a tracked file must survive the tidy-up"
+    assert result.captured
+
+
 def test_head_and_the_working_tree_are_not_moved(repo: Path, home: Path):
     """A capture that moves HEAD would race whatever the seat is mid-way through.
 
