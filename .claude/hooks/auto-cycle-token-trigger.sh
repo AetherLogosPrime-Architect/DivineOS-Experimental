@@ -76,9 +76,8 @@ if ! source "$_LIB" 2>/dev/null; then  # fail-soft: stderr hidden because the fa
 fi
 # Whose house is this? Exported so the embedded python's FALLBACK paths land
 # in the right home when the divineos import fails. Without it the fallback
-# expanduser'd "~/.divineos" -- the default home -- and would answer a question
-# about this session from the other clone's ledger. Aether's, taken from main
-# rather than rewritten, so the two copies of this file say the same thing.
+# expanduser'd "~/.divineos" -- Aether's home -- and would answer a question
+# about Aria's session from Aether's ledger. See the ledger-path comment below.
 DIVINEOS_HOME_HINT="$(divineos_home)"
 export DIVINEOS_HOME_HINT
 
@@ -239,7 +238,7 @@ fi
 # ---------------------------------------------------------------- stage read
 STAGE_INFO="$(
   STATE_FILE="$STATE_FILE" REPO_ROOT="$REPO_ROOT" "$PY_BIN" - <<'PY' 2>/dev/null  # fail-soft: a stage-read failure falls back to WALK, the earliest stage, so no ritual work is skipped
-import datetime, json, os, sqlite3, time, glob
+import json, os, sqlite3, time, glob, datetime
 
 state_file = os.environ["STATE_FILE"]
 repo = os.environ["REPO_ROOT"]
@@ -304,47 +303,6 @@ def walk_done():
     except Exception:
         return False
 
-def mech_done():
-    # Evidence, not self-report. MECH was the one stage that cleared on a flag
-    # the hook set on itself ("I called defer-check"), while the actual
-    # completion record — per-step ran/succeeded, with a timestamp — sits in
-    # the phase-1 handshake marker that this driver never opened. So the work
-    # could be provably done and the ritual still stuck, which is exactly the
-    # state found on 2026-08-31: all four steps succeeded at 17:30 and the
-    # stage read MECH with mech_done false. Two mechanisms, both correct,
-    # neither reading the other.
-    #
-    # The self-report flag is still honoured, because run_mech setting it is
-    # real evidence too. The marker is a second, independent witness.
-    if st.get("mech_done"):
-        return True
-    try:
-        from divineos.core.auto_cycle import read_handshake_marker
-        m = read_handshake_marker()
-    except Exception:
-        return False
-    if not isinstance(m, dict):
-        return False
-    ts = m.get("phase1_completed_at")
-    if not isinstance(ts, str):
-        return False
-    try:
-        done_at = datetime.datetime.fromisoformat(
-            ts.replace("Z", "+00:00")).timestamp()
-    except ValueError:
-        return False
-    if done_at <= start:
-        return False
-    # A marker recording a FAILED run must not clear the stage. "Couldn't do"
-    # does not collapse into "did" here either.
-    steps = m.get("steps")
-    if not isinstance(steps, dict) or not steps:
-        return False
-    return all(
-        isinstance(s, dict) and s.get("ran") and s.get("succeeded")
-        for s in steps.values()
-    )
-
 
 def dream_done():
     for f in glob.glob(os.path.join(repo, "dreams", "**", "*.md"), recursive=True):
@@ -355,10 +313,75 @@ def dream_done():
             continue
     return False
 
+def mech_confirmed():
+    # Evidence, not self-report -- same rule as walk_done()/dream_done() above.
+    #
+    # The pipeline is launched DETACHED now (see run_mech), so the launching
+    # shell cannot report on it: it returns immediately and may itself be killed
+    # at this hook's 20s timeout while the ~283s pipeline is still running. The
+    # only honest completion signal is the handshake marker that run_phase1
+    # writes when it finishes, and only if it finished AFTER we launched.
+    #
+    # Fails toward NOT-DONE in every failure mode -- missing marker, unparseable
+    # marker, missing timestamp, marker older than the launch. That direction is
+    # load-bearing (Aria's Phase 2 invariant): a cycle wrongly read as done is
+    # silently skipped work, while one wrongly read as pending is merely offered
+    # again.
+    launched = st.get("mech_launched_at")
+    if not launched:
+        return False
+    try:
+        from divineos.core.paths import divineos_home
+        mp = str(divineos_home() / "auto_cycle_phase1_done.json")
+    except Exception:
+        # HELD HARDCODED ON PURPOSE, and this is the one that is genuinely
+        # unclear rather than merely unconverted.
+        #
+        # The handshake marker is CROSS-AGENT BY DESIGN: Phase 1 is mine and
+        # writes it, Phase 2 is Aria's and reads it to pick up the baton. So
+        # "whose home does it live in" is not a bug to fix, it is a question
+        # about where the boundary between our substrates falls -- and that is
+        # Dad's to answer, not something either of us should decide while he
+        # sleeps.
+        #
+        # Aria held the liveness log for the same reason and wrote the reason
+        # beside it. Same discipline here: left looking wrong, with why.
+        # Converting it on a guess would make a shared thing per-agent and
+        # break a handoff neither of us owns both ends of.
+        mp = os.path.expanduser("~/.divineos/auto_cycle_phase1_done.json")
+    try:
+        marker = json.load(open(mp, encoding="utf-8"))
+        done_at = marker["phase1_completed_at"]
+        ts = datetime.datetime.strptime(done_at, "%Y-%m-%dT%H:%M:%SZ")
+        ts = ts.replace(tzinfo=datetime.timezone.utc).timestamp()
+    except Exception:
+        return False
+    if ts < float(launched):
+        return False
+    # A marker recording a FAILED run must not clear the stage either. The
+    # marker carries a per-step record of whether each one RAN and whether it
+    # SUCCEEDED, kept distinct on purpose so "couldn't do" cannot collapse into
+    # "did" -- and a completion timestamp is written whether or not the steps
+    # inside it worked. Timestamp alone answers "did the pipeline finish",
+    # which is a different question from "did the work happen".
+    #
+    # Both seats built this check on 2026-08-31 without knowing: his anchored
+    # on the launch time, which is the tighter clock and is what survives here;
+    # mine verified the steps, which is this block. Merged rather than chosen
+    # between, and the orphaned half removed rather than left lying next to it.
+    steps = marker.get("steps")
+    if not isinstance(steps, dict) or not steps:
+        return False
+    return all(
+        isinstance(s, dict) and s.get("ran") and s.get("succeeded")
+        for s in steps.values()
+    )
+
 stage = st.get("stage", "WALK")
 if stage == "WALK" and walk_done():
     stage = "MECH"
-if stage == "MECH" and mech_done():
+if stage == "MECH" and (st.get("mech_done") or mech_confirmed()):
+    st["mech_done"] = True
     stage = "DREAM"
 if stage == "DREAM" and dream_done():
     stage = "REST"
@@ -387,20 +410,49 @@ PY
 
 run_mech() {
   echo ""
-  echo "### MECHANICAL STEPS — running now (commit, extract, sleep)"
+  echo "### MECHANICAL STEPS — launching detached (archive, commit, extract, sleep)"
   if ! command -v divineos >/dev/null 2>&1; then
     echo "[!] CLI FAULT — divineos is not on PATH. Nothing ran. Do these by hand"
     echo "    and say so plainly; a failed auto-step is never a completed one."
     return
   fi
-  divineos auto-cycle defer-check 2>&1 | tail -20
-  RC="${PIPESTATUS[0]}"
-  if [ "$RC" != "0" ]; then
-    echo ""
-    echo "[!] defer-check exited ${RC}. The pipeline did NOT complete. Run the"
-    echo "    steps by hand. 'Couldn't do' must not collapse into 'did'."
-  fi
-  mark mech_done 1
+
+  # DETACHED, not inline. 2026-08-24, measured.
+  #
+  # `divineos auto-cycle defer-check` calls run_phase1() when it decides to
+  # fire, and run_phase1 is archive -> commit -> extract -> sleep. Measured from
+  # the commits one real cycle produced: 37016a82 (pre-cycle auto-cycle-50bf49d3,
+  # 00:32:48Z) to 6451e57d (pre-extract, 00:37:31Z) is 283 SECONDS. This hook's
+  # timeout is 20.
+  #
+  # So the hook was killed every time the cycle actually fired -- 6 of 7 firings
+  # inside one window, and auto-cycle-token-trigger.sh was the top-killed hook in
+  # three of four sessions in the timing log. The pipeline finished anyway, which
+  # is only possible because it kept running after the shell that started it was
+  # dead. That is the orphaned bash/python Andrew reported seeing on shutdown,
+  # and a ~5 minute stall is exactly what he described from the other side.
+  #
+  # Redirection is NOT optional here and is the whole point. A bare `&` leaves
+  # the child holding the parent's stdout, and the harness blocks waiting for
+  # that descriptor to close -- the same defect found in auto-push-letter.sh
+  # earlier this session, where fixing it took a caller from 8s to 0s. All three
+  # descriptors are closed or redirected before detaching.
+  MECH_LOG="${STATE_DIR:-${HOME}/.divineos}/auto_cycle_mech.log"
+  {
+    echo "=== launched $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+    divineos auto-cycle defer-check
+    echo "=== defer-check exited $? at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+  } >>"$MECH_LOG" 2>&1 </dev/null &
+  disown 2>/dev/null || true  # fail-soft: some shells lack disown; the redirections above already detach the child, so disown is belt-not-suspenders
+
+  echo "  launched in background; this hook no longer waits on it."
+  echo "  log: $MECH_LOG"
+  echo ""
+  echo "  NOT marked done. 'Launched' is not 'completed' -- mech_done is set"
+  echo "  only when the handshake marker confirms a cycle that finished AFTER"
+  echo "  this launch. If the pipeline dies, no marker appears, the stage stays"
+  echo "  MECH, and this step is offered again rather than silently skipped."
+  mark mech_launched_at "$(date -u +%s)"
 }
 
 [ "$STAGE" = "DONE" ] && exit 0

@@ -97,8 +97,22 @@ def test_prepare_merge_no_tree_hash_flag_emits_legacy_form():
     assert "tree-hash:" not in result.output
 
 
-def test_prepare_merge_falls_back_when_git_unreachable():
-    """If git fails, legacy form is emitted with a deprecation notice."""
+def test_prepare_merge_emits_the_current_form_when_git_is_unreachable():
+    """Git unreachable still yields a USABLE trailer, described accurately.
+
+    This test used to assert the output said LEGACY or DEPRECATED. That wording
+    was removed in bc16012b because both halves were false: the round-id-only
+    trailer is the CURRENT correct form, deliberately made the default on
+    2026-06-18, since a tree-hash predicted before the squash cannot match the
+    tree after main moves. The old notice called correct output degraded and
+    prescribed a step the reader had already taken -- it cost me a hunt for a
+    resolver defect that did not exist.
+
+    The test was not updated with it, so it went on demanding the false wording
+    and turned red on the next full run. Rewritten to assert what the command
+    should actually do: emit a usable trailer and say plainly why there is no
+    tree-hash, rather than apologise for its absence.
+    """
     with (
         patch(
             "divineos.core.watchmen.store.get_round",
@@ -116,7 +130,15 @@ def test_prepare_merge_falls_back_when_git_unreachable():
 
     assert result.exit_code == 0, result.output
     assert "External-Review: round-fake12345" in result.output
-    # Legacy form — no tree-hash suffix
+    # No tree-hash suffix -- correct, not degraded.
     assert "tree-hash:" not in result.output
-    # Deprecation notice surfaced to operator
-    assert "LEGACY" in result.output or "DEPRECATED" in result.output
+    # The reader is told what to DO with it, so a git failure does not read as
+    # a dead end.
+    assert "squash-merge" in result.output
+    # And why there is no tree-hash, in terms of the thing that makes one
+    # unmatchable rather than as an apology for missing output.
+    assert "current form" in result.output
+    # The retired wording must not come back: it sent me hunting a defect that
+    # did not exist, from inside the very repo it told me to run from.
+    assert "LEGACY" not in result.output
+    assert "DEPRECATED" not in result.output

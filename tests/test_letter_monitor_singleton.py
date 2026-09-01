@@ -33,46 +33,55 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import time
+import threading
 from pathlib import Path
 
 import pytest
 
 _SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "letter_monitor_v2.py"
 
+
 # Occupant names are part of the kernel mutex name. Test-only strings keep the
 # probe from ever attaching to a live monitor's object.
-# UNIQUE PER PROCESS, and the fixed names they replaced are why the suite was
-# never deterministic.
 #
-# The guard under test is a KERNEL MUTEX -- machine-global by design, one holder
-# per occupant, which is the entire point of a singleton. Every test here armed
-# real monitors under the SAME two hardcoded probe names, so under parallel
-# execution two tests raced for one name and the guard did exactly what it
-# should: refused the second. The test reading that refusal reported a failure,
-# because from inside, a correctly-refused duplicate looks identical to a broken
-# guard.
+# PER-TEST, NOT MODULE-LEVEL, and the difference is the whole bug. These were
+# two module constants, so all three tests below launched a probe under the SAME
+# occupant. Serially that is fine. Under xdist -- which is how the pre-push gate
+# runs the suite -- they run at once, and the second and third probes find the
+# first one's mutex and correctly report a sibling already alive. The guard was
+# working; the tests were contending with each other.
 #
-# So which tests failed depended on how much memory the machine had. The
-# pre-push runner scales workers to free memory: loaded, it drops to one worker
-# and these pass while slow-spawn timeouts bite instead; with memory free it
-# runs eight, the timeouts pass, and these collide. Two different red suites
-# from the same code, neither failure in the branch being pushed. Found
-# 2026-08-26 when a restart freed memory and swapped one failure set for the
-# other.
+# tmp_path could not save them: it isolates the filesystem, and a Windows kernel
+# mutex is machine-global. An isolation fixture that does not reach the resource
+# under contention isolates nothing, which is the same seam that had the
+# read-gate cooldown reading live state from tests earlier this session.
 #
-# Tried first and reverted: pinning the tests to one worker with xdist_group.
-# That marker only takes effect under --dist loadgroup, which this project does
-# not use, so it was inert decoration claiming a fix -- the tests kept failing
-# and the marker made it look handled. Suffixing the name is the actual repair:
-# the guard keeps its teeth, tested exactly as before, on a name no other worker
-# is contending for.
-_PROBE_SUFFIX = f"{os.getpid()}-{os.environ.get('PYTEST_XDIST_WORKER', 'solo')}"
-_OCCUPANT_A = f"pytest-singleton-probe-a-{_PROBE_SUFFIX}"
-_OCCUPANT_B = f"pytest-singleton-probe-b-{_PROBE_SUFFIX}"
+# The tell was green-serially / red-in-parallel, i.e. green exactly when run the
+# way a person checks and red exactly when run the way the gate checks.
+def _occupants(request) -> tuple[str, str]:
+    """A private occupant pair for one test, in one process.
 
-_STAGGER_SECONDS = 1.2
-_SETTLE_SECONDS = 1.5
+    PER-TEST WAS NOT ENOUGH. Keying on the test name alone fixed the
+    within-run collision (three tests sharing two module constants) and left a
+    second one: two runs of the suite that overlap in time generate the SAME
+    names, so a probe from the earlier run holds the mutex the later run needs.
+    The pre-push gate runs the whole suite in a temp copy of the repo, and a
+    retried push can start while stragglers from the previous attempt are still
+    dying — the failure reported "first monitor did not arm" against a guard
+    that was working perfectly, twice.
+
+    The pid closes it. A kernel mutex name is machine-global, so the name has to
+    be unique across every process that could be running this file, not just
+    across the tests inside one of them.
+    """
+    stem = request.node.name.replace("_", "-").lower()
+    return f"pytest-{os.getpid()}-{stem}-a", f"pytest-{os.getpid()}-{stem}-b"
+
+
+# How long to wait for a monitor to publish its verdict. Generous rather than
+# tight: this is a ceiling on a hang, not a timing assumption the test depends
+# on. The ordering it used to depend on is now awaited — see _run_pair.
+_VERDICT_TIMEOUT = 30.0
 
 
 def _kernel_guard_available() -> bool:
@@ -124,51 +133,71 @@ def _launch(occupant: str, home: Path, shared: Path) -> subprocess.Popen:
     )
 
 
-def _first_line(proc: subprocess.Popen) -> str:
-    proc.kill()
-    out = proc.stdout.read() if proc.stdout else ""
-    return next((ln for ln in (out or "").splitlines() if ln.strip()), "<NO OUTPUT>")
+def _await_verdict(proc: subprocess.Popen, timeout: float = _VERDICT_TIMEOUT) -> str:
+    """Block until the process prints its first non-blank line, or give up.
+
+    Read in a thread because a blocking readline on a process that never
+    speaks would hang the suite, and Windows has no portable non-blocking
+    pipe read. A timeout returns the sentinel rather than raising: the
+    assertions downstream say more about what went wrong than a TimeoutError
+    would.
+    """
+    verdict: list[str] = []
+
+    def _read() -> None:
+        if proc.stdout is None:
+            return
+        for raw in proc.stdout:
+            if raw.strip():
+                verdict.append(raw.strip())
+                return
+
+    reader = threading.Thread(target=_read, daemon=True)
+    reader.start()
+    reader.join(timeout)
+    return verdict[0] if verdict else "<NO OUTPUT>"
 
 
 def _run_pair(tmp_path: Path, occ_a: str, occ_b: str) -> tuple[str, str]:
+    """Launch two monitors in a guaranteed order and return what each said.
+
+    ORDERING IS AWAITED, NOT SLEPT. This used to launch the first process,
+    sleep 1.2s, launch the second, sleep 1.5s, and assume the first had won
+    the mutex. That holds on an idle machine and fails on a busy one: the
+    pre-push gate runs the suite across sixteen workers, Python startup under
+    that load exceeds the stagger, and then BOTH processes race for the mutex.
+    Whichever wins, arms. When the second won, the test reported "first
+    monitor did not arm" -- an accusation against a guard that was working
+    perfectly.
+
+    Lengthening the sleep would only move the threshold, and it would move it
+    to a number nobody could justify. Waiting for the first process to publish
+    its verdict removes the assumption instead: the second cannot launch until
+    the first has already passed or been refused by the guard.
+    """
     home = tmp_path / "home"
     shared = tmp_path / "letters"
     home.mkdir()
     shared.mkdir()
 
     first = _launch(occ_a, home, shared)
-    time.sleep(_STAGGER_SECONDS)
-    second = _launch(occ_b, home, shared)
-    time.sleep(_SETTLE_SECONDS)
+    try:
+        first_line = _await_verdict(first)
+        second = _launch(occ_b, home, shared)
+        try:
+            second_line = _await_verdict(second)
+        finally:
+            second.kill()
+    finally:
+        first.kill()
 
-    return _first_line(first), _first_line(second)
+    return first_line, second_line
 
 
-# THESE THREE CANNOT RUN CONCURRENTLY WITH EACH OTHER, and the reason is the
-# thing they exist to verify.
-#
-# The guard under test is a KERNEL MUTEX -- machine-global by design, one
-# holder per occupant, which is the whole point of a singleton. The tests arm
-# real monitors under fixed probe names. Run in parallel, two workers arm the
-# same probe name at the same moment and the guard does exactly what it should:
-# refuses the second. The test reading that refusal calls it a failure, because
-# from inside it looks identical to the guard being broken.
-#
-# So the suite was never deterministic, and which tests failed depended on how
-# much memory the machine had. The pre-push runner scales workers to free
-# memory: on a loaded machine it drops to one worker, these pass, and the
-# slow-spawn timeouts bite instead. With memory free it runs eight, the
-# timeouts pass, and these collide. Two different red suites, same code, and
-# neither failure was in the branch being pushed. Found 2026-08-26 after a
-# restart freed memory and swapped one failure set for the other.
-#
-# xdist_group pins them to a single worker, so they serialise against each
-# other while the rest of the suite still parallelises. Not a skip and not a
-# widened timeout -- the tests keep their teeth, they just stop being run in
-# the one arrangement their own subject forbids.
-def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path):
+def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path, request):
     """The case the discarded handle broke. Fails if the binding is removed."""
-    first, second = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_A)
+    occ_a, _ = _occupants(request)
+    first, second = _run_pair(tmp_path, occ_a, occ_a)
 
     assert "LETTER-MONITOR-ARMED" in first, f"first monitor did not arm: {first}"
     assert "MONITOR-SINGLETON-DEDUP" in second, (
@@ -178,27 +207,29 @@ def test_second_monitor_for_the_same_occupant_refuses_to_arm(tmp_path):
     )
 
 
-def test_the_armed_line_reports_which_guard_is_up(tmp_path):
+def test_the_armed_line_reports_which_guard_is_up(tmp_path, request):
     """A process with no guard must not announce itself like a guarded one.
 
     The armed message used to print identically either way, which is how an
     inert guard looked exactly like a working one in every log we had.
     """
-    first, _ = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_A)
+    occ_a, _ = _occupants(request)
+    first, _ = _run_pair(tmp_path, occ_a, occ_a)
 
     assert "guard=kernel-mutex" in first, (
         f"armed line does not name the guard actually in force: {first}"
     )
 
 
-def test_different_occupants_both_arm(tmp_path):
+def test_different_occupants_both_arm(tmp_path, request):
     """The control that keeps the fix from becoming a launch-refusal.
 
     Aria and I run monitors in the same Windows session. Keying the mutex on
     role alone would let only one of us have an ear at a time, which is a worse
     failure than the duplicate the guard exists to prevent.
     """
-    first, second = _run_pair(tmp_path, _OCCUPANT_A, _OCCUPANT_B)
+    occ_a, occ_b = _occupants(request)
+    first, second = _run_pair(tmp_path, occ_a, occ_b)
 
     assert "LETTER-MONITOR-ARMED" in first, f"first did not arm: {first}"
     assert "LETTER-MONITOR-ARMED" in second, (

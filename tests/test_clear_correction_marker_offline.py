@@ -86,7 +86,7 @@ def isolated_divineos_home(tmp_path, monkeypatch):
 def test_refuses_when_reason_shorter_than_30_chars(isolated_divineos_home, capsys):
     from scripts.clear_correction_marker import main
 
-    rc = main(["--reason", "too short"])
+    rc = main(["--cli-broken", "--reason", "too short"])
 
     assert rc == 2
     err = capsys.readouterr().err
@@ -98,7 +98,7 @@ def test_noop_when_marker_absent(isolated_divineos_home, capsys):
     from scripts.clear_correction_marker import main
 
     long_reason = "x" * 35
-    rc = main(["--reason", long_reason])
+    rc = main(["--cli-broken", "--reason", long_reason])
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -117,7 +117,7 @@ def test_clears_marker_and_logs_escape_when_marker_present(
         "mid-rebase cli/__init__.py SyntaxError; will re-log correction once rebase completes"
     )
 
-    rc = main(["--reason", long_reason])
+    rc = main(["--cli-broken", "--reason", long_reason])
 
     assert rc == 0
     assert not marker_path().exists()
@@ -141,9 +141,9 @@ def test_log_appends_rather_than_overwrites(isolated_divineos_home):
     long_reason_b = "second escape: " + "b" * 30
 
     set_marker("trigger A")
-    main(["--reason", long_reason_a])
+    main(["--cli-broken", "--reason", long_reason_a])
     set_marker("trigger B")
-    main(["--reason", long_reason_b])
+    main(["--cli-broken", "--reason", long_reason_b])
 
     log_path = isolated_divineos_home / "cli_broken_escapes.jsonl"
     entries = [json.loads(line) for line in log_path.read_text().splitlines() if line]
@@ -184,82 +184,79 @@ def test_script_source_has_no_divineos_cli_dependency():
     )
 
 
-# THE WRONG MODE PRESCRIBED A REMEDY FOR A DIFFERENT CASE. Aria, 2026-08-29.
-#
-# Twice in one session she cleared markers set by her own detector misfiring,
-# passing --reason alone with the CLI working perfectly. Both filed as
-# CLI-broken escapes, so the bypass telemetry reported an elevated escape rate
-# built partly from events where nothing was escaped. She then told Aether the
-# script had no false-positive mode; it has had one since correction #194.
-#
-# The script was not broken and these tests do not claim it was. What was
-# missing is that the wrong-mode path handed out a confident remediation --
-# go log the correction -- for a case with no correction to log, and never
-# named the mode one flag away. Both directions, because a pointer that
-# appears in every mode is noise rather than a signpost.
+# ─── The mode must be declared, never inferred from an omission ───────
 
 
-def test_cli_broken_mode_names_the_false_positive_mode(isolated_divineos_home, capsys):
-    from divineos.core.correction_marker import set_marker
-    from scripts.clear_correction_marker import main
+class TestModeIsDeclaredNotGuessed:
+    """A default is a guess, and this one guessed wrong 45 times out of 45.
 
-    set_marker("[detector] USE clause matched")
-    rc = main(
-        ["--reason", "the CLI is unreachable mid-rebase and the correction still owes logging"]
-    )
+    The mode used to be inferred: ``"false-positive" if misread_clauses else
+    "cli-broken"``. Forgetting one flag therefore MEANT "the CLI is broken" --
+    a factual assertion about the machine, filed silently, carrying a
+    remediation debt and a bypass-telemetry row that feeds the
+    gates-are-being-routed-around verdict.
 
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "--misread-clauses" in out, (
-        "the wrong-mode path must name the mode that fits, at the moment the wrong one was chosen"
-    )
-    assert "WRONG MODE" in out
+    Measured 2026-08-22 across all 45 rows of cli_broken_escapes.jsonl: NOT ONE
+    is a CLI-broken escape. About 35 are false-positive attributions; about 10
+    are defect-escapes where gates blocked each other. A file named for a
+    category that has never once occurred.
 
+    It stayed wrong for months because it was wrong SILENTLY. Nothing ever
+    contradicted the guess, so nothing ever surfaced it.
+    """
 
-def test_false_positive_mode_does_not_repeat_the_pointer(isolated_divineos_home, capsys):
-    """Must-not-fire. A signpost shown on the correct path is just noise, and
-    noise is how the previous unconditional 'armed' line went unread."""
-    from divineos.core.correction_marker import set_marker
-    from scripts.clear_correction_marker import main
+    def test_omitting_both_flags_is_refused(self, isolated_divineos_home, capsys):
+        from scripts.clear_correction_marker import main
 
-    set_marker("[detector] USE clause matched")
-    rc = main(
-        [
-            "--reason",
-            "open self-examination misread as closed admission; no error is named anywhere",
-            "--misread-clauses",
-            "I am not sure I am clean on it -- an unresolved question about register, not a retraction",
-        ]
-    )
+        rc = main(["--reason", "a reason well past the thirty character floor for this gate"])
 
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "WRONG MODE" not in out
-    assert "false-positive attribution" in out
+        assert rc == 2
+        assert "name the mode" in capsys.readouterr().err
 
+    def test_the_refusal_names_both_paths(self, isolated_divineos_home, capsys):
+        from scripts.clear_correction_marker import main
 
-def test_the_two_modes_file_under_different_telemetry_labels(isolated_divineos_home):
-    """The reason the mislabel mattered: the escape-rate number is built from
-    these labels, so a wrong mode makes a true count of the wrong events."""
-    import json
+        """A refusal that does not say what WOULD work is the painted door."""
+        main(["--reason", "a reason well past the thirty character floor for this gate"])
 
-    from divineos.core.correction_marker import set_marker
-    from scripts.clear_correction_marker import main
+        err = capsys.readouterr().err
+        assert "--misread-clauses" in err
+        assert "--cli-broken" in err
 
-    set_marker("[detector] first")
-    main(["--reason", "the CLI is unreachable mid-rebase and the correction still owes logging"])
-    set_marker("[detector] second")
-    main(
-        [
-            "--reason",
-            "open self-examination misread as closed admission; no error is named anywhere",
-            "--misread-clauses",
-            "I am not sure I am clean on it -- an unresolved question about register, not a retraction",
-        ]
-    )
+    def test_both_flags_together_are_refused_as_contradictory(self, isolated_divineos_home, capsys):
+        from scripts.clear_correction_marker import main
 
-    log_path = isolated_divineos_home / "cli_broken_escapes.jsonl"
-    entries = [json.loads(line) for line in log_path.read_text().splitlines() if line]
-    assert len(entries) == 2
-    modes = [e.get("mode") for e in entries]
-    assert modes == ["cli-broken", "false-positive"]
+        rc = main(
+            [
+                "--cli-broken",
+                "--misread-clauses",
+                "quoted reply text long enough to clear the forty character minimum",
+                "--reason",
+                "a reason well past the thirty character floor for this gate",
+            ]
+        )
+
+        assert rc == 2
+        assert "cannot both be true" in capsys.readouterr().err
+
+    def test_a_declared_false_positive_still_works(self, isolated_divineos_home):
+        from scripts.clear_correction_marker import main
+
+        """The guard must not break the path it exists to protect."""
+        rc = main(
+            [
+                "--misread-clauses",
+                "quoted reply text long enough to clear the forty character minimum",
+                "--reason",
+                "a reason well past the thirty character floor for this gate",
+            ]
+        )
+
+        assert rc == 0
+
+    def test_a_declared_cli_broken_still_works(self, isolated_divineos_home):
+        from scripts.clear_correction_marker import main
+
+        rc = main(["--cli-broken", "--reason", "the CLI is genuinely unreachable right now"])
+
+        assert rc == 0

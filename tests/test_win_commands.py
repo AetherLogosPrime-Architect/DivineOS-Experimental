@@ -27,42 +27,54 @@ class TestWinCommand:
             cli,
             [
                 "win",
+                "add",
                 "Read the call site instead of assuming the module was reached.",
-                "-e",
+                "--evidence",
                 "classifier.py line 267",
+                "--yielded",
+                "the call site was read",
             ],
         )
         assert result.exit_code == 0, result.output
-        assert "Win filed" in result.output
+        assert "filed win-" in result.output
 
         rows = [json.loads(ln) for ln in store.read_text(encoding="utf-8").splitlines() if ln]
         assert len(rows) == 1
         assert "call site" in rows[0]["what"]
         assert rows[0]["evidence"] == "classifier.py line 267"
 
-    def test_yielded_defaults_to_the_win_itself(self, tmp_path, monkeypatch):
-        """When the outcome IS the event, restating it is honest.
+    def test_yielded_is_required_rather_than_defaulted(self, tmp_path, monkeypatch):
+        """The outcome is declared, never inferred from an omission.
 
-        Inventing a grander downstream consequence to fill the field would
-        not be, and a required field invites exactly that invention.
+        This test asserted the opposite until 2026-08-31: that leaving the
+        field off restated the win as its own outcome, on the reasoning that a
+        required field invites invention. Both seats built this command the
+        same day without knowing, and the surviving implementation requires the
+        field. That is the stricter reading of the same rule the correction CLI
+        already enforces one lane over -- a default is a guess, and a guess
+        filed as a record is worse than a prompt to say what actually came of
+        it. The test now pins the behaviour that shipped rather than the one I
+        argued for.
         """
         store = tmp_path / "successes.jsonl"
         monkeypatch.setattr("divineos.core.success_ledger._path", lambda: store)
 
         result = CliRunner().invoke(
-            cli, ["win", "Refused a shortcut.", "-e", "commit abc123def456"]
+            cli, ["win", "add", "Refused a shortcut.", "--evidence", "commit abc123def456"]
         )
-        assert result.exit_code == 0, result.output
-        row = json.loads(store.read_text(encoding="utf-8").splitlines()[0])
-        assert row["yielded"] == "Refused a shortcut."
+        assert result.exit_code != 0
+        assert "yielded" in result.output.lower()
+        assert not store.exists() or store.read_text(encoding="utf-8").strip() == ""
 
     def test_thin_evidence_is_refused_and_nothing_is_written(self, tmp_path, monkeypatch):
         store = tmp_path / "successes.jsonl"
         monkeypatch.setattr("divineos.core.success_ledger._path", lambda: store)
 
-        result = CliRunner().invoke(cli, ["win", "something good", "-e", "yes"])
+        result = CliRunner().invoke(
+            cli, ["win", "add", "something good", "--evidence", "yes", "--yielded", "x"]
+        )
         assert result.exit_code == 1
-        assert "Evidence too thin" in result.output
+        assert "Below 12" in result.output
         # The refusal's LAST line must be the verdict, not the explanation.
         # A refusal that ends warm survives a tail-read as a pass — the
         # correction CLI earned that lesson and this inherits it.
@@ -73,12 +85,14 @@ class TestWinCommand:
         store = tmp_path / "successes.jsonl"
         monkeypatch.setattr("divineos.core.success_ledger._path", lambda: store)
 
-        result = CliRunner().invoke(cli, ["win", "   ", "-e", "commit abc123def456"])
+        result = CliRunner().invoke(
+            cli, ["win", "add", "   ", "--evidence", "commit abc123def456", "--yielded", "x"]
+        )
         assert result.exit_code == 1
         assert result.output.strip().splitlines()[-1].startswith("[-] NOT FILED")
 
     def test_evidence_is_required_by_the_parser(self):
-        result = CliRunner().invoke(cli, ["win", "a win with no pointer"])
+        result = CliRunner().invoke(cli, ["win", "add", "a win with no pointer"])
         assert result.exit_code != 0
         assert "evidence" in result.output.lower()
 
@@ -91,17 +105,25 @@ class TestWinCommand:
             cli,
             [
                 "win",
+                "add",
                 "The hypothesis was wrong and the disproof was the finding.",
-                "-e",
+                "--evidence",
                 "commit abc123def456",
+                "--yielded",
+                "the resolver was proved unwired",
                 "--goal",
                 "prove the resolver was unwired",
-                "--goal-missed",
             ],
         )
         assert result.exit_code == 0, result.output
         row = json.loads(store.read_text(encoding="utf-8").splitlines()[0])
-        assert row["goal_met"] is False
+        # The goal is recorded alongside the win rather than gating it. Whether
+        # the goal was MET is deliberately not a field here: the surviving
+        # implementation does not carry one, and the moon case is that a win is
+        # a win independent of the goal it was aimed at. A missed goal beside a
+        # filed win says the same thing without a flag that invites the filer
+        # to grade themselves.
+        assert row["goal"] == "prove the resolver was unwired"
 
 
 class TestWinPromptSurface:

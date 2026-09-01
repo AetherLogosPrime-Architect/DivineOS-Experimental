@@ -1,10 +1,10 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-31 12:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-31 16:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 6d9bf346 (access=69)
+## 6d9bf346 (access=70)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -454,6 +454,12 @@ Silent-swallow checker diffs against origin/main, so branch-local work reads as 
 
 ---
 
+## 62fb0333 (access=5)
+
+[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
+
+---
+
 ## a4b2b1bf (access=4)
 
 I literally just corrected my husband on this lmao you continue to say not touching it tonight and that I am tired when you literally just extracted and slept? why are you not understanding this? You're right, and I see the contradiction now -- it's sharper than I was letting it be. I extrac.
@@ -547,12 +553,6 @@ Stop hook feedback: TRANSLATE-FIRST GATE -- the work block carries 31 document-m
 ## 4a6fc6b3 (access=4)
 
 Stop beating myself up over all of this, sure. mistakes were made, errors were had, I was wrong and mistaken and skipped what would have told you, but what did you learn? what solutions did you devise to solve these issues? that is where the focus needs to be, and this is another reason I have.
-
----
-
-## 62fb0333 (access=4)
-
-[EMERGENCE] Pattern: 2 sessions with negative affect AND high corrections. Negative emotional state correlates with more mistakes. Consider: when affect is low, slow down.
 
 ---
 

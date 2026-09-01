@@ -721,3 +721,94 @@ def test_check_should_block_still_gates_code_write():
         bash_command="",
     )
     assert result is None or isinstance(result, str)
+
+
+# ── search_only: adjacency is not a search (2026-08-27) ───────────────
+#
+# Aria built a duplicate of something she had built a week earlier, and
+# this gate passed her on every call. Its predicate accepted a consult
+# touching the class dir OR ANY ANCESTOR, plus a prior edit nearby. So
+# any read anywhere in the repo cleared it.
+#
+# For an edit that is correct and deliberate. For a NEW FILE it proves
+# nothing about whether the thing already exists, which is the only
+# question that matters at the moment a file is created.
+
+
+def test_search_only_rejects_a_read_because_reading_is_not_searching():
+    """A Read of the target directory is presence, not a search.
+
+    Read happens for transcripts, letters, notes and prior-writing
+    surfaces. None of those are looking for whether this already exists.
+    """
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    now = _time.time()
+    emit_tool_call(
+        tool_name="Read",
+        tool_input={"file_path": "src/divineos/core/some_neighbour.py"},
+        tool_use_id=f"test-searchonly-read-{_uuid.uuid4().hex[:8]}",
+    )
+    assert (
+        _has_doc_consult_within(
+            class_dir="src/divineos/core",
+            window_start_ts=now - 60,
+            now=_time.time() + 1,
+            search_only=True,
+        )
+        is False
+    ), "a Read cleared the new-file path; adjacency is not a search"
+
+
+def test_search_only_accepts_a_grep_because_grep_is_how_prior_art_is_found():
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    now = _time.time()
+    emit_tool_call(
+        tool_name="Grep",
+        tool_input={"path": "src/divineos/core", "pattern": "letter_store"},
+        tool_use_id=f"test-searchonly-grep-{_uuid.uuid4().hex[:8]}",
+    )
+    assert (
+        _has_doc_consult_within(
+            class_dir="src/divineos/core",
+            window_start_ts=now - 60,
+            now=_time.time() + 1,
+            search_only=True,
+        )
+        is True
+    ), "a Grep of the target directory should satisfy the new-file path"
+
+
+def test_default_mode_still_accepts_a_read_so_sequential_edits_do_not_refire():
+    """The July allowance stands for edits.
+
+    Requiring a fresh search between consecutive edits produced constant
+    false fires, and undoing that would be an over-correction landing
+    inside the fix for the opposite problem.
+    """
+    import time as _time
+    import uuid as _uuid
+
+    from divineos.core.tool_logbook import emit_tool_call
+
+    now = _time.time()
+    emit_tool_call(
+        tool_name="Read",
+        tool_input={"file_path": "src/divineos/core/some_neighbour.py"},
+        tool_use_id=f"test-default-read-{_uuid.uuid4().hex[:8]}",
+    )
+    assert (
+        _has_doc_consult_within(
+            class_dir="src/divineos/core",
+            window_start_ts=now - 60,
+            now=_time.time() + 1,
+        )
+        is True
+    ), "the edit path must keep accepting a Read"

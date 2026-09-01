@@ -89,6 +89,31 @@ class SurfaceOutcome:
     # while must-read-gate.sh denies via exit 2 (Aria 2026-08-06).
     json_deny: bool = False
 
+    # DECLARED, NEVER INFERRED (Aria 2026-08-25). Three states, and the router
+    # must never guess between the last two:
+    #
+    #   "spoke"        ran and produced output
+    #   "nothing-to-say"  ran, did its job, correctly returned nothing
+    #   "could-not-run"   failed, and whatever it guards went unguarded
+    #
+    # Her finding, from migrating detect-correction: a check whose real work is
+    # a SIDE EFFECT contributes nothing to the concatenated stdout even when it
+    # worked perfectly. From outside that is byte-identical to a check that
+    # failed quietly. So emptiness carries no health information at all, and a
+    # gate that reads it as either success or failure is wrong about that
+    # check.
+    #
+    # This closes the half of the fourth invariant I had missed. I had it as "a
+    # check that cannot run must not report success." The other half is "a
+    # check that ran perfectly must be allowed to say nothing" -- and the only
+    # way to hold both is for the check to SAY WHICH, because no amount of
+    # looking at an empty string can tell them apart.
+    #
+    # Defaults to None, meaning undeclared. Undeclared is not a fourth state --
+    # it is the migration frontier, and it is reported as such rather than
+    # silently sorted into one of the three.
+    state: str | None = None
+
 
 @dataclass
 class RouterResult:
@@ -102,6 +127,10 @@ class RouterResult:
     ran: list[SurfaceOutcome] = field(default_factory=list)
     refusals: list[SurfaceOutcome] = field(default_factory=list)
     errored: list[SurfaceOutcome] = field(default_factory=list)
+
+    # NOTE: _arm_must_read_for_errors (below) is what stops `errored` from
+    # being wallpaper. Reporting it was never the missing piece — it has been
+    # reported correctly, in the right words, to stderr, and read past.
 
     @property
     def blocked(self) -> bool:
@@ -135,6 +164,74 @@ class RouterResult:
 
 # event -> [(surface_name, callable)]. Populated by register().
 _Surface = Callable[[dict], "SurfaceOutcome | None"]
+
+_ARM_ERRORS = (OSError, ImportError, TypeError, ValueError)
+
+
+def _arm_must_read_for_errors(result: "RouterResult", event: str) -> None:
+    """A check that could not run arms a must-read, so the NEXT tool stops.
+
+    Andrew 2026-08-25, resolving a design question I had put to Aria and could
+    not answer:
+
+        "a loud alarm that doesnt block becomes wallpaper.. while not blocking
+        is understood, the block should be (if there is one) to stop you until
+        you read the warning. so a simple gate that just says.. an alarm has
+        gone off.. did you see it? otherwise you will breeze right past it
+        every time"
+
+    I had framed the question as what the GATE returns -- deny or pass -- and
+    both answers were bad. Deny on any cannot-tell means one flaky import
+    wedges every tool call and gets bypassed inside a day. Pass means the
+    painted door with extra steps. He moved the block off the CONDITION and
+    onto the READING: the work is never refused, and proceeding-without-having-
+    looked is.
+
+    The router was already the failure he describes. `errored` has always been
+    reported, in the right words -- "COULD NOT RUN ... this is not the same as
+    it passing" -- to stderr, one line under a comment that says errors never
+    block. Correct language, zero stopping power. I read past it all session.
+
+    Read-once dedup lives in require_read and is what keeps this from becoming
+    the thing it fixes: the same failure arms once and is then quiet about that
+    content. Its own docstring: "a must-read on everything is worse than no
+    must-read at all, because it teaches me that blocking screens are things
+    you clear rather than things you read."
+
+    Fails silent by necessity, not by preference: this runs on the exit path of
+    every hook, and an arming failure must not convert a report into a crash.
+    The cost is one un-armed notice; the stderr line still prints either way.
+    """
+    # DECLARED failures count too, not only raised ones (Aria 2026-08-25).
+    # A surface that catches its own exception and returns a could-not-run
+    # state never lands in `errored`, so arming on `errored` alone would have
+    # missed exactly the population she named -- the quiet failure that looks
+    # like a quiet success.
+    declared = [o for o in result.ran if o.state == "could-not-run" and o not in result.errored]
+    unable = list(result.errored) + declared
+    if not unable:
+        return
+    try:
+        from divineos.core.must_read import require_read
+
+        body = "\n\n".join(
+            f"## {o.name} could not run\n\n{o.error or '(no detail given)'}" for o in unable
+        )
+        require_read(
+            key=f"surface-could-not-run:{event}",
+            content=(
+                f"# A check did not run on {event}\n\n"
+                f"{body}\n\n"
+                "This is NOT the same as it passing. Whatever that check "
+                "guards went unguarded for this call.\n\n"
+                "Nothing is being refused. The only thing blocked was "
+                "proceeding without having seen this."
+            ),
+            reason=f"{len(result.errored)} surface(s) could not run on {event}",
+        )
+    except _ARM_ERRORS:
+        pass
+
 
 _REGISTRY: dict[str, list[tuple[str, _Surface]]] = {e: [] for e in EVENTS}
 
@@ -249,6 +346,8 @@ def main(event: str, payload: dict) -> int:
         if errs:
             print(errs, file=sys.stderr)
         return 0
+
+    _arm_must_read_for_errors(result, event)
 
     err = result.stderr()
     if err:

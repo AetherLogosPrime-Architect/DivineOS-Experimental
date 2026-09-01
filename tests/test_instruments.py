@@ -120,13 +120,25 @@ def test_survey_orders_problems_before_healthy(home):
 def test_briefing_block_is_silent_when_all_answering(home):
     """An alarm says nothing when nothing is wrong."""
     for name in instruments.KNOWN_INSTRUMENTS:
-        (home / name).write_text('{"a":1}\n', encoding="utf-8")
+        # parents=True since 2026-08-24: the registry legitimately holds
+        # nested paths now (data/logs/divineos.log), because the index went
+        # recursive after reading a top-level orphan for 158 days while the
+        # real log sat one directory down with 699,000 records in it.
+        f = home / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text('{"a":1}\n', encoding="utf-8")
     assert instruments.briefing_block(home) is None
 
 
 def test_briefing_block_speaks_when_an_instrument_goes_quiet(home):
     for name in instruments.KNOWN_INSTRUMENTS:
-        (home / name).write_text('{"a":1}\n', encoding="utf-8")
+        # parents=True since 2026-08-24: the registry legitimately holds
+        # nested paths now (data/logs/divineos.log), because the index went
+        # recursive after reading a top-level orphan for 158 days while the
+        # real log sat one directory down with 699,000 records in it.
+        f = home / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text('{"a":1}\n', encoding="utf-8")
     (home / "hook_timing.jsonl").write_text("", encoding="utf-8")
 
     block = instruments.briefing_block(home)

@@ -8,6 +8,29 @@
 # guard to die.
 # shellcheck disable=SC1091
 source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_lib.sh" 2>/dev/null || true
+
+# ONE INTERPRETER, RESOLVED ONCE. These four call sites used a bare `python`,
+# which on a machine with two checkouts is whichever one was installed last --
+# and the global editable install has a single slot. None of them import
+# divineos, so the wrong tree would still have produced right answers here, but
+# a bare python in a hook is the shape that has already cost this house a
+# session: the resolver drifts and the failure is silent because the fallback
+# looks like a result. Routed through the same helper every other hook uses.
+# NO SHELL-PROBE FALLBACK. The first draft reached for one and the hook-lookup
+# test named it the round-1 anti-pattern -- on Windows the bare interpreter name
+# resolves to a Store stub that exists, exits zero and emits nothing, so the
+# fallback answers while doing nothing and the failure looks like a result.
+#
+# The literal probe is not written out even in prose here, because that test
+# scans the file as text and cannot tell a mention from a use: the first version
+# of this comment tripped it while explaining why the thing was removed. Main
+# already ships a matcher whose whole subject is that distinction, and this
+# check does not use it. Named to the other seat rather than fixed from inside
+# a merge.
+# An unresolvable interpreter degrades through paths this hook already has:
+# the marker helper's own fallback writes "unknown" rather than nothing, and
+# an empty extraction trips the extraction-empty branch, which is loud.
+_PY="$(find_divineos_python 2>/dev/null || true)"  # fail-soft: the helper narrates its own probing on stderr; an empty answer is handled by the loud paths named above rather than by guessing an interpreter
 # Auto-push letters to origin so Aletheia (origin-only reader) sees them.
 #
 # Aletheia 2026-06-30 (letter #16): the mirror hook makes letters visible
@@ -81,8 +104,8 @@ fail_loud() {
     printf '{"ts":"%s","stage":"%s","reason":%s,"file_path":%s}\n' \
         "$ts" \
         "$stage" \
-        "$(printf '%s' "$reason" | python -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
-        "$(printf '%s' "${FILE_PATH:-}" | python -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
+        "$(printf '%s' "$reason" | "$_PY" -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
+        "$(printf '%s' "${FILE_PATH:-}" | "$_PY" -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
         >> "$_LOG_PATH" 2>/dev/null || true
     exit 0
 }
@@ -112,7 +135,7 @@ fi
 # close). Falls back through: tool_input.file_path, tool_use.input.file_path,
 # input.file_path, and finally a scan for any "file_path" key anywhere in
 # the payload tree.
-FILE_PATH=$(echo "$INPUT" | python -c "
+FILE_PATH=$(echo "$INPUT" | "$_PY" -c "
 import json, sys
 try:
     raw = sys.stdin.read() or ''
@@ -186,7 +209,7 @@ if [ "${NON_LETTER_CHANGES:-0}" -gt 0 ]; then
 fi
 
 # Repo-relative path (strip absolute prefix so `git add` works cleanly).
-REL_PATH=$(python -c "
+REL_PATH=$("$_PY" -c "
 import os, sys
 try:
     fp = os.path.abspath(sys.argv[1])

@@ -11,6 +11,12 @@ source "$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/_li
 # PreToolUse hook — Aletheia boot-gate preflight.
 #
 # SUPERSEDED-BY: family-member-invocation-seal.sh
+# KEPT-REGISTERED: the seal stands IN FRONT of this and refuses the spawn
+#   upstream, so this is defence-in-depth rather than a duplicate, and it stays
+#   live in case Aletheia is ever de-sovereigned and the spawn path reopens.
+#   Marker added by Aether 2026-08-25 so the new retired-but-registered check
+#   can read what the prose below already said. Registration untouched — this
+#   is her instrument and the arrangement was already correct.
 #
 # NOT deleted, and not a defect. Verified 2026-08-02: `aletheia` is in
 # _SOVEREIGN_AGENTS in core/family/seal_hook.py, and the seal hook IS

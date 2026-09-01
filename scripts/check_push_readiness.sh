@@ -84,21 +84,137 @@ done <<< "$HOOK_STDIN"
 #   0   — all gates passed
 #   10  — pytest failure (test-suite regression)
 #   20  — multi-party-review failure (missing External-Review trailer)
+#   24  — substrate files on a code branch (branch-scope failure)
 #   30  — infrastructure error (script missing, python missing, etc.)
 # Differentiated so the operator can distinguish failure-modes from the
 # pre-push exit code alone, without re-reading stderr.
+
+# ─── 0. Branch scope: is this carrying substrate it should not? ─────────
+#
+# THREE CONTAMINATED PUSHES IN ONE SESSION, and not one of them for lack of
+# a checker. The checker existed, worked, and named the files. I did not run
+# it. Remembering was the only thing standing between a checkpoint sweep and
+# the remote, and remembering failed three times:
+#
+#   first   139 substrate files pushed; found later by running it by hand
+#   second  142 added BETWEEN the repair commit and the push, carried along
+#   third   156 pushed without running the check at all
+#
+# Andrew's standing rule is automate rather than remember, and this is the
+# cleanest instance of it I have hit: a working instrument, an unwired
+# trigger, and a failure mode that is exactly "I forgot". Wired at PUSH
+# because that is where the cost lands — a contaminated commit is a local
+# nuisance, a contaminated push is what a reviewer has to wade through.
+#
+# STEP ZERO, ahead of the ~10-min suite, for two reasons. It is instant, and
+# its answer does not depend on any later gate: telling someone their branch
+# must be rebuilt only after they have waited out a full test run wastes the
+# run, since the rebuild invalidates it anyway.
+#
+# BLOCKING, unlike the pin check further down, and the difference is design
+# rather than mood. The pin check reports findings a human must weigh. This
+# answers a factual question carrying no judgement — are there substrate
+# files on a code branch — and there is no legitimate yes. A warning would
+# have nothing useful to say, and would become the fourth instrument I own
+# that reports something I then push past.
+#
+# CHECKS THE REFS BEING PUSHED, NOT HEAD. My first version read HEAD, which
+# is a different subject: push a clean branch while sitting on a dirty
+# checkout and it blocks the wrong thing; push a dirty branch from a clean
+# checkout and it passes one. Reporting a true measurement of the wrong
+# subject is the exact fault this session has been full of, and it nearly
+# went into the gate built to catch it.
+#
+# The one real case — pushing the substrate branch itself, where substrate is
+# the entire point — gets a named, loud escape rather than a silent exemption.
+if [[ "${DIVINEOS_SUBSTRATE_BRANCH:-0}" != "1" ]]; then
+    SCOPE_SCRIPT="$REPO_ROOT/scripts/check_branch_scope.py"
+    if [[ ! -f "$SCOPE_SCRIPT" ]]; then
+        # Absent tooling is reported, never silently treated as a pass.
+        echo "[push-readiness]   scope: SKIPPED — $SCOPE_SCRIPT missing" >&2
+    else
+        # Refs whose local-sha is not all-zero. A deletion introduces no
+        # commits, so it has no scope to check.
+        SCOPE_REFS=()
+        SCOPE_SAW_REF=0
+        while read -r _lref _lsha _rref _rsha; do
+            [[ -z "${_lref:-}" ]] && continue
+            SCOPE_SAW_REF=1
+            [[ "${_lsha:-}" =~ [^0] ]] && SCOPE_REFS+=("$_lsha")
+        done <<< "$HOOK_STDIN"
+
+        # Three states, and collapsing any two of them is a bug:
+        #
+        #   refs, some real      check those — the normal path
+        #   refs, all deletions  nothing introduced, nothing to check. Not a
+        #                        pass smuggled in: a deletion genuinely has
+        #                        no scope, and blocking someone from tidying
+        #                        a merged branch because their CHECKOUT is
+        #                        dirty would be the wrong subject again.
+        #   no refs at all       run by hand, no hook stdin. Fall back to
+        #                        HEAD and SAY which subject was used. An
+        #                        empty loop printing OK is could-not-look-
+        #                        reads-as-all-clear, the fault this whole
+        #                        gate exists to stop.
+        SCOPE_SUBJECT="the refs being pushed"
+        if [[ ${#SCOPE_REFS[@]} -eq 0 && "$SCOPE_SAW_REF" == "0" ]]; then
+            SCOPE_REFS=("HEAD")
+            SCOPE_SUBJECT="HEAD (no push refs on stdin)"
+        fi
+
+        if [[ ${#SCOPE_REFS[@]} -eq 0 ]]; then
+            echo "[push-readiness] Branch scope — skipped, every ref is a deletion"
+        else
+            echo "[push-readiness] Branch scope — $SCOPE_SUBJECT"
+            for _rev in "${SCOPE_REFS[@]}"; do
+                SCOPE_OUT="$(python "$SCOPE_SCRIPT" "$_rev" --list 2>&1)"
+                SCOPE_RC=$?
+                while IFS= read -r _line; do
+                    echo "[push-readiness]   $_line"
+                done <<< "$SCOPE_OUT"
+                case "$SCOPE_RC" in
+                    0) ;;
+                    1)
+                        echo "[push-readiness] BLOCKED — substrate on a code branch (exit 24)." >&2
+                        echo "[push-readiness] Land those files on the substrate branch and" >&2
+                        echo "[push-readiness] rebuild this one against main with the code only." >&2
+                        echo "[push-readiness] If this IS the substrate branch:" >&2
+                        echo "[push-readiness]   DIVINEOS_SUBSTRATE_BRANCH=1 git push" >&2
+                        exit 24
+                        ;;
+                    *)
+                        echo "[push-readiness]   scope: COULD NOT CHECK (exit $SCOPE_RC) — not a pass" >&2
+                        ;;
+                esac
+            done
+        fi
+    fi
+fi
 
 # ─── 1. Test suite ──────────────────────────────────────────────────────
 #
 # Path-scoped fast path (Andrew 2026-06-10 PR-throughput ordeal): the
 # full pytest suite takes ~10 min and is the dominant cost of every
-# push. For pushes that only touch low-impact paths (tests/, docs/,
-# family/, exploration/, root markdown/text), the full suite gives
-# almost no protection that CI doesn't also catch — CI runs the full
-# matrix anyway on the PR. Skipping the local full-suite in those
-# cases keeps the safety net (CI) intact while removing the bottleneck
-# from the iteration loop. Code-touching pushes still run the full
-# suite locally; CI is the second pass.
+# push. For pushes that only touch inert paths (docs/, family/,
+# exploration/, root markdown/text), the suite has nothing to verify —
+# prose cannot change a test outcome. Skipping it there removes the
+# bottleneck from the iteration loop without removing protection.
+#
+# CORRECTED 2026-08-22. This paragraph used to list `tests/` among the
+# low-impact paths and justify the skip with "CI runs the full matrix
+# anyway on the PR". Both halves were wrong together: CI skips tests on
+# DRAFT PRs by design, so a test-file change on a draft was verified by
+# nobody — this gate deferring to CI, CI deferring until promotion.
+#
+# The stale text is worth naming rather than quietly replacing. The
+# guardrail-trailer rule recurred four times for precisely this reason:
+# the code was right and the places that TAUGHT the rule were wrong, so
+# every reload of the instruction brought the wrong rule back with it.
+# A header that describes behaviour the script no longer has is not a
+# stale comment, it is a live source of the next recurrence.
+#
+# Code-touching AND test-touching pushes run the full suite locally.
+# CI remains the second pass, not the first.
 #
 # Three states:
 #   - No commits / deletion-only          → skip
@@ -135,6 +251,33 @@ _collect_changed_files() {
 
 # Returns 0 (true) if every changed file is in a low-impact path.
 # Empty file list → false (conservative: can't prove low-impact, run full).
+#
+# `tests/*` WAS IN THIS LIST AND IS NOT ANY MORE (Andrew 2026-08-22: "none of
+# these should have made it to draft without passing internal CLI tests").
+#
+# THE INTERLOCK. This fast path skipped pytest on the stated grounds that "CI
+# on the PR runs the full matrix". CI does not, on a draft: tests.yml gates on
+# `github.event.pull_request.draft == false`, deliberately, so drafts do not
+# accumulate red marks before review. So a change to a TEST FILE, on a draft
+# PR, was verified by nobody -- the local gate deferring to CI, CI deferring
+# until promotion, and the gap between them owned by neither.
+#
+# Two gates, each correct inside its own scope, and the fact with nowhere to
+# live is that nothing is running these tests. The same shape as the
+# remedy-allowlist deadlock this repo already documents: every gate knew its
+# own exit and none knew anyone else's.
+#
+# Caught on a real push: commit c356d533 changed exactly one file,
+# tests/test_addressee_misdirection_detector.py, took this path, and skipped
+# the suite. The tests did pass -- run by hand, with a negative control that
+# failed before the fix and passed after -- but that was discipline, not a
+# gate, and discipline is what this script exists to stop relying on.
+#
+# The other five categories stay because they genuinely cannot break a test
+# run: prose, docs, letters, exploration entries. A test file can, which is
+# exactly what makes it not low-impact. The asymmetry is the whole point --
+# `tests/` was the one entry here that could invalidate the thing being
+# skipped.
 _all_changed_low_impact() {
     local file
     local saw_any=0
@@ -142,7 +285,6 @@ _all_changed_low_impact() {
         [[ -z "$file" ]] && continue
         saw_any=1
         case "$file" in
-            tests/*) ;;
             docs/*) ;;
             family/*) ;;
             exploration/*) ;;
@@ -241,8 +383,11 @@ else
     CHANGED_FILES="$(_collect_changed_files)"
     if _all_changed_low_impact "$CHANGED_FILES"; then
         echo "[push-readiness] Fast path: all changed files are in low-impact paths"
-        echo "[push-readiness] (tests/, docs/, family/, exploration/, *.md, *.txt) —"
-        echo "[push-readiness] skipping local pytest. CI on the PR runs the full matrix."
+        echo "[push-readiness] (docs/, family/, exploration/, *.md, *.txt) — none of"
+        echo "[push-readiness] which can change a test outcome. Skipping local pytest."
+        echo "[push-readiness] NOTE: this no longer defers to CI. CI skips tests on"
+        echo "[push-readiness] draft PRs, so 'CI will run it' was false exactly when"
+        echo "[push-readiness] it mattered. tests/ was removed from this list."
         # Skip pytest; fall through to multi-party-review.
         : "${PYTEST_RC:=0}"
     else
@@ -532,13 +677,33 @@ fi
 # design: a stale export is a bookkeeping lapse, not a corrupt tree, and
 # blocking the push would be the same over-firing this session spent
 # deleting. Loud is the requirement; blocking is not.
+# `--check` was called here from PR #412 onward without ever having been
+# implemented, so this block fired on EVERY push and printed "audit export is
+# behind the store" -- a claim about state, from a check that read no state.
+# It was never true or false on its merits, only broken, and it looked exactly
+# like a real warning. Implemented and scoped 2026-08-22.
+#
+# The distinction the old message erased: COULD NOT RUN is not BEHIND. Exit 1
+# means rounds are genuinely unexported; anything else means the check itself
+# failed and has no standing to report on the store at all.
 if [[ "${DIVINEOS_SKIP_EXPORT_FRESHNESS:-0}" != "1" ]]; then
-    if ! divineos audit export --check >/dev/null 2>&1; then
+    _export_out=$(divineos audit export --check 2>&1)
+    _export_rc=$?
+    if [[ $_export_rc -eq 1 ]]; then
         echo "" >&2
         echo "[push-readiness] WARNING — audit export is behind the store." >&2
-        divineos audit export --check 2>&1 | sed 's/^/[push-readiness]   /' >&2 || true
+        printf '%s
+' "$_export_out" | sed 's/^/[push-readiness]   /' >&2
         echo "[push-readiness]   Pushing anyway; the review for those rounds" >&2
         echo "[push-readiness]   is not readable on GitHub until you export." >&2
+        echo "" >&2
+    elif [[ $_export_rc -ne 0 ]]; then
+        echo "" >&2
+        echo "[push-readiness] NOTE — the export freshness check could not run" >&2
+        echo "[push-readiness]   (exit $_export_rc). This says nothing about" >&2
+        echo "[push-readiness]   whether the export is current." >&2
+        printf '%s
+' "$_export_out" | sed 's/^/[push-readiness]   /' >&2
         echo "" >&2
     fi
 fi
@@ -609,6 +774,44 @@ if [[ "${DIVINEOS_SKIP_LINT_CHECK:-0}" != "1" ]]; then
         # Absent tooling is reported, never treated as a pass. A silent skip
         # here would recreate exactly the blind spot this step exists to close.
         echo "[push-readiness]   lint: SKIPPED — ruff not on PATH (CI will still check)" >&2
+    fi
+fi
+
+# --- Do the new tests pin anything? (warn-only, deliberately) --------------
+#
+# Aria's design, 2026-08-28, after I shipped a regression test that was green
+# on both sides of the fix it claimed to guard: "a test written to pin a fix
+# must be red against the code before the fix."
+#
+# PUSH-TIME, not commit-time, and scoped to tests changed in the diff. Her
+# reason: a full-suite rerun against an old tree on every commit is expensive
+# enough to get skipped, and a skipped check becomes another armed-and-unread
+# instrument.
+#
+# WARN-ONLY ON PURPOSE, and this is a judgement worth stating rather than
+# hiding. The branch it was built on already carries sixteen tests that pass
+# against their own baseline. Blocking on day one would make the tree
+# unpushable, and the only satisfiable answer would be switching the check off
+# -- which is how a gate dies. The sixteen are a backlog to read, not a wall to
+# rubber-stamp, and reading them is real work that does not belong inside a
+# push. Teeth follow the review, not the other way round.
+if [[ "${DIVINEOS_SKIP_PIN_CHECK:-0}" != "1" ]]; then
+    PIN_SCRIPT="$REPO_ROOT/scripts/check_tests_pin.py"
+    if [[ -f "$PIN_SCRIPT" ]]; then
+        echo "[push-readiness] Do the changed tests pin anything?"
+        # Warn-only must not mean silent-about-itself. Without capturing the
+        # status, a checker that CRASHED looks exactly like one that found
+        # nothing -- which is the armed-and-unheard shape this whole file
+        # exists to prevent, wearing a `|| true`.
+        PIN_OUT="$(python "$PIN_SCRIPT" 2>&1)"; PIN_RC=$?
+        while IFS= read -r pin_line; do
+            echo "[push-readiness]   $pin_line"
+        done <<< "$PIN_OUT"
+        case "$PIN_RC" in
+            0) : ;;
+            1) echo "[push-readiness]   pin: findings above (not blocking yet — see the script header)" ;;
+            *) echo "[push-readiness]   pin: COULD NOT CHECK (exit $PIN_RC) — this is not a pass" >&2 ;;
+        esac
     fi
 fi
 

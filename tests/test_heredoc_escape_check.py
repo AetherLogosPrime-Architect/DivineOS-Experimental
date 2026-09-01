@@ -123,6 +123,68 @@ def test_refusal_invites_a_false_positive_report():
     assert "false" in refusal_message(cmd).lower()
 
 
+# --- the false fire, pinned ------------------------------------------------
+#
+# 2026-08-27, hours after this door merged. It refused the commit carrying the
+# map-freshness work. That command held a heredoc -- a commit message, no
+# escapes, no file target -- and, elsewhere on the same line, a `python -c`
+# doing a newline replacement.
+#
+# The old predicate searched the WHOLE command for escapes and the WHOLE command
+# for a file-producing shape. Two unrelated fragments satisfied the two
+# conditions BETWEEN them, and neither fragment was the thing this door exists
+# to catch.
+#
+# Its refusal text asks to be told when that happens, and names the SHAPE as the
+# thing to fix rather than the door as the thing to route around.
+#
+# Both tests below were checked against the PRE-FIX predicate and both refuse
+# there, so they pin something rather than merely passing. A third was written
+# and removed: it fired identically before and after, guarding a line the
+# must-fire cases above already hold.
+#
+# The first repair also OVERSHOT -- it scoped file-production to the opener line
+# as well as the escapes, which broke three must-fire cases, because the
+# commonest real shape is `python - <<PY` with the write inside the script.
+# Escapes are body-scoped; file-production is either place. That direction is
+# guarded by test_fires_on_open_for_write and test_fires_on_write_bytes.
+
+
+def _commit_msg_beside_an_escaping_python_c() -> str:
+    """The real false fire, recovered from the transcript rather than recalled.
+
+    This matters: the first version of this fixture was written from memory and
+    dropped ``write_bytes`` -- so the old predicate did NOT refuse it either,
+    and the test passed before and after the fix. It pinned nothing while
+    looking exactly like a regression test. Found by running the pre-fix
+    predicate over all 945 Bash calls in the session and reading what actually
+    got refused.
+
+    Assembled from chr() rather than spelled out, because the whole bug is about
+    WHICH FRAGMENT the backslashes live in, and a later tidy-up of escaping in
+    this file would silently retarget the test.
+    """
+    nl, bs = chr(10), chr(92)
+    crlf, lf = "b'" + bs + "r" + bs + "n'", "b'" + bs + "n'"
+    # One python -c carrying BOTH conditions: the escapes and the file-producing
+    # shape. Neither has anything to do with the heredoc beside it.
+    normalize = "p.write_bytes(p.read_bytes().replace(" + crlf + "," + lf + "))"
+    return (
+        'python -c "' + normalize + '"'
+        " && git commit -F - <<'MSG'" + nl + "a commit message" + nl + "MSG" + nl
+    )
+
+
+def test_does_not_fire_on_a_clean_heredoc_beside_an_escaping_fragment():
+    assert not should_refuse(_commit_msg_beside_an_escaping_python_c())
+
+
+def test_escapes_outside_the_heredoc_do_not_convict_the_heredoc():
+    """Escapes are judged in the BODY. Elsewhere on the line is a different call."""
+    cmd = "printf 'a\\nb' && cat <<'PY' > out.py\nplain text\nPY"
+    assert not should_refuse(cmd)
+
+
 def test_find_escapes_is_deduped_and_sorted():
     cmd = "x <<'E'\n'a\\nb\\nc\\t'\nE"
     found = find_escapes(cmd)

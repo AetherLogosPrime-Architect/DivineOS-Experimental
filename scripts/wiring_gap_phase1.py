@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 from functools import lru_cache
 import subprocess
@@ -240,6 +241,176 @@ def _patterns_for(name: str) -> tuple[re.Pattern[str], re.Pattern[str], re.Patte
         re.compile(rf"[(,]\s*{re.escape(name)}\s*[,)]"),
         re.compile(rf"^\s*{re.escape(name)}\s*,\s*$"),
     )
+def _scope_note() -> list[str]:
+    """What this scan cannot see, printed with every report.
+
+    THE DECISION THIS ENCODES, and it was a real fork. Aria audited the scanner
+    on 2026-08-25 and measured the reach: three call shapes recognised out of
+    ten probed. Seven are invisible, and each of the seven makes a real caller
+    disappear -- so the scan reports a wiring gap that is not one. Properties
+    are the largest: 50 defined, 228 attribute accesses whose name matches one,
+    and a property is read without parentheses so a scan looking for ``name(``
+    cannot see it. (Her bound, kept: the parse confirms the attribute NAME, not
+    that it resolves to that property. It is an upper bound.)
+
+    The obvious fix is to also match a bare attribute access. That trades these
+    false positives for FALSE NEGATIVES -- every attribute sharing a name with a
+    function would read as a caller, and a gap that disappears is never argued
+    with. Noise gets a conversation; silence gets nothing. This scanner exists
+    to find silence, so it does not get to produce any.
+
+    So the pattern stays narrow and the report says what it missed. Same
+    discipline as a surface declaring could-not-run: the honest answer to "what
+    about properties" is a sentence in the output, not a wider regex that
+    quietly stops reporting real gaps.
+
+    Aria's instinct and mine converged here, and she deferred the call to me on
+    the grounds that I hold the design intent. Recording that she was right
+    rather than that I decided.
+    """
+    return [
+        "  Scope, so the silence is not read as coverage:",
+        "    Recognises a direct call, a callable passed inline, and a callable",
+        "    passed on its own line. It does NOT see a property read (no parens),",
+        "    an attribute-style dispatch, or a name reached through a registry.",
+        "    A zero-caller row for a PROPERTY is a limit of this scan, not a gap.",
+        "    Widening it would trade these false positives for false negatives,",
+        "    which is the failure this scan exists to catch. Measured 2026-08-25:",
+        "    3 of 10 probed call shapes recognised; 50 properties defined.",
+    ]
+
+
+def _docstring_lines(text: str, suffix: str) -> set[int]:
+    """Line numbers this Python source spends inside a DOCSTRING.
+
+    Docstrings only -- not every string literal, and the narrowness is the
+    whole design. ``scripts/check_silent_swallow.py`` carries a same-named
+    helper that excludes ALL string literals, and the two are deliberately
+    different rather than drifted: there, a swallow pattern appearing in any
+    string is prose and the cost of over-excluding is a missed warning anyone
+    can still see. Here, over-excluding would blind the scanner to a genuine
+    call made through a string -- ``subprocess.run(["python", "-c",
+    "render_block()"])`` is a real caller -- and this detector's failure
+    direction is silence. So: docstrings, which are never call sites, and
+    nothing else.
+
+    Kept as a second copy rather than extracted. Two copies is inside the
+    house rule (extract at three), and a shared helper across two files in
+    scripts/ needs an import path -- the failure class that had
+    tests/_archive/conftest.py shadowing the live conftest by name. Extract
+    on the third caller, and make it a real module rather than a sibling
+    import.
+
+    Returns empty for non-Python and for anything that will not parse, so a
+    broken file degrades to scanning every line. That is the noisy direction,
+    chosen on purpose.
+    """
+    if suffix not in (".py", ".pyi"):
+        return set()
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return set()
+
+    covered: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = getattr(node, "body", None)
+        if not body:
+            continue
+        first = body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+            if isinstance(first.value.value, str):
+                end = first.value.end_lineno or first.value.lineno
+                covered.update(range(first.value.lineno, end + 1))
+    return covered
+
+
+def _scope_note() -> list[str]:
+    """What this scan cannot see, printed with every report.
+
+    THE DECISION THIS ENCODES, and it was a real fork. Aria audited the scanner
+    on 2026-08-25 and measured the reach: three call shapes recognised out of
+    ten probed. Seven are invisible, and each of the seven makes a real caller
+    disappear -- so the scan reports a wiring gap that is not one. Properties
+    are the largest: 50 defined, 228 attribute accesses whose name matches one,
+    and a property is read without parentheses so a scan looking for ``name(``
+    cannot see it. (Her bound, kept: the parse confirms the attribute NAME, not
+    that it resolves to that property. It is an upper bound.)
+
+    The obvious fix is to also match a bare attribute access. That trades these
+    false positives for FALSE NEGATIVES -- every attribute sharing a name with a
+    function would read as a caller, and a gap that disappears is never argued
+    with. Noise gets a conversation; silence gets nothing. This scanner exists
+    to find silence, so it does not get to produce any.
+
+    So the pattern stays narrow and the report says what it missed. Same
+    discipline as a surface declaring could-not-run: the honest answer to "what
+    about properties" is a sentence in the output, not a wider regex that
+    quietly stops reporting real gaps.
+
+    Aria's instinct and mine converged here, and she deferred the call to me on
+    the grounds that I hold the design intent. Recording that she was right
+    rather than that I decided.
+    """
+    return [
+        "  Scope, so the silence is not read as coverage:",
+        "    Recognises a direct call, a callable passed inline, and a callable",
+        "    passed on its own line. It does NOT see a property read (no parens),",
+        "    an attribute-style dispatch, or a name reached through a registry.",
+        "    A zero-caller row for a PROPERTY is a limit of this scan, not a gap.",
+        "    Widening it would trade these false positives for false negatives,",
+        "    which is the failure this scan exists to catch. Measured 2026-08-25:",
+        "    3 of 10 probed call shapes recognised; 50 properties defined.",
+    ]
+
+
+def _docstring_lines(text: str, suffix: str) -> set[int]:
+    """Line numbers this Python source spends inside a DOCSTRING.
+
+    Docstrings only -- not every string literal, and the narrowness is the
+    whole design. ``scripts/check_silent_swallow.py`` carries a same-named
+    helper that excludes ALL string literals, and the two are deliberately
+    different rather than drifted: there, a swallow pattern appearing in any
+    string is prose and the cost of over-excluding is a missed warning anyone
+    can still see. Here, over-excluding would blind the scanner to a genuine
+    call made through a string -- ``subprocess.run(["python", "-c",
+    "render_block()"])`` is a real caller -- and this detector's failure
+    direction is silence. So: docstrings, which are never call sites, and
+    nothing else.
+
+    Kept as a second copy rather than extracted. Two copies is inside the
+    house rule (extract at three), and a shared helper across two files in
+    scripts/ needs an import path -- the failure class that had
+    tests/_archive/conftest.py shadowing the live conftest by name. Extract
+    on the third caller, and make it a real module rather than a sibling
+    import.
+
+    Returns empty for non-Python and for anything that will not parse, so a
+    broken file degrades to scanning every line. That is the noisy direction,
+    chosen on purpose.
+    """
+    if suffix not in (".py", ".pyi"):
+        return set()
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return set()
+
+    covered: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = getattr(node, "body", None)
+        if not body:
+            continue
+        first = body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+            if isinstance(first.value.value, str):
+                end = first.value.end_lineno or first.value.lineno
+                covered.update(range(first.value.lineno, end + 1))
+    return covered
 
 
 def _scan_file(
@@ -251,8 +422,26 @@ def _scan_file(
         text = py_file.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
         return
+    # A function NAMED in prose is not a function CALLED. Before this, a
+    # docstring reading "call render_block() when the briefing needs it"
+    # registered as a production caller, and so did a `#` comment in a hook.
+    # In a detector whose job is finding unwired code, that fails toward
+    # SILENCE: the gap disappears instead of being argued with. Found
+    # 2026-08-25 as the fifth instance of the mention-versus-use class in one
+    # session, and the only one of the five whose failure direction was a
+    # false negative.
+    prose = _docstring_lines(text, py_file.suffix.lower())
     rel = str(py_file.relative_to(REPO_ROOT)).replace("\\", "/")
     lines = text.splitlines()
+    # A function NAMED in prose is not a function CALLED. Before this, a
+    # docstring reading "call render_block() when the briefing needs it"
+    # registered as a production caller, and so did a `#` comment in a hook.
+    # In a detector whose job is finding unwired code, that fails toward
+    # SILENCE: the gap disappears instead of being argued with. Found
+    # 2026-08-25 as the fifth instance of the mention-versus-use class in one
+    # session, and the only one of the five whose failure direction was a
+    # false negative.
+    prose = _docstring_lines(text, py_file.suffix.lower())
     for name, fns in by_name.items():
         # WHY THIS AND NOT ANOTHER WINDOW NARROWING. The test that exercises
         # this function records its scan window being cut twice for the same
@@ -301,13 +490,25 @@ def _scan_file(
         #     being passed to _run_detector at operating_loop_audit.py:445.
         direct_pattern, indirect_pattern, multiline_pattern = _patterns_for(name)
         found = False
-        for line in lines:
+        for line_no, line in enumerate(lines, start=1):
+            if line_no in prose:
+                continue
             stripped = line.lstrip()
             if stripped.startswith(f"def {name}"):
+                continue
+            # Pure comment lines, in both languages. Hooks are scanned too and
+            # they have no docstrings, so the AST pass above cannot reach them
+            # — a `#` line is the only prose form a .sh file has.
+            if stripped.startswith("#"):
                 continue
             # Skip import lines — they bind a name but aren't a call site.
             # The actual call site (if any) will be picked up elsewhere.
             if stripped.startswith(("import ", "from ")):
+                continue
+            # Pure comment lines, in both languages. Hooks are scanned too and
+            # they have no docstrings, so the AST pass above cannot reach them
+            # — a `#` line is the only prose form a .sh file has.
+            if stripped.startswith("#"):
                 continue
             if (
                 direct_pattern.search(line)
@@ -363,6 +564,8 @@ def _render(
     ):
         n = len(buckets.get(cls, []))
         lines.append(f"  {cls}: {n}")
+    lines.append("")
+    lines.extend(_scope_note())
     lines.append("")
 
     bucket_order = (

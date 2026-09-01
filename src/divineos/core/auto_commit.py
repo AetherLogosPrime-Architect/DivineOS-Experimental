@@ -50,6 +50,72 @@ from divineos.core.uncommitted_work_check import (
 logger = logging.getLogger(__name__)
 
 
+def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
+    """Drop staged files whose own anchor this commit would falsify.
+
+    Returns what was dropped, for the log. Fail-soft in the same shape as the
+    rest of this module -- but LOUD, because a silent unstage is the class this
+    whole session was about. If it cannot look, it says so and leaves the stage
+    alone rather than pretending it checked.
+    """
+    from divineos.core.anchor_self_invalidation import (
+        current_branch,
+        self_invalidating_files,
+    )
+
+    root = Path(repo_root)
+    branch = current_branch(root)
+    if branch is None:
+        logger.warning(
+            "auto_commit: could not read the branch, so the anchor "
+            "self-invalidation check did NOT run. This is not 'clean'."
+        )
+        return []
+
+    try:
+        listed = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: anchor check could NOT list staged files: %s", exc)
+        return []
+    if listed.returncode != 0:
+        logger.warning("auto_commit: anchor check could NOT list staged files (git error)")
+        return []
+
+    staged = [line.strip() for line in (listed.stdout or "").splitlines() if line.strip()]
+    hits = self_invalidating_files(staged, branch, root)
+    if not hits:
+        return []
+
+    try:
+        subprocess.run(
+            ["git", "restore", "--staged", *hits],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: could not unstage self-invalidating files: %s", exc)
+        return []
+
+    logger.warning(
+        "auto_commit: left %d file(s) unstaged because committing them onto '%s' "
+        "would falsify the anchor they carry: %s",
+        len(hits),
+        branch,
+        ", ".join(hits),
+    )
+    return hits
+
+
 @dataclass(frozen=True)
 class AutoCommitResult:
     committed: bool
@@ -336,11 +402,61 @@ def auto_commit_substrate(
             dirty_lines=dirty_lines,
         )
 
+    # UNSTAGE ANYTHING THAT WOULD MAKE ITS OWN ANCHOR FALSE.
+    #
+    # This is the path that actually did it. On 2026-08-25 the letter asking
+    # Aletheia to audit a branch carried that branch's tip and tree-hash, landed
+    # in family/letters/ inside the tree, and `git add -A` above swept it into a
+    # commit -- so the only thing that moved the branch was the request to
+    # review it, and the anchor was stale before she read it.
+    #
+    # I had diagnosed that exact shape three days earlier and delivered the
+    # previous letter to the shared directory only, deliberately. Aletheia's
+    # ruling: "You resolved it three days ago and the machinery reproduced the
+    # failure anyway. The rule needs to be a mechanism, not a resolution."
+    #
+    # Unstaged rather than refused, because auto_commit's whole contract is to
+    # save work rather than block a checkpoint. The file stays on disk and stays
+    # delivered -- the shared directory is outside every tree and is where the
+    # crossing actually happens. Only the archive copy waits.
+    # AND THE PROTECTION IS WEAKER HERE THAN IT WAS WHERE HE WROTE IT, which is
+    # worth saying plainly rather than leaving as a call that looks like a guard.
+    #
+    # His version unstages from the index, because in his flow a `git add -A`
+    # ran a few lines above and the letters were sitting in it. This branch
+    # replaced that sweep with commit_paths_to_branch, which takes an explicit
+    # path list and never stages anything -- so on this flow the call below is
+    # a no-op in the ordinary case, and a self-invalidating letter would ride
+    # out inside declared_substrate untouched.
+    #
+    # Kept rather than dropped: it still catches the case where something else
+    # staged the file first, and removing a live protection because one flow
+    # bypasses it is how a guard quietly becomes decoration. The real repair is
+    # to filter the same paths out of declared_substrate below, and that belongs
+    # with the seat that built the anchor rule rather than being guessed at
+    # inside a merge. Named to him by letter the same day.
+    _unstage_self_invalidating(repo_root)
+
+    # NO staged-check here. His flow ends with a staged index and asks whether
+    # the add produced anything; this one never stages, so the same question
+    # answers "nothing" every time and returns before any substrate is written.
+    # Composing the two by position rather than by meaning put a check from one
+    # control flow into another where its premise does not hold -- caught by
+    # four existing tests, which is what they are for.
+
     # Only substrate needs the branch, so this is asked AFTER work in
     # progress is already safe. An undeclared branch must not cost the
     # occupant their unfinished work -- that would make a configuration
     # gap into data loss, which is a worse failure than the one being
     # fixed. Caught by seven existing tests when the check sat above.
+    #
+    # ORDER MATTERS AND IT IS NOT ARBITRARY. The unstaging above runs first
+    # because it protects a file that is already delivered; this refusal runs
+    # second because it decides whether anything is committed at all. Running
+    # the refusal first would leave a self-invalidating letter staged behind a
+    # return, waiting to ride the next checkpoint that happens to find a branch
+    # declared. Both halves were written on 2026-08-31 by different seats, each
+    # without the other, and neither file contained the other's protection.
     try:
         branch = substrate_branch(repo_root)
     except NoSubstrateBranchDeclared as e:

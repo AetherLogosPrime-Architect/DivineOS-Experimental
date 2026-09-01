@@ -39,12 +39,48 @@ import sys
 try:
     from divineos.core.<module> import main
     sys.exit(main())
-except Exception:
-    pass
-" 2>/dev/null
+except Exception as exc:
+    # NOT 'pass'. See below — a gate that could not run must never be
+    # byte-identical to a gate that looked and approved.
+    print('  [<hook-name>] COULD NOT RUN: %s: %s' % (type(exc).__name__, exc), file=sys.stderr)
+"
 
 exit 0
 ```
+
+### The swallow this pattern used to prescribe — corrected 2026-08-25
+
+The block above ended `except Exception: pass` with `2>/dev/null` on the
+outside, and that was **the canonical pattern**, so it propagated. Measured on
+2026-08-25: **27 hooks in this tree carry it.**
+
+For an observational surface — a prime, a reminder, a tally — swallowing is
+defensible. The worst it can do is fail to inform.
+
+For a **refusal-capable gate** it is the failure this whole substrate keeps
+finding in new costumes. A raised decision exits 0 and prints nothing, which is
+byte-identical to the gate examining the command and approving it. The gate is
+absent and the transcript says it passed. `no-verify-cost-escalation.sh` already
+declared its find-python failure loudly (Aletheia, 2026-07-09) — so it had one
+honest failure mode and one silent one, and the silent one was the one the
+pattern told it to have.
+
+Note also that the *loud* half of that hook was written as a local fix to one
+hook rather than to this pattern, which is why the pattern went on teaching the
+quiet half for another fourteen months of hooks.
+
+**Preferred over both:** migrate the decision onto `hook_router` as a surface
+that returns a `SurfaceOutcome` with an explicit `state` — `spoke`,
+`nothing-to-say`, or `could-not-run`. Then could-not-run is a value the router
+can act on, not a shape a reader has to infer from silence. See
+`no_verify_cost_surface` and `deletion_discipline_surface` in
+`src/divineos/core/hook_surfaces.py`.
+
+**And retire the shell registration in the same change.** `deletion_discipline`
+was wired into the router on 2026-08-25 with its shell hook left registered;
+both fired for hours, and the swallow the migration existed to remove was still
+running underneath the fix for it. A migration that leaves the original
+registered has moved code and retired nothing.
 
 Reference hook for stdin-reading PreToolUse: see `.claude/hooks/no-verify-cost-escalation.sh`. Reference for Stop hook reading the transcript: `.claude/hooks/time-estimate-tracker.sh`.
 

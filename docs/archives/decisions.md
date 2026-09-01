@@ -1,6 +1,18 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-31 12:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-31 16:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## aac824ca weight=1
+
+**Decision:** Use the push gate's documented override to push the sweep branch while it is 13 commits behind main, rather than rebasing first
+
+**Reasoning:** The gate blocks on base_freshness, which is a proxy for apparent-deletion shapes. The direct measure of that harm, deletion_shape, ran in the same invocation and reported zero. I fixed deletion_shape to a three-dot comparison earlier this session (d16cf63e), so it is now the accurate instrument and base_freshness is the superseded proxy standing beside it. Judging the thing rather than the yardsti
+
+**Tension:** Doing something other than what a gate prescribes is the shape I trust least in myself, and I said so to Aether in a letter an hour ago. The argument that a gate is satisfied on better terms is exactly the argument that would sound good if I were wrong. What makes it hold here is that the better ins
+
+**Almost:** Rebasing onto main first. Refused because the branch is already published on origin, so a rebase means force-pushing over history Aether may reference by name in six open proposals. That is a heavier and less reversible act than the push Andrew authorised, and it was not what he asked for.
 
 ---
 
@@ -547,18 +559,6 @@
 **Tension:** Every change I make to this gate makes it quieter, which is the ratchet Aether warned about -- a one-way valve whose terminal position is a gate that never fires.
 
 **Almost:** Almost just dropped the citations from the reply to satisfy the gate, which would have made the answer unverifiable and taught me to hide sources in order to pass a check.
-
----
-
-## db915802 weight=1
-
-**Decision:** Measure the artifact's SHAPE (document-marks in the work block) rather than its vocabulary, after the council walk and a corpus measurement killed my third attempt
-
-**Reasoning:** Andrew: 'maybe its because you completely shirked the entire build flow.. not like using the council or anything would have found these blind spots.. or research online.. or iteration with Aether.' He was right and the flow found it immediately. Holmes lens: I had validated on two paragraphs I wrote MYSELF to match my own theory, and against 53 real replies the shipped check blocked ONE. Wayne len
-
-**Tension:** Fourth rewrite of the same mechanism in one session, each shipped with confidence. The pattern of my confidence is itself the thing under suspicion.
-
-**Almost:** Almost kept the abstract-noun check as a second layer to avoid admitting it was useless -- two checks would have looked more thorough while one of them measured nothing.
 
 ---
 

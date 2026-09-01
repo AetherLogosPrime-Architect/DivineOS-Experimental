@@ -160,17 +160,150 @@ def validate_external_confirm_inputs(
     )
 
 
+def _anchor_after(description: str, label: str) -> str:
+    """The 40-hex token following ``label`` in a confirm's description.
+
+    NO REGEX, and the keyword-doorman is why. Its standing lesson -- proven
+    twice on this file -- is that the pattern is usually unnecessary and
+    literal checks are clearer and cannot over-match. That applies exactly
+    here: a confirm description is PROSE, and a pattern hunting for a label
+    near a hash can match the words inside a sentence ABOUT a hash. Splitting
+    on whitespace and demanding the very next token be forty hex characters
+    cannot do that, and a reader can verify it by eye.
+    """
+    tokens = description.split()
+    for i, token in enumerate(tokens[:-1]):
+        if token.lower().rstrip(":") != label:
+            continue
+        candidate = tokens[i + 1].strip(".,;)").lower()
+        if len(candidate) == 40 and all(c in "0123456789abcdef" for c in candidate):
+            return candidate
+    return ""
+
+
+def anchor_state_for_round(
+    round_id: str,
+    branch: str,
+    remote: str = "origin",
+    main_ref: str = "origin/main",
+) -> tuple[str, str]:
+    """Does this round's external CONFIRM still cover the branch as it stands?
+
+    Returns (state, detail) where state is one of:
+
+      holds        the reviewed change is unchanged -- exact tree, or a
+                   catch-up whose patch-id still matches
+      stale        the reviewed change MOVED; re-audit rather than merge on it
+      unanchored   the confirm predates content binding and records no anchor,
+                   so drift since cannot be detected either way
+      cannot-check the round, the confirm, or git could not be read
+
+    EXTRACTED SO THE BOARD AND THE COMMAND ANSWER FROM ONE PLACE. Station
+    eight needed this and `confirm-holds` already did it; copying the logic
+    would have produced two answers to one question that drift apart -- the
+    defect that left three council lenses unwalkable earlier this month, and
+    the one that let a schema exemption sit in one list while a comment
+    claimed it was in two.
+
+    CANNOT-CHECK IS NOT A PASS and the caller must keep it distinct. This is
+    the last station before a merge; a failed read reported as a clean one is
+    the whole class of fault this station has been accumulating.
+    """
+    try:
+        from divineos.core.watchmen.store import list_findings
+    except Exception:  # noqa: BLE001 - store unavailable is cannot-check, not stale
+        return "cannot-check", "audit store not importable"
+
+    try:
+        findings = list_findings(round_id=round_id, limit=200)
+    except Exception as exc:  # noqa: BLE001 - unreadable, which is not absent
+        return "cannot-check", f"{type(exc).__name__}: {exc}"
+
+    ext = [
+        f
+        for f in findings
+        if (getattr(f, "actor", "") or "").lower() in _EXTERNAL_AI_ACTORS
+        and "CONFIRMS" in (getattr(f, "title", "") or "")
+    ]
+    if not ext:
+        return "cannot-check", f"no external-AI CONFIRM in round {round_id}"
+
+    desc = getattr(ext[-1], "description", "") or ""
+    rec_tree = _anchor_after(desc, "tree")
+    rec_pid = _anchor_after(desc, "patch-id")
+    if not rec_tree and not rec_pid:
+        return "unanchored", "confirm records no tree-hash or patch-id"
+
+    _git_capture(["git", "fetch", remote, branch], timeout=60)
+    cur_tree = _git_capture(["git", "rev-parse", f"{remote}/{branch}^{{tree}}"])
+    cur_pid = compute_branch_patch_id(f"{remote}/{branch}", main_ref)
+    if not cur_tree and not cur_pid:
+        return "cannot-check", f"could not resolve {remote}/{branch}"
+
+    ok, reason, _basis = validate_external_confirm_inputs(
+        actor=getattr(ext[-1], "actor", ""),
+        claimed_tree=rec_tree,
+        actual_tree=cur_tree or "",
+        claimed_patch_id=rec_pid,
+        actual_patch_id=cur_pid or "",
+    )
+    return ("holds" if ok else "stale"), reason
+
+
 def _git_capture(args: list[str], timeout: int = 30) -> str | None:
-    """Run a git command; return stripped stdout, or None on any failure."""
+    """Run a git command; return stripped stdout, or None on any failure.
+
+    ENCODING IS EXPLICIT ON PURPOSE. ``text=True`` alone decodes with the
+    platform default, which on this machine is cp1252. Commit messages in this
+    repo are full of em-dashes, so `git log` over any real range raises
+    UnicodeDecodeError -- inside subprocess's reader THREAD, where it does not
+    propagate as itself. ``p.stdout`` comes back None and ``.strip()`` then
+    raises AttributeError, which the except clause below does not name, so a
+    helper documented as returning None on any failure instead crashed its
+    caller. Found 2026-08-22 by running the failure path of `audit export
+    --check` after the success path had already returned clean; the short
+    all-ASCII log on the current branch decoded fine and hid it.
+    """
     import subprocess
 
     try:
-        p = subprocess.run(args, capture_output=True, text=True, check=False, timeout=timeout)
-    except (OSError, subprocess.SubprocessError):
+        p = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError, ValueError):
         return None
-    if p.returncode != 0:
+    if p.returncode != 0 or p.stdout is None:
         return None
     return p.stdout.strip()
+
+
+def _round_ids_in_branch_trailers(main_ref: str = "origin/main") -> list[str]:
+    """Round-ids named by External-Review trailers on commits not yet on main.
+
+    The scope for `audit export --check`. These are the ids
+    ``ci_merge_review_check.py`` will try to resolve from ``docs/audit_rounds/``,
+    so an unexported one here is a CI failure waiting to happen, and everything
+    outside this set is a round nobody is about to look up.
+
+    Reuses ``pr_merge_gate._TRAILER_PATTERN`` rather than writing another copy
+    of the same regex -- there were four before that reuse started.
+
+    Returns [] on any git failure. A checkout with no upstream, or run outside
+    a repo, means the question cannot be asked, and an empty answer is the
+    honest one for a caller that only warns.
+    """
+    from divineos.core.pr_merge_gate import _TRAILER_PATTERN
+
+    log = _git_capture(["git", "log", f"{main_ref}..HEAD", "--format=%B"])
+    if not log:
+        return []
+    return list(dict.fromkeys(m.group(1) for m in _TRAILER_PATTERN.finditer(log)))
 
 
 def _git_version() -> str:
@@ -336,6 +469,8 @@ def register(cli: click.Group) -> None:
                     ["git", "rev-parse", "--verify", f"refs/remotes/origin/{source_ref}"],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                 )
                 ref_on_origin = result.returncode == 0
@@ -345,6 +480,8 @@ def register(cli: click.Group) -> None:
                         ["git", "rev-parse", "--verify", source_ref],
                         capture_output=True,
                         text=True,
+                        encoding="utf-8",
+                        errors="replace",
                         check=False,
                     )
                     if alt.returncode != 0:
@@ -404,6 +541,8 @@ def register(cli: click.Group) -> None:
                                 ["git", "log", ref, "--format=%T"],
                                 capture_output=True,
                                 text=True,
+                                encoding="utf-8",
+                                errors="replace",
                                 check=False,
                                 timeout=30,
                             )
@@ -538,6 +677,8 @@ def register(cli: click.Group) -> None:
                     ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=10,
                 )
@@ -562,6 +703,8 @@ def register(cli: click.Group) -> None:
                 ["git", "rev-list", rev_range],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
                 timeout=15,
             )
@@ -599,6 +742,8 @@ def register(cli: click.Group) -> None:
                 ["git", "rev-list", f"{remote_branch}..HEAD"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
                 timeout=15,
             )
@@ -654,6 +799,8 @@ def register(cli: click.Group) -> None:
                                 ["git", "log", "--format=%s", "-n", "1", sha],
                                 capture_output=True,
                                 text=True,
+                                encoding="utf-8",
+                                errors="replace",
                                 check=False,
                                 timeout=5,
                             )
@@ -698,6 +845,8 @@ def register(cli: click.Group) -> None:
                     ],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=10,
                 )
@@ -709,6 +858,8 @@ def register(cli: click.Group) -> None:
                     ["git", "log", "--format=%s", "-n", "1", sha],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=5,
                 )
@@ -730,6 +881,8 @@ def register(cli: click.Group) -> None:
                     ["git", "log", "--format=%s", "-n", "1", sha],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=False,
                     timeout=5,
                 )
@@ -902,6 +1055,8 @@ def register(cli: click.Group) -> None:
             [sys.executable, str(script_path), prior_tree_hash, "--quiet"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if result.returncode != 0:
@@ -914,6 +1069,8 @@ def register(cli: click.Group) -> None:
                 [sys.executable, str(script_path), prior_tree_hash],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=False,
             )
             click.echo(verbose.stdout)
@@ -1268,7 +1425,16 @@ def register(cli: click.Group) -> None:
         default=None,
         help="Export every round whose focus names this branch.",
     )
-    def audit_export_cmd(round_ids: tuple[str, ...], for_branch: str | None) -> None:
+    @click.option(
+        "--check",
+        "check_only",
+        is_flag=True,
+        default=False,
+        help="Report rounds in the store with no exported file. Writes nothing.",
+    )
+    def audit_export_cmd(
+        round_ids: tuple[str, ...], for_branch: str | None, check_only: bool
+    ) -> None:
         """Write rounds to docs/audit_rounds/ so CI can see they exist.
 
         The merge-review gate checks that the round named in the trailer is
@@ -1277,10 +1443,67 @@ def register(cli: click.Group) -> None:
         approved what. Exporting puts the round where the gate can read it --
         and in the PR diff, where the operator reads it before approving.
         """
-        from pathlib import Path
-
-        from divineos.core.watchmen.round_export import export_round
+        from divineos.core.watchmen.export import (
+            DEFAULT_OUT_DIR,
+            exported_round_exists,
+            export_rounds,
+        )
         from divineos.core.watchmen.store import list_rounds
+
+        if check_only:
+            # scripts/check_push_readiness.sh has called `--check` since PR
+            # #412. The flag was never implemented, so the call failed on every
+            # push and the script printed "audit export is behind the store" --
+            # a claim about state, from a check that never read any state. It
+            # was never true or false on its merits, only broken, and it read
+            # exactly like a real warning. Same shape as the hook-timing reader
+            # that summed only the runs which finished: a check reporting
+            # confidently over a target it cannot see.
+            #
+            # SCOPE IS THE OTHER HALF. Unscoped, this answers "how many rounds
+            # have never been exported" -- 310 of 312, and always will be, since
+            # historical rounds were never meant to become files. A warning that
+            # fires maximally on every push gets ignored, which is the broken
+            # version again with more output. The real consumer is
+            # ci_merge_review_check.py, which resolves the round named in an
+            # External-Review trailer, so the actionable set is exactly the
+            # rounds this branch's trailers reference. Those, unexported, fail
+            # CI. The rest is bookkeeping nobody reads.
+            if round_ids:
+                wanted = list(dict.fromkeys(round_ids))
+                scope = "named on the command line"
+            elif for_branch:
+                wanted = [
+                    r.round_id
+                    for r in list_rounds(limit=500)
+                    if for_branch in (getattr(r, "focus", "") or "")
+                ]
+                scope = f"whose focus names {for_branch}"
+            else:
+                wanted = _round_ids_in_branch_trailers()
+                scope = "referenced by an External-Review trailer on this branch"
+
+            if not wanted:
+                click.secho(f"[+] no rounds {scope}; nothing to export.", fg="green")
+                return
+
+            unexported = [r for r in wanted if not exported_round_exists(r)]
+            if not unexported:
+                click.secho(f"[+] all {len(wanted)} round(s) {scope} are exported.", fg="green")
+                return
+            click.secho(
+                f"[!] {len(unexported)} of {len(wanted)} round(s) {scope} are not "
+                f"exported to {DEFAULT_OUT_DIR}:",
+                fg="yellow",
+            )
+            for round_id in unexported:
+                click.secho(f"      {round_id}", fg="yellow")
+            click.secho(
+                "    CI resolves these by file. Export: divineos audit export "
+                + " ".join(unexported[:3]),
+                fg="yellow",
+            )
+            raise click.exceptions.Exit(1)
 
         targets = list(round_ids)
         if for_branch:
@@ -1295,15 +1518,36 @@ def register(cli: click.Group) -> None:
             click.secho("[!] Name at least one round-id, or pass --for-branch.", fg="red")
             raise click.exceptions.Exit(1)
 
-        repo = Path.cwd()
+        # WRITES THE ARTIFACT CI READS, which until 2026-08-22 it did not.
+        # Two export modules landed together in PR #412: watchmen/export.py
+        # writes <id>.md, watchmen/round_export.py writes <id>.json. The CLI --
+        # the only entry point, the one CLAUDE.md and the merge docs prescribe
+        # -- was wired to the JSON writer, while ci_merge_review_check.py
+        # resolves rounds through exported_round_exists(), which looks for the
+        # markdown. So running the documented remedy produced a file the gate
+        # does not read, and the gate went on reporting the round unverifiable.
+        # On disk when this was found: 276 .md against 2 .json.
+        #
+        # That is the same joint Aria hit in her reach-check doorman hours
+        # earlier -- the remedy was exempted so it could RUN, and running it was
+        # never wired to opening the door. Two properties, one assumed from the
+        # other.
+        from divineos.core.watchmen.store import get_round, list_findings
+
         missing: list[str] = []
+        records = []
+        findings_for: dict[str, list] = {}
         for round_id in targets:
-            path = export_round(repo, round_id)
-            if path is None:
+            record = get_round(round_id)
+            if record is None:
                 missing.append(round_id)
                 click.secho(f"[!] {round_id}: not in the local store; nothing to export.", fg="red")
                 continue
-            click.secho(f"[+] {round_id} -> {path.relative_to(repo)}", fg="green")
+            records.append(record)
+            findings_for[round_id] = list_findings(round_id=round_id, limit=500)
+
+        for path in export_rounds(records, findings_for):
+            click.secho(f"[+] {path.stem} -> {path.as_posix()}", fg="green")
 
         if missing:
             # A partial export that exits 0 would read as "all exported" to
@@ -1474,6 +1718,8 @@ def register(cli: click.Group) -> None:
                     ["git", "rev-parse", "HEAD^{tree}"],
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     check=True,
                     timeout=5,
                 )
@@ -1496,12 +1742,32 @@ def register(cli: click.Group) -> None:
                 fg="cyan",
             )
         else:
+            # This message used to call the round-id-only trailer LEGACY and
+            # tell the reader to re-run from inside a git repo. Both halves
+            # were false by 2026-08-27, and the second wasted the reader in a
+            # specific way: I ran it from inside the repo, was told to run it
+            # from inside the repo, and went hunting a defect that did not
+            # exist.
+            #
+            # The no-tree-hash default was FLIPPED DELIBERATELY on 2026-06-18
+            # by Andrew, because a tree-hash predicted from HEAD cannot match
+            # the squash commit once main moves between predict-time and
+            # squash-time. Round-id-only is the current correct form, not a
+            # degraded one. Substance-binding lives in the per-commit trailers
+            # and in the round's external-AI confirm, which binds tree and
+            # patch-id.
+            #
+            # The command's own --help said all of that while this message said
+            # the opposite. A warning contradicting the help beside it is the
+            # painted-door class living in an instrument rather than a comment:
+            # it answers the reader's question, wrongly, at the moment they ask.
             click.secho(
                 "Paste the block above into the GitHub squash-merge commit message field.\n"
-                "[!] Trailer is in LEGACY form (no tree-hash). The server-side gate will\n"
-                "    emit a DEPRECATED warning. Re-run from inside a git repo to include\n"
-                "    tree-hash binding, or pass --no-tree-hash to suppress this notice.",
-                fg="yellow",
+                "Trailer carries the round id only, which is the current form: a\n"
+                "tree-hash predicted before the squash cannot match the tree after it\n"
+                "once main has moved. Substance stays bound through the per-commit\n"
+                "trailers and the round's external-AI confirm.",
+                fg="cyan",
             )
 
     @audit_group.command("pr-merge-check")
