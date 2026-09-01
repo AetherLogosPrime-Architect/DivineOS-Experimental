@@ -54,3 +54,4 @@ scaffolding_map
 session_start_diagnostics
 theater_observation_surface
 upstream_freshness
+component_register_surface   # hand-soldered: briefing via knowledge_commands, panel via multiplex_panels

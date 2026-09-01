@@ -271,8 +271,26 @@ def submit_round(
             validate=False,
         )
         if is_override:
+            # THE CONSUMER'S CONSTANT, not a second copy of the string.
+            #
+            # tier_override_surface.py defines TIER_OVERRIDE_EVENT_TYPE and its
+            # test asserted `TIER_OVERRIDE_EVENT_TYPE == "TIER_OVERRIDE"` under
+            # the docstring "must match what the store emits" -- while the
+            # store emitted its own separate literal that the test never read.
+            # The two could drift apart in either direction and the test would
+            # stay green, because it compared the constant to a copy of itself.
+            #
+            # Found 2026-08-25 answering Andrew's question about whether code
+            # does what it claims. Importing the constant here is the better
+            # answer than teaching the test to read this file: it removes the
+            # divergence rather than detecting it, so there is no longer a
+            # question to get wrong.
+            from divineos.core.watchmen.tier_override_surface import (
+                TIER_OVERRIDE_EVENT_TYPE,
+            )
+
             log_event(
-                "TIER_OVERRIDE",
+                TIER_OVERRIDE_EVENT_TYPE,
                 normalized_actor,
                 {
                     "round_id": round_id,

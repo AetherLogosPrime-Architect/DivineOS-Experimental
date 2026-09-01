@@ -447,3 +447,68 @@ def test_all_backing_event_types_are_emitted_somewhere() -> None:
         f"the type was removed entirely (remove from _BACKING_EVENT_TYPES). "
         f"Found {len(emitted)} emit-site type(s) total."
     )
+
+
+# ─── Retired entries cannot owe, and cannot pay ───────────────────────
+
+
+class TestRetiredEntriesAreNotDebt:
+    """An obligation you are structurally unable to discharge is a jam.
+
+    Found 2026-08-22, with Andrew's authorization to fix this gate after it
+    blocked the audit round the whole session's work was waiting on.
+
+    Knowledge 5268c01e carried ``superseded_by="FORGET:Wrong..."`` and was
+    still counted as outstanding debt. Every route that discharges an
+    obligation resolves the id through ``_resolve_knowledge_id``, which filters
+    ``superseded_by IS NULL`` — so ``divineos integrate`` answers "No knowledge
+    entry matching" for precisely the entries the gate holds against me. The
+    debt was unpayable, permanently above the blocking threshold, and the
+    prescribed command gave no hint why it refused.
+
+    This module already names the shape one screen up, about a different
+    instance: carrying a known-unclearable item "is not rigour, it is a jam --
+    and one that trains me to reach for the kill-switch."
+    """
+
+    def test_a_forgotten_entry_is_not_counted(self, monkeypatch) -> None:
+        from divineos.core import structural_promotion_check as spc
+
+        monkeypatch.setattr(spc, "_is_retired", lambda wid: wid == "forgotten-id")
+        assert spc._is_retired("forgotten-id")
+        assert not spc._is_retired("live-id")
+
+    def test_an_unreadable_store_keeps_the_obligation(self, monkeypatch) -> None:
+        """Fail-soft in the direction that preserves debt, never discharges it.
+
+        Same asymmetry as ``_knowledge_text``: a failed read must not silently
+        clear what I owe, because that turns a broken database into an amnesty.
+        """
+        from divineos.core import structural_promotion_check as spc
+
+        def _explode():
+            raise OSError("store unreachable")
+
+        monkeypatch.setattr("divineos.core.knowledge._base.get_connection", _explode)
+
+        assert spc._is_retired("any-id") is False
+
+    def test_an_unknown_id_is_not_treated_as_retired(self, monkeypatch) -> None:
+        """Absent from the table is not the same as deliberately retired."""
+        from divineos.core import structural_promotion_check as spc
+
+        class _Conn:
+            def execute(self, *_a, **_k):
+                class _R:
+                    @staticmethod
+                    def fetchone():
+                        return None
+
+                return _R()
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr("divineos.core.knowledge._base.get_connection", lambda: _Conn())
+
+        assert spc._is_retired("never-existed") is False
