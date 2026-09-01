@@ -21,7 +21,7 @@ Commands that DO report usage:
 | command | recorded invocations |
 |---|---|
 | `ask` | 441 |
-| `briefing` | 239 |
+| `briefing` | 240 |
 | `decide` | 152 |
 | `compass` | 140 |
 | `context` | 86 |
@@ -1346,7 +1346,7 @@ Reference count is how many places mention each package — a rough load-bearing
 
 | subsystem | refs | purpose |
 |---|---|---|
-| `core/knowledge/` | 710 | Knowledge sub-package — tiered re-exports for performance. |
+| `core/knowledge/` | 711 | Knowledge sub-package — tiered re-exports for performance. |
 | `core/operating_loop/` | 249 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
 | `core/watchmen/` | 182 | Watchmen — External Validation as a Native Runtime Capability. |
