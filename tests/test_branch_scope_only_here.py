@@ -210,3 +210,36 @@ def test_a_path_deleted_on_this_branch_is_not_reported_as_at_risk(repo: Path):
     out = _run(repo, "work")
 
     assert "ONLY HERE" not in out
+
+
+def test_the_branch_is_excluded_by_identity_not_by_one_spelling(repo: Path):
+    """A branch answers to more than one name, and excluding one is excluding none.
+
+    2026-08-31, and the class is Aria's: the unit being excluded was the
+    branch's NAME; the thing that must be excluded is the branch's IDENTITY.
+
+    I hit this by hand the same day. My own throwaway only-here check named the
+    branch one way, the ref list named it another, so every file matched the
+    other spelling of the branch it was measuring -- the check compared the
+    branch against itself and read the self-match as safety. All eight files
+    came back safe. Four of them had no published copy anywhere at all.
+
+    The same hole is here. The exclusion set is built from two hand-spelled
+    forms of whatever string the caller passed. Address the branch as
+    ``origin/work`` and neither form resolves, so nothing is excluded, and the
+    file's only copy -- reachable both as the local branch and as its remote
+    tracking ref -- reads as living somewhere else.
+
+    Whichever spelling the caller uses, the answer must not change.
+    """
+    _add(repo, "work", {"dreams/aether/single_copy.md": "the only copy"})
+    _git(repo, "update-ref", "refs/remotes/origin/work", _git(repo, "rev-parse", "work"))
+
+    by_short = _run(repo, "work")
+    by_remote = _run(repo, "origin/work")
+
+    assert "ONLY HERE: dreams/aether/single_copy.md" in by_short
+    assert "ONLY HERE: dreams/aether/single_copy.md" in by_remote, (
+        "addressed by its remote spelling the branch was compared against itself, "
+        "and that self-match was read as a copy living somewhere else"
+    )

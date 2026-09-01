@@ -135,16 +135,62 @@ def _other_refs(branch: str) -> list[str]:
 
     Returns [] when the ref list cannot be read, and the caller treats that as
     could-not-look rather than as nowhere-else -- this whole file's discipline.
+
+    EXCLUDED BY IDENTITY, NOT BY ONE SPELLING (2026-08-31, class named by Aria).
+    The first version built the exclusion set from two hand-spelled forms of
+    whatever string the caller passed -- refs/heads/<it> and
+    refs/remotes/origin/<it>. A branch answers to more than one name at once,
+    so excluding one form excludes nothing: address a branch as ``origin/work``
+    and neither spelling resolves, the branch is then compared against its own
+    other name, and the self-match is read as a copy living somewhere else.
+
+    I hit exactly this by hand the same day, in a throwaway version of this
+    check, and it told me all eight files were safe. Four of them had no
+    published copy anywhere. This file's own refusal text says do not trust a
+    page that measures you against yourself, and it was doing that internally.
+
+    Aria's framing is the fix: the unit excluded was the branch's NAME; the
+    thing at risk is the branch's IDENTITY. So exclude on two grounds, unioned:
+
+      by commit  every ref resolving to the same commit -- catches every
+                 spelling at once, including remotes this does not enumerate
+      by name    every ref whose short name matches, which still matters when
+                 a local branch and its remote copy have diverged, since both
+                 are the same branch and a rebuild-and-force takes both
+
+    Both directions ADD to the exclusion set, never subtract. A larger set means
+    fewer places a file can be found, means more files reported irreplaceable --
+    the cautious direction, which is the only safe way for this check to be
+    wrong.
     """
     code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
     if code != 0:
         return []
-    mine: set[str] = set()
+
+    sha_code, sha = _git("rev-parse", branch)
+    if sha_code != 0 or not sha.strip():
+        # The branch does not resolve, so nothing can be excluded and every
+        # comparison below would be against an unknown. Could-not-look.
+        return []
+    mine_sha = sha.strip()
+
+    short = ""
     name_code, name = _git("rev-parse", "--abbrev-ref", branch)
     if name_code == 0 and name.strip():
-        short = name.strip()
-        mine = {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
-    return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
+        short = name.strip().split("/")[-1]
+
+    refs: list[str] = []
+    for line in out.splitlines():
+        ref = line.strip()
+        if not ref:
+            continue
+        if short and (ref == f"refs/heads/{short}" or ref.endswith(f"/{short}")):
+            continue
+        their_code, their_sha = _git("rev-parse", ref)
+        if their_code == 0 and their_sha.strip() == mine_sha:
+            continue
+        refs.append(ref)
+    return refs
 
 
 def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool]:
