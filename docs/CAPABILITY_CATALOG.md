@@ -4,7 +4,7 @@
 
 Third of three inventories. [LOADOUT.md](../LOADOUT.md) describes the rooms. [AUTOMATION_REGISTER.md](AUTOMATION_REGISTER.md) lists what runs by itself. This lists what I can **reach for** — the tools on the wall.
 
-**182 top-level commands, 357 subcommands, 37 core subsystems.**
+**182 top-level commands, 357 subcommands, 35 core subsystems.**
 
 ---
 
@@ -20,13 +20,13 @@ Commands that DO report usage:
 
 | command | recorded invocations |
 |---|---|
-| `ask` | 441 |
-| `briefing` | 237 |
-| `decide` | 151 |
-| `compass` | 136 |
+| `ask` | 442 |
+| `briefing` | 241 |
+| `decide` | 152 |
+| `compass` | 141 |
 | `context` | 86 |
 | `recall` | 49 |
-| `lessons` | 36 |
+| `lessons` | 38 |
 | `directives` | 13 |
 | `feel` | 8 |
 | `body` | 6 |
@@ -1339,14 +1339,9 @@ Record an open question -- something I'm...
 
 Reference count is how many places mention each package — a rough load-bearing signal, not a precise import graph. Zero is worth a look.
 
-**2 subsystem(s) with no references** — retired, or forgotten?
-
-- `core/doc_sync/` — (no package docstring)
-- `core/push_verify/` — (no package docstring)
-
 | subsystem | refs | purpose |
 |---|---|---|
-| `core/knowledge/` | 710 | Knowledge sub-package — tiered re-exports for performance. |
+| `core/knowledge/` | 711 | Knowledge sub-package — tiered re-exports for performance. |
 | `core/operating_loop/` | 249 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
 | `core/watchmen/` | 182 | Watchmen — External Validation as a Native Runtime Capability. |
@@ -1372,8 +1367,8 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/operating_modes/` | 9 | Operating modes — explicit names for non-task-executing states. |
 | `core/letter_seen_router/` | 8 | Letter-seen routing — detect a letter Read and mark it seen. |
 | `core/calibration/` | 7 | (no package docstring) |
+| `core/uncommitted_work_check/` | 7 | Pre-extraction commit-discipline gate. |
 | `core/supervisor/` | 6 | Supervisor — circuit-breaker / chronic-failure handling. |
-| `core/uncommitted_work_check/` | 6 | Pre-extraction commit-discipline gate. |
 | `core/voice_guard/` | 6 | Voice-guard — pre-output audit primitives. |
 | `core/reliability/` | 5 | Reliability — Bayesian confidence with uncertainty. |
 | `core/correction_shape_v2/` | 4 | Correction-shape v2 — Layer-2 detector for MY self-corrections in my own output. |
@@ -1381,8 +1376,6 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/semantic_classifier/` | 3 | Semantic classifier for gate-fire discrimination. |
 | `core/shape/` | 2 | Shape-primitive library — CONDITION-check helpers for keyword-based gates. |
 | `core/structural_binding/` | 2 | Shared structural-binding abstraction for the will-encoded enforcement family. |
-| `core/doc_sync/` | 0 | (no package docstring) |
-| `core/push_verify/` | 0 | (no package docstring) |
 
 ---
 

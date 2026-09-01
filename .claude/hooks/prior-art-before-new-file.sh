@@ -28,7 +28,7 @@ INPUT=$(cat)
 
 if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
   # shellcheck source=/dev/null
-  HOOK_NAME="prior-art-before-new-file" source "$(dirname "$0")/lib/remedy_allowlist.sh" 2>/dev/null || true
+  HOOK_NAME="prior-art-before-new-file" source "$(dirname "$0")/lib/remedy_allowlist.sh" 2>/dev/null || true  # fail-soft: an unloadable allowlist leaves this doorman with no exemptions, which is the strict direction and never the permissive one
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)" || exit 0
@@ -59,8 +59,8 @@ PYTHON_BIN="$(find_divineos_python)" || exit 0
 STDERR_FILE="$(mktemp)"
 RESULT="$(printf '%s' "$INPUT" | "$PYTHON_BIN" -m divineos.core.prior_art_by_name 2>"$STDERR_FILE")"
 RC=$?
-CRASH_TEXT="$(cat "$STDERR_FILE" 2>/dev/null)"
-rm -f "$STDERR_FILE" 2>/dev/null
+CRASH_TEXT="$(cat "$STDERR_FILE" 2>/dev/null)"  # fail-soft: an unreadable capture file leaves the text empty, and the exit code below still routes to the crash branch
+rm -f "$STDERR_FILE" 2>/dev/null  # fail-soft: a leftover temp file in the system temp dir is not worth a word of hook output
 
 # 3 = the scan could not run, and said why. Advisory: say it, allow the write.
 if [ "$RC" = "3" ]; then

@@ -176,6 +176,11 @@
             "type": "command",
             "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/wins-ledger-empty-prompt.sh",
+            "timeout": 10
           }
         ]
       },

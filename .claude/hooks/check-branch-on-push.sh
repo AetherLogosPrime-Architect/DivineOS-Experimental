@@ -139,7 +139,7 @@ fi
 # store uses. An unresolvable home honours NO kill-switch, leaving the gate
 # armed -- for a safety gate the honest failure is to keep guarding, not to
 # guess whose switch this is.
-MARKER_PATH="$("$PYTHON_BIN" -c 'from divineos.core.paths import divineos_home; print(divineos_home() / "check-branch.disabled")' 2>/dev/null)"
+MARKER_PATH="$("$PYTHON_BIN" -c 'from divineos.core.paths import divineos_home; print(divineos_home() / "check-branch.disabled")' 2>/dev/null)"  # fail-soft: an empty path matches no kill-switch file, which leaves this safety gate armed — the direction the comment above argues for
 
 # Decide whether this command is a git push. Inline python invocation
 # mirrors check-pending-obligations.sh — direct function call into the

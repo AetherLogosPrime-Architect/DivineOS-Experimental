@@ -101,11 +101,15 @@ fail_loud() {
     local reason="$2"
     local ts
     ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+    local reason_json file_json
+    # JSON-quoting runs through python, which can be unresolvable. The fallback
+    # keeps the marker WELL-FORMED with a placeholder: a parseable line saying
+    # "unknown" is still readable evidence that the hook fired and failed, where
+    # an unquoted raw string would corrupt the log for every later reader.
+    reason_json="$(printf '%s' "$reason" | "$_PY" -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')"  # fail-soft: one unwritable field must not cost the whole failure marker
+    file_json="$(printf '%s' "${FILE_PATH:-}" | "$_PY" -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')"  # fail-soft: same reason as the line above, applied to the path field
     printf '{"ts":"%s","stage":"%s","reason":%s,"file_path":%s}\n' \
-        "$ts" \
-        "$stage" \
-        "$(printf '%s' "$reason" | "$_PY" -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
-        "$(printf '%s' "${FILE_PATH:-}" | "$_PY" -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '"unknown"')" \
+        "$ts" "$stage" "$reason_json" "$file_json" \
         >> "$_LOG_PATH" 2>/dev/null || true
     exit 0
 }
@@ -118,9 +122,9 @@ cd "$REPO_ROOT" || fail_loud "cd-repo-root" "could not cd to repo root: $REPO_RO
 # python rather than a bare one, because the global editable install points at
 # whichever clone was installed last. An unresolvable home keeps the
 # provisional path -- a marker in the wrong drawer still beats no marker.
-if _RESOLVED_PY=$(find_divineos_python 2>/dev/null) && [ -n "$_RESOLVED_PY" ]; then
+if _RESOLVED_PY=$(find_divineos_python 2>/dev/null) && [ -n "$_RESOLVED_PY" ]; then  # fail-soft: no resolvable toolbox python keeps the provisional log path set above
     _RESOLVED_HOME=$("$_RESOLVED_PY" -c \
-        "from divineos.core.paths import divineos_home; print(divineos_home())" 2>/dev/null)
+        "from divineos.core.paths import divineos_home; print(divineos_home())" 2>/dev/null)  # fail-soft: an import error leaves the home empty and the provisional path stands
     if [ -n "$_RESOLVED_HOME" ]; then
         _LOG_PATH="${_RESOLVED_HOME}/auto-push-letter.log"
         mkdir -p "$_RESOLVED_HOME" 2>/dev/null || true
