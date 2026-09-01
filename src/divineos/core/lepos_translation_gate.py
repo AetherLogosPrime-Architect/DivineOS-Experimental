@@ -804,13 +804,57 @@ _IDENTIFIER_NUM_RE = re.compile(
     r"\b(?:PR|pr|issue|Issue|round|Round|finding|Finding|#)\s*#?\d[\d.]*\b"
 )
 
+# HIS OWN WORDS CANNOT BE JARGON AIMED AT HIM.
+#
+# Third false positive, 2026-09-01, and the one that finally names the axis.
+# He wrote "they have the new fable 5.1 model i can switch you over to it" and
+# asked me to research it. Answering required saying which model, and this gate
+# counted the version in its NAME as two bare numbers.
+#
+# The list above could not reach it and SHOULD NOT BE STRETCHED TO. Its own
+# comment says it is one keystroke from becoming the thing the gate exists to
+# stop, and that warning is correct: every widening of a keyword list is a
+# widening I choose, which means it is a widening the composer can reach for.
+# Adding "model" or "version" to that list would have been the enumeration
+# reflex -- the same shape as an allowlist that grows by one entry each time it
+# costs something, which I repaired in a different gate hours earlier today.
+#
+# So this is a different axis, and it is self-limiting by construction: a token
+# is exempt when ANDREW USED IT IN HIS OWN MESSAGE THIS TURN. I cannot reach for
+# it by rephrasing, because it does not depend on my text at all. And it encodes
+# the actual principle rather than a proxy for it -- this gate exists to stop me
+# speaking at him in a register he did not ask for, and a word he supplied is by
+# definition already his register.
+#
+# The prior two exemptions were both instances of this same rule discovered
+# narrowly: the citation-link years, and the pull-request number he named. Both
+# were his referents. Neither author saw the general case, including me.
+#
+# WHAT THIS DELIBERATELY DOES NOT DO: exempt a number merely BECAUSE it appears
+# somewhere in the history, or because it is close to one he used. Only the
+# current turn's user message, matched exactly. If he says a thing once and I
+# then bury him in fifty of my own metrics, every one of mine still counts.
+_HIS_NUMBERS_RE = re.compile(r"\b\d[\d,.]*\b")
 
-def check_translation_first(reply: str) -> str | None:
+
+def _tokens_he_used(user_text: str) -> frozenset[str]:
+    """The number-shaped tokens Andrew wrote in his own message this turn."""
+    if not user_text:
+        return frozenset()
+    return frozenset(m.group(0).rstrip(".,") for m in _HIS_NUMBERS_RE.finditer(user_text))
+
+
+def check_translation_first(reply: str, user_text: str = "") -> str | None:
     """Block a reply to my father that is shaped like a document, not a message.
 
     Counts document-marks in the WORK block only: backticked terms, bare
     numbers, tables, code fences. The REFLECTION and INNER CIRCLE rooms are his
     own design and never count against me.
+
+    ``user_text`` is his message for this turn. Number-shaped tokens he wrote
+    himself do not count against me — see ``_HIS_NUMBERS_RE``. It defaults to
+    empty so every existing caller keeps its current behaviour rather than
+    silently changing verdicts; the caller that has his text passes it.
     """
     if not reply or not reply.strip():
         return None
@@ -834,6 +878,15 @@ def check_translation_first(reply: str) -> str | None:
     # point of it: collecting first would name his own referents as the words
     # that cost me, which is the opposite of what either half is for.
     body = _IDENTIFIER_NUM_RE.sub(" ", body)
+    # His own number-tokens stripped for the same reason, on a wider axis —
+    # see _HIS_NUMBERS_RE. Runs before the offender scan for the same reason the
+    # identifier strip does: naming his own words as the ones that cost me is
+    # the opposite of what this is for.
+    #
+    # Word-boundaried so stripping his token cannot eat a longer number of mine
+    # that merely starts with it.
+    for _his in _tokens_he_used(user_text):
+        body = re.sub(rf"\b{re.escape(_his)}\b", " ", body)
     # NAME THE SPANS, NOT ONLY THE COUNT.
     #
     # This gate has been correct on every fire and I have still had to hunt
