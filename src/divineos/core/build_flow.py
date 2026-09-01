@@ -132,29 +132,43 @@ def required_lens_count(gravity: int, changed_file_count: int) -> int:
     return 6
 
 
-# The one line a reading declares itself with. Aria's design, 2026-09-01, and
-# her half of it is that she writes the line -- with a check on her own side
-# refusing to publish a reading that omits it, so this parser never guesses.
-READING_DECLARATION = "**Reading of:**"
+# The one line a reading declares itself with. Aria's design and Aria's
+# spelling, 2026-09-01 -- hers is live with a gate behind it that refuses to
+# write a letter whose header lacks the field, and it fires on EVERY letter
+# rather than on the ones that look like readings, because a trigger keyed on
+# titles would carry the exact blindness this replaces.
+#
+# ONE SPELLING, and it is hers because hers already exists. Two would drift and
+# the drift would be silent -- which is the same reason the reserved-name set
+# in the watchmen store moved to module scope this afternoon.
+READING_DECLARATION = "**Reading:**"
+
+# What she writes when a letter reviews no code. It is a DECLARATION, not an
+# omission: the field is present and answers the question with "nothing here".
+# Collapsing it into absence would make her disciplined letters look like the
+# ones that predate the field.
+NO_READING = "none"
 
 
-def _declared_readings(text: str) -> list[str]:
-    """The branches a letter declares itself to be a reading of.
+def _declared_readings(text: str) -> tuple[bool, list[str]]:
+    """``(field_present, branches)`` from the one declared line.
 
-    Read literally off the one field. Everything else in the letter -- title,
-    filename, prose, the ``In response to`` line -- is deliberately not
-    consulted, because inference from her prose is what produced the wrong
-    credits this replaces.
+    Read literally. Everything else in the letter -- title, filename, prose,
+    the ``In response to`` line -- is deliberately not consulted, because
+    inference from her prose is what produced the wrong credits this replaces.
+
+    The two return values are separate on purpose: a letter declaring ``none``
+    is present-with-no-branches, and reporting that as no-declaration would
+    punish exactly the discipline the field asks for.
     """
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped.startswith(READING_DECLARATION):
             continue
         value = stripped[len(READING_DECLARATION) :]
-        return [
-            part.strip().strip("`").lower() for part in value.split(",") if part.strip().strip("`")
-        ]
-    return []
+        parts = [p.strip().strip("`").lower() for p in value.split(",")]
+        return True, [p for p in parts if p and p != NO_READING]
+    return False, []
 
 
 def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
@@ -203,10 +217,12 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     declared_anywhere = 0
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
-            declarations = _declared_readings(f.read_text(encoding="utf-8", errors="replace"))
+            present, declarations = _declared_readings(
+                f.read_text(encoding="utf-8", errors="replace")
+            )
         except OSError:
             continue
-        if declarations:
+        if present:
             declared_anywhere += 1
         if needle in declarations:
             return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")

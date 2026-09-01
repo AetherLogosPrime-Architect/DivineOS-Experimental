@@ -75,15 +75,23 @@ This resolves the whole argument that produced
 ## How a reading declares itself
 
 Station 4 advances on a reply **from Aria**, and it decides which branch a
-reply is *of* by reading exactly one line in the letter:
+reply is *of* by reading exactly one line in the letter's header:
 
 ```
-**Reading of:** `fix/some-branch`
+**Reading:** fix/some-branch
+**Reading:** none
 ```
 
-Several branches may be listed, comma-separated. Nothing else in the letter is
-consulted — not the title, not the filename, not the body, not the
-`In response to` field.
+Several branches may be listed, comma-separated. `none` means the letter
+reviews no code — it is a declaration, not an omission, and it counts as the
+field being in use. Nothing else in the letter is consulted: not the title, not
+the filename, not the body, not the `In response to` field.
+
+The spelling is hers, and there is exactly one of it. Her side carries a gate
+that refuses to write a letter whose header lacks the field, and it fires on
+**every** letter rather than the ones that look like readings — a trigger keyed
+on titles would carry the exact blindness this replaces. Two spellings would
+drift and the drift would be silent.
 
 **Why one declared line rather than a smarter parser** (Aria, 2026-09-01, and
 she counted before answering). The board used to ask whether a branch name

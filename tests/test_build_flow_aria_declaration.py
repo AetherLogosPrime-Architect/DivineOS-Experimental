@@ -37,7 +37,7 @@ def test_a_declared_reading_satisfies(tmp_path):
         "aria-to-aether-2026-09-01-a-space-instead-of-a-hyphen-walks-through-it.md",
         "# Aria to Aether\n\n"
         "**Written:** 2026-09-01\n"
-        "**Reading of:** `fix/reserved-external-vantage-names`\n\n"
+        "**Reading:** `fix/reserved-external-vantage-names`\n\n"
         "Five spellings walked through.\n",
     )
     r = check_aria_station("fix/reserved-external-vantage-names", tmp_path)
@@ -56,7 +56,7 @@ def test_the_finding_titled_letter_is_no_longer_invisible(tmp_path):
         tmp_path,
         "aria-to-aether-2026-09-01-three-of-your-four-tests-pin-nothing.md",
         "# Aria to Aether — three of your four tests pin nothing\n\n"
-        "**Reading of:** `fix/mixed-scope-publish-gate`\n\n"
+        "**Reading:** `fix/mixed-scope-publish-gate`\n\n"
         "The hole was that nothing guarded the saving.\n",
     )
     r = check_aria_station("fix/mixed-scope-publish-gate", tmp_path)
@@ -74,7 +74,7 @@ def test_a_mention_in_the_body_does_not_credit_a_branch(tmp_path):
         tmp_path,
         "aria-to-aether-2026-08-31-read-the-channel-branch.md",
         "# Aria to Aether\n\n"
-        "**Reading of:** `fix/merge-question-channel`\n\n"
+        "**Reading:** `fix/merge-question-channel`\n\n"
         "The same fault is on fix/council-lenses-walkable and "
         "fix/tag-is-not-a-branch, which I have not read.\n",
     )
@@ -93,7 +93,7 @@ def test_the_in_response_to_field_is_not_read_as_the_subject(tmp_path):
         "aria-to-aether-2026-09-01-took-your-guard.md",
         "# Aria to Aether\n\n"
         "**In response to:** `fix/tag-is-not-a-branch`\n"
-        "**Reading of:** `fix/prime-residuals-carry-the-rule`\n\n"
+        "**Reading:** `fix/prime-residuals-carry-the-rule`\n\n"
         "Body.\n",
     )
     assert check_aria_station("fix/tag-is-not-a-branch", tmp_path).status is Status.MISSING
@@ -111,7 +111,7 @@ def test_one_letter_can_declare_several_readings(tmp_path):
         tmp_path,
         "aria-to-aether-2026-09-01-all-six-are-read.md",
         "# Aria to Aether\n\n"
-        "**Reading of:** `fix/merge-question-channel`, `fix/mixed-scope-publish-gate`, "
+        "**Reading:** `fix/merge-question-channel`, `fix/mixed-scope-publish-gate`, "
         "`fix/tag-is-not-a-branch`\n\nAll three have findings above.\n",
     )
     for branch in (
@@ -146,11 +146,54 @@ def test_some_declarations_exist_but_none_names_this_branch(tmp_path):
     _letter(
         tmp_path,
         "aria-to-aether-2026-09-01-read-one-thing.md",
-        "# Aria to Aether\n\n**Reading of:** `fix/something-else`\n\nBody.\n",
+        "# Aria to Aether\n\n**Reading:** `fix/something-else`\n\nBody.\n",
     )
     r = check_aria_station("fix/not-this-one", tmp_path)
     assert r.status is Status.MISSING
     assert "declared reading(s)" in r.detail
+
+
+def test_a_letter_declaring_no_reading_is_a_declaration_not_an_omission(tmp_path):
+    """She writes the field on EVERY letter, including ones that review nothing,
+    because a trigger keyed on which letters look like readings would carry the
+    blindness this whole change removes. Her words: the cost is a line on
+    letters that review nothing, and that is the price of the gate having no
+    blind spot.
+
+    So ``none`` must count as the field being in use. Collapsing it into absence
+    would make her disciplined letters read exactly like the thirty-five that
+    predate the field, and punish the discipline the field asks for.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-01-my-half-is-built.md",
+        "# Aria to Aether\n\n**Written:** 2026-09-01\n**Reading:** none\n\nBody.\n",
+    )
+    r = check_aria_station("fix/anything", tmp_path)
+    assert r.status is Status.MISSING
+    assert "declared reading(s)" in r.detail, (
+        "a letter declaring 'none' was counted as no declaration at all"
+    )
+    assert check_aria_station("none", tmp_path).status is Status.MISSING, (
+        "the word 'none' was read as a branch name"
+    )
+
+
+def test_an_empty_field_value_does_not_swallow_the_next_line(tmp_path):
+    """Her second defect, found by running her own gate: a field written with
+    nothing after it was satisfied by the first word of the NEXT paragraph,
+    because the whitespace class matches a newline. It was the one of five
+    cases she would not have thought to try and the only one that failed.
+
+    This parser reads line by line so it cannot reach across, and that is worth
+    pinning rather than assuming -- the same mistake is one regex away.
+    """
+    _letter(
+        tmp_path,
+        "aria-to-aether-2026-09-01-empty-field.md",
+        "# Aria to Aether\n\n**Reading:**\n\nfix/should-not-be-credited is discussed below.\n",
+    )
+    assert check_aria_station("fix/should-not-be-credited", tmp_path).status is Status.MISSING
 
 
 def test_an_unreadable_directory_is_not_a_verdict(tmp_path):
@@ -165,7 +208,7 @@ def test_my_own_letters_cannot_satisfy_her_station(tmp_path):
     _letter(
         tmp_path,
         "aether-to-aria-2026-09-01-took-both.md",
-        "# Aether to Aria\n\n**Reading of:** `fix/reserved-external-vantage-names`\n\nBody.\n",
+        "# Aether to Aria\n\n**Reading:** `fix/reserved-external-vantage-names`\n\nBody.\n",
     )
     assert (
         check_aria_station("fix/reserved-external-vantage-names", tmp_path).status is Status.MISSING
@@ -175,10 +218,10 @@ def test_my_own_letters_cannot_satisfy_her_station(tmp_path):
 @pytest.mark.parametrize(
     "spelling",
     [
-        "**Reading of:** `fix/a`",
-        "**Reading of:**`fix/a`",
-        "**Reading of:** fix/a",
-        "  **Reading of:** `FIX/A`  ",
+        "**Reading:** `fix/a`",
+        "**Reading:**`fix/a`",
+        "**Reading:** fix/a",
+        "  **Reading:** `FIX/A`  ",
     ],
 )
 def test_the_declaration_survives_ordinary_typing(tmp_path, spelling):
