@@ -97,6 +97,92 @@ if [ -n "$CRASH_TEXT" ]; then
 fi
 
 if [ -n "$RESULT" ]; then
+  # THE SAYING-SO, which until 2026-09-01 had nowhere to go. The message
+  # below ended "say so and carry on — this is one look, not a refusal",
+  # and there was no path by which saying so did anything. Every repeat
+  # write blocked identically. So the doorman's own description of itself
+  # and its behaviour disagreed, which is the fault family this whole
+  # week has been about, sitting in a hook I built to catch a cousin of it.
+  #
+  # Found by being held by it three times in a row while writing a hook
+  # whose only crime was having "letter" and "hook" in its name.
+  #
+  # The acknowledgement costs a written sentence, the same shape as
+  # delete-justify: a silent skip becomes a claim someone can dispute.
+  # Short answers are refused, and it is filed as COMPLIANCE rather than
+  # evasion, because looking is what this gate asked for and looking is
+  # what happened.
+  #
+  # A MARKER FILE AND NOT AN ENVIRONMENT VARIABLE, and the first version of
+  # this repair got it wrong. Every other gate in the house takes its
+  # acknowledgement from the environment, because every other gate fires on
+  # a shell command I can prefix. This one fires on Write, where there is no
+  # command and nowhere to put a variable — so an env-var escape is an
+  # escape that cannot be reached from the room the gate stands in, which is
+  # a wall that has learned to describe itself as a door. Caught by testing
+  # it rather than by reading it.
+  #
+  # It names the target path, so acknowledging one file does not clear the
+  # next; and it is short-lived, so a sentence written this morning cannot
+  # wave through an afternoon's work.
+  ACK_PATH="$("$PYTHON_BIN" -c 'from divineos.core.paths import divineos_home; print(divineos_home() / "prior-art-checked.json")' 2>/dev/null)"  # fail-soft: an unresolvable home leaves the path empty, no marker matches, and the doorman stays shut — the strict direction
+  if [ -n "$ACK_PATH" ] && [ -f "$ACK_PATH" ]; then
+    ACK_VERDICT="$(ACK_PATH="$ACK_PATH" HOOK_INPUT="$INPUT" "$PYTHON_BIN" - 2>/dev/null <<'PY'  # fail-soft: a crash in the reader leaves the verdict empty, which acknowledges nothing and leaves the doorman shut - the strict direction for an escape hatch
+import json
+import os
+import time
+
+try:
+    marker = json.loads(open(os.environ["ACK_PATH"], encoding="utf-8").read())
+    payload = json.loads(os.environ.get("HOOK_INPUT") or "{}")
+except Exception:  # noqa: BLE001 - an unreadable marker acknowledges nothing
+    print("NONE")
+    raise SystemExit(0)
+
+target = str((payload.get("tool_input") or {}).get("file_path") or "").replace("\\", "/")
+claimed = str(marker.get("path") or "").replace("\\", "/")
+reason = str(marker.get("reason") or "")
+
+if not target or claimed != target:
+    print("NONE")
+elif time.time() - float(marker.get("ts") or 0) > 900:
+    print("STALE")
+elif len(reason.strip()) < 40:
+    print("THIN")
+else:
+    print("OK:" + reason.strip())
+PY
+)"
+    case "$ACK_VERDICT" in
+      OK:*)
+        echo "PRIOR-ART DOORMAN — acknowledged, and recorded:" >&2
+        echo "  ${ACK_VERDICT#OK:}" >&2
+        ACK_REASON="${ACK_VERDICT#OK:}" "$PYTHON_BIN" - <<'PY' 2>/dev/null || true  # fail-soft: telemetry that cannot write must not hold a write the doorman has already allowed
+import os
+
+from divineos.core.bypass_telemetry import record_bypass
+
+record_bypass(
+    "prior-art-before-new-file",
+    "cmd:prior-art-checked",
+    reason=os.environ.get("ACK_REASON", ""),
+    is_compliance=True,
+)
+PY
+        exit 0
+        ;;
+      THIN)
+        echo "PRIOR-ART DOORMAN — the acknowledgement is too short to be a claim." >&2
+        echo "Say what you opened and why this is a different thing (40+ chars)." >&2
+        exit 2
+        ;;
+      STALE)
+        echo "PRIOR-ART DOORMAN — that acknowledgement has expired. Look again." >&2
+        exit 2
+        ;;
+    esac
+  fi
+
   cat >&2 <<EOF
 PRIOR-ART DOORMAN — I went and looked before you write this, on every
 branch rather than only the one you are standing on.
@@ -112,8 +198,12 @@ test file — reading SOMETHING is not searching for THIS.
 The earlier one was not on the branch I stood on. A perfect search of my
 working tree would have come back empty and told me I was right.
 
-Read what is listed, then write. If none of it is the same thing, say so
-and carry on — this is one look, not a refusal.
+Read what is listed. If none of it is the same thing, say so and carry on:
+
+    (write the acknowledgement marker named in the hook, then write again)
+
+It is recorded as compliance, not as a bypass — looking is what this asks
+for. A one-word answer is refused, because the sentence is the point.
 EOF
   exit 2
 fi

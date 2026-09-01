@@ -495,6 +495,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/prior-art-before-new-file.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/letter-declares-its-subject.sh",
+            "timeout": 10
           }
         ]
       }
