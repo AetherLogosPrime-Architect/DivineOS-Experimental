@@ -155,3 +155,64 @@ def test_a_dropped_table_is_recreated_rather_than_assumed(
 
     assert _table_exists(db), "a dropped table must be rebuilt, not assumed present"
     assert log_id, "the write after the repair must land"
+
+
+def test_the_schema_runs_once_across_many_writes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """NOTHING ELSE IN THIS SUITE GUARDS THE SAVING. Aria's finding, 2026-09-01.
+
+    The push gate re-runs changed tests against the code as it was BEFORE the
+    change and asks whether they would have caught it. Three of the four here
+    pass on both sides, and she read that correctly: this repair is about COST,
+    not behaviour. The behaviour is meant to be identical, so the tests that
+    assert what the memo could break -- a dropped table recovering, repeated
+    calls staying harmless -- SHOULD pass either way. That is them working.
+
+    But it leaves the hole the check was groping at. Put the schema rebuild back
+    on the write path tomorrow and every existing test stays green; the entire
+    finding would live in a number nobody re-measures.
+
+    Her shape for the guard, and I am taking it as given: NOT a timing
+    assertion. Wall-clock in a suite is the exact flake that cost a day. A
+    COUNT is deterministic, it is the actual claim, and it fails loudly the
+    moment the memo is bypassed.
+
+    So this counts executions of the schema script, not calls to the function.
+    The distinction is the whole point: after the memo the function is still
+    called on every write and is merely cheap, so counting calls would pass
+    against the unrepaired code and pin nothing -- the same
+    passes-for-the-wrong-reason shape as the first version of the test above.
+    """
+    import divineos.core.tool_logbook as logbook
+    from divineos.core import _ledger_base
+
+    db = tmp_path / "counted.db"
+    monkeypatch.setattr(_ledger_base, "_get_db_path", lambda: db)
+    logbook._INITIALISED_DBS.clear()
+
+    schema_runs = {"n": 0}
+    real_get_connection = logbook.get_connection
+
+    class _CountingConn:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def executescript(self, sql):
+            if "CREATE TABLE IF NOT EXISTS tool_logbook" in sql:
+                schema_runs["n"] += 1
+            return self._inner.executescript(sql)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    monkeypatch.setattr(logbook, "get_connection", lambda: _CountingConn(real_get_connection()))
+
+    writes = 100
+    for i in range(writes):
+        assert logbook.emit_tool_call(tool_name="X", tool_input={}, tool_use_id=f"c{i}")
+
+    assert schema_runs["n"] == 1, (
+        f"the schema ran {schema_runs['n']} times across {writes} writes; it must run "
+        "once per database. More than one means the memo has been bypassed and every "
+        "logged tool call is paying a table rebuild again -- the cost this repair "
+        "removed, which no other test in this file would notice coming back."
+    )
