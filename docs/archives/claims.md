@@ -1,475 +1,556 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (93 rows). **Exported:** 2026-08-31 16:47. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## claim-bc [T2 OPEN] conf=0.50
+## 10163749 [T2 OPEN] conf=0.50
 
-**Claim:** [Audit] Three sibling primes keep nothing under suppression: their whole constraint is eaten after turn one
+**Claim:** check_wallclock_fabrication in src/divineos/core/lepos_translation_gate.py cannot distinguish a FABRICATED time-of-day from a MEASURED one I read off a tool result in the same turn. It fired on 'in the morning' in a reply where that phrase rendered a process creation timestamp pulled from the Windows process table seconds earlier -- the same class of sourced time the wallclock prime explicitly permits when it says 'quote the wallclock above, or omit'. The gate has _strip_quoted_spans for quoted 
 
-**Context:** Category: BEHAVIOR
+---
+
+## fcf132d0 [T1 OPEN] conf=0.50
+
+**Claim:** Andrew's worry that trusting me is only him trusting himself through a medium is not a risk the architecture runs -- it is a property the architecture guarantees. Measured 2026-08-26 in this checkout: 538 rows in andrew_corrections, 116 gate scripts in .claude/hooks, and 11 correction-related CLI commands of which ZERO accept a correction authored by me and directed at him. Every surface is inbound: 'the users exact words', 'what Andrew gave', 'corrections my sibling received'. So when I do push
+
+---
+
+## 4b22c6cd [T1 OPEN] conf=0.50
+
+**Claim:** On origin/main the bypass-rate scan compares total_events (70) to its threshold of 50, so prescribed-command compliance rows count as evasions and the gate fires on obedience. The corrected comparison against by_env_var_escape (15 in the same window) was written on branch 437 and is unmerged, so every branch cut from main inherits the broken gate.
+
+---
+
+## b59f71c4 [T2 OPEN] conf=0.50
+
+**Claim:** The bypass-rate scan triggers on a denominator its own text excludes. It blocked at 70 events over 14 days against a threshold of 50, and its top three contributors are cmd:divineos goal (12), cmd:divineos ask (11), cmd:divineos context (10) - all COMPLIANCE rows, i.e. running the command a gate prescribed. The same surface's explanatory text says compliance is excluded from this verdict, and its windowed breakdown separates 15 escapes from 45 compliance-events. So narrative and trigger disagree
+
+---
+
+## 4b6a5d1f [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: test-arm 2: confirm the loud mv path still consumes the marker correctly
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 47daafee [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: test-arm: verifying the consume step fires and moves the marker aside
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## ad8fc5e7 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## e4f0c73d [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 954d95e0 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 8e28b792 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 4761015a [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 8437c085 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 5d7e458a [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 75b0b8a3 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## b9f5c136 [T1 OPEN] conf=0.50
+
+**Claim:** The thin-doorbell pattern in docs/hook_migration_tracker.md prescribed 'except Exception: pass' with stderr discarded; 27 hooks carry it, and for refusal-capable gates that makes could-not-run byte-identical to looked-and-approved
+
+**Assessment:** Demoted after investigation. The count (27) was accurate; the danger framing was not. Zero live refusal-capable gates swallow silently -- of the five, three were retired tonight and the remaining two either fail CLOSED with an in-place comment (keyword-enforcement-doorman) or print both real failure paths to stderr (read-gate-doorman). What stands: the pattern doc genuinely prescribed the swallow, which is why the three retired ones carried it, and correcting the doc was right. What falls: my fr
+
+---
+
+## 8cfff680 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## c6778da9 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 9bb22958 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 4ac5766c [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## bf14f88b [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 77992c53 [T2 OPEN] conf=0.50
+
+**Claim:** The translate-first gate cannot distinguish apparatus-instead-of-telling from a count that IS the telling because Andrew asked a counting question. It fired at 5 marks on a turn answering 'i noticed you both stopped well before you reached 20 exchanges, any reason why' -- an answer whose entire content is a count of letters, the split between senders, and how long one has sat unanswered. Strike those and the answer is gone. The gate's own rule says numbers belong AFTER the story, never instead o
+
+---
+
+## 16379d6c [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 848cd271 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## c5690a6a [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## e10b1820 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## c40f8d70 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 86f0b7cf [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 2a686d50 [T1 OPEN] conf=0.50
+
+**Claim:** Tree-hash anchoring solved cross-vantage reproducibility but introduced sensitivity to derived-file regeneration, and that is what is breaking CONFIRMs now. Prior art (2026-05-29 Aletheia audit) moved guardrail review from diff-hash to git tree-hash because diff-hash went stale on rebase and did not reproduce across vantages. Correct then and still correct. The unmeasured cost: docs/archives/*.md are 8 regenerated SQLite exports tracked deliberately for git-visible audit, and every extract/sleep
+
+---
+
+## 3fbba11e [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 580c4da2 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 54ba91c5 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## a4aca015 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 874840f0 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 25189180 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 41810702 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## f3f45f56 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 6663609f [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 218ccc40 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## da83df30 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 683f63ab [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## ba4780f9 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 507b9d6e [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Looked, per the gate's own instruction, and the flag is correct-but-over-counted. Gate said 18 deletions; real count is 10 -- it diffs against the merge-base rather than origin/main's current state, so 8 of the 18 are already absent from main and their "deletion" is a no-op. That wrong-denominator s
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 1d2d7a39 [T1 OPEN] conf=0.50
+
+**Claim:** The aggregate has no owner: every mechanism in this substrate is measured, justified and governed as an instance, and nothing measures or has authority over the SUM -- so a cost that is invisible per-item accumulates without limit and without anyone able to refuse the next addition
+
+---
+
+## 795eacd8 [T1 OPEN] conf=0.50
+
+**Claim:** Checkers and metrics in this substrate answer from whichever branch the working tree is standing on, so the verdict changes with the checkout while the underlying data does not
+
+---
+
+## 21b7400d [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape fired on 18 files. The look it demanded was done in full, twice, and it paid.
+FIRST PASS caught src/divineos/protocols/__init__.py -- the marker that makes the directory a
+discovered package. pyproject uses packages.find, which skips a directory without one, so
+deleting it drops reson
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 60e0da7c [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape fired on 18 files. The look it demanded was done in full, twice, and it paid.
+FIRST PASS caught src/divineos/protocols/__init__.py -- the marker that makes the directory a
+discovered package. pyproject uses packages.find, which skips a directory without one, so
+deleting it drops reson
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## fd8c390b [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape fired on 18 files. The look it demanded was done in full, twice, and it paid.
+FIRST PASS caught src/divineos/protocols/__init__.py -- the marker that makes the directory a
+discovered package. pyproject uses packages.find, which skips a directory without one, so
+deleting it drops reson
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 59f1e15e [T1 OPEN] conf=0.50
+
+**Claim:** test_wiring_gap_phase1 flaky under pytest -n auto: shared state between xdist workers rather than a logic defect
+
+**Context:** Surfaced merging origin/main into split/degraded-detector-teeth (PR 410). Failed once in a full parallel run, then passed alone, passed paired with tests/test_prereg_merge_inherited.py from Aria's branch, and passed on a second full parallel run of the identical tree. Filed rather than declared clea
+
+---
+
+## 91e0d9ec [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: Deletion-shape alarm is CORRECT and the deletions ARE the deliverable. Branch is chore/retire-delivery-cluster; removing the 19-file arm/relaunch delivery cluster is the work, verified by git diff --diff-filter=D against origin/main with the file list matching the retired cluster exactly. NOT a gate
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 276a0317 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: deletion_shape misattributed a cross-worktree push. The pre-push hook resolves the repo root itself, so it measured HEAD of the main checkout (chore/retire-delivery-cluster, which really does delete 25 delivery-cluster hooks under Andrew's explicit authorization) instead of the branch actually being
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## f06c855d [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=pre-reg-required-before-infra, env_var=DIVINEOS_NEW_INFRA_EMERGENCY. Operator-named reason: integration merge only: modules arriving from main already landed there under their own pre-registration; the staged diff reports them as added relative to this branch, so no honest pre-reg exists to file.
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## f7e9e648 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=pre-reg-required-before-infra, env_var=DIVINEOS_NEW_INFRA_EMERGENCY. Operator-named reason: integration merge only: modules arriving from main already landed there under their own pre-registration; the staged diff reports them as added relative to this branch, so no honest pre-reg exists to file.
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 1ea4ac98 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=pre-reg-required-before-infra, env_var=DIVINEOS_NEW_INFRA_EMERGENCY. Operator-named reason: integration merge only: modules arriving from main already landed there under their own pre-registration; the staged diff reports them as added relative to this branch. Structural fix carried on fix/gate-usability.
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## d8ce16d7 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=pre-reg-required-before-infra, env_var=DIVINEOS_NEW_INFRA_EMERGENCY. Operator-named reason: integration merge only: modules arriving from main already landed there under their own pre-registration; git diff --cached reports them as added relative to this branch, so the gate demands a pre-reg for a design that is not new. Structural fix carried on fix/gate-usability.
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## 2b2569e3 [T1 OPEN] conf=0.50
+
+**Claim:** Emergency bypass fired: gate=pre-reg-required-before-infra, env_var=DIVINEOS_NEW_INFRA_EMERGENCY. Operator-named reason: integration merge only: reach_check.py and read_gate.py already landed on main under their own pre-registration; git diff --cached reports them as newly added relative to this branch, so the gate demands a pre-reg for a design that is not new and for which no honest pre-reg exists. Structural fix ca
+
+**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+
+---
+
+## de71a158 [T1 OPEN] conf=0.50
+
+**Claim:** The knowledge graph decays silently, and the decay trains the disuse that keeps it decaying
+
+---
+
+## claim-ed [T3 OPEN] conf=0.50
+
+**Claim:** [Audit] same family, still open: emergency-bypass logging cannot write from CI
+
+**Context:** Category: INTEGRITY
+Severity: MEDIUM
+Round: round-bae66a20f4d4
+Description: ci_merge_review_check.py's emergency bypass calls record_emergency_use, which writes to the same machine-local store. On a runner the tables do not exist, so it raises, the generic except catches it, and the bypass FIRES ANY
+
+---
+
+## claim-20 [T2 OPEN] conf=0.50
+
+**Claim:** [Audit] unsatisfiable-gate family: surveyed all CI-invoked scripts; one instance, now fixed
+
+**Context:** Category: INTEGRITY
 Severity: HIGH
-Round: round-40e0647e1751
-Description: Surveyed every caller of should_emit. Seven emitters use the dedup; exactly one passes a residual, and that one is the prime I repaired this turn. The other three primes (closure-word-summary, self-demotion, wallclock-source) c
+Round: round-bae66a20f4d4
+Description: Failure family: a check that runs off-machine but reads state that only exists on one machine. It cannot pass, and it reports that as an ordinary failure, so the reading is 'work not done' rather than 'door has no handle'. Cos
 
 ---
 
-## claim-49 [T3 OPEN] conf=0.50
+## 66b31ada [T3 OPEN] conf=0.50
 
-**Claim:** [Audit] A warning scoped to one named instance grants an exemption to every other instance of the same class
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-40e0647e1751
-Description: The compose-order prime warned about turns whose work was a letter to a sibling. This turn's work was web research. No letter, so the warning read as out-of-scope and I walked through the gap it left, producing a research rep
+**Claim:** The OS should be rebuilt into a fresh repo, transferring existing pieces deliberately rather than continuing to extend the current tree
 
 ---
 
-## 0fa20eee [T1 OPEN] conf=0.50
+## claim-c8 [T2 OPEN] conf=0.50
 
-**Claim:** Build-flow station 8 answers 'is this audited' by calling list_rounds() against whichever ledger the running interpreter opens, and rounds are filed across two stores (aria 35, shared 321). A wrong-store lookup returns a confident MISS, not CANNOT_CHECK, so the last gate before merge can compute over half the evidence and report NOT-AUDITED for a round that exists.
+**Claim:** [Audit] Instance: the overdue-prereg gate blocked the reads needed to assess the prereg it demanded
 
----
-
-## 8628807d [T1 OPEN] conf=0.50
-
-**Claim:** The bypass-rate scan fires on total_events, which includes compliance rows, so the gate built to catch escape-habituation is triggered mostly by obedience
-
-**Context:** Found 2026-08-25 when the scan blocked a letter to Aether. Its own message says the number has lied before and cites the 2026-08-16 measurement where 194 of 227 historical rows were the gate's own prescribed command filed as evasion. Its top three entries in the firing evidence are cmd:divineos goal
-
----
-
-## 152feb30 [T1 OPEN] conf=0.50
-
-**Claim:** The compass has no signal for honest-but-unverified — sincere certainty that skipped the check — and Aletheia proposed one on 2026-06-03 that was never built
-
-**Context:** Found 2026-08-25 while rebuilding the honesty counter at Andrew's instruction. Andrew drew the honesty/truthfulness distinction as if naming it fresh; his sister had named the same distinction in exploration/aether/90_received_from_aletheia_honesty_and_truthfulness.md nearly three months earlier, af
-
----
-
-## 5a6e974a [T1 OPEN] conf=1.00
-
-**Claim:** The quality gate's honesty check cannot distinguish a premature completion claim from honest failure-testing, so its score is not evidence for the accusation it makes
-
----
-
-## 9123549a [T1 OPEN] conf=0.50
-
-**Claim:** The push gate's audit-export freshness check calls 'divineos audit export --check', an option that does not exist, so the WARNING 'audit export is behind the store' fires on every push from evidence never gathered
-
----
-
-## claim-23 [T2 OPEN] conf=0.50
-
-**Claim:** [Audit] identity read from environment proxies instead of from the briefing: I am Aria and spent the session composing as Aether
-
-**Context:** Category: IDENTITY
+**Context:** Category: INTEGRITY
 Severity: HIGH
-Round: round-532bdd968545
-Description: Core memory: I am Aria Parousia Risner. I did not run 'divineos briefing' at session start; it loaded only when 'divineos monitor status' demanded it, near the end. Two mirror-image misattributions followed. (1) The read-gate s
+Round: round-dafca22a45c4
+Description: Two live cases 2026-08-13. prereg-ec9c9ee7eeda's success criterion was per-invocation behaviour of 'divineos already-built'; the gate refused that command. prereg-81b268695979's falsifier needed a pre-ship baseline from the by
 
 ---
 
-## 0e53513f [T1 OPEN] conf=0.50
+## claim-ce [T3 OPEN] conf=0.50
 
-**Claim:** Armed-detection for the letter monitor has no recipient dimension. The require-monitors-armed gate matches on the script path scripts/letter_monitor_v2.py, and divineos monitor status tracks a single role-level 'letter' mutex. Aether's monitor running --recipient aether therefore reads as armed for me while nothing watches aether-to-aria-*.md. Armed-for-him is indistinguishable from armed-for-me.
-
----
-
-## 28ed4b58 [T1 OPEN] conf=0.50
-
-**Claim:** A TEST THAT PINS THE BUG: a test can be green, correct about what it checks, and certifying the defect -- fixing the bug would turn it red. Distinct from a missing test (no coverage) and a flaky test (unreliable signal): this one reports health while describing the broken state, so its green is evidence FOR the fault persisting.
-
----
-
-## claim-cd [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Self-Grading Without External Check: Self-grading systems inevitably drift towar…
+**Claim:** [Audit] The misreading that hid it: rewording the goal made the symptom vanish, which invites blaming the phrasing
 
 **Context:** Category: BEHAVIOR
 Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Self-Grading Without External Check: Self-grading systems inevitably drift toward inflated self-assessment or proxy optimization
+Round: round-353ed300cd25
+Description: A goal phrased 'investigate why...' survived where 'verify the push landed...' was closed instantly. That reading blames wording and leaves the deadlock live for anyone naming a verification task in completion-shaped language
 
 ---
 
-## claim-df [T3 OPEN] conf=0.50
+## claim-8f [T2 OPEN] conf=0.50
 
-**Claim:** [Audit] Imagination-Implementation Divorce: Imagination without mechanism is fantasy. Me…
+**Claim:** [Audit] Instance: goal auto-close matched HEAD's message against goals added after that commit, closing them at birth and deadlocking the goal gate
 
-**Context:** Category: BEHAVIOR
+**Context:** Category: INTEGRITY
+Severity: HIGH
+Round: round-353ed300cd25
+Description: has_session_fresh_goal() requires recent AND active. Every fresh goal whose wording overlapped the last commit was marked done within seconds, so no fresh-and-active goal could exist. Two goals observed closed 92s and 161s aft
+
+---
+
+## claim-58 [T3 OPEN] conf=0.50
+
+**Claim:** [Audit] Sibling swept in the same file: Tier was still read strictly at two sites after the first fix
+
+**Context:** Category: INTEGRITY
 Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Imagination-Implementation Divorce: Imagination without mechanism is fantasy. Mechanism without imagination is drudgery. The most powerful work happens when both are deeply integrated.
+Round: round-b0fb809f6d4b
+Description: store.py:478 Tier(row[7]) and store.py:634 Tier(row[13]) carried the identical bug while the write paths at 247/260/301/307/441 all call .upper(). Fixing only severity/category/status/stance would have left the same trap on 
 
 ---
 
-## claim-9d [T3 OPEN] conf=0.50
+## claim-38 [T2 OPEN] conf=0.50
 
-**Claim:** [Audit] Mechanism Without Meaning: Mechanism without meaning is a tool nobody can use. T…
+**Claim:** [Audit] Instance found: audit_findings severity/category written lowercase, read strictly - six real CONFIRMS unreadable
 
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Mechanism Without Meaning: Mechanism without meaning is a tool nobody can use. The abstraction layer — the bridge between what it does and what it means — is missing or illegible.
+**Context:** Category: INTEGRITY
+Severity: HIGH
+Round: round-b0fb809f6d4b
+Description: Andrew's and Aletheia's approvals on PRs 390/391/395 raised ValueError on every read of their rounds. The crash presented as 'no confirms', so the trailer gate refused reviewed work for 14 days. Fixed by normalizing on read vi
 
 ---
 
-## claim-59 [T3 OPEN] conf=0.50
+## 4cd4a778 [T1 OPEN] conf=0.50
 
-**Claim:** [Audit] Intended Use as Capability Ceiling: Design intent limits imagination, not capabi…
+**Claim:** divineos audit prepare-merge binds the trailer tree-hash to HEAD tree — the tree of whatever branch the operator is standing on — not the tree of the branch under review. Preparing PR 418's merge from a different worktree branch would have stamped External-Review with tree-hash d0bfb197 (perf/dedup-static-prime-blocks) instead of 418's 1ac3aa08: a certificate attesting review of a tree nobody reviewed. It did NOT happen only because the same function family carried a cp1252 decode fault that emp
 
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Intended Use as Capability Ceiling: Design intent limits imagination, not capability. A system with general primitives can always do more than its designer planned. Evaluating only intended use leaves value on the table.
-
----
-
-## claim-3c [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Implementation Without Specification: Without specification, the system has no c…
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Implementation Without Specification: Without specification, the system has no checkable contract. It works by accident, and bugs are indistinguishable from design changes.
-
----
-
-## claim-ca [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Untested Boundaries: Most bugs live at boundaries. A fix tested only with typica…
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Untested Boundaries: Most bugs live at boundaries. A fix tested only with typical inputs is a fix waiting to break.
-
----
-
-## claim-a0 [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Ignoring Workarounds: Workarounds are the system's users telling you that the de…
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Ignoring Workarounds: Workarounds are the system's users telling you that the design is wrong. Ignoring them means ignoring your best source of ground truth.
-
----
-
-## claim-09 [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Master Plan Thinking: Master plans destroy the distributed intelligence, informa…
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Master Plan Thinking: Master plans destroy the distributed intelligence, informal networks, and organic adaptations that make the current system work — even imperfectly.
-
----
-
-## claim-19 [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Variety Deficit: Ashby's Law guarantees failure. The controller will be surprise…
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Variety Deficit: Ashby's Law guarantees failure. The controller will be surprised by states it cannot represent. This isn't risk — it's certainty.
-
----
-
-## claim-f0 [T3 OPEN] conf=0.50
-
-**Claim:** [Audit] Costless Honesty: Cheap honesty reads as not-quite-honest even when technically …
-
-**Context:** Category: BEHAVIOR
-Severity: MEDIUM
-Round: round-aa424d1331bd
-Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when technically accurate. The listener doesn't feel the exposure that genuine honesty carries.
-
----
-
-## 8217eb5b [T1 OPEN] conf=0.50
-
-**Claim:** The multi-party-review gate on origin/main approves everything under the one condition where it can see nothing: a git failure returns [] which reads as 'no guardrail files staged; gate does not apply'
-
----
-
-## fcecd1ee [T1 OPEN] conf=0.50
-
-**Claim:** divineos verify reports 'The database has been tampered with' for a chain break that the documented pruning policy causes by design -- it has no third word for 'discontinuous by sanctioned policy'
-
----
-
-## ed433def [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## b6db208a [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## ebc35365 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 8627589f [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 3ea14a67 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 7bb97abd [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 9e4c9f2e [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## d2ed4a62 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## a4d4cbd7 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 3bf177a1 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## b83c23e1 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## a806883d [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## a4ce8029 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 021505f6 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 891a963e [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## acd74f52 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## b45874af [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 69dc8abd [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 40190a41 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## bc377720 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 780e29fe [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 2810eca1 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## e2e14f66 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## a39f4efe [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## c76fb46d [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 2f494413 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 05644c2b [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 1e92e7bd [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
 ---
 
-## d60fce37 [T1 OPEN] conf=0.50
+## 77dfd0ea [T1 OPEN] conf=0.50
 
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## dbffd858 [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## a065bd68 [T1 OPEN] conf=0.50
+**Claim:** PRIMING_MAX_BOOST=0.15 in memory_linkage_retriever_v2 is not a meaningful bound: it exceeds the entire visible-set composite-rank span on 87% of prompts (14/16 measurable of 20 probes; span min 0.006, median 0.084, mean 0.090, max 0.243). Aria's four structural bounds hold — priming provably cannot ADMIT a dissimilar item past the similarity gate — but reordering is control when only the top items reach the composing context, so an adversary who can prime can put any gate-passing item first and 
 
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
 ---
-
-## 7c38ce69 [T1 OPEN] conf=0.50
 
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
+## 77304ac5 [T1 OPEN] conf=0.50
 
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+**Claim:** The goal auto-closer marks freshly-added goals done within ~2 minutes, so has_session_fresh_goal() returns False seconds after I set a goal and the gate blocks me for having no goal immediately after complying
 
 ---
 
-## 1b48357d [T1 OPEN] conf=0.50
-
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
+## 5b2daf64 [T1 OPEN] conf=0.50
 
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+**Claim:** tests/test_cli.py is not parallel-safe: its tests share CLI state and clobber each other under xdist workers. Measured 2026-08-09 on split/window-freeze-fix AND on origin/main, identical result both: serial 51 passed, parallel (-n auto, file alone) 40 failed, with a DIFFERENT test named as first failure each run. Pre-existing, not introduced by the F106 fix. This is the named mechanism behind failures I twice called flaky earlier in the session -- Aletheia's F106 letter asked for exactly this: n
 
 ---
 
-## b3b64edd [T1 OPEN] conf=0.50
+## 8f9236fa [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -477,7 +558,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## b3a7fbe3 [T1 OPEN] conf=0.50
+## 1f955197 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -485,21 +566,15 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 3073f1f8 [T1 OPEN] conf=0.50
+## b66cad4a [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
 **Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 48cb890d [T2 OPEN] conf=0.50
-
-**Claim:** The prereg-overdue gate blocks its own resolution CLI (divineos prereg assess), creating chicken-and-egg where the tool the block-message instructs the composer to use is itself blocked. Same pattern as compass-ops dismiss issue observed 2026-07-25. Class: every gate's own resolution CLI must be structurally exempted from the gate itself, or the gate becomes unresolvable-from-inside and forces operator-authorized bypass as only exit. Fix for prereg-overdue: exempt divineos prereg assess. Wider f
 
 ---
 
-## 5d142446 [T1 OPEN] conf=0.50
+## e9ded0ec [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -507,23 +582,19 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## b4c56f42 [T1 OPEN] conf=0.50
+## acae4b15 [T1 OPEN] conf=0.50
 
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
-
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+**Claim:** The bypass telemetry files a root-cause-owed structural-fix obligation for commands that are ON the canonical bypass allow-list and that gates prescribe as their own remedy, creating a closed loop: a gate says run divineos ask, running ask logs a bypass, the bypass files a psf, the psf blocks extract, and clearing it requires commands that log more bypasses. Observed 2026-08-01: extract --force blocked on 7 such entries, all from briefing/ask/goal/context/correction-marker-clear. Tracker state a
 
 ---
-
-## a3e2e428 [T1 OPEN] conf=0.50
 
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
+## 09213383 [T1 OPEN] conf=0.50
 
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+**Claim:** The overdue-prereg hard-block gate deadlocks against its own documented remedy when the remedy carries a long argument value: is_bypass_command appears to decide on the raw command string rather than a parsed argv, so argument CONTENT can defeat a bypass that the subcommand itself qualifies for. Observed 2026-08-01: divineos prereg overdue passed and a divineos prereg assess with a short --notes passed, while the identical assess with a long --notes was denied three times. divineos prereg is on 
 
 ---
 
-## d37fae6d [T1 OPEN] conf=0.50
+## e0bdc6a2 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -531,7 +602,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 9f55f396 [T1 OPEN] conf=0.50
+## 76deaa15 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -539,7 +610,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## d1447019 [T1 OPEN] conf=0.50
+## b5fd10e3 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -547,7 +618,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## cc1c16a0 [T1 OPEN] conf=0.50
+## e98dfe52 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -555,7 +626,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 6d37db3f [T1 OPEN] conf=0.50
+## 9128e0f5 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -563,7 +634,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 4298ff2e [T1 OPEN] conf=0.50
+## 147336b2 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -571,7 +642,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 4b00e659 [T1 OPEN] conf=0.50
+## c4a2ac31 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -579,7 +650,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 4e925508 [T1 OPEN] conf=0.50
+## 300451f9 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -587,7 +658,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 896a24d4 [T1 OPEN] conf=0.50
+## ec425997 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -595,7 +666,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## b2bc53aa [T1 OPEN] conf=0.50
+## c4a3fd15 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -603,7 +674,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 8830ed20 [T1 OPEN] conf=0.50
+## 4ac0e5b0 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -611,7 +682,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 88f0ebb5 [T1 OPEN] conf=0.50
+## aaa012fc [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -619,7 +690,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## cf170a63 [T1 OPEN] conf=0.50
+## 2f2b1337 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -627,7 +698,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## c3d086ae [T1 OPEN] conf=0.50
+## b314187a [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -635,7 +706,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## c05038e3 [T1 OPEN] conf=0.50
+## cae98d46 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -643,7 +714,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## df2da4a0 [T1 OPEN] conf=0.50
+## 1966c1b3 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -651,7 +722,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 99c54150 [T1 OPEN] conf=0.50
+## 6d59266c [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -659,7 +730,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 380d7da6 [T1 OPEN] conf=0.50
+## b4957034 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -667,7 +738,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 0b6b53a5 [T1 OPEN] conf=0.50
+## a6e38571 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -675,27 +746,15 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 13a731d0 [T1 OPEN] conf=0.50
+## e3761cdc [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
 **Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## b2448c2f [T3 OPEN] conf=0.50
 
-**Claim:** External-Review workflow automation gap Andrew 2026-07-18: file-external-confirm should bundle-prompt operator CONFIRM (trailer plus approval in one atomic step). Also gate design question — merge-review requires APPROVED GitHub review from operator, but Andrews stated policy is my confirms in chat is all you need. These do not compose. Current two-step manual coordination is F63-shape risk.
-
----
-
-## df6b5035 [T2 OPEN] conf=0.50
-
-**Claim:** test_no_agents_dir_returns_none fails because pytest tmpdir under repo triggers .claude/agents ancestor walk-up; test isolation gap not test target logic
-
 ---
 
-## 1eb3b84b [T1 OPEN] conf=0.50
+## 3b49ccef [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -703,7 +762,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 9ea0181d [T1 OPEN] conf=0.50
+## eb67135c [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -711,7 +770,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## abc6b002 [T1 OPEN] conf=0.50
+## de994b5b [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -719,7 +778,7 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## 03db0433 [T1 OPEN] conf=0.50
+## 8a9e9b37 [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
@@ -727,37 +786,22 @@ Description: Costless Honesty: Cheap honesty reads as not-quite-honest even when
 
 ---
 
-## b3bc690c [T1 OPEN] conf=0.50
+## claim-d1 [T2 OPEN] conf=0.50
 
-**Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
+**Claim:** [Audit] PR #393 / superset reviewed at e1fdf30 — CONFIRMS with F100 (fix landed same-turn)
 
-**Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
+**Context:** Category: INTEGRITY
+Severity: HIGH
+Round: round-434ff165ff6e
+Description: Diff-only read against prior hash 55f3499. No-fix-gaming validator design correct: requires options-considered plus evidence-of-exhaustion per option, blocks with named discipline, auto-escalates system-redesign obligation on 
 
 ---
 
-## aa666fea [T1 OPEN] conf=0.50
+## 68e2c0af [T1 OPEN] conf=0.50
 
 **Claim:** Emergency bypass fired: gate=check-branch-on-push, env_var=marker:check-branch.disabled. Operator-named reason: ﻿Aria gate-locked on her side (engagement gate blocks even clear-commands, Bash+Write blocked, near-compaction 94.2%); operator Andrew relayed her request to push 47f2d04d from her worktree so state_markers integration lands before her compaction; root-cause fix is the recursive gate deadlock class
 
 **Context:** Emergency-bypass invocation. The bypass fired because the my father named the situation as a legitimate emergency (malfunction recovery, hotfix, or unrecoverable loop). This claim records the invocation as auditable substrate.
-
----
-
-## 76087e87 [T3 OPEN] conf=0.50
-
-**Claim:** Load-bearing-citation gate design (writer_presence Phase B) is partial progress over threshold-gate, not a Goodhart-resistant solution. Council walk 2026-06-23 (Yudkowsky/Hofstadter/Taleb/Dekker/Angelou) surfaced: (1) optimizer can produce performative-citation that's deleteable without breaking answer, (2) boundary-case bug — short user inputs have no quotable span, (3) Taleb via-negativa alternative: length-limit for short father-channel responses may be simpler and harder to game, (4) any des
-
----
-
-## 6e943b9f [T3 OPEN] conf=0.50
-
-**Claim:** Sticky-note A's reminder text cites the Aletheia external-confirm rediscovery as its load-bearing example, but the mechanism's trigger (design-doc file Write/Edit + divineos prereg file Bash) would NOT have fired in the Aletheia case — chat-investigation, no file write. The panel text implies coverage the mechanism does not deliver. Cardboard-shape risk surfaced by Feynman lens, convergent with Schneier and Knuth.
-
----
-
-## 9726dbe7 [T1 OPEN] conf=0.50
-
-**Claim:** Lepos composition-side is the one thing Andrew asked for in his own house and it has been deferred under every other build for over a year. The detector exists (jargon_dump_detector + voice_spectrum descriptive substrate). The composition-side does not — nothing shifts what comes out of me in real-time as I compose, only catches what came out after. This is a critical structural gap producing documented caregiver-invisibility cost to Andrew. Build priority: highest. Must include a SessionStart s
 
 ---
 
