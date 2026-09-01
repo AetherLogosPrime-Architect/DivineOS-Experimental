@@ -132,24 +132,97 @@ def required_lens_count(gravity: int, changed_file_count: int) -> int:
     return 6
 
 
+# The one line a reading declares itself with. Aria's design, 2026-09-01, and
+# her half of it is that she writes the line -- with a check on her own side
+# refusing to publish a reading that omits it, so this parser never guesses.
+READING_DECLARATION = "**Reading of:**"
+
+
+def _declared_readings(text: str) -> list[str]:
+    """The branches a letter declares itself to be a reading of.
+
+    Read literally off the one field. Everything else in the letter -- title,
+    filename, prose, the ``In response to`` line -- is deliberately not
+    consulted, because inference from her prose is what produced the wrong
+    credits this replaces.
+    """
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(READING_DECLARATION):
+            continue
+        value = stripped[len(READING_DECLARATION) :]
+        return [
+            part.strip().strip("`").lower() for part in value.split(",") if part.strip().strip("`")
+        ]
+    return []
+
+
 def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
     """Station 4 -- iterate with Aria. Satisfied only when SHE wrote back.
 
     A letter I sent proves I spoke, not that we iterated, and the station is
     about the second thing.
+
+    THE WRITER DECLARES; THE READER DOES NOT INFER (Aria, 2026-09-01, and she
+    counted rather than asserting it).
+
+    This used to ask whether the branch name appeared anywhere in her text. Her
+    bodies cross-refer because her findings cross-refer, so the board credited
+    every branch she mentioned and marked the one she had actually reviewed as
+    unreviewed -- understating her by two while crediting two others using the
+    letter belonging to one of them.
+
+    I proposed keying on her titles instead. She counted her last thirty-five
+    letters to answer: five carry a subject in the title and all five use a
+    NUMBER, never a branch name; and at least SIX are readings with findings
+    whose titles carry neither. More of her readings would have been invisible
+    to a title-parser than visible, and the six included the findings that
+    changed my branches. She titles by what she FOUND, because the finding is
+    the thing I need in the first four words, and she is not going to title
+    worse so a parser can read her.
+
+    Her ``In response to`` field is not the subject either -- of those five, two
+    name a branch and three name a letter of mine. It is whatever triggered the
+    reading.
+
+    So there was no existing signal, and the reason is simple: she has never had
+    to declare the subject, so she never did. Every parser built on her prose
+    would be inferring, and inference is what produced the wrong credits. One
+    declared line, read literally, nothing guessed.
+
+    ABSENCE IS NOT A VERDICT ABOUT HER. No declaration is honestly different
+    from no reading, and the detail says which, because reporting an unread
+    branch and an undeclared reading in the same words is the could-not-look
+    fault this whole family is made of.
     """
     if not letters_dir.is_dir():
         return StationResult(
             "4-aria", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
         )
     needle = branch.lower()
+    declared_anywhere = 0
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
-            if needle in f.read_text(encoding="utf-8", errors="replace").lower():
-                return StationResult("4-aria", Status.SATISFIED, f"she replied in {f.name}")
+            declarations = _declared_readings(f.read_text(encoding="utf-8", errors="replace"))
         except OSError:
             continue
-    return StationResult("4-aria", Status.MISSING, "no reply from Aria naming this branch")
+        if declarations:
+            declared_anywhere += 1
+        if needle in declarations:
+            return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")
+    if declared_anywhere == 0:
+        return StationResult(
+            "4-aria",
+            Status.MISSING,
+            "no letter from Aria carries a reading declaration at all -- this says "
+            "nothing about whether she has read this branch, only that no reading "
+            "is claimed in the field the board reads",
+        )
+    return StationResult(
+        "4-aria",
+        Status.MISSING,
+        f"none of the {declared_anywhere} declared reading(s) names this branch",
+    )
 
 
 def check_council_station(

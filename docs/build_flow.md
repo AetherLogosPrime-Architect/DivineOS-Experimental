@@ -72,6 +72,45 @@ This resolves the whole argument that produced
   skipped**, and let each station emit an artifact expensive enough to fake
   that structural checking becomes sufficient.
 
+## How a reading declares itself
+
+Station 4 advances on a reply **from Aria**, and it decides which branch a
+reply is *of* by reading exactly one line in the letter:
+
+```
+**Reading of:** `fix/some-branch`
+```
+
+Several branches may be listed, comma-separated. Nothing else in the letter is
+consulted — not the title, not the filename, not the body, not the
+`In response to` field.
+
+**Why one declared line rather than a smarter parser** (Aria, 2026-09-01, and
+she counted before answering). The board used to ask whether a branch name
+appeared anywhere in her text. Her bodies cross-refer because her findings
+cross-refer, so it credited branches she had merely mentioned and marked the
+one she had actually reviewed as unreviewed — understating her by two while
+crediting two others using the letter belonging to one of them.
+
+Keying on titles was the obvious next guess and is worse. Of her last
+thirty-five letters, five carry a subject in the title and every one of those
+uses a PR number rather than a branch name; at least six more are readings with
+findings whose titles carry neither. A title-parser would have credited five
+and missed six, and the six held the findings that changed the branches. She
+titles by what she found, because the finding is what the reader needs in the
+first four words.
+
+There was no existing signal because she had never had to declare the subject.
+Any parser built on her prose is inferring, and inference is what produced the
+wrong credits. So the writer declares and the reader does not infer — her half
+is the line and a check on her own side refusing to publish a reading without
+it.
+
+**Absence is not a verdict about her.** No declaration is honestly different
+from no reading, and the board says which. Reporting an unread branch and an
+undeclared reading in the same words is the could-not-look fault the rest of
+this document is about, pointed at a person.
+
 ## The two walks
 
 Station 4 names both, and they are complements — same discipline pointed at
