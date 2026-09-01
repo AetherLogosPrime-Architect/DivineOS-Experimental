@@ -96,6 +96,20 @@ def test_a_second_database_still_gets_its_table(monkeypatch: pytest.MonkeyPatch,
     # the good behaviour of one mechanism hiding the failure of another, and it
     # is exactly the shape of test that passes for the wrong reason.
     #
+    # ARIA'S GENERAL FORM, 2026-09-01, and it is one step further back than mine.
+    # Every assertion is satisfiable by more than one world; usually the other
+    # worlds are absurd enough to ignore. A recovery path takes one of those
+    # absurd worlds and makes it LIKELY -- it manufactures a plausible alternative
+    # cause for the exact observable you chose. So the question at test-writing
+    # time is not "is this the right unit", which was already right here, and not
+    # "is there a fallback nearby", which needs you to suspect one first. It is:
+    # WHAT ELSE COULD MAKE THIS ASSERTION TRUE, AND DID THIS COMMIT JUST ADD ONE?
+    #
+    # She found this by running the mutation on her own guard before replying:
+    # six tests she had shipped green and never watched fail. One failed for the
+    # stated reason. Hers happened to hold and mine did not, and neither of us
+    # knew which until we looked.
+    #
     # So look at the memo itself. Both databases must be recorded, which is only
     # true when the key is the path.
     assert {str(first), str(second)} <= logbook._INITIALISED_DBS, (
