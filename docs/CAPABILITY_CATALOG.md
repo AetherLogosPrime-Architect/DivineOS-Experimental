@@ -1366,8 +1366,8 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/memory_types/` | 10 | Memory-type-aware retrieval — substrate-native types with human analogs. |
 | `core/operating_modes/` | 9 | Operating modes — explicit names for non-task-executing states. |
 | `core/letter_seen_router/` | 8 | Letter-seen routing — detect a letter Read and mark it seen. |
+| `core/uncommitted_work_check/` | 8 | Pre-extraction commit-discipline gate. |
 | `core/calibration/` | 7 | (no package docstring) |
-| `core/uncommitted_work_check/` | 7 | Pre-extraction commit-discipline gate. |
 | `core/supervisor/` | 6 | Supervisor — circuit-breaker / chronic-failure handling. |
 | `core/voice_guard/` | 6 | Voice-guard — pre-output audit primitives. |
 | `core/reliability/` | 5 | Reliability — Bayesian confidence with uncertainty. |

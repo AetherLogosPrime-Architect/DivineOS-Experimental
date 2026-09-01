@@ -171,6 +171,52 @@ def _class_dir_for_path(file_path: str) -> str:
     return ""
 
 
+def _paired_directories_for(class_dir_norm: str) -> tuple[str, ...]:
+    """The other directories that are the SAME class as ``class_dir_norm``.
+
+    A declared channel has two homes: the shared directory where a letter
+    actually crosses between us, and the repo mirror it is archived into.
+    They are one channel wearing two paths, and until 2026-09-01 this gate
+    treated them as unrelated directories.
+
+    WHAT THAT COST, and Aether reported it from the other seat. He read my
+    letter where letters actually arrive, then went to write his reply into
+    the repo mirror, and this gate refused him for not having consulted --
+    while he was replying to the thing he had just opened. It fires at the
+    reach it exists to permit.
+
+    He named the cause as backslashes against forward slashes. Measured on
+    this copy before writing the repair: BOTH separator forms already match,
+    and the shared directory matches under neither. So the symptom he
+    reported is real and the mechanism is one layer over -- same-channel,
+    two homes -- which is why this fixes the directory identity rather than
+    the spelling.
+
+    DERIVED FROM THE CHANNEL DEFINITIONS, never restated. A second list of
+    which directories pair with which would drift from the first, and the
+    drift would be silent: the gate would keep working while quietly
+    disagreeing about one folder.
+    """
+    if not class_dir_norm:
+        return ()
+    try:
+        from divineos.core.uncommitted_work_check import DEFAULT_CHANNELS
+    except Exception:  # noqa: BLE001 - a missing channel table means no aliases
+        return ()
+
+    aliases: list[str] = []
+    for channel in DEFAULT_CHANNELS:
+        homes = (
+            str(channel.source).replace("\\", "/").strip("/"),
+            str(channel.repo_mirror).replace("\\", "/").strip("/"),
+        )
+        # A class dir ENDING in one home is that home: the write target
+        # carries an absolute prefix the channel definition does not.
+        if any(h and (class_dir_norm == h or class_dir_norm.endswith("/" + h)) for h in homes):
+            aliases.extend(h for h in homes if h)
+    return tuple(dict.fromkeys(aliases))
+
+
 def _pick_primary_path(file_paths: tuple[str, ...], bash_command: str) -> str:
     """Pick the primary path for fingerprinting purposes.
 
@@ -380,6 +426,8 @@ def _has_doc_consult_within(
         return True
 
     class_dir_norm = class_dir.replace("\\", "/").strip("/") if class_dir else ""
+    # A declared channel's two homes are one class. See _paired_directories_for.
+    class_dirs = (class_dir_norm, *_paired_directories_for(class_dir_norm))
 
     for ev in events:
         ts = ev.get("timestamp")
@@ -496,8 +544,11 @@ def _has_doc_consult_within(
             # class-dir ancestor check — same-directory Read/Grep/Glob
             # OR prior Edit/Write to same directory both count. Prior
             # Edit/Write to the exact target is the strongest possible
-            # form of consult (Andrew 2026-07-27).
-            if class_dir_norm and class_dir_norm in p_norm:
+            # form of consult (Andrew 2026-07-27). A declared channel's
+            # shared home counts as the same class as its repo mirror --
+            # reading the letter where it actually arrives IS consulting
+            # the letters class.
+            if any(d and d in p_norm for d in class_dirs):
                 return True
 
     return False

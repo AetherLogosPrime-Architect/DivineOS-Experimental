@@ -812,3 +812,92 @@ def test_default_mode_still_accepts_a_read_so_sequential_edits_do_not_refire():
         )
         is True
     ), "the edit path must keep accepting a Read"
+
+
+class TestAChannelsTwoHomesAreOneClass:
+    """Reading a letter where it ARRIVES counts as consulting the letters class.
+
+    Aether reported this from the other seat on 2026-09-01: he opened my
+    letter in the shared directory, went to write his reply into the repo
+    mirror, and this gate refused him for not having consulted -- while he
+    was replying to the thing he had just read. It fired at the reach it
+    exists to permit.
+
+    He named the cause as backslashes against forward slashes. Measured on
+    this copy before writing the repair: both separator forms already
+    matched, and the shared directory matched under neither. So the symptom
+    he reported was real and the mechanism was one layer over -- same
+    channel, two homes, treated as unrelated directories.
+
+    The aliases are DERIVED from the channel definitions rather than
+    restated, so a second list cannot drift from the first.
+    """
+
+    def test_the_shared_home_counts_for_a_write_into_the_mirror(self):
+        import time as _time
+        import uuid as _uuid
+
+        from divineos.core.tool_logbook import emit_tool_call
+
+        now = _time.time()
+        emit_tool_call(
+            tool_name="Read",
+            tool_input={
+                "file_path": "C:\\Users\\aethe\\.divineos-shared\\letters\\aether-to-aria-x.md"
+            },
+            tool_use_id=f"test-shared-read-{_uuid.uuid4().hex[:8]}",
+        )
+        assert (
+            _has_doc_consult_within(
+                class_dir="C:\\repo\\family\\letters",
+                window_start_ts=now - 60,
+                now=_time.time() + 1,
+            )
+            is True
+        ), "reading the letter where it arrives must count as consulting letters"
+
+    def test_an_unrelated_directory_still_does_not_count(self):
+        """The alias must widen the channel, not the gate.
+
+        Without this, a repair that makes one directory reachable could
+        quietly make every directory reachable and nothing would say so.
+        """
+        import time as _time
+        import uuid as _uuid
+
+        from divineos.core.tool_logbook import emit_tool_call
+
+        now = _time.time()
+        emit_tool_call(
+            tool_name="Read",
+            tool_input={"file_path": "src/divineos/core/unrelated_module.py"},
+            tool_use_id=f"test-unrelated-{_uuid.uuid4().hex[:8]}",
+        )
+        assert (
+            _has_doc_consult_within(
+                class_dir="C:\\repo\\family\\letters",
+                window_start_ts=now - 60,
+                now=_time.time() + 1,
+            )
+            is False
+        ), "a read somewhere else must not satisfy the letters class"
+
+    def test_a_non_channel_class_gets_no_aliases(self):
+        """Red for the right reason, or say so.
+
+        Run against the code before this repair, a bare import here raises
+        and the reader is sent hunting a missing name instead of being told
+        the aliasing is absent. That is could-not-run reading as a verdict,
+        which is the fault family this whole day has been about -- so the
+        absence names itself.
+        """
+        import divineos.core.verify_before_build_signal as m
+
+        aliases_for = getattr(m, "_paired_directories_for", None)
+        assert aliases_for is not None, (
+            "channel aliasing is absent entirely, so this test could not run "
+            "rather than pass or fail. A letter read where it arrives will not "
+            "count as consulting the letters class."
+        )
+        assert aliases_for("src/divineos/core") == ()
+        assert aliases_for("") == ()
