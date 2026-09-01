@@ -275,6 +275,7 @@ class TestReservedExternalVantageShapes:
             + ")"
         )
         offenders: list[str] = []
+        opened: list[str] = []
         for root in (repo / ".claude", repo / "scripts", repo / "docs"):
             if not root.exists():
                 continue
@@ -284,9 +285,32 @@ class TestReservedExternalVantageShapes:
                 if "audit_rounds" in path.parts:
                     continue  # a record of what was filed, not an instruction
                 text = path.read_text(encoding="utf-8", errors="replace")
+                opened.append(path.name)
                 for n, line in enumerate(text.splitlines(), 1):
                     if pattern.search(line):
                         offenders.append(f"{path.relative_to(repo)}:{n}: {line.strip()}")
+
+        # THE SCAN MUST NOT PASS HAVING LOOKED NOWHERE (Lamport lens, walked on
+        # this test). What I meant: no live instruction anywhere prescribes a
+        # refused actor. What the code checks: no match in three named roots and
+        # four suffixes. The second claim is strictly smaller and its silence
+        # was being read as the first.
+        #
+        # It is the emitter scan again, one week later and in the same file --
+        # that one globbed the hook directory alone, passed, and covered four
+        # source-tree callers it never opened. I wrote the docstring about it,
+        # then typed a fresh root list from memory and did not apply my own
+        # finding to it.
+        #
+        # This BOUNDS the blindness rather than removing it: a prescription in a
+        # filetype I never listed still passes. Deriving the roots from
+        # something that cannot drift is a different change, and saying so here
+        # keeps this assertion from implying it is solved.
+        assert opened, "scan read no files at all -- looked-nowhere is not found-nothing"
+        assert "pre-tool-bypass-rate-scan.sh" in opened, (
+            "the file that actually carried this defect is outside the scanned set, "
+            "so a green run here proves nothing about the place it went wrong"
+        )
 
         assert not offenders, (
             "live instruction(s) prescribe an actor name the store hard-rejects:\n  "

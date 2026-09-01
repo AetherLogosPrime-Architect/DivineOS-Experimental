@@ -22,7 +22,7 @@ Commands that DO report usage:
 |---|---|
 | `ask` | 442 |
 | `briefing` | 241 |
-| `decide` | 152 |
+| `decide` | 153 |
 | `compass` | 141 |
 | `context` | 86 |
 | `recall` | 49 |
