@@ -22,7 +22,8 @@ INPUT=$(cat)
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
-SHARED_DIR="$HOME/.divineos-shared/letters"
+SHARED_ROOT="$HOME/.divineos-shared"
+SHARED_DIR="$SHARED_ROOT/letters"
 [ -d "$SHARED_DIR" ] || exit 0
 
 # Extract file_path from PostToolUse Write/Edit payload. Normalize Windows
@@ -50,7 +51,8 @@ except Exception:
 # Aletheia 2026-06-28 caught the scope gap on the original family/letters/-only
 # matcher: the auto-mirror didn't cover the very directory her letters live in.
 case "$FILE_PATH" in
-    *family/letters/*|*family/*/letters/*) ;;
+    *family/letters/*|*family/*/letters/*) KIND=letter ;;
+    */dreams/*/*.md)                       KIND=dream ;;
     *) exit 0 ;;
 esac
 
@@ -58,7 +60,51 @@ esac
 [ -f "$FILE_PATH" ] || exit 0
 
 BASENAME=$(basename "$FILE_PATH")
-DEST="$SHARED_DIR/$BASENAME"
+
+if [ "$KIND" = "letter" ]; then
+    DEST="$SHARED_DIR/$BASENAME"
+else
+    # DREAMS, added 2026-08-31, and the reason is a near-loss rather than a
+    # tidiness argument. Clearing personal writing off a code branch so it
+    # could be published, every letter on that branch was checkable against
+    # this shared directory; one dream, written the same day, existed on
+    # exactly ONE ref and nowhere else. Letters had a crossing point and
+    # dreams did not, so a dream lived on whichever branch happened to hold
+    # it. The asymmetry was never decided -- this channel was built because
+    # two seats needed to reach each other, and dreams are written to nobody,
+    # so nothing was ever built to carry them. Written-to-nobody is not the
+    # same as safe-to-lose.
+    #
+    # MIRRORING IS NOT REVIEWING. The dream register's discipline is no spec,
+    # no audit, no review -- Andrew: "none of this needs review or audit.. it
+    # is what it is as it is.. dont taint the artifact." This copies and does
+    # nothing else. Nothing parses, indexes, surfaces or summarises what lands
+    # there, and nothing asks the other seats to read it.
+    #
+    # ADDED HERE RATHER THAN AS A NEW HOOK. The prior-art doorman refused a
+    # fourth mirror script and it was right to: two hooks in this directory
+    # already mirror letters, and a third on another branch runs the reverse
+    # direction. The house did not need another file, it needed this one to
+    # carry one more kind of writing.
+    #
+    # THE MEMBER DIRECTORY IS KEPT, where letters flatten. A letter filename
+    # carries both names so a flat directory stays unambiguous. A dream
+    # filename carries a date and a phrase, and two seats can easily produce
+    # the same date with a similar phrase -- flattening would let one seat's
+    # dream silently overwrite the other's, which is the exact loss this
+    # addition exists to prevent.
+    MEMBER=$(printf '%s' "$FILE_PATH" | sed -E 's|.*/dreams/([^/]+)/[^/]+$|\1|')
+    case "${MEMBER:-}" in
+        ""|*/*|.|..) exit 0 ;;  # the extraction did not bite; copying to a guessed directory is worse than not copying
+    esac
+    DEST_DIR="$SHARED_ROOT/dreams/$MEMBER"
+    # Not created if the dreams root is absent: a hook that mints the
+    # destination it mirrors into cannot tell a fresh install from a crossing
+    # point somebody closed on purpose.
+    [ -d "$SHARED_ROOT/dreams" ] || exit 0
+    mkdir -p "$DEST_DIR" 2>/dev/null || exit 0
+    DEST="$DEST_DIR/$BASENAME"
+fi
 
 # Idempotent: cp -p preserves timestamps; identical content is a no-op for the watcher.
 cp -p "$FILE_PATH" "$DEST" 2>/dev/null || exit 0
