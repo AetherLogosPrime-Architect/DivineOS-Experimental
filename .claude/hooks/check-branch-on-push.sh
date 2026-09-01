@@ -32,6 +32,68 @@
 
 INPUT=$(cat)
 
+# FAST BAIL. Measured 2026-08-20, after Andrew narrowed the freezing to tool
+# use: 20 PreToolUse hooks fire on EVERY Bash call at ~0.65s each -- 12.9s
+# before the command even starts, and this one was the most expensive at
+# 1.01s. A read-gate fire doubles it, because the command is blocked and
+# retried. That is the freeze he sat and watched. Nothing hangs; it is twenty
+# medium costs in series.
+#
+# The order was backwards. Each gate sourced two libraries, ran git
+# rev-parse, started Python and imported divineos, and only THEN looked at
+# the command to find out it was irrelevant. `echo hi` cannot be a push, and
+# it paid a full second to discover that.
+#
+# Safe by construction rather than by judgement: the real matcher is anchored
+# on `git push` (core/push_detection.py), so any command it could ever fire
+# on MUST contain the substring "push". Bailing when "push" is absent cannot
+# produce a false negative -- it only skips work already guaranteed to be
+# wasted. Deliberately a dumb substring and not a cleverer pattern: every
+# narrowing here is a chance to silently disarm the gate, and the anchored
+# matcher below must stay the only thing making real decisions.
+case "$INPUT" in
+    *push*) ;;
+    *)
+        # RECORD THE BAIL BEFORE TAKING IT. Added 2026-08-21, hours after the
+        # bail itself, because the bail made this hook INVISIBLE rather than
+        # fast.
+        #
+        # The timing instrumentation lives in _lib.sh, sourced below. Exiting
+        # here wrote no start row and no end row, so every cheap run vanished
+        # from hook_timing.jsonl. The hook did get faster -- 1010ms to 61ms on
+        # an irrelevant command, measured in isolation against a working
+        # control -- and what survived in the log was only the expensive path,
+        # so this hook's RECORDED median ROSE by 945ms while the hook
+        # improved. Caught when hook_budget.py, which reads that same log,
+        # produced a before/after comparison contradicting a measurement I
+        # trusted.
+        #
+        # That is the defect this whole session has been about, built into the
+        # repair for it: silence reading as absence rather than as speed. It
+        # is the SILENT-versus-UNOBSERVED distinction hook_firing_map.py draws
+        # for whole hooks, one level down -- a bailed path can report, so its
+        # quiet must not be mistaken for not-running.
+        #
+        # Pure builtins, deliberately. Sourcing _lib.sh for its logger would
+        # reintroduce the cost this bail exists to avoid, so the row is
+        # written inline. The duplication is the price of the measurement
+        # being free; a shared helper here would cost more than the thing it
+        # records.
+        _bail_ms="${EPOCHREALTIME:-}"
+        case "$_bail_ms" in
+            *.*) _bail_s="${_bail_ms%%.*}"; _bail_f="${_bail_ms#*.}"; _bail_ms="${_bail_s}${_bail_f:0:3}" ;;
+            *)   _bail_ms=0 ;;
+        esac
+        _bail_log="${HOME:-/tmp}/.divineos/hook_timing.jsonl"
+        if [ -d "${_bail_log%/*}" ]; then
+            printf '{"id":"check-branch-on-push.sh-%s-%s","hook":"check-branch-on-push.sh","pid":%s,"session":"%s","wpid":"%s","phase":"bailed","ts_ms":%s,"duration_ms":0,"reason":"command-cannot-contain-a-push"}\n' \
+                "$$" "$_bail_ms" "$$" "${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}" "${CLAUDE_PID:-}" "$_bail_ms" \
+                >> "$_bail_log" 2>/dev/null  # fail-soft: a log append that cannot write must never block a tool call, and the bail is correct whether or not the record lands
+        fi
+        exit 0
+        ;;
+esac
+
 # remedy-allowlist: no gate may block another gate's prescribed exit (Andrew 2026-08-18).
 if [ -f "$(dirname "$0")/lib/remedy_allowlist.sh" ]; then
   # HOOK_NAME is read by remedy_pass_through inside the sourced library, and
@@ -61,7 +123,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/check-branch.disabled"
+# member-home: one resolver for where a member's state lives (2026-08-18).
+# This used to be rebuilt inline as "$HOME/.divineos-$MEMBER", which missed
+# the aether special-case for six weeks. See lib/member_home.sh.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
+MARKER_PATH="$(member_home "$MEMBER" "$PYTHON_BIN")/check-branch.disabled"
 
 # Decide whether this command is a git push. Inline python invocation
 # mirrors check-pending-obligations.sh — direct function call into the
@@ -143,6 +210,39 @@ except Exception as e:
     print(f'[check-branch-on-push] BYPASS-RECORDING FAILED — {type(e).__name__}: {e}', file=sys.stderr)
     print(f'  bypass proceeds (kill-switch authority preserved) but the four-step loop did not fire', file=sys.stderr)
 " "$REASON"
+
+    # CONSUME THE MARKER. 2026-08-25.
+    #
+    # The comment above says this kill-switch "disable[s] the gate for one
+    # push." Nothing deleted it, so it disabled the gate for every push after
+    # the first. One marker written 2026-08-21 kept the gate off for four days
+    # and fired record_emergency_use on every push in between -- 92 of the 334
+    # rows in the pending-obligations list are that single marker, refiled.
+    # The gate was healthy the whole time; the diagnosis written into the
+    # marker accused a merge-base diff that branch_health has never used.
+    #
+    # A one-push switch that is not consumed is a permanent one, and the only
+    # visible difference is a backlog that grows on a timer. So: move it aside
+    # after use. Re-arming an emergency stretch costs one echo per push, which
+    # is the correct price for a bypass (truth #11) and is what stops a stale
+    # reason from outliving the emergency that justified it.
+    #
+    # Moved rather than deleted -- the reason text is the evidence trail that
+    # emergency_bypass filed a claim against.
+    # The mv error is CAPTURED, not discarded. A failure here means the gate
+    # stays off indefinitely, which is the exact state this block exists to
+    # end -- so the reason it failed is the most useful line on the screen.
+    USED_PATH="${MARKER_PATH}.used"
+    if MV_ERR=$(mv -f "$MARKER_PATH" "$USED_PATH" 2>&1); then
+        echo "[check-branch-on-push] KILL-SWITCH CONSUMED - moved to $(basename "$USED_PATH")" >&2
+        echo "  The gate is LIVE again for the next push." >&2
+        echo "  Re-arm only if the emergency continues, by writing a fresh reason to:" >&2
+        echo "    $MARKER_PATH" >&2
+    else
+        echo "[check-branch-on-push] KILL-SWITCH NOT CONSUMED - mv failed on $MARKER_PATH" >&2
+        echo "  mv said: ${MV_ERR:-(no message)}" >&2
+        echo "  The gate stays DISABLED for every later push until this file is removed by hand." >&2
+    fi
     exit 0
 fi
 

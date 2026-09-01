@@ -46,6 +46,57 @@ _COMPLIANCE_PREFIXES = ("cmd:",)
 _ESCAPE_PREFIXES = ("bypass:", "DIVINEOS_")
 
 
+def _stats_shape(
+    *,
+    window_days: int,
+    total: int = 0,
+    compliance: int = 0,
+    escapes: int = 0,
+    unclassified: int = 0,
+    defect_escapes: int = 0,
+    inferred_compliance: int = 0,
+    by_env: dict[str, int] | None = None,
+    by_env_escape: dict[str, int] | None = None,
+    unique_days: int = 0,
+) -> dict:
+    """The one shape ``bypass_rate`` returns, from either exit.
+
+    ONE CONSTRUCTOR, BECAUSE THE LIST KEPT DRIFTING. (2026-08-25.)
+
+    This function had two returns -- an empty-log branch and a populated one --
+    each writing its own dict literal. The empty branch carried a comment
+    reading "Present on BOTH exits", added after a caller hit a KeyError, and
+    at the moment that comment was written TWO other keys were already missing
+    from it: ``defect_escape_events`` and ``inferred_compliance_events``. A
+    third went missing when the escape-only breakdown was added today.
+
+    So a comment asserted a property the code did not have, and the assertion
+    survived three separate drifts because nobody re-checked it. That is the
+    day's own class -- the doc that teaches the wrong thing, the marker
+    believed on assertion -- sitting inside the fix written FOR that class.
+
+    A shared constructor means the empty case cannot be a different shape from
+    the populated one, rather than a comment asking future readers to keep them
+    the same by hand.
+    """
+    return {
+        "total_events": total,
+        "compliance_events": compliance,
+        "escape_events": escapes,
+        "unclassified_events": unclassified,
+        "defect_escape_events": defect_escapes,
+        "inferred_compliance_events": inferred_compliance,
+        "by_env_var": dict(by_env or {}),
+        # Escape-only breakdown, so a consumer that thresholds on escapes can
+        # also NAME escapes. Kept alongside the all-rows view rather than
+        # replacing it: the full picture is still the honest one for a reader
+        # asking "what fired at me", and only the offender-list needs the split.
+        "by_env_var_escape": dict(by_env_escape or {}),
+        "unique_days": unique_days,
+        "window_days": window_days,
+    }
+
+
 def _classify(rec: dict) -> str:
     """Return 'compliance', 'escape', or 'unclassified' for one row.
 
@@ -277,21 +328,10 @@ def bypass_rate(window_days: int = 14) -> dict:
     """
     log = _event_log()
     if not log.exists():
-        return {
-            "total_events": 0,
-            "compliance_events": 0,
-            "escape_events": 0,
-            # Present on BOTH exits. Added to the populated return first and
-            # missed here, so a caller on the empty-log path got a KeyError —
-            # a function with two exits and one of them updated, which is the
-            # same shape as everything else found tonight, in the fix for it.
-            "unclassified_events": 0,
-            "by_env_var": {},
-            "unique_days": 0,
-            "window_days": window_days,
-        }
+        return _stats_shape(window_days=window_days)
     cutoff = time.time() - (window_days * 86400.0)
     by_env: dict[str, int] = {}
+    by_env_escape: dict[str, int] = {}
     days: set[str] = set()
     total = 0
     compliance = 0
@@ -378,21 +418,44 @@ def bypass_rate(window_days: int = 14) -> dict:
                 # rendering them identically is the defect _classify exists to
                 # fix.
                 unclassified += 1
-            by_env[rec.get("env_var", "?")] = by_env.get(rec.get("env_var", "?"), 0) + 1
+            env_var = rec.get("env_var", "?")
+            by_env[env_var] = by_env.get(env_var, 0) + 1
+            # THE BREAKDOWN MUST SPLIT THE SAME WAY THE COUNT DOES.
+            # (round-5b387cf59034, 2026-08-25.)
+            #
+            # `by_env_var` is every row, and the gate that blocks on this data
+            # uses it to name its top-three offenders. Once the THRESHOLD moved
+            # to escape_events earlier today, the two halves of one message
+            # stopped agreeing: it printed "escape rate 15 exceeds threshold 10
+            # ... compliance rows are excluded" and then named `divineos goal`,
+            # `divineos ask` and `divineos context` as the gates being routed
+            # around -- three commands that gates PRESCRIBE, and rows that same
+            # sentence had just excluded from its own count.
+            #
+            # Worse than the lumped count it replaced: that one was wrong and
+            # LOOKED wrong; this one is right and READS wrong, and sends the
+            # next reader to investigate the wrong gates. Same
+            # two-consumers-of-one-dataset shape, now inside a single sentence.
+            #
+            # Added at the source rather than filtered in the consumer, because
+            # the lesson of this whole day is one reader and not two.
+            if kind == "escape":
+                by_env_escape[env_var] = by_env_escape.get(env_var, 0) + 1
             days.add(rec.get("day", ""))
     except OSError:
         pass
-    return {
-        "total_events": total,
-        "compliance_events": compliance,
-        "escape_events": escapes,
-        "unclassified_events": unclassified,
-        "defect_escape_events": defect_escapes,
-        "inferred_compliance_events": inferred_compliance,
-        "by_env_var": by_env,
-        "unique_days": len(days),
-        "window_days": window_days,
-    }
+    return _stats_shape(
+        window_days=window_days,
+        total=total,
+        compliance=compliance,
+        escapes=escapes,
+        unclassified=unclassified,
+        defect_escapes=defect_escapes,
+        inferred_compliance=inferred_compliance,
+        by_env=by_env,
+        by_env_escape=by_env_escape,
+        unique_days=len(days),
+    )
 
 
 def full_history_stats() -> dict:

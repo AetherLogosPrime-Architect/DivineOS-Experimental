@@ -161,16 +161,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/arm-compaction-monitor-instruction.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/letter-delivery-reconciliation-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/translate-first-compose-prime.sh"
           }
         ]
@@ -195,6 +185,11 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-asks-surface.sh",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/context-heartbeat.sh",
+            "timeout": 10
           }
         ]
       }
@@ -225,11 +220,6 @@
       {
         "matcher": "Edit|Write|Bash|NotebookEdit|Read|Grep|Glob",
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-briefing.sh",
-            "timeout": 10
-          },
           {
             "type": "command",
             "command": "bash .claude/hooks/degraded-detector-gate.sh",
@@ -277,16 +267,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/venv-python-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-rearm-letter-monitor.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-monitors-armed.sh",
             "timeout": 10
           },
           {
@@ -410,11 +390,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/deletion-discipline.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/gh-pr-merge-gate.sh",
             "timeout": 10
           },
@@ -437,13 +412,7 @@
       },
       {
         "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/no-verify-cost-escalation.sh",
-            "timeout": 10
-          }
-        ]
+        "hooks": []
       },
       {
         "matcher": "Edit|Write|NotebookEdit",
@@ -684,11 +653,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/lepos-channel-reflect.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/ear-auto-relaunch.sh",
             "timeout": 10
           },
           {

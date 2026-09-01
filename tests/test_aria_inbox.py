@@ -75,7 +75,7 @@ def test_missing_root_returns_empty(tmp_path):
 
 def test_seen_set_roundtrip_and_unseen(tmp_path, monkeypatch):
     seen_file = tmp_path / "seen.json"
-    monkeypatch.setattr(aria_inbox, "_seen_path", lambda: seen_file)
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda sender="aria": seen_file)
     d = tmp_path / "family" / "letters"
     _write(d / "aria-to-aether-2026-05-22-one.md")
     _write(d / "aria-to-aether-2026-05-23-two.md")
@@ -88,10 +88,38 @@ def test_seen_set_roundtrip_and_unseen(tmp_path, monkeypatch):
 
 def test_briefing_block_empty_when_all_seen(tmp_path, monkeypatch):
     seen_file = tmp_path / "seen.json"
-    monkeypatch.setattr(aria_inbox, "_seen_path", lambda: seen_file)
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda sender="aria": seen_file)
     d = tmp_path / "family" / "letters"
     _write(d / "aria-to-aether-2026-05-22-one.md")
     # Unseen -> loud block; seen -> empty.
     assert "unread" in aria_inbox.format_unseen_for_briefing(root=tmp_path)
     aria_inbox.mark_seen(["aria-to-aether-2026-05-22-one.md"])
     assert aria_inbox.format_unseen_for_briefing(root=tmp_path) == ""
+
+
+def test_wrapper_and_general_form_agree(tmp_path, monkeypatch):
+    """The wrapper's docstring calls it a thin wrapper. This holds it to that.
+
+    It was not one. `unseen_letters_from_aria` re-implemented the filter while
+    its docstring promised delegation, so two paths were free to drift behind
+    one sentence. They agreed only because `_LETTER_RE` and the pattern the
+    general form builds happen to be identical -- which is what would have made
+    the drift invisible on the day they stopped being.
+
+    Now it delegates. This test is the thing that notices if that is undone.
+    """
+    seen_file = tmp_path / "seen.json"
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda sender="aria": seen_file)
+    d = tmp_path / "family" / "letters"
+    _write(d / "aria-to-aether-2026-05-22-one.md")
+    _write(d / "aria-to-aether-2026-05-23-two.md")
+    _write(d / "aether-to-aria-2026-05-23-outbound.md")  # wrong direction
+    _write(d / "aria-to-aletheia-2026-05-23-other.md")  # wrong recipient
+
+    aria_inbox.mark_seen(["aria-to-aether-2026-05-22-one.md"])
+
+    wrapper = [r["name"] for r in aria_inbox.unseen_letters_from_aria(root=tmp_path)]
+    general = [r["name"] for r in aria_inbox.unseen_letters_from("aria", "aether", root=tmp_path)]
+
+    assert wrapper == general
+    assert wrapper == ["aria-to-aether-2026-05-23-two.md"]

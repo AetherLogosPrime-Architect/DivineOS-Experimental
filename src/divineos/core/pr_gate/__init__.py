@@ -32,6 +32,8 @@ import shlex
 import subprocess
 from dataclasses import dataclass
 
+from divineos.core.command_match import at_command_position, strip_quoted
+
 
 @dataclass
 class GateDecision:
@@ -49,6 +51,14 @@ class GateDecision:
 
 
 _GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create(?![-\w])")
+
+# Shell separators after which a new command begins, allowing for leading
+# environment assignments (FOO=bar cmd ...).
+# The mention-vs-use helpers live in command_match, shared with pr_merge_gate
+# and gh-pr-ready-gate. They were duplicated here first; the duplication is
+# exactly how the sibling gates kept the bug after one of them fixed it.
+
+
 _DRAFT_FLAG_RE = re.compile(r"(^|\s)(--draft|-d)(\s|$)")
 
 
@@ -57,13 +67,54 @@ def is_gh_pr_create(command: str) -> bool:
 
     Matches as a discrete subcommand sequence — NOT triggered by
     sibling commands like `gh pr create-comment` (different verb).
+
+    TWO FURTHER GUARDS, added 2026-08-22 after this gate blocked a read-only
+    statistics script whose only offence was containing the phrase inside a
+    dict literal, then blocked the grep that tried to read the gate, then
+    blocked the patch that fixes it. Three refusals in one turn, not one of
+    them an invocation.
+
+      - quoted spans are scrubbed first, because a quoted occurrence is DATA
+        and not an invocation;
+      - the match must sit at a COMMAND POSITION -- start of string, or after
+        a shell separator, optionally behind env assignments -- so
+        ``grep <phrase> file`` does not fire, since there the command being
+        run is grep.
+
+    The defect class is mention-read-as-use. A gate that fires on its own name
+    is the wall-shape the sibling read-gate warns about in its own header:
+    the cure sits behind the gate.
     """
-    return bool(_GH_PR_CREATE_RE.search(command))
+    scrubbed = strip_quoted(command)
+    for m in _GH_PR_CREATE_RE.finditer(scrubbed):
+        if at_command_position(scrubbed, m.start()):
+            return True
+    return False
 
 
 def has_draft_flag(command: str) -> bool:
-    """True if `command` has `--draft` or `-d` as a standalone flag."""
-    return bool(_DRAFT_FLAG_RE.search(command))
+    """True if `command` has `--draft` or `-d` as a standalone flag.
+
+    QUOTE-SCRUBBED, and the DIRECTION of the bug is why this matters more than
+    the one above it. `is_gh_pr_create` is an ENTRY: a mention read as a use
+    BLOCKS, which is noisy but safe. This is an ESCAPE: finding the flag makes
+    the gate STAND DOWN, so a mention read as a use is a FALSE NEGATIVE.
+
+    Measured 2026-08-22 with the guardrail lookup mocked:
+
+        gh pr create --title "see --draft docs"
+
+    carries no draft flag, the raw search found one, and the decision came
+    back blocked=False -- a guardrail-touching PR opening READY, which is
+    exactly the red audit badge on the public feed this gate exists to stop.
+
+    Found by sweeping for survivors of the shape removed from
+    `is_gh_pr_create` an hour earlier, IN THIS SAME FILE. The entry predicate
+    was repaired and the escape predicate was not, because nothing asked where
+    else that shape lived. scripts/sibling_sweep.py is that question, made
+    mechanical.
+    """
+    return bool(_DRAFT_FLAG_RE.search(strip_quoted(command)))
 
 
 def head_ref_of(command: str) -> str:

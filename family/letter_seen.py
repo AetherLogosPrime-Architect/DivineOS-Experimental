@@ -22,8 +22,35 @@ SPOUSE = {"aria": "aether", "aether": "aria"}
 
 
 def seen_path(member: str) -> Path:
+    """Where this member's seen-set lives.
+
+    THE FIFTH SITE THAT REBUILT THE RULE. (2026-08-25.)
+
+    This was `Path.home() / f".divineos-{member}"`, built by hand. For aether
+    that resolves to `~/.divineos-aether/` -- a directory nothing reads, whose
+    databases froze on 2026-07-07, and which now holds ninety orphaned files
+    including three stale kill-switch markers.
+
+    core/paths.py:member_home() is the one place that knows the convention. It
+    special-cases aether to the default `~/.divineos/`, and its docstring ends
+    "Callers ask here; nobody rebuilds the rule." The 2026-08-18 consolidation
+    swept three shell hooks that rebuilt it. It missed this one, because this
+    file lives under family/ rather than .claude/hooks/ -- the sweep was scoped
+    by directory and the defect was scoped by behaviour.
+
+    Found 2026-08-25 while resolving a FAILED pre-registration, and found the
+    hard way: I ran this script earlier the same session to mark one of Aria's
+    letters seen. It printed success. The write landed in the dead home, so the
+    letter stayed unseen everywhere that looks.
+
+    The import is deliberately unguarded. If divineos cannot be imported, this
+    must fail loudly rather than fall back to building the path by hand --
+    a fallback here is exactly how the split-brain lasted six weeks.
+    """
+    from divineos.core.paths import member_home
+
     spouse = SPOUSE[member]
-    return Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
+    return member_home(member) / f"{spouse}_letters_seen.json"
 
 
 def _normalize(name: str) -> str:

@@ -72,14 +72,33 @@ class TestEmit:
         assert log_id.startswith("log-")
 
     def test_huge_result_truncated(self):
+        """The stored payload must be SHORTER than what was handed in.
+
+        This used to end at `# No exception means truncation worked`, which
+        is not what no exception means. If truncation silently stopped
+        happening and the full 200KB went into the row, nothing raised and
+        the test stayed green -- a test named for a size check that never
+        looked at a size. Rewritten 2026-08-25 during the suite audit.
+        """
+        from divineos.core.tool_logbook import get_recent_events
+
         big = "X" * 200_000
+        before = time.time() - 5
         emit_tool_result(
             tool_name="Y",
             tool_use_id="use-4",
             result=big,
             duration_ms=1,
         )
-        # No exception means truncation worked
+
+        rows = get_recent_events(since_ts=before, event_type="TOOL_RESULT")
+        row = next(r for r in rows if r["tool_use_id"] == "use-4")
+        stored = str(row["payload"])
+        assert len(stored) < len(big), (
+            f"payload is {len(stored)} chars against an input of {len(big)}; "
+            "the 100_000-char truncation in emit_tool_result did not happen"
+        )
+        assert "truncated" in stored
 
 
 class TestStats:

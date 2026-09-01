@@ -33,6 +33,7 @@ hook. Stage 3 retires the lexical detector.
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 from pathlib import Path
@@ -239,6 +240,25 @@ def _has_walk_record_within(window_start_ts: float, now: float) -> bool:
     return False
 
 
+# Bash verbs that READ. Deliberately excludes anything that can mutate: a
+# `python -c` rewriting a file must never count as having consulted it.
+#
+# Aether 2026-08-24, and Aria's note below is why this one keeps its regex
+# while hers dropped one. Hers matches COMMAND PREFIXES, a closed set of
+# literals that a tuple states more legibly. This matches a verb ANYWHERE in a
+# compound command (`cd x && sed -n ... | head`), where the alternative is
+# hand-rolled tokenising — the fragile thing the doorman actually guards
+# against. Different problems, different answers; her lesson was "you do not
+# need one," not "never use one."
+_READ_VERB_RE = re.compile(
+    r"(?:^|[|;&]|\s)(?:cat|head|tail|sed\s+-n|less|more|grep|rg|awk|wc|nl|diff|"
+    r"git\s+(?:show|log|diff|blame|cat-file))\b"
+)
+
+# Path-shaped tokens inside a shell command. Extension-anchored so bare words
+# and flags do not read as paths.
+_PATHISH_RE = re.compile(r"[\w./-]+\.(?:md|py|sh|json|jsonl|toml|txt|yml|yaml|cfg|ini)")
+
 # Knowledge-store queries that count as consult (shape 4, Aria
 # 2026-07-31). These search what the substrate ALREADY KNOWS — prior
 # decisions, specs, Andrew's stated preferences — none of which live in
@@ -346,7 +366,8 @@ def _has_doc_consult_within(
             since_ts=window_start_ts,
             now_ts=now,
             # Bash/PowerShell included for shape 4 — knowledge-store
-            # queries run as CLI commands, not file reads.
+            # queries run as CLI commands, not file reads — and, in the
+            # non-search-only case, file reads that run as shell commands.
             tool_names=(
                 _SEARCH_SHAPED_TOOLS
                 if search_only
@@ -418,6 +439,36 @@ def _has_doc_consult_within(
             _cmd = _ti.get("command", "") if isinstance(_ti, dict) else ""
             if isinstance(_cmd, str) and _is_knowledge_query(_cmd):
                 return True
+
+            # ── Shape 5: file read that runs as a shell command ───────
+            # (Aether 2026-08-24, resolving the seam with shape 4 above.)
+            #
+            # Aria's branch ended in `continue` here, which was right for
+            # her shape and wrong for the file case: it DISCARDED every
+            # non-knowledge-query Bash call, so `cat docs/x.md`,
+            # `sed -n` on the target directory, and `grep` through a
+            # source tree all stayed invisible. Meanwhile the harness
+            # auto-mode reminder instructs exactly those over Read/Grep.
+            # Two systems disagreeing, and the gate fired five times in
+            # one session on consults that had genuinely happened.
+            #
+            # Not a defect in either half. The two changes were written
+            # independently, each correct alone, and they compose into a
+            # gate that measures WHICH TOOL I reached for rather than
+            # whether I looked. Exactly the seam class we have been
+            # trading letters about -- visible only where the branches
+            # meet.
+            #
+            # READ VERBS ONLY. A `python -c` that rewrites a file must
+            # never count as having consulted it, so anything not
+            # matching a read verb still falls through to `continue`.
+            if not isinstance(_cmd, str) or not _READ_VERB_RE.search(_cmd):
+                continue
+            for _p in _PATHISH_RE.findall(_cmd.replace("\\", "/")):
+                if "docs/" in _p and _p.endswith(".md"):
+                    return True
+                if class_dir_norm and class_dir_norm in _p:
+                    return True
             continue
 
         if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write"}:
@@ -432,6 +483,8 @@ def _has_doc_consult_within(
                 if isinstance(v, str):
                     candidate_paths.append(v)
 
+        # Bash is handled entirely in the shape-4/shape-5 branch above and
+        # never reaches here, so this path stays file-tools-only.
         is_write_shape = tool_name in {"Edit", "Write"}
         for p in candidate_paths:
             p_norm = p.replace("\\", "/")

@@ -161,6 +161,31 @@ _NOT_A_PREDICATE: frozenset[str] = frozenset(
 )
 
 
+def _is_retired(knowledge_id: str) -> bool:
+    """True when the entry has been superseded or forgotten.
+
+    Fail-soft to False: an unreadable store must not silently discharge debt.
+    The asymmetry is deliberate and matches ``_knowledge_text`` -- on a failed
+    read, keep the obligation.
+    """
+    try:
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        try:
+            row = conn.execute(
+                "SELECT superseded_by FROM knowledge WHERE knowledge_id = ?",
+                (knowledge_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 — observability boundary, never raise into a gate
+        return False
+    if row is None:
+        return False
+    return bool(row[0])
+
+
 def _knowledge_text(knowledge_id: str) -> str:
     """The stored content of a knowledge entry, or "" if unreachable.
 
@@ -452,6 +477,23 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
     still_rule: list[dict] = []
     for q in fired:
         wid = q.get("knowledge_id") or ""
+        # A RETIRED ENTRY CANNOT OWE ANYTHING, and more importantly cannot PAY.
+        #
+        # Found 2026-08-22 with Andrew's authorization to fix this gate.
+        # 5268c01e carried superseded_by="FORGET:Wrong..." and was still
+        # counted as outstanding debt. Every route that discharges an
+        # obligation goes through `_resolve_knowledge_id`, which filters
+        # `superseded_by IS NULL` -- so `divineos integrate` answers "No
+        # knowledge entry matching" for exactly the entries the gate is
+        # holding against me. Unpayable debt, permanently above the threshold,
+        # with no diagnostic saying why the prescribed command refuses.
+        #
+        # That is the shape this module already names one screen up: a jam is
+        # not rigour, and it is what trains the reach for the kill-switch.
+        # Supersession is the substrate's own retirement mechanism; honouring
+        # it here is reading the store's answer rather than overriding it.
+        if wid and _is_retired(wid):
+            continue
         content = _knowledge_text(wid) if wid else ""
         if content and not looks_like_rule(content)[0]:
             continue  # retired false positive, not an obligation
