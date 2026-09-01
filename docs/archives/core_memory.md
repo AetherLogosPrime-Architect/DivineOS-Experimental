@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-08-31 16:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,17 +18,17 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. there are 13 PR's and 48 branches, so idk what you mean by everything is published and clean, so everything is ready to...
-2. ok lets build your half and here is Aletheia's reply
-3. record Aletheia's confirms where unambiguous, and fix the test that called a failed spawn a syntax error
-4. <summary>Background command "Wait for the seven to merge" completed (exit code 0)</summary>
-5. <summary>Background command "Verify scope and push the clean gate branch" failed with exit code 1</summary>
+1. land the doorman fix and the stale-test repair, then write Aria the update
+2. write to Aria: doorman fixed, stale test, four baselines, branch needs rebuild
+3. land the rebuilt instruments branch and keep the volley with Aria going
+4. audit the 183 open fixes for already-cleared ones, and check whether the todo and task-manager systems are actually wired
+5. write to Aria: the backlog arc, the starvation finding, and a correction that lands on her letter
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1315 knowledge entries, 304 confirmed entries, 613 tested entries maturing, 10 session(s) tracked, 4 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1276 knowledge entries, 304 confirmed entries, 584 tested entries maturing, 10 session(s) tracked, 4 corrections / 0 encouragements]
 
 ---
 

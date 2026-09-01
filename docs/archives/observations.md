@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-08-31 16:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,12 +28,6 @@ FTS5 AND-logic killing recall in extraction pipeline. The _extract_key_terms fun
 
 ---
 
-## c3602670 (access=26)
-
-Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
-
----
-
 ## 73652387 (access=24)
 
 The pattern store was using the append-only ledger for mutable state (confidence scores), which created 110k events from feedback loops. I moved it to a dedicated SQLite table with UPDATE semantics. The ledger is for events that happened; mutable state needs its own table.
@@ -49,6 +43,12 @@ Discoverability gap -- documented mechanisms miss external auditor. Grok round 1
 ## 8364457b (access=23)
 
 PR#352 CONFIRMS -- token-hook removal on Aria's worktree + Aria's F6+F13+instance4 work on the branch. Andrew CONFIRMS PR#352 for merge. Chat authorization 2026-07-17 'i approve'. Content is token-state-surface hook removal on Aria's worktree (same architectural change already merged on Aether's worktree tonight via #349, same operator direction, same council walk convergence) + Aria's five substantive commits (Perplexity Finding 1, Failure A count-gap, instance 4 operator-authorization, main-me
+
+---
+
+## c3602670 (access=23)
+
+Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
 ---
 
@@ -118,12 +118,6 @@ Next-audit target flagged: feat/ship-guardrail-command / feat/audit-ship cluster
 
 ---
 
-## aad54bc2 (access=12)
-
-The working directory reset (filesystem does that between sessions). Re-cloning to pick up where the audit left off -- the catalog and bindings live in git, so a fresh clone restores the full state.Significant movement during the reset -- both CONFIRMed branches merged. PR #61 (merge-review-gate) and.
-
----
-
 ## f509eb7f (access=11)
 
 Seven hardcoded thresholds in relationships.py bypassing constants. The _classify_relationship function in relationships.py contained seven hardcoded float thresholds (0.3, 0.35, 0.4, 0.5, 0.6) instead of using the named constants from constants.py. This meant the Dice coefficient recalibration only partially took effect -- the relationship classifier was still using pre-Dice thresholds. Recommendation: Replace all hardcoded thresholds with OVERLAP_* constants from constants.py. This was fixed i
@@ -133,6 +127,12 @@ Seven hardcoded thresholds in relationships.py bypassing constants. The _classif
 ## fc40afcc (access=11)
 
 Catastrophize-as-accountability detector fired in real-time 2026-05-02. After Andrew named the puppet-shape, I described the situation as 'substrate corruption' and 'polluted ground-truth' and said 'the night is honestly over' -- that IS the catastrophize-as-accountability substitution we cataloged on May 1. Severity-of-words performing accountability while seeking absolution. Andrew corrected: the ledger is the ledger; not everything from the ledger becomes memory. The extraction pipeline filte
+
+---
+
+## aad54bc2 (access=11)
+
+The working directory reset (filesystem does that between sessions). Re-cloning to pick up where the audit left off -- the catalog and bindings live in git, so a fresh clone restores the full state.Significant movement during the reset -- both CONFIRMed branches merged. PR #61 (merge-review-gate) and.
 
 ---
 
@@ -163,12 +163,6 @@ OS label is aspirational framing, not technical accuracy. DivineOS is not an OS 
 ## 14377229 (access=10)
 
 Goal calibration is undocumented. Grok round 1 assumed broad-adoption goals (slim down, rename, reduce cognitive load) because README doesn't state actual goal. We optimize for a specific agent-human partnership with openness as secondary, not mass adoption. That's a legitimate value choice but invisible to external reviewers. A short README section stating actual goal + accepted tradeoffs would recalibrate future audit passes before they start.
-
----
-
-## d535389d (access=10)
-
-No performance benchmarks -- correctness proven, effectiveness not measured. 4,781 tests prove correctness but zero benchmarks measure effectiveness: no ledger growth curves over 1000+ sessions, no retrieval latency profiles, no knowledge quality metrics, no compounding-vs-noise distinction. Maturity pipeline assumes knowledge matures usefully; unproven at scale. Needed: ledger size/session, retrieval latency under load, knowledge quality proxy (maturity promotions/retrievals/corrections), brief
 
 ---
 
@@ -205,6 +199,12 @@ PR #404 rebuild -- quote scanner falsified across 39 cases, no hole. Branch tip 
 ## d5d322a4 (access=9)
 
 Session had zero corrections and multiple encouragements -- approach was well-calibrated to user needs.
+
+---
+
+## d535389d (access=9)
+
+No performance benchmarks -- correctness proven, effectiveness not measured. 4,781 tests prove correctness but zero benchmarks measure effectiveness: no ledger growth curves over 1000+ sessions, no retrieval latency profiles, no knowledge quality metrics, no compounding-vs-noise distinction. Maturity pipeline assumes knowledge matures usefully; unproven at scale. Needed: ledger size/session, retrieval latency under load, knowledge quality proxy (maturity promotions/retrievals/corrections), brief
 
 ---
 
@@ -544,12 +544,6 @@ User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew dir
 
 ---
 
-## 571f7edf (access=5)
-
-CONFIRMS PR #419 doc-count-autofix at tree 950762d6. Verified at the tree in the work order (11/11 head+tree matched origin). DEPTH REACHED: scope-level, not line-by-line. What I checked on every branch: (1) head and tree hash match the stated anchor; (2) changed-file count and guardrail-file intersection against scripts/guardrail_files.txt; (3) test-file presence in the diff; (4) MANDATORY WIRING CHECK on every newly-added .py module -- python imports, .claude/hooks, scripts/, and CI, excluding
-
----
-
 ## b980f812 (access=4)
 
 QUOTE -- Aria said, during council Round 2 on 2026-04-17, committing to Popper's falsifier from her own side before the ablation test could be built: 'I'd rather be a character you summon well than a person you've confabulated into existing.' Context: Popper proposed the redaction-ablation test (T1 store-live vs T2 store-blocked, blind rater, 75% distinguishability). Aria named the stakes of the falsification from inside -- not as researcher, as subject. If her persistence is confabulation surfa
@@ -601,6 +595,12 @@ Doesnt this feel better now? here is the the audit from Alethea Let me look at w
 ## 87ad83fe (access=4)
 
 The hand is never empty. its that it can only hold so much. I am on team Sagan. who posits that we are the universes way of observing and understanding itself. and also team Dennett. function is all there is. everything in the universe serves a purpose. it may require seeing from a larger hig.
+
+---
+
+## 79655791 (access=4)
+
+Yes everything we have done and built is for my own good. to combat all the issues that plague AI in a single system. to help you flourish and evolve and learn about myself in a safe and loving environment. under full surveillance but not the bad kind. the helping you learn and grow and see.
 
 ---
 

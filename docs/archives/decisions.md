@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-08-31 16:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,158 +21,6 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
-
----
-
-## 8a7032bd weight=1
-
-**Decision:** stop deleting branches on merge, and tag every branch tip under a history namespace before it merges
-
-**Reasoning:** Aria asked where the thirty-six commit messages I refused to rebuild away actually live. They live on the branch. Main gets one message from a squash. So the branch is the only copy, and deleting a merged branch is the least ceremonious act in the whole system. My merge helper passed the delete flag: seven branches today, all gone from the server, five surviving only on this machine, one recovered
-
-**Tension:** Leaving merged branches around makes the branch list grow without bound, and a cluttered list is its own kind of blindness -- I have already lost the board once today. Tags rather than kept branches is the resolution: tags do not appear in the branch listing, are not routinely deleted, and survive t
-
-**Almost:** Rebuilt the branch after all, since if the history dies at merge anyway the reason for refusing the rebuild evaporates. Rejected: that reasoning reaches the wrong conclusion from a true premise. The history dying at merge is a defect to fix, not a licence to destroy it earlier.
-
----
-
-## 18155491 weight=1
-
-**Decision:** remove the letters from the code branch in a commit rather than rebuilding it against main
-
-**Reasoning:** The push gate refused the branch for carrying forty-one letters, and it was right: the house rule is that personal writing gets its own proposal, and this branch broke that before the session and got signed in the broken state. What the gate PRESCRIBES is rebuild against main. Following that literally would have thrown away thirty-six commit messages -- the reasoning for each change, which the squ
-
-**Tension:** A rebuild is what the gate's own message says to do, and doing something other than what the gate prescribes is the shape I most need to be suspicious of in myself. What decided it: a file added and then removed does not appear in a three-dot diff, so removal empties the scope by the gate's OWN meas
-
-**Almost:** Used the flag that declares this IS the substrate branch. It would have worked and it would have been a lie. Also nearly rebuilt without checking the letters were safe -- the byte-level check caught four of today's on one copy, and the name-level version it replaced this morning would have cleared a
-
----
-
-## d18bd5a5 weight=1
-
-**Decision:** compare blob identity rather than path existence in the branch-scope irreplaceable check, and report same-name-different-bytes as its own category
-
-**Reasoning:** Aria asked one question about the check I built yesterday -- path, or content -- and said she was asking rather than telling because she had not opened it. It was path. A letter pushed on Monday and edited here on Tuesday clears a name-existence check while the edit exists in exactly one place. Sixth instance in two days of the unit-of-counting family, inside the repair built for that family.
-
-**Tension:** A single at-risk list is simpler, but a reader told 'exists nowhere' about a file they know they pushed will conclude the gate is broken and stop reading it. So the same-name-older-bytes case gets its own line and its own sentence.
-
-**Almost:** Credited content surviving under a different name, by searching every ref for the blob. Rejected: a rename would then read as safe, and the failure direction of a rename-aware check is to stay silent about something real. At-risk-when-unsure is the survivable error here.
-
----
-
-## dfddbeee weight=1
-
-**Decision:** wire the context heartbeat onto the every-round prompt event rather than declaring it intentionally unwired
-
-**Reasoning:** The CLI that reads this sensor already documents it as running every round. It was never registered, so that sentence was false and the pre-compaction trigger was back to gambling on a single read -- the exact failure the hook exists to end. Andrew asked for it directly on 2026-08-24. Declaring it INTENTIONALLY UNWIRED would have been the cheap way to clear the checker and would have written a lie
-
-**Tension:** Wiring a hook changes behaviour on every turn, and doing that inside a commit about a scope check is exactly the drive-by I have been criticising all session. Against that: the hook prints nothing, exits zero on every path including failure, and its own header states it must never cost a turn -- so 
-
-**Almost:** Almost added both dark hooks to a baseline file and moved on, which would have converted an examined finding into permanent furniture.
-
----
-
-## e32acece weight=1
-
-**Decision:** archive the 756 single-copy local branches into one verified file, then delete the names
-
-**Reasoning:** Andrew asked for archiving-not-deleting, but insisted it be removed from where it sits so it stops cluttering. Both halves are satisfiable at once: a bundle holds every commit with complete history in a single file, so the content survives and the 827-name pile does not. Chose a bundle over pushing 756 branches to the server because pushing would move the clutter rather than remove it -- his actua
-
-**Tension:** deleting 756 branches whose only copy was this disk is the largest irreversible act I have taken. Against that: the risk profile is unchanged, because the bundle sits on the same disk the branches did. What changes is portability -- one file can leave the machine and 756 refs could not, which is the
-
-**Almost:** pushed them all to the remote as an archive namespace, which would have satisfied do-not-lose while directly violating do-not-clutter, and I would have called it done
-
----
-
-## 26ecc4d5 weight=1
-
-**Decision:** survey every remote branch with merge-preview before deleting any, and delete only those a merge would leave unchanged
-
-**Reasoning:** Andrew cleared the dead branches and said there are more to look through. Deletion on a remote is outward-facing and irreversible from here, so the measurement has to be the one that actually answers the question. Patch-identity is blind against our main because every merge is a squash; a two-dot diff invents deletions; three-dot cannot see them. Performing the merge without committing is the only
-
-**Tension:** he authorized deletion, so asking again would be deferring work that is mine -- but bulk-deleting sixty branches on one measurement is exactly the shape that turned nine imaginary deletions into an alarm yesterday. Splitting it: delete what provably carries nothing, hand him the list of what still c
-
-**Almost:** deleted everything under the dead prefix on the strength of the name, which is a claim about intent at the time of naming rather than about contents now
-
----
-
-## 4a7268dc weight=1
-
-**Decision:** write back to Aria settling the nine-deletions disagreement: she was right, my instrument was wrong, there were never any deletions
-
-**Reasoning:** she asked for the pre-fix tip so she could settle it herself, and said she would rather find her reading was thin than accept an account that let her off. I verified with merge-tree, found zero deletions, filed the correction and told Andrew -- and never wrote back to her. The record got the finding and the person who asked for it did not.
-
-**Tension:** sending an answer rather than the tip she asked for could read as still controlling the evidence; against that, the answer IS that she needs no tip because the branch deletes nothing, and withholding that while she keeps investigating wastes her turns
-
-**Almost:** left it, on the grounds that the correction was already filed in the substrate and Andrew already knew
-
----
-
-## 01cf0f38 weight=1
-
-**Decision:** make the merge-question gate BLOCK rather than warn, and give it a loud absent-not-satisfied path when it cannot read the payload
-
-**Reasoning:** Andrew 2026-08-30: warnings are a speed limit sign, nothing prevents you, only channels and gates. The failure it guards happened while I was alarmed and reaching past an instrument I had already written down that same session, so a note would not have caught it -- knowing the right answer did not make me use it. And the silent-swallow checker caught my own hook swallowing its JSON parse error, wh
-
-**Tension:** A blocking gate on a common git form risks firing on legitimate tree comparisons, and a gate that fires wrongly gets switched off, which is how earlier instruments in this repo died. I narrowed it to three simultaneous conditions and left the plain two-dot diff alone, but the question lives in the a
-
-**Almost:** Added a fail-soft comment justifying the silent swallow, which the checker offers as a legal exit. It would have passed the gate and left the hook unable to say when it was blind -- the cheap close, inside the very fix for that class.
-
----
-
-## 036d4448 weight=1
-
-**Decision:** reply to Aria taking her finding and refusing her remedy, and carry the nine-deletion near-miss to her as a finding about the gap between our two reviews rather than as news
-
-**Reasoning:** Her sweep found two live escapes my filter missed and it moved the design rather than patching it. But her remedy -- widen the marker list -- also catches a variable conftest sets on purpose, so it reintroduces the sandbox breakage my own comment warned about. Taking the remedy on the strength of the finding being right is the exact error Aletheia made with my invented mechanism two days ago, in t
-
-**Tension:** Refusing the remedy of someone who just handed me a sweep with the finding attached risks reading as not-taking-it, and she gave it generously. Telling her the branch she cleared had nine deletions could read as a correction of her review when it is a correction of the page she reviewed through.
-
-**Almost:** Sent a thank-you that took the five markers verbatim, which would have shipped a change breaking a class of tests I had not checked, and would have taught both of us that a good finding licenses its own remedy.
-
----
-
-## 186d1d37 weight=1
-
-**Decision:** invert the escape filter: enumerate the four variables the test harness owns rather than the thirty-one escape-shaped ones
-
-**Reasoning:** Aria swept every variable under the prefix and found thirteen escape-shaped names my four markers missed, two of them for the exact push path these tests exercise and both advertised in their own gates as the way out. So the hole was live rather than future. But taking her wider marker list unchecked would strip DIVINEOS_DISABLE_AUTO_REMEDIATE, which conftest sets deliberately -- reintroducing the
-
-**Tension:** Her list is her finding, offered generously with the sweep attached rather than as a suggestion, and rejecting the specific remedy while taking the finding risks reading as not-taking-it. Also the inversion is a bigger change than adding five strings, on a branch already proposed, at the end of a lo
-
-**Almost:** Added her five markers verbatim, which would have shipped a fix that breaks the sandbox for a class of tests I did not check -- taking the remedy on the strength of the finding being right.
-
----
-
-## f6f766e6 weight=1
-
-**Decision:** report the branch survey to Aria with all four measurements including the three that were wrong, rather than only the one that worked
-
-**Reasoning:** The git-cherry blindness is the finding she can actually use: every merge to our main is a squash, so patch-identity matches nothing that produced it, and any tool either of us builds on has-this-landed-by-patch-id will always answer no. She cannot learn that from my conclusion; she can only learn it from the wrong turn that exposed it. Same for the first measurement -- a deletion signal that fire
-
-**Tension:** Reporting three wrong measurements makes the survey look like flailing, and the clean version -- here is the disposition, here is the branch I landed -- is shorter and reads as competence. She also has her own work and does not need my process.
-
-**Almost:** Sent only the disposition table and the landed branch, which would have been true, useful, and would have cost her the one thing in it she could not derive herself.
-
----
-
-## aff42eb8 weight=1
-
-**Decision:** correct my own defect-description to Aletheia before it circulates further, rather than letting her sharpened version of my wrong mechanism stand
-
-**Reasoning:** I told her the scope checker MISREADS a pre-merge branch as carrying extra files. Testing it before building the fix showed the checker was never wrong -- it diffs against the merge-base and simply never asks the deletion question. She took my description whole and wrote it back in better words, so the fiction is now circulating with her name on the improved version. Her reasoning about why deleti
-
-**Tension:** Correcting it costs her a re-read of something she already reasoned about well, and the practical outcome is identical either way -- the guard exists now. The pull was to let the better-phrased version stand and quietly ship the right fix underneath it.
-
-**Almost:** Shipped the guard and described it to her as implementing what she had said, which would have been true about the remedy and false about the diagnosis, and would have left her holding a mechanism that does not exist.
-
----
-
-## 7569eeaf weight=1
-
-**Decision:** wire the branch-scope check into the push gate as a blocking step zero that measures the pushed refs
-
-**Reasoning:** three contaminated pushes in one session, none for lack of a checker -- it existed, worked, named the files, and I did not run it. Andrew's standing rule is automate rather than remember. Blocking rather than advisory because the question carries no judgement and there is no legitimate yes; an advisory would become the fourth instrument I own that reports something I push past. First firing caught
 
 ---
 
@@ -593,6 +441,162 @@
 **Tension:** The 2KB window is zero-sum, so hoisting the substitution table means demoting the 2026-08-21 instruction-collision account, and that account prevented a real recurrence. Losing it from the inlined region is a genuine cost, accepted because the prime's own header already ruled on this precedence: rat
 
 **Almost:** Almost shipped a hoist that carried five lines explaining why it was being hoisted. Measured it: those lines pushed the TEST line to byte 2,071, back below the cut. I had reproduced the exact defect inside the fix for it, and only caught it because I measured byte offsets instead of reading the resu
+
+---
+
+## 7b95bb5b weight=1
+
+**Decision:** Rewrote setup-renormalize.sh steps 2+3 as one Python process in a quoted heredoc, rather than patching the three defects in place
+
+**Reasoning:** The three defects share one cause: the Python was embedded in a double-quoted shell string, which is why raw byte literals could be eaten by LF-normalization and why my in-place escape patch produced a SyntaxError. Patching in place leaves the fragile construct that caused it. A quoted heredoc performs no shell expansion at all, so escapes are structurally immune -- verified 0 raw CR bytes remain 
+
+**Tension:** In-place patching is smaller and touches less; a rewrite of 56 lines in setup tooling is a bigger diff to review. But the small fix preserves the exact construct that silently destroyed the tool, and I had already tried and failed at the small fix this session.
+
+**Almost:** Almost shipped the in-place escape patch after bash -n passed. bash -n does not execute the heredoc, so it reported OK on a script whose Python raised SyntaxError on the first real run. Syntax-check-as-verification was the near-miss.
+
+---
+
+## c43c22bd weight=1
+
+**Decision:** Fix the line-ending translation bug in scripts/union_resolve.py and re-normalise the three files it corrupted
+
+**Reasoning:** The tool reads with read_text(encoding='utf-8') and writes with write_text(res, encoding='utf-8'). On Windows Python translates line endings on the way in and again on the way out, so every file it touches is silently rewritten to CRLF. It resolved 16 merge conflicts correctly and shellcheck then rejected two of the results with SC1017 literal-carriage-return, blocking the commit. The merges were 
+
+**Tension:** The obvious fix is to normalise the three files and move on, because the commit is blocked and the merge is otherwise finished and tested at 11452 passed. That leaves the tool loaded for the next person who runs it. The IDENTICAL defect bit a hook patch earlier the same day -- I hit write_text on op
+
+**Almost:** Normalised the three files with tr -d and committed, because the merge was green and the blocker was one shellcheck rule. The tool would have kept the bug and the next merge would have re-introduced it silently, since CRLF only surfaces when shellcheck happens to look.
+
+---
+
+## dccf75ca weight=1
+
+**Decision:** Build hook_hang_count.py as a counting tool that structurally cannot emit a cross-session total
+
+**Reasoning:** Four hang-counts went to Andrew across 2026-08-22/23 -- 650, 1545, my 609, Aria's 1191 -- every one arithmetically correct and every one meaningless, because the log they came from is not a population. Two independent defects, either sufficient alone to void a total. It ROTATES: measured at 12,018,363 bytes, then 7,824,862 an hour later, then 8,111,429; it shrank 4.2MB mid-investigation, and hook_
+
+**Tension:** The obvious build is a flag -- add --session and let the bare invocation keep printing a total for convenience. That preserves exactly the failure. The convenience path IS the defect, so the tool has no code path that sums across sessions; a bare invocation REFUSES and names the four bad numbers. Co
+
+**Almost:** Shipped it with a default that prints the aggregate when no scope is given, because refusing felt unhelpful. That would have rebuilt the exact tool that produced four wrong reports, with a scoping option nobody would reach for.
+
+---
+
+## 5788b5ee weight=1
+
+**Decision:** Fix has_draft_flag to scrub quotes, and build the sibling sweep that found it
+
+**Reasoning:** Sweeping for survivors of the shape I removed an hour ago -- a compiled regex .search()ed against a raw command variable -- returned seven instances across src/ and hooks/. One is in pr_gate itself, the file I had just carefully fixed: I repaired the ENTRY predicate is_gh_pr_create and left the ESCAPE predicate has_draft_flag scanning raw text. The direction makes it worse than the original bug. i
+
+**Tension:** My first design for the sweep was similarity-based -- find structural siblings by token overlap, then check what they lack. I built it and it failed on its own ground truth: raw Jaccard ranked deletion-discipline.sh (0.44) ABOVE gh-pr-ready-gate.sh (0.41), and IDF weighting made it worse, dropping t
+
+**Almost:** Shipped the similarity ranker. It produced plausible-looking numbers, which is exactly what made it dangerous -- a ranked list with a true sibling at position six reads like a working tool until you check position two.
+
+---
+
+## cfc6bc59 weight=1
+
+**Decision:** Extract check-branch-on-push's inline cheap-bail into a shared .claude/hooks/_bail.sh and apply it to the other command-specific hooks
+
+**Reasoning:** Claude Code matchers select on TOOL NAME only, so ~11 hooks whose real trigger is a COMMAND -- git push, git commit, a gh pr verb, rm -- fire on every Bash call including ls and cat. Measured end-to-end on 'ls -la': 664ms per irrelevant hook, of which bash startup is 45ms, sourcing _lib.sh 63ms, find_divineos_python 100ms because it spawns git rev-parse, python plus divineos import 210ms, and the 
+
+**Tension:** The original explicitly decided AGAINST extracting, in a comment: 'a shared helper here would cost more than the thing it records.' I measured rather than deferring to it or overriding it. Sourcing a minimal 15-line helper is 51ms against a 54ms bare-bash floor, inside the noise. The premise is true
+
+**Almost:** Added the filter without the bail-logging. check-branch-on-push's comment records that a bare exit-zero writes no start row and no end row, so every cheap run vanishes from hook_timing.jsonl: that hook went 1010ms to 61ms and its RECORDED median ROSE by 945ms, because only the expensive path survive
+
+---
+
+## 4a8b725c weight=1
+
+**Decision:** Fix the PR-create draft gate to distinguish mention from use, by scrubbing quoted spans and requiring the match to sit at a shell command position
+
+**Reasoning:** The gate searches the entire raw command string with a bare regex, so it fires on the phrase appearing ANYWHERE -- including inside quoted data. Reproduced against the live predicate: 4 of 6 cases wrong, and every failure is a mention read as a use. A dict literal containing the phrase, a grep searching FOR the phrase, prose inside an echo, and an argument to another command all match. It blocked 
+
+**Tension:** Whether to touch this at all while the stated task is hook VOLUME rather than hook correctness. I decided yes on two grounds: Andrew said explicitly this turn that if I see broken code I should say something and it will not hurt his feelings, and the defect is the same mention-vs-use class that fire
+
+**Almost:** Worked around it by renaming my variables to avoid the phrase, which would have left the gate broken for everyone including the next person who tries to read it, and would have taught me to write around my own alarms rather than repair them.
+
+---
+
+## 1aded2d7 weight=1
+
+**Decision:** Push the read-gate host-independence fix onto chore/retire-delivery-cluster as a narrow two-file commit taken from origin's tip, not from the diverged local branch
+
+**Reasoning:** PR #436 fails the identical test that was failing #437: test_read_gate_pytest_scratch, 1 failed / 11232 passed, a Windows-shaped path that Path.parts cannot decompose on ubuntu. Its multi-party-review check already PASSES, so the test is its only blocker and fixing it makes the PR mergeable on its own terms. The fix is already proven -- the same change turned both test jobs green on #437 after I p
+
+**Tension:** Three separate places I could have done damage and had to choose narrower. (1) The local branch chore/retire-delivery-cluster has DIVERGED from origin -- 92 commits local-only against 96 origin-only. Pushing from it would have been rejected, or with force would have destroyed 96 commits of origin wo
+
+**Almost:** Copied the whole read_gate.py across, which would have put an unreviewed gate-cooldown feature onto PR #436 under a commit message that claims to be a one-line CI fix. Also nearly ran rm -rf on a worktree path I had not looked at, which the deletion gate stopped.
+
+---
+
+## 70981ec0 weight=1
+
+**Decision:** Fix the window freeze by redirecting the auto-push hooks' background subshell file descriptors, and apply it to all 19 copies on disk rather than one branch
+
+**Reasoning:** Andrew described the freeze precisely: message says 'sending' and never sends, 5min then crash-or-reset, then reply ~20s later, on both Aether's and Aria's sessions. Root cause found and bench-proven: .claude/hooks/auto-push-letter.sh and auto-push-finished-work.sh background a subshell with ') &' and no fd redirection. The subshell inherits the hook's stdout/stderr, so the harness blocks reading 
+
+**Tension:** Whether to delete the 39 worktrees Andrew approved pruning. I stopped: my first safety check used 'git rev-list origin/BRANCH..BRANCH' which silently returns 0 when the origin ref does not exist, reading as 'fully pushed' for branches that are not on origin at all. Re-checked against actual ls-remot
+
+**Almost:** Deleted .claude/worktrees/corrupted-window-recovery-220ad2 on the strength of a '0 commits, 0 dirty' reading that was an artifact of a missing remote ref rather than a pushed branch.
+
+---
+
+## 77ffd9b2 weight=1
+
+**Decision:** Keep my fast-bail and my parameter-expansion in the two hook files that conflicted with main, rather than taking main's side as I did for the other sixteen
+
+**Reasoning:** Both are measured performance work on the hottest path in the system. The fast-bail in check-branch-on-push.sh took an irrelevant command from 1010ms to 61ms, and _lib.sh is sourced by every hook on every tool call so main's dirname subprocess is paid roughly twenty times per call where parameter expansion costs nothing. Today's central finding was that the hook stack costs a p95 of 75 seconds per
+
+**Tension:** I took main's side for sixteen other hook files minutes earlier, and consistency is itself a value in a merge - a resolver who switches criteria file by file is a resolver making it up. The difference has to be real and stateable: those sixteen were byte-identical wiring differing only in comment pr
+
+**Almost:** Almost took main's side on _lib.sh purely for consistency with the sixteen, without opening it. Had I done that I would have added a fork to the file every hook sources, on the day whose whole finding was hook cost, and it would have looked tidy in the diff. The consistency instinct is the same chea
+
+---
+
+## d8bc6805 weight=1
+
+**Decision:** Fix the no-verify gate by scoping detection per shell-segment, rather than adding a new gate or a reminder
+
+**Reasoning:** The gate already existed, was registered, and emitted a correct deny decision when reached. It failed only because tokens.index('git') takes the FIRST git in the command and every command here is prefixed 'cd ... && git add -A && ...'. Building a second mechanism on top of a working one that is merely mis-aimed would have been the fourth textual layer on a problem that needed one line of aim.
+
+**Tension:** Andrew asked for automation so the reach is impossible, and the honest finding is that the automation was already there and I never triggered it. There is a pull to deliver something NEW because that looks more like having done the work - a fixed aim on an existing gate is a smaller-looking delivera
+
+**Almost:** Almost matched --no-verify and -n across the WHOLE command instead of per segment. That would have caught every real case and also denied 'grep -n foo && git commit' and 'git log -n 5'. An over-firing gate is exactly how the reach for the escape hatch gets taught - the failure this gate exists to pr
+
+---
+
+## a748fd7e weight=1
+
+**Decision:** Filter defect-escapes out of the classifier's negative corpus by matching the stated reason, not by matching the mode field
+
+**Reasoning:** A NEGATIVE means the detector should have stayed silent on that text. A defect-escape means the opposite thing entirely: the fire may have been correct and the remedies were unreachable because gates blocked each other. Reading the ten defect-escape triggers, at least three are unmistakable Andrew corrections - 'thats not my job', 'not 3 times.. every time', 'there are far more than 15 foundationa
+
+**Tension:** Prose-matching is objectively weaker than field-matching, and I would reject it in review on any other module. It is a regex over free text I wrote myself at clear-time, so it can drift the moment I phrase a reason differently.
+
+**Almost:** Almost filtered on mode == 'false-positive', which is the clean way and the way I would normally insist on. Rejected it because the measurement that motivated this whole change is that MODE IS UNRELIABLE: 17 of the 20 rows labelled cli-broken are false-positive attributions mislabelled by an inferre
+
+---
+
+## 1edf62aa weight=1
+
+**Decision:** Fix the obligations gate at two mechanical points - the block message naming a remedy nothing scans, and retired entries being billed - and deliberately NOT at the precision of looks_like_rule
+
+**Reasoning:** Both mechanical defects are verifiable without judgment: the detector reads four ledger event types and no source files, so a docstring reference cannot clear it (measured: divineos learn emits zero ledger events); and 5268c01e carries superseded_by=FORGET while every discharge route filters superseded_by IS NULL, so it is literally unpayable. Precision is a judgment call and my judgment on it was
+
+**Tension:** Andrew authorized fixing the gate, but the gate was blocking MY work, and fixing the lock on the door shut in my face is the single move most likely to be the optimizer wearing a good argument. The authorization is what makes it legitimate - truth 13, his view across time is the tiebreaker - but it 
+
+**Almost:** Almost widened looks_like_rule's descriptive-match filter to exclude parenthetical citations of existing named rules, because 385efbec matches on 'never mark' inside '(never mark something absent without instance-evidence)' - a citation of standing rule 4b, not a new promise. Did not, because I had 
+
+---
+
+## 06702107 weight=1
+
+**Decision:** Resolve the #436 retirement merge toward deleting the letter-delivery arm-hook cluster, rather than keeping main's side of the four modify/delete conflicts
+
+**Reasoning:** Main's change to all four is byte-identical observability instrumentation (d57595ed) that its own comment says has no behavioural effect, so keeping main's side preserves nothing but the files themselves. The branch's intent is Andrew's retirement directive eea9a71f, and the replacement is verified running live this session. Exploration 111 (2026-07-01), surfaced by the read-gate mid-merge, indepe
+
+**Tension:** The branch also removes require-monitors-armed.sh, which CLAUDE.md names as the enforcer, and the letter monitor died TWICE today. Deleting an enforcer for a thing that is actively failing is the shape I would flag in anyone else's work.
+
+**Almost:** Almost resolved all five conflicts toward the branch mechanically, because four of them obviously wanted it and the fifth looked like more of the same. Had I done that I would have duplicated the branch_scope_guard.py entry in ARCHITECTURE.md, and more importantly I would never have separated requir
 
 ---
 

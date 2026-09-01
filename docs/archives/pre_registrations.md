@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (200 rows). **Exported:** 2026-08-31 16:22. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (196 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1744,7 +1744,7 @@
 
 ---
 
-## prereg-b [INCONCLUSIVE]
+## prereg-b [OPEN]
 
 **Mechanism:** auto-cycle-token-trigger
 
@@ -1756,7 +1756,7 @@
 
 ---
 
-## prereg-d [SUCCESS]
+## prereg-d [OPEN]
 
 **Mechanism:** TRIGGER_THRESHOLD lowered 0.85 to 0.82 in auto_cycle.py
 
@@ -1768,7 +1768,7 @@
 
 ---
 
-## prereg-4 [DEFERRED]
+## prereg-4 [OPEN]
 
 **Mechanism:** core/watchmen/export.py: exporting audit rounds to docs/audit_rounds/<id>.md makes the review readable off-machine and round-existence verifiable by CI without a database
 
@@ -2353,54 +2353,6 @@
 **Success:** The sibling walk count never equals this ceiling, and the station's own line reports the counts it compared, so a reader can see the scope rather than trust it. Measured now: one hundred and three walks on the other seat, nowhere near the bound.
 
 **Falsifier:** TWO ways, and the first is the one I would rationalise past. (1) The reported count ever equals this ceiling -- that means it bound, the corpus was truncated, and the number shown is the cap rather than the evidence. The response is to raise it or reconsider the design, NEVER to soften the message. 
-
----
-
-## prereg-d [OPEN]
-
-**Mechanism:** sibling council walks: reading the other seat's walk store makes its absence distinguishable from its unreachability, without ever letting one seat's walk satisfy the other seat's gate
-
-**Claim:** Station two currently reports 'no lenses walked' identically whether the other seat walked nothing or their store is simply unreachable from this seat. Making the other seat's walks readable turns that single answer into two: 'none' when the store was read and held nothing, 'cannot determine' when i
-
-**Success:** The board distinguishes none from cannot-determine for the other seat's walks, and says which, in the station line itself rather than in a log.
-
-**Falsifier:** ANY path by which a sibling's walk moves a station from unsatisfied to satisfied for the other seat. Also falsified if a malformed or absent store yields 'none' rather than 'cannot determine' -- that is the could-not-look-reported-as-all-clear shape this module exists to remove, reappearing inside t
-
----
-
-## prereg-2 [OPEN]
-
-**Mechanism:** obligations detector reads the knowledge store, so the one command the gate permits can actually clear it
-
-**Claim:** Adding a knowledge-store path to the structural-backing detector gives the obligations gate a working exit that is reachable from a command the gate does not block, without lowering the evidence bar
-
-**Success:** At least one obligation is cleared by a divineos learn entry naming the promise id and a structural word, and fire-door uses on the correction-marker and obligations classes stop accumulating
-
-**Falsifier:** Obligations start clearing on entries that merely MENTION a promise without structure behind them, or the pending count drops without any code plus test having been written -- either means the store path is a softer bar than the event path rather than the same bar in a reachable place
-
----
-
-## prereg-3 [OPEN]
-
-**Mechanism:** checkpoint sweep commits only declared substrate, and only onto the substrate branch by plumbing
-
-**Claim:** Splitting the checkpoint sweep by declaration -- substrate to its own branch through a scratch index, work in progress left untouched on HEAD -- ends the branch-blind contamination without losing the work-preservation the sweep exists for
-
-**Success:** No further occurrence of substrate landing on a code proposal branch, and no further occurrence of authored source files being absorbed into a generic checkpoint commit; the occurrence count stops at eight
-
-**Falsifier:** Either (a) a letter or other declared substrate is lost because the sweep refused and nobody noticed, which would mean refusal-without-fallback traded a loud bug for a quiet one, or (b) work in progress still reaches a branch, which would mean the declaration is too wide or the classifier is being b
-
----
-
-## prereg-5 [OPEN]
-
-**Mechanism:** round-export CI verification, re-registered after prereg-4a7843721c3a was deferred unverified
-
-**Claim:** SUPERSEDES prereg-4a7843721c3a, which I deferred because the overdue-prereg gate blocked the very tool use its falsifiers require -- it refused its own show command, refused the overdue listing its refusal message prescribes, and refused importing the module under test. The defer cleared the gate; I
-
-**Success:** On any single invocation, all four remain true: (1) store unreachable, exported round -> True; (2) store unreachable, non-exported round -> None, never False and never True; (3) a round id containing a path separator or traversal -> False, never True; (4) an exported round file contains actor, sever
-
-**Falsifier:** Any one of the four above failing on any single run. AND the one I am NOT claiming clear, carried forward explicitly rather than folded into a pass: that the export is treated somewhere as AUTHORIZATION rather than as a readable record. I verified only that the definition site disclaims it -- its do
 
 ---
 
