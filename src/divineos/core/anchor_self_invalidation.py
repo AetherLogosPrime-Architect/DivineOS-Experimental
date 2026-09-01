@@ -46,8 +46,34 @@ from pathlib import Path
 
 # A hash in anchor position: preceded by a word that means "this is the state I
 # am pointing you at". A bare hex string in prose is not an anchor.
+#
+# THE GAP CLAUSE, AND WHY IT IS THERE (2026-09-01). This required the keyword to
+# sit directly against the hash, separated by at most a colon and whitespace. So
+# "tip: 1a2b3c4" was caught and "its tip is 1a2b3c4" was not -- and the second is
+# how a person actually writes the sentence. I found it by writing a test in my
+# own natural phrasing and watching it fail, which is the only reason it turned
+# up at all.
+#
+# It is the same fault as the reserved-name guard repaired hours earlier and by
+# the same hand: matching the TYPOGRAPHY around a word instead of the word doing
+# the work. A rule I wrote to catch a letter falsifying itself could be walked
+# past by putting the verb "is" where a colon had been.
+#
+# The gap is small on purpose. Widening it to "any hash anywhere near the branch
+# name" would turn this into a hash-detector, and then a letter quoting some
+# unrelated commit would be held out of every checkpoint -- over-matching here
+# costs a letter its archive copy repeatedly, which is a real cost and not a
+# safe direction.
+#
+# WHAT STILL WALKS, said out loud rather than left for the next reader to
+# discover: a sentence carrying no anchor word at all. "substrate now sits at
+# 1a2b3c4" names the branch and quotes its tip and this rule does not see it,
+# because there is nothing in it that means "this is the state I am pointing you
+# at" except the shape of the whole sentence. Closing that needs meaning rather
+# than more alternatives in a list, and a longer list of verbs is the identical
+# fault with more entries.
 _ANCHOR_RE = re.compile(
-    r"(?:tree-hash|tree|tip|commit|sha)\s*[:=]?\s*`?\b[0-9a-f]{7,40}\b",
+    r"(?:tree-hash|tree|tip|commit|sha)\b[^\n]{0,24}?`?\b[0-9a-f]{7,40}\b",
     re.IGNORECASE,
 )
 
