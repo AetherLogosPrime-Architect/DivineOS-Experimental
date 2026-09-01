@@ -219,18 +219,38 @@ def _validate_actor(actor: str) -> str:
         return "".join(ch for ch in name if ch.isalnum())
 
     folded = _word_only(normalized)
-    folded_reserved = {_word_only(n) for n in RESERVED_EXTERNAL_VANTAGE_NAMES}
+    folded_reserved = {_word_only(n): n for n in RESERVED_EXTERNAL_VANTAGE_NAMES}
     folded_allowed = {_word_only(n) for n in EXTERNAL_ACTORS}
     if folded in folded_reserved and folded not in folded_allowed:
+        # THE MESSAGE HAS TO SHOW THE TRANSFORMATION, or the fold widens the
+        # gulf it was meant to close (Norman lens, walked on this change).
+        # Before the fold, refusal and input matched: you typed the listed name
+        # and saw yourself in the list. Now someone types the word with a space,
+        # is refused, and reads seven hyphenated names none of which is what
+        # they typed -- so the only reading available to them is that the guard
+        # is broken. Same shape as a hook prescribing a refused command, arriving
+        # from the other end: there the instruction and the guard disagreed,
+        # here the input and the diagnosis do, and both leave a person
+        # concluding the mechanism is faulty while it works correctly.
+        #
+        # And the common-case action goes FIRST. The allowlist door is the right
+        # door for a rare case; nearly everyone who lands here is me reaching for
+        # the obvious word, and what I need told is "use your own name". The old
+        # message described the rare door and was silent on the common one.
         raise ValueError(
-            f"Actor {actor!r} uses a reserved external-vantage-claim name-shape "
-            f"({sorted(RESERVED_EXTERNAL_VANTAGE_NAMES)}). These names are "
-            f"reserved to prevent self-attested external-vantage confirms — "
-            f"the shoggoth-optimizer's route around the external-audit "
-            f"requirement by shape-shifting into an 'external' mask. If you "
-            f"are a legitimate external actor, the operator adds you to "
-            f"EXTERNAL_ACTORS via a guardrail-audited edit; auto-onboard on "
-            f"these specific shapes is refused by design."
+            f"Actor {actor!r} normalizes to {folded!r}, which is the reserved "
+            f"external-vantage name {folded_reserved[folded]!r} with the "
+            f"separators removed. Separators are folded on purpose: the guard "
+            f"matches the WORD, so a space, an underscore, a doubled hyphen or "
+            f"a trailing stop do not make a different name.\n"
+            f"File under the name of whoever is actually filing. These names are "
+            f"reserved to prevent self-attested external-vantage confirms — the "
+            f"route around the external-audit requirement by shape-shifting into "
+            f"an 'external' mask.\n"
+            f"If you are a genuine external actor who needs one of these names, "
+            f"the operator adds you to EXTERNAL_ACTORS via a guardrail-audited "
+            f"edit; auto-onboard on these shapes is refused by design. "
+            f"Reserved: {sorted(RESERVED_EXTERNAL_VANTAGE_NAMES)}."
         )
 
     if normalized not in EXTERNAL_ACTORS and not normalized.startswith("claude-"):

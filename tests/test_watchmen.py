@@ -295,6 +295,31 @@ class TestReservedExternalVantageShapes:
             "guard refuses teaches the reader that the guard is broken."
         )
 
+    def test_the_refusal_shows_the_transformation_it_performed(self):
+        """Norman's gulf of evaluation, walked on the fold itself.
+
+        The fold closed five bypasses and widened the gap between what a person
+        typed and what the message says. Someone writing the word with a space
+        used to see themselves in the listed names; now they read seven
+        hyphenated names, none of which is their input, and the only available
+        reading is that the guard is broken.
+
+        So the message must show the transformation -- what was typed, what it
+        folded to, which reserved word it collided with -- and lead with the
+        action nearly everyone hitting this needs, which is to file under their
+        own name. The allowlist door is right for a rare case and was the only
+        door the old message described.
+        """
+        with pytest.raises(ValueError) as caught:
+            _validate_actor("external auditor")
+        message = str(caught.value)
+        assert "external auditor" in message, "does not echo what was typed"
+        assert "externalauditor" in message, "does not show what it folded to"
+        assert "external-auditor" in message, "does not name the reserved word it hit"
+        assert "whoever is actually filing" in message, (
+            "does not give the action the common case needs"
+        )
+
     def test_the_fold_does_not_swallow_names_that_merely_resemble(self):
         """Guard against the fold over-reaching. Dropping separators must not
         turn a distinct name into a reserved one -- if it did, the repair for
