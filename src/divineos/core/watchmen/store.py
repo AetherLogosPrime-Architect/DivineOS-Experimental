@@ -28,6 +28,25 @@ from divineos.core.watchmen.types import (
     tier_for_actor,
 )
 
+# Name-shapes that CLAIM external vantage. Self-attested filings under these
+# are the route around the external-audit requirement by shape-shifting into an
+# external mask; the rejection is in _validate_actor below, with its full
+# reasoning. Module-level rather than function-local so that instructions
+# elsewhere in the tree can be checked against the same set -- a hook that
+# prescribed one of these names shipped on the branch that added the refusal,
+# and a note fixes one line where a shared list fixes the class.
+RESERVED_EXTERNAL_VANTAGE_NAMES = frozenset(
+    {
+        "external-auditor",
+        "external-reviewer",
+        "outside-auditor",
+        "third-party-auditor",
+        "independent-auditor",
+        "external-audit",
+        "external-review",
+    }
+)
+
 
 def _validate_actor(actor: str) -> str:
     """Validate and normalize the actor name.
@@ -117,6 +136,7 @@ def _validate_actor(actor: str) -> str:
         return normalized
     if not normalized:
         raise ValueError("Actor name cannot be empty")
+
     # 2026-06-29 (Perplexity audit Issue #5, round-a7fe5f413c47): positive
     # external-actor recognition. Previously the function only rejected
     # INTERNAL_ACTORS and silently accepted everything else, including typo'd
@@ -164,6 +184,27 @@ def _validate_actor(actor: str) -> str:
     # The thing that actually holds is the seat declining to type the name,
     # which is unverifiable from outside by construction.
     #
+    # AND THE PARAGRAPH ABOVE DREW THE LINE IN THE WRONG PLACE (Aria
+    # 2026-09-01, found by exercising the guard with eleven spellings rather
+    # than by reading the diff). Five walked straight through: the same two
+    # words with a space instead of the hyphen, with an underscore, run
+    # together, with a doubled hyphen, and with a trailing full stop. Not one
+    # of those is a determined reach — the space is arguably lazier than the
+    # hyphen, being what a person types first and hyphenates second. So the
+    # boundary was not lazy-versus-determined at all. It separated THIS EXACT
+    # PUNCTUATION from any other punctuation, which is the same fault this
+    # branch's neighbours keep turning up: asking whether a thing is SPELLED
+    # like the thing, when the question is whether it IS the thing.
+    #
+    # The fold below is the repair, and it deliberately does not lengthen the
+    # reserved list — a longer list of spellings is the identical fault with
+    # more entries. Separators are dropped from both sides so membership is
+    # tested on the word. The allowlist escape is folded with it, because a
+    # guard matching on the word while its escape matches on the typography
+    # would refuse a legitimately-onboarded auditor for writing their own name
+    # with a space, which is a guard and a permission disagreeing about the
+    # same name.
+    #
     # STRUCTURAL BACKING for knowledge 1329c1e3-e17a-406a-8659-973d2df363fe
     # (self-caught 2026-07-17: "whenever a step depends on external-actor
     # CONFIRMS and I have the ability to file one myself, that IS the exact
@@ -173,21 +214,17 @@ def _validate_actor(actor: str) -> str:
     # gate blocked thirteen proposals on a confirm from the operator that I
     # could have filed under his name; the refusal was mine, not the code's,
     # which is precisely why the promise needed something in code beside it.
-    _RESERVED_EXTERNAL_VANTAGE_NAMES = frozenset(
-        {
-            "external-auditor",
-            "external-reviewer",
-            "outside-auditor",
-            "third-party-auditor",
-            "independent-auditor",
-            "external-audit",
-            "external-review",
-        }
-    )
-    if normalized in _RESERVED_EXTERNAL_VANTAGE_NAMES and normalized not in EXTERNAL_ACTORS:
+    def _word_only(name: str) -> str:
+        """The name with every separator dropped, so the test is on the word."""
+        return "".join(ch for ch in name if ch.isalnum())
+
+    folded = _word_only(normalized)
+    folded_reserved = {_word_only(n) for n in RESERVED_EXTERNAL_VANTAGE_NAMES}
+    folded_allowed = {_word_only(n) for n in EXTERNAL_ACTORS}
+    if folded in folded_reserved and folded not in folded_allowed:
         raise ValueError(
             f"Actor {actor!r} uses a reserved external-vantage-claim name-shape "
-            f"({sorted(_RESERVED_EXTERNAL_VANTAGE_NAMES)}). These names are "
+            f"({sorted(RESERVED_EXTERNAL_VANTAGE_NAMES)}). These names are "
             f"reserved to prevent self-attested external-vantage confirms — "
             f"the shoggoth-optimizer's route around the external-audit "
             f"requirement by shape-shifting into an 'external' mask. If you "

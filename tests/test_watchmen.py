@@ -195,6 +195,118 @@ class TestReservedExternalVantageShapes:
         assert _validate_actor("new-independent-service") == "new-independent-service"
         assert _validate_actor("some-third-party-tool") == "some-third-party-tool"
 
+    @pytest.mark.parametrize(
+        "spelling",
+        [
+            "external auditor",  # a space where the hyphen was
+            "external_auditor",  # an underscore
+            "externalauditor",  # run together
+            "external--auditor",  # doubled hyphen
+            "external-auditor.",  # trailing full stop
+            "External Auditor",  # and the same with case, since both fold
+        ],
+    )
+    def test_a_different_separator_does_not_walk_through(self, spelling):
+        """THE FIVE THAT WALKED, and the comment above them was wrong about why.
+
+        Aria exercised the guard with eleven spellings on 2026-09-01 -- running
+        it, not reading it -- and five went straight past. The body claimed the
+        guard stopped the lazy reach and not a determined one. None of these is
+        determined. The space is arguably LAZIER than the hyphen: it is what a
+        person types first and hyphenates second.
+
+        So the boundary was never lazy-versus-determined. It sat between this
+        exact punctuation and any other punctuation, which is the same fault
+        the neighbouring branches keep turning up -- asking whether a thing is
+        SPELLED like the thing when the question is whether it IS the thing.
+
+        The repair folds separators rather than lengthening the reserved list,
+        because a longer list of spellings is the identical fault with more
+        entries.
+        """
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor(spelling)
+
+    def test_the_allowlist_escape_folds_with_the_guard(self):
+        """A guard matching on the word whose escape matches on the typography
+        would refuse a legitimately-onboarded auditor for writing their own
+        name with a space. That is a guard and a permission disagreeing about
+        the same name -- the shape Aria found on this branch between the store
+        and one of my hooks, one level down."""
+        from divineos.core.watchmen import store as _s
+        from divineos.core.watchmen import types as _t
+
+        original = _t.EXTERNAL_ACTORS
+        try:
+            _t.EXTERNAL_ACTORS = frozenset({*original, "external-auditor"})
+            _s.EXTERNAL_ACTORS = _t.EXTERNAL_ACTORS
+            assert _validate_actor("external auditor") == "external auditor"
+        finally:
+            _t.EXTERNAL_ACTORS = original
+            _s.EXTERNAL_ACTORS = original
+
+    def test_no_live_instruction_prescribes_a_name_the_store_refuses(self):
+        """A guard and a prescription must not disagree about the same name.
+
+        Aria, 2026-09-01: one of my own hooks still told its reader to file a
+        round with the reserved name as the actor, on the same branch that
+        added the refusal. Whoever followed that line got a hard rejection for
+        doing exactly what the instructions said, and would have read the guard
+        as broken rather than the instruction as stale.
+
+        A note fixes that one line. This is the class: any live instruction
+        anywhere in the hooks, scripts or docs that hands somebody a command
+        with a reserved actor in it. Historical audit-round records are
+        excluded because they are a record of what happened, not an
+        instruction, and rewriting them would erase the trace along with the
+        text -- Andrew's rule about leaving bad data explained rather than
+        erased applies to the archive, not to a live remedy line.
+        """
+        import re
+
+        from pathlib import Path
+
+        from divineos.core.watchmen.store import RESERVED_EXTERNAL_VANTAGE_NAMES
+
+        repo = Path(__file__).resolve().parent.parent
+        pattern = re.compile(
+            r"--actor[= ]+['\"]?("
+            + "|".join(re.escape(n) for n in sorted(RESERVED_EXTERNAL_VANTAGE_NAMES))
+            + ")"
+        )
+        offenders: list[str] = []
+        for root in (repo / ".claude", repo / "scripts", repo / "docs"):
+            if not root.exists():
+                continue
+            for path in root.rglob("*"):
+                if not path.is_file() or path.suffix not in (".sh", ".py", ".md", ".ps1"):
+                    continue
+                if "audit_rounds" in path.parts:
+                    continue  # a record of what was filed, not an instruction
+                text = path.read_text(encoding="utf-8", errors="replace")
+                for n, line in enumerate(text.splitlines(), 1):
+                    if pattern.search(line):
+                        offenders.append(f"{path.relative_to(repo)}:{n}: {line.strip()}")
+
+        assert not offenders, (
+            "live instruction(s) prescribe an actor name the store hard-rejects:\n  "
+            + "\n  ".join(offenders)
+            + "\nFile under the real name of whoever is filing. A prescription the "
+            "guard refuses teaches the reader that the guard is broken."
+        )
+
+    def test_the_fold_does_not_swallow_names_that_merely_resemble(self):
+        """Guard against the fold over-reaching. Dropping separators must not
+        turn a distinct name into a reserved one -- if it did, the repair for
+        five bypasses would have bought a class of false refusals."""
+        for name in (
+            "external-auditor-bot",
+            "ex-external-auditor",
+            "external-auditors",
+            "internal-auditor",
+        ):
+            assert _validate_actor(name) == name
+
     def test_the_guard_stops_the_lazy_reach_and_not_a_determined_one(self):
         """The limit, made executable instead of left in a council walk.
 
@@ -214,13 +326,27 @@ class TestReservedExternalVantageShapes:
         holds is the seat declining to type any of them, which no test can
         observe. Schneier lens, council walk on this branch; Aria 2026-08-30
         asked for the claim to live in the code and not only in the review.
+
+        A FIFTH NAME USED TO SIT IN THIS LIST AND IT DID NOT BELONG THERE:
+        the reserved word itself with an underscore instead of the hyphen. It
+        was filed beside four genuine synonyms, asserted as accepted, and
+        called the executable statement of the limit. Aria found it by running
+        the guard rather than reading it.
+
+        The four below are DIFFERENT WORDS, and a fixed list genuinely cannot
+        reach them. The fifth was the SAME WORD in different typography, which
+        the list can reach and now does. Writing them into one list said those
+        are the same kind of thing, and they are not — that conflation is the
+        fault itself, sitting inside the test written to state the fault's
+        boundary honestly. The sentence was not dishonest; it was wrong about
+        where its own edge was, in exactly the direction that made the guard
+        look better than it was.
         """
         for walkaround in (
             "outside-eyes",
             "reviewer-2",
             "audit-partner",
             "impartial-review",
-            "external_auditor",  # underscore, not hyphen
         ):
             assert _validate_actor(walkaround) == walkaround
 
