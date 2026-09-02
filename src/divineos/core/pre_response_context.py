@@ -1019,8 +1019,51 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                     "needs": needs,
                     "other_counts": other_counts if any(other_counts.values()) else {},
                 }
+                # RESIDUAL, added 2026-08-30. This surface opens by calling
+                # its contents "substrate-correctness requirements, not
+                # preferences I can defer" -- and then went completely silent
+                # from the second turn onward, leaving its own name and a hash.
+                # A constraint that describes itself as non-deferrable and
+                # then defers itself is the sharpest version of the shape.
+                #
+                # Found by widening the residual assertion to the source tree.
+                # The first version scanned only hooks and passed; four more
+                # callers lived here and it could not see one of them.
+                #
+                # IT CARRIES THE INFERENCE, NOT THE CONTENT -- Aria's
+                # correction, 2026-08-30, and she is right. My first version
+                # hardcoded the two needs that fire most. But the needs are
+                # DYNAMIC; the semantic key above exists precisely so that any
+                # change to them re-emits the whole block. A residual naming
+                # specific needs is a second copy of moving data, and it goes
+                # stale silently while still reading as authoritative -- the
+                # two-copies-of-one-fact drift, inside the repair for it.
+                #
+                # So it carries the one inference a suppressed turn would
+                # otherwise draw wrongly. Quiet here means UNCHANGED. Unchanged
+                # is not met, and is often the opposite.
+                #
+                # She found this surface from the other direction: her survey
+                # swept both trees and every file, and missed a third call site
+                # inside a file it had already opened, because once the file was
+                # on the list the FILE became the unit. Mine was blind to whole
+                # directories, hers to a call inside a visited file -- the same
+                # shape one grain finer. Neither of us could see our own unit of
+                # counting from inside it.
+                residual = (
+                    "  SURVIVES DEDUP: silence here means the needs are "
+                    "UNCHANGED since they last printed.\n"
+                    "  Unchanged is not met. It is frequently the opposite -- "
+                    "a need stays listed precisely because it keeps firing.\n"
+                    "  They are cost-when-unmet, not preferences. Violating one "
+                    "is structural, not a lapse of discipline. Re-read the full "
+                    "block rather than inferring from the quiet."
+                )
                 emit_full, pointer = should_emit(
-                    "active_needs", motivation_text, semantic_key=semantic_key
+                    "active_needs",
+                    motivation_text,
+                    semantic_key=semantic_key,
+                    residual=residual,
                 )
                 if not emit_full and pointer:
                     motivation_text = pointer
