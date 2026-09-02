@@ -237,6 +237,13 @@ def register(cli: click.Group) -> None:
         operation without metaphor. See principle ca2116d5 and opinion
         op-a175acdb297d for the naming rationale.
         """
+        # `force` is accepted and deliberately does nothing -- kept so existing
+        # callers and docs do not break after the thing it overrode was removed.
+        # Named here rather than left silently unbound, because a dead-code
+        # check reading only the body cannot tell a compatibility no-op from a
+        # parameter someone forgot to wire, and the two want opposite repairs.
+        del force
+
         import os
         from pathlib import Path
 
@@ -280,6 +287,19 @@ def register(cli: click.Group) -> None:
                         f"{result.files_synced} external files synced.",
                         fg="green",
                     )
+                elif result.substrate_refused:
+                    # Loud, because this is the half that used to report
+                    # success. Substrate that reaches no branch is invisible
+                    # to the next session unless someone is told now.
+                    click.secho(
+                        f"[!] Auto-commit (pre-extract): {result.reason}",
+                        fg="yellow",
+                    )
+                    if result.work_committed:
+                        click.secho(
+                            "    Unfinished work IS saved on HEAD. The substrate is not.",
+                            fg="yellow",
+                        )
                 elif result.reason.startswith(("git add failed", "git commit failed")):
                     # Auto-commit failed; fall back to old block-behavior so
                     # work isn't lost silently.
@@ -456,6 +476,11 @@ def register(cli: click.Group) -> None:
                             f"{result.dirty_lines} dirty lines, "
                             f"{result.files_synced} external files synced.",
                             fg="green",
+                        )
+                    elif result.substrate_refused:
+                        click.secho(
+                            f"[!] Auto-commit (post-extract): {result.reason}",
+                            fg="yellow",
                         )
                 except Exception as e:  # noqa: BLE001 — fail-soft
                     logger.warning("post-extract auto-commit skipped: %s", e)
