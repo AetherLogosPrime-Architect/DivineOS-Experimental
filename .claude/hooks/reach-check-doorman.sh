@@ -87,7 +87,28 @@ RESEARCH_DIR = "docs/ai_research/"
 if "divineos reach" in haystack:
     sys.exit(0)
 
-is_store_write = any(v in haystack for v in STORE_WRITES)
+# A WRITE IS A COMMAND WHOSE HEAD IS A WRITE, not a command whose TEXT
+# contains the words. Until 2026-09-01 this was a substring search over the
+# whole command, so a test script that FED the words "divineos learn" to a
+# rule as data was stopped as if it were about to store a lesson, and a grep
+# for those words would have been too. Aether hit it reproducing a finding
+# of mine and handed it back as the thirteenth instrument of the day
+# recognising a thing by its letters rather than by what it is about to do.
+#
+# Each shell segment is resolved to its real head -- env assignments and a
+# leading cd stripped, quoting respected -- and only a head that IS one of
+# the store writes counts. Split on the operators so a write hiding behind
+# a harmless first command still fires; a doorman that could be walked past
+# with a leading `true &&` would be decoration.
+import re
+from divineos.core.command_parsing import resolve_command_head
+
+def _segment_heads(cmd):
+    for seg in re.split(r"\s*(?:&&|\|\||;|\|)\s*", cmd):
+        if seg.strip():
+            yield resolve_command_head(seg)
+
+is_store_write = any(h in STORE_WRITES for h in _segment_heads(command))
 is_research_write = RESEARCH_DIR in haystack and tool_name in ("Write", "Edit")
 if not (is_store_write or is_research_write):
     sys.exit(0)
