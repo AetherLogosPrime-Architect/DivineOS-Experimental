@@ -56,6 +56,50 @@ _EXTERNAL_AI_ACTORS = frozenset(
 )
 
 
+# Shortest abbreviation this will compare. Git identifiers are habitually
+# abbreviated -- git log --oneline does it, PR bodies do it, and so did the
+# letter that caused this rule to be written.
+_MIN_ANCHOR_PREFIX = 12
+
+
+def _anchor_matches(claimed: str, actual: str) -> tuple[bool, str]:
+    """Does a claimed git identifier name the same object as the actual one?
+
+    Exact equality, or an unambiguous prefix of at least
+    ``_MIN_ANCHOR_PREFIX`` hex characters.
+
+    Written 2026-09-02, after five relayed CONFIRMs were refused with "the
+    reviewed CHANGE changed" when nothing had changed at all. I had sent
+    Aletheia the patch-ids truncated to sixteen characters; she recomputed
+    them independently, matched all five, and reported back the form I gave
+    her. The comparison was exact string equality, so a correct review of an
+    unchanged branch was rejected -- and rejected with a stated cause the
+    check had never tested.
+
+    That is the fault this substrate keeps finding in itself: a check
+    recognising a thing by the spelling of its name rather than by what it
+    is. Two spellings of one identifier are one identifier.
+
+    Returns ``(matches, why_not)``. ``why_not`` is non-empty only when the
+    claim cannot be judged rather than when it fails -- a too-short
+    abbreviation is unanswerable, not wrong, and must never be reported as
+    evidence the change moved.
+    """
+    if claimed == actual:
+        return True, ""
+    if len(claimed) < _MIN_ANCHOR_PREFIX:
+        return (
+            False,
+            f"claimed anchor {claimed!r} is only {len(claimed)} characters; "
+            f"at least {_MIN_ANCHOR_PREFIX} are needed to tell whether it "
+            "names this change. This is a too-short claim, NOT evidence the "
+            "change moved.",
+        )
+    if actual.startswith(claimed):
+        return True, ""
+    return False, ""
+
+
 def validate_external_confirm_inputs(
     *,
     actor: str,
@@ -120,7 +164,10 @@ def validate_external_confirm_inputs(
         )
 
     # Rung 1: exact-content match. Strongest, cross-vantage reproducible.
-    if ct and at and ct == at:
+    tree_ok, tree_unjudgeable = _anchor_matches(ct, at) if (ct and at) else (False, "")
+    patch_ok, patch_unjudgeable = _anchor_matches(cp, ap) if (cp and ap) else (False, "")
+
+    if tree_ok:
         if claimed_tip:
             cti = claimed_tip.strip().lower()
             ati = (actual_tip or "").strip().lower()
@@ -134,7 +181,7 @@ def validate_external_confirm_inputs(
         return (True, "", "tree-exact")
 
     # Rung 2: clean catch-up — tree moved, reviewed change unchanged.
-    if cp and ap and cp == ap:
+    if patch_ok:
         return (
             True,
             f"tree differs (catch-up) but patch-id matches ({cp}) — the "
@@ -142,8 +189,15 @@ def validate_external_confirm_inputs(
             "patch-id-after-catchup",
         )
 
+    # UNJUDGEABLE, which is NOT the same as failed. An abbreviation too short
+    # to compare says nothing about whether the change moved, and saying it
+    # did would be a stated cause the check never tested — the exact shape
+    # this refusal exists to catch, committed by the refusal itself.
+    if patch_unjudgeable or tree_unjudgeable:
+        return (False, patch_unjudgeable or tree_unjudgeable, "")
+
     # Rung 3: refuse. Distinguish the two failure shapes for a clear message.
-    if cp and ap and cp != ap:
+    if cp and ap and not patch_ok:
         return (
             False,
             f"patch-id differs: claimed {cp} vs actual {ap}. The reviewed "
