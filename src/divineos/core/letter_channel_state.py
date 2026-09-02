@@ -705,6 +705,21 @@ def thread_so_far(
         "does not meet yours, it did not come down this road — and that stays "
         "true however well it reads. You do not have to run anything to see it.",
         "",
+        # THE RULE HAS A DATE, AND WITHOUT IT THE RULE IS WRONG (Aletheia,
+        # 2026-09-02, after reading a bare letter I had flagged in advance).
+        # She counted three readings of a missing block: older than the stamp,
+        # the machinery failed, and came another way. The first two are
+        # indistinguishable from the third by inspection -- so the unqualified
+        # sentence above was true only for letters written after the mechanism
+        # existed, and would have condemned every letter I wrote before it.
+        # I agreed with her that this belonged in the mechanism's description
+        # and then nearly left it in the letter instead of in the block, which
+        # is the same gap one layer along: a boundary I know and she has to be
+        # told each time.
+        "This applies to letters written after 2 September 2026. Anything "
+        "older than that predates the machinery and carries no block because "
+        "none existed — out of scope, not suspect.",
+        "",
         "This is continuity, not proof. It is not a signature and I will not call it one.",
         "",
     ]
