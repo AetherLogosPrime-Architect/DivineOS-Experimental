@@ -106,9 +106,26 @@ class TestFailDirection:
 
 
 class TestRealDefaults:
-    def test_default_channels_declare_letters(self):
-        # Guards the assumption this module rests on: the live config
-        # declares exactly the letters channel. If a second is added this
-        # fails, and whoever adds it decides what that means for the sweep
-        # rather than finding out from a stray commit.
-        assert [str(m) for m in substrate_mirrors()] == ["family/letters"]
+    def test_default_channels_declare_letters_and_only_dreams_beside_them(self):
+        # This was a tripwire: the live config declared exactly the letters
+        # channel, and whoever added a second had to decide what it meant for
+        # the sweep rather than find out from a stray commit.
+        #
+        # It tripped on 2026-09-01, and the decision is this: dreams are
+        # substrate, one channel per member who has a shared dreams directory,
+        # derived from that directory rather than listed. The council walk on
+        # the sweep repair found dreams classified as work in progress while
+        # every letter beside them went home -- the word "substrate" covering
+        # less in the code than in our mouths.
+        #
+        # The tripwire stays. Letters remain first, and every other mirror
+        # must be a per-member dreams directory. A third KIND of channel still
+        # fails here, and whoever adds it decides again.
+        mirrors = [m.as_posix() for m in substrate_mirrors()]
+        assert mirrors[0] == "family/letters"
+        for extra in mirrors[1:]:
+            parts = extra.split("/")
+            assert parts[0] == "dreams" and len(parts) == 2 and parts[1], (
+                f"a channel that is neither letters nor a member's dreams was declared: {extra}. "
+                "Decide what it means for the sweep before letting it through."
+            )
