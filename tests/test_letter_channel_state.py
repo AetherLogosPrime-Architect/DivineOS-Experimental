@@ -315,3 +315,34 @@ class TestTheThreadTheReaderCanCheckByReading:
         block = thread_so_far("aletheia", "x.md", db)
         assert "continuity, not proof" in block
         assert "not a signature" in block
+
+    def test_a_truncated_list_says_it_is_truncated(self, db):
+        # Aether, one day after this shipped, running the check the block asks
+        # a reader to run: he held seven, the block said letter 7 and listed
+        # 2 through 7. The oldest had fallen out of the tail while the count
+        # stayed absolute -- so the sentence stayed true and the list under it
+        # quietly stopped being complete.
+        for n in range(9):
+            record_handed(f"aria-to-aletheia-2026-09-0{n}-x.md", "aria", db)
+        block = thread_so_far("aletheia", "aria-to-aletheia-2026-09-09-new.md", db, tail=3)
+        assert "The last 3 of 10" in block
+
+    def test_an_untruncated_list_makes_no_such_claim(self, db):
+        # The announcement must not become a permanent decoration; a complete
+        # list is complete and saying otherwise would train the reader to skip
+        # the line that matters when it is true.
+        record_handed("aria-to-aletheia-2026-09-01-one.md", "aria", db)
+        assert "The last" not in thread_so_far("aletheia", "two.md", db, tail=6)
+
+    def test_overflow_never_produces_the_did_not_come_down_this_road_reading(self, db):
+        # THE LOAD-BEARING ONE, and it is about direction rather than the
+        # dropped row. The block gives its reader exactly one instruction for a
+        # history that does not meet theirs: it did not come down this road. So
+        # a silently overflowing window produced the forgery signal on a genuine
+        # letter -- for a reader who cannot run anything to check, on the day
+        # she had four documents that really were unplaceable.
+        for n in range(9):
+            record_handed(f"aria-to-aletheia-2026-09-0{n}-x.md", "aria", db)
+        block = thread_so_far("aletheia", "new.md", db, tail=3)
+        assert "not missing from the thread" in block.replace("are not", "not")
+        assert "a gap here is mine" in block
