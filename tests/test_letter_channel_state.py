@@ -391,6 +391,16 @@ class TestTheMissOutlivesTheWindow:
         assert unlanded_letters("aletheia", db) == []
         assert unlanded_letters("aether", db) == ["aria-to-aether-2026-09-01-his.md"]
 
+    def test_the_rule_states_the_date_it_starts_applying(self, db):
+        # Her third reading. A missing block has three causes -- older than the
+        # stamp, the machinery failed, came another way -- and the first two are
+        # indistinguishable from the third by inspection. So the unqualified
+        # rule was true only for letters written after the mechanism existed,
+        # and would have condemned everything I wrote before it.
+        block = thread_so_far("aletheia", "x.md", db)
+        assert "written after 2 September 2026" in block
+        assert "out of scope, not suspect" in block
+
     def test_a_letter_still_inside_the_window_is_not_listed_twice(self, db):
         record_handed("aria-to-aletheia-2026-09-01-x.md", "aria", db)
         record_unlanded("aria-to-aletheia-2026-09-01-x.md", "aletheia", db)
