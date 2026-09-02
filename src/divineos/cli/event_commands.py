@@ -292,35 +292,40 @@ def register(cli: click.Group) -> None:
                         click.secho(format_block_message(uncommitted), fg="red", bold=True)
                         raise SystemExit(1)
 
-        # Idempotency guard: skip if already run this session.
-        # The marker file lives at ~/.divineos/auto_session_end_emitted and
-        # is cleared by load-briefing.sh on actual SessionStart (new Claude
-        # Code session). Inside one session, consolidation fires once unless
-        # --force overrides.
+        # NO IDEMPOTENCY GUARD. Removed 2026-08-24 on Andrew's instruction:
+        # "at no point should anything be skipping extraction. so thats the
+        # culprit.. whatever is telling you 'you ran extraction 8 hours ago
+        # so skip it' needs removed completely."
         #
-        # Without this guard, log-session-end.sh (Stop hook) fires extract
-        # on every assistant-stop, which resets session_start on every turn
-        # and breaks the session analyzer. The Stop-hook behavior is fixed
-        # in a later commit; this guard is the load-bearing safety net that
-        # survives even if the Stop hook path gets reintroduced.
-        from divineos.core.extract_marker import (
-            format_skip_message,
-            read_marker,
-            write_marker,
-        )
-
-        existing = read_marker()
-        if existing is not None and not force:
-            skip_detail = format_skip_message(existing)
-            click.secho(
-                f"[~] Consolidation already ran this session — skipping. {skip_detail}",
-                fg="bright_black",
-            )
-            click.secho(
-                "    Use `divineos extract --force` to re-run anyway.",
-                fg="bright_black",
-            )
-            return
+        # WHAT IT COST. A guard here read ~/.divineos/auto_session_end_emitted
+        # and returned early if a marker existed. The marker was cleared by
+        # load-briefing.sh at SessionStart — so it only worked when a session
+        # started through that path. On 2026-08-24 a dropped connection meant
+        # the next session loaded its briefing by hand, the stale marker was
+        # never cleared, and every extract for the following EIGHT HOURS
+        # returned immediately having stored nothing. Measured: zero knowledge
+        # rows for the whole day until `--force` was run, then three.
+        #
+        # It failed silently and it failed reassuringly. The skip printed
+        # "Consolidation already ran this session" in dim grey — normal,
+        # healthy-looking output. Nothing anywhere said learning was not being
+        # kept, and extract_launch.jsonl records only that extract was
+        # LAUNCHED, never its outcome, so a no-op left the same trace as a
+        # successful run.
+        #
+        # WHY REMOVING IT IS SAFE. The guard's own comment justified itself by
+        # log-session-end.sh firing extract on every assistant-stop. That hook
+        # no longer does — its line 13 reads "This hook used to call
+        # `divineos extract`", past tense. The defect was fixed; the guard
+        # outlived the fix and kept charging rent.
+        #
+        # Extract is idempotent where it matters: the quality gate still
+        # refuses bad sessions, and the knowledge engine still dedups and
+        # detects contradictions. Running twice costs time. Running zero times
+        # costs the day.
+        #
+        # --force is kept as a no-op flag so existing callers and docs do not
+        # break; there is no longer anything for it to override.
 
         try:
             # Capture session start BEFORE emitting — once the event lands in
@@ -381,12 +386,19 @@ def register(cli: click.Group) -> None:
                 except _EC_ERRORS as _sg_err:
                     logger.debug(f"self-grade persistence failed: {_sg_err}")
 
-            # Write idempotency marker AFTER successful run. If the pipeline
-            # errors out, the marker stays unset so the user can retry without
-            # needing --force. The trigger attribution helps a later caller
-            # see who ran extract first — sleep's post-sleep subprocess sets
-            # DIVINEOS_EXTRACT_TRIGGER=sleep so its run is distinguishable
-            # from a direct invocation.
+            # Write the ATTRIBUTION marker after a successful run. It records
+            # WHAT last triggered a consolidation -- sleep's post-sleep
+            # subprocess sets DIVINEOS_EXTRACT_TRIGGER=sleep, so its run stays
+            # distinguishable from a direct invocation. It no longer gates
+            # anything; nothing reads it to decide whether to skip.
+            #
+            # The import is local because the module-level one went with the
+            # idempotency guard removed above, and its absence turned this line
+            # into a live NameError -- `divineos extract` crashed on every run.
+            # Three tests caught it. They were the tests I had been about to
+            # dismiss as merely asserting behaviour we deleted on purpose.
+            from divineos.core.extract_marker import write_marker
+
             trigger = os.environ.get("DIVINEOS_EXTRACT_TRIGGER", "manual")
             write_marker(trigger=trigger, session_id=session_id or None)
 

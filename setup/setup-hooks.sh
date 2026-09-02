@@ -303,7 +303,11 @@ cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #   DIVINEOS_SKIP_FRESHNESS_CHECK=1   — bypass freshness
 #   DIVINEOS_FORCE_PUSH_OK=1          — bypass force-push safety
 #   DIVINEOS_SKIP_TESTS=1             — bypass local pytest (push-readiness)
-#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — bypass External-Review trailer check
+#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — skip the FEATURE-BRANCH trailer
+#                                       advisory only (step 5). It does NOT
+#                                       reach the push-to-main gate at step 3
+#                                       and never has. There is no bypass for
+#                                       merging to main; see step 3.
 #   DIVINEOS_EMERGENCY_PUSH=1         — bypass push-readiness entirely
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
@@ -316,8 +320,36 @@ PUSH_READINESS="$REPO_ROOT/scripts/check_push_readiness.sh"
 # Capture stdin once — every gate that reads ref-update lines uses it.
 HOOK_STDIN=$(cat)
 
+# Is every ref in this push a tag? Computed here because step 1 below needs
+# it and the freshness script cannot know: it is called WITHOUT stdin and
+# resolves the CHECKED-OUT branch instead of the ref being pushed.
+PUSH_IS_TAGS_ONLY=1
+_saw=0
+while read -r _lref _rest; do
+    [[ -z "${_lref:-}" ]] && continue
+    _saw=1
+    [[ "$_lref" != refs/tags/* ]] && PUSH_IS_TAGS_ONLY=0
+done <<< "$HOOK_STDIN"
+[[ "$_saw" == "0" ]] && PUSH_IS_TAGS_ONLY=0
+
 # 1. Branch freshness.
-if [[ -x "$FRESHNESS" ]]; then
+#
+# SKIPPED FOR TAG-ONLY PUSHES (2026-08-31). The check asks whether the
+# CHECKED-OUT branch is behind main. For a tag push that is a question about
+# something the push is not touching, and the answer refuses the push while
+# naming a branch nobody asked about -- which reads as a diagnosis and sends
+# the reader to merge main into a branch that was fine.
+#
+# It surfaced on archival history tags, which mark a merged branch's tip so
+# the per-commit reasoning survives the branch being deleted. A history tag
+# points at an OLD commit by definition, so "this is behind main" is both
+# true and beside the point.
+#
+# The narrow skip here is not the whole repair. The check still resolves HEAD
+# rather than the pushed ref for every other push shape, and that remains
+# open -- fixing it properly means teaching it to read the refspec, which is
+# a change to what the check measures rather than to when it runs.
+if [[ -x "$FRESHNESS" && "$PUSH_IS_TAGS_ONLY" != "1" ]]; then
     "$FRESHNESS" origin main
     RC=$?
     if [[ $RC -eq 1 ]]; then
@@ -336,10 +368,34 @@ if [[ -x "$FORCE_SAFETY" ]]; then
 fi
 
 # 3. Multi-party-review (pre-push mode, target=main only).
-# Walks the push-range and blocks if any commit touching guardrail
-# files lacks the External-Review trailer. Default mode filters to
-# refs/heads/main; the push-readiness gate below also runs --strict
-# which catches feature-branch pushes that will fail CI.
+# Walks the push-range and blocks if any commit merging to main lacks
+# the External-Review trailer. Default mode filters to refs/heads/main;
+# the push-readiness gate below also runs --strict which catches
+# feature-branch pushes that will fail CI.
+#
+# NO BYPASS HERE, DELIBERATELY, AND THE HEADER USED TO IMPLY OTHERWISE.
+#
+# This file's own header advertised DIVINEOS_SKIP_MULTIPARTY_CHECK as
+# bypassing "the External-Review trailer check" without saying which of
+# the two layers it reaches. It reaches step 5 -- the feature-branch
+# advisory -- and has never been read here. So the documented escape was
+# inert at the only door that is actually shut, and reading the header
+# told you the opposite.
+#
+# THE REPAIR IS THE HEADER, NOT THIS STEP. Wiring the variable in here
+# would create a one-word bypass of the merge-to-main audit, which is
+# precisely the loophole the blanket rule exists to close. Andrew
+# 2026-08-29, on why review is blanket rather than guardrail-scoped:
+# "if we removed the auditing from the personal stuff (even when theres
+# nothing to audit code wise) it could be used as a loophole to sneak
+# things in that shouldnt be snuck in."
+#
+# AND THE INERT ESCAPE COST MORE THAN CONFUSION (Aletheia 2026-08-29):
+# a narrow exit that does not open does not fail neutrally -- it routes
+# the person to the wide one. Some fraction of DIVINEOS_EMERGENCY_PUSH
+# uses in the bypass telemetry are people who tried the narrow door
+# first, so those numbers overstate deliberate whole-gate skipping. The
+# telemetry cannot tell routing-around from routed-into.
 if [[ -f "$MULTI_PARTY" ]]; then
     echo "$HOOK_STDIN" | python "$MULTI_PARTY" --mode=pre-push
     RC=$?

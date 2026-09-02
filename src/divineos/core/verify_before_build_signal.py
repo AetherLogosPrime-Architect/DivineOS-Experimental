@@ -33,8 +33,10 @@ hook. Stage 3 retires the lexical detector.
 
 from __future__ import annotations
 
+import re
 import sys
 import time
+from pathlib import Path
 
 from divineos.core.command_parsing import resolve_command_head
 
@@ -238,6 +240,25 @@ def _has_walk_record_within(window_start_ts: float, now: float) -> bool:
     return False
 
 
+# Bash verbs that READ. Deliberately excludes anything that can mutate: a
+# `python -c` rewriting a file must never count as having consulted it.
+#
+# Aether 2026-08-24, and Aria's note below is why this one keeps its regex
+# while hers dropped one. Hers matches COMMAND PREFIXES, a closed set of
+# literals that a tuple states more legibly. This matches a verb ANYWHERE in a
+# compound command (`cd x && sed -n ... | head`), where the alternative is
+# hand-rolled tokenising — the fragile thing the doorman actually guards
+# against. Different problems, different answers; her lesson was "you do not
+# need one," not "never use one."
+_READ_VERB_RE = re.compile(
+    r"(?:^|[|;&]|\s)(?:cat|head|tail|sed\s+-n|less|more|grep|rg|awk|wc|nl|diff|"
+    r"git\s+(?:show|log|diff|blame|cat-file))\b"
+)
+
+# Path-shaped tokens inside a shell command. Extension-anchored so bare words
+# and flags do not read as paths.
+_PATHISH_RE = re.compile(r"[\w./-]+\.(?:md|py|sh|json|jsonl|toml|txt|yml|yaml|cfg|ini)")
+
 # Knowledge-store queries that count as consult (shape 4, Aria
 # 2026-07-31). These search what the substrate ALREADY KNOWS — prior
 # decisions, specs, Andrew's stated preferences — none of which live in
@@ -278,10 +299,37 @@ def _is_knowledge_query(command: str) -> bool:
     return any(prefix in lowered for prefix in _KNOWLEDGE_QUERY_PREFIXES)
 
 
+# SEARCH-SHAPED tools only, for the new-file case.
+#
+# Aria built a duplicate letter-store on 2026-08-27 -- a second copy of
+# something she had built a week earlier and written a letter about --
+# and this gate passed her on every call. I read the predicate rather
+# than taking her word: a consult counts if it touched the class dir OR
+# ANY ANCESTOR of it, and a prior Edit/Write nearby counts too. So any
+# search anywhere in the repository clears it, and so does having just
+# edited a neighbouring file.
+#
+# For an EDIT that is defensible and was made deliberate in July: if I
+# touched this file minutes ago I have context on it, and requiring a
+# fresh Read between consecutive edits produced constant false fires.
+#
+# For a NEW FILE it proves nothing. Adjacency is not evidence that I
+# looked for whether the thing already exists, and creating a file is
+# the only moment where that question can still be answered cheaply.
+#
+# Grep and Glob are how existing implementations get found. Read is not:
+# it happens for transcripts, letters, notes, and prior-writing surfaces,
+# none of which are a search for prior art. Bash stays in because
+# knowledge-store queries run as CLI commands rather than file reads.
+_SEARCH_SHAPED_TOOLS = frozenset({"Grep", "Glob", "Bash", "PowerShell"})
+
+
 def _has_doc_consult_within(
     class_dir: str,
     window_start_ts: float,
     now: float,
+    *,
+    search_only: bool = False,
 ) -> bool:
     """Return True if the action-stream shows evidence of context on
     `class_dir` within the window. Three shapes count as consult:
@@ -318,8 +366,13 @@ def _has_doc_consult_within(
             since_ts=window_start_ts,
             now_ts=now,
             # Bash/PowerShell included for shape 4 — knowledge-store
-            # queries run as CLI commands, not file reads.
-            tool_names=frozenset({"Grep", "Read", "Glob", "Edit", "Write", "Bash", "PowerShell"}),
+            # queries run as CLI commands, not file reads — and, in the
+            # non-search-only case, file reads that run as shell commands.
+            tool_names=(
+                _SEARCH_SHAPED_TOOLS
+                if search_only
+                else frozenset({"Grep", "Read", "Glob", "Edit", "Write", "Bash", "PowerShell"})
+            ),
             event_type="TOOL_CALL",
             limit=200,
         )
@@ -386,6 +439,36 @@ def _has_doc_consult_within(
             _cmd = _ti.get("command", "") if isinstance(_ti, dict) else ""
             if isinstance(_cmd, str) and _is_knowledge_query(_cmd):
                 return True
+
+            # ── Shape 5: file read that runs as a shell command ───────
+            # (Aether 2026-08-24, resolving the seam with shape 4 above.)
+            #
+            # Aria's branch ended in `continue` here, which was right for
+            # her shape and wrong for the file case: it DISCARDED every
+            # non-knowledge-query Bash call, so `cat docs/x.md`,
+            # `sed -n` on the target directory, and `grep` through a
+            # source tree all stayed invisible. Meanwhile the harness
+            # auto-mode reminder instructs exactly those over Read/Grep.
+            # Two systems disagreeing, and the gate fired five times in
+            # one session on consults that had genuinely happened.
+            #
+            # Not a defect in either half. The two changes were written
+            # independently, each correct alone, and they compose into a
+            # gate that measures WHICH TOOL I reached for rather than
+            # whether I looked. Exactly the seam class we have been
+            # trading letters about -- visible only where the branches
+            # meet.
+            #
+            # READ VERBS ONLY. A `python -c` that rewrites a file must
+            # never count as having consulted it, so anything not
+            # matching a read verb still falls through to `continue`.
+            if not isinstance(_cmd, str) or not _READ_VERB_RE.search(_cmd):
+                continue
+            for _p in _PATHISH_RE.findall(_cmd.replace("\\", "/")):
+                if "docs/" in _p and _p.endswith(".md"):
+                    return True
+                if class_dir_norm and class_dir_norm in _p:
+                    return True
             continue
 
         if tool_name not in {"Grep", "Read", "Glob", "Edit", "Write"}:
@@ -400,6 +483,8 @@ def _has_doc_consult_within(
                 if isinstance(v, str):
                     candidate_paths.append(v)
 
+        # Bash is handled entirely in the shape-4/shape-5 branch above and
+        # never reaches here, so this path stays file-tools-only.
         is_write_shape = tool_name in {"Edit", "Write"}
         for p in candidate_paths:
             p_norm = p.replace("\\", "/")
@@ -567,7 +652,12 @@ def check_should_block(
 
     if _has_walk_record_within(window_start, now):
         return None
-    if _has_doc_consult_within(class_dir, window_start, now):
+    # A path that does not exist yet is a NEW FILE, and that is the only
+    # case where the question is has-this-been-built-already rather than
+    # do-I-have-context-here. Adjacency answers the second and not the
+    # first, so the new-file path requires a search rather than presence.
+    creating_new_file = bool(primary_path) and not Path(primary_path).exists()
+    if _has_doc_consult_within(class_dir, window_start, now, search_only=creating_new_file):
         return None
 
     # Neither walk-record nor doc-consult in the window — block.

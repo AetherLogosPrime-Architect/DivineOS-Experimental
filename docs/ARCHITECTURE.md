@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (465 commands across 84 modules)
+  cli/                         CLI package (469 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -23,6 +23,7 @@ src/divineos/
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
+    success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
     andrew_teachings_commands.py   andrew-teachings — surfaces Andrew's attributable teachings into pre-composition context (closes the his-voice-asymmetry; wired into pre_response_context)
     oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
@@ -58,6 +59,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
@@ -353,7 +355,8 @@ src/divineos/
       cleanliness.py           Session-cleanliness tagging — baseline source for Item 8 detectors (PR-2)
       merge_stamp.py           Round validation + External-Review trailer composition for the draft→ready stamp; tree-hash read from the PR head, never local HEAD (Phase 3, Andrew 2026-08-12 after #409 went ready untrailered)
       shared_sync.py           Imports findings from the ~/.divineos-shared/audit crossing-point into the local store; idempotent by origin finding-id. Built after six real CONFIRMS (Andrew's + Aletheia's) sat unread and PRs were refused as unreviewed (Andrew 2026-08-12)
-      round_export.py          Exports rounds to docs/audit_rounds/<id>.json so CI can confirm a round exists. merge-review looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
+      export.py                Exports rounds to docs/audit_rounds/<id>.md — THE artifact CI reads. ci_merge_review_check resolves a round via exported_round_exists(); merge-review previously looked in the local event ledger, which no GitHub runner has, so its round-is-logged requirement failed on every run regardless of approvals (verified 2026-08-14: "no such table: audit_rounds")
+      round_export.py          UNUSED as of 2026-08-22. Writes <id>.json, which nothing reads. Landed alongside export.py in PR #412 and the CLI was wired to this one by mistake, so `divineos audit export` produced a file the gate ignores while reporting success — 276 .md against 2 .json on disk when found. CLI rewired to export.py; this module is kept only until someone decides whether JSON has a consumer
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
@@ -491,6 +494,7 @@ src/divineos/
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
       constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
       unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
+      mechanism_claim_detector.py  Mechanism-claim marker — sibling to the above. That one guards external STATE; this guards causal MECHANISM (why something happened, what is broken, how two things relate) asserted in fact-grammar with no measurement beside it. SURFACES, never blocks: the hypothesis is the faculty that finds things, so the fix is labelling, not gating.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       shoggoth_gate.py           Shoggoth-gate — blocks Stop when action-claim words appear in the reply without a matching Write/Edit/Bash artifact in the same turn.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
@@ -683,6 +687,15 @@ src/divineos/
     instruments.py             The instruments index — what I can measure about myself, and whether it is answering.
     log_rotation.py            Bounded rotation for the flat append-only logs, with the by-absence signal preserved.
     operator_asks.py           Asks directed at Andrew — they persist, they re-raise, and they carry plain words.
+    hook_budget.py             What the whole hook stack costs per tool call, which nothing else measures.
+    command_match.py           Does a shell command INVOKE a thing, or merely MENTION it?
+    context_heartbeat.py       Keep the context-token reading fresh, and write down when it goes blind. Beat.describe() welds the age onto the number so a stale reading cannot be quoted as current.
+    heredoc_escape_check.py    Heredoc-escape doorman — refuses a Bash heredoc that writes a file through backslash escapes. Three layers (bash → python → file) eat an escape meant for the third at the second. BLOCKS rather than labels: mechanical failure, deterministic right answer, zero-post in-context persistence.
+    anchor_self_invalidation.py A letter carrying an anchor must not be committed onto the branch it anchors.
+    substrate_paths.py         Which paths are substrate, and which are work in progress.
+    substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
+    sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
+    sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
 
   analysis/
     _session_types.py          Session analysis type definitions

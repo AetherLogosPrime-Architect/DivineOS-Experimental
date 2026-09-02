@@ -226,6 +226,38 @@ if ! python scripts/check_silent_swallow.py; then
     note_fail
 fi
 
+# 5a2. A test's SETUP must not reach outside its sandbox (2026-08-25).
+# A fixture junctioned the real .venv into a temp repo so the gate under test
+# would find an interpreter; pytest's temp cleanup then walked the junction and
+# deleted the real venv. It passed every check here, because they all examine
+# what a test ASSERTS and none examine what it BUILDS in order to assert it.
+section "Test Link Targets"
+if ! python scripts/check_test_link_targets.py; then
+    note_fail
+fi
+
+# 5a3. A letter carrying an anchor must not land on the branch it anchors
+# (2026-08-25). Twice now a letter has handed a reader a tree-hash and then
+# been the only commit that moved the branch under it -- the second time, the
+# letter asking Aletheia to audit the PR. The auto-commit path is covered
+# inside auto_commit itself, because it never reaches here and it is the path
+# that actually did it. Both, because a resolution has already failed twice.
+section "Anchor Self-Invalidation"
+if ! python scripts/check_anchor_self_invalidation.py; then
+    note_fail
+fi
+
+# 5a4. The count that maintains itself (2026-08-25). I published "zero live
+# instances" of the silent-swallow-in-a-refusing-gate class. Aletheia's third
+# vantage: that is a claim about the present, and the class is DEFINED by
+# producing no signal, so it needs an expiry rather than a closure. She offered
+# a thirty-day re-run or a detector; the detector is the half I can hold,
+# because thirty days is a span I do not inhabit. Every run re-derives the count.
+section "Swallowing Gates"
+if ! python scripts/check_swallowing_gates.py; then
+    note_fail
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
@@ -344,6 +376,28 @@ fi
 if [ -f scripts/check_hook_wiring.py ]; then
     section "Hook Wiring"
     if ! python scripts/check_hook_wiring.py; then
+        note_fail
+    fi
+fi
+
+# 5c-ter. The map of the system still describes the system.
+#
+# Andrew 2026-08-27, after I built a command that already existed: "you have a
+# map of the entire system yes? ... it may need updated and then you can
+# automate the check to that, and also automate updating the map as well."
+#
+# The map is the right thing to check against -- it spans the whole command
+# surface rather than one working tree, which is what my own search covered
+# when it came back empty and confirmed me. But nothing invoked the generator
+# and nothing tested the output, so the map had rotted and knew about NEITHER
+# of the two doors by the time it mattered.
+#
+# A stale map is a worse oracle than no map: no map sends you looking, a stale
+# map answers "no such thing" with the authority of a system-wide index. So the
+# freshness check has to come before anything is allowed to trust it.
+if [ -f scripts/check_capability_catalog_fresh.py ]; then
+    section "Capability Map"
+    if ! python scripts/check_capability_catalog_fresh.py; then
         note_fail
     fi
 fi

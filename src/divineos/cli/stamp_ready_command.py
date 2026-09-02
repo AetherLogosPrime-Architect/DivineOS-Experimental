@@ -99,13 +99,31 @@ def _tree_is_covered(head_tree: str, confirmed: set[str]) -> bool:
 _BASE_BRANCH = "origin/main"
 
 
-def _commits_behind_base() -> tuple[int, str]:
-    """(commits_behind, reason_it_could_not_be_determined).
+def _commits_behind_base(branch: str) -> tuple[int, str]:
+    """(commits_behind, reason_it_could_not_be_determined) for ``branch``.
 
     Returns ``(n, "")`` when the answer is known and ``(0, why)`` when it is
     not. The two are kept apart because a caller that collapses them ends up
     reporting a cause it never established -- which is how the first version
     of this preflight came to blame a branch for a missing shell.
+
+    MEASURES THE PR'S BRANCH, NOT HEAD (fixed 2026-08-21). This compared
+    ``HEAD..origin/main``, so it answered about whichever branch the invoking
+    checkout happened to be standing on -- which for a PR command is almost
+    never the PR's branch. Caught on #412: the branch was 0 behind
+    origin/main and had just been merged forward and pushed, and the gate
+    refused to stamp it because the main checkout sat on an unrelated branch
+    that was 3 behind. Measured side by side:
+
+        HEAD..origin/main                            3   <- what it used
+        origin/split/ci-merge-review-visibility..    0   <- the real answer
+
+    A confident wrong answer about the wrong subject, which is the class this
+    module's own comments keep naming. It is also a second instance of
+    claim-795eacd8: the verdict came from the checkout rather than from the
+    data. The remote-tracking ref is the right subject because it is what
+    GitHub will merge -- a local branch of the same name can be stale or
+    absent in whichever tree the command was run from.
 
     Straight git, no shell. The freshness logic is `fetch` plus `rev-list
     --count`, and shelling out to a .sh for it introduced a dependency on
@@ -113,9 +131,11 @@ def _commits_behind_base() -> tuple[int, str]:
     cannot see the Windows filesystem and failed with an execvpe error that
     said nothing about branches. Two commands inline have no such surface.
     """
+    if not branch:
+        return 0, "no branch resolved for this PR"
     try:
         fetch = subprocess.run(
-            ["git", "fetch", "--quiet", "origin", "main"],
+            ["git", "fetch", "--quiet", "origin", "main", branch],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -124,9 +144,23 @@ def _commits_behind_base() -> tuple[int, str]:
             check=False,
         )
         if fetch.returncode != 0:
-            return 0, f"could not fetch {_BASE_BRANCH}: {fetch.stderr.strip()[:80]}"
+            return 0, f"could not fetch {_BASE_BRANCH}/{branch}: {fetch.stderr.strip()[:80]}"
+        head_ref = f"origin/{branch}"
+        resolved = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{head_ref}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        if resolved.returncode != 0:
+            # Unpushed branch: genuinely unknown, and unknown must not read as
+            # safe when the next step rewrites history.
+            return 0, f"{head_ref} does not exist on the remote"
         count = subprocess.run(
-            ["git", "rev-list", "--count", f"HEAD..{_BASE_BRANCH}"],
+            ["git", "rev-list", "--count", f"{head_ref}..{_BASE_BRANCH}"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -316,7 +350,7 @@ def register(cli: click.Group) -> None:
         # exists to say what WOULD happen, and one that reports a clean
         # preview of an operation that would actually be refused is a
         # confident wrong answer -- the exact class this session kept finding.
-        behind, why = _commits_behind_base()
+        behind, why = _commits_behind_base(branch)
         if why:
             # COULD NOT CHECK is not the same as WOULD BE REFUSED, and saying
             # the wrong one is its own bug. The first version of this preflight

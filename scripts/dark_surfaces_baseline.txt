@@ -16,8 +16,23 @@
 #
 # A dark surface is indistinguishable from a surface with nothing to say.
 # That is why nobody was careless and it happened anyway.
+#
+# component_register_surface, added 2026-08-27. It landed on main via #436
+# WITHOUT its baseline entry, so every branch cut from main since has been
+# failing this check for a reason that has nothing to do with its own changes.
+# Aria hit it independently and named it in a letter the same day; it was on my
+# list to cut as its own split and never was.
+#
+# It is DARK IN THE REGISTRY SENSE ONLY -- same status as the twenty-two others
+# here, not the two marked WIRED NOWHERE. It is hand-soldered in two places,
+# checked before writing this line rather than assumed:
+#   src/divineos/cli/knowledge_commands.py:1305
+#   src/divineos/core/multiplex_panels.py:1044
+# Recording it as unwired would put a false claim in the file that exists to
+# make silence visible, which is the failure this list is about.
 ablation_summary
 compass_dismissal_briefing_surface   # WIRED NOWHERE
+component_register_surface   # hand-soldered, see note below
 corrections
 council_balance_surface
 council_walks
@@ -39,3 +54,4 @@ scaffolding_map
 session_start_diagnostics
 theater_observation_surface
 upstream_freshness
+component_register_surface   # hand-soldered: briefing via knowledge_commands, panel via multiplex_panels

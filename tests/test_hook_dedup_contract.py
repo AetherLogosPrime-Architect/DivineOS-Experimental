@@ -106,8 +106,48 @@ def test_repeat_emission_shrinks(script: Path):
 @pytest.mark.parametrize("script", sorted(HOOK_DIR.glob("*.sh")), ids=lambda p: p.stem)
 def test_hook_parses(script: Path):
     """Cheap universal insurance: a hook that cannot parse cannot protect
-    anything, and a broken one fails open and silent."""
-    r = subprocess.run(
-        [_real_bash(), "-n", str(script)], capture_output=True, text=True, timeout=30
-    )
+    anything, and a broken one fails open and silent.
+
+    THREE STATES, NOT TWO (2026-08-31, and it cost a push to learn).
+
+    This asserted ``returncode == 0`` and blamed the file for everything else.
+    A syntax error ALWAYS prints a diagnostic, so a non-zero exit with EMPTY
+    stderr is not a broken script -- it is bash never getting far enough to
+    have an opinion. Under the pre-push gate's parallelism a transient spawn
+    failure lands exactly there.
+
+    What that produced: the gate refused a push naming a specific hook as
+    having a shell syntax error. The hook was fine. It parsed cleanly on the
+    next run, in the same checkout, with the same bash. The message was
+    confident, specific, and about the wrong thing -- and it sent me looking
+    for a defect in a file that did not have one.
+
+    Same family as everything else this branch touches: could-not-run wearing
+    the clothes of looked-and-found-something. The verdict now depends on
+    whether bash actually said anything, one retry absorbs the transient case,
+    and a persistent silent failure reports itself as unrun rather than as a
+    finding against the file.
+    """
+    bash = _real_bash()
+
+    def _parse() -> subprocess.CompletedProcess[str]:
+        return subprocess.run([bash, "-n", str(script)], capture_output=True, text=True, timeout=30)
+
+    r = _parse()
+    if r.returncode != 0 and not r.stderr.strip():
+        # No diagnostic means bash did not reach a verdict. Retry once; a
+        # spawn that failed on resource pressure succeeds on a quiet retry.
+        r = _parse()
+
+    if r.returncode != 0 and not r.stderr.strip():
+        pytest.fail(
+            f"COULD NOT CHECK {script.name}: bash exited {r.returncode} and printed "
+            "no diagnostic, twice. That is not a syntax error -- a syntax error "
+            "always says what it is. Something stopped bash running at all "
+            "(spawn failure, resource pressure, a missing interpreter). This is "
+            "reported as unrun rather than as a finding against the file, because "
+            "blaming the file for it is what sent the last reader hunting a defect "
+            "that was not there."
+        )
+
     assert r.returncode == 0, f"{script.name} has a shell syntax error:\n{r.stderr}"

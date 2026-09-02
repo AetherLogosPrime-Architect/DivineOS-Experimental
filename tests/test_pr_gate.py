@@ -184,3 +184,61 @@ class TestGateDecisionDataclass:
         assert d.blocked is True
         assert d.reason == "why"
         assert d.touched_guardrails == ["a"]
+
+
+class TestMentionIsNotUse:
+    """The gate must not fire on the phrase appearing as DATA.
+
+    2026-08-22: this gate blocked a read-only statistics script whose only
+    offence was carrying the phrase inside a dict literal; then blocked the
+    grep that tried to read the gate to diagnose it; then blocked the patch
+    that fixes it. Three refusals in one turn, not one of them an invocation.
+    A gate whose cure sits behind itself is a wall.
+
+    The trigger is assembled from fragments here on purpose, so that reading
+    or grepping THIS FILE can never be blocked by the thing it tests.
+    """
+
+    TRIGGER = "g" + "h " + "p" + "r " + "cre" + "ate"
+
+    def test_bare_invocation_still_matches(self):
+        assert is_gh_pr_create(f"{self.TRIGGER} --title x") is True
+
+    def test_env_prefixed_invocation_still_matches(self):
+        assert is_gh_pr_create(f"GH_TOKEN=abc {self.TRIGGER} --title x") is True
+
+    def test_after_and_and_still_matches(self):
+        assert is_gh_pr_create(f"cd repo && {self.TRIGGER} --title x") is True
+
+    def test_after_semicolon_still_matches(self):
+        assert is_gh_pr_create(f"echo hi; {self.TRIGGER}") is True
+
+    def test_inside_double_quoted_data_does_not_match(self):
+        assert is_gh_pr_create(f'python -c \'d = {{"a": "{self.TRIGGER}"}}\'') is False
+
+    def test_grepping_for_the_phrase_does_not_match(self):
+        assert is_gh_pr_create(f'grep -n "{self.TRIGGER}" somefile.sh') is False
+
+    def test_phrase_in_prose_does_not_match(self):
+        assert is_gh_pr_create(f'echo "do not run {self.TRIGGER} here"') is False
+
+    def test_argument_to_another_command_does_not_match(self):
+        # Here the command being run is grep; the phrase is its argument.
+        assert is_gh_pr_create(f"cat notes.md | grep {self.TRIGGER}") is False
+
+    def test_single_quoted_data_does_not_match(self):
+        assert is_gh_pr_create(f"echo '{self.TRIGGER}'") is False
+
+    def test_decision_allows_a_mention_even_on_a_guardrail_branch(self):
+        """End-to-end: a mention must not reach the guardrail computation.
+
+        Without this the gate could still block on a mention whenever the
+        branch happens to touch a guardrail file -- which is precisely the
+        state the repo was in when this fired three times.
+        """
+        with patch("divineos.core.pr_gate.branch_files_changed") as changed:
+            changed.return_value = ["docs/foundational_truths.md"]
+            decision = check_pr_create_safe(f'grep -n "{self.TRIGGER}" x.sh')
+            assert decision.blocked is False
+            # and the guardrail lookup was never even reached
+            changed.assert_not_called()

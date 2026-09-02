@@ -333,6 +333,7 @@ from divineos.cli import (  # noqa: E402
     auto_cycle_commands,
     bio_commands,
     body_commands,
+    hook_budget_commands,
     instruments_commands,
     branch_health_commands,
     build_flow_commands,
@@ -412,6 +413,7 @@ from divineos.cli import (  # noqa: E402
     consumer_status_commands,
     andrew_correction_commands,
     andrew_given_commands,
+    success_commands,
     council_walk_commands,
     andrew_teachings_commands,
     oscillating_read_commands,
@@ -468,6 +470,7 @@ lepos_channel_commands.register(cli)
 lepos_walk_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
+hook_budget_commands.register(cli)
 instruments_commands.register(cli)
 directive_commands.register(cli)
 dream_commands.register(cli)
@@ -504,6 +507,9 @@ ear_relaunch_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)
 correction_commands.register(cli)
+# Registered directly beside correction_commands on purpose: the two ledgers
+# are a pair, and the wins half spent three weeks with no door at all while
+# this line's neighbour had a command and a blocking gate (2026-08-25).
 prereg_commands.register(cli)
 prior_art_commands.register(cli)
 psf_commands.register(cli)
@@ -516,6 +522,7 @@ talk_to_commands.register(cli)
 consumer_status_commands.register(cli)
 andrew_correction_commands.register(cli)
 andrew_given_commands.register(cli)
+success_commands.register(cli)
 council_walk_commands.register(cli)
 andrew_teachings_commands.register(cli)
 oscillating_read_commands.register(cli)

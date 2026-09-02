@@ -36,6 +36,28 @@ jobs:
   guardrail-trailer-check:
     name: multi-party-review
     runs-on: ubuntu-latest
+    # SKIP ON DRAFTS (Andrew 2026-08-22). The same policy merge-review-check
+    # below already carries, for the same reason: a draft should not accumulate
+    # red marks before anyone has been asked to review it. Every open PR has sat
+    # red on this check, and the red is not informative -- of course unfinished
+    # work has no audit round yet. The round is the LAST station, not the first,
+    # so this was reporting "incomplete" about work correctly still in progress.
+    #
+    # THIS IS NOT A RETURN OF THE 2026-08-15 REGRESSION, and the difference is
+    # what makes it safe. That fix existed because the check was PUSH-ONLY and
+    # therefore invisible until after the merge -- Andrew, in exasperation: "i
+    # havent merged it because the multiparty review is skipped.. so when i do
+    # it will fail.. i have said this repeatedly." A check that only runs AFTER
+    # the merge cannot inform the merge.
+    #
+    # `ready_for_review` is in this workflow's trigger types (line 31), so
+    # promoting a draft fires this job. The check still runs BEFORE the merge
+    # decision, on exactly the PRs a human is being asked to act on. What is
+    # removed is only noise on work nobody has yet claimed is finished.
+    #
+    # The `push` clause keeps the vault covered: what lands on main is still
+    # checked unconditionally. Identical shape to tests.yml line 21.
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     # Push-to-main only (Andrew 2026-08-13): "not every commit just every
     # merge to main, committing is allowed in your own workspace without any
     # audit, the github is the main vault/backup."
