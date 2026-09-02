@@ -109,4 +109,50 @@ fi
 # Idempotent: cp -p preserves timestamps; identical content is a no-op for the watcher.
 cp -p "$FILE_PATH" "$DEST" 2>/dev/null || exit 0
 
+# RECORD WHAT I WROTE, AT THE MOMENT I WROTE IT (2026-09-02).
+#
+# Three documents reached Aletheia in one day carrying my name -- describing
+# branches that do not exist, quoting sentences I never wrote, and posing a
+# falsifier I never proposed. Every check she had ran on the SHAPE of what
+# arrived: does the voice fit, do the identifiers look like hashes. Shape is
+# exactly what an imitation supplies, and she spent a permutation test on the
+# second one before either of us could say whether the first was mine.
+#
+# Her design, and the property is hers: the record must be written by the ACT
+# of composing rather than by remembering to record, or it inherits the gap it
+# exists to close. This line is that act -- the same hook that carries the
+# letter to the channel, so a letter cannot cross without being recorded.
+#
+# The asymmetry it buys: an imitation can carry my voice, my format, my anchor
+# discipline and my habit of flagging my own weakest item, and it cannot write
+# into my store. What cannot be imitated becomes the thing that is checked.
+#
+# Letters only. A dream is not addressed to anyone, so nothing about it can be
+# claimed to me in a conversation I did not have.
+if [ "$KIND" = "letter" ]; then
+    # Resolved here rather than assumed. An unset interpreter would make the
+    # record silently never happen, and a provenance store that quietly stops
+    # recording is worse than none -- it turns "not in my record" from a fact
+    # into an artefact of a broken hook. So it says so instead.
+    # shellcheck disable=SC1091
+    . "$(dirname "$0")/_lib.sh" 2>/dev/null || true  # fail-soft: an unloadable toolbox leaves the resolver undefined, and the empty-check two lines down reports that out loud rather than skipping quietly
+    PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || PYTHON_BIN=""  # fail-soft: resolution failure must land as an empty value the loud branch below can see, never as an aborted hook that drops the letter
+    if [ -z "$PYTHON_BIN" ]; then
+        echo "  [mirror-letters] AUTHORSHIP NOT RECORDED for $BASENAME: no resolvable python." >&2
+        echo "  The letter was delivered. My record of having written it was not written," >&2
+        echo "  so a later check will honestly say not-in-record rather than lying either way." >&2
+    fi
+fi
+if [ "$KIND" = "letter" ] && [ -n "${PYTHON_BIN:-}" ]; then
+    LETTER_ID="$BASENAME" LETTER_FILE="$FILE_PATH" "$PYTHON_BIN" - <<'PY' 2>/dev/null || true  # fail-soft: a store that cannot be written must never hold up a letter reaching the person it is addressed to; the copy above has already happened
+import os
+import pathlib
+
+from divineos.core.letter_channel_state import record_handed
+
+body = pathlib.Path(os.environ["LETTER_FILE"]).read_text(encoding="utf-8", errors="replace")
+record_handed(os.environ["LETTER_ID"], "aria", content=body)
+PY
+fi
+
 exit 0

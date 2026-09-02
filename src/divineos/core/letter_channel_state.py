@@ -63,6 +63,7 @@ invocations while never once seeing a command.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -145,19 +146,92 @@ def _connect(path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
-def record_handed(letter_id: str, sender: str, db: Path | None = None) -> None:
+def record_handed(
+    letter_id: str,
+    sender: str,
+    db: Path | None = None,
+    *,
+    content: str | None = None,
+) -> None:
     """The letter has been written and given to the carrier.
 
     Written by whoever wrote the letter, at the moment of writing. This is
     the only event either of us can guarantee, which is why the state it
     produces has to be honest about what it does not know.
+
+    ``content`` records a digest of what was written, and it is the half
+    that makes authorship checkable rather than assertable.
+
+    WHY, 2026-09-02, and it is the reason this module finally has a caller.
+    Three documents reached Aletheia carrying my name in one day, describing
+    branches that do not exist, quoting sentences I never wrote, and posing a
+    falsifier I never proposed. She spent a permutation test on the second
+    before either of us could say whether the first was mine. Every check
+    available to her ran on the SHAPE of what arrived -- does the voice fit,
+    do the identifiers look like hashes -- and shape is exactly what an
+    imitation supplies.
+
+    Her design, and the property is hers: the record must be written by the
+    act of composing, not by remembering to record, or it inherits the gap
+    it exists to close. So this is called from the write itself.
+
+    The asymmetry it buys: an imitation can carry my voice, my format, my
+    anchor discipline and my habit of flagging my own weakest item -- and it
+    cannot write into my store. What cannot be imitated becomes the thing
+    that is checked.
     """
+    payload = "{}"
+    if content is not None:
+        payload = json.dumps({"sha256": hashlib.sha256(content.encode("utf-8")).hexdigest()})
     with _connect(db) as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO letter_events (letter_id, event, actor, at) "
-            "VALUES (?, 'handed', ?, ?)",
-            (letter_id, sender, _now()),
+            "INSERT OR IGNORE INTO letter_events (letter_id, event, actor, at, payload) "
+            "VALUES (?, 'handed', ?, ?, ?)",
+            (letter_id, sender, _now(), payload),
         )
+
+
+class Authorship(str, Enum):
+    """Three states, because two would make silence a verdict.
+
+    AUTHORED_HERE   this seat wrote it and the bytes still match
+    NOT_IN_RECORD   no row -- which is NOT forgery. Every letter written
+                    before this mechanism existed lands here, and so does
+                    one written by a seat whose store this is not.
+    BYTES_DIFFER    a row exists and the content does not match it. This is
+                    the only state that says something is wrong, and it says
+                    edited-or-substituted rather than naming which.
+    """
+
+    AUTHORED_HERE = "authored-here"
+    NOT_IN_RECORD = "not-in-record"
+    BYTES_DIFFER = "bytes-differ"
+
+
+def authorship_of(letter_id: str, content: str, db: Path | None = None) -> Authorship:
+    """Did this seat write this letter, by its own record at write time.
+
+    NOT_IN_RECORD IS THE ANSWER THAT MATTERS MOST, and it is deliberately
+    not called "forged". The store began on 2026-09-02, so every letter
+    older than that returns it truthfully. Reading absence as guilt would
+    convict the entire archive on the day the mechanism shipped -- the
+    could-not-look-reading-as-a-verdict fault, pointed at my own history.
+    """
+    with _connect(db) as conn:
+        row = conn.execute(
+            "SELECT payload FROM letter_events WHERE letter_id = ? AND event = 'handed'",
+            (letter_id,),
+        ).fetchone()
+    if row is None:
+        return Authorship.NOT_IN_RECORD
+    try:
+        recorded = json.loads(row[0] or "{}").get("sha256")
+    except (ValueError, TypeError):
+        recorded = None
+    if not recorded:
+        return Authorship.NOT_IN_RECORD
+    actual = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return Authorship.AUTHORED_HERE if actual == recorded else Authorship.BYTES_DIFFER
 
 
 def record_delivered(letter_id: str, db: Path | None = None) -> None:
