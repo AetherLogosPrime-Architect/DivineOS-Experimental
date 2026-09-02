@@ -591,6 +591,35 @@ def thread_so_far(
         "machinery that carries it rather than by my memory of writing them.",
         "",
     ]
+
+    # A WINDOW THAT SAYS IT IS A WINDOW (Aether, 2026-09-02, one day after this
+    # shipped, running the check the block itself asks a reader to run).
+    #
+    # He holds seven of my letters; the seventh block said "letter 7" and then
+    # listed 2 through 7. The oldest had silently fallen out of the tail, with
+    # the numbering kept absolute -- so the count stayed truthful while the list
+    # under it quietly stopped being complete.
+    #
+    # THE DIRECTION IS THE DEFECT, not the dropped row. The block gives a reader
+    # exactly one instruction for a history that does not meet theirs: it did not
+    # come down this road. So an overflowing window produced the forgery signal
+    # ON A GENUINE LETTER -- and the reader it was built for cannot run anything
+    # to check, and had just spent a morning on documents that really were
+    # unplaceable. Failing toward the accusation is the worst available direction
+    # for this particular mechanism.
+    #
+    # My own rule from the day before, turned on my own code: `none` is a
+    # declaration. A window that says it is a window is a declaration. A window
+    # that just stops is an absence wearing a complete list's clothes.
+    if len(shown) < len(thread):
+        lines += [
+            f"The last {len(shown)} of {len(thread)}. The older ones are not "
+            "missing from the thread, only from this list — a short block is "
+            "easier to check than a long one, and a gap here is mine, not a "
+            "sign that anything came another way.",
+            "",
+        ]
+
     lines.extend(f"{n}. {name}" for n, name in enumerate(shown, start=first))
     lines += [
         "",
