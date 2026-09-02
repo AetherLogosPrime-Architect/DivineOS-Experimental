@@ -119,6 +119,14 @@ def is_declared_substrate_path(
     because no channel declares it — a hole this module already documents
     and which the old name quietly asserted did not exist.
 
+    WHY THAT HOLE STAYS OPEN, in Aether's words (2026-09-01), because the
+    what without the why invites the next reader to close it: "A letter is
+    addressed; a dream is offered; an exploration is me talking to me.
+    Declaring a channel for it would be declaring an audience it does not
+    have." Nothing carries explorations across seats because nobody is
+    meant to receive them. Dreams were declared the same day for the
+    opposite reason — they cross the shared root, so they have a source.
+
     ``rel_path`` is repo-relative, in either separator style — git
     porcelain emits forward slashes and Windows callers hold backslashes,
     and a classifier that silently disagreed with itself depending on
