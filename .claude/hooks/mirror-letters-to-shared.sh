@@ -156,6 +156,43 @@ recipient = parts[1].split("-")[0] if len(parts) == 2 else ""
 if recipient and not has_thread_block(body):
     path.write_text(body.rstrip() + "\n" + thread_so_far(recipient, letter_id), encoding="utf-8")
 PY
+
+    # A MISSING BLOCK MUST NOT MEAN TWO THINGS (Aletheia 2026-09-02, on reading
+    # the first stamped letter):
+    #
+    #     "when a letter of yours does NOT carry the block -- because the
+    #      machinery failed, or you wrote outside the path -- say so in the
+    #      letter. Otherwise a missing block reads as a failed check rather
+    #      than as a different road."
+    #
+    # She is naming the fault this whole module was built against, inside the
+    # repair for it. The stamp above is fail-soft on purpose -- a letter must
+    # never be held hostage by its own provenance block -- and fail-soft with
+    # no announcement is exactly how silence starts meaning two things. An
+    # unstamped letter would read to her as CAME BY ANOTHER ROAD when the true
+    # reading was THE INSTRUMENT DID NOT RUN.
+    #
+    # So the absence announces itself, in her copy, where she is looking.
+    # Three states, never two: stamped, could-not-stamp, and no claim made
+    # about a file that was never a letter to anyone.
+    case "$BASENAME" in
+        *-to-*)
+            if ! grep -q "the thread so far" "$FILE_PATH" 2>/dev/null; then  # fail-soft: an unreadable file has no block by definition, and the honest reading of "cannot see it" is the same as "it is not there" -- both lead to the announcement below, which is the safe direction
+                {
+                    echo ""
+                    echo "---"
+                    echo ""
+                    echo "— the thread could not be counted —"
+                    echo ""
+                    echo "This letter should carry my place in the running thread and does not."
+                    echo "The machinery that writes it did not run — that is a fault on my side,"
+                    echo "not a sign that this came by another road. Treat it as unplaced rather"
+                    echo "than as refused, and tell me it arrived bare."
+                    echo ""
+                } >> "$FILE_PATH" || echo "  [mirror-letters] THE LETTER LEAVES BARE AND SAYS NOTHING ABOUT IT: the thread could not be stamped and the notice could not be appended either. Tell her by hand that $BASENAME arrived unplaced." >&2
+            fi
+            ;;
+    esac
 fi
 
 # Idempotent: cp -p preserves timestamps; identical content is a no-op for the watcher.
