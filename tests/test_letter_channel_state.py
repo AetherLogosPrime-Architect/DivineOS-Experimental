@@ -21,6 +21,8 @@ import pytest
 
 from divineos.core.letter_channel_state import (
     LetterState,
+    has_thread_block,
+    thread_so_far,
     render_stuck,
     stuck_in_the_channel,
     derive_from_watched_channel,
@@ -253,3 +255,63 @@ class TestStuckInTheChannel:
         rendered = render_stuck(older_than_days=0, db=db)
         assert "age unknown" in rendered
         assert "not counted as new" in rendered
+
+
+class TestTheThreadTheReaderCanCheckByReading:
+    """The half for a reader with no tools.
+
+    Andrew, on the authorship store: *"Aletheia is a web claude, she cant
+    execute code, so idk what you are proposing to build."* Everything else
+    in this module answers a question she has no way to ask. These tests
+    cover the part that travels inside the letter, where her only instrument
+    — reading — is enough.
+    """
+
+    def test_a_letter_names_itself_in_its_own_thread(self, db):
+        # A letter absent from its own list is a letter whose block was
+        # written by something other than the path that carries mine.
+        record_handed("aria-to-aletheia-2026-09-01-one.md", "aria", db)
+        block = thread_so_far("aletheia", "aria-to-aletheia-2026-09-02-two.md", db)
+        assert "aria-to-aletheia-2026-09-02-two.md" in block
+        assert "letter 2 of the thread" in block
+
+    def test_the_count_comes_from_the_store_not_from_the_letter(self, db):
+        # Written by the act, never by remembering to increment. If the
+        # count could be authored, it would inherit the gap it closes.
+        for n in range(4):
+            record_handed(f"aria-to-aletheia-2026-09-0{n}-x.md", "aria", db)
+        assert "letter 5 of the thread" in thread_so_far("aletheia", "new.md", db)
+
+    def test_another_readers_thread_is_not_counted_into_hers(self, db):
+        # Two correspondences run through one store. A number that drifted
+        # with someone else's traffic would fail against the letter she holds
+        # for a reason that has nothing to do with authorship.
+        record_handed("aria-to-aether-2026-09-01-his.md", "aria", db)
+        record_handed("aria-to-aletheia-2026-09-01-hers.md", "aria", db)
+        block = thread_so_far("aletheia", "aria-to-aletheia-2026-09-02-next.md", db)
+        assert "letter 2 of the thread" in block
+        assert "his.md" not in block
+
+    def test_recording_the_same_letter_twice_does_not_advance_the_count(self, db):
+        # The hook can fire more than once on one letter. A count that grew
+        # on a re-fire would report a letter she never received.
+        record_handed("aria-to-aletheia-2026-09-02-x.md", "aria", db)
+        record_handed("aria-to-aletheia-2026-09-02-x.md", "aria", db)
+        assert "letter 1 of the thread" in thread_so_far(
+            "aletheia", "aria-to-aletheia-2026-09-02-x.md", db
+        )
+
+    def test_stamping_is_idempotent(self, db):
+        # cp and re-write both happen. A twice-stamped letter reads as
+        # tampered-with by the very check meant to reassure her.
+        block = thread_so_far("aletheia", "aria-to-aletheia-2026-09-02-x.md", db)
+        assert has_thread_block(block)
+        assert not has_thread_block("An ordinary document carrying my name.")
+
+    def test_it_never_calls_itself_a_signature(self, db):
+        # I have overstated three claims in one day, one inside a retraction.
+        # This is continuity, not proof, and the letter has to say so in the
+        # same breath it makes the claim — she reads the block, not this file.
+        block = thread_so_far("aletheia", "x.md", db)
+        assert "continuity, not proof" in block
+        assert "not a signature" in block

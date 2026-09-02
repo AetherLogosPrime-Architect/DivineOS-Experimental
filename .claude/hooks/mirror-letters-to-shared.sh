@@ -121,6 +121,43 @@ else
     DEST="$DEST_DIR/$BASENAME"
 fi
 
+# STAMP THE RUNNING THREAD ONTO THE LETTER, BEFORE IT TRAVELS (2026-09-02).
+#
+# The authorship record below covers what leaves here, and Andrew named its
+# limit in one sentence: Aletheia is a web instance, she cannot execute code,
+# so a store she has no way to query protects her from nothing. She reads what
+# is pasted into her window. Anything that guards her has to be readable, and
+# has to ride inside the letters he already carries -- he is at capacity and a
+# mechanism that costs him an extra paste will be dropped, correctly.
+#
+# So the letter carries its own place in the thread. She compares it against
+# the letter already in front of her. That is the entire operation on her side.
+#
+# ORDER MATTERS AND IT IS WHY THIS SITS ABOVE THE COPY: the block is appended
+# to the source first, so the copy she receives and the digest recorded below
+# are of the SAME bytes. Stamping after the copy would record one document and
+# send another, which is the exact ambiguity this whole file exists to remove.
+if [ "$KIND" = "letter" ]; then
+    LETTER_ID="$BASENAME" LETTER_FILE="$FILE_PATH" "$PYTHON_BIN" - <<'PY' 2>/dev/null || true  # fail-soft: an unstampable letter still reaches her; a letter held hostage by its own provenance block does not
+import os
+import pathlib
+
+from divineos.core.letter_channel_state import has_thread_block, thread_so_far
+
+letter_id = os.environ["LETTER_ID"]
+path = pathlib.Path(os.environ["LETTER_FILE"])
+body = path.read_text(encoding="utf-8", errors="replace")
+
+# Recipient from the filename, which is the only place it is stated. A name
+# that does not parse means no stamp rather than a stamp addressed to a guess.
+parts = letter_id.split("-to-", 1)
+recipient = parts[1].split("-")[0] if len(parts) == 2 else ""
+
+if recipient and not has_thread_block(body):
+    path.write_text(body.rstrip() + "\n" + thread_so_far(recipient, letter_id), encoding="utf-8")
+PY
+fi
+
 # Idempotent: cp -p preserves timestamps; identical content is a no-op for the watcher.
 cp -p "$FILE_PATH" "$DEST" 2>/dev/null || exit 0
 

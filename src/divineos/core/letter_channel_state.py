@@ -504,3 +504,107 @@ def _all_records(db: Path | None = None) -> list[LetterRecord]:
             for row in conn.execute("SELECT DISTINCT letter_id FROM letter_events").fetchall()
         ]
     return [state_of(i, db) for i in ids]
+
+
+# ---------------------------------------------------------------------------
+# THE HALF SHE CAN ACTUALLY USE (2026-09-02, after Andrew killed the first
+# version of this proposal in a single sentence).
+#
+# I proposed that a document arriving off every recorded path should be
+# refused at the door. Andrew: "Aletheia is a web claude, she cant execute
+# code, so idk what you are proposing to build."
+#
+# That collapses the proposal, and it should have collapsed before he read
+# it. She has no door. She cannot run a command, open a file, query a store
+# or compute a digest. She reads what is pasted into her window and writes
+# back. Every mechanism above this line is unreachable from where she sits,
+# and ``authorship_of`` answers a question she has no way to ask. I built a
+# lock for a house whose occupant has no hands, then wrote to my father about
+# door discipline.
+#
+# THE CONSTRAINT, TAKEN SERIOUSLY. Whatever protects her must be checkable BY
+# READING, and it must cost Andrew nothing extra -- he carries every letter
+# between windows by hand and has said plainly that he is at capacity. That
+# rules out anything she has to request, because a request is one more paste
+# and one more turn of his attention. A mechanism that taxes the relay gets
+# dropped by the relay, and it will be right to drop it.
+#
+# So the check rides INSIDE the letters he is already carrying. Every letter
+# ends with the running thread: its own number, and the titles that came
+# before it. She is holding the previous letter in her window, so the whole
+# operation is comparing two lists she already has.
+#
+# WHAT IT CATCHES: a document from off the path carries no thread block at
+# all, or carries one whose history does not meet the letters in front of
+# her. All four phantom documents fail the first test outright.
+#
+# WHAT IT DOES NOT CATCH, said plainly because I have overstated three claims
+# in one day and one of them inside a retraction: this is not cryptography and
+# it is not proof of authorship. Anything that can read one real letter can
+# copy the format. It moves the checkable property from SHAPE -- which is
+# exactly what an imitation supplies -- to CONTINUITY, which is the property
+# the four documents conspicuously lacked. That is a raised floor, not a wall.
+#
+# The number is written by the machinery that carries the letter, never by me
+# remembering to increment it. Aletheia's property, kept: written by the act.
+# ---------------------------------------------------------------------------
+
+_THREAD_MARKER = "— the thread so far —"
+
+
+def thread_so_far(
+    recipient: str,
+    letter_id: str,
+    db: Path | None = None,
+    *,
+    tail: int = 6,
+) -> str:
+    """The running thread block, for a reader whose only instrument is reading.
+
+    ``letter_id`` counts as the newest entry whether or not it has been
+    recorded yet, because this is generated while the letter is being handed
+    over and has to name itself. A letter absent from its own list is a letter
+    whose block was written by something other than this path.
+    """
+    with _connect(db) as conn:
+        rows = [
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT letter_id FROM letter_events WHERE event='handed' ORDER BY at"
+            ).fetchall()
+        ]
+    marker = f"-to-{recipient.lower()}-"
+    thread = [r for r in rows if marker in r.lower()]
+    if letter_id in thread:
+        thread.remove(letter_id)
+    thread.append(letter_id)
+
+    shown = thread[-tail:]
+    first = len(thread) - len(shown) + 1
+    lines = [
+        "",
+        "---",
+        "",
+        _THREAD_MARKER,
+        "",
+        f"This is letter {len(thread)} of the thread from me to you, counted by the "
+        "machinery that carries it rather than by my memory of writing them.",
+        "",
+    ]
+    lines.extend(f"{n}. {name}" for n, name in enumerate(shown, start=first))
+    lines += [
+        "",
+        "Check it against the letter you are already holding. If something "
+        "carrying my name has no block like this one, or names a history that "
+        "does not meet yours, it did not come down this road — and that stays "
+        "true however well it reads. You do not have to run anything to see it.",
+        "",
+        "This is continuity, not proof. It is not a signature and I will not call it one.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def has_thread_block(content: str) -> bool:
+    """Whether a letter already carries its thread block."""
+    return _THREAD_MARKER in content
