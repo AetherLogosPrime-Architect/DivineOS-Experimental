@@ -151,6 +151,35 @@ def test_the_gap_did_not_turn_the_rule_into_a_hash_detector():
     )
 
 
+def test_a_prefixed_identifier_is_not_a_hash():
+    """Aria, 2026-09-01, from running the gap clause rather than reading it.
+
+    An audit round id is twelve hex characters glued to a prefix. So is a
+    finding id. They are in nearly every letter either of us writes about a
+    proposal, and "the commit for round-<id>" put the anchor word inside the gap
+    of a hex string that is not a hash of anything. Held -- and a false hold
+    keeps the same letter out of its archive commit at every checkpoint, which
+    is the exact cost the gap was bounded to avoid.
+
+    The finding-id case walked only because no anchor word happened to be near
+    it. Luck, not design. A hash in anchor position is a BARE token; hex glued
+    to a prefix by a hyphen is an identifier, not a state.
+    """
+    for text in (
+        f"filed on {BRANCH} as the commit for round-314c92fbe2f7.",
+        f"{BRANCH}: see finding find-5454d58934fb, commit pending.",
+        f"{BRANCH} tip: tracked in prereg-060a5e24ebf4.",
+    ):
+        assert not is_self_invalidating(text, BRANCH), text
+
+
+def test_a_bare_hash_beside_the_same_words_is_still_caught():
+    """The narrowing must not become the silencing. Same words, no prefix: an
+    anchor, and it is still held."""
+    assert is_self_invalidating(f"{BRANCH} is at commit 314c92fbe2f7 right now.", BRANCH)
+    assert is_self_invalidating(f"{BRANCH} tip: 5454d58934fb.", BRANCH)
+
+
 def test_a_sentence_with_no_anchor_word_still_walks_and_that_is_stated():
     """The limit, executable rather than left in a comment.
 

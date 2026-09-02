@@ -72,8 +72,22 @@ from pathlib import Path
 # at" except the shape of the whole sentence. Closing that needs meaning rather
 # than more alternatives in a list, and a longer list of verbs is the identical
 # fault with more entries.
+#
+# A HASH IN ANCHOR POSITION IS A BARE TOKEN (Aria, 2026-09-01, and she ran it
+# rather than read it). An audit round id is twelve hex characters. So is a
+# finding id. They sit in nearly every letter either of us writes about a
+# proposal, and "the commit for round-314c92fbe2f7" put the word *commit* inside
+# the gap of a hex string that is not a hash of anything. Held. Every checkpoint.
+# The exact cost the gap comment above names as not a safe direction, and the
+# trigger is the way we cite the rounds this tree's own gates require.
+#
+# The finding-id case walked only because no anchor word happened to sit within
+# reach of it -- luck, not design. So: hex glued to a prefix by a hyphen is an
+# identifier, not a state. The lookbehind refuses it without shrinking the gap.
+# Same family as the rest of the day: a thing recognised by the letters it is
+# made of rather than by what it is.
 _ANCHOR_RE = re.compile(
-    r"(?:tree-hash|tree|tip|commit|sha)\b[^\n]{0,24}?`?\b[0-9a-f]{7,40}\b",
+    r"(?:tree-hash|tree|tip|commit|sha)\b[^\n]{0,24}?`?(?<![-\w])[0-9a-f]{7,40}\b",
     re.IGNORECASE,
 )
 
