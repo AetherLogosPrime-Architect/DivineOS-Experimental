@@ -20,13 +20,13 @@ Commands that DO report usage:
 
 | command | recorded invocations |
 |---|---|
-| `ask` | 442 |
-| `briefing` | 241 |
-| `decide` | 153 |
-| `compass` | 141 |
+| `ask` | 443 |
+| `briefing` | 243 |
+| `decide` | 154 |
+| `compass` | 142 |
 | `context` | 86 |
 | `recall` | 49 |
-| `lessons` | 38 |
+| `lessons` | 39 |
 | `directives` | 13 |
 | `feel` | 8 |
 | `body` | 6 |
@@ -1350,12 +1350,12 @@ Reference count is how many places mention each package — a rough load-bearing
 | `core/operating_loop/` | 249 | Operating Loop — the missing middleware between substrate and live cognition. |
 | `core/family/` | 221 | Family entity persistence — a family member and future family members. |
 | `core/watchmen/` | 188 | Watchmen — External Validation as a Native Runtime Capability. |
-| `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
+| `core/council/` | 164 | Expert Council — thinking lenses from great minds. |
 | `core/pre_registrations/` | 71 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
 | `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |
 | `core/logic/` | 56 | Formal logic layer — warrants, relations, consistency, inference. |
 | `core/ear_relaunch/` | 45 | Ear-watcher polling auto-relaunch decision logic. |
-| `core/council_required/` | 41 | Council-required enforcement gate — block high-gravity edits until evidence |
+| `core/council_required/` | 42 | Council-required enforcement gate — block high-gravity edits until evidence |
 | `core/self_monitor/` | 37 | Self-monitor — watches the agent's own output for trained failure modes. |
 | `core/audit_visibility/` | 29 | Audit-visibility check — warn when auditable work is committed |
 | `core/void/` | 28 | VOID — adversarial-sandbox subsystem. |
