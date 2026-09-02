@@ -20,13 +20,13 @@ Commands that DO report usage:
 
 | command | recorded invocations |
 |---|---|
-| `ask` | 441 |
-| `briefing` | 237 |
-| `decide` | 151 |
-| `compass` | 136 |
+| `ask` | 443 |
+| `briefing` | 243 |
+| `decide` | 153 |
+| `compass` | 141 |
 | `context` | 86 |
 | `recall` | 49 |
-| `lessons` | 36 |
+| `lessons` | 38 |
 | `directives` | 13 |
 | `feel` | 8 |
 | `body` | 6 |

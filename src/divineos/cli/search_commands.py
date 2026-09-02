@@ -32,6 +32,26 @@ def _db_path() -> str:
     return str(Path(get_data_dir()) / _DB_NAME)
 
 
+def _report_model_unavailable(detail: str) -> None:
+    """Print the cannot-look diagnosis and how to repair it.
+
+    Written 2026-09-02. Both commands previously turned "this interpreter
+    cannot embed" into an ordinary-looking result: index printed a count of
+    zero and exited 0, query printed "no hits ... corpus may not be indexed
+    yet" and blamed the index. The second is worse than silence, because it
+    names a cause that was never checked and sends the reader to re-run the
+    command that cannot work.
+    """
+    click.echo("", err=True)
+    click.echo("  CANNOT SEARCH — the embedding model is unavailable here.", err=True)
+    click.echo(f"  Reason: {detail}", err=True)
+    click.echo("", err=True)
+    click.echo("  This is an environment fault, not an empty corpus. The", err=True)
+    click.echo("  interpreter above is the one that must have the ml extras;", err=True)
+    click.echo("  having them in a different Python does not help. Install with:", err=True)
+    click.echo('    <that interpreter> -m pip install "sentence-transformers" torch', err=True)
+
+
 def register(cli: click.Group) -> None:
     @cli.group("find", invoke_without_command=True)
     @click.pass_context
@@ -85,6 +105,12 @@ def register(cli: click.Group) -> None:
             text, _db_path(), top_k=first_pass_k, min_similarity=min_similarity
         )
         if not hits:
+            from divineos.core.semantic_store import model_status
+
+            available, detail = model_status()
+            if not available:
+                _report_model_unavailable(detail)
+                raise SystemExit(1)
             click.echo(
                 f'(no hits for "{text}" — corpus may not be indexed yet. Run: divineos find index)'
             )
@@ -142,8 +168,25 @@ def register(cli: click.Group) -> None:
             f"  files: {counts['files_processed']}  "
             f"chunks seen: {counts['chunks_seen']}  "
             f"indexed: {counts['chunks_indexed']}  "
-            f"skipped (already current): {counts['chunks_skipped']}"
+            f"skipped (already current): {counts['chunks_skipped']}  "
+            f"failed: {counts['chunks_failed']}"
         )
+        if counts["chunks_failed"]:
+            from divineos.core.semantic_store import model_status
+
+            available, detail = model_status()
+            if not available:
+                _report_model_unavailable(detail)
+                click.echo(
+                    f"  Nothing was stored for {counts['chunks_failed']} chunk(s).",
+                    err=True,
+                )
+                raise SystemExit(1)
+            click.echo(
+                f"  WARNING: {counts['chunks_failed']} chunk(s) produced no embedding "
+                "while the model was loaded — empty or zero-norm text.",
+                err=True,
+            )
 
     @search_group.command("stats")
     def search_stats_cmd() -> None:
