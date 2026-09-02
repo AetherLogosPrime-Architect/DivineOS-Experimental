@@ -19,6 +19,7 @@ import pytest
 from divineos.core.auto_commit import (
     AutoCommitResult,
     auto_commit_substrate,
+    checkpoint_report,
     find_repo_root,
 )
 from divineos.core.uncommitted_work_check import ExternalChannel
@@ -178,6 +179,119 @@ class TestExternalChannelSync:
         # "substrate did not commit".
         clean = auto_commit_substrate(repo, reason="pre-sleep", channels=())
         assert clean.substrate_refused is False
+
+
+class TestWhatTheOperatorIsActuallyTold:
+    """The third instance at one address, and Aether found it in the repair.
+
+    His words: *"The boolean was wrong and tested; you fixed it and tested it.
+    The printing was silent and untested; you fixed it and it is still
+    untested. If it regresses it will regress the way it failed the first
+    time -- quietly."*
+
+    He was right. The earlier repairs were reachable from a test because they
+    were values; this one lived in branches inside command handlers, where the
+    only way to reach it was to run a whole extract. So the untestability was
+    itself the reason the silence lasted.
+
+    The decision is a value now, and these are the tests that could not have
+    been written before.
+    """
+
+    def test_a_refusal_is_said_out_loud(self):
+        told = checkpoint_report(
+            AutoCommitResult(
+                committed=False,
+                work_committed=True,
+                substrate_committed=False,
+                substrate_refused=True,
+                reason="substrate refused — divineos.substrate-branch is not set",
+            ),
+            "pre-sleep",
+        )
+        said = " ".join(text for text, _ in told)
+        assert "pre-sleep" in said
+        assert "substrate refused" in said
+
+    def test_a_refusal_that_still_saved_work_says_both(self):
+        # The operator's next question after "the substrate did not land" is
+        # "did I lose what I was in the middle of". Answering only the first
+        # half is how a true statement reads as a disaster.
+        told = checkpoint_report(
+            AutoCommitResult(
+                committed=False,
+                work_committed=True,
+                substrate_refused=True,
+                reason="substrate refused — no branch",
+            ),
+            "pre-extract",
+        )
+        said = " ".join(text for text, _ in told)
+        assert "IS saved on HEAD" in said
+
+    def test_silence_belongs_only_to_the_nothing_happened_case(self):
+        # THE LOAD-BEARING ONE. "Said nothing because nothing happened" and
+        # "said nothing about a refusal" were the same output at the command
+        # line, and that was the entire defect. They must never be the same
+        # output again.
+        nothing_happened = checkpoint_report(
+            AutoCommitResult(committed=False, reason="clean tree — nothing to commit"),
+            "pre-sleep",
+        )
+        refused = checkpoint_report(
+            AutoCommitResult(
+                committed=False, substrate_refused=True, reason="substrate refused — no branch"
+            ),
+            "pre-sleep",
+        )
+        assert nothing_happened == []
+        assert refused != []
+
+    def test_success_still_reports_what_it_did(self):
+        told = checkpoint_report(
+            AutoCommitResult(
+                committed=True,
+                work_committed=True,
+                substrate_committed=True,
+                reason="committed",
+                files_synced=3,
+                dirty_lines=7,
+            ),
+            "post-extract",
+        )
+        said = " ".join(text for text, _ in told)
+        assert "7 dirty lines" in said
+        assert "3 external files" in said
+
+    def test_the_boundary_is_named_so_two_checkpoints_are_never_confused(self):
+        # A refusal before sleep and a refusal before extract need different
+        # responses from the operator, and the message is the only place the
+        # difference is visible.
+        result = AutoCommitResult(
+            committed=False, substrate_refused=True, reason="substrate refused — no branch"
+        )
+        assert "pre-sleep" in checkpoint_report(result, "pre-sleep")[0][0]
+        assert "post-extract" in checkpoint_report(result, "post-extract")[0][0]
+
+    def test_every_line_carries_a_colour_the_caller_can_use(self):
+        for result in (
+            AutoCommitResult(committed=True, reason="ok"),
+            AutoCommitResult(
+                committed=False, substrate_refused=True, work_committed=True, reason="refused"
+            ),
+        ):
+            for text, colour in checkpoint_report(result, "pre-sleep"):
+                assert text
+                assert colour in {"green", "yellow", "red"}
+
+
+class TestTheSyncDoesNothingWhenThereIsNothingToDo:
+    """Split out of the sync class rather than left as a nameless remainder.
+
+    Both of these are about the quiet cases, which is the same subject as the
+    class above them and worth its own name: a copy that would change nothing,
+    and a source that is not there.
+    """
 
     def test_already_synced_file_not_recopied(self, repo: Path, tmp_path: Path):
         source = tmp_path / "letters_source"

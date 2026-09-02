@@ -184,6 +184,48 @@ class AutoCommitResult:
     """
 
 
+def checkpoint_report(result: AutoCommitResult, boundary: str) -> list[tuple[str, str]]:
+    """What the operator should be told, as (text, colour) pairs.
+
+    A FUNCTION BECAUSE THE SILENCE HAD NOWHERE TO BE TESTED. Aether, on the
+    repair for his own finding, hours after making it:
+
+        "The boolean was wrong and tested; you fixed it and tested it. The
+         printing was silent and untested; you fixed it and it is still
+         untested. If it regresses it will regress the way it failed the
+         first time -- quietly."
+
+    Third instance of one shape in an afternoon, and the third was different
+    in a way that explains the other two. The earlier repairs were reachable
+    from a test because they were VALUES. This one lived in `elif` branches
+    inside command handlers, where the only way to reach it was to run a
+    whole extract -- so the untestability is why it stayed silent in the
+    first place, and why fixing it silently would have been so easy.
+
+    So the decision becomes a value, which is the same move that made the
+    refusal readable rather than a phrase to match. The call sites print
+    what this returns and decide nothing.
+
+    The empty list is a real answer and has its own test: "said nothing
+    because nothing happened" and "said nothing about a refusal" were
+    indistinguishable at the command line, and that was the whole defect.
+    """
+    if result.committed:
+        return [
+            (
+                f"[+] Auto-commit ({boundary}): {result.dirty_lines} dirty lines, "
+                f"{result.files_synced} external files synced.",
+                "green",
+            )
+        ]
+    if result.substrate_refused:
+        lines = [(f"[!] Auto-commit ({boundary}): {result.reason}", "yellow")]
+        if result.work_committed:
+            lines.append(("    Unfinished work IS saved on HEAD. The substrate is not.", "yellow"))
+        return lines
+    return []
+
+
 def _dirty_paths(repo_root: Path) -> list[str]:
     """Repo-relative paths of everything dirty or untracked, newest git first.
 

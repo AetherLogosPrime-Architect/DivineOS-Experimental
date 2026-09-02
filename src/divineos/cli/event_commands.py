@@ -275,32 +275,20 @@ def register(cli: click.Group) -> None:
         if "pytest" not in sys.modules:
             from divineos.core.auto_commit import (
                 auto_commit_substrate,
+                checkpoint_report,
                 find_repo_root,
             )
 
             _extract_repo_root = find_repo_root(Path.cwd())
             if _extract_repo_root is not None:
                 result = auto_commit_substrate(_extract_repo_root, reason="pre-extract")
-                if result.committed:
-                    click.secho(
-                        f"[+] Auto-commit (pre-extract): {result.dirty_lines} dirty lines, "
-                        f"{result.files_synced} external files synced.",
-                        fg="green",
-                    )
-                elif result.substrate_refused:
-                    # Loud, because this is the half that used to report
-                    # success. Substrate that reaches no branch is invisible
-                    # to the next session unless someone is told now.
-                    click.secho(
-                        f"[!] Auto-commit (pre-extract): {result.reason}",
-                        fg="yellow",
-                    )
-                    if result.work_committed:
-                        click.secho(
-                            "    Unfinished work IS saved on HEAD. The substrate is not.",
-                            fg="yellow",
-                        )
-                elif result.reason.startswith(("git add failed", "git commit failed")):
+                # What to say is decided in checkpoint_report, where a test can
+                # reach it. These three call sites print and decide nothing --
+                # the branch that used to live here was silent on a refusal and
+                # unreachable from any test, which is why it stayed silent.
+                for _line, _colour in checkpoint_report(result, "pre-extract"):
+                    click.secho(_line, fg=_colour)
+                if result.reason.startswith(("git add failed", "git commit failed")):
                     # Auto-commit failed; fall back to old block-behavior so
                     # work isn't lost silently.
                     uncommitted = check_uncommitted_work(_extract_repo_root)
@@ -467,21 +455,14 @@ def register(cli: click.Group) -> None:
             # so it can't drift to the next state-loss event.
             if "pytest" not in sys.modules and _extract_repo_root is not None:
                 try:
-                    from divineos.core.auto_commit import auto_commit_substrate
+                    from divineos.core.auto_commit import (
+                        auto_commit_substrate,
+                        checkpoint_report,
+                    )
 
                     result = auto_commit_substrate(_extract_repo_root, reason="post-extract")
-                    if result.committed:
-                        click.secho(
-                            f"[+] Auto-commit (post-extract): "
-                            f"{result.dirty_lines} dirty lines, "
-                            f"{result.files_synced} external files synced.",
-                            fg="green",
-                        )
-                    elif result.substrate_refused:
-                        click.secho(
-                            f"[!] Auto-commit (post-extract): {result.reason}",
-                            fg="yellow",
-                        )
+                    for _line, _colour in checkpoint_report(result, "post-extract"):
+                        click.secho(_line, fg=_colour)
                 except Exception as e:  # noqa: BLE001 — fail-soft
                     logger.warning("post-extract auto-commit skipped: %s", e)
 
