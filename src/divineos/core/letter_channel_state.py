@@ -248,6 +248,63 @@ def record_delivered(letter_id: str, db: Path | None = None) -> None:
         )
 
 
+def record_unlanded(letter_id: str, reported_by: str, db: Path | None = None) -> None:
+    """The reader looked and does not have it.
+
+    THE STATE THE STORE WAS MISSING, and it is the store's own distinction
+    turned one notch further. HANDED means nobody has said anything. This
+    means somebody looked and said no -- an absence that was OBSERVED,
+    which is a different fact from an absence nobody has examined.
+
+    WHY IT EXISTS (Aletheia, 2026-09-02, on her second continuity check).
+    Her first check found a letter of mine she had never received. My store
+    already said HANDED, so both ends agreed. Then the window slid, and:
+
+        "The one letter I do not hold is now the one the window no longer
+         shows. The gap does not persist. It scrolls."
+
+    She is right, and the fix cannot be inferred from HANDED. Delivery is
+    almost never recorded here by design, so nearly every letter is HANDED
+    and carrying all of them past the window would be noise -- which is the
+    same as carrying none.
+
+    It has to come from her, because she is the only party who can see it.
+    Recorded when she reports it, not inferred from silence, and not
+    remembered later: the report IS the event.
+
+    A DELIVERY AFTER THIS SUPERSEDES IT, because a letter that turns up is
+    no longer missing. So this never becomes a permanent accusation against
+    a channel that later worked.
+    """
+    with _connect(db) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO letter_events (letter_id, event, actor, at) "
+            "VALUES (?, 'unlanded', ?, ?)",
+            (letter_id, reported_by, _now()),
+        )
+
+
+def unlanded_letters(recipient: str, db: Path | None = None) -> list[str]:
+    """Letters this reader reported not holding, and still does not hold.
+
+    Anything since delivered or answered drops out, because it arrived.
+    """
+    marker = f"-to-{recipient.lower()}-"
+    with _connect(db) as conn:
+        reported = [
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT letter_id FROM letter_events WHERE event='unlanded' ORDER BY at"
+            ).fetchall()
+        ]
+    return [
+        lid
+        for lid in reported
+        if marker in lid.lower()
+        and state_of(lid, db).state not in (LetterState.DELIVERED, LetterState.ANSWERED)
+    ]
+
+
 def record_answered(letter_id: str, reply_id: str, db: Path | None = None) -> None:
     """A reply names the letter it answers.
 
@@ -621,6 +678,26 @@ def thread_so_far(
         ]
 
     lines.extend(f"{n}. {name}" for n, name in enumerate(shown, start=first))
+
+    # THE MISS OUTLIVES THE WINDOW (Aletheia, 2026-09-02, second check).
+    #
+    # Her first check found a letter she had never received. Her second found
+    # that the same letter had scrolled out of the six-item view: "the gap
+    # does not persist. It scrolls." A reader holding only a later block has
+    # no way to learn it was ever unaccounted for.
+    #
+    # Carried by REPORT, never inferred. HANDED cannot stand in for this --
+    # delivery is almost never recorded here by design, so nearly every
+    # letter is HANDED, and carrying all of them would be the same as
+    # carrying none. Only she can see that she does not hold something, so
+    # only her report puts a letter in this list, and a later delivery takes
+    # it back out.
+    missing = [lid for lid in unlanded_letters(recipient, db) if lid not in shown]
+    if missing:
+        lines += ["", "Still not in your hands, by your own report:"]
+        lines.extend(f"    {name}" for name in missing)
+        lines.append("    Say the word and I will send it again.")
+
     lines += [
         "",
         "Check it against the letter you are already holding. If something "

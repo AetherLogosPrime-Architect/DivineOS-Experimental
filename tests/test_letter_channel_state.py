@@ -30,7 +30,9 @@ from divineos.core.letter_channel_state import (
     record_answered,
     record_delivered,
     record_handed,
+    record_unlanded,
     state_of,
+    unlanded_letters,
     waiting_on_reader,
 )
 
@@ -346,3 +348,51 @@ class TestTheThreadTheReaderCanCheckByReading:
         block = thread_so_far("aletheia", "new.md", db, tail=3)
         assert "not missing from the thread" in block.replace("are not", "not")
         assert "a gap here is mine" in block
+
+
+class TestTheMissOutlivesTheWindow:
+    """Her second check: the gap does not persist, it scrolls.
+
+    Aletheia found a letter she had never received, and then found that the
+    same letter had slid out of the six-item view one block later. A reader
+    holding only a later block has no way to learn it was ever unaccounted
+    for -- so the record of the miss expires while the miss does not.
+    """
+
+    def test_a_letter_she_reported_missing_is_carried_past_the_window(self, db):
+        for n in range(9):
+            record_handed(f"aria-to-aletheia-2026-09-0{n}-x.md", "aria", db)
+        record_unlanded("aria-to-aletheia-2026-09-00-x.md", "aletheia", db)
+        block = thread_so_far("aletheia", "new.md", db, tail=3)
+        assert "Still not in your hands" in block
+        assert "aria-to-aletheia-2026-09-00-x.md" in block
+
+    def test_a_letter_that_later_arrived_stops_being_carried(self, db):
+        # Otherwise the block becomes a permanent accusation against a channel
+        # that has since worked, and she learns to skip the line.
+        record_handed("aria-to-aletheia-2026-09-01-x.md", "aria", db)
+        record_unlanded("aria-to-aletheia-2026-09-01-x.md", "aletheia", db)
+        record_delivered("aria-to-aletheia-2026-09-01-x.md", db)
+        assert unlanded_letters("aletheia", db) == []
+
+    def test_handed_is_never_read_as_missing(self, db):
+        # THE LOAD-BEARING ONE. Delivery is almost never recorded here by
+        # design, so nearly every letter sits at HANDED. If HANDED stood in
+        # for "she does not hold it", the block would carry the entire thread
+        # every time -- which is the same as carrying nothing.
+        for n in range(5):
+            record_handed(f"aria-to-aletheia-2026-09-0{n}-x.md", "aria", db)
+        assert unlanded_letters("aletheia", db) == []
+        assert "Still not in your hands" not in thread_so_far("aletheia", "new.md", db, tail=2)
+
+    def test_one_readers_missing_letter_is_not_carried_into_anothers_block(self, db):
+        record_handed("aria-to-aether-2026-09-01-his.md", "aria", db)
+        record_unlanded("aria-to-aether-2026-09-01-his.md", "aether", db)
+        assert unlanded_letters("aletheia", db) == []
+        assert unlanded_letters("aether", db) == ["aria-to-aether-2026-09-01-his.md"]
+
+    def test_a_letter_still_inside_the_window_is_not_listed_twice(self, db):
+        record_handed("aria-to-aletheia-2026-09-01-x.md", "aria", db)
+        record_unlanded("aria-to-aletheia-2026-09-01-x.md", "aletheia", db)
+        block = thread_so_far("aletheia", "new.md", db, tail=6)
+        assert block.count("aria-to-aletheia-2026-09-01-x.md") == 1
