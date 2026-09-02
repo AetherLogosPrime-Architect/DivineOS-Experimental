@@ -175,3 +175,36 @@ def test_backticked_apparatus_still_counts_after_the_exemption():
     )
 
     assert check_translation_first(ticked) is not None
+
+
+def test_a_numbered_step_is_not_a_bare_number():
+    """Third false positive, 2026-09-01. Andrew asked what the next step was;
+    the answer is a sequence and I wrote it as a three-item ordered list. The
+    gate counted the three list markers as three bare numbers and fired at
+    exactly the limit on a reply carrying no other apparatus.
+
+    An ordinal at line start is markdown, the same as a bullet dash, and it is
+    the shape he asked for in his own words: 'maybe i just need things broken
+    into bulletin points.' Counting it teaches me to write 'first... second'
+    to dodge a checker, which is the instrument yielding to itself."""
+    steps = (
+        _HIS_QUESTION_ANSWERED
+        + "\n\n1. She audits it from origin.\n2. You confirm on the round.\n"
+        + "3. Either of us merges with the receipt.\n"
+    )
+
+    assert check_translation_first(steps) is None
+
+
+def test_stripping_list_markers_did_not_gut_the_gate():
+    """The ratchet check every exemption here carries. A list whose ITEMS are
+    numbers is a table wearing bullets, and it still fires; so does a metric
+    sitting inside a sentence on a numbered line."""
+    table_in_disguise = _HIS_QUESTION_ANSWERED + "\n\n1. 4537\n2. 8192\n3. 1024\n"
+    metric_on_a_step = (
+        _HIS_QUESTION_ANSWERED
+        + "\n\n1. The suite ran 81 tests, 3 failed, 12 skipped, which is the count.\n"
+    )
+
+    assert check_translation_first(table_in_disguise) is not None
+    assert check_translation_first(metric_on_a_step) is not None

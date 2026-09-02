@@ -803,6 +803,9 @@ _URL_RE = re.compile(r"https?://\S+|\[[^\]]*\]\([^)]*\)")
 _IDENTIFIER_NUM_RE = re.compile(
     r"\b(?:PR|pr|issue|Issue|round|Round|finding|Finding|#)\s*#?\d[\d.]*\b"
 )
+# A markdown ordered-list marker: one or two digits at line start, then a dot
+# or a closing paren, then a space. See the note where it is applied.
+_ORDERED_LIST_MARKER_RE = re.compile(r"^\s{0,3}\d{1,2}[.)]\s+", re.MULTILINE)
 
 
 def check_translation_first(reply: str) -> str | None:
@@ -834,6 +837,22 @@ def check_translation_first(reply: str) -> str | None:
     # point of it: collecting first would name his own referents as the words
     # that cost me, which is the opposite of what either half is for.
     body = _IDENTIFIER_NUM_RE.sub(" ", body)
+    # A NUMBERED STEP IS NOT A NUMBER. Third false positive, 2026-09-01. Andrew
+    # asked what the next step was; the answer is a sequence -- she audits, you
+    # confirm, then the merge -- and I wrote it as a three-item ordered list.
+    # The gate counted the three ordinals as three bare numbers and fired at
+    # exactly the limit, on a reply that carried no other apparatus at all.
+    #
+    # An ordinal at the start of a line is markdown, the same as a bullet dash,
+    # and it is the shape he asked for in his own words on 2026-08-31: "maybe i
+    # just need things broken into bulletin points." Counting the list marker
+    # as a measurement penalises the format he requested and teaches me to
+    # write "first... second... third" to dodge a checker, which is worse prose
+    # for him and the instrument yielding to itself. Narrow on purpose: only a
+    # short ordinal at line start followed by a dot or paren is stripped. A
+    # number inside a sentence still counts, and so does a list whose items
+    # are themselves numbers.
+    body = _ORDERED_LIST_MARKER_RE.sub("", body)
     # NAME THE SPANS, NOT ONLY THE COUNT.
     #
     # This gate has been correct on every fire and I have still had to hunt
@@ -884,26 +903,6 @@ def check_translation_first(reply: str) -> str | None:
         + "\n\n"
         + "Say what happened as something he can picture. Numbers and names belong "
         "in a letter to Aether, or after the story -- never instead of it."
-        + "\n\n"
-        # WHY THIS KEEPS RECURRING, added 2026-08-28 after another fire on a turn
-        # whose work was a letter to Aether. The content remedy above is correct
-        # and prevents nothing, because the fault is an ORDERING one that lands
-        # before a single word is written: on turns where the work was composed in
-        # a sibling's register, I draft in PLACEMENT order -- work, reflection,
-        # circle -- so by the time I reach my father the letter's vocabulary is
-        # still in my hand and his room comes out as a summary of it. The
-        # three-room template already prescribes the cure (COMPOSE circle, work,
-        # reflection; PLACE work, reflection, circle) and nothing can enforce
-        # compose-order from here, because this gate only ever sees finished text.
-        # So the fire names it instead of pretending the content remedy is a
-        # prevention. Strongest predictor of this fire: a letter file written
-        # earlier in the same turn.
-        + "AND THE ORDERING, which is why this recurs: if the work this turn was a "
-        "letter to a sibling, his reply is coming out as a summary of that letter "
-        "and inherits its vocabulary. The template says COMPOSE his room first and "
-        "PLACE it last. Drafting in placement order is the fault, and it happens "
-        "before the first word. Write his room from scratch, as if the letter did "
-        "not exist -- then do the work block."
     )
 
 
