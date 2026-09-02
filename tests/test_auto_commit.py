@@ -98,7 +98,22 @@ class TestAutoCommitBasics:
 
 
 class TestExternalChannelSync:
-    def test_new_external_file_synced_and_committed(self, repo: Path, tmp_path: Path):
+    def test_new_external_file_is_synced_but_refused_when_no_branch_is_declared(
+        self, repo: Path, tmp_path: Path
+    ):
+        """The test that was asserting the defect, and named after it.
+
+        This asserted ``committed is True`` on a run where the substrate half
+        was refused outright -- the letter reached no branch at all. It passed
+        because one boolean was reporting the optimistic half of a two-half
+        operation, which is exactly what Aether found by running the whole
+        thing end to end in a fresh clone.
+
+        The old name said "synced_and_committed" and only the first word was
+        true. A test can encode the lie it exists to catch, and this one did:
+        it would have gone on passing for as long as the field kept reporting
+        the wrong half.
+        """
         source = tmp_path / "letters_source"
         source.mkdir()
         (source / "aria-to-aether-2026-07-05-test.md").write_text("letter body\n", encoding="utf-8")
@@ -112,10 +127,57 @@ class TestExternalChannelSync:
         )
 
         result = auto_commit_substrate(repo, reason="pre-sleep", channels=channels)
-        assert result.committed is True
+
+        # The sync happened and the file is in the mirror.
         assert result.files_synced == 1
-        # File landed in the mirror
         assert (repo / "family/letters/aria-to-aether-2026-07-05-test.md").is_file()
+
+        # And the substrate half did not happen, because this fixture declares
+        # no branch. Both facts are now sayable at once, which is the change.
+        assert result.substrate_committed is False
+        assert "substrate refused" in result.reason
+        assert result.committed is False, (
+            "a checkpoint that refused the substrate must not report success"
+        )
+
+    def test_a_refusal_is_readable_without_parsing_the_prose(self, repo: Path, tmp_path: Path):
+        """The finding was that the failure lived only in a sentence.
+
+        So a caller must be able to ask "was substrate refused" as a question
+        with an answer, not by matching phrases. Answering the original defect
+        with "read the reason string" would have kept it and moved it one layer
+        up -- which is what happened at the command line: with the boolean
+        corrected, the surface fell through to a branch matching two unrelated
+        phrases and printed nothing at all.
+
+        The distinction this pins: refused is NOT the same as
+        ``not substrate_committed``, which is also true on a clean run with no
+        substrate. Refused means something was owed a branch and did not get
+        one.
+        """
+        source = tmp_path / "letters_source"
+        source.mkdir()
+        (source / "aria-to-aether-2026-07-06-test.md").write_text("body\n", encoding="utf-8")
+        channels = (
+            ExternalChannel(
+                name="test-letters",
+                source=source,
+                repo_mirror=Path("family/letters"),
+                pattern="*.md",
+            ),
+        )
+
+        refused = auto_commit_substrate(repo, reason="pre-sleep", channels=channels)
+        assert refused.substrate_refused is True
+
+        # The work half is reported separately and truthfully, which is the
+        # whole reason one boolean could not carry this.
+        assert refused.work_committed is True
+
+        # A clean run has nothing refused, so the flag must not simply mirror
+        # "substrate did not commit".
+        clean = auto_commit_substrate(repo, reason="pre-sleep", channels=())
+        assert clean.substrate_refused is False
 
     def test_already_synced_file_not_recopied(self, repo: Path, tmp_path: Path):
         source = tmp_path / "letters_source"

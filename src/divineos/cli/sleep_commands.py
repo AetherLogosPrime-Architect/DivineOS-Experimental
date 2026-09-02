@@ -213,6 +213,13 @@ def register(cli: click.Group) -> None:
                             f"{result.files_synced} external files synced.",
                             fg="green",
                         )
+                    elif result.substrate_refused:
+                        # The worst place to be quiet about it: sleep is the
+                        # boundary this session may not come back from.
+                        click.secho(
+                            f"[!] Auto-commit (pre-sleep): {result.reason}",
+                            fg="yellow",
+                        )
             except Exception as e:  # noqa: BLE001 — fail-soft
                 click.secho(
                     f"[!] Pre-sleep auto-commit skipped ({e}); proceeding with sleep.",
