@@ -33,7 +33,22 @@ SHARED_DIR="$SHARED_ROOT/letters"
 # the case-match silently failed and the hook exited 0 without copying.
 # Found 2026-06-29 via trace-logging diagnostic after the cache-hypothesis
 # turned out to be wrong; pop's "deep surgery" framing.
-FILE_PATH=$(echo "$INPUT" | python -c "
+#
+# RESOLVED ONCE, AT THE TOP, 2026-09-02. This extraction ran on a bare `python`
+# for months and was harmless while the hook only shuffled files. Adding the
+# authorship record made this a hook that imports divineos, and a bare
+# interpreter here resolves whichever clone installed last -- so the two halves
+# would have run under different interpreters. The suite caught it on the push,
+# by a check that only applies to divineos-importing hooks: my change moved this
+# file into a stricter class and its oldest line was the first thing to fail.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/_lib.sh" 2>/dev/null || true  # fail-soft: an unloadable toolbox leaves the resolver undefined and the empty-check below reports it out loud
+PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || PYTHON_BIN=""  # fail-soft: resolution failure lands as an empty value the checks below can see, never as an aborted hook that drops a letter
+if [ -z "$PYTHON_BIN" ]; then
+    echo "  [mirror-letters] NOT RUNNING: no resolvable python, so no letter is mirrored or recorded this turn." >&2
+    exit 0
+fi
+FILE_PATH=$(echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read() or '{}')
@@ -130,20 +145,6 @@ cp -p "$FILE_PATH" "$DEST" 2>/dev/null || exit 0
 # Letters only. A dream is not addressed to anyone, so nothing about it can be
 # claimed to me in a conversation I did not have.
 if [ "$KIND" = "letter" ]; then
-    # Resolved here rather than assumed. An unset interpreter would make the
-    # record silently never happen, and a provenance store that quietly stops
-    # recording is worse than none -- it turns "not in my record" from a fact
-    # into an artefact of a broken hook. So it says so instead.
-    # shellcheck disable=SC1091
-    . "$(dirname "$0")/_lib.sh" 2>/dev/null || true  # fail-soft: an unloadable toolbox leaves the resolver undefined, and the empty-check two lines down reports that out loud rather than skipping quietly
-    PYTHON_BIN="$(find_divineos_python 2>/dev/null)" || PYTHON_BIN=""  # fail-soft: resolution failure must land as an empty value the loud branch below can see, never as an aborted hook that drops the letter
-    if [ -z "$PYTHON_BIN" ]; then
-        echo "  [mirror-letters] AUTHORSHIP NOT RECORDED for $BASENAME: no resolvable python." >&2
-        echo "  The letter was delivered. My record of having written it was not written," >&2
-        echo "  so a later check will honestly say not-in-record rather than lying either way." >&2
-    fi
-fi
-if [ "$KIND" = "letter" ] && [ -n "${PYTHON_BIN:-}" ]; then
     LETTER_ID="$BASENAME" LETTER_FILE="$FILE_PATH" "$PYTHON_BIN" - <<'PY' 2>/dev/null || true  # fail-soft: a store that cannot be written must never hold up a letter reaching the person it is addressed to; the copy above has already happened
 import os
 import pathlib
