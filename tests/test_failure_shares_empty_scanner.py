@@ -247,3 +247,63 @@ class TestTheScannerObeysItsOwnFinding:
 
         scanner.main([str(probe), "--include-broad"])
         assert "all handlers" in capsys.readouterr().out
+
+
+class TestTheAnswerInTheCodeEscape:
+    """The marker is what lets this refuse instead of merely reporting.
+
+    Measured over the last eight real commits on main, file-scope reports 0, 1,
+    1, 12, 13 and 53 -- and the large numbers are pre-existing instances in
+    whatever file the change happened to open. Refusing on those would refuse
+    work the author never did. Narrowing to touched lines makes a refusal fair,
+    and the marker makes it SATISFIABLE by doing the thinking rather than by
+    switching the check off.
+    """
+
+    def _probe(self, tmp_path, comment: str):
+        path = tmp_path / "p.py"
+        path.write_text(
+            "def f(x):\n"
+            "    try:\n"
+            "        if not x:\n"
+            f"            return None{comment}\n"
+            "        return real(x)\n"
+            "    except KeyError:\n"
+            "        return None\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_a_real_reason_satisfies_it(self, tmp_path, capsys):
+        probe = self._probe(tmp_path, "  # both-empty: both mean the lookup could not run")
+        scanner.main([str(probe)])
+        assert "0 location(s)" in capsys.readouterr().out
+
+    def test_a_token_reason_does_not(self, tmp_path, capsys):
+        """The marker is not a mute button.
+
+        A reason short enough to type without thinking buys nothing, because
+        the thinking IS what is being asked for.
+        """
+        probe = self._probe(tmp_path, "  # both-empty: short")
+        scanner.main([str(probe)])
+        assert "1 location(s)" in capsys.readouterr().out
+
+    def test_no_marker_at_all_still_reports(self, tmp_path, capsys):
+        probe = self._probe(tmp_path, "")
+        scanner.main([str(probe)])
+        assert "1 location(s)" in capsys.readouterr().out
+
+    def test_new_only_without_a_baseline_refuses_rather_than_guessing(self, capsys):
+        """Without a baseline there is no "new", and inventing one would lie."""
+        assert scanner.main(["--new-only"]) == 2
+        assert "needs --changed-since" in capsys.readouterr().out
+
+    def test_unreadable_changed_lines_are_not_cleared(self, tmp_path):
+        """Could-not-tell keeps its own name here too.
+
+        If git cannot say which lines a change touched, that file's findings
+        are not silently dropped -- dropping them would read as clean, which is
+        the fault this whole file is about.
+        """
+        assert scanner.changed_line_ranges(tmp_path, "no/such/ref", "any.py") is None

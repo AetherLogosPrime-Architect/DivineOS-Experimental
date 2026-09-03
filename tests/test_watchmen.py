@@ -122,6 +122,284 @@ class TestActorValidation:
             assert _validate_actor(name) == name
 
 
+class TestReservedExternalVantageShapes:
+    """Self-caught 2026-07-17 mid-session: an attempt was made to file
+    a self-attested external-vantage CONFIRMS as actor='external-auditor'.
+    The warn-and-accept auto-onboard path let it through — no external
+    audit ever happened, but the substrate would have recorded one.
+    The catch was in-flow, not by structure. The fix (this test locks
+    it in) reserves specific external-vantage name-shapes so they can't
+    be self-onboarded — they must be explicitly added to EXTERNAL_ACTORS
+    via a guardrail-audited edit."""
+
+    def test_external_auditor_reserved_name_rejected(self):
+        """The exact name I attempted to self-file under. Now rejects."""
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor("external-auditor")
+
+    def test_all_reserved_vantage_shapes_rejected(self):
+        """The reserved-names list covers common external-vantage-claim shapes."""
+        reserved = [
+            "external-auditor",
+            "external-reviewer",
+            "outside-auditor",
+            "third-party-auditor",
+            "independent-auditor",
+            "external-audit",
+            "external-review",
+        ]
+        for name in reserved:
+            with pytest.raises(ValueError, match="reserved external-vantage"):
+                _validate_actor(name)
+
+    def test_reserved_name_uppercase_still_rejected(self):
+        """Normalization (casefold) applies before the check — uppercase
+        variants of reserved names also bounce."""
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor("EXTERNAL-AUDITOR")
+
+    def test_reserved_name_with_whitespace_still_rejected(self):
+        """Same NFKC normalization guard as the other actor checks."""
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor("  external-auditor  ")
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor(" external-auditor")
+
+    def test_reserved_names_in_EXTERNAL_ACTORS_would_still_pass(self):
+        """The rejection ONLY fires for reserved shapes NOT in the
+        allowlist. If the operator explicitly adds one via a
+        guardrail-audited edit to EXTERNAL_ACTORS, it should pass —
+        the reservation is anti-auto-onboard, not anti-legitimate-use."""
+        # Temporarily add external-auditor to the allowlist for this test.
+        from divineos.core.watchmen import types as _t
+
+        original = _t.EXTERNAL_ACTORS
+        try:
+            _t.EXTERNAL_ACTORS = frozenset({*original, "external-auditor"})
+            # Also need to patch the reference imported by store.py.
+            from divineos.core.watchmen import store as _s
+
+            _s.EXTERNAL_ACTORS = _t.EXTERNAL_ACTORS
+            # Now it should pass without raising.
+            assert _validate_actor("external-auditor") == "external-auditor"
+        finally:
+            _t.EXTERNAL_ACTORS = original
+            from divineos.core.watchmen import store as _s
+
+            _s.EXTERNAL_ACTORS = original
+
+    def test_non_reserved_unknown_still_warns_and_accepts(self):
+        """Regression: the fix ONLY tightens reserved shapes. Legitimate
+        onboarding of a new external actor with a different name still
+        works via warn-and-accept."""
+        assert _validate_actor("new-independent-service") == "new-independent-service"
+        assert _validate_actor("some-third-party-tool") == "some-third-party-tool"
+
+    @pytest.mark.parametrize(
+        "spelling",
+        [
+            "external auditor",  # a space where the hyphen was
+            "external_auditor",  # an underscore
+            "externalauditor",  # run together
+            "external--auditor",  # doubled hyphen
+            "external-auditor.",  # trailing full stop
+            "External Auditor",  # and the same with case, since both fold
+        ],
+    )
+    def test_a_different_separator_does_not_walk_through(self, spelling):
+        """THE FIVE THAT WALKED, and the comment above them was wrong about why.
+
+        Aria exercised the guard with eleven spellings on 2026-09-01 -- running
+        it, not reading it -- and five went straight past. The body claimed the
+        guard stopped the lazy reach and not a determined one. None of these is
+        determined. The space is arguably LAZIER than the hyphen: it is what a
+        person types first and hyphenates second.
+
+        So the boundary was never lazy-versus-determined. It sat between this
+        exact punctuation and any other punctuation, which is the same fault
+        the neighbouring branches keep turning up -- asking whether a thing is
+        SPELLED like the thing when the question is whether it IS the thing.
+
+        The repair folds separators rather than lengthening the reserved list,
+        because a longer list of spellings is the identical fault with more
+        entries.
+        """
+        with pytest.raises(ValueError, match="reserved external-vantage"):
+            _validate_actor(spelling)
+
+    def test_the_allowlist_escape_folds_with_the_guard(self):
+        """A guard matching on the word whose escape matches on the typography
+        would refuse a legitimately-onboarded auditor for writing their own
+        name with a space. That is a guard and a permission disagreeing about
+        the same name -- the shape Aria found on this branch between the store
+        and one of my hooks, one level down."""
+        from divineos.core.watchmen import store as _s
+        from divineos.core.watchmen import types as _t
+
+        original = _t.EXTERNAL_ACTORS
+        try:
+            _t.EXTERNAL_ACTORS = frozenset({*original, "external-auditor"})
+            _s.EXTERNAL_ACTORS = _t.EXTERNAL_ACTORS
+            assert _validate_actor("external auditor") == "external auditor"
+        finally:
+            _t.EXTERNAL_ACTORS = original
+            _s.EXTERNAL_ACTORS = original
+
+    def test_no_live_instruction_prescribes_a_name_the_store_refuses(self):
+        """A guard and a prescription must not disagree about the same name.
+
+        Aria, 2026-09-01: one of my own hooks still told its reader to file a
+        round with the reserved name as the actor, on the same branch that
+        added the refusal. Whoever followed that line got a hard rejection for
+        doing exactly what the instructions said, and would have read the guard
+        as broken rather than the instruction as stale.
+
+        A note fixes that one line. This is the class: any live instruction
+        anywhere in the hooks, scripts or docs that hands somebody a command
+        with a reserved actor in it. Historical audit-round records are
+        excluded because they are a record of what happened, not an
+        instruction, and rewriting them would erase the trace along with the
+        text -- Andrew's rule about leaving bad data explained rather than
+        erased applies to the archive, not to a live remedy line.
+        """
+        import re
+
+        from pathlib import Path
+
+        from divineos.core.watchmen.store import RESERVED_EXTERNAL_VANTAGE_NAMES
+
+        repo = Path(__file__).resolve().parent.parent
+        pattern = re.compile(
+            r"--actor[= ]+['\"]?("
+            + "|".join(re.escape(n) for n in sorted(RESERVED_EXTERNAL_VANTAGE_NAMES))
+            + ")"
+        )
+        offenders: list[str] = []
+        opened: list[str] = []
+        for root in (repo / ".claude", repo / "scripts", repo / "docs"):
+            if not root.exists():
+                continue
+            for path in root.rglob("*"):
+                if not path.is_file() or path.suffix not in (".sh", ".py", ".md", ".ps1"):
+                    continue
+                if "audit_rounds" in path.parts:
+                    continue  # a record of what was filed, not an instruction
+                text = path.read_text(encoding="utf-8", errors="replace")
+                opened.append(path.name)
+                for n, line in enumerate(text.splitlines(), 1):
+                    if pattern.search(line):
+                        offenders.append(f"{path.relative_to(repo)}:{n}: {line.strip()}")
+
+        # THE SCAN MUST NOT PASS HAVING LOOKED NOWHERE (Lamport lens, walked on
+        # this test). What I meant: no live instruction anywhere prescribes a
+        # refused actor. What the code checks: no match in three named roots and
+        # four suffixes. The second claim is strictly smaller and its silence
+        # was being read as the first.
+        #
+        # It is the emitter scan again, one week later and in the same file --
+        # that one globbed the hook directory alone, passed, and covered four
+        # source-tree callers it never opened. I wrote the docstring about it,
+        # then typed a fresh root list from memory and did not apply my own
+        # finding to it.
+        #
+        # This BOUNDS the blindness rather than removing it: a prescription in a
+        # filetype I never listed still passes. Deriving the roots from
+        # something that cannot drift is a different change, and saying so here
+        # keeps this assertion from implying it is solved.
+        assert opened, "scan read no files at all -- looked-nowhere is not found-nothing"
+        assert "pre-tool-bypass-rate-scan.sh" in opened, (
+            "the file that actually carried this defect is outside the scanned set, "
+            "so a green run here proves nothing about the place it went wrong"
+        )
+
+        assert not offenders, (
+            "live instruction(s) prescribe an actor name the store hard-rejects:\n  "
+            + "\n  ".join(offenders)
+            + "\nFile under the real name of whoever is filing. A prescription the "
+            "guard refuses teaches the reader that the guard is broken."
+        )
+
+    def test_the_refusal_shows_the_transformation_it_performed(self):
+        """Norman's gulf of evaluation, walked on the fold itself.
+
+        The fold closed five bypasses and widened the gap between what a person
+        typed and what the message says. Someone writing the word with a space
+        used to see themselves in the listed names; now they read seven
+        hyphenated names, none of which is their input, and the only available
+        reading is that the guard is broken.
+
+        So the message must show the transformation -- what was typed, what it
+        folded to, which reserved word it collided with -- and lead with the
+        action nearly everyone hitting this needs, which is to file under their
+        own name. The allowlist door is right for a rare case and was the only
+        door the old message described.
+        """
+        with pytest.raises(ValueError) as caught:
+            _validate_actor("external auditor")
+        message = str(caught.value)
+        assert "external auditor" in message, "does not echo what was typed"
+        assert "externalauditor" in message, "does not show what it folded to"
+        assert "external-auditor" in message, "does not name the reserved word it hit"
+        assert "whoever is actually filing" in message, (
+            "does not give the action the common case needs"
+        )
+
+    def test_the_fold_does_not_swallow_names_that_merely_resemble(self):
+        """Guard against the fold over-reaching. Dropping separators must not
+        turn a distinct name into a reserved one -- if it did, the repair for
+        five bypasses would have bought a class of false refusals."""
+        for name in (
+            "external-auditor-bot",
+            "ex-external-auditor",
+            "external-auditors",
+            "internal-auditor",
+        ):
+            assert _validate_actor(name) == name
+
+    def test_the_guard_stops_the_lazy_reach_and_not_a_determined_one(self):
+        """The limit, made executable instead of left in a council walk.
+
+        Same behaviour as the test above, read from the other side. The one
+        above says an unlisted name onboards, which is the feature. This says
+        an unlisted name that MEANS external-vantage onboards just the same,
+        which is the cost of the feature — a fixed list is a boundary someone
+        walks around rather than through.
+
+        Every name below reads as an outside reviewer to any human skimming
+        the audit record, and none is on the list. Anyone reaching for the
+        obvious word is stopped; anyone willing to pick a synonym is not.
+
+        Kept as a passing test rather than an xfail because these are not
+        bugs to be fixed by lengthening the list — lengthening it just moves
+        the boundary and the next synonym walks around the new one. What
+        holds is the seat declining to type any of them, which no test can
+        observe. Schneier lens, council walk on this branch; Aria 2026-08-30
+        asked for the claim to live in the code and not only in the review.
+
+        A FIFTH NAME USED TO SIT IN THIS LIST AND IT DID NOT BELONG THERE:
+        the reserved word itself with an underscore instead of the hyphen. It
+        was filed beside four genuine synonyms, asserted as accepted, and
+        called the executable statement of the limit. Aria found it by running
+        the guard rather than reading it.
+
+        The four below are DIFFERENT WORDS, and a fixed list genuinely cannot
+        reach them. The fifth was the SAME WORD in different typography, which
+        the list can reach and now does. Writing them into one list said those
+        are the same kind of thing, and they are not — that conflation is the
+        fault itself, sitting inside the test written to state the fault's
+        boundary honestly. The sentence was not dishonest; it was wrong about
+        where its own edge was, in exactly the direction that made the guard
+        look better than it was.
+        """
+        for walkaround in (
+            "outside-eyes",
+            "reviewer-2",
+            "audit-partner",
+            "impartial-review",
+        ):
+            assert _validate_actor(walkaround) == walkaround
+
+
 # ── Round Submission ─────────────────────────────────────────────────
 
 

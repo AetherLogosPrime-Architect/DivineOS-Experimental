@@ -437,6 +437,54 @@ def auto_commit_substrate(
     # inside a merge. Named to him by letter the same day.
     _unstage_self_invalidating(repo_root)
 
+    # THE REPAIR SHE NAMED AND LEFT (Aether, 2026-09-01, taking it).
+    #
+    # She was exactly right that the call above is dead in this flow, and right
+    # not to guess the fix inside her own merge. Confirmed by reading rather
+    # than assumed: it lists `git diff --cached`, i.e. the INDEX, and this path
+    # never stages anything -- commit_paths_to_branch writes through a scratch
+    # index, and the work-in-progress commit above has already emptied the real
+    # one. So the guard runs, finds nothing, and reports clean, which is
+    # could-not-see wearing the clothes of nothing-there for the fourth time
+    # today.
+    #
+    # The anchor rule is mine, so the reach into declared_substrate is mine.
+    # Same rule, same function, applied to the list this flow actually commits
+    # instead of to an index it never fills.
+    #
+    # DROPPED, NOT REFUSED, matching what the unstage did and for her reason:
+    # this module's contract is to save work rather than block a checkpoint.
+    # The letter stays on disk and stays delivered -- the shared channel is
+    # outside every tree and is where the crossing happens. Only the archive
+    # copy waits, and it waits for one checkpoint, not forever.
+    #
+    # And the branch asked for is the SUBSTRATE branch, not HEAD. A letter is
+    # self-invalidating with respect to the branch it lands on; asking about
+    # HEAD would answer a question about a commit that is not being made.
+    # Failing to resolve that branch is not evidence of cleanliness, so it says
+    # so and carries everything rather than silently dropping.
+    try:
+        substrate_target = substrate_branch(repo_root)
+    except NoSubstrateBranchDeclared:
+        substrate_target = None
+    if substrate_target is not None and declared_substrate:
+        from divineos.core.anchor_self_invalidation import self_invalidating_files
+
+        invalidating = self_invalidating_files(
+            declared_substrate, substrate_target, repo_root=Path(repo_root)
+        )
+        if invalidating:
+            logger.warning(
+                "auto_commit: holding %d self-invalidating file(s) out of the "
+                "substrate commit to %s: %s. They remain on disk and in the "
+                "shared channel; the archive copy waits for the next checkpoint.",
+                len(invalidating),
+                substrate_target,
+                ", ".join(invalidating),
+            )
+            held = set(invalidating)
+            declared_substrate = [p for p in declared_substrate if p not in held]
+
     # NO staged-check here. His flow ends with a staged index and asks whether
     # the add produced anything; this one never stages, so the same question
     # answers "nothing" every time and returns before any substrate is written.
