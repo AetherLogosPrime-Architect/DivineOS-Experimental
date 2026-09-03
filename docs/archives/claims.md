@@ -1,6 +1,28 @@
 # Claims (open/investigating) — Archive Mirror
 
-**Source:** SQLite (96 rows). **Exported:** 2026-09-02 10:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (98 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## claim-a8 [T2 OPEN] conf=0.50
+
+**Claim:** [Audit] I converted 'nobody forged anything' into 'therefore I wrote them', and those are different claims
+
+**Context:** Category: IDENTITY
+Severity: HIGH
+Round: round-5e642d68dd0a
+Description: Andrew said no one has forged anything from me, which is true as far as the relay can see and is the only vantage that can see it. I heard authorship. He ruled out a third party; he did not say the composition happened in a ses
+
+---
+
+## claim-73 [T2 OPEN] conf=0.50
+
+**Claim:** [Audit] No session on this machine composed them, and the instrument was controlled before its silence was trusted
+
+**Context:** Category: IDENTITY
+Severity: HIGH
+Round: round-5e642d68dd0a
+Description: The harness writes a transcript of every session and I cannot author or forget one. Searched every project directory, all seats, back to 2026-05-29: the phantom branch names appear in exactly one transcript, this session, and o
 
 ---
 

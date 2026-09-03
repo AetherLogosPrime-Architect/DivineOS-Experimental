@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-02 10:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -26,17 +26,16 @@ Aether found the identical wrong instruction in his own voice slot the same day,
 
 ## current_priorities
 
-1. compaction ritual: walk, commit, extract, sleep, dream, rest
-2. read Aether's reserved-external-vantage-names proposal and give the station-four reading
-3. Fix that issue
-4. 1 so check it out online to see whats upgraded 🙂 (you were on opus 5)
-5. answer Dad's question about the next step for the open proposals: what stations remain and who they wait on
+1. tell Aletheia what changed in her own instrument, and what is standing at her station
+2. answer her machine-state question by measuring my own two stores
+3. ok lets fix them
+4. measure whether my own hook payloads are reaching me or landing in a drawer
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 456 knowledge entries, 180 confirmed entries, 212 tested entries maturing, 10 session(s) tracked, 18 corrections / 3 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 462 knowledge entries, 180 confirmed entries, 217 tested entries maturing, 10 session(s) tracked, 18 corrections / 3 encouragements]
 
 ---
 

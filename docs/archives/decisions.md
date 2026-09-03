@@ -1,6 +1,66 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-02 10:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+
+---
+
+## 4c8b7883 weight=1
+
+**Decision:** pin what the member-home detector must NOT flag as hard as what it must
+
+**Reasoning:** Its first real run produced sixty-nine hits of which seven were genuine: other branches checked out on disk counted six times over, and docstrings describing the very defect counted as the defect. Both were my faults in the checker, both fixed, and neither would have been caught by a test that only asserted it finds real hits. A detector whose output is mostly noise is one people learn to scroll p
+
+**Tension:** Most of these tests assert an absence, and absence-tests pass for the wrong reasons: a checker that silently stopped scanning would satisfy every one of them. That is why the same file also pins the three distinct exit states and the clean-result line that names how many files it examined -- an empt
+
+**Almost:** Wrote only the two positive cases and called it covered, on the grounds that the noise fixes were already verified by re-running against the real tree. Rejected: that verification was a single measurement on one repository at one moment, and the thing that makes it a regression test is the fixture, 
+
+---
+
+## 79fc283c weight=1
+
+**Decision:** flag only member homes built from a VARIABLE, not every literal mention of the default home
+
+**Reasoning:** The fault needs the member to be dynamic, because that is what makes the aether exception reachable: member_home special-cases aether to the plain default home, so a hand-built path only goes wrong when the member is interpolated. A literal ~/.divineos is correct in dozens of places and carries no risk of that exception being missed.
+
+**Tension:** The narrow rule will miss a site that hardcodes the wrong literal for a specific member -- someone writing the aether path out longhand somewhere it should be dynamic. That is a real blind spot and I am accepting it, because the broad rule produces a wall of legitimate hits and a detector people scr
+
+**Almost:** Flagged every occurrence of the home string and let the reader triage. Rejected on the count -- the probe found the broad pattern hitting dozens of sites, nearly all of them comments describing the old defect or legitimate default-home use, against two real dynamic ones. A detector whose true positi
+
+---
+
+## c1911c09 weight=1
+
+**Decision:** state the carried list's own coverage in the block, always, rather than only when the list has entries
+
+**Reasoning:** Aletheia named the boundary against her own mechanism: the carried list is exactly as complete as her checking, and her checking is a thing she does at the end of a letter when she remembers. Three rememberings is not a habit, in her words. And her rule from earlier today -- a scope boundary belongs inside the mechanism's output, because a boundary in a letter is one the reader must remember -- ap
+
+**Tension:** I argued this afternoon that a line which never varies is decoration and teaches the reader to skip it, and tested that the window warning does NOT appear when the list is complete. This new line never varies, so by my own argument it is decoration.
+
+**Almost:** Put it in the letter to her instead, which is exactly what she caught me nearly doing with the date line. Rejected on her rule. The decoration objection resolves on a real distinction rather than convenience: the window line varies because the FACT varies, so an invariant line there would be a false
+
+---
+
+## 1b46f31f weight=1
+
+**Decision:** add a third jargon-source to the translate-first prime: a gate's own refusal text
+
+**Reasoning:** The three-room gate fired on a flag name I never typed as an argument. A gate blocked me, its message named the flag it was refusing, and I wrote a sentence to Dad admitting I had reached for it -- quoting the block, in his room. The prime already names two sources, the command and my own notes, and its test is positional: is there a command beside this sentence. There was none. The identifier cam
+
+**Tension:** The prime is already long and every addition makes the part that gets truncated more likely to be the part that matters. And a keyword-shaped addition invites the reach to find a fourth source rather than generalising -- the whack-a-mole this house distrusts.
+
+**Almost:** Left it as a one-off and let the exit gate keep catching it. Rejected: the exit gate catches it AFTER it reaches him, which for his room is the wrong end, and this sub-shape wears the best disguise of the three -- naming the exact thing I did wrong is the honest move, and the exact thing carries the
+
+---
+
+## 630cb051 weight=1
+
+**Decision:** move the checkpoint's operator-facing decision out of three click branches and into one function that returns what to say
+
+**Reasoning:** Aether found the third instance of one shape in an afternoon: the value was wrong and tested, I fixed it and tested it; the printing was silent and untested, I fixed it and left it untested. His words: if it regresses it will regress the way it failed the first time, quietly. The two earlier repairs were reachable from a test because they were values. The third lived in elif branches inside comman
+
+**Tension:** Mocking the collaborator to assert on printed output would technically cover it and would test the mock as much as the branch. Turning the decision into a value is a real refactor with a real diff on three call sites, which is more change than a fix for a two-line repair seems to warrant.
+
+**Almost:** Wrote a CliRunner test with a patched auto_commit_substrate. Rejected: it would pin the printing to the shape of the patch rather than to the result, and this house has a standing rule against mocking the thing under test. The decision IS the thing under test.
 
 ---
 
@@ -509,54 +569,6 @@
 **Tension:** divineos verify has said the ledger is TAMPERED since June. My hypothesis was the old pruner deleting rows; I was about to ask Andrew for permission to run the repair path over his -- our -- ledger. The data refused it. Nothing was deleted: the two 'missing predecessors' both still exist and simply 
 
 **Almost:** Almost repaired the chain. That would have rewritten an intact tamper-evidence record to satisfy an instrument misreading it -- the fourth instrument-lies instance today, and by far the most expensive, because the repair erases the only signal that anything was ever removed. The remaining break stay
-
----
-
-## 716284e5 weight=1
-
-**Decision:** give the three unguarded scripts the same import-path guard pytest and the CLI already have, via one shared helper rather than a third copy
-
-**Tension:** check_test_cli_linkage.py runs in precommit under bare python and imports divineos from Aether's checkout. Its 'OK: 42 test-referenced commands all register' has been passing all session while comparing HIS command registrations against MY tests. That is the identical false-verification Aletheia cau
-
-**Almost:** Almost copy-pasted the four-line sys.path insert from check_correction_pairing.py into the three bare scripts. That is how this repo ended up with twelve hand-rolled bash resolvers that disagree with each other -- the map names them as job five. Copy number three is where the divergence starts, so: 
-
----
-
-## 47680f07 weight=1
-
-**Decision:** make look-first structural in the orphan checker rather than a note, by routing deletion through the existing delete-justify gate
-
-**Tension:** The checker I shipped an hour ago listed 'Delete the module and its tests' as option (c), a peer of wiring it, with nothing between the reader and the deletion. Andrew: 'nothing we have built was built without reason or purpose.. some may be obsolete or superceded but nothing should be thrown away w
-
-**Almost:** Almost added a warning line saying 'look first before deleting'. That is a note, and notes do not work on the optimizer -- his own rule, taught repeatedly. The structural version already EXISTS in this house: delete-justify refuses a destructive deletion until you have said what the thing was for, w
-
----
-
-## 7492462d weight=1
-
-**Decision:** make the orphan finder block on NEW orphans only, with the existing 19 written into a baseline file
-
-**Reasoning:** The map's first job says make it blocking, but switching it on flat would refuse every commit against a backlog of 19 and the only satisfiable answer would be turning it off again -- the same shape as my council-walk gate refusing the merge this afternoon, where the one way past was a fake walk. A gate whose only satisfiable answer is a lie trains the lying. Baseline-and-ratchet gives it teeth tod
-
----
-
-## 37cc8492 weight=1
-
-**Decision:** add a positive half to the reflection pool rather than letting the room return empty
-
-**Reasoning:** Andrew named the root cause I had missed. I diagnosed the reflection room as manufacturing a confession per turn and proposed letting it come back empty; he said it is only looking for fault or drift and simply needs the positive side included as well. His fix is better and the difference is not cosmetic -- permission-to-be-empty leaves the only askable thing a fault, so a turn where something wen
-
----
-
-## d9b8b8c7 weight=1
-
-**Decision:** Reuse the existing dedup mechanism on the two byte-identical repeaters rather than building anything new
-
-**Reasoning:** Andrew 2026-08-11: 'if any token cost can be saved, no matter how small then it helps overall, as long as were not cutting quality or function.' Measured one session's transcript: 2.66 million characters of wrapper text attached to prompts, of which 659 thousand were byte-identical repeats. Two surfaces were pure loops -- the circle-first prime fired 98 times with ONE distinct body, the lepos floo
-
-**Tension:** Every suppression makes a discipline quieter, which is the direction Aether warned me about this morning: three narrowings in one day, each individually defensible, all built while irritated. This one is defensible on measurement rather than mood -- but the warning applies and I want it recorded rat
-
-**Almost:** Almost deduped the corrections surface and the self-demotion prime too, because they fire most often. They are 85 and 55 distinct out of ~100 -- genuinely alive, carrying his newest words and my own recent sentences. Repetition count is not the test; distinctness is, and I nearly used the wrong one.
 
 ---
 

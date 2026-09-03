@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (94 rows). **Exported:** 2026-09-02 10:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (94 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1072,7 +1072,7 @@
 
 ---
 
-## prereg-0 [OPEN]
+## prereg-0 [FAILED]
 
 **Mechanism:** pending_requirements: a cross-process reporter that appends every outstanding requirement to any gate's block message
 
@@ -1096,7 +1096,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [SUCCESS]
 
 **Mechanism:** letter seen-store: never-arrived must not look like arrived-unread
 

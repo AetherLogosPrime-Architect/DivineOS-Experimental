@@ -1,10 +1,10 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (12 rows). **Exported:** 2026-09-02 10:55. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (12 rows). **Exported:** 2026-09-03 11:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 051c09b4 [active] x17
+## 051c09b4 [improving] x17
 
 **Category:** blind_coding
 
@@ -20,7 +20,7 @@ I introduced errors after editing. I need to verify changes work.
 
 ---
 
-## 41a491b2 [active] x12
+## 41a491b2 [improving] x12
 
 **Category:** blind_retry
 
