@@ -125,8 +125,25 @@ if [ -z "$BLOCK_MESSAGE" ]; then
   exit 0
 fi
 
+# THE SEVENTH SITE THAT REBUILT THE HOME RULE, and it is a kill-switch.
+#
+# This was `$HOME/.divineos-$MEMBER/obligations.disabled`, hand-built, which
+# for aether resolves to a home nothing else reads. The precedent is not
+# hypothetical: the same fault in pre-tool-bypass-rate-scan.sh put a marker
+# somewhere invisible on 2026-07-16 and held that gate off for FORTY DAYS
+# before anyone could see it. A kill-switch nobody can find is worse than one
+# nobody honours -- it fails in whichever direction the file happens to sit,
+# and the operator following the instructions below would have created it in
+# the invisible place.
+#
+# Caught 2026-09-03 by scripts/check_member_home_rebuilt.py, which is scoped
+# by behaviour rather than by directory -- precisely how the August sweep
+# missed this one while catching three of its siblings.
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib/member_home.sh"
 MEMBER="${DIVINEOS_MEMBER:-aether}"
-MARKER_PATH="$HOME/.divineos-$MEMBER/obligations.disabled"
+MEMBER_HOME="$(member_home "$MEMBER")"
+MARKER_PATH="$MEMBER_HOME/obligations.disabled"
 
 cat >&2 <<EOF
 $BLOCK_MESSAGE
@@ -148,7 +165,7 @@ having it is not.
 
 To disable this gate entirely (emergency escape — Andrew 2026-06-06
 cascade-incident lesson): drop the kill-switch marker file. From your shell:
-  mkdir -p "$HOME/.divineos-$MEMBER"
+  mkdir -p "$MEMBER_HOME"
   touch "$MARKER_PATH"
 
 To re-enable: rm "$MARKER_PATH"

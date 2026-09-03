@@ -603,8 +603,21 @@ else
             # members is where cross-checkout collisions live. Fix: scope
             # the log by DIVINEOS_MEMBER so each member's failure state
             # survives the other's push.
+            # ASK FOR THE HOME, DO NOT REBUILD IT. This writer is the one
+            # whose relocation the instrument index discovered the hard way:
+            # the log read SILENT at thirty-seven days while the guard was
+            # running perfectly, because the reader was still pointed at the
+            # abandoned address. Scoping the log per member was the right
+            # call; doing it with a hand-built path is what left one seat
+            # writing where nothing looks.
+            #
+            # Checked origin/main before editing -- it carries the same
+            # hand-built line, so this is a repair rather than a divergence.
+            # Caught 2026-09-03 by scripts/check_member_home_rebuilt.py.
+            # shellcheck disable=SC1091
+            . "$(git rev-parse --show-toplevel)/.claude/hooks/lib/member_home.sh"
             MEMBER="${DIVINEOS_MEMBER:-aether}"
-            LAST_LOG="${HOME}/.divineos-${MEMBER}/last_pre_push_pytest.log"
+            LAST_LOG="$(member_home "$MEMBER")/last_pre_push_pytest.log"
             mkdir -p "$(dirname "$LAST_LOG")"
             cp "$PYTEST_LOG" "$LAST_LOG"
             # Surface failures explicitly — multiple patterns because pytest
