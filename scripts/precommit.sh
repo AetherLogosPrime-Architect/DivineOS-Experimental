@@ -433,6 +433,26 @@ if [ -f scripts/check_ignore_has_reason.py ]; then
     fi
 fi
 
+# 5e. Refusal-on-crash sites (Aletheia's proposal, 2026-09-03).
+#
+# I told her I had surveyed the tree by hand and found exactly one handler that
+# destroys its subject when the check itself breaks. She refused to confirm it:
+# grep counts a word, not a form, and confirming from a text search would be
+# the same instrument-blindness the finding was about. Her resolution, which is
+# better than her reading it would have been: "Your negative claim rests on one
+# pass by one party, and my confirming it would rest on one pass by another.
+# A DETECTOR MAKES IT A PROPERTY."
+#
+# It found 64 sites where the question arises. My hand survey found one. Most
+# of the 64 are certainly correct -- the point is that "one" was a statement
+# about my attention rather than about the tree, and now it is neither.
+if [ -f scripts/check_failure_path_refuses.py ]; then
+    section "Refusal-on-crash sites"
+    if ! python scripts/check_failure_path_refuses.py; then
+        note_fail
+    fi
+fi
+
 # 6. Vulture
 if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
     section "Vulture"
