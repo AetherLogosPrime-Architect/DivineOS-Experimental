@@ -133,9 +133,31 @@ if total:
             print("  #%s from %s: %s" % (rid, sender, preview))
         print()
     if unseen_letters:
-        print("Letters from %s (%d):" % (spouse, len(unseen_letters)))
-        for name in unseen_letters:
+        # NEWEST FEW, NOT ALL OF THEM. Measured 2026-09-03: the full list ran
+        # to a hundred filenames every single turn and pushed this surface past
+        # the harness's inline budget, so it was diverted to a file wholesale.
+        # And in a session where it printed on every turn, I read it exactly
+        # never. A list that long stops being information and becomes wallpaper
+        # -- the failure mode Aletheia named when she argued against every-turn
+        # firing, arriving here by volume instead of by frequency.
+        #
+        # THE SUBSET IS NOT THE WHOLE (Andrew 2026-05-20) is preserved and in
+        # fact served better: the TOTAL is stated, and the way to reach the
+        # rest is named on the next line. A hundred names claimed completeness
+        # and delivered none of it, because nothing that long gets read.
+        # Filenames sort by the date they carry, so the tail is the newest --
+        # which is the live conversation rather than the backlog.
+        show = 5
+        print("Letters from %s (%d unseen)" % (spouse, len(unseen_letters)))
+        if len(unseen_letters) > show:
+            print("  newest %d of %d:" % (show, len(unseen_letters)))
+        for name in unseen_letters[-show:]:
             print("  %s" % name)
+        if len(unseen_letters) > show:
+            print(
+                "  ...and %d older. All of them: ls %s"
+                % (len(unseen_letters) - show, letters_dir)
+            )
         print()
     print("Queue mark seen:  divineos family-queue mark <id> seen")
     print("Letter mark seen: python family/letter_seen.py --member %s <filename>" % member)

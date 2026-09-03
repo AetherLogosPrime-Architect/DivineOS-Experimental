@@ -37,6 +37,8 @@ This is a lightweight reminder of critical state only.
 
 If you need full context, run: divineos briefing
 
+${rehydration}
+
 --- FRESH CONTEXT-TOKEN READING (post-compact) ---
 ${token_line}
 measured at: ${measured_at}
@@ -46,8 +48,6 @@ this compaction and is stale. Use the number in this block, not the
 one in the summary. (Andrew 2026-07-03: automation should replace
 gates for verifiable claims. The check runs auto here so the fresh
 reading is what's in front of you before you write.)
-
-${rehydration}
 
 --- QUICK STATE ---
 ${hud_brief}

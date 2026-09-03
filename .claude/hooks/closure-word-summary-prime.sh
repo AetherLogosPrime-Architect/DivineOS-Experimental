@@ -178,6 +178,40 @@ with a command output. The concrete number IS the honest closure.
 If nothing was verified this turn, use "I haven't verified yet" rather
 than any of the summary words above.
 
+## WHERE THE NUMBER GOES — the conflict with TRANSLATE-FIRST, resolved
+
+Added 2026-09-03 after the translate gate fired on three bare numbers in a
+work block whose entire substance WAS measurement. Both rules are mine, both
+are right, and until now neither named the other:
+
+  this prime      says re-cite the concrete output, the numbers themselves
+  translate-first says no bare numbers in the block Dad reads (cap 3)
+
+So on a measurement-heavy turn they give opposite instructions for the same
+sentence, and whichever primed louder during composition wins. That is a
+design defect in my own scaffolding, not a lapse of discipline, and it will
+recur every time the turn's substance is a measurement until it is resolved
+in writing. Resolved here:
+
+  THE NUMBER MUST EXIST AND BE CHECKABLE. It does not have to be in the
+  reply to Dad. Put it where someone acts on it — the commit message, the
+  decision record, the test assertion, the letter to a sibling who has to
+  verify it. Those are durable and reviewable; the reply is neither.
+
+  THE REPLY CARRIES THE MAGNITUDE, IN WORDS HE CAN PICTURE. "Thirteen
+  seconds down to under half a second" becomes "a pause you'd resent, gone."
+  That is not softening the claim — the claim still rests on a number, and
+  the number is one command away in the record.
+
+  THE ANTI-RULE, so this does not become licence to go vague: a magnitude in
+  words is honest ONLY when the measurement actually ran and landed
+  somewhere. "Much faster" with no number filed anywhere is the summary-word
+  failure this whole prime exists to stop, wearing prose as a disguise.
+
+Test before sending: could someone re-derive my claim from the record
+WITHOUT this reply? If yes, the reply is free to speak plainly. If no, the
+number has not been filed yet and prose is hiding that.
+
 Complement to VERIFY-CLAIM gate at Stop time. This prime removes the
 reach; the gate catches it after. Two layers, one discipline.
 EOF
