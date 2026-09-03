@@ -96,6 +96,181 @@ def _tree_is_covered(head_tree: str, confirmed: set[str]) -> bool:
     return any(h.startswith(t) or t.startswith(h) for t in confirmed if t)
 
 
+# "tip 968d0b930d55", "tip-hash: <sha>", "commit: <sha>". Anchored on the word
+# for the same reason _TREE_NEAR is: a bare hex scan also matches the hex tail
+# of a round id, and a round id mistaken for a commit is a silent wrong answer.
+_TIP_NEAR = re.compile(
+    r"\b(?:tip|commit|head)[-\s]*(?:hash|sha|oid)?[:\s]+([0-9a-f]{8,40})\b",
+    re.IGNORECASE,
+)
+
+# The ancestry rung only opens if a CONFIRMS finding SAYS, in words, that the
+# commit its author reviewed is still in this branch's history.
+_ANCESTRY_CLAIM = re.compile(r"\bancest(?:or|ry|ral)\b", re.IGNORECASE)
+
+
+def _pr_head_oid(pr_number: int) -> str:
+    """The PR head commit sha, or "" when it could not be read.
+
+    Empty means CANNOT LOOK, never "no head". Every caller here treats it as a
+    refusal rather than as an absence, which is the whole lesson of the fault
+    class this file keeps turning up: a failed lookup that renders as an
+    innocent value is worse than one that raises, because it reports safety.
+    """
+    try:
+        out = subprocess.run(
+            ["gh", "pr", "view", str(pr_number), "--json", "headRefOid"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        return str(json.loads(out.stdout).get("headRefOid", "") or "")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return ""
+
+
+def _is_ancestor(tip: str, head_sha: str) -> bool | None:
+    """Is ``tip`` an ancestor of ``head_sha``? ``None`` means could not tell.
+
+    Three states, not two, and the third one is the point. ``git merge-base
+    --is-ancestor`` exits 1 for "no" and also non-zero when the object is not
+    here at all. Collapsing those lets an unfetched commit read as an orphaned
+    one -- or, under the opposite sign, lets a lookup failure read as a pass.
+    The object is resolved first so the two stay separable.
+    """
+    if not tip or not head_sha:
+        return None
+    try:
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{tip}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        return None  # both-empty: the object is not here, git is not here, or the
+        # question timed out -- three ways of not knowing, and the caller's only
+        # honest move is identical for all of them, so they are one answer.
+    try:
+        res = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", tip, head_sha],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None  # both-empty: same not-knowing as above, one step later.
+    if res.returncode == 0:
+        return True
+    if res.returncode == 1:
+        return False
+    return None  # both-empty: git answered with neither yes nor no, which is the
+    # same not-knowing the handlers above report; the caller must refuse either way.
+
+
+def _ancestry_rung(round_id: str, head_sha: str) -> tuple[bool, str]:
+    """Does this round carry a written ancestry claim that actually holds?
+
+    Returns ``(holds, why)``, where ``why`` is printable in both directions.
+
+    Aletheia's amended anchor rule, 2026-09-03, written after her first one
+    broke within twelve hours -- and broken by the act of USING it, because
+    catching a branch up to main rewrites a generated artifact, and any anchor
+    bound to the code inherits the volatility of the least stable thing inside
+    what it measures::
+
+        TIP unchanged                          -> holds.
+        TIP moved, patch-id unchanged          -> holds (catch-up).
+        TIP moved, patch-id moved, SIGNED TIP IS AN ANCESTOR, and the only
+          differences are in files neither of us authored
+                                               -> holds, with the exclusion
+                                                  reading NAMED in the record.
+        TIP moved, patch-id moved, otherwise   -> re-read.
+        TIP orphaned                           -> re-read. No exception.
+
+    WHY THE WRITTEN CLAIM IS REQUIRED AND NOT MERELY THE GIT CHECK. Ancestry
+    alone is not sufficient, and the gap is not theoretical: a branch that
+    adds real new commits on top of the reviewed one passes an ancestor test
+    exactly as cleanly as one that only caught up. What separates row three
+    from row four is whether the differences are artifact-only -- a judgement
+    about which files count -- and that is precisely the judgement she refused
+    to let this repository keep in a list::
+
+        "I will not have a rule that says movement in these paths is exempt.
+        Not because your two paths are wrong. Because the mechanism that keeps
+        the list correct does not exist."
+
+    Her reason was that every hand-maintained list in this house has gone
+    stale, and this one would go stale in the direction that matters: a path
+    added that is not purely generated makes her signature cover something she
+    never read, with nothing anywhere to show it.
+
+    So the interpretive half stays with the reviewer, per round, in their own
+    hand, and this verifies the half that has no interpretation in it. A round
+    claiming no ancestry gets no rung at all and falls through to the refusal
+    below -- which means the looser reading cannot be inherited by accident. It
+    has to be written down by someone willing to sign it.
+
+    KNOWN LIMIT, in the permissive direction, inherited from
+    ``_confirmed_trees``: this cannot tell a commit a finding CONFIRMS from one
+    it merely MENTIONS. It is narrower than the tree case only because the
+    finding must assert an ancestry in prose before any hash inside it is read
+    at all.
+    """
+    from divineos.core.watchmen.store import list_findings
+
+    if not head_sha:
+        return False, "the PR head commit could not be resolved, so nothing could be checked"
+    try:
+        findings = list_findings(round_id=round_id, limit=200) or []
+    except Exception:  # noqa: BLE001 - an unreadable store is not "no claim"
+        return False, "the audit store could not be read, so no claim could be found"
+
+    claimed: set[str] = set()
+    for f in findings:
+        text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
+        if "confirms" not in text.lower():
+            continue
+        if not _ANCESTRY_CLAIM.search(text):
+            continue
+        claimed.update(m.group(1).lower() for m in _TIP_NEAR.finditer(text))
+
+    if not claimed:
+        return False, (
+            "no CONFIRMS finding on this round claims the reviewed commit is an ancestor"
+        )
+
+    unresolvable: list[str] = []
+    orphaned: list[str] = []
+    for tip in sorted(claimed):
+        state = _is_ancestor(tip, head_sha)
+        if state is True:
+            return True, (
+                f"reviewed commit {tip[:12]} is an ancestor of head {head_sha[:12]}, "
+                "so that review was built upon rather than superseded"
+            )
+        if state is False:
+            orphaned.append(tip[:12])
+        else:
+            unresolvable.append(tip[:12])
+
+    if orphaned and not unresolvable:
+        return False, (
+            f"the commit(s) claimed as ancestors ({', '.join(orphaned)}) are NOT in this "
+            "head's history -- that tip is orphaned, and an orphaned tip owes a re-read "
+            "with no exception available"
+        )
+    return False, (
+        f"the claimed commit(s) ({', '.join(unresolvable + orphaned)}) could not all be "
+        "resolved here, and a lookup that failed must not be read as a pass -- fetch the "
+        "branch and re-run"
+    )
+
+
 _BASE_BRANCH = "origin/main"
 
 
@@ -495,21 +670,49 @@ def register(cli: click.Group) -> None:
         if tree_hash:
             confirmed = _confirmed_trees(round_id)
             if confirmed and not _tree_is_covered(tree_hash, confirmed):
-                named = ", ".join(sorted(t[:12] for t in confirmed))
-                click.secho(
-                    f"[!] Round {round_id} CONFIRMS tree(s) {named}, but this PR's head\n"
-                    f"    tree is {tree_hash[:12]}. Pairing them would assert a review\n"
-                    "    that did not happen.\n"
-                    "    Get a round against the current tree, or pass --audit-round\n"
-                    "    naming the round that actually covers it.",
-                    fg="red",
-                )
-                click.secho(
-                    "    PR left in draft. This is the stale-round stamping that\n"
-                    "    substance-binding exists to prevent.",
-                    fg="bright_black",
-                )
-                raise click.exceptions.Exit(1)
+                # THE TREE IS THE STRICT RUNG, NOT THE ONLY ONE.
+                #
+                # A tree hash moves when ANY byte under it moves, including a
+                # generated file that no reviewer wrote. So catching a branch
+                # up to main -- the one act required to make it mergeable --
+                # rewrites the capability catalogue and breaks this rung, and
+                # the branch becomes unmergeable by having been made
+                # mergeable. That happened on this very PR on 2026-09-03: the
+                # remedy withdrew the licence it was granted under, which is
+                # the fourth instance of that shape in this correspondence and
+                # the first one built here rather than found.
+                #
+                # Aletheia's amended rule puts ANCESTRY under the tree: if the
+                # commit she read is still in this history, her reading was
+                # built upon rather than superseded. See ``_ancestry_rung``
+                # for the full table and for why the rung demands a written
+                # claim instead of trusting the git check alone.
+                holds, why = _ancestry_rung(round_id, _pr_head_oid(pr_number))
+                if holds:
+                    click.secho(
+                        f"[+] Head tree {tree_hash[:12]} is not one this round names, but the\n"
+                        f"    ANCESTRY rung holds: {why}.\n"
+                        "    Proceeding on a reviewer's written claim, verified here rather\n"
+                        "    than taken on its word.",
+                        fg="green",
+                    )
+                else:
+                    named = ", ".join(sorted(t[:12] for t in confirmed))
+                    click.secho(
+                        f"[!] Round {round_id} CONFIRMS tree(s) {named}, but this PR's head\n"
+                        f"    tree is {tree_hash[:12]}. Pairing them would assert a review\n"
+                        "    that did not happen.\n"
+                        f"    The ancestry rung does not save it either: {why}.\n"
+                        "    Get a round against the current tree, or pass --audit-round\n"
+                        "    naming the round that actually covers it.",
+                        fg="red",
+                    )
+                    click.secho(
+                        "    PR left in draft. This is the stale-round stamping that\n"
+                        "    substance-binding exists to prevent.",
+                        fg="bright_black",
+                    )
+                    raise click.exceptions.Exit(1)
             if not confirmed:
                 # The round's CONFIRMS name no tree at all. That is NOT
                 # agreement -- it is a round that never said, and saying
