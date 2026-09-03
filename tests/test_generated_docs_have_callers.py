@@ -62,6 +62,24 @@ def test_every_generated_doc_has_something_that_checks_it(generator, doc):
         f"reading as authoritative -- a stale map is a worse oracle than no map."
     )
 
+    # A PLAUSIBLE NAME IS NOT A COMMAND. Aletheia, 2026-09-03, on the first
+    # version of this test: "the static test should fail if the wire is present
+    # but points at a command that does not exist. Otherwise it pins a string
+    # rather than a connection."
+    #
+    # She had just demonstrated it on herself. Correcting me for citing a branch
+    # name from memory, she prescribed `divineos pr anchors` as the cure -- and
+    # there is no `pr` command. A remedy quoted from memory, inside the
+    # correction about quoting from memory.
+    #
+    # So the wire has to end somewhere real, and this is the line that checks it.
+    invoked = ROOT / generator
+    assert invoked.is_file(), (
+        f"pre-commit names {generator}, and no such file exists. The wiring "
+        f"reads as present and connects to nothing -- a painted door, which is "
+        f"worse than an absent one because it stops anybody looking."
+    )
+
 
 @pytest.mark.parametrize("generator,_doc", GENERATED_DOCS)
 def test_every_generator_offers_a_check_mode(generator, _doc):
