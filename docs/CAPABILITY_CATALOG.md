@@ -22,8 +22,8 @@ Commands that DO report usage:
 |---|---|
 | `ask` | 443 |
 | `briefing` | 243 |
-| `decide` | 156 |
-| `compass` | 142 |
+| `decide` | 158 |
+| `compass` | 143 |
 | `context` | 86 |
 | `recall` | 49 |
 | `lessons` | 39 |
