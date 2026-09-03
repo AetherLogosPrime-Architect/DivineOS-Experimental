@@ -65,7 +65,23 @@ EXEMPT = {
 # were the same handful of lines seen once per checkout. A detector that
 # reports the same defect six times is one whose real findings are buried in
 # its own noise.
-SKIP_DIRS = {".git", ".venv", "node_modules", "__pycache__", "benchmark", "worktrees"}
+#
+# `tmp` joined them on the third pass, and the way it surfaced is the point:
+# running this checker inside a second checkout, it reported five sites that
+# were all ITS OWN TEST FIXTURES -- pytest scratch files written to prove the
+# detector fires, sitting under tmp/pytest and being detected. Fixtures that
+# contain the pattern on purpose are not the codebase, and a checker that
+# reports its own test data has the same output-you-learn-to-ignore problem
+# as the two noise sources before it.
+SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    "benchmark",
+    "worktrees",
+    "tmp",
+}
 
 # A member home built from something that is not a literal: an f-string hole, a
 # shell variable, or concatenation onto the hyphen.
@@ -140,11 +156,21 @@ def sources_under(root: Path) -> list[Path]:
     out: list[Path] = []
     for suffix in ("*.py", "*.sh"):
         for path in root.rglob(suffix):
-            if SKIP_DIRS & set(path.parts):
-                continue
             try:
                 rel = path.relative_to(root)
             except ValueError:
+                continue
+            # SKIPS ARE MEASURED FROM THE SCAN ROOT DOWN, never against the
+            # absolute path. Checking the full parts meant any directory ABOVE
+            # the root could silently exclude everything beneath it -- and it
+            # did: this repository puts pytest's scratch under <repo>/tmp, so
+            # every fixture tree inherited the tmp skip and the checker
+            # reported COULD NOT SCAN on directories full of test files.
+            #
+            # Caught by this checker's own tests, which is the argument for
+            # having written them: the fix that produced this defect was a
+            # one-word addition that looked obviously safe.
+            if SKIP_DIRS & set(rel.parts):
                 continue
             if rel in EXEMPT:
                 continue

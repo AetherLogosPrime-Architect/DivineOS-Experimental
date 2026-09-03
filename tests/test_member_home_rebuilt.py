@@ -130,6 +130,18 @@ class TestScopedByBehaviourNotDirectory:
         _write(tmp_path, "ok.py", "x = 1\n")
         assert main(["prog", str(tmp_path)]) == EXIT_CLEAN
 
+    def test_a_scratch_directory_of_test_fixtures_is_not_scanned(self, tmp_path):
+        # Found by running the checker inside a second checkout, where it
+        # reported five sites that were all ITS OWN pytest fixtures -- files
+        # written to prove it fires, then detected. Fixtures carrying the
+        # pattern on purpose are not the codebase.
+        (tmp_path / ".git").mkdir()
+        scratch = tmp_path / "tmp" / "pytest" / "run-1"
+        scratch.mkdir(parents=True)
+        _write(scratch, "fixture.py", 'home = Path.home() / f".divineos-{member}"\n')
+        _write(tmp_path, "ok.py", "x = 1\n")
+        assert main(["prog", str(tmp_path)]) == EXIT_CLEAN
+
     def test_a_hook_directory_is_scanned_like_any_other(self, tmp_path):
         # The August sweep was scoped by directory and missed three sites for
         # exactly this reason. Nothing is exempt for living somewhere.
