@@ -421,6 +421,35 @@ if [ -f scripts/check_capability_catalog_fresh.py ]; then
     fi
 fi
 
+# 5c-bis. The automation register, same discipline, and it needed no new code.
+#
+# Aletheia asked, closing her review of the capability-map repair: "is this file
+# a function of the repository, or of the machine that last wrote it? The
+# catalog was the second. I would want to know whether it is the only one."
+#
+# Asked of the register: it is a function of the repository, so her question
+# has a clean no. But it was 24 automations STALE -- claiming 98 where the tree
+# has 122, blind to every hook added in weeks, still listing four that no longer
+# exist. A prior-art check pointed at it would have answered "no such thing"
+# with the authority of a system-wide index, which is exactly the hazard its
+# sibling's docstring names.
+#
+# AND THE ALARM ALREADY EXISTED. The generator has carried a --check mode all
+# along that exits non-zero on drift. Nothing ever called it. So the register
+# did not lack a checker; it lacked a CALLER -- a built mechanism sitting dark,
+# which is the same disease as everything else found this week and the reason
+# the file could rot unnoticed.
+#
+# No new script for this. Writing one would have been a second copy of a
+# discipline that was already here, and would have left the real defect (the
+# unwired check) in place beneath it.
+if [ -f scripts/generate_automation_register.py ]; then
+    section "Automation Register"
+    if ! python scripts/generate_automation_register.py --check; then
+        note_fail
+    fi
+fi
+
 # 5d. Ignore-flag-has-reason check (Aletheia Finding 74, 2026-05-17).
 # Refuses pytest --ignore= usages without an adjacent # REASON: comment.
 # Substrate-level fix for the bypass-too-broad pattern that recurred

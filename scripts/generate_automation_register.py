@@ -278,7 +278,11 @@ def main() -> int:
         return 0
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(text, encoding="utf-8")
+    # newline="\n" -- same fix as the capability catalog, found by asking its
+    # question of this file. Without it, write_text translates newlines on
+    # Windows against a path the repo declares eol=lf, so the file reads as
+    # permanently modified while being byte-identical in content.
+    OUTPUT.write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} — {len(rows)} automations, {dark} switched off")
     if dark:
         for r in rows:
