@@ -40,7 +40,6 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -93,7 +92,11 @@ def regenerate() -> str | None:
         # Restore whatever was committed. The caller decides whether to keep
         # the new text; this function only measures.
         if original is not None:
-            _CATALOG.write_text(original, encoding="utf-8")
+            # newline="\n" or the restore leaves the file dirtier than it found
+            # it: read_text strips CRLF on the way in, and a bare write_text
+            # puts CRLF back on the way out. A measuring function that modifies
+            # what it measures is the one thing this file exists to refuse.
+            _CATALOG.write_text(original, encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -137,11 +140,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  missing from the map: {line[:100]}")
 
     if args.fix:
-        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
-            handle.write(fresh)
-            staged = Path(handle.name)
-        _CATALOG.write_text(staged.read_text(encoding="utf-8"), encoding="utf-8")
-        staged.unlink(missing_ok=True)
+        # Was a round-trip through a temp file, which bought nothing -- `fresh`
+        # is already the text -- and cost the same CRLF translation twice over.
+        # newline="\n" so the repaired map matches the eol=lf the repo declares;
+        # without it this "fix" writes 1397 invisible differences and leaves the
+        # file permanently dirty, which is the fault it was called to repair.
+        _CATALOG.write_text(fresh, encoding="utf-8", newline="\n")
         print("[map] rewritten. Commit it with the change that caused the drift.")
         return 0
 
