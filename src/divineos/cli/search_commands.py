@@ -18,6 +18,7 @@ pre-reg ``prereg-2ad79e23fcf7``.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import click
@@ -120,7 +121,7 @@ def register(cli: click.Group) -> None:
     @search_group.command("index")
     @click.option(
         "--corpus",
-        type=click.Choice(["exploration", "letters", "all"]),
+        type=click.Choice(["exploration", "dreams", "letters", "all"]),
         default="exploration",
         help="Which corpus to index (default: exploration)",
     )
@@ -142,8 +143,25 @@ def register(cli: click.Group) -> None:
             f"  files: {counts['files_processed']}  "
             f"chunks seen: {counts['chunks_seen']}  "
             f"indexed: {counts['chunks_indexed']}  "
-            f"skipped (already current): {counts['chunks_skipped']}"
+            f"skipped (already current): {counts['chunks_skipped']}  "
+            f"FAILED: {counts['chunks_failed']}"
         )
+        if counts["chunks_failed"]:
+            # Loud, and it names the cause. The silent version of this line is
+            # why the corpus sat unindexed with the run reporting a clean zero.
+            click.echo(
+                f"  !! {counts['chunks_failed']} chunk(s) could not be embedded — "
+                "the index did NOT get them.",
+                err=True,
+            )
+            click.echo(
+                "     Most likely the embedding model is unavailable in this "
+                "environment. Check with:",
+                err=True,
+            )
+            click.echo("       python -c 'import sentence_transformers'", err=True)
+            click.echo("     and install the extra if that fails:", err=True)
+            click.echo('       pip install -e ".[ml]"', err=True)
 
     @search_group.command("stats")
     def search_stats_cmd() -> None:
@@ -186,15 +204,43 @@ def register(cli: click.Group) -> None:
 
 
 def _gather_paths(corpus: str) -> list[str]:
-    """Resolve the corpus selector to a list of file paths."""
+    """Resolve the corpus selector to a list of file paths.
+
+    Recursive by design. The first version globbed one flat directory per
+    corpus, which silently excluded every exploration subdirectory except
+    ``aether`` — ten of them, plus the top-level entries — and the whole
+    dream register. A corpus selector that quietly means "some of it"
+    is the subset-presented-as-the-whole shape (Andrew 2026-05-20), so
+    each selector now walks its roots and the caller reports the count.
+    """
     repo_root = Path.cwd()
-    paths: list[str] = []
+    roots: list[Path] = []
     if corpus in ("exploration", "all"):
-        expl_dir = repo_root / "exploration" / "aether"
-        if expl_dir.exists():
-            paths.extend(str(p) for p in expl_dir.glob("*.md"))
+        roots.append(repo_root / "exploration")
+    if corpus in ("dreams", "all"):
+        roots.append(repo_root / "dreams")
     if corpus in ("letters", "all"):
-        letters_dir = repo_root / "family" / "letters"
-        if letters_dir.exists():
-            paths.extend(str(p) for p in letters_dir.glob("*.md"))
-    return sorted(paths)
+        roots.append(repo_root / "family" / "letters")
+        # Letters that arrive through the cross-agent channel live outside
+        # the checkout. They are the same correspondence and belong in the
+        # same index; the one file the index held before this change came
+        # from here.
+        roots.append(Path.home() / ".divineos-shared" / "letters")
+    # Deduplicated by CONTENT, not by path. Letters exist in both the
+    # checkout and the cross-agent channel, so ~2000 of them are the same
+    # writing at two addresses. Indexing both doubles the embedding cost
+    # and makes every search return each letter twice. Identity here is
+    # what the file says, not where it sits.
+    by_digest: dict[str, str] = {}
+    for root in roots:
+        if not root.exists():
+            continue
+        for p in sorted(root.rglob("*.md")):
+            if not p.is_file():
+                continue
+            try:
+                digest = hashlib.sha256(p.read_bytes()).hexdigest()
+            except OSError:
+                continue
+            by_digest.setdefault(digest, str(p))
+    return sorted(by_digest.values())
