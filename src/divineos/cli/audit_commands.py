@@ -321,10 +321,47 @@ def _git_version() -> str:
     return m.group(1) if m else ""
 
 
-def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> str | None:
+# Paths whose content is a function of the repository's own machinery rather
+# than of the change under review. Catching a branch up to main rewrites these,
+# which moves the cumulative patch-id even when no reviewed line changed.
+#
+# MEASURED 2026-09-03 on PR #465: the branch was caught up to main, the anchor
+# moved from e20914d507212ff5 to 1c918d330f41abf2, and the review came loose.
+# Recomputed with these paths excluded, the diff hashed to 2f9d3093b0124e06
+# BEFORE and AFTER the catch-up -- identical. Not one reviewed line had moved.
+#
+# That is Aletheia's own class from that morning, arriving as a live instance:
+# "a committed artifact that is not a function of the code will break every
+# anchor bound to the code." A branch behind main cannot merge without catching
+# up, and catching up destroyed the permission to merge. The remedy invalidated
+# the licence.
+#
+# THIS LIST IS NOT A LICENCE TO IGNORE MOVEMENT. It is the opposite: it makes
+# the two readings separable so a reviewer can see WHICH one moved, instead of
+# being handed one number that conflates them and having to argue about it.
+# The gate still consults the full anchor. Nothing here silently widens what
+# counts as unchanged.
+_ANCHOR_EXCLUDED_PATHS: tuple[str, ...] = (
+    "docs/CAPABILITY_CATALOG.md",
+    "scripts/orphan_modules_baseline.txt",
+)
+
+
+def compute_branch_patch_id(
+    branch_ref: str,
+    main_ref: str = "origin/main",
+    *,
+    exclude: tuple[str, ...] = (),
+) -> str | None:
     """Patch-id of a branch's cumulative change — the stable identity of the
     reviewed diff, invariant to base-moves (catch-up) but sensitive to any
     real change to the diff.
+
+    ``exclude`` drops paths from the diff before hashing. Pass
+    ``_ANCHOR_EXCLUDED_PATHS`` to get the CODE-ONLY reading, which survives a
+    catch-up that touched only generated or backlog artifacts. The default is
+    empty on purpose: the strict anchor stays the default and the looser one
+    must be asked for by name.
 
     Aletheia's load-bearing specifics (2026-06-02), baked in so they can't be
     forgotten:
@@ -364,8 +401,11 @@ def compute_branch_patch_id(branch_ref: str, main_ref: str = "origin/main") -> s
         # picking a better encoding, and the failure mode stops existing
         # instead of being caught. Only the final line is decoded, and that
         # line is hex and a space.
+        cmd = ["git", "diff", base, branch_ref]  # default context; NEVER -U0
+        if exclude:
+            cmd += ["--", "."] + [f":(exclude){p}" for p in exclude]
         diff = subprocess.run(
-            ["git", "diff", base, branch_ref],  # default context; NEVER -U0
+            cmd,
             capture_output=True,
             check=False,
             timeout=30,
