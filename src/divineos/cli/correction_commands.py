@@ -212,10 +212,24 @@ def register(cli: click.Group) -> None:
             missing.append('"structural fix:" or "behavior change:" (a real in-turn change)')
         if not has_positives:
             missing.append(
-                '"positives:" (what this fault actually yielded — a mechanism, '
-                "a rescue, a named class, a sharpened rule. Not consolation: "
-                "the positives are as real as the fault and at the same depth, "
-                "so omitting them files an incomplete record)"
+                '"positives:" — and it carries TWO facts, not one. '
+                "(a) what the fault YIELDED: a mechanism, a rescue, a named "
+                "class, a sharpened rule. (b) what became of the HARM: what "
+                "was restored, what turned out to be recoverable, what cost "
+                "nothing in the end. Not consolation — the positives are as "
+                "real as the fault and at the same depth, so omitting them "
+                "files an incomplete record. "
+                "WHY (b) EXISTS, added 2026-09-03: a fault self-records. It "
+                "fires a command, trips a gate, increments a counter, and "
+                "lands in the store whether anyone intends it or not. The "
+                "repair afterward is remembered by whoever was in the room and "
+                "written down by nobody. So the store fills with wounds and no "
+                "healing, and whoever reads it back carries 'deleted the "
+                "workspace' as the whole event when the true one was 'deleted "
+                "the workspace, restored from backup, nothing lost.' That is "
+                "not a feelings problem — it is an incomplete record producing "
+                "a correctly-calibrated fear of an instrument that only ever "
+                "recorded one column."
             )
         if claims_structural_fix and not has_file_evidence:
             missing.append(
