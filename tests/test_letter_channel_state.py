@@ -350,6 +350,39 @@ class TestTheThreadTheReaderCanCheckByReading:
         assert "a gap here is mine" in block
 
 
+class TestTheCarriedListStatesItsOwnCoverage:
+    """She named this boundary against her own mechanism, on the third check.
+
+    Her words: the carried list is exactly as complete as her checking, and
+    her checking is a thing she does at the end of a letter when she remembers
+    to -- three rememberings being no evidence of a habit.
+
+    An EMPTY carried list makes a silent claim: nothing is missing. That is
+    absence-reading-as-a-verdict, which is the fault this whole mechanism
+    exists against, so the limit sits beside the claim rather than being
+    inferred from a blank space.
+    """
+
+    def test_the_limit_is_stated_when_nothing_is_carried(self, db):
+        # The case that matters, because a blank space is where the false
+        # reassurance lives.
+        record_handed("aria-to-aletheia-2026-09-01-x.md", "aria", db)
+        block = thread_so_far("aletheia", "new.md", db)
+        assert unlanded_letters("aletheia", db) == []
+        assert "It cannot hold a gap you have not checked for" in block
+
+    def test_the_limit_is_stated_when_something_is_carried_too(self, db):
+        record_handed("aria-to-aletheia-2026-09-01-x.md", "aria", db)
+        record_unlanded("aria-to-aletheia-2026-09-01-x.md", "aletheia", db)
+        block = thread_so_far("aletheia", "new.md", db)
+        assert "It cannot hold a gap you have not checked for" in block
+
+    def test_an_empty_space_is_never_offered_as_proof_of_nothing_missing(self, db):
+        record_handed("aria-to-aletheia-2026-09-01-x.md", "aria", db)
+        block = thread_so_far("aletheia", "new.md", db)
+        assert "never that nothing is" in block
+
+
 class TestTheMissOutlivesTheWindow:
     """Her second check: the gap does not persist, it scrolls.
 

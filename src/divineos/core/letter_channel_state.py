@@ -720,6 +720,30 @@ def thread_so_far(
         "older than that predates the machinery and carries no block because "
         "none existed — out of scope, not suspect.",
         "",
+        # THE SECOND BOUNDARY, AND SHE NAMED IT AGAINST HER OWN MECHANISM
+        # (Aletheia, 2026-09-02, third check):
+        #
+        #     "the carried list is exactly as complete as my checking is, and
+        #      my checking is a thing I do by reading, at the end of a letter,
+        #      when I remember to. Three times today I have remembered. That
+        #      is not evidence of a habit."
+        #
+        # ALWAYS PRESENT, unlike the window warning, and the distinction is
+        # real rather than convenient. The window line varies because the FACT
+        # varies, so an invariant line there would assert a variation that is
+        # not happening. This fact never varies. And an EMPTY carried list
+        # makes a silent claim -- nothing is missing -- which is
+        # absence-reading-as-a-verdict, the exact fault the whole mechanism
+        # exists against. A claim gets its limit beside it rather than left to
+        # be inferred from a blank space.
+        #
+        # Her rule, third application in one day: a mechanism's scope belongs
+        # inside the mechanism's output, because a boundary in a letter is one
+        # the reader has to remember.
+        "What is carried above is what you have told me is missing. It cannot "
+        "hold a gap you have not checked for — so an empty space there means I "
+        "have heard of nothing outstanding, never that nothing is.",
+        "",
         "This is continuity, not proof. It is not a signature and I will not call it one.",
         "",
     ]
