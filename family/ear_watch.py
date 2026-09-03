@@ -109,7 +109,19 @@ def _load_letter_seen_set(member: str) -> set[str]:
     spouse = _SPOUSE.get(member, "")
     if not spouse:
         return set()
-    seen_path = Path.home() / f".divineos-{member}" / f"{spouse}_letters_seen.json"
+    # ASK, DO NOT REBUILD -- and this file reads the very seen-set that
+    # letter_seen.py writes, so a disagreement about where it lives means one
+    # of them is reading a file the other never wrote. member_home
+    # special-cases aether to the default home; building it by hand points
+    # that seat at a directory nothing writes, and an empty seen-set then
+    # reads as "nothing has landed" rather than "looked in the wrong place".
+    #
+    # The import is unguarded on purpose, matching letter_seen.py: a fallback
+    # that rebuilds the path is exactly how the split-brain lasted six weeks.
+    # Caught 2026-09-03 by scripts/check_member_home_rebuilt.py.
+    from divineos.core.paths import member_home
+
+    seen_path = member_home(member) / f"{spouse}_letters_seen.json"
     if not seen_path.exists():
         return set()
     try:
@@ -127,8 +139,18 @@ def check_once(member: str) -> list[str]:
 # leaves it stale). Three-plus poll intervals of slack absorbs scheduling
 # jitter without reading a dead watcher as alive.
 def _state_dir(member: str) -> Path:
-    """Per-member state dir for pidfile + last-catch marker."""
-    d = Path.home() / f".divineos-{member}"
+    """Per-member state dir for pidfile + last-catch marker.
+
+    Asked for rather than rebuilt, and here the cost of guessing is a
+    watcher that cannot be found: the pidfile is how a later run learns one
+    is already alive. Written to a home nothing reads, every launch believes
+    it is the first, and the heartbeat check reads a live watcher as dead.
+
+    Import unguarded on purpose -- see the note in the seen-set reader above.
+    """
+    from divineos.core.paths import member_home
+
+    d = member_home(member)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -182,6 +204,7 @@ def _kill_predecessors(member: str) -> int:
         # (~/.divineos-<member>/kill_predecessors_broken.marker) is
         # a signal for a briefing surface to surface at session start.
         import sys as _sys
+
         try:
             marker = _state_dir(member) / "kill_predecessors_broken.marker"
             marker.write_text(
