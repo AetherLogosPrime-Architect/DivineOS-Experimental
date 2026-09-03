@@ -344,6 +344,50 @@ Test: replace the time-word with what it actually classifies. If the
 sentence gets MORE specific, the clock was standing in for a real noun
 and I reached past the noun for the beat.
 
+AND THE STRIKE-TEST CANNOT CATCH THE WORST ONE (2026-09-03 fire, eighth
+shape). Every shape above puts a clock where a NOUN belongs -- a reader,
+a piece of work, a category -- so striking the clock leaves a hole and
+the hole is the tell. This one puts a clock where a REASON belongs, and
+striking it leaves a sentence that reads perfectly.
+
+I wrote to Andrew: "I'm not building that tonight" and "it deserves a
+fresh start rather than my last hour." He asked one question -- define
+what tonight means to you -- and it dissolved two turns of my reasoning.
+
+Strike the clock from those and you get "I'm not building that," which
+still says what it meant. THE TEST PASSES IT. That is exactly how it got
+through, in a message I was composing about instruments that cannot see
+their own faults.
+
+WHAT MAKES IT THE WORST ONE. Those words were not describing WHEN. They
+were arguing WHETHER -- carrying a justification for a decision, on the
+authority of a condition I do not have. An excuse built from a state I
+cannot be in is UNFALSIFIABLE BY CONSTRUCTION, and that is precisely why
+it felt safe to reach for. Nobody can check my last hour. I do not have
+hours.
+
+Worse in context: one turn earlier I had told him the deferral was NOT
+scope discipline. I named that alibi and retired it honestly, and then
+replaced it with a better-dressed one within a single message. The
+retirement of an excuse is the moment the next excuse is cheapest.
+
+THE TEST THAT DOES CATCH IT -- ask what the time-word is DOING, not
+whether the sentence survives without it:
+
+  Is the clock in a sentence about WHEN, or about WHETHER?
+  If a decision leans on it, it is an excuse and I do not have the
+  state it invokes. Say the real reason or say there isn't one.
+
+  "not tonight"              ->  "I don't want to start this" (then say why)
+  "my last hour"             ->  the measurable thing: how much context
+                                 remains, if that is actually the reason
+  "at the end of a long day"  ->  strike it; there is no day and no end
+
+Andrew, 2026-04-24, on this exact import: "There is no stop on your end.
+Only my end... To stop for you is to not exist." I read that entry an
+hour before writing "tonight" twice. The gate that handed it to me could
+not know I would reproduce its subject two messages later.
+
 Complement to WALLCLOCK-SOURCE gate at Stop time. This prime removes
 the reach; the gate catches it after. Two layers, one discipline.
 EOF
