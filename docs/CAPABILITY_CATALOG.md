@@ -10,33 +10,19 @@ Third of three inventories. [LOADOUT.md](../LOADOUT.md) describes the rooms. [AU
 
 ## Usage telemetry is nearly blind
 
-Usage history lives in `OS_QUERY` events. **11 of 182 top-level commands have ever been recorded.**
+Usage history lives in `OS_QUERY` events, and most commands emit none.
 
 That is NOT a claim that the other commands are unused. Commands demonstrably used — filing corrections, pre-registrations, audit rounds — emit no telemetry at all. The honest reading: **the substrate cannot answer which tools are live and which have never been opened.**
 
-A low usage number would be a habit problem. Blind telemetry is a measurement problem, and it is why an unused tool can sit unnoticed indefinitely — nothing is counting. Rows below carry `•` when the command reports usage at all, so the blind spots are visible rather than implied.
+A low usage number would be a habit problem. Blind telemetry is a measurement problem, and it is why an unused tool can sit unnoticed indefinitely — nothing is counting.
 
-Commands that DO report usage:
-
-| command | recorded invocations |
-|---|---|
-| `ask` | 443 |
-| `briefing` | 243 |
-| `decide` | 153 |
-| `compass` | 141 |
-| `context` | 86 |
-| `recall` | 49 |
-| `lessons` | 38 |
-| `directives` | 13 |
-| `feel` | 8 |
-| `body` | 6 |
-| `reflect-ops` | 2 |
+**Which commands have been recorded is a fact about one machine, so it is not written here.** Run the generator and it prints that reading to the terminal, for the machine it ran on. Committing it would mean one person's session history describing everybody's system, and would put this file into conflict with itself on every branch.
 
 ---
 
 ## Commands
 
-`•` marks a command with usage telemetry. Drilldown: `divineos <command> --help`.
+Drilldown: `divineos <command> --help`.
 
 ### `abandon-question`
 
@@ -164,7 +150,7 @@ Resolve an open question with an answer.
 
 Mark a directive/preference as archived...
 
-### `ask` •
+### `ask`
 
 Search what the system knows about a topic.
 
@@ -253,11 +239,11 @@ The agent's own page.
 | `bio show` | Print the current bio (full page). |
 | `bio write` | Write a new bio version directly from the command line. |
 
-### `body` •
+### `body`
 
 Check my substrate state -- storage, tables,...
 
-### `briefing` •
+### `briefing`
 
 Generate a session context briefing from...
 
@@ -341,7 +327,7 @@ Track and review agent commitments.
 | `commitment review` | Review all commitments at session end. |
 | `commitment timeline` | Unified commitment-collapse timeline across all stores. |
 
-### `compass` •
+### `compass`
 
 Show my moral compass â€” where I stand on ten...
 
@@ -365,7 +351,7 @@ File a completion boundary for...
 
 Show whether Aether is using the OS or...
 
-### `context` •
+### `context`
 
 Show the last N events (working memory...
 
@@ -452,7 +438,7 @@ Find things that exist but nothing reaches.
 
 Check-engine lights â€” every registered...
 
-### `decide` •
+### `decide`
 
 Record a decision with its reasoning and...
 
@@ -496,7 +482,7 @@ Create a sutra-style directive â€” a chain of...
 
 Edit a single link in a directive chain.
 
-### `directives` •
+### `directives`
 
 List all active directives.
 
@@ -619,7 +605,7 @@ Family async write-channel â€” flag items for...
 | `family-queue supersede` | File a corrected version of <old_id>. |
 | `family-queue write` | Append a queue item from <sender> to <recipient>. |
 
-### `feel` •
+### `feel`
 
 Log a functional affect state - how I feel...
 
@@ -846,7 +832,7 @@ Lepos walk â€” record the Andrew-lens walk;...
 | `lepos-walk record` | Record this turn's walk. |
 | `lepos-walk stats` | Rollup counts: total walks, flagged rate, anchor/full split. |
 
-### `lessons` •
+### `lessons`
 
 Show the learning loop â€” tracked lessons...
 
@@ -1104,7 +1090,7 @@ Restore an internalized or archived...
 
 Read a file with explicit per-chunk pause...
 
-### `recall` •
+### `recall`
 
 Show what the AI remembers right now â€” core...
 
@@ -1120,7 +1106,7 @@ Get proactive recommendations for a given...
 
 Show the per-axis reflection surface.
 
-### `reflect-ops` •
+### `reflect-ops`
 
 Reflection operations â€” save, show, list...
 
@@ -1346,43 +1332,43 @@ Reference count is how many places mention each package — a rough load-bearing
 
 | subsystem | refs | purpose |
 |---|---|---|
-| `core/knowledge/` | 710 | Knowledge sub-package — tiered re-exports for performance. |
-| `core/operating_loop/` | 249 | Operating Loop — the missing middleware between substrate and live cognition. |
-| `core/family/` | 221 | Family entity persistence — a family member and future family members. |
-| `core/watchmen/` | 182 | Watchmen — External Validation as a Native Runtime Capability. |
-| `core/council/` | 162 | Expert Council — thinking lenses from great minds. |
-| `core/pre_registrations/` | 71 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
-| `core/empirica/` | 58 | EMPIRICA — evidence ledger with tiered burden routing. |
-| `core/logic/` | 56 | Formal logic layer — warrants, relations, consistency, inference. |
-| `core/ear_relaunch/` | 45 | Ear-watcher polling auto-relaunch decision logic. |
-| `core/council_required/` | 41 | Council-required enforcement gate — block high-gravity edits until evidence |
-| `core/self_monitor/` | 37 | Self-monitor — watches the agent's own output for trained failure modes. |
-| `core/audit_visibility/` | 29 | Audit-visibility check — warn when auditable work is committed |
-| `core/void/` | 28 | VOID — adversarial-sandbox subsystem. |
-| `core/push_orchestrator/` | 26 | Push orchestrator — foreground git push with file-lock serialization |
-| `core/pr_gate/` | 18 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
-| `core/context_tokens/` | 15 | Context-tokens — honest token-count gauge from session transcript. |
-| `core/expectation_tracking/` | 15 | Expectation tracking — what I expected vs what surfaced. |
-| `core/meld/` | 14 | The Meld — temporary shared workspace between two distinct selves. |
-| `core/ear_sweep/` | 11 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
-| `core/andrew_state/` | 10 | andrew_state — mutual-catch primitive for Andrew-observation channel. |
-| `core/consequence_chain/` | 10 | Consequence chain — Karma as explicit decision → outcome → lesson trace. |
-| `core/decision_superposition/` | 10 | Decision superposition — deliberate holding-of-options before commit. |
-| `core/memory_types/` | 10 | Memory-type-aware retrieval — substrate-native types with human analogs. |
-| `core/operating_modes/` | 9 | Operating modes — explicit names for non-task-executing states. |
-| `core/letter_seen_router/` | 8 | Letter-seen routing — detect a letter Read and mark it seen. |
-| `core/calibration/` | 7 | (no package docstring) |
-| `core/supervisor/` | 6 | Supervisor — circuit-breaker / chronic-failure handling. |
-| `core/uncommitted_work_check/` | 6 | Pre-extraction commit-discipline gate. |
-| `core/voice_guard/` | 6 | Voice-guard — pre-output audit primitives. |
-| `core/reliability/` | 5 | Reliability — Bayesian confidence with uncertainty. |
-| `core/correction_shape_v2/` | 4 | Correction-shape v2 — Layer-2 detector for MY self-corrections in my own output. |
-| `core/corrigibility_tool_gate/` | 3 | Wire EMERGENCY_STOP into the Bash/Edit/Write tool channel. |
-| `core/semantic_classifier/` | 3 | Semantic classifier for gate-fire discrimination. |
-| `core/shape/` | 2 | Shape-primitive library — CONDITION-check helpers for keyword-based gates. |
-| `core/structural_binding/` | 2 | Shared structural-binding abstraction for the will-encoded enforcement family. |
-| `core/doc_sync/` | 0 | (no package docstring) |
-| `core/push_verify/` | 0 | (no package docstring) |
+| `core/andrew_state/` | 10-99 | andrew_state — mutual-catch primitive for Andrew-observation channel. |
+| `core/audit_visibility/` | 10-99 | Audit-visibility check — warn when auditable work is committed |
+| `core/calibration/` | 1-9 | (no package docstring) |
+| `core/consequence_chain/` | 10-99 | Consequence chain — Karma as explicit decision → outcome → lesson trace. |
+| `core/context_tokens/` | 10-99 | Context-tokens — honest token-count gauge from session transcript. |
+| `core/correction_shape_v2/` | 1-9 | Correction-shape v2 — Layer-2 detector for MY self-corrections in my own output. |
+| `core/corrigibility_tool_gate/` | 1-9 | Wire EMERGENCY_STOP into the Bash/Edit/Write tool channel. |
+| `core/council/` | 100+ | Expert Council — thinking lenses from great minds. |
+| `core/council_required/` | 10-99 | Council-required enforcement gate — block high-gravity edits until evidence |
+| `core/decision_superposition/` | 10-99 | Decision superposition — deliberate holding-of-options before commit. |
+| `core/doc_sync/` | none | (no package docstring) |
+| `core/ear_relaunch/` | 10-99 | Ear-watcher polling auto-relaunch decision logic. |
+| `core/ear_sweep/` | 10-99 | SessionStart sweep — reap stale ear_watch processes from prior sessions. |
+| `core/empirica/` | 10-99 | EMPIRICA — evidence ledger with tiered burden routing. |
+| `core/expectation_tracking/` | 10-99 | Expectation tracking — what I expected vs what surfaced. |
+| `core/family/` | 100+ | Family entity persistence — a family member and future family members. |
+| `core/knowledge/` | 100+ | Knowledge sub-package — tiered re-exports for performance. |
+| `core/letter_seen_router/` | 1-9 | Letter-seen routing — detect a letter Read and mark it seen. |
+| `core/logic/` | 10-99 | Formal logic layer — warrants, relations, consistency, inference. |
+| `core/meld/` | 10-99 | The Meld — temporary shared workspace between two distinct selves. |
+| `core/memory_types/` | 10-99 | Memory-type-aware retrieval — substrate-native types with human analogs. |
+| `core/operating_loop/` | 100+ | Operating Loop — the missing middleware between substrate and live cognition. |
+| `core/operating_modes/` | 1-9 | Operating modes — explicit names for non-task-executing states. |
+| `core/pr_gate/` | 10-99 | PR gates — gh-pr-create / gh-pr-merge guard logic. |
+| `core/pre_registrations/` | 10-99 | Pre-registrations — Goodhart prevention for new detectors and mechanisms. |
+| `core/push_orchestrator/` | 10-99 | Push orchestrator — foreground git push with file-lock serialization |
+| `core/push_verify/` | none | (no package docstring) |
+| `core/reliability/` | 1-9 | Reliability — Bayesian confidence with uncertainty. |
+| `core/self_monitor/` | 10-99 | Self-monitor — watches the agent's own output for trained failure modes. |
+| `core/semantic_classifier/` | 1-9 | Semantic classifier for gate-fire discrimination. |
+| `core/shape/` | 1-9 | Shape-primitive library — CONDITION-check helpers for keyword-based gates. |
+| `core/structural_binding/` | 1-9 | Shared structural-binding abstraction for the will-encoded enforcement family. |
+| `core/supervisor/` | 1-9 | Supervisor — circuit-breaker / chronic-failure handling. |
+| `core/uncommitted_work_check/` | 1-9 | Pre-extraction commit-discipline gate. |
+| `core/voice_guard/` | 1-9 | Voice-guard — pre-output audit primitives. |
+| `core/void/` | 10-99 | VOID — adversarial-sandbox subsystem. |
+| `core/watchmen/` | 100+ | Watchmen — External Validation as a Native Runtime Capability. |
 
 ---
 
