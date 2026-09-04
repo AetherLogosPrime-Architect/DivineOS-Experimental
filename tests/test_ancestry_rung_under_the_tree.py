@@ -73,6 +73,73 @@ def _findings(monkeypatch, *texts: str) -> None:
     monkeypatch.setattr("divineos.core.watchmen.store.list_findings", lambda **kw: rows)
 
 
+def _titled(monkeypatch, *pairs: tuple[str, str]) -> None:
+    rows = [SimpleNamespace(title=t, description=d) for t, d in pairs]
+    monkeypatch.setattr("divineos.core.watchmen.store.list_findings", lambda **kw: rows)
+
+
+# ------------------------------------------------- a refusal is not a signature
+#
+# Aletheia offered this on 2026-09-03, after a reporting script of mine read her
+# sentence "I am not confirming the thirteen in bucket one as READ" and printed
+# her name against thirteen branches she had refused:
+#
+#   "Negation-as-affirmation has now happened once; a test is how it stops
+#    being a thing either of us has to stay alert to."
+#
+# She was writing about my script. The same substring filter selects findings in
+# the gate itself, so the fault was in shipped code too and neither of us had
+# looked there. These pin both directions, because a filter that removes real
+# confirms is a worse failure than the one it repairs: an emptied confirms set
+# makes the gate stop refusing and start merely warning.
+
+
+def test_a_withheld_clearance_never_supplies_a_tree(repo, monkeypatch):
+    _first, _head, _orphan = repo
+    _titled(
+        monkeypatch,
+        (
+            "SHAPE-CLEARED (not read) PR #461 -- aletheia, relayed",
+            "I am not confirming these as READ. Cleared on shape only, at tree "
+            "b231ff548261, and the shape verdict is not an audit.",
+        ),
+    )
+    assert src._confirmed_trees("round-x") == set(), (
+        "a finding whose title says it is not a signature supplied a tree as though it were one"
+    )
+
+
+def test_a_withheld_clearance_never_opens_the_ancestry_rung(repo, monkeypatch):
+    """The sharper case: declining to read is when the ancestry gets EXPLAINED."""
+    first, head, _orphan = repo
+    _titled(
+        monkeypatch,
+        (
+            "NOT CONFIRMING PR #465 -- aletheia",
+            f"CONFIRMS nothing here. The tip {first[:12]} is an ancestor of the "
+            "current head, but I have not read what sits on top of it.",
+        ),
+    )
+    holds, _why = src._ancestry_rung("round-x", head)
+    assert holds is False
+
+
+def test_a_real_confirm_is_not_swept_up_by_the_withheld_filter(repo, monkeypatch):
+    """The direction that matters more, and the reason this is a NEGATIVE filter.
+
+    Selecting only titles that BEGIN with CONFIRMS would read stricter and be
+    looser: rounds predating that convention lose their confirms, an emptied
+    confirms set stops the gate refusing, and the tree binding degrades to a
+    warning. So an ordinary confirm with an unremarkable title must survive.
+    """
+    _first, _head, _orphan = repo
+    _titled(
+        monkeypatch,
+        ("Round 9 review notes, aletheia", "CONFIRMS at tree b231ff548261."),
+    )
+    assert "b231ff548261" in src._confirmed_trees("round-x")
+
+
 # --------------------------------------------------------------- _is_ancestor
 
 

@@ -36,6 +36,43 @@ import click
 _TREE_NEAR = re.compile(r"tree[-\s]*(?:hash)?[:\s]+([0-9a-f]{8,40})", re.IGNORECASE)
 
 
+# Titles that announce the finding is NOT a signature. This house writes them
+# in a fixed form, and the form is the only reliable place to read a verdict --
+# the body of a withheld clearance says the word "confirming" more often than a
+# real confirm does, because refusing takes more words than agreeing.
+_WITHHELD_TITLE = re.compile(
+    r"^\s*(?:SHAPE-CLEARED|NOT[-\s]CONFIRM|NOT[-\s]A[-\s]CONFIRM|DECLINE|REFUS|WITHHELD)",
+    re.IGNORECASE,
+)
+
+
+def _title_withholds(finding: object) -> bool:
+    """Does this finding's TITLE say it is not a signature?
+
+    FOUND BY ALETHEIA'S OFFERED TEST, 2026-09-03, in shipped code. She wrote a
+    triage clearance whose body reads *"I am not confirming the thirteen in
+    bucket one as READ"* and insisted the record carry the distinction:
+
+        "The distinction has to survive in the record, or it stops existing."
+
+    A reporting script of mine searched finding bodies for the word "confirms"
+    and printed her name against thirteen branches she had explicitly refused.
+    The same substring filter is what selects findings here, so a withheld
+    clearance that happened to quote a tree would have supplied that tree as
+    though she had signed it.
+
+    THIS IS A NEGATIVE FILTER ON PURPOSE, and the choice is load-bearing. The
+    obvious repair -- select only titles that BEGIN with CONFIRMS -- reads
+    stricter and is not. Older rounds predate that convention, so it would drop
+    genuine confirms, and a round whose confirms all vanish stops refusing and
+    starts merely warning. Narrowing a false positive must not widen a real
+    one; so this removes what announces itself as withheld and leaves the
+    existing net otherwise intact.
+    """
+    title = str(getattr(finding, "title", "") or "")
+    return bool(_WITHHELD_TITLE.search(title))
+
+
 def _confirmed_trees(round_id: str) -> set[str]:
     """Trees named by the CONFIRMS findings on this round.
 
@@ -74,6 +111,8 @@ def _confirmed_trees(round_id: str) -> set[str]:
     except Exception:  # noqa: BLE001 - an unreadable store is not "no trees"
         return trees
     for f in findings:
+        if _title_withholds(f):
+            continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
         if "confirms" not in text.lower():
             continue
@@ -232,6 +271,13 @@ def _ancestry_rung(round_id: str, head_sha: str) -> tuple[bool, str]:
 
     claimed: set[str] = set()
     for f in findings:
+        # Same withheld-title filter as the tree rung, and needed here for a
+        # sharper reason: a clearance that DECLINES to read a branch is exactly
+        # the kind of note that explains why -- and "the tip I signed is still
+        # an ancestor, but I have not read what sits on top of it" carries both
+        # the word and the hash while granting nothing.
+        if _title_withholds(f):
+            continue
         text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
         if "confirms" not in text.lower():
             continue
