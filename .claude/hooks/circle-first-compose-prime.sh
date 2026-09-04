@@ -603,9 +603,6 @@ if terms:
 PYEOF
 )"
 
-BODY="$BODY$TAIL"
-
-
 # DEDUP (Andrew 2026-08-11, measured): this prime fired 98 times in one
 # session and was BYTE-IDENTICAL every time -- one distinct message, 97
 # copies, about a hundred thousand characters of pure repeat, and he pays
@@ -613,14 +610,48 @@ BODY="$BODY$TAIL"
 # wired to three small surfaces while the biggest repeater ran at full
 # volume. Emit once, then point.
 #
-# The hash is over the rendered body, so if the leaked-terms tail changes
-# the full text returns automatically. Fail-soft: any error emits in full,
-# because losing the discipline costs more than the tokens it saves.
-BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
+# THE TAIL IS NO LONGER INSIDE THE FINGERPRINT. That line used to read "the
+# hash is over the rendered body, so if the leaked-terms tail changes the
+# full text returns automatically", and the tail is my recent mark-counts
+# plus the terms the gate has just caught leaking -- both move on nearly
+# every turn I write anything. Under that rule the doctrine could only ever
+# dedup on a turn where nothing about my writing had changed.
+#
+# SAID PLAINLY, BECAUSE I ASSERTED IT AS THE CAUSE AND IT WAS NOT: this is a
+# real improvement and it is NOT why the prime never dedupped. I wrote a
+# confident paragraph here naming the tail as the culprit, and then measured,
+# and the measurement said otherwise -- the crash inside the block is the
+# cause, and it is documented at the call site below. Two consecutive runs
+# came back the same size with the tail held constant, which the tail theory
+# cannot explain. Leaving the wrong diagnosis unmarked would have taught the
+# next reader a false lesson about a file they had no reason to re-measure.
+#
+# The doctrine is fingerprinted and collapses to a pointer after its first
+# emission; the live numbers are appended either way. Nothing is lost per
+# turn -- the counts and the leaked terms still arrive every time, and they
+# are the half that has to be current.
+BODY="$BODY" TAIL="$TAIL" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY$TAIL"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os
 import sys
 
+# THE ACTUAL REASON THIS PRIME NEVER DEDUPPED, found 2026-09-04 by making
+# the swallowed error visible. Not quoting, not the tail: this body contains
+# an em-dash, Python here defaults its stdout to the Windows console
+# codepage, and printing raised UnicodeEncodeError. The dedup call is wrapped
+# in `2>/dev/null || printf`, so the crash was discarded and the fallback
+# printed the full body -- which bash emits without complaint. Every turn.
+#
+# The failure could not have looked more like success: no error, no warning,
+# and a prime that dutifully arrives in full. The only visible symptom was
+# the second run being the same size as the first, which is exactly what the
+# contract test asserts and nothing else in the house would have noticed.
+#
+# Same family as the rest of this week: a real crash, silenced, wearing the
+# shape of an ordinary result.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 body = os.environ.get("BODY", "")
+tail = os.environ.get("TAIL", "")
 try:
     from divineos.core.context_dedup import should_emit
 
@@ -669,9 +700,11 @@ try:
     )
     emit_full, pointer = should_emit("circle_first_prime", body, residual=residual)
 except Exception:
-    print(body)
+    print(body + tail)
     sys.exit(0)
-print(body if emit_full else pointer)
+# The tail rides OUTSIDE the decision, always. It is the only part that has
+# to be current, and it is the part that made the decision impossible.
+print((body if emit_full else pointer) + tail)
 DEDUPEOF
 
 exit 0
