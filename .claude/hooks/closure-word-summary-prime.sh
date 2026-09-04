@@ -189,7 +189,26 @@ import os, sys
 body = os.environ.get('_PRIME_CONTENT', '')
 try:
     from divineos.core.context_dedup import should_emit
-    emit_full, pointer = should_emit('closure_word_prime', body)
+
+    # RESIDUAL, added 2026-08-30. Third of my four emitters found keeping
+    # nothing, after Aria surveyed hers and found the suppressed half was
+    # where her real rule lived.
+    #
+    # CHOSEN, NOT SWEPT. The banned-word list is the part that reads as the
+    # rule and is the part I least need: I can feel a summary word coming.
+    # What I lose under suppression is the SUBSTITUTION -- what to write
+    # instead -- and the one line that makes the whole thing work, which is
+    # that a verification which did not run has its own answer and it is
+    # not a softer word for clean.
+    residual = (
+        "  SURVIVES DEDUP: after a real check, the concrete output IS the "
+        "honest closure. Cite the count, the exit code, the bytes.\n"
+        "  A summary word compresses a verification into a claim I cannot "
+        "back with a command output -- 'all green', 'clean', 'works', 'done'.\n"
+        "  And if nothing was verified this turn, say 'I have not verified "
+        "yet'. Not a gentler word for clean."
+    )
+    emit_full, pointer = should_emit('closure_word_prime', body, residual=residual)
 except Exception:
     print(body)
     sys.exit(0)

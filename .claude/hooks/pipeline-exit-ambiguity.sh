@@ -143,10 +143,30 @@ printf '{"ts":"%s","hook":"pipeline-exit-ambiguity.sh","reason":"invoked","origi
 # same fix was applied to the ritual failsafe earlier the same session
 # for the same reason.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# THESE THREE EXITS SAY SO NOW, and the reason is this gate's own subject.
+#
+# Each of them used to be a bare `|| exit 0`. This gate is refusal-capable —
+# it returns a deny for a mutating pipeline — so a silent exit 0 here is
+# byte-identical to the gate having read the command and approved it. Which is
+# precisely the confusion the gate exists to prevent one layer down: a
+# swallowed non-zero read as a pass. It had the defect it refuses.
+#
+# Found 2026-08-31 by the swallowing-gate detector on the merged tree. It
+# fails OPEN deliberately — a missing interpreter must not block every Bash
+# call in the session — but open-and-silent is the half that was wrong.
 # shellcheck disable=SC1091
-source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
-PY="$(find_divineos_python 2>/dev/null)" || exit 0
-[[ -z "$PY" ]] && exit 0
+if ! source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null; then  # fail-soft: the sourcing error itself is noise on the tool path, and the failure is reported loudly on the next line instead of being swallowed
+    echo "  [pipeline-exit-ambiguity] SKIPPED: could not source _lib.sh — gate did NOT run" >&2
+    exit 0
+fi
+if ! PY="$(find_divineos_python 2>/dev/null)"; then  # fail-soft: the resolver's own stderr would land inside the captured value and corrupt the path; the failure is announced on the next line rather than swallowed
+    echo "  [pipeline-exit-ambiguity] SKIPPED: find_divineos_python failed — gate did NOT run" >&2
+    exit 0
+fi
+if [[ -z "$PY" ]]; then
+    echo "  [pipeline-exit-ambiguity] SKIPPED: no interpreter resolved — gate did NOT run" >&2
+    exit 0
+fi
 
 # shellcheck disable=SC2016  # single quotes are deliberate: this is a
 # Python program, and shell must NOT expand $-anything inside it.
