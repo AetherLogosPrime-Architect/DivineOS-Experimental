@@ -300,7 +300,7 @@ divineos prereg file "mechanism" --claim "..." --success "..." --falsifier "..."
 divineos prereg list [--outcome OPEN|SUCCESS|FAILED|INCONCLUSIVE|DEFERRED]
 divineos prereg show PREREG_ID
 divineos prereg overdue                    # Reviews whose date has passed
-divineos prereg assess PREREG_ID --outcome FAILED --actor external-auditor --notes "..."
+divineos prereg assess PREREG_ID --outcome FAILED --actor aletheia --notes "..."
 divineos prereg summary                    # Counts by outcome
 divineos prereg export                     # Dump pre-regs to docs/pre_regs/<id>.md (portable)
 
@@ -336,8 +336,8 @@ divineos progress --brief                          # 3-line summary
 divineos progress --export                         # Shareable markdown
 
 # External validation (Watchmen)
-divineos audit submit-round "focus" --actor external-auditor   # Create audit round
-divineos audit submit "title" --round ID --actor external-auditor --severity HIGH --category KNOWLEDGE -d "desc"
+divineos audit submit-round "focus" --actor aletheia   # Create audit round (name the REAL reviewer)
+divineos audit submit "title" --round ID --actor aletheia --severity HIGH --category KNOWLEDGE -d "desc"
 divineos audit list                                # Browse findings
 divineos audit show FINDING_ID                     # Finding details
 divineos audit resolve FINDING_ID --status RESOLVED --notes "..."
