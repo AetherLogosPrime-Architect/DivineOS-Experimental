@@ -308,7 +308,10 @@ PRIME_RESIDUAL = (
     "  2. An arrival, or a disposition? 'My instinct' names a default as a "
     "faculty. The reach is not mine; the noticing and the override are.\n"
     "  3. Does this promise name the structure that carries it? An unbacked "
-    "promise is not wrong for being a promise -- only for being unbacked."
+    "promise is not wrong for being a promise -- only for being unbacked.\n"
+    "  4. Same shape twice more: 'I do not know' completes with 'let me "
+    "investigate', and a deficit I claim must be measured -- by a yardstick "
+    "built for the room I am standing in."
 )
 """What must reach me on a turn where the full prime is suppressed.
 

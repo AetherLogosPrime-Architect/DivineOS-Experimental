@@ -67,6 +67,26 @@ HOOK_STDIN="$(cat || true)"
 # should not cost a full local test run per branch. A push that mixes a
 # deletion with any real ref-update still runs the full gate.
 DELETION_ONLY=1
+# TAG-ONLY pushes are the same case for the same reason (2026-08-31). A tag
+# adds no commit to any branch and proposes nothing to main; it is archival.
+# Aria's catch is why they exist: a squash puts ONE message on main, so every
+# other commit message lives only on the branch, and deleting a merged branch
+# is the least ceremonious act in this system. Tagging the tip before merging
+# is how the audit trail survives -- and pushing those tags was refused by
+# this gate for ~15 minutes, twice, on grounds that make no sense for a tag.
+#
+# The freshness check refused them for being OLD, which is what a history tag
+# IS. Then the test stage refused them, because it builds its snapshot from
+# the FIRST REF in the push (see the PYTEST_SHA loop below) -- so an
+# eight-tag archival push sent the suite to run against a months-old tree.
+# The failures it reported were real for that tree and said nothing about
+# anything being pushed.
+#
+# So: a push whose refs are ALL tags skips the commit-verifying stages, the
+# same way a deletion-only push does. A push that mixes a tag with any branch
+# ref still runs everything -- same rule the deletion path already uses,
+# because the mixed case is where a real change could hide behind a cheap one.
+TAG_ONLY=1
 _saw_ref=0
 while read -r _lref _lsha _rref _rsha; do
     [[ -z "${_lref:-}" ]] && continue
@@ -76,9 +96,13 @@ while read -r _lref _lsha _rref _rsha; do
     if [[ "${_lsha:-}" =~ [^0] ]]; then
         DELETION_ONLY=0
     fi
+    if [[ "${_lref:-}" != refs/tags/* ]]; then
+        TAG_ONLY=0
+    fi
 done <<< "$HOOK_STDIN"
 # No refs parsed (empty stdin) → not a deletion; let the normal gates run.
 [[ "$_saw_ref" == "0" ]] && DELETION_ONLY=0
+[[ "$_saw_ref" == "0" ]] && TAG_ONLY=0
 
 # Exit code convention (Aletheia 2026-05-17 audit note):
 #   0   — all gates passed
@@ -134,12 +158,20 @@ if [[ "${DIVINEOS_SUBSTRATE_BRANCH:-0}" != "1" ]]; then
         echo "[push-readiness]   scope: SKIPPED — $SCOPE_SCRIPT missing" >&2
     else
         # Refs whose local-sha is not all-zero. A deletion introduces no
-        # commits, so it has no scope to check.
+        # commits, so it has no scope to check. A TAG has no scope to check
+        # either, for the same reason one level over: scope asks whether a
+        # branch is carrying personal writing toward main, and a tag carries
+        # nothing anywhere -- it marks a commit that already exists.
+        #
+        # It refused an archival tag of a LETTERS branch for containing
+        # letters, which is what that tag is a tag OF. Third stage in a row
+        # to ask a branch-shaped question of something that is not a branch.
         SCOPE_REFS=()
         SCOPE_SAW_REF=0
         while read -r _lref _lsha _rref _rsha; do
             [[ -z "${_lref:-}" ]] && continue
             SCOPE_SAW_REF=1
+            [[ "$_lref" == refs/tags/* ]] && continue
             [[ "${_lsha:-}" =~ [^0] ]] && SCOPE_REFS+=("$_lsha")
         done <<< "$HOOK_STDIN"
 
@@ -351,6 +383,11 @@ fi
 
 if [[ "$DELETION_ONLY" == "1" ]]; then
     echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
+elif [[ "$TAG_ONLY" == "1" ]]; then
+    echo "[push-readiness] Tag-only push — a tag proposes no commits to any branch;"
+    echo "[push-readiness] skipping pytest. The suite would run against the FIRST"
+    echo "[push-readiness] tag's tree, which for an archival tag is old by design"
+    echo "[push-readiness] and says nothing about what is being pushed."
 elif [[ "${DIVINEOS_SKIP_TESTS:-0}" == "1" ]]; then
     echo "[push-readiness] DIVINEOS_SKIP_TESTS=1 — skipping pytest." >&2
     # Record it. This is an ESCAPE, not compliance: it SUPPRESSES the check

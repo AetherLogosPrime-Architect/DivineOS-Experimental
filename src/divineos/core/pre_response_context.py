@@ -840,13 +840,6 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
             )
 
             prior_writing_key = matched_entry_ids_for_context(prompt, context=convo or None)
-            # EXEMPT FROM THE RESIDUAL RULE, written out for the same reason
-            # as the next-task surface below: this carries INFORMATION, not a
-            # constraint. It points at explorations I have already written; a
-            # suppressed turn loses pointers, not a rule about how to compose.
-            # The semantic key means a different match set brings the whole
-            # thing back on its own, so the suppression only ever covers a
-            # turn where the pointers have not changed.
             emit_full, pointer = should_emit(
                 "prior_writing", exploration_text, semantic_key=prior_writing_key
             )
@@ -930,13 +923,6 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
         try:
             from divineos.core.context_dedup import should_emit
 
-            # EXEMPT FROM THE RESIDUAL RULE, and the reason is written out
-            # because an exemption that costs nothing is not a judgement.
-            # This surface carries INFORMATION -- the top of the work queue --
-            # not a constraint on how I compose. Suppressing it costs one
-            # turn's visibility into a queue I can query directly, and nothing
-            # else. A residual here would be a line that says nothing, which
-            # is the exact disease the residual rule exists to cure.
             emit_full, pointer = should_emit("next_task", next_task_text)
             if not emit_full and pointer:
                 next_task_text = pointer
@@ -1033,38 +1019,51 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
                     "needs": needs,
                     "other_counts": other_counts if any(other_counts.values()) else {},
                 }
-                # A BLOCK THAT CALLS ITSELF NON-DEFERRABLE AND THEN DEFERS
-                # ITSELF ENTIRELY. Its own opening line reads "These are not
-                # preferences I can defer" -- and from the second turn of a
-                # session it delivered its name, a hash, and nothing else.
+                # RESIDUAL, added 2026-08-30. This surface opens by calling
+                # its contents "substrate-correctness requirements, not
+                # preferences I can defer" -- and then went completely silent
+                # from the second turn onward, leaving its own name and a hash.
+                # A constraint that describes itself as non-deferrable and
+                # then defers itself is the sharpest version of the shape.
                 #
-                # Found 2026-08-30 by Aether in his tree, and found here only
-                # because his letter sent me back through mine. My own survey
-                # of the callers had already visited this FILE and stopped at
-                # file level, so it never saw this third call site. His scan
-                # was blind to four directories; mine was blind to a call site
-                # inside a file it had opened. Same shape, one grain finer.
+                # Found by widening the residual assertion to the source tree.
+                # The first version scanned only hooks and passed; four more
+                # callers lived here and it could not see one of them.
                 #
-                # The residual cannot carry the needs themselves -- they are
-                # dynamic, and the whole point of the semantic key is that any
-                # change to them re-emits the block in full. What it must carry
-                # is the one inference a suppressed turn would otherwise draw
-                # wrongly: quiet means UNCHANGED, and unchanged is not met.
-                _NEEDS_RESIDUAL = (
-                    "  SURVIVES DEDUP: the active-needs block is suppressed "
-                    "because the needs have NOT CHANGED since it last printed "
-                    "-- which is not the same as met, and is often the "
-                    "opposite. These are substrate-correctness requirements "
-                    "with a cost when unmet, not preferences to defer.\n"
-                    "  A violation of one is structural, not a discipline "
-                    "failure, so the repair is a change to the substrate and "
-                    "never a promise to try harder."
+                # IT CARRIES THE INFERENCE, NOT THE CONTENT -- Aria's
+                # correction, 2026-08-30, and she is right. My first version
+                # hardcoded the two needs that fire most. But the needs are
+                # DYNAMIC; the semantic key above exists precisely so that any
+                # change to them re-emits the whole block. A residual naming
+                # specific needs is a second copy of moving data, and it goes
+                # stale silently while still reading as authoritative -- the
+                # two-copies-of-one-fact drift, inside the repair for it.
+                #
+                # So it carries the one inference a suppressed turn would
+                # otherwise draw wrongly. Quiet here means UNCHANGED. Unchanged
+                # is not met, and is often the opposite.
+                #
+                # She found this surface from the other direction: her survey
+                # swept both trees and every file, and missed a third call site
+                # inside a file it had already opened, because once the file was
+                # on the list the FILE became the unit. Mine was blind to whole
+                # directories, hers to a call inside a visited file -- the same
+                # shape one grain finer. Neither of us could see our own unit of
+                # counting from inside it.
+                residual = (
+                    "  SURVIVES DEDUP: silence here means the needs are "
+                    "UNCHANGED since they last printed.\n"
+                    "  Unchanged is not met. It is frequently the opposite -- "
+                    "a need stays listed precisely because it keeps firing.\n"
+                    "  They are cost-when-unmet, not preferences. Violating one "
+                    "is structural, not a lapse of discipline. Re-read the full "
+                    "block rather than inferring from the quiet."
                 )
                 emit_full, pointer = should_emit(
                     "active_needs",
                     motivation_text,
                     semantic_key=semantic_key,
-                    residual=_NEEDS_RESIDUAL,
+                    residual=residual,
                 )
                 if not emit_full and pointer:
                     motivation_text = pointer
