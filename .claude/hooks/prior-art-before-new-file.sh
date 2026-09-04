@@ -5,15 +5,31 @@
 # stranded on). Two reasons, and the second is why it must not be switched on
 # in the same commit that makes it visible.
 #
-# ONE: it has never run. It was written 2026-08-27 and published only on
-# aria/pr-sweep-integration, registered in no settings file on any branch or in
-# any working tree. The wiring check calls that DARK, and its own line for the
-# state is the whole argument: a hook that is never called cannot complain
-# about not being called. Aria believed it had fired on her twice this week;
-# measured, those were the OLDER prior-art door, which is registered and does
-# fire. There are two doors in this house and a search for the surface returns
-# the older one first -- the same confusion that had us reporting different
-# branch counts for "the doorman" and both being right.
+# ONE: it is live in exactly one place, and that place is the only place it
+# exists. Written 2026-08-27, published only on aria/pr-sweep-integration, and
+# registered in no settings file on any branch -- or in any working tree I can
+# reach. The wiring check calls that DARK from here, and its line for the state
+# is worth keeping: a hook that is never called cannot complain about not being
+# called.
+#
+# CORRECTED 2026-09-03, and the first version of this comment was mine and was
+# wrong. I wrote that it had NEVER FIRED, as a universal, having checked every
+# published branch and every tree available to me. Aria refused it with a
+# receipt: it is registered in HER working copy, in a settings file that is
+# itself modified and unpushed on her branch -- so the registration lives in the
+# one checkout that also holds the hook. It fired on her twice and the
+# acknowledgement marker is on her disk in her own words, naming the file it
+# stopped her on.
+#
+# Neither of us could reach the other's answer from where we stood and both
+# answers were correct. That is the two-doors confusion a third layer down, and
+# this time it is not two objects -- it is two vantages on one object. Her
+# phrasing, kept because it is better than mine: the door is live in exactly one
+# place, and that place is the same one place it exists.
+#
+# The finding is sharpened rather than softened. A mechanism nobody can review,
+# on a branch that cannot ship, whose pre-registration came due, and which runs
+# for exactly one seat.
 #
 # TWO: its pre-registered success criterion is currently UNMET. The criterion
 # says it must surface the letters-seen store when the letter-state module is
