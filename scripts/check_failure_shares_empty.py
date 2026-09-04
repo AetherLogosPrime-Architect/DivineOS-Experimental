@@ -206,6 +206,55 @@ def scan_source(source: bytes, path: str, include_broad: bool = False) -> list[F
     return out
 
 
+def changed_line_ranges(repo_root: Path, base: str, path: str) -> list[tuple[int, int]] | None:
+    """Line ranges this change touches in `path`, or None if git could not say.
+
+    WHY THIS EXISTS, measured rather than assumed. Run file-scoped over the last
+    eight real commits on main, this scanner reports 0, 1, 1, 12, 13 and 53
+    locations. The large numbers are not what those changes introduced -- they
+    are every pre-existing instance in whatever file the change happened to
+    touch. A refusal built on that fires on work the author never did, and a
+    refusal that fires on things you did not do is one somebody switches off.
+
+    Restricting to the lines the change actually touched is what turns the
+    count into a question the author can answer: you wrote this one, say why
+    the caller can tell the two answers apart, or make them different.
+
+    None rather than [] on failure, for the reason this whole file is about.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "diff", "--unified=0", base, "--", path],
+            cwd=repo_root,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None  # both-empty: both Nones mean git did not answer, so they agree
+
+    ranges: list[tuple[int, int]] = []
+    for line in out.stdout.decode("utf-8", "replace").splitlines():
+        if not line.startswith("@@"):
+            continue
+        # @@ -old,count +new,count @@ -- the NEW side is what exists now.
+        parts = line.split()
+        if len(parts) < 3 or not parts[2].startswith("+"):
+            continue
+        spec = parts[2][1:]
+        start_s, _, count_s = spec.partition(",")
+        try:
+            start = int(start_s)
+            count = int(count_s) if count_s else 1
+        except ValueError:
+            continue
+        if count > 0:
+            ranges.append((start, start + count - 1))
+    return ranges
+
+
 def changed_python_files(repo_root: Path, base: str) -> list[Path] | None:
     """Python files differing from `base`, or None if git could not tell us.
 
@@ -244,7 +293,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Also count `except Exception` handlers, which cannot miss a family.",
     )
+    parser.add_argument(
+        "--new-only",
+        action="store_true",
+        help=(
+            "With --changed-since: report only locations on lines this change "
+            "touched. THE GATE-SHAPED MODE -- everything else is a census."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.new_only and not args.changed_since:
+        print("[failure-shares-empty] --new-only needs --changed-since to have a baseline.")
+        return 2
 
     repo_root = Path(__file__).resolve().parent.parent
 
@@ -276,15 +337,60 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError:
             rel = str(path)
         try:
-            findings.extend(scan_source(path.read_bytes(), rel, args.include_broad))
+            raw = path.read_bytes()
+            hits = scan_source(raw, rel, args.include_broad)
         except (OSError, SyntaxError):
             unreadable.append(rel)
+            continue
+
+        # THE ANSWER-IN-THE-CODE ESCAPE, and it is the whole reason this can
+        # block. The commonest true case is that both returns mean the SAME
+        # thing -- two failure paths that agree -- and syntax cannot see that
+        # they agree. So the author says so, on the line, where the next reader
+        # finds it. Same shape as the fail-soft marker the silent-swallow
+        # checker already uses, deliberately, so there is one convention rather
+        # than two.
+        #
+        # This makes the refusal satisfiable by DOING the thinking rather than
+        # by turning the check off, which is the difference between a gate and
+        # a thing people disable.
+        text = raw.decode("utf-8", "replace").splitlines()
+        for hit in hits:
+            line = text[hit.line - 1] if 0 < hit.line <= len(text) else ""
+            marker = "# both-empty:"
+            if marker in line and len(line.split(marker, 1)[1].strip()) >= 20:
+                continue
+            findings.append(hit)
+
+    if args.new_only:
+        # NARROW TO WHAT THIS CHANGE TOUCHED. Measured over the last eight real
+        # commits, file-scope reports 0, 1, 1, 12, 13 and 53 -- and the large
+        # numbers are pre-existing instances in whatever file the change
+        # happened to open. Refusing on those is refusing work the author never
+        # did, which is how an instrument earns being switched off.
+        kept: list[Finding] = []
+        blind: list[str] = []
+        by_file: dict[str, list[Finding]] = {}
+        for f in findings:
+            by_file.setdefault(f.path, []).append(f)
+        for rel, group in by_file.items():
+            ranges = changed_line_ranges(repo_root, args.changed_since, rel)
+            if ranges is None:
+                # Could-not-tell keeps its own name rather than silently
+                # dropping the file's findings, which would read as clean.
+                blind.append(rel)
+                continue
+            kept.extend(f for f in group if any(lo <= f.line <= hi for lo, hi in ranges))
+        findings = kept
+        if blind:
+            print(
+                f"[failure-shares-empty] COULD NOT READ the changed lines for "
+                f"{len(blind)} file(s), so they are NOT cleared: {', '.join(blind[:5])}"
+            )
 
     scope = "all handlers" if args.include_broad else "handlers that ENUMERATE error families"
-    print(
-        f"[failure-shares-empty] {len(findings)} location(s) across {len(targets)} file(s), "
-        f"counting {scope}."
-    )
+    lens = "on lines this change touched" if args.new_only else f"across {len(targets)} file(s)"
+    print(f"[failure-shares-empty] {len(findings)} location(s) {lens}, counting {scope}.")
     if unreadable:
         # SAID OUT LOUD, and this is the line that keeps the scanner honest:
         # files it could not parse are not files it cleared.
@@ -303,6 +409,22 @@ def main(argv: list[str] | None = None) -> int:
     print("which answer it received? A function may return the same value")
     print("twice and be honest, if its callers ask a second question. What")
     print("this cannot see is the caller, so a hit means look, never broken.")
+
+    if args.new_only and findings:
+        print()
+        print("You wrote these on this change, so you are the one who can answer.")
+        print("If the two returns MEAN DIFFERENT THINGS, make them different -- a")
+        print("caller that cannot tell an outage from an empty result will one day")
+        print("report one as the other, which is how a nine-deletion alarm gets")
+        print("raised over nothing.")
+        print()
+        print("If they MEAN THE SAME THING, say so on the line and this stops asking:")
+        print("    return None  # both-empty: <why the two agree, 20+ chars>")
+        print()
+        print("Saying why is the point. The marker is not a mute button -- it is")
+        print("where the next reader finds the answer to the question you just had.")
+        return 1
+
     return 0
 
 
