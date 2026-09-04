@@ -529,7 +529,9 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             st = PrFlowStatus(number=n, branch=branch, gravity=-1, required_lenses=-1)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_aria_station(branch, _LETTERS),
+                # No diff to reason from, so no path evidence reaches the
+                # station -- but her own title naming this PR still closes it.
+                check_aria_station(branch, _LETTERS, (), n),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
             ]
@@ -542,7 +544,9 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             # paths, not branch: council walks are keyed by edit
             # fingerprint. See _lenses_applied for the measurement.
             check_council_station(branch, need, _lenses_applied(paths), _other_seat_lenses(paths)),
-            check_aria_station(branch, _LETTERS),
+            # Same evidence the council station gets. She reviews by the file
+            # she is worried about at least as often as by the branch name.
+            check_aria_station(branch, _LETTERS, tuple(paths), n),
             check_draft_station(pr.get("isDraft")),
             check_audit_station(n, branch, audit, audit_store, _anchor_for(branch, deep, n)),
         ]

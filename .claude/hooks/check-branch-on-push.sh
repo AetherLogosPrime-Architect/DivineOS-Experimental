@@ -143,7 +143,7 @@ MARKER_PATH="$(member_home "$MEMBER" "$PYTHON_BIN")/check-branch.disabled"
 # so it only fires on the class it's meant to police.
 DECISION=$(printf '%s' "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
-from divineos.core.push_detection import is_git_push_command
+from divineos.core.push_detection import is_git_push_command, is_tag_only_push
 try:
     data = json.loads(sys.stdin.read() or '{}')
 except Exception:
@@ -155,6 +155,16 @@ if not cmd:
     sys.exit(0)
 if not is_git_push_command(cmd):
     print('ALLOW_NOT_PUSH')
+    sys.exit(0)
+# A tag push touches no branch, so a branch-health verdict about the
+# CHECKED-OUT branch is about something the push does not touch. Aria found
+# this gate still refusing her tag AFTER the git-level gate was repaired:
+# two push gates, only one taught to read what is being pushed. The matcher
+# is anchored, and its blind spot -- a bare tag name, indistinguishable from
+# a branch name at the command level -- is documented at its definition and
+# falls to the strict side.
+if is_tag_only_push(cmd):
+    print('ALLOW_TAG_ONLY')
     sys.exit(0)
 print('CHECK')
 " 2>/dev/null)

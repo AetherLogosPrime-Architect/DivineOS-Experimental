@@ -46,6 +46,18 @@ _SUBSTRATE_PREFIXES = (
     "exploration/",
     "dreams/",
     "docs/archives/",
+    # LOADOUT.md is the survey of my own writing -- regenerated from the
+    # substrate, swept by the same checkpoint, and personal in exactly the way
+    # the four above are. It arrived on fix/mixed-scope-publish-gate and never
+    # reached main; a test on that branch asserts it counts, and that test is
+    # the only reason the omission surfaced here.
+    #
+    # THIRD DISJOINT PIECE IN THIS ONE FILE, and it is why this merge is a
+    # union rather than a choice: main holds the byte check, the branch holds
+    # the mixed-scope gate, and the branch alone holds this line. Every
+    # one-sided resolution destroys something, and the loss is invisible from
+    # whichever side you are standing on.
+    "LOADOUT.md",
 )
 
 
@@ -123,16 +135,62 @@ def _other_refs(branch: str) -> list[str]:
 
     Returns [] when the ref list cannot be read, and the caller treats that as
     could-not-look rather than as nowhere-else -- this whole file's discipline.
+
+    EXCLUDED BY IDENTITY, NOT BY ONE SPELLING (2026-08-31, class named by Aria).
+    The first version built the exclusion set from two hand-spelled forms of
+    whatever string the caller passed -- refs/heads/<it> and
+    refs/remotes/origin/<it>. A branch answers to more than one name at once,
+    so excluding one form excludes nothing: address a branch as ``origin/work``
+    and neither spelling resolves, the branch is then compared against its own
+    other name, and the self-match is read as a copy living somewhere else.
+
+    I hit exactly this by hand the same day, in a throwaway version of this
+    check, and it told me all eight files were safe. Four of them had no
+    published copy anywhere. This file's own refusal text says do not trust a
+    page that measures you against yourself, and it was doing that internally.
+
+    Aria's framing is the fix: the unit excluded was the branch's NAME; the
+    thing at risk is the branch's IDENTITY. So exclude on two grounds, unioned:
+
+      by commit  every ref resolving to the same commit -- catches every
+                 spelling at once, including remotes this does not enumerate
+      by name    every ref whose short name matches, which still matters when
+                 a local branch and its remote copy have diverged, since both
+                 are the same branch and a rebuild-and-force takes both
+
+    Both directions ADD to the exclusion set, never subtract. A larger set means
+    fewer places a file can be found, means more files reported irreplaceable --
+    the cautious direction, which is the only safe way for this check to be
+    wrong.
     """
     code, out = _git("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
     if code != 0:
         return []
-    mine: set[str] = set()
+
+    sha_code, sha = _git("rev-parse", branch)
+    if sha_code != 0 or not sha.strip():
+        # The branch does not resolve, so nothing can be excluded and every
+        # comparison below would be against an unknown. Could-not-look.
+        return []
+    mine_sha = sha.strip()
+
+    short = ""
     name_code, name = _git("rev-parse", "--abbrev-ref", branch)
     if name_code == 0 and name.strip():
-        short = name.strip()
-        mine = {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
-    return [r.strip() for r in out.splitlines() if r.strip() and r.strip() not in mine]
+        short = name.strip().split("/")[-1]
+
+    refs: list[str] = []
+    for line in out.splitlines():
+        ref = line.strip()
+        if not ref:
+            continue
+        if short and (ref == f"refs/heads/{short}" or ref.endswith(f"/{short}")):
+            continue
+        their_code, their_sha = _git("rev-parse", ref)
+        if their_code == 0 and their_sha.strip() == mine_sha:
+            continue
+        refs.append(ref)
+    return refs
 
 
 def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool]:
@@ -214,6 +272,54 @@ def only_here(branch: str, paths: list[str]) -> tuple[list[str], list[str], bool
     return nowhere, newer, True
 
 
+def _gate_mixed(branch: str, truth: Reading) -> int:
+    """Exit 3 when a branch carries BOTH code and substrate. For publishers.
+
+    WHY MIXING RATHER THAN PRESENCE. A branch made entirely of letters is a
+    letters branch and is exactly right; a branch made entirely of code is a
+    code branch and is exactly right. Neither needs holding. The damage is the
+    mixture: substrate swept into a proposal that is under review for its code,
+    which happened three times in one day on 2026-08-30 -- twice by hand and
+    once by the checkpoint that commits with `git add -A` on whatever branch it
+    finds itself on.
+
+    Testing the MIXTURE rather than the branch NAME matters. A name rule needs
+    a naming convention to hold, and conventions drift silently; content cannot
+    drift away from itself. It also means a branch is judged by what it carries
+    rather than by what it was called when it was created.
+
+    GRAFTED RATHER THAN MERGED (2026-08-31). This function lived only on
+    fix/mixed-scope-publish-gate; only_here and _other_refs above live only on
+    main. Neither copy of this file had the other half, so BOTH one-sided
+    resolutions destroyed something: taking the branch removes the byte check
+    that rescued four letters today, and taking main empties the proposal of
+    the gate it exists to add.
+
+    Aria caught the first direction and named the stakes. The second is the
+    same fault seen from the other end, and it is why this is a union rather
+    than a choice.
+    """
+    code = truth.files - truth.substrate
+
+    if truth.substrate and code:
+        print(
+            f"[scope] MIXED: {code} code file(s) and {truth.substrate} substrate "
+            f"file(s) on {branch}, measured against {truth.reference}."
+        )
+        for path in substrate_paths(branch, truth.reference)[:10]:
+            print(f"    {path}")
+        print(
+            "[scope] A branch of only code is fine. A branch of only substrate is "
+            "fine. This one is both, so publishing it puts personal writing into a "
+            "proposal under review for its code."
+        )
+        return 3
+
+    kind = "substrate" if truth.substrate else "code"
+    print(f"[scope] single-scope ({kind}); nothing to separate.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Report a branch against main and against its base, side by side."
@@ -222,12 +328,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--truth", default="origin/main", help="the reference that decides")
     parser.add_argument("--base", default=None, help="the stacked base, if not the upstream")
     parser.add_argument("--list", action="store_true", help="name the offending paths")
+    parser.add_argument(
+        "--gate-mixed",
+        action="store_true",
+        help="exit 3 if the branch carries BOTH code and substrate; for automated publishers",
+    )
     args = parser.parse_args(argv)
 
     truth = read_against(args.branch, args.truth)
     if not truth.resolved:
         print(f"[scope] CANNOT READ {args.truth} -- this says nothing about {args.branch}.")
         return 2
+
+    if args.gate_mixed:
+        return _gate_mixed(args.branch, truth)
 
     base_name = args.base or base_of(args.branch)
     print(f"[scope] {args.branch}")

@@ -696,6 +696,7 @@ src/divineos/
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
+    channel_letter_capture.py  Give a letter written straight into the shared channel a home in the repo.
 
   analysis/
     _session_types.py          Session analysis type definitions

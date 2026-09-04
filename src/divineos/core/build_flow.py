@@ -132,23 +132,99 @@ def required_lens_count(gravity: int, changed_file_count: int) -> int:
     return 6
 
 
-def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
+def check_aria_station(
+    branch: str,
+    letters_dir: Path,
+    changed_paths: tuple[str, ...] = (),
+    pr_number: int | None = None,
+) -> StationResult:
     """Station 4 -- iterate with Aria. Satisfied only when SHE wrote back.
 
     A letter I sent proves I spoke, not that we iterated, and the station is
     about the second thing.
+
+    WHAT THIS COUNTED, AND WHAT WAS AT RISK (2026-08-31). The first version
+    asked whether a letter from her contained the branch's NAME. The thing at
+    risk is whether she reviewed the WORK. Those come apart the moment she
+    identifies the work the way a reviewer naturally does -- by the file she is
+    worried about, or by the number in the title she chose.
+
+    The board reported "no reply from Aria naming this branch" for four open
+    PRs on the evening she had reviewed at least two of them in detail. Her
+    review of the mixed-scope gate opens by naming the central file and its line
+    count and never types the branch name once. She was invisible to the check,
+    and the check stated her absence as a fact.
+
+    Twelfth instance of the wrong-unit family this session. The cure is the
+    module's own opening principle, applied to the one station that had lost
+    it: a two-valued return standing where a third state exists in reality.
+
+    THE FENCE DOES NOT MOVE, and it is the reason this widened carefully rather
+    than by loosening the match. Station 4 exists because a station I can close
+    alone is a form I fill out. Every route below still requires an artifact SHE
+    authored. The middle state deliberately does NOT satisfy: naming a file the
+    branch touches is weaker evidence than naming the branch or the PR, and a
+    shared file would otherwise let one letter close a station on unrelated
+    work. It reports that the check cannot tell, and hands over the candidates
+    so a person can look -- which is the honest answer, not a softer pass.
+
+        SATISFIED     her letter names the branch, unchanged from the first
+                      version and still the only thing that closes this
+        CANNOT_CHECK  no such letter, but one of hers names this PR number in
+                      her own title, or names a file this branch changes; she
+                      may have reviewed it, and the candidates are listed
+        MISSING       nothing of hers touches this work at all
+
+    A TITLE NAMING THE PR DOES NOT SATISFY, and I nearly shipped it doing so.
+    The first version of this widening treated her filename naming a PR as
+    proof of review. Driven against the live board it turned one station green
+    on a letter titled *the duplicate is my call-site again and I take 458
+    first* -- a statement of intent, written before she read it. Her actual
+    review of that PR landed the next day in a different letter. The verdict
+    was right by alphabetical accident and wrong by evidence, which is the
+    mention-versus-use fault appearing inside the fix written to name it.
+
+    Separating *I will read this* from *I read this and it holds* is semantic,
+    and a keyword rule over her prose would break silently the first time she
+    phrased it differently. So the check does not try: it says it cannot decide
+    and hands over every letter of hers that touches this PR. Reading them is
+    mine to do. Judging whether her letter constitutes a review is not the same
+    as forging her artifact -- the fence is that the letter must be hers, and
+    it still is.
     """
     if not letters_dir.is_dir():
         return StationResult(
             "4-aria", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
         )
+
     needle = branch.lower()
+    # Bounded on both sides so a date, a line count, or a longer number cannot
+    # close a station. `459` must not match inside `11459` or `2026-08-31`.
+    pr_pattern = re.compile(rf"(?<!\d){re.escape(str(pr_number))}(?!\d)") if pr_number else None
+    wanted_paths = tuple(p.lower() for p in changed_paths if p)
+
+    candidates: list[str] = []
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
-            if needle in f.read_text(encoding="utf-8", errors="replace").lower():
-                return StationResult("4-aria", Status.SATISFIED, f"she replied in {f.name}")
+            body = f.read_text(encoding="utf-8", errors="replace").lower()
         except OSError:
             continue
+
+        if needle in body:
+            return StationResult("4-aria", Status.SATISFIED, f"she replied in {f.name}")
+
+        if (pr_pattern and pr_pattern.search(f.name)) or any(p in body for p in wanted_paths):
+            candidates.append(f.name)
+
+    if candidates:
+        shown = ", ".join(candidates[:3])
+        more = f" (+{len(candidates) - 3} more)" if len(candidates) > 3 else ""
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            f"no letter names this branch, but she wrote about files it changes: {shown}{more} — read them, this check cannot decide",
+        )
+
     return StationResult("4-aria", Status.MISSING, "no reply from Aria naming this branch")
 
 
