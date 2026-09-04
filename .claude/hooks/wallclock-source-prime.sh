@@ -411,8 +411,30 @@ discipline.
 DOCEOF
 )
 
-DOCTRINE="$DOCTRINE" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
+DOCTRINE="$DOCTRINE" PYTHONIOENCODING=utf-8 "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$DOCTRINE"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os, sys
+
+# THE DEDUP WAS DEAD IN SILENCE AND THE FALLBACK HID IT.
+#
+# This body contains an em-dash. The interpreter defaults its output stream to
+# the console codepage, which cannot encode it, so `print` raised on every full
+# emission. The raise went to the null sink on the line above, the non-zero exit
+# triggered the printf fallback, and the whole body was emitted anyway -- so the
+# surface looked like it was working while its dedup had never once run.
+#
+# Found by Aria 2026-09-04 in her own compose-order prime, measured here the
+# same day across all four. The one prime that already carried this guard was
+# the only one dedupping; the three without it all contained characters the
+# console cannot encode. Guard and behaviour lined up exactly.
+#
+# Belt and braces on purpose, matching the prime that worked: the environment
+# variable above sets it before the interpreter starts, and this reconfigure
+# covers a stream already bound. errors='replace' so a character nobody
+# anticipated degrades one glyph rather than costing the whole surface.
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except (AttributeError, OSError):
+    pass
 body = os.environ.get('DOCTRINE', '')
 try:
     from divineos.core.context_dedup import should_emit
