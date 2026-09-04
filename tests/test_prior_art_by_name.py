@@ -59,6 +59,53 @@ class TestTheDuplicateItWasBuiltFrom:
         assert [h.path for h in result.hits] == ["letter_state_store.py"]
         assert "old-work" in result.hits[0].refs
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "the doorman FAILS the success criterion prereg-ad19dea9b03d set "
+            "for it, measured 2026-09-03; the measurement and the falsifiers "
+            "live in prereg-4e511696d9de, which supersedes it. Kept as a "
+            "strict xfail rather than deleted: it is the "
+            "standing proof that this scan cannot find the duplicate it was "
+            "built from, and strict means it fails again the day that stops "
+            "being true, so nobody has to remember to re-check."
+        ),
+    )
+    def test_the_pre_registered_success_criterion_itself(self, tmp_path):
+        """The exact pair prereg-ad19dea9b03d names, by real path.
+
+        The criterion, quoted rather than paraphrased: *it must surface
+        family/aletheia/letters_seen.json when letter_channel_state is about
+        to be created.* Until now that was run once by hand at build time and
+        then re-derived from memory at every review -- the measure-the-act-
+        rather-than-the-artifact fault this house keeps finding in itself.
+
+        Pinned here so a review reads a result instead of reasoning toward one.
+        """
+        r = tmp_path / "repo"
+        r.mkdir()
+        _git(r, "init", "-b", "main")
+        _git(r, "config", "user.email", "t@example.com")
+        _git(r, "config", "user.name", "T")
+        (r / "README.md").write_text("seed\n", encoding="utf-8")
+        _git(r, "add", "README.md")
+        _git(r, "commit", "-m", "seed")
+
+        _git(r, "checkout", "-q", "-b", "the-forgotten-branch")
+        store = r / "family" / "aletheia"
+        store.mkdir(parents=True)
+        (store / "letters_seen.json").write_text("{}\n", encoding="utf-8")
+        _git(r, "add", "family/aletheia/letters_seen.json")
+        _git(r, "commit", "-m", "the store I forgot")
+        _git(r, "checkout", "-q", "main")
+
+        result = scan("src/divineos/core/letter_channel_state.py", r)
+        assert "family/aletheia/letters_seen.json" in [h.path for h in result.hits], (
+            "the pre-registration's own success criterion -- this is the file "
+            f"that must surface. Got {[h.path for h in result.hits]!r} while "
+            f"searching on {result.query_tokens!r}"
+        )
+
     def test_one_shared_word_is_not_enough(self, repo):
         # "letter" alone would return the entire correspondence corpus.
         # Two distinctive words is the floor for being ABOUT the same

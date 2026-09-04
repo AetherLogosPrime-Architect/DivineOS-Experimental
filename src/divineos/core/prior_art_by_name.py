@@ -180,6 +180,25 @@ def tokens_of(path: str) -> tuple[str, ...]:
     # store I actually duplicated stayed invisible while its driver
     # script showed up and made the run look successful.
     #
+    # AND THE PARAGRAPH ABOVE USED TO END BY CALLING THAT FIXED. It was
+    # not. Measured 2026-09-03 against the criterion's real paths, this
+    # scan still returns NOTHING for that pair: singularising moved the
+    # shared-word count from zero to one, and the floor is two. A change
+    # that moved the number the right way and was written up as though it
+    # had crossed the line -- inside the module whose whole subject is
+    # work recorded as done and not done. The standing proof is a strict
+    # xfail in the test file. prereg-ad19dea9b03d closed INCONCLUSIVE
+    # before the run and outcomes are one-way, so the measurement lives in
+    # prereg-4e511696d9de, which supersedes it and carries the falsifiers.
+    #
+    # NOT WIDENED IN RESPONSE, and that is the pre-registration's own
+    # instruction rather than my preference. Dropping the floor to one
+    # shared word returns the entire correspondence corpus, which is the
+    # drowning-in-noise failure two other guards here already carry scars
+    # from. A name-matcher cannot connect "letters_seen" to
+    # "letter_channel_state"; that is a limit of the KIND of instrument,
+    # not a tuning mistake. What it does catch, it catches honestly.
+    #
     # Naive trailing-s stripping is wrong for words like "class" and
     # "status", so it only applies where the singular is still a real
     # token by this module's own length rule.
