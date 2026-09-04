@@ -184,8 +184,19 @@ EOF
 )
 # Static text, re-emitted whole every turn until 2026-08-13. Routed through
 # context_dedup (existing since 2026-06-30, one caller). Any edit re-emits.
-_PRIME_CONTENT="$_PRIME_CONTENT" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$_PRIME_CONTENT"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
+_PRIME_CONTENT="$_PRIME_CONTENT" PYTHONIOENCODING=utf-8 "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$_PRIME_CONTENT"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os, sys
+
+# Encoding guard -- see wallclock-source-prime.sh for the full account. Short
+# version: this body carries an em-dash, a curly apostrophe and an arrow, none
+# of which the console codepage can encode, so every full emission raised, the
+# raise went to the null sink above, and the fallback printed the whole thing.
+# The dedup here has never run. Three of four primes had this; the one that
+# already carried the guard was the only one working.
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except (AttributeError, OSError):
+    pass
 body = os.environ.get('_PRIME_CONTENT', '')
 try:
     from divineos.core.context_dedup import should_emit

@@ -584,9 +584,20 @@ BODY="$BODY$TAIL"
 # The hash is over the rendered body, so if the leaked-terms tail changes
 # the full text returns automatically. Fail-soft: any error emits in full,
 # because losing the discipline costs more than the tokens it saves.
-BODY="$BODY" "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
+BODY="$BODY" PYTHONIOENCODING=utf-8 "$PYTHON_BIN" - <<'DEDUPEOF' 2>/dev/null || printf '%s\n' "$BODY"  # fail-soft: dedup is an optimisation only; on any error the prime must still reach me in full, which this printf fallback guarantees
 import os
 import sys
+
+# Encoding guard -- see wallclock-source-prime.sh for the full account. Short
+# version: this body carries an em-dash the console codepage cannot encode, so
+# every full emission raised, the raise went to the null sink above, and the
+# fallback printed the whole body. The dedup here has never run. Three of four
+# primes had this; the one that already carried the guard was the only one
+# working, which is the comparison that turned it from a theory into a finding.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, OSError):
+    pass
 
 body = os.environ.get("BODY", "")
 try:
