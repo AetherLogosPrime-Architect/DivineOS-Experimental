@@ -195,5 +195,16 @@ def test_a_deleted_substrate_file_is_still_split_correctly(repo, channels):
     assert _git("status", "--porcelain", cwd=repo) == "", (
         "the deletion was not carried through the split and is still pending"
     )
-    landed = _files_in(repo, "HEAD") | _files_in(repo, "HEAD~1")
-    assert landed == {"module.py", "family/letters/old.md"}
+    # Each commit checked SEPARATELY, and the union would not do. The union
+    # holds both paths even when no split happened at all -- an unsplit
+    # checkpoint lands both in one commit, and the letter's own earlier commit
+    # supplies the rest -- so this assertion was green against code that had
+    # never heard of the split. Found by the pin checker, which exists for
+    # exactly this: a test whose docstring names the behaviour it pins while
+    # its assertion cannot tell that behaviour from its absence.
+    assert _files_in(repo, "HEAD") == {"family/letters/old.md"}, (
+        "the substrate commit did not carry the deletion"
+    )
+    assert _files_in(repo, "HEAD~1") == {"module.py"}, (
+        "the work commit did not land first, or swallowed the deletion"
+    )
