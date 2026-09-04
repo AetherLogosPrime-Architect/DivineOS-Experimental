@@ -284,6 +284,21 @@ class TestReservedExternalVantageShapes:
                     continue
                 if "audit_rounds" in path.parts:
                     continue  # a record of what was filed, not an instruction
+                # A WORKTREE IS ANOTHER BRANCH CHECKED OUT ON DISK, and its copy
+                # of an instruction is not an instruction in THIS branch. Left
+                # in, this test passes on a fresh clone and fails in any working
+                # checkout, reporting the same handful of lines once per
+                # worktree -- 40+ offenders here, every one of them a file that
+                # cannot be fixed from this branch because it belongs to another.
+                #
+                # Third instance of this exact shape in one session: the
+                # member-home detector counted worktrees six times over, and the
+                # August consolidation sweep was scoped by directory while the
+                # defect was scoped by behaviour. A scan of "the repository"
+                # that means "everything under this path" quietly includes
+                # every other branch someone happens to have open.
+                if "worktrees" in path.parts:
+                    continue
                 text = path.read_text(encoding="utf-8", errors="replace")
                 opened.append(path.name)
                 for n, line in enumerate(text.splitlines(), 1):
