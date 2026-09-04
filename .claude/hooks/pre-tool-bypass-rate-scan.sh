@@ -12,9 +12,23 @@
 #     recent GATE_FIRE for this gate.
 #
 # Clearing:
-#   - divineos audit submit-round '<focus>' --actor external-auditor
+#   - divineos audit submit-round '<focus>' --actor aether
+#     (or the real name of whoever is filing: aletheia, aria, user, ...)
 #   - divineos claim '<statement>'
 #   - Any GATE_CLEARANCE event for bypass_rate_scan
+#
+# THE ACTOR ON THAT LINE USED TO BE A NAME THE STORE NOW REFUSES.
+# Aria found it on 2026-09-01 while reading the branch that added the refusal:
+# a hook prescribing a remedy and a guard rejecting it, inside the same change.
+# Whoever followed the old line got a hard rejection with a paragraph about
+# self-attested external vantage, for doing exactly what the instructions said,
+# and would reasonably have read the guard as broken rather than the
+# instruction as stale.
+#
+# Reserved external-vantage names cannot be self-onboarded. File under the name
+# of whoever is actually filing. If a genuine outside auditor needs one of the
+# reserved names, the operator adds it to EXTERNAL_ACTORS by a guardrail-audited
+# edit -- that is the door, and it is deliberately not this one.
 #
 # Fail-open: any hook failure exits 0 so the gate cannot break work.
 #

@@ -258,6 +258,25 @@ if ! python scripts/check_swallowing_gates.py; then
     note_fail
 fi
 
+# 5c-bis. Failure and emptiness sharing one return, on lines THIS change
+# touched. Sibling of the swallow check above and deliberately the same shape:
+# an escape marker in the code rather than a switch that turns it off.
+#
+# WHY NEW-ONLY AND NOT FILE-SCOPE, measured over the last eight real commits
+# on main: file-scope reports 0, 1, 1, 12, 13 and 53 locations, and the large
+# numbers are pre-existing instances in whatever file the change happened to
+# open. A refusal built on those refuses work the author never did, and that
+# is exactly how an instrument earns being disabled.
+#
+# WHY IT BLOCKS AT ALL. Built 2026-08-29 and wired to nothing until Andrew:
+# "you do not warn water, water flows, it doesnt care about warning, only
+# channels and gates." A scanner reporting a count nobody has to answer is
+# the speed limit sign.
+section "Failure-Shares-Empty (new lines)"
+if ! python scripts/check_failure_shares_empty.py --changed-since origin/main --new-only; then
+    note_fail
+fi
+
 # 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
 # Catches future drift by flagging functions that start with mythological
 # verbs. Manual audit on filing-day found zero violations; this prevents
