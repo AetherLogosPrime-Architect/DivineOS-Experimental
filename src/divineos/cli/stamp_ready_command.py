@@ -396,6 +396,38 @@ def _commits_behind_base(branch: str) -> tuple[int, str]:
         return 0, f"{type(exc).__name__}: {exc}"
 
 
+def _worktrees_holding(branch: str) -> list[str]:
+    """Paths of worktrees with ``branch`` checked out. Empty when none do.
+
+    Exists so the failure message can say which causes it TESTED rather than
+    naming a plausible one it did not. Returns empty on any error: a check
+    that cannot run must not manufacture a holder, since the whole point is
+    to stop asserting an untested cause.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if out.returncode != 0:
+            return []
+    except OSError:
+        return []
+
+    holders: list[str] = []
+    current_path = ""
+    for line in out.stdout.splitlines():
+        if line.startswith("worktree "):
+            current_path = line[len("worktree ") :].strip()
+        elif line.startswith("branch "):
+            ref = line[len("branch ") :].strip()
+            if ref in (f"refs/heads/{branch}", branch):
+                holders.append(current_path)
+    return holders
+
+
 def _round_by_id(round_id: str):
     """The round record, or None. Lookup by id, never by position."""
     from divineos.core.watchmen.store import list_rounds
@@ -657,11 +689,32 @@ def register(cli: click.Group) -> None:
                 for c in still:
                     click.echo(f"      {c.short_sha} {c.subject[:56]}")
                 click.secho(
-                    "    Not writing the body, not clearing draft. Common cause: "
-                    "the branch is checked out in another worktree, so its "
-                    "history cannot be rewritten from here.",
+                    "    Not writing the body, not clearing draft.",
                     fg="bright_black",
                 )
+                # NAME WHAT WAS TESTED, NOT WHAT IS PLAUSIBLE. This used to
+                # assert a "common cause" -- the branch being checked out in
+                # another worktree -- that it had never checked. On 2026-09-05
+                # that sent me hunting a worktree holding the branch. None did.
+                # The rewrite HAD run; it ran against a local ref the server had
+                # moved past, so the amend was real and landed on old history.
+                # A confidently-named untested cause costs more than silence,
+                # because it aims the search away from the actual fault.
+                for holder in _worktrees_holding(branch):
+                    click.secho(
+                        f"    Checked: {holder} has {branch} checked out, which "
+                        "prevents rewriting it from here.",
+                        fg="bright_black",
+                    )
+                    break
+                else:
+                    click.secho(
+                        f"    Checked: no worktree holds {branch}, so that is not "
+                        "the cause here. Compare the local branch against "
+                        f"origin/{branch} -- a rewrite of a stale local ref "
+                        "amends history the server has already moved past.",
+                        fg="bright_black",
+                    )
                 raise click.exceptions.Exit(1)
 
             if not pr_result.pushed:
