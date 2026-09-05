@@ -215,6 +215,20 @@ def unrouted_member_home() -> Path:
     prefer whichever actually holds the file.
     """
     member = os.environ.get("DIVINEOS_MEMBER", "aether").strip() or "aether"
+    # The declaration below is for scripts/check_member_home_rebuilt.py, which flags
+    # exactly this shape everywhere else and was right to flag it here on its
+    # first run. This is the one site where routing would destroy the point:
+    # the function exists to look in the UNROUTED directory, so that _resolve
+    # can compare both homes and prefer whichever actually holds the file.
+    # Send it through the resolver and the two candidates collapse into one,
+    # and the tool stops being able to find the orphaned copy at all.
+    #
+    # Declared at the site rather than exempted by filename, because a list of
+    # exempt paths is scoped by DIRECTORY -- which is how the August sweep
+    # missed three sites while catching three others. A site claiming the
+    # exception has to say so where the code is.
+    #
+    # member-home: unrouted on purpose
     return Path(os.path.expanduser("~")) / f".divineos-{member.lower()}"
 
 
