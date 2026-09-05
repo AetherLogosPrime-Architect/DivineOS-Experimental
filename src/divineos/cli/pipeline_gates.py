@@ -23,6 +23,11 @@ from divineos.core.constants import (
 
 _GATE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError)
 
+# Errors a ledger write can plausibly raise. Deliberately wide: this tuple
+# guards the recording of a failure, and record-keeping must never be the
+# thing that takes down the run it is recording.
+_LEDGER_WRITE_ERRORS = _GATE_ERRORS + (sqlite3.Error, ValueError, AttributeError)
+
 
 def run_goal_extraction(analysis: Any) -> None:
     """Extract goals from user messages into HUD (step 1b)."""
@@ -458,9 +463,25 @@ def should_extract_knowledge(verdict: QualityVerdict) -> tuple[bool, str]:
         (allowed, maturity_override) where maturity_override is
         "" for normal, "HYPOTHESIS" for downgraded, or "" with allowed=False for blocked.
     """
-    if verdict.action == "BLOCK":
-        return False, ""
-    if verdict.action == "DOWNGRADE":
+    # EXTRACTION IS NEVER BLOCKED. Andrew 2026-09-02: "at no point should
+    # extraction be blocked.. failures or not, as long as those failures are
+    # recorded as such and not as knowledge entries then it shouldnt be
+    # blocking anything, maybe warning at best so it makes sure the failures
+    # are logged for investigation if they havent been already."
+    #
+    # The old BLOCK returned (False, "") and a whole session's learning was
+    # discarded. Measured on the 2026-09-01 cycle: extraction was skipped
+    # because the test-output signal read 0.25 -- runs had failed. That
+    # describes a session REPAIRING failing tests, which is the session most
+    # worth learning from, and the gate could not tell it apart from one that
+    # CAUSED them. It counted red without reading what the red was doing --
+    # the same name-for-substance fault found repeatedly the same day.
+    #
+    # Blocking lost the lesson AND the failure record together. Keeping both
+    # is strictly better: entries land at the lowest maturity, so a bad
+    # session cannot promote anything to fact, and the failure stays visible
+    # for investigation instead of being discarded with everything around it.
+    if verdict.action in ("BLOCK", "DOWNGRADE"):
         return True, "HYPOTHESIS"
     return True, ""
 
@@ -473,7 +494,15 @@ def run_quality_gate(
 
     Returns:
         (quality_verdict, maturity_override, extract_allowed, check_results)
-        If extract_allowed is False, caller should abort extraction.
+
+        extract_allowed is ALWAYS True as of 2026-09-02. This gate warns and
+        downgrades; it does not discard a session. A bad session lands at
+        HYPOTHESIS maturity so nothing from it can be promoted to fact, and
+        its failing checks are stored in the quality report for investigation
+        -- recorded as failures rather than as knowledge. The flag is kept in
+        the signature because callers read it, and because a future gate may
+        earn the right to refuse; today none does.
+
         check_results is the list of check dicts for downstream lesson detection.
     """
     quality_verdict = None
@@ -499,26 +528,63 @@ def run_quality_gate(
         extract_allowed, maturity_override = should_extract_knowledge(quality_verdict)
 
         if quality_verdict.action == "BLOCK":
-            click.secho(f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True)
-            # Show which checks failed so the user understands why
+            # WARNS, DOES NOT BLOCK. Andrew 2026-09-02: extraction is never
+            # blocked; failures get recorded as failures, not as knowledge.
+            # The failing checks are already persisted by store_report above,
+            # so the investigation trail survives whether or not extraction
+            # runs -- and the session's lessons survive with it.
+            click.secho(
+                f"[!] Quality gate would have BLOCKED: {quality_verdict.reason}",
+                fg="red",
+                bold=True,
+            )
             for cr in check_results:
                 if cr.get("passed") == 0 and cr.get("summary"):
                     click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="red")
-            click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
-            return quality_verdict, maturity_override, False, check_results
+            click.secho(
+                "[!] Extracting anyway at HYPOTHESIS maturity. The failures above are "
+                "stored in the quality report for investigation.",
+                fg="yellow",
+            )
         elif quality_verdict.action == "DOWNGRADE":
             click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
             for cr in check_results:
                 if cr.get("passed") == 0 and cr.get("summary"):
                     click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="yellow")
     except _GATE_ERRORS as e:
-        logger.warning(f"Quality gate failed — BLOCKING extraction (fail-closed): {e}")
+        # The gate CRASHED. That is a defect in the gate, and a defect in the
+        # judge is not evidence against the session being judged. Formerly
+        # fail-closed: a broken check discarded a whole session's learning.
+        # Now the crash is filed as its own event -- recorded as a failure,
+        # per Andrew 2026-09-02 -- and extraction proceeds at the lowest
+        # maturity so nothing can be promoted to fact on an unchecked session.
+        logger.warning(f"Quality gate crashed — extracting at HYPOTHESIS anyway: {e}")
         click.secho(
-            f"[!] Quality gate error — blocking extraction (fail-closed): {e}",
+            f"[!] Quality gate error: {e}",
             fg="red",
             bold=True,
         )
-        return quality_verdict, maturity_override, False, check_results
+        click.secho(
+            "[!] The gate failed, not the session. Extracting at HYPOTHESIS maturity "
+            "and filing the gate failure for investigation.",
+            fg="yellow",
+        )
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                "QUALITY_GATE_FAILURE",
+                "system",
+                {
+                    "error": str(e),
+                    "error_class": type(e).__name__,
+                    "session_file": str(session_file),
+                    "consequence": "extraction proceeded at HYPOTHESIS maturity",
+                },
+            )
+        except _LEDGER_WRITE_ERRORS as log_err:  # record-keeping never eats the run
+            logger.warning(f"Could not file the quality-gate failure: {log_err}")
+        return quality_verdict, "HYPOTHESIS", True, check_results
 
     return quality_verdict, maturity_override, True, check_results
 

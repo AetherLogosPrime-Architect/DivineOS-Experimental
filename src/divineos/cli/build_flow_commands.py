@@ -536,7 +536,12 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
             out.append(st)
             continue
         gravity, _fired = score_pr_gravity(paths)
-        need = required_lens_count(gravity, len(paths))
+        # Paths, not a count: the requirement scales on files a lens can grip,
+        # and the count discards exactly the information that decides it. The
+        # unreachable-diff branch above already refuses to let absence read as
+        # an empty diff; this is the same discipline one step in -- do not hand
+        # a decision a summary when the thing itself is in hand.
+        need = required_lens_count(gravity, paths)
         st = PrFlowStatus(number=n, branch=branch, gravity=gravity, required_lenses=need)
         st.stations = [
             # paths, not branch: council walks are keyed by edit
