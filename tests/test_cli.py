@@ -368,6 +368,16 @@ class TestEmitCmd:
         list_result = runner.invoke(cli, ["list"])
         assert "readFile" in list_result.output
 
+    # This and test_extract_missing_session_id drive the WHOLE extraction
+    # pipeline in-process. As of 2026-09-02 the quality gate no longer
+    # short-circuits a low-scoring session, so extraction actually runs here
+    # where it used to bail out early. That is the intended behaviour -- a
+    # session is never discarded -- and the cost is real work in a test that
+    # previously did almost none. Measured at ~26s against the 30s default:
+    # passing, but sitting on the line and failing under parallel load. The
+    # generous limit is the honest fix; the slowness is a consequence of the
+    # change, not a hang.
+    @pytest.mark.timeout(180)
     def test_extract_command(self, runner):
         """Test running `divineos extract` (formerly `emit SESSION_END`).
 
@@ -416,6 +426,7 @@ class TestEmitCmd:
         assert result.exit_code != 0
         assert "requires --tool-name, --tool-use-id, and --result" in result.output
 
+    @pytest.mark.timeout(180)
     def test_extract_missing_session_id(self, runner):
         """Test that `extract` works without --session-id (uses current session).
 

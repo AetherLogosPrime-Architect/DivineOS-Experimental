@@ -27,6 +27,8 @@ Migrated so far:
 
 from __future__ import annotations
 
+import re
+
 from divineos.core.hook_router import SurfaceOutcome, register
 
 # Tools that can change the substrate. A must-read blocks these and nothing
@@ -159,6 +161,58 @@ def deletion_discipline_surface(payload: dict) -> SurfaceOutcome | None:
 
     return SurfaceOutcome(
         name="deletion_discipline",
+        refused=True,
+        reason=reason,
+        json_deny=True,
+        state="spoke",
+    )
+
+
+def compound_branch_change_surface(payload: dict) -> SurfaceOutcome | None:
+    """Refuse a line that changes branch AND runs a destructive op in one call.
+
+    Built 2026-09-04, the same day the fault happened, because the discipline
+    that would have prevented it is one I already held. See the module for the
+    account: a gate refused a compound line, the branch change inside it never
+    ran, and re-issuing only the destructive half executed it on the branch I
+    had not left.
+
+    could-not-run is DECLARED rather than swallowed, for the reason its
+    neighbour above gives at length: a gate that cannot run must never be
+    indistinguishable from one that looked and approved. That is the whole
+    fault-family this exists inside.
+    """
+    if (payload.get("tool_name") or "") != "Bash":
+        return SurfaceOutcome(name="compound_branch_change", state="nothing-to-say")
+
+    tool_input = payload.get("tool_input") or {}
+    command = (tool_input.get("command") or "") if isinstance(tool_input, dict) else ""
+    if not command.strip():
+        return SurfaceOutcome(name="compound_branch_change", state="nothing-to-say")
+
+    try:
+        from divineos.core.compound_branch_change import block_reason
+    except ImportError as exc:
+        return SurfaceOutcome(
+            name="compound_branch_change",
+            error=f"cannot import: {exc}",
+            state="could-not-run",
+        )
+
+    try:
+        reason = block_reason(command)
+    except (TypeError, ValueError, re.error) as exc:
+        return SurfaceOutcome(
+            name="compound_branch_change",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+
+    if not reason:
+        return SurfaceOutcome(name="compound_branch_change", state="nothing-to-say")
+
+    return SurfaceOutcome(
+        name="compound_branch_change",
         refused=True,
         reason=reason,
         json_deny=True,
@@ -505,6 +559,12 @@ def install() -> None:
     # migration existed to remove still running underneath it.
     if "no_verify_cost" not in registered("PreToolUse"):
         register("PreToolUse", "no_verify_cost", no_verify_cost_surface)
+
+    # Registered in the SAME change that adds the surface, deliberately. The
+    # note above records what happens when those two come apart; a function
+    # nobody dispatches is the alarm in the box with the cable coiled beside it.
+    if "compound_branch_change" not in registered("PreToolUse"):
+        register("PreToolUse", "compound_branch_change", compound_branch_change_surface)
 
     # Second door. PostToolUse carries surfaces that report on what just
     # happened rather than gating what is about to.

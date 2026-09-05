@@ -306,15 +306,101 @@ def auto_commit_substrate(
             dirty_lines=dirty_lines,
         )
 
-    subject = f"auto-commit ({reason}): substrate checkpoint"
-    body = (
-        f"Auto-commit fired at {reason} boundary.\n\n"
-        f"External files synced into repo: {files_synced}\n"
-        f"Dirty-tree lines caught: {dirty_lines}\n\n"
-        "Committed automatically per Andrew 2026-07-05: the commit "
-        "at extract/sleep boundaries fires itself, not remembered.\n\n"
-        "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
-    )
+    # SPLIT THE SAVE BY KIND, so nobody has to take it apart afterwards.
+    #
+    # ``substrate_paths.partition`` was written for exactly this call and then
+    # never called. Aria built the declaration half on 2026-08-27 and its own
+    # docstring says "Aether takes the mechanism"; measured 2026-09-03, the
+    # module was imported by nothing but its own test, while a second copy of
+    # the same logic grew in scripts/check_branch_scope.py. Built, correct,
+    # tested, unwired -- the class this repository keeps rediscovering.
+    #
+    # What it costs unwired: on 2026-09-03 a checkpoint swept eighteen letters
+    # onto a branch carrying nothing but an anchor fix. The push gate refused
+    # it, correctly, and the cure was a manual three-branch rebuild in which
+    # the tempting shortcut -- drop the checkpoint commits, trust the reflog --
+    # risked the only copies of those letters in the tree.
+    #
+    # Two commits instead of one. Nothing is excluded, nothing is refused, the
+    # tree still goes clean: the save-work contract is untouched. What changes
+    # is that the separation happens HERE, while the information is present,
+    # rather than being reconstructed later by someone reading a diff.
+    #
+    # WHAT THIS DELIBERATELY DOES NOT DO, because the limit is real rather than
+    # skipped: the designed mechanism sends substrate to its own branch by
+    # plumbing, never touching the code branch at all. That version leaves the
+    # letters permanently dirty in the working tree of the code branch --
+    # committed on a ref this branch cannot see -- so every later checkpoint
+    # finds them again. Making the tree go clean and keeping substrate off the
+    # branch are in tension, and I have not resolved it. This is the half that
+    # is safe under either answer.
+    return _commit_in_two_parts(repo_root, reason, files_synced, dirty_lines, channels)
+
+
+def _staged_paths(repo_root: Path) -> list[str] | None:
+    """Repo-relative staged paths, or None when the list could not be read.
+
+    None is not an empty list. A caller that treats "could not look" as
+    "nothing there" would silently fall back to the single-commit path and
+    report a split that never happened.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: could not list staged paths: %s", exc)
+        return None
+    if listed.returncode != 0:
+        logger.warning("auto_commit: could not list staged paths (git error)")
+        return None  # both-empty: git refusing and git being unreachable are the
+        # same answer to the caller -- the list could not be read -- and the only
+        # move either licenses is the unsplit commit. An empty list is a DIFFERENT
+        # answer and is returned as one below.
+    return [line.strip() for line in (listed.stdout or "").splitlines() if line.strip()]
+
+
+def _run_pathspec(repo_root: Path, args: list[str], paths: list[str]) -> bool:
+    """Run a git command over ``paths`` fed on stdin, not on the command line.
+
+    A session can stage hundreds of letters, and a path list spliced into argv
+    hits the platform's argument limit -- which fails as a git error carrying
+    no hint that LENGTH was the problem.
+
+    ``args`` must NOT end in ``--``. The first version passed ``git add --``
+    and the flags landed after it, so git read ``--pathspec-from-file=-`` as a
+    literal filename and failed with "did not match any files" -- an error
+    naming the paths when the fault was the separator.
+    """
+    try:
+        done = subprocess.run(
+            [*args, "--pathspec-from-file=-", "--pathspec-file-nul"],
+            cwd=repo_root,
+            input="\0".join(paths) + "\0",
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: %s failed: %s", " ".join(args), exc)
+        return False
+    if done.returncode != 0:
+        logger.warning("auto_commit: %s failed: %s", " ".join(args), done.stderr.strip()[:200])
+        return False  # both-empty: git refusing the pathspec and git failing to
+        # start are the same answer here -- the staging did not happen -- and the
+        # caller's response is identical either way: abandon the split and save
+        # everything in one commit. The distinction lives in the log, where a
+        # person debugging it can see which occurred.
+    return True
+
+
+def _commit_staged(repo_root: Path, subject: str, body: str) -> bool:
     try:
         subprocess.run(
             ["git", "commit", "-m", subject, "-m", body],
@@ -324,17 +410,113 @@ def auto_commit_substrate(
             text=True,
         )
     except subprocess.CalledProcessError as e:
-        logger.warning("auto_commit: git commit failed at %s: %s", reason, e.stderr)
+        logger.warning("auto_commit: git commit failed: %s", e.stderr)
+        return False
+    return True
+
+
+def _commit_in_two_parts(
+    repo_root: Path,
+    reason: str,
+    files_synced: int,
+    dirty_lines: int,
+    channels: tuple[ExternalChannel, ...],
+) -> AutoCommitResult:
+    """Commit the staged tree as one commit per kind when both kinds are present.
+
+    Falls back to the single commit on ANY failure of the split, because the
+    single commit is what this did before and losing the split costs a manual
+    cleanup, while losing the save costs the work itself.
+
+    ``channels`` is threaded from the caller rather than defaulted. The first
+    version called ``partition`` with no channels, so it classified against the
+    module defaults while the surrounding function synced and reported against
+    whatever it had been handed -- and a caller passing an empty set, meaning
+    "classify nothing", got a split anyway. One function, two disagreeing
+    notions of what substrate is, and neither of them the caller's.
+    """
+    from divineos.core.substrate_paths import NoChannelsDeclared, partition
+
+    footer = (
+        f"Auto-commit fired at {reason} boundary.\n\n"
+        f"External files synced into repo: {files_synced}\n"
+        f"Dirty-tree lines caught: {dirty_lines}\n\n"
+        "Committed automatically per Andrew 2026-07-05: the commit "
+        "at extract/sleep boundaries fires itself, not remembered.\n\n"
+        "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+    )
+
+    staged = _staged_paths(repo_root)
+    substrate: list[str] = []
+    work: list[str] = []
+    if staged:
+        try:
+            substrate, work = partition(staged, channels)
+        except NoChannelsDeclared:
+            # A broken channel configuration must not silently classify the
+            # whole tree as work and commit it as one lump wearing a split's
+            # name. Fall through to the honest single commit.
+            logger.warning("auto_commit: no channels declared; committing without a split")
+            substrate, work = [], []
+
+    if not (substrate and work):
+        kind = "substrate checkpoint"
+        if staged is None:
+            kind = "checkpoint (kind unknown -- staged list unreadable)"
+        elif substrate and not work:
+            kind = "substrate checkpoint"
+        elif work and not substrate:
+            kind = "work in progress"
+        ok = _commit_staged(repo_root, f"auto-commit ({reason}): {kind}", footer)
         return AutoCommitResult(
-            committed=False,
-            reason=f"git commit failed: {e.stderr.strip()[:200]}",
+            committed=ok,
+            reason=f"committed at {reason}" if ok else "git commit failed",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
+    # Work first, substrate second. A code branch that has picked up letters is
+    # then trimmed by dropping the tip rather than by rebuilding the branch.
+    if not _run_pathspec(repo_root, ["git", "reset", "--quiet"], substrate):
+        ok = _commit_staged(repo_root, f"auto-commit ({reason}): substrate checkpoint", footer)
+        return AutoCommitResult(
+            committed=ok,
+            reason=f"committed at {reason} (unsplit -- could not unstage substrate)",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    work_ok = _commit_staged(
+        repo_root,
+        f"auto-commit ({reason}): work in progress, {len(work)} path(s)",
+        f"Split from the substrate written at the same checkpoint.\n\n{footer}",
+    )
+
+    # Restage the substrate whether or not the work commit succeeded. If it
+    # failed, the work is still staged and both kinds land together -- which is
+    # the old behaviour, and better than leaving the letters out of the save.
+    if not _run_pathspec(repo_root, ["git", "add"], substrate):
+        logger.warning(
+            "auto_commit: could not restage substrate after splitting. The files "
+            "remain on disk and unstaged; the next checkpoint will find them."
+        )
+        return AutoCommitResult(
+            committed=work_ok,
+            reason=f"committed work at {reason}; substrate left for the next checkpoint",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    sub_ok = _commit_staged(
+        repo_root,
+        f"auto-commit ({reason}): substrate checkpoint, {len(substrate)} path(s)",
+        f"Split from the work in progress written at the same checkpoint.\n\n{footer}",
+    )
     return AutoCommitResult(
-        committed=True,
-        reason=f"committed at {reason}",
+        committed=work_ok or sub_ok,
+        reason=(
+            f"committed at {reason} in two parts: {len(work)} work, {len(substrate)} substrate"
+        ),
         files_synced=files_synced,
         dirty_lines=dirty_lines,
     )

@@ -110,9 +110,45 @@ COUNT="$(git rev-list --count HEAD..origin/main -- "$REL" 2>/dev/null || echo "?
 # precision-increase, never removal. The block still holds for every case
 # where reading main's copy would actually tell me something.
 #
+# THE PATH GOES AFTER `--`, NOT GLUED TO THE REVISION WITH A COLON.
+#
+# Both reads used `git rev-parse "<rev>:$REL"` and both were silently
+# unanswerable for every dot-prefixed path. This shell rewrites an argument
+# that looks like a Windows path: forward slashes become backslashes and the
+# revision-separating colon becomes a semicolon, so git received
+#
+#     origin\main;.claude\hooks\stale-file-edit-gate.sh
+#
+# and never saw the question. Measured 2026-09-03 against this very file --
+# `rev-parse` fails on it while `src/divineos/core/paths.py` answers fine, so
+# the fault is not uniform and nothing in the output distinguishes the two.
+#
+# AND THE FAIL-SOFT NOTE BELOW WAS WRONG ABOUT WHAT HAPPENS NEXT. I wrote
+# "the gate still fires" in this comment, then followed the values through
+# the branch and found the opposite.
+#
+# `git rev-parse` does not fail on the mangled argument. It EXITS ZERO and
+# echoes the mangled string back, so both blobs are non-empty, the guard
+# below passes, and `git diff` is handed two refs that are not refs. That
+# diff produces nothing, `grep -c` counts zero removed lines, and zero
+# removals is precisely the ahead-not-stale case -- so the gate exits 0.
+#
+# It has been SILENTLY PASSING on every dot-prefixed path. Not over-firing,
+# not fail-soft: not firing at all, on exactly the files this repository's
+# gates live in. Measured by running the branch with the real values rather
+# than by reading it, which is the only reason I did not ship this comment
+# saying the safe thing.
+#
+# Which makes it the cleanest instance of the family we have been chasing all
+# day: a computation that never ran, returning a value that satisfied every
+# downstream check and licensed a pass on a safety gate.
+#
+# `ls-tree` takes the path as a separate argument after `--`, which survives
+# the rewrite. Verified both ways on this file before the change.
+#
 # fail-soft: any failure to compare contents leaves MAIN_BLOB/MY_BLOB unequal-or-empty, so the gate falls through and FIRES — the safe direction
-MAIN_BLOB="$(git rev-parse "origin/main:$REL" 2>/dev/null || echo "")"  # fail-soft: absent upstream blob means no comparison is possible and the gate must still fire
-MY_BLOB="$(git rev-parse "HEAD:$REL" 2>/dev/null || echo "")"  # fail-soft: absent local blob means the file is new here and the gate must still fire
+MAIN_BLOB="$(git ls-tree origin/main -- "$REL" 2>/dev/null | awk '{print $3}')"  # fail-soft: absent upstream blob means no comparison is possible and the gate must still fire
+MY_BLOB="$(git ls-tree HEAD -- "$REL" 2>/dev/null | awk '{print $3}')"  # fail-soft: absent local blob means the file is new here and the gate must still fire
 if [ -n "$MAIN_BLOB" ] && [ -n "$MY_BLOB" ]; then
     # Does my version already contain main's, line for line? If diffing
     # main's copy against mine produces only ADDITIONS, main has nothing

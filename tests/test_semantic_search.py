@@ -93,12 +93,68 @@ def test_chunk_filters_pure_dividers(tmp_path: Path):
 
 
 def _try_index(corpus_dir: Path, db_path: Path) -> dict[str, int]:
-    """Helper: try to index, skip the test if the embedding model is
-    unavailable (CI env without ml extras)."""
+    """Helper: try to index, skipping ONLY when the model is genuinely absent.
+
+    Rewritten 2026-09-02. The old guard skipped whenever nothing indexed,
+    which made "the model is missing" and "indexing is broken" produce the
+    same green result. Since the venv that runs this suite has no ml
+    extras, every test here skipped, and the indexer shipped a defect that
+    walked 46,323 chunks and stored none.
+
+    Now the reason is asked for directly. Absent model, skip and say so.
+    Model present but nothing indexed is a real failure and fails.
+    """
+    from divineos.core.semantic_store import model_status
+
     counts = semantic_search.index_corpus(_gather(corpus_dir), str(db_path))
-    if counts["chunks_indexed"] == 0 and counts["chunks_seen"] > 0:
-        pytest.skip("embedding model unavailable in this environment")
+    available, detail = model_status()
+    if not available:
+        pytest.skip(f"embedding model unavailable in this environment: {detail}")
+    assert counts["chunks_indexed"] > 0, (
+        f"model IS available ({detail}) but nothing indexed: {counts}"
+    )
     return counts
+
+
+def test_every_seen_chunk_lands_in_exactly_one_bucket(corpus_dir: Path, tmp_path: Path):
+    """Every chunk seen is indexed, skipped, or failed — never nowhere.
+
+    This is the regression guard for the 2026-09-02 defect, and unlike the
+    tests around it, it runs in an environment WITHOUT the embedding model.
+    That is the whole point: the defect lived precisely where the other
+    tests skipped. With no model every chunk lands in ``failed``, and the
+    sum still has to balance.
+
+    Before the fix a chunk that could not be embedded incremented no
+    counter at all, so the command could report seeing tens of thousands
+    of chunks, storing none, and skipping none, while exiting 0.
+    """
+    counts = semantic_search.index_corpus(_gather(corpus_dir), str(tmp_path / "s.db"))
+    assert counts["chunks_seen"] > 0
+    assert (
+        counts["chunks_indexed"] + counts["chunks_skipped"] + counts["chunks_failed"]
+        == counts["chunks_seen"]
+    ), f"chunks vanished between buckets: {counts}"
+
+
+def test_model_status_reports_a_reason_when_unavailable():
+    """``model_status`` must never answer the cannot-look case with silence.
+
+    Three-state discipline: available is a value, unavailable is a value
+    with a reason attached, and neither may be inferred from an empty
+    result. The reason names the interpreter because the original fault
+    was an interpreter mismatch — the model was installed, just not in the
+    Python that actually ran the command.
+    """
+    from divineos.core.semantic_store import model_status
+
+    available, detail = model_status()
+    assert isinstance(available, bool)
+    assert detail, "model_status must always explain itself"
+    if not available:
+        assert "interpreter:" in detail, (
+            f"an unavailable model must name the interpreter, got: {detail}"
+        )
 
 
 def test_index_corpus_indexes_all_chunks(corpus_dir: Path, tmp_path: Path):
