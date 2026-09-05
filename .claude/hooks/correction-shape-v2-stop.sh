@@ -240,7 +240,11 @@ if [ -n "$BLOCK_MSG" ]; then
         cat "$REPO_ROOT/.claude/hooks/_retry_scope.txt" >&2 2>/dev/null || true  # fail-soft: a missing shared retry-scope file must not block the gate from emitting its own delta line
         printf '\nDelta for THIS gate: the remediation is the CLI calls above. Run them, then append at most a one-line note. Do NOT recompose the reply.\n' >&2
     fi
-    hook_say_nothing_ran_for "$INPUT"
+    # NO "nothing ran" footer here. This is a Stop hook: it fires at the end
+    # of a turn, on a reply rather than on a command, so there is no shell
+    # line to have run or not run. Wired here on 2026-09-05 by reflex and
+    # removed the same day -- a footer about clauses, on a gate that never
+    # sees a clause, is a true sentence attached to the wrong subject.
     exit 2
 fi
 

@@ -59,6 +59,13 @@ def test_the_scan_can_find_hooks_at_all() -> None:
 def test_a_refusing_hook_says_what_did_not_run(hook: Path) -> None:
     if hook.name in NO_PAYLOAD_TO_DESCRIBE:
         pytest.skip(f"{hook.name}: refuses without reading the payload; nothing to describe")
+    events = _registered_events(hook.name)
+    if events and events != ["PreToolUse"]:
+        # Scoped by the SAME rule that forbids the footer elsewhere, rather
+        # than by a second list somebody has to keep in step. A hook that
+        # fires after the tool, or at the end of a turn, must NOT claim
+        # nothing ran -- so it cannot also be required to.
+        pytest.skip(f"{hook.name}: runs on {events}; the claim would be false there")
     body = hook.read_text(encoding="utf-8", errors="replace")
     assert _WIRED.search(body), (
         f"{hook.name} can refuse a line but never says nothing on it ran.\n"
@@ -143,6 +150,52 @@ def test_the_unwired_half_is_exactly_what_was_measured() -> None:
     assert not cleared, (
         "these are wired or gone; delete them from the list so it keeps meaning "
         f"something: {sorted(cleared)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# THE FOOTER BELONGS TO PreToolUse ONLY, and I learned this by watching it lie.
+#
+# On 2026-09-05, minutes after wiring it, a push landed on the remote and the
+# footer printed underneath saying nothing on the line had run. Both statements
+# were about the same command and only one was true. The hook that printed it
+# fires on PostToolUse -- the command has already executed by then -- and I had
+# wired it on the reflex that a block is a block.
+#
+# A Stop hook is the same error one step further out: it fires on a reply at
+# the end of a turn, with no shell line in sight, so a sentence about clauses
+# has no subject at all.
+#
+# That is the fault this whole change exists to fix, committed by the fix, in
+# front of me, within the hour. So the rule stops being something I remember
+# and becomes something the suite refuses.
+SETTINGS = HOOKS.parent / "settings.json"
+
+
+def _registered_events(hook_name: str) -> list[str]:
+    import json
+
+    data = json.loads(SETTINGS.read_text(encoding="utf-8", errors="replace"))
+    return [ev for ev, spec in data.get("hooks", {}).items() if hook_name in json.dumps(spec)]
+
+
+@pytest.mark.parametrize(
+    "hook",
+    [
+        p
+        for p in HOOKS.glob("*.sh")
+        if _WIRED.search(p.read_text(encoding="utf-8", errors="replace"))
+    ],
+    ids=lambda p: p.name,
+)
+def test_only_a_pre_tool_hook_claims_nothing_ran(hook: Path) -> None:
+    events = _registered_events(hook.name)
+    if not events:
+        pytest.skip(f"{hook.name}: not registered, so it never fires")
+    assert events == ["PreToolUse"], (
+        f"{hook.name} carries the nothing-ran footer but runs on {events}. "
+        "After the tool has run, or at the end of a turn, that claim is false: "
+        "the footer is only true for a refusal that fires BEFORE the shell."
     )
 
 
