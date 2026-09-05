@@ -41,6 +41,19 @@
 src/divineos/core/theater_audit.py:_persist_findings   # SAFE. Returns False to the caller on an I/O error and destroys nothing. The findings it was asked to append are simply not appended, and the caller is told so. Withholds the write, not the data -- there is no subject here that outlives the call.
 src/divineos/core/operating_loop_audit.py:_persist_findings   # SAFE, same shape as its neighbour in theater_audit: an append that reports its own failure. Fail-soft is named in its own docstring and the naming is accurate.
 src/divineos/core/vad_stamp_store.py:stamp   # SAFE. A database error returns False; the snapshot it was handed is not written and nothing already stored is touched. The caller learns the stamp did not land, which is the reporting half the quality gate was missing.
+#
+# The four below were written and adjudicated by the same hand on the same day,
+# which is the weakest form of review and the exact thing this file distrusts.
+# Flagged rather than quietly signed. Their arrival here was predicted in claim
+# 2b39a297 before it happened: the detector, the sites and the stale entry came
+# from four different branches, so this adjudication fitted on none of them and
+# could only be applied once they met on main. They met, the check went red, and
+# this is the note the claim said would be owed.
+src/divineos/cli/stamp_ready_command.py:_is_ancestor   # SAFE, and it is the three-state repair itself. Returns None for could-not-ask, kept distinct from the False that means genuinely-not-an-ancestor, so an unfetched commit can never read as an orphaned one. On None the caller withholds the looser anchor reading and re-reads the branch; the signature and the review both survive.
+src/divineos/cli/stamp_ready_command.py:_ancestry_rung   # SAFE. An unreadable audit store returns no-claim, which withholds the merge stamp and nothing else. The reason travels out with the refusal, so the operator is told the store could not be read rather than that the round failed its review.
+src/divineos/core/auto_commit.py:_run_pathspec   # SAFE, and it fails toward MORE saving. A failed unstage or restage abandons the two-part split and commits everything in one lump -- the behaviour this had before the split existed. Losing the split costs a manual tidy; losing the save would cost the work.
+src/divineos/core/auto_commit.py:_commit_staged   # SAFE. Withholds the commit, never the content: on a git failure the files stay staged in the tree and the result carries committed=False, so this can never report a commit that did not happen.
+src/divineos/hooks/pre_tool_use_gate.py:_is_readonly_divineos_verb   # SAFE, and it fails toward the STRICTER path. Both refusals -- unbalanced quotes, and a registry lookup that cannot answer -- return not-a-probe, which sends the command down the write path instead of waving it through as a read. The cost of a wrong refusal is that a genuine read pays for a gate it did not need; the cost of a wrong permit is a write walking through a gate built to stop writes. Withholds the exemption, never the command.
 
 # --- ENUMERATED: present when the check was switched on. NOT adjudicated. ---
 # Listing here does NOT mean reviewed. It means anything NEW blocks rather
@@ -60,7 +73,6 @@ src/divineos/cli/admin_reset_template.py:_check_reset_template_authorization
 src/divineos/cli/audit_commands.py:register
 src/divineos/cli/auto_cycle_commands.py:_has_active_goal_progress
 src/divineos/cli/foundations_commands.py:_render_audit_block
-src/divineos/cli/pipeline_gates.py:run_quality_gate
 src/divineos/core/andrew_correction_tracker.py:_condition_fired
 src/divineos/core/andrew_past_writing_surface.py:_is_relevant
 src/divineos/core/completion_check.py:_has_test_for
