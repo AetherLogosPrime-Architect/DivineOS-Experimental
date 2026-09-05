@@ -85,3 +85,56 @@ def test_too_short_is_unjudgeable_and_says_so():
 def test_minimum_length_prefix_is_judgeable():
     ok, message, _rung = _validate(FULL[:_MIN_ANCHOR_PREFIX])
     assert ok, message
+
+
+def test_an_uppercase_anchor_is_the_same_anchor():
+    """Case is the sibling of length, and this fix covered only one of them.
+
+    Aria found it reading the branch: truncation and capitalisation are the
+    two ways to respell a hex identifier, and nothing between the claim
+    arriving and the verdict folded case. So an uppercase claim was refused
+    as "the reviewed change moved" -- the same false cause, from the same
+    root, that this whole file exists to stop.
+
+    The argument was already inside the validator: the tip comparison
+    lowercases both sides. One path folded case and the other did not.
+    """
+    ok, message, rung = _validate(FULL.upper())
+    assert ok, message
+    assert rung == "patch-id-after-catchup"
+
+
+def test_the_tree_path_folds_case_too():
+    """One fold, both callers -- asserted rather than assumed.
+
+    The fix went into the shared matcher precisely so the tree rung and the
+    patch rung stop disagreeing about whether spelling counts. That claim is
+    only worth making if the other caller is exercised, so this drives the
+    tree side directly rather than inferring it from the patch side passing.
+    """
+    ok, message, rung = validate_external_confirm_inputs(
+        actor="aletheia",
+        claimed_tree=FULL.upper(),
+        actual_tree=FULL,
+    )
+    assert ok, message
+    assert rung == "tree-exact"
+
+
+def test_an_uppercase_abbreviation_is_also_the_same_anchor():
+    """Both respellings at once. Neither alone may reintroduce the refusal."""
+    ok, message, _rung = _validate(ABBREV.upper())
+    assert ok, message
+
+
+def test_case_folding_does_not_admit_a_genuinely_different_anchor():
+    """The permission must not widen past the two spellings of one value.
+
+    Loosening a comparison is only safe while the thing it refuses stays
+    refused. A different identifier in any casing is still a different
+    identifier.
+    """
+    other = ("a" * 20 + "b" * 20).upper()
+    ok, _message, rung = _validate(other)
+    assert not ok
+    assert rung == ""
