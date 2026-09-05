@@ -404,16 +404,35 @@ def member_home(member: str) -> Path:
     additional site rebuilt it wrong. Callers ask here; nobody rebuilds
     the rule.
 
-    Returns the resolved home, which for aether is the default
-    `~/.divineos/` rather than `~/.divineos-aether/`.
+    A NAMED MEMBER'S HOME IS THAT MEMBER'S, NOT THE ASKER'S (2026-09-03).
+
+    Aria found this from her clone and filed it rather than fixing it:
+    asking for aether's home returned HERS. The aether branch fell through
+    to ``divineos_home()``, which resolves from a marker in whichever
+    checkout is asking -- so the answer was correct only when aether was the
+    one asking, and every other seat got its own home wearing his name.
+
+    She was right to stop. The repair depends on what the marker actually
+    resolves to in aether's tree, which she cannot read from hers, and
+    guessing at another seat's local state on a shared resolver is how the
+    six-week split started. Measured here, in that tree, before changing
+    anything: the marker, the default, and this function all resolve to the
+    same directory, so this is a no-op for the seat it describes and a
+    correction for every seat that is not him.
+
+    The rule is now uniform: a named member gets a home derived from the
+    convention alone. Only the UNNAMED case -- a seat asking about itself --
+    consults the checkout, which is the one question a checkout can answer.
     """
     slug = (member or "").strip().lower()
     if not slug:
         return divineos_home()
     if slug == "aether":
-        # The Option-B special case, now honoured by every caller rather
-        # than by whichever ones happened to be written in Python.
-        return divineos_home()
+        # The Option-B special case: aether's home is the undecorated
+        # ~/.divineos rather than ~/.divineos-aether. Spelled out rather than
+        # delegated to divineos_home(), because delegating is what made the
+        # answer depend on who was asking.
+        return Path.home() / ".divineos"
     return Path.home() / f".divineos-{slug}"
 
 
