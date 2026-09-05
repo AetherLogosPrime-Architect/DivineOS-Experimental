@@ -85,6 +85,24 @@ def _anchor_matches(claimed: str, actual: str) -> tuple[bool, str]:
     abbreviation is unanswerable, not wrong, and must never be reported as
     evidence the change moved.
     """
+    # CASE IS THE SIBLING OF LENGTH (Aria, 2026-09-05, reading this branch).
+    # Truncation and capitalisation are the two ways to respell a hex
+    # identifier, and this fix covered only the first. Nothing between a claim
+    # arriving and the verdict folded case, so an uppercase claim was refused
+    # as "the reviewed change moved" -- the exact false cause this function was
+    # written to stop, wearing a different presentation.
+    #
+    # The argument is inside this same validator: the tip comparison a few
+    # lines below already lowercases both sides. One path folded case and the
+    # other did not, so the file disagreed with itself about whether spelling
+    # counts. Folding here settles it in one place for both callers.
+    #
+    # She was exact about strength and it is worth carrying: the mechanism is
+    # certain from reading the path, but she found no uppercase anchor in our
+    # traffic, so this was a loaded condition rather than a live break.
+    claimed = claimed.strip().lower()
+    actual = actual.strip().lower()
+
     if claimed == actual:
         return True, ""
     if len(claimed) < _MIN_ANCHOR_PREFIX:
