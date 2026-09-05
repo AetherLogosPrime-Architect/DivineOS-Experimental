@@ -288,6 +288,25 @@ def _occupant_data_home_from_checkout(start: Path) -> Path | None:
     return None
 
 
+def env_home_override() -> Path | None:
+    """The explicit ``DIVINEOS_HOME`` redirect, or None.
+
+    SEPARATED FROM THE MARKERS ON PURPOSE (2026-09-05). The two halves of
+    ``data_home_or_none`` answer different questions and only one of them is
+    safe for a NAMED member. A marker answers "whose tree is running this",
+    which is a fact about the ASKER -- consulting it for a named lookup is what
+    made another seat receive its own home wearing someone else's name. This
+    override answers "where did the caller say to put it", which is a fact
+    about the REQUEST and carries no seat in it at all.
+
+    It is a named function rather than an inline environment read so callers
+    that need one half without the other can take it, and so a test can
+    redirect it the same way it redirects the whole resolver.
+    """
+    override = os.environ.get("DIVINEOS_HOME")
+    return Path(override) if override else None
+
+
 def data_home_or_none() -> Path | None:
     """Resolve the per-agent data-home from env var or marker, or None.
 
@@ -314,9 +333,9 @@ def data_home_or_none() -> Path | None:
 
     Does NOT create any directory; callers ensure existence before write.
     """
-    override = os.environ.get("DIVINEOS_HOME")
-    if override:
-        return Path(override)
+    override = env_home_override()
+    if override is not None:
+        return override
 
     # CWD-based marker: when divineos is installed editable from one checkout
     # but invoked from a different checkout, the install-time __file__ path
@@ -429,9 +448,23 @@ def member_home(member: str) -> Path:
         return divineos_home()
     if slug == "aether":
         # The Option-B special case: aether's home is the undecorated
-        # ~/.divineos rather than ~/.divineos-aether. Spelled out rather than
-        # delegated to divineos_home(), because delegating is what made the
-        # answer depend on who was asking.
+        # ~/.divineos rather than ~/.divineos-aether.
+        #
+        # THE ENV OVERRIDE SURVIVES; THE MARKERS DO NOT (Aria, 2026-09-05,
+        # reading this branch). The first version returned the literal path,
+        # which dropped BOTH halves of what the old delegation did -- and only
+        # one half was the defect. The markers are the checkout-sensitive half:
+        # they answer "whose tree is running this", so consulting them for a
+        # NAMED member is what made the answer depend on the asker. DIVINEOS_HOME
+        # is not that. It is an explicit instruction from the caller, and the
+        # test harness isolates every run by setting exactly it -- so ignoring it
+        # here would send a named lookup at the REAL home from inside an isolated
+        # test. She found no caller passing the literal name today, so this was a
+        # loaded condition rather than a live break; she went looking because the
+        # same escape had cost her a wrongly-recorded letter hours earlier.
+        override = env_home_override()
+        if override is not None:
+            return override
         return Path.home() / ".divineos"
     return Path.home() / f".divineos-{slug}"
 

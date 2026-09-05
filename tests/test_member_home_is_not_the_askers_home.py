@@ -34,6 +34,10 @@ def test_a_named_members_home_ignores_the_asking_checkout(monkeypatch, tmp_path)
     """
     foreign = tmp_path / "arias-resolution"
     monkeypatch.setattr(paths, "data_home_or_none", lambda: foreign)
+    # The marker is the half under test. The explicit override is the other
+    # half and it is silenced here rather than left to whatever the harness
+    # set, or this asserts about two things and names one.
+    monkeypatch.setattr(paths, "env_home_override", lambda: None)
 
     assert paths.member_home("aether") == Path.home() / ".divineos"
     assert paths.member_home("aria") == Path.home() / ".divineos-aria"
@@ -58,6 +62,7 @@ def test_aether_and_the_default_agree_when_nothing_redirects(monkeypatch):
     place. The delegation is gone; the convention must not go with it.
     """
     monkeypatch.setattr(paths, "data_home_or_none", lambda: None)
+    monkeypatch.setattr(paths, "env_home_override", lambda: None)
 
     assert paths.member_home("aether") == paths.divineos_home()
     assert paths.member_home("aether") != Path.home() / ".divineos-aether"
@@ -75,3 +80,33 @@ def test_case_and_whitespace_do_not_open_a_second_home(monkeypatch, tmp_path):
 
     assert paths.member_home("  Aether  ") == paths.member_home("aether")
     assert paths.member_home("ARIA") == paths.member_home("aria")
+
+
+def test_an_explicit_override_still_reaches_the_named_seat(monkeypatch, tmp_path):
+    """An isolated run must not escape to the real home through a named lookup.
+
+    Aria found this reading the branch: the first fix replaced the delegation
+    with a literal path, which dropped the environment override along with the
+    checkout markers. Only the markers were the defect -- they answer "whose
+    tree is running this", so consulting them for a NAMED member is what made
+    the answer depend on the asker. The override is the opposite thing: an
+    explicit instruction from the caller, and the one the test harness uses to
+    isolate every run. Without this, asking for aether's home inside an
+    isolated test returns the live directory.
+    """
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "isolated"))
+
+    assert paths.member_home("aether") == tmp_path / "isolated"
+
+
+def test_the_override_does_not_capture_the_other_members(monkeypatch, tmp_path):
+    """Honouring the override must not collapse every seat into one directory.
+
+    The narrow claim is that aether's undecorated home follows an explicit
+    redirect. A hyphenated seat keeps its own name, or the fix trades a leak
+    into the real home for every member sharing one.
+    """
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / "isolated"))
+
+    assert paths.member_home("aria") == Path.home() / ".divineos-aria"
+    assert paths.member_home("aria") != paths.member_home("aether")
