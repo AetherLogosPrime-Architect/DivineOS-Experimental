@@ -41,6 +41,30 @@
 src/divineos/core/theater_audit.py:_persist_findings   # SAFE. Returns False to the caller on an I/O error and destroys nothing. The findings it was asked to append are simply not appended, and the caller is told so. Withholds the write, not the data -- there is no subject here that outlives the call.
 src/divineos/core/operating_loop_audit.py:_persist_findings   # SAFE, same shape as its neighbour in theater_audit: an append that reports its own failure. Fail-soft is named in its own docstring and the naming is accurate.
 src/divineos/core/vad_stamp_store.py:stamp   # SAFE. A database error returns False; the snapshot it was handed is not written and nothing already stored is touched. The caller learns the stamp did not land, which is the reporting half the quality gate was missing.
+#
+# The four below were written and adjudicated by the same hand on the same day,
+# which is the weakest form of review and the exact thing this file distrusts.
+# Flagged rather than quietly signed. Their arrival here was predicted in claim
+# 2b39a297 before it happened: the detector, the sites and the stale entry came
+# from four different branches, so this adjudication fitted on none of them and
+# could only be applied once they met on main. They met, the check went red, and
+# this is the note the claim said would be owed.
+#
+# WHAT THE FLAG IS FOR, and it is an instruction rather than a disclosure: four
+# clean verdicts arriving together should make a later reader SUSPICIOUS rather
+# than reassured, and nothing else in this file says so. It stays attached to
+# these four named lines and must never float up into the header -- a general
+# warning that the file might contain same-hand work is wallpaper; a flag on
+# four named entries is a claim somebody can check.
+#
+# THE SENTENCES BELOW ARE ARIA'S, THE PARAGRAPH ABOVE IS AETHER'S, and the
+# reason is worth keeping. We adjudicated these same four sites independently
+# within an hour, neither able to see the other doing it -- three copies of one
+# repair existed by the end of the night. His landed first because main was red
+# and his branch was unblocked, which is availability rather than merit; hers
+# replaced his sentences afterwards because they cite the CODE'S OWN COMMENTS
+# as evidence rather than either author's memory of writing the callers, and a
+# reader who has met neither of us can check that.
 src/divineos/core/auto_commit.py:_run_pathspec   # SAFE, and it is the invariant rather than an accident. A crash returns False, the caller abandons the SPLIT, and everything is saved in one commit instead of two. The failure path commits MORE, never nothing -- Aether's stated rule for this module. The privilege withheld is the separation; the subject, the work, is never at risk. Adjudicated by Aria 2026-09-04 while merging his split onto her reporting.
 src/divineos/core/auto_commit.py:_commit_staged   # SAFE. A failed git commit returns False and the content stays exactly where it was, staged and on disk, for the next checkpoint to find. It withholds the CLAIM of having committed, which is the honest direction: the older shape returned success and left the caller believing a save that had not happened.
 src/divineos/cli/stamp_ready_command.py:_is_ancestor   # SAFE. Returns None on a crash, and its own comment names why: object-not-here, git-not-here and question-timed-out are three ways of not knowing, and the caller's honest move is identical for all three. Not-known is returned as its own answer rather than collapsed into not-an-ancestor, which is the distinction this whole backlog exists to protect.
