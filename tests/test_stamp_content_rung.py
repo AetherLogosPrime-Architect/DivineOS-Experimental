@@ -155,3 +155,101 @@ def test_an_unreadable_store_yields_no_identifiers(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr("divineos.core.watchmen.store.list_findings", _raise)
     assert src._confirmed_patch_ids("round-x") == set()
+
+
+# ---------------------------------------------------------------------------
+# The length floor. Added 2026-09-05 from Aria's reading of this branch.
+#
+# The extractor admits eight characters and nothing between extraction and
+# verdict tested length, so an eight-character claim prefix-matched and
+# returned HOLDS -- failing in the PERMISSIVE direction, licensing a stamp on
+# a claim nothing had verified. The sibling rule in the validator, written the
+# same morning on the reasoning that a too-short claim is unanswerable rather
+# than wrong, never reached this rung.
+#
+# One rule reaching one mechanism and not its sibling, inside the pair of
+# branches built to fix exactly that.
+#
+# Her strength-claim, kept: the mechanism is certain from the code, but no
+# eight-character identifier appears in our traffic, so this was a loaded
+# condition rather than a live break.
+# ---------------------------------------------------------------------------
+
+
+def test_a_too_short_identifier_does_not_open_the_rung(
+    store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The permissive failure itself. Eight characters cannot license a stamp."""
+    store([_confirm("CONFIRMS at patch-id 46112ab3")])
+    _patch_computation(monkeypatch, "46112ab30d1888d73f2eedb6d75fb9c410511f9d")
+
+    holds, why = src._content_rung("round-x", "some-branch")
+    assert not holds
+    assert "too short" in why
+
+
+def test_the_too_short_refusal_does_not_claim_the_change_moved(
+    store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unanswerable is its own verdict, never the change-moved one.
+
+    Asserted apart from the refusal because a rung that refused with the wrong
+    sentence would pass a test checking only that it refused -- and the wrong
+    sentence is the whole fault family this branch is about: a confident cause
+    nobody measured.
+    """
+    store([_confirm("CONFIRMS at patch-id 46112ab3")])
+    _patch_computation(monkeypatch, "ffffffffffffffffffffffffffffffffffffffff")
+
+    _holds, why = src._content_rung("round-x", "some-branch")
+    assert "NOT evidence the change moved" in why
+    assert "differs" not in why
+
+
+def test_the_floor_is_exact_at_twelve(store, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Twelve judges, eleven does not. The boundary is asserted, not assumed."""
+    full = "46112ab30d1888d73f2eedb6d75fb9c410511f9d"
+
+    store([_confirm(f"CONFIRMS at patch-id {full[:12]}")])
+    _patch_computation(monkeypatch, full)
+    holds_at_twelve, _ = src._content_rung("round-x", "some-branch")
+
+    store([_confirm(f"CONFIRMS at patch-id {full[:11]}")])
+    holds_at_eleven, _ = src._content_rung("round-x", "some-branch")
+
+    assert holds_at_twelve
+    assert not holds_at_eleven
+
+
+def test_a_short_claim_beside_a_full_one_does_not_block_the_full_one(
+    store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The floor filters claims; it does not veto a round that also carries a good one.
+
+    Written because the obvious implementation -- refuse if ANY claim is short
+    -- would let one sloppy quotation invalidate a review that named the
+    identifier properly elsewhere in the same finding.
+    """
+    full = "46112ab30d1888d73f2eedb6d75fb9c410511f9d"
+    store([_confirm(f"CONFIRMS at patch-id 46112ab3 and patch-id {full}")])
+    _patch_computation(monkeypatch, full)
+
+    holds, _why = src._content_rung("round-x", "some-branch")
+    assert holds
+
+
+def test_a_short_claim_is_not_named_as_the_moved_identifier(
+    store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the change really did move, the report lists only judgeable claims.
+
+    A too-short claim in the 'round names ...' list would present something
+    unjudgeable as evidence, which is the same misreporting one line down.
+    """
+    full = "46112ab30d1888d73f2eedb6d75fb9c410511f9d"
+    store([_confirm(f"CONFIRMS at patch-id 46112ab3 and patch-id {full}")])
+    _patch_computation(monkeypatch, "ffffffffffffffffffffffffffffffffffffffff")
+
+    holds, why = src._content_rung("round-x", "some-branch")
+    assert not holds
+    assert "46112ab3," not in why

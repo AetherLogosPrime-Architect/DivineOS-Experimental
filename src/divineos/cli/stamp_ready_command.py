@@ -128,6 +128,31 @@ _PATCH_ID_NEAR = re.compile(
     re.IGNORECASE,
 )
 
+# Shortest abbreviation this rung will JUDGE, as opposed to the shortest it
+# will read. The pattern above deliberately still admits eight characters:
+# raising its lower bound would make a too-short claim vanish, and this rung
+# would then report that no identifier was named when one was -- a true
+# sentence about the wrong subject, which is the fault this whole branch is
+# about.
+#
+# Aria found the gap 2026-09-05 reading this branch: the sibling rule in the
+# validator sets twelve, and nothing between extraction and verdict here
+# tested length at all, so an eight-character claim prefix-matched and
+# returned HOLDS. The direction is the bad one -- it licenses a stamp rather
+# than withholding one.
+#
+# Her strength-claim, carried because it is the honest one: the mechanism is
+# certain from the code, but she found no eight-character identifier in our
+# traffic, so this was a loaded condition rather than a live break.
+#
+# The number is duplicated from the validator ON PURPOSE and only for now.
+# The validator's copy lives on a branch that is not yet merged and that is
+# itself waiting on this rung to land, so importing it today would bind this
+# file to a module version that does not exist on main. When both land they
+# become one constant, and that unification is the point at which this
+# comment stops being true.
+_MIN_CONTENT_PREFIX = 12
+
 
 def _confirmed_patch_ids(round_id: str) -> set[str]:
     """Content identifiers named by the CONFIRMS findings on this round.
@@ -210,13 +235,29 @@ def _content_rung(round_id: str, branch: str) -> tuple[bool, str]:
         )
 
     cur = current.lower()
-    for claimed in confirmed:
+
+    # A too-short claim is UNANSWERABLE, never proof of either verdict. It
+    # must not return holds -- that stamps on a claim nothing verified -- and
+    # it must not fall through to the change-moved message, which asserts a
+    # cause this rung never tested. It gets its own sentence, the way the
+    # sibling rule in the validator does.
+    judgeable = {c for c in confirmed if len(c) >= _MIN_CONTENT_PREFIX}
+    if not judgeable:
+        short = ", ".join(sorted(confirmed))
+        return False, (
+            f"the round names content identifier(s) {short}, all shorter than "
+            f"{_MIN_CONTENT_PREFIX} characters -- too short to tell whether they "
+            "name this change. Unanswerable, NOT evidence the change moved: "
+            "re-file the CONFIRMS carrying the full identifier."
+        )
+
+    for claimed in judgeable:
         if cur.startswith(claimed) or claimed.startswith(cur):
             return True, (
                 f"the reviewed change is unchanged (content identifier "
                 f"{claimed[:12]} still matches the branch); only the floor moved"
             )
-    named = ", ".join(sorted(c[:12] for c in confirmed))
+    named = ", ".join(sorted(c[:12] for c in judgeable))
     return False, (
         f"the content identifier moved: round names {named}, branch computes "
         f"{cur[:12]} -- the reviewed change itself differs, not just its floor"
@@ -515,9 +556,15 @@ def _worktrees_holding(branch: str) -> list[str]:
             check=False,
         )
         if out.returncode != 0:
-            return []
+            return []  # both-empty: the caller asks only "which holders can I NAME",
+            # and neither a failed listing nor an absent one can name any. The
+            # distinction that would matter -- could-not-look versus looked-and-
+            # found-none -- is not one this caller acts on differently: it prints
+            # the holders it has, and printing none is correct either way. What
+            # must never happen is manufacturing a holder from a check that did
+            # not run, and both branches refuse that identically.
     except OSError:
-        return []
+        return []  # both-empty: same reason as the returncode branch above.
 
     holders: list[str] = []
     current_path = ""
