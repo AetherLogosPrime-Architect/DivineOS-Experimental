@@ -1,59 +1,50 @@
-"""The map must hold still, or it cannot stay fresh, or it cannot be trusted.
+"""The map's properties, pinned on the GENERATOR rather than on the artifact.
 
 The catalog exists to answer "does a command for this already exist?" -- it was
 built after I rebuilt a command I had written two days earlier, because my own
-search covered only my working tree and confirmed me. Its own header says the
-thing that matters: **a stale map is a worse oracle than no map**, because no
-map sends you looking and a stale map sends you building.
+search covered only my working tree and confirmed me. Its header says the thing
+that matters: **a stale map is a worse oracle than no map**, because no map
+sends you looking and a stale map sends you building.
 
-So freshness is the whole property, and freshness was impossible by
-construction. The committed map recorded two volatile things:
+WHY THESE MOVED OFF THE FILE, 2026-09-03. The map is no longer committed.
+Measured across the whole open queue, every conflict on every conflicted branch
+was one of two files and the catalog was in all of them -- not one line of
+anyone's code. Aletheia ruled it out of the tree:
 
-  1. How many times *this machine* had invoked each command. Session telemetry,
-     not a fact about the repository. It changed every session and would read
-     completely differently in Aria's clone.
-  2. An exact reference count per subsystem, with the table SORTED by it -- so
-     one file gaining a line both changed a row and reordered the table.
+    "A file that neither party authors, that no reviewer reads, and that blocks
+    everything, is not carrying any of the meaning my signature is supposed to
+    cover. Removing it from the tree makes my signature cover MORE, not less."
 
-Measured 2026-09-02 across three open branches whose maps conflicted with main:
-blank the volatile numbers and TWO become byte-identical to main, while the
-third differs only by a genuinely new subsystem. The numbers were the entire
-conflict class.
+Four tests here used to read the committed file and `pytest.skip` when it was
+absent. Untracking it would have turned all four into permanent skips -- green
+checks measuring nothing, which is the exact fault this file's own history is
+about, and which the previous version of this docstring warned against while
+leaving the shape in place.
 
-The cost was not the conflicts. It was that resolving them edited the branch,
-which moved its patch-id, which unbound the external review anchored to it. Six
-branches were waiting on re-review, and this was why.
+So each property moved to where it can be checked without the artifact:
 
-These tests pin the shape rather than the wording: the map may say anything it
-likes, as long as what it says does not change when nothing meaningful has.
+  * shape of the map's numbers      -> the band function that produces them
+  * no per-machine telemetry        -> the call sites inside build(), which is
+                                       stronger than matching the output: it
+                                       catches reintroduction where it happens
+  * subsystem ordering              -> the function that orders them
+  * unix line endings               -> the write call that must ask for them
+
+Two properties were RETIRED rather than relocated, and saying so explicitly so
+the absence reads as a decision. The map holding still mattered because a moving
+committed file manufactured conflicts and unbound reviews anchored to the diff.
+Out of the tree, there is no diff to disturb. What survives is that the map must
+not describe one machine -- true regardless of tracking, and pinned below.
 """
 
 from __future__ import annotations
 
-import re
+import inspect
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "generate_capability_catalog.py"
-CATALOG = ROOT / "docs" / "CAPABILITY_CATALOG.md"
-
-
-def _generated_text() -> str:
-    """The COMMITTED map, not a fresh build.
-
-    Building probes every command with --help sequentially and takes minutes,
-    so calling it once per test made the suite unrunnable. The committed file
-    is also the more honest subject: it is what a reader actually consults and
-    what lands in a diff. That it matches the generator is already guaranteed
-    by the freshness check in pre-commit, which is a different property from
-    the one these tests pin.
-    """
-    if not CATALOG.is_file():
-        pytest.skip("catalog not present in this checkout")
-    return CATALOG.read_text(encoding="utf-8")
 
 
 def _generator_module():
@@ -69,44 +60,72 @@ def test_generator_exists():
     assert GENERATOR.is_file(), "the map's generator is the subject of every test here"
 
 
-def test_no_table_row_is_a_bare_count():
-    """No row may be `| name | 123 |` -- that shape is what kept moving.
+def test_bands_are_never_bare_counts():
+    """`| name | 123 |` is the shape that kept the map moving.
 
-    Both volatile columns had it: the usage table and the subsystem table. A
-    band ("10-99", "none") passes; a raw integer does not.
+    A band ("10-99", "none") is stable across a reference appearing or leaving;
+    a raw integer is not. Checked on the function that produces the cell rather
+    than on a rendered row, so it holds without building anything.
     """
-    text = _generated_text()
-    offenders = re.findall(r"^\| `[^`]+` \| \d+ \|.*$", text, flags=re.MULTILINE)
-    assert not offenders, (
-        "the map is carrying raw counts again, which is how it stopped being "
-        "able to stay fresh:\n  " + "\n  ".join(offenders[:10])
-    )
+    gen = _generator_module()
+    for n in (0, 1, 2, 9, 10, 11, 50, 99, 100, 101, 5000):
+        band = gen._ref_band(n)
+        assert not band.isdigit(), (
+            f"_ref_band({n}) returned the bare count {band!r}; the map is "
+            "carrying raw numbers again, which is how it stopped holding still"
+        )
 
 
-def test_map_carries_no_per_machine_usage_data():
-    """Nothing in the committed map may describe one machine's history.
+def test_reference_bands_keep_the_none_boundary_exact():
+    """Coarse above zero; exact AT zero, because a false 'dead' is the danger.
 
-    The map had this three ways at once: a count in the prose, a list of the
-    commands that had been run, and a marker beside each one. All three said
-    "on whichever machine last generated this", which is not a fact about the
-    repository and changed whenever anybody ran anything.
-
-    The version of this test that shipped first checked that the usage list had
-    no COUNTS. Removing the list entirely made that test skip forever -- a green
-    check measuring nothing, which is the fault this whole file is about. This
-    replaces it with the property that actually holds now.
+    The generator's own note: a false "this is dead" on safety machinery is
+    worse than no inventory at all, because it invites deleting live code.
     """
-    text = _generated_text()
-    assert "Commands that DO report usage" not in text, (
-        "the per-machine usage list is back in the committed map"
-    )
-    assert "recorded invocations" not in text, (
-        "the per-machine invocation counts are back in the committed map"
-    )
-    assert "•" not in text, "the per-machine usage marker is back beside command headings"
-    # The FINDING must survive -- removing the volatile data must not quietly
-    # remove the point it was making.
-    assert "Blind telemetry is a measurement problem" in text, (
+    gen = _generator_module()
+
+    assert gen._ref_band(0) == "none"
+    assert gen._ref_band(1) != "none", "one reference is not zero references"
+    assert gen._ref_band(150) == gen._ref_band(151)
+    assert gen._ref_band(11) == gen._ref_band(12)
+
+
+def test_the_map_never_reaches_for_the_per_machine_reading():
+    """The map must not describe whichever machine last generated it.
+
+    It had this three ways at once: a count in the prose, a list of commands
+    that had been run, and a marker beside each. All three said "on this
+    machine", which is not a fact about the repository and changed whenever
+    anybody ran anything -- so it read completely differently in Aria's clone.
+
+    Pinned at the CALL SITE rather than in the output. Matching the rendered
+    text only catches the data after it has been formatted in; this catches
+    build() asking for it at all, which is where a reintroduction would start.
+    """
+    gen = _generator_module()
+    body = inspect.getsource(gen.build)
+    for reach in ("_usage_counts", "local_usage_report"):
+        assert reach not in body, (
+            f"build() calls {reach}(), so per-machine telemetry is on its way "
+            "back into a file meant to describe the repository"
+        )
+
+
+def test_the_telemetry_finding_survived_the_removal_of_the_telemetry():
+    """Removing the volatile data must not quietly remove the point it made.
+
+    Matched against the source with its quote marks removed and its whitespace
+    collapsed, so adjacent string literals read as the one sentence they will
+    render as. Two earlier versions failed here: the first asserted the
+    sentence whole, and the second collapsed whitespace but left the quotes
+    between the literals. Both reported that the finding had been DROPPED while
+    it sat in plain view four lines above the assertion. A test whose failure
+    message names the wrong cause sends the next reader to repair something
+    that was never broken -- which is this month's fault in test clothing.
+    """
+    gen = _generator_module()
+    body = " ".join(inspect.getsource(gen.build).replace('"', "").split())
+    assert "Blind telemetry is a measurement problem" in body, (
         "the blind-telemetry finding was dropped along with the volatile "
         "numbers; the finding is the reason the section exists"
     )
@@ -127,55 +146,40 @@ def test_the_local_reading_still_exists_somewhere():
     )
 
 
-def test_subsystem_table_is_sorted_by_name_not_by_volume():
-    """Sorting by the count turned one changed reference into a reordered table."""
-    text = _generated_text()
-    rows = re.findall(r"^\| `core/([^/`]+)/` \|", text, flags=re.MULTILINE)
-    if len(rows) < 2:
-        pytest.skip("no subsystem table in this environment")
-    assert rows == sorted(rows), (
-        "subsystem rows are not in name order, so a single reference change "
-        "will reorder the table and manufacture a conflict"
+def test_subsystems_come_out_in_name_order_not_volume_order():
+    """Sorting by the count turned one changed reference into a reordered table.
+
+    Reads the function rather than the rendered table: it scans files and takes
+    no subprocess, so it is cheap enough to run everywhere -- which is the whole
+    point of moving it off the artifact.
+    """
+    gen = _generator_module()
+    rows = gen._subsystems()
+    names = [r[0] for r in rows]
+    assert names == sorted(names), (
+        "subsystem rows are not in name order, so a single reference change will reorder the table"
     )
 
 
-def test_reference_bands_keep_the_none_boundary_exact():
-    """Coarse above zero; exact AT zero, because a false 'dead' is the danger.
-
-    The generator's own note: a false "this is dead" on safety machinery is
-    worse than no inventory at all, because it invites deleting live code.
-    """
-    gen = _generator_module()
-
-    assert gen._ref_band(0) == "none"
-    assert gen._ref_band(1) != "none", "one reference is not zero references"
-    # Coarse above the boundary: neighbours inside a band must agree.
-    assert gen._ref_band(150) == gen._ref_band(151)
-    assert gen._ref_band(11) == gen._ref_band(12)
-
-
-def test_written_map_uses_unix_line_endings():
+def test_the_generator_still_asks_for_unix_line_endings():
     """Written with newline="\\n", or the file is dirty the moment it is made.
 
     The repo declares this path eol=lf. Without the argument, write_text
-    translates every newline on Windows, so the generator produces 1397
-    invisible differences against the file it just regenerated -- git diff
-    prints nothing while git status calls it modified, and pre-commit
-    regenerates and re-stages it forever.
+    translates every newline on Windows, so the generator produces hundreds of
+    invisible differences against the file it just regenerated. Untracking the
+    map removes the git consequence but not the local one: a file that never
+    looks clean still teaches whoever reads it to stop trusting the check.
     """
-    if not CATALOG.is_file():
-        pytest.skip("catalog not generated in this environment")
-    raw = CATALOG.read_bytes()
-    assert b"\r\n" not in raw, (
-        "the committed map has Windows line endings; the generator dropped its "
-        "newline argument and the file will now never look clean"
+    gen = _generator_module()
+    body = inspect.getsource(gen.main)
+    assert 'newline="\\n"' in body or "newline='\\n'" in body, (
+        "the generator's write no longer asks for unix line endings"
     )
 
 
-# Determinism and the script entry point are NOT tested here on purpose.
-# Both require a full build, which probes every command with --help and takes
-# minutes -- six of those made the file unrunnable, and a test that times out
-# teaches people to skip the file. scripts/check_capability_catalog_fresh.py
-# already builds and compares on every pre-commit, which is where a slow,
-# thorough check belongs. Saying so here so the absence reads as a decision
-# rather than an oversight.
+# The full build is NOT exercised here, on purpose and now for a second reason.
+# It probes every command with --help and takes minutes, which made the file
+# unrunnable when six tests each did it -- and a test that times out teaches
+# people to skip the file. scripts/check_capability_catalog_fresh.py builds on
+# every pre-commit, which is where a slow, thorough check belongs, and it is
+# also where "the generator could not run" is made to block.
