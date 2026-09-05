@@ -135,7 +135,16 @@ def _warn_if_branch_is_checked_out_elsewhere(repo_root: Path, branch: str) -> No
                     f"[retarget] That worktree's files did NOT move with this commit, so the\n"
                     f"[retarget] paths just landed will read there as STAGED DELETIONS.\n"
                     f"[retarget] Committing it by reflex removes them from the branch.\n"
-                    f"[retarget] Sync it before working there:  git -C {other} checkout -- .",
+                    # RESTORE FROM HEAD, NOT FROM THE INDEX, and the first
+                    # version of this line got it wrong. `checkout -- .`
+                    # restores the working tree FROM the index, and the index
+                    # is the thing that is stale -- so the prescribed cure
+                    # left the staged deletions exactly where they were. Found
+                    # by running my own remedy on the real worktree and
+                    # watching it not work. A cure that does not cure is this
+                    # week's whole subject, and it reached the remedy text of
+                    # the fix for it.
+                    f"[retarget] Sync it:  git -C {other} restore --source=HEAD --staged --worktree .",
                     file=sys.stderr,
                 )
 
