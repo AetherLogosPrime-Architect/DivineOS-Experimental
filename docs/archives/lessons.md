@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-08-28 22:40. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-04 18:52. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -12,7 +12,7 @@ The user got upset and said: "why did you skip the loading of your briefing. tha
 
 ---
 
-## fd0c9994 [active] x14
+## fd0c9994 [improving] x15
 
 **Category:** blind_coding
 
@@ -20,7 +20,7 @@ I edited files without reading them first. I must read before I edit.
 
 ---
 
-## f1deb6f0 [improving] x13
+## f1deb6f0 [improving] x14
 
 **Category:** upset_user
 
@@ -52,19 +52,19 @@ I fixed one problem but missed related failures. Check all affected areas after 
 
 ---
 
+## c3090082 [improving] x12
+
+**Category:** incomplete_fix
+
+I introduced errors after editing. I need to verify changes work.
+
+---
+
 ## 4a31827d [resolved] x12
 
 **Category:** test_no_dir_xyz
 
 Test description without directive.
-
----
-
-## c3090082 [active] x11
-
-**Category:** incomplete_fix
-
-I introduced errors after editing. I need to verify changes work.
 
 ---
 
@@ -76,19 +76,19 @@ Enforcement gates must block execution, not just warn. Without blocking, every s
 
 ---
 
+## 88234418 [improving] x9
+
+**Category:** blind_retry
+
+I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
+
+---
+
 ## e2be7bc9 [resolved] x9
 
 **Category:** test_with_dir_zzz
 
 Test description with directive zzz.
-
----
-
-## 88234418 [active] x8
-
-**Category:** blind_retry
-
-I retried a failed action 1x without investigating the cause. I need to investigate errors, not blindly retry (session 418c10bb-b47).
 
 ---
 
