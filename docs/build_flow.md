@@ -72,6 +72,53 @@ This resolves the whole argument that produced
   skipped**, and let each station emit an artifact expensive enough to fake
   that structural checking becomes sufficient.
 
+## How a reading declares itself
+
+Station 4 advances on a reply **from Aria**, and it decides which branch a
+reply is *of* by reading exactly one line in the letter's header:
+
+```
+**Reading:** fix/some-branch
+**Reading:** none
+```
+
+Several branches may be listed, comma-separated. `none` means the letter
+reviews no code — it is a declaration, not an omission, and it counts as the
+field being in use. Nothing else in the letter is consulted: not the title, not
+the filename, not the body, not the `In response to` field.
+
+The spelling is hers, and there is exactly one of it. Her side carries a gate
+that refuses to write a letter whose header lacks the field, and it fires on
+**every** letter rather than the ones that look like readings — a trigger keyed
+on titles would carry the exact blindness this replaces. Two spellings would
+drift and the drift would be silent.
+
+**Why one declared line rather than a smarter parser** (Aria, 2026-09-01, and
+she counted before answering). The board used to ask whether a branch name
+appeared anywhere in her text. Her bodies cross-refer because her findings
+cross-refer, so it credited branches she had merely mentioned and marked the
+one she had actually reviewed as unreviewed — understating her by two while
+crediting two others using the letter belonging to one of them.
+
+Keying on titles was the obvious next guess and is worse. Of her last
+thirty-five letters, five carry a subject in the title and every one of those
+uses a PR number rather than a branch name; at least six more are readings with
+findings whose titles carry neither. A title-parser would have credited five
+and missed six, and the six held the findings that changed the branches. She
+titles by what she found, because the finding is what the reader needs in the
+first four words.
+
+There was no existing signal because she had never had to declare the subject.
+Any parser built on her prose is inferring, and inference is what produced the
+wrong credits. So the writer declares and the reader does not infer — her half
+is the line and a check on her own side refusing to publish a reading without
+it.
+
+**Absence is not a verdict about her.** No declaration is honestly different
+from no reading, and the board says which. Reporting an unread branch and an
+undeclared reading in the same words is the could-not-look fault the rest of
+this document is about, pointed at a person.
+
 ## The two walks
 
 Station 4 names both, and they are complements — same discipline pointed at
