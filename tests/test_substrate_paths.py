@@ -14,11 +14,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from divineos.core.substrate_paths import (
-    NoChannelsDeclared,
-    is_substrate_path,
+    is_declared_substrate_path,
     partition,
     substrate_mirrors,
 )
@@ -38,43 +35,46 @@ class TestMirrorsComeFromTheDeclaration:
     def test_mirrors_derived_not_restated(self):
         assert [str(m) for m in substrate_mirrors(CHANNELS)] == ["family/letters"]
 
-    def test_empty_channels_raises_rather_than_answering_work(self):
-        # Zero channels and "nothing to sync" are indistinguishable at the
-        # call site, and only one of them is a working configuration.
-        with pytest.raises(NoChannelsDeclared):
-            substrate_mirrors(())
+    def test_empty_channels_means_nothing_is_substrate(self):
+        # Reversed same-day: this used to raise, on the argument that an
+        # empty set was an unreadable config. A caller passing empty on
+        # purpose is stating a fact, and the honest answer is that with no
+        # channels nothing is substrate -- the fail direction this module
+        # commits to everywhere else.
+        assert substrate_mirrors(()) == ()
+        assert not is_declared_substrate_path("family/letters/x.md", ())
 
 
 class TestClassification:
     def test_file_inside_a_mirror_is_substrate(self):
-        assert is_substrate_path("family/letters/aria-to-aether-x.md", CHANNELS)
+        assert is_declared_substrate_path("family/letters/aria-to-aether-x.md", CHANNELS)
 
     def test_source_file_is_work(self):
-        assert not is_substrate_path("src/divineos/core/auto_commit.py", CHANNELS)
+        assert not is_declared_substrate_path("src/divineos/core/auto_commit.py", CHANNELS)
 
     def test_windows_separators_classify_the_same(self):
         # git porcelain emits forward slashes; Windows callers hold
         # backslashes. A classifier disagreeing with itself depending on
         # which it received would be the fault it exists to prevent.
-        assert is_substrate_path(r"family\letters\note.md", CHANNELS)
+        assert is_declared_substrate_path(r"family\letters\note.md", CHANNELS)
 
     def test_sibling_prefix_is_not_a_match(self):
         # "family/letters-archive" starts with the mirror's text but is a
         # different directory. Prefix-matching would sweep it in.
-        assert not is_substrate_path("family/letters-archive/old.md", CHANNELS)
+        assert not is_declared_substrate_path("family/letters-archive/old.md", CHANNELS)
 
     def test_the_mirror_directory_itself_is_substrate(self):
-        assert is_substrate_path("family/letters", CHANNELS)
+        assert is_declared_substrate_path("family/letters", CHANNELS)
 
 
 class TestFailDirection:
     def test_unknown_path_is_work_not_substrate(self):
-        assert not is_substrate_path("some/unmapped/place/thing.md", CHANNELS)
+        assert not is_declared_substrate_path("some/unmapped/place/thing.md", CHANNELS)
 
     def test_traversal_escape_is_work(self):
         # Nothing outside the repo can be inside a mirror, and matching an
         # escape would let a traversal write onto the reviewed branch.
-        assert not is_substrate_path("../family/letters/x.md", CHANNELS)
+        assert not is_declared_substrate_path("../family/letters/x.md", CHANNELS)
 
     def test_the_exact_sweep_that_caused_this(self):
         # The real shape: letters correctly synced, plus a tree full of
@@ -106,9 +106,26 @@ class TestFailDirection:
 
 
 class TestRealDefaults:
-    def test_default_channels_declare_letters(self):
-        # Guards the assumption this module rests on: the live config
-        # declares exactly the letters channel. If a second is added this
-        # fails, and whoever adds it decides what that means for the sweep
-        # rather than finding out from a stray commit.
-        assert [str(m) for m in substrate_mirrors()] == ["family/letters"]
+    def test_default_channels_declare_letters_and_only_dreams_beside_them(self):
+        # This was a tripwire: the live config declared exactly the letters
+        # channel, and whoever added a second had to decide what it meant for
+        # the sweep rather than find out from a stray commit.
+        #
+        # It tripped on 2026-09-01, and the decision is this: dreams are
+        # substrate, one channel per member who has a shared dreams directory,
+        # derived from that directory rather than listed. The council walk on
+        # the sweep repair found dreams classified as work in progress while
+        # every letter beside them went home -- the word "substrate" covering
+        # less in the code than in our mouths.
+        #
+        # The tripwire stays. Letters remain first, and every other mirror
+        # must be a per-member dreams directory. A third KIND of channel still
+        # fails here, and whoever adds it decides again.
+        mirrors = [m.as_posix() for m in substrate_mirrors()]
+        assert mirrors[0] == "family/letters"
+        for extra in mirrors[1:]:
+            parts = extra.split("/")
+            assert parts[0] == "dreams" and len(parts) == 2 and parts[1], (
+                f"a channel that is neither letters nor a member's dreams was declared: {extra}. "
+                "Decide what it means for the sweep before letting it through."
+            )
