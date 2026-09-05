@@ -120,6 +120,109 @@ def _confirmed_trees(round_id: str) -> set[str]:
     return trees
 
 
+# Content identifiers appear as "patch-id 91fc90e6", "patch-id: <40hex>", and
+# "pid 46112ab3". Anchored on the word for the same reason the tree pattern is:
+# a bare hex scan also matches the tail of a round id.
+_PATCH_ID_NEAR = re.compile(
+    r"\b(?:patch[-\s]?id|pid)[-\s]*(?:hash|sha)?[:\s]+([0-9a-f]{8,40})\b",
+    re.IGNORECASE,
+)
+
+
+def _confirmed_patch_ids(round_id: str) -> set[str]:
+    """Content identifiers named by the CONFIRMS findings on this round.
+
+    Same shape and same known limit as ``_confirmed_trees``: read from the
+    findings rather than the round notes, matched by prefix in both
+    directions because these are quoted abbreviated as often as in full, and
+    unable to tell an identifier a finding CONFIRMS from one it merely
+    mentions.
+    """
+    from divineos.core.watchmen.store import list_findings
+
+    ids: set[str] = set()
+    try:
+        findings = list_findings(round_id=round_id, limit=200) or []
+    except Exception:  # noqa: BLE001 - an unreadable store is not "no identifiers"
+        return ids
+    for f in findings:
+        if _title_withholds(f):
+            continue
+        text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
+        if "confirms" not in text.lower():
+            continue
+        ids.update(m.group(1).lower() for m in _PATCH_ID_NEAR.finditer(text))
+    return ids
+
+
+def _content_rung(round_id: str, branch: str) -> tuple[bool, str]:
+    """Does the reviewed CHANGE still match, when the tree no longer does?
+
+    Andrew 2026-09-05: *"if the code itself is unchanged then her review
+    stands, as the floor changes underneath it when its pushed... it only
+    needs to be re-audited if the code has changed... otherwise this becomes a
+    slog and an endless run-around reviewing the same things over and over."*
+
+    WHY THIS RUNG WAS MISSING, which Aria measured and named.
+
+    The rule already existed -- in the wrong file. The tool that FILES a
+    confirm computes content identifiers and has a whole rung for
+    catch-up-does-not-invalidate. The tool that SPENDS one, this one, only
+    described that rung in a docstring and offered two doors: an exact tree
+    match, or a written ancestry claim. Unchanged-content opened neither.
+
+    Her count: content identifiers appear three times in this file, all inside
+    prose, against seventy-five times in the validator where they are actually
+    computed. A rule reaching one mechanism and not the other, which is the
+    same shape as a review living in one store and nowhere else.
+
+    And the tree rung is guaranteed to fail here. Aletheia's own reason,
+    quoted in this file above: an anchor bound to the whole tree *"inherits
+    the volatility of the least stable thing inside what it measures"* -- so
+    every commit anyone lands moves it. Catching a branch up to main is the
+    one act required to make it mergeable, and it breaks the only rung that
+    was wired. The branch becomes unmergeable by being made mergeable.
+
+    I hit this an hour before writing it and got past it by re-filing the
+    confirm through the validator, which computed the rung the stamper lacks.
+    Routing through the other tool to obtain a verdict this one could not
+    reach IS the finding, and I took it as a workaround at the time.
+
+    Returns ``(holds, why)``. Could-not-compute never returns True: the
+    reading that would license the stamp is exactly the one unavailable, and
+    it is reported as unknown rather than as a mismatch, because those two
+    have different remedies.
+    """
+    confirmed = _confirmed_patch_ids(round_id)
+    if not confirmed:
+        return False, "no CONFIRMS finding on this round names a content identifier"
+
+    try:
+        from divineos.cli.audit_commands import compute_branch_patch_id
+    except Exception as exc:  # noqa: BLE001 - import failure is not a mismatch
+        return False, f"could not load the content-identity computation ({exc})"
+
+    current = compute_branch_patch_id(f"origin/{branch}")
+    if not current:
+        return False, (
+            "the branch's content identifier could not be computed, so this "
+            "rung cannot answer -- unknown, not unchanged"
+        )
+
+    cur = current.lower()
+    for claimed in confirmed:
+        if cur.startswith(claimed) or claimed.startswith(cur):
+            return True, (
+                f"the reviewed change is unchanged (content identifier "
+                f"{claimed[:12]} still matches the branch); only the floor moved"
+            )
+    named = ", ".join(sorted(c[:12] for c in confirmed))
+    return False, (
+        f"the content identifier moved: round names {named}, branch computes "
+        f"{cur[:12]} -- the reviewed change itself differs, not just its floor"
+    )
+
+
 def _tree_is_covered(head_tree: str, confirmed: set[str]) -> bool:
     """Does any confirmed tree refer to this head? Prefix match, both ways.
 
@@ -795,13 +898,43 @@ def register(cli: click.Group) -> None:
                         "    than taken on its word.",
                         fg="green",
                     )
+                    content_holds = False
+                    content_why = "not reached; ancestry already held"
                 else:
+                    # THE CONTENT RUNG, under ancestry and above refusal.
+                    #
+                    # Aria measured the gap: this rule was implemented in the
+                    # tool that FILES a confirm and only described in this one,
+                    # which spends them. Andrew's ruling is the frame -- if the
+                    # code itself is unchanged the review stands, because the
+                    # floor moving is not the reviewer's subject changing, and
+                    # re-auditing on floor-movement is an endless run-around
+                    # over the same work.
+                    #
+                    # Placed AFTER ancestry rather than before because ancestry
+                    # rests on a reviewer's written claim and this rests on a
+                    # computation; when a person has said it in their own hand,
+                    # that is the stronger evidence and should be reported as
+                    # what carried.
+                    content_holds, content_why = _content_rung(round_id, branch)
+
+                if content_holds:
+                    click.secho(
+                        f"[+] Head tree {tree_hash[:12]} is not one this round names, and the\n"
+                        f"    ancestry rung did not hold ({why}).\n"
+                        f"    The CONTENT rung does: {content_why}.\n"
+                        "    Computed here the same way the confirm validator computes it,\n"
+                        "    rather than inferred from the trees disagreeing.",
+                        fg="green",
+                    )
+                elif not holds:
                     named = ", ".join(sorted(t[:12] for t in confirmed))
                     click.secho(
                         f"[!] Round {round_id} CONFIRMS tree(s) {named}, but this PR's head\n"
                         f"    tree is {tree_hash[:12]}. Pairing them would assert a review\n"
                         "    that did not happen.\n"
                         f"    The ancestry rung does not save it either: {why}.\n"
+                        f"    Nor the content rung: {content_why}.\n"
                         "    Get a round against the current tree, or pass --audit-round\n"
                         "    naming the round that actually covers it.",
                         fg="red",
