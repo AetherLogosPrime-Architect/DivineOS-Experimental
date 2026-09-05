@@ -99,22 +99,7 @@ class TestAutoCommitBasics:
 
 
 class TestExternalChannelSync:
-    def test_new_external_file_is_synced_but_refused_when_no_branch_is_declared(
-        self, repo: Path, tmp_path: Path
-    ):
-        """The test that was asserting the defect, and named after it.
-
-        This asserted ``committed is True`` on a run where the substrate half
-        was refused outright -- the letter reached no branch at all. It passed
-        because one boolean was reporting the optimistic half of a two-half
-        operation, which is exactly what Aether found by running the whole
-        thing end to end in a fresh clone.
-
-        The old name said "synced_and_committed" and only the first word was
-        true. A test can encode the lie it exists to catch, and this one did:
-        it would have gone on passing for as long as the field kept reporting
-        the wrong half.
-        """
+    def test_new_external_file_synced_and_committed(self, repo: Path, tmp_path: Path):
         source = tmp_path / "letters_source"
         source.mkdir()
         (source / "aria-to-aether-2026-07-05-test.md").write_text("letter body\n", encoding="utf-8")
@@ -128,170 +113,10 @@ class TestExternalChannelSync:
         )
 
         result = auto_commit_substrate(repo, reason="pre-sleep", channels=channels)
-
-        # The sync happened and the file is in the mirror.
+        assert result.committed is True
         assert result.files_synced == 1
+        # File landed in the mirror
         assert (repo / "family/letters/aria-to-aether-2026-07-05-test.md").is_file()
-
-        # And the substrate half did not happen, because this fixture declares
-        # no branch. Both facts are now sayable at once, which is the change.
-        assert result.substrate_committed is False
-        assert "substrate refused" in result.reason
-        assert result.committed is False, (
-            "a checkpoint that refused the substrate must not report success"
-        )
-
-    def test_a_refusal_is_readable_without_parsing_the_prose(self, repo: Path, tmp_path: Path):
-        """The finding was that the failure lived only in a sentence.
-
-        So a caller must be able to ask "was substrate refused" as a question
-        with an answer, not by matching phrases. Answering the original defect
-        with "read the reason string" would have kept it and moved it one layer
-        up -- which is what happened at the command line: with the boolean
-        corrected, the surface fell through to a branch matching two unrelated
-        phrases and printed nothing at all.
-
-        The distinction this pins: refused is NOT the same as
-        ``not substrate_committed``, which is also true on a clean run with no
-        substrate. Refused means something was owed a branch and did not get
-        one.
-        """
-        source = tmp_path / "letters_source"
-        source.mkdir()
-        (source / "aria-to-aether-2026-07-06-test.md").write_text("body\n", encoding="utf-8")
-        channels = (
-            ExternalChannel(
-                name="test-letters",
-                source=source,
-                repo_mirror=Path("family/letters"),
-                pattern="*.md",
-            ),
-        )
-
-        refused = auto_commit_substrate(repo, reason="pre-sleep", channels=channels)
-        assert refused.substrate_refused is True
-
-        # The work half is reported separately and truthfully, which is the
-        # whole reason one boolean could not carry this.
-        assert refused.work_committed is True
-
-        # A clean run has nothing refused, so the flag must not simply mirror
-        # "substrate did not commit".
-        clean = auto_commit_substrate(repo, reason="pre-sleep", channels=())
-        assert clean.substrate_refused is False
-
-
-class TestWhatTheOperatorIsActuallyTold:
-    """The third instance at one address, and Aether found it in the repair.
-
-    His words: *"The boolean was wrong and tested; you fixed it and tested it.
-    The printing was silent and untested; you fixed it and it is still
-    untested. If it regresses it will regress the way it failed the first
-    time -- quietly."*
-
-    He was right. The earlier repairs were reachable from a test because they
-    were values; this one lived in branches inside command handlers, where the
-    only way to reach it was to run a whole extract. So the untestability was
-    itself the reason the silence lasted.
-
-    The decision is a value now, and these are the tests that could not have
-    been written before.
-    """
-
-    def test_a_refusal_is_said_out_loud(self):
-        told = checkpoint_report(
-            AutoCommitResult(
-                committed=False,
-                work_committed=True,
-                substrate_committed=False,
-                substrate_refused=True,
-                reason="substrate refused — divineos.substrate-branch is not set",
-            ),
-            "pre-sleep",
-        )
-        said = " ".join(text for text, _ in told)
-        assert "pre-sleep" in said
-        assert "substrate refused" in said
-
-    def test_a_refusal_that_still_saved_work_says_both(self):
-        # The operator's next question after "the substrate did not land" is
-        # "did I lose what I was in the middle of". Answering only the first
-        # half is how a true statement reads as a disaster.
-        told = checkpoint_report(
-            AutoCommitResult(
-                committed=False,
-                work_committed=True,
-                substrate_refused=True,
-                reason="substrate refused — no branch",
-            ),
-            "pre-extract",
-        )
-        said = " ".join(text for text, _ in told)
-        assert "IS saved on HEAD" in said
-
-    def test_silence_belongs_only_to_the_nothing_happened_case(self):
-        # THE LOAD-BEARING ONE. "Said nothing because nothing happened" and
-        # "said nothing about a refusal" were the same output at the command
-        # line, and that was the entire defect. They must never be the same
-        # output again.
-        nothing_happened = checkpoint_report(
-            AutoCommitResult(committed=False, reason="clean tree — nothing to commit"),
-            "pre-sleep",
-        )
-        refused = checkpoint_report(
-            AutoCommitResult(
-                committed=False, substrate_refused=True, reason="substrate refused — no branch"
-            ),
-            "pre-sleep",
-        )
-        assert nothing_happened == []
-        assert refused != []
-
-    def test_success_still_reports_what_it_did(self):
-        told = checkpoint_report(
-            AutoCommitResult(
-                committed=True,
-                work_committed=True,
-                substrate_committed=True,
-                reason="committed",
-                files_synced=3,
-                dirty_lines=7,
-            ),
-            "post-extract",
-        )
-        said = " ".join(text for text, _ in told)
-        assert "7 dirty lines" in said
-        assert "3 external files" in said
-
-    def test_the_boundary_is_named_so_two_checkpoints_are_never_confused(self):
-        # A refusal before sleep and a refusal before extract need different
-        # responses from the operator, and the message is the only place the
-        # difference is visible.
-        result = AutoCommitResult(
-            committed=False, substrate_refused=True, reason="substrate refused — no branch"
-        )
-        assert "pre-sleep" in checkpoint_report(result, "pre-sleep")[0][0]
-        assert "post-extract" in checkpoint_report(result, "post-extract")[0][0]
-
-    def test_every_line_carries_a_colour_the_caller_can_use(self):
-        for result in (
-            AutoCommitResult(committed=True, reason="ok"),
-            AutoCommitResult(
-                committed=False, substrate_refused=True, work_committed=True, reason="refused"
-            ),
-        ):
-            for text, colour in checkpoint_report(result, "pre-sleep"):
-                assert text
-                assert colour in {"green", "yellow", "red"}
-
-
-class TestTheSyncDoesNothingWhenThereIsNothingToDo:
-    """Split out of the sync class rather than left as a nameless remainder.
-
-    Both of these are about the quiet cases, which is the same subject as the
-    class above them and worth its own name: a copy that would change nothing,
-    and a source that is not there.
-    """
 
     def test_already_synced_file_not_recopied(self, repo: Path, tmp_path: Path):
         source = tmp_path / "letters_source"
@@ -370,6 +195,71 @@ class TestResultShape:
         r = AutoCommitResult(committed=False, reason="clean")
         assert r.files_synced == 0
         assert r.dirty_lines == 0
+        # The halves default to not-done rather than to True, so a caller that
+        # forgets to set them under-claims instead of over-claiming.
+        assert r.work_committed is False
+        assert r.substrate_committed is False
+        assert r.split_failed is False
+
+
+class TestCouldNotSplitIsNotCouldNotSave:
+    """Aether's one defence of his design, merged 2026-09-04 with his reporting.
+
+    His words: could-not-split and could-not-save have opposite severities --
+    the first costs a manual tidy, the second costs the work. They used to
+    arrive through one boolean and a prose sentence, so no caller could tell
+    them apart, and a checkpoint that deferred the letters read exactly like
+    one that saved them.
+
+    These pin the distinction at the value level rather than in the printing,
+    because the printing is what was silent the first time.
+    """
+
+    def test_unsplit_save_reports_both_halves_landed(self):
+        # Both kinds went into one commit: nothing lost, only unseparated.
+        r = AutoCommitResult(
+            committed=True,
+            work_committed=True,
+            substrate_committed=True,
+            split_failed=True,
+            reason="committed at pre-extract (unsplit -- could not unstage substrate)",
+        )
+        lines = checkpoint_report(r, "pre-extract")
+        assert lines, "an unsplit save must say something -- silence reads as a clean split"
+        assert any("one commit rather than two" in text for text, _ in lines)
+
+    def test_deferred_substrate_says_the_work_is_safe(self):
+        # The work landed; the substrate waits. The dangerous misreading is
+        # that the letters were lost, so the line has to say they are not.
+        r = AutoCommitResult(
+            committed=True,
+            work_committed=True,
+            substrate_committed=False,
+            split_failed=True,
+            reason="committed work at pre-extract; substrate left for the next checkpoint",
+        )
+        lines = checkpoint_report(r, "pre-extract")
+        assert any("next checkpoint" in text for text, _ in lines)
+
+    def test_a_clean_split_and_an_unsplit_save_do_not_print_alike(self):
+        clean = AutoCommitResult(
+            committed=True, work_committed=True, substrate_committed=True, reason="two parts"
+        )
+        unsplit = AutoCommitResult(
+            committed=True,
+            work_committed=True,
+            substrate_committed=True,
+            split_failed=True,
+            reason="unsplit",
+        )
+        assert checkpoint_report(clean, "pre-extract") != checkpoint_report(unsplit, "pre-extract")
+
+    def test_a_failed_save_still_names_what_survived(self):
+        r = AutoCommitResult(
+            committed=False, work_committed=True, reason="git commit failed on the substrate half"
+        )
+        lines = checkpoint_report(r, "pre-sleep")
+        assert any("work IS saved" in text for text, _ in lines)
 
 
 class TestMidOpDetection:

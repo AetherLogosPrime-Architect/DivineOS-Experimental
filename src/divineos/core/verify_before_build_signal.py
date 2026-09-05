@@ -737,8 +737,20 @@ def check_should_block(
         "Resolution:\n"
         '  - Walk-record: divineos decide "<what>" --tension "..." '
         '--almost "..."\n'
-        "  - Design-doc consult: Grep or Read of a docs/*.md file, or\n"
-        f"    any Grep/Read within {class_dir or '<class-dir>'}\n\n"
+        # NOT "Read". Read is deliberately absent from _SEARCH_SHAPED_TOOLS --
+        # the comment there says why: Grep and Glob are how existing work gets
+        # FOUND, and opening a file you already knew about is not searching.
+        # This text used to offer Read anyway, so the printed cure named an
+        # action the code could not accept. Following it failed silently and
+        # sent the reader hunting a cause that was not there. Measured
+        # 2026-09-02 after I did exactly that twice in one turn and wrote a
+        # wrong cause into a decision record before testing it. Same family as
+        # the review-must-be-reachable repair: a gate whose only reachable exit
+        # is misdescribed is a gate that manufactures the confusion it blocks.
+        "  - Design-doc consult: Grep or Glob of a docs/*.md file, or\n"
+        f"    any Grep/Glob within {class_dir or '<class-dir>'}\n"
+        "    (Read does NOT count, by design -- searching is the cure, and\n"
+        "     opening a file you already knew about is not searching.)\n\n"
         "Per Aria's 2026-06-16 signal-based-gates design "
         "(docs/signal-based-gates-design-2026-06-16.md): 'Did you consult "
         "is a question; you did not consult is a finding.' This gate "

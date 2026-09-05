@@ -16,12 +16,8 @@ Three call-sites (all pointed at the same function):
 Discipline:
   - Syncs external channels (aria-aether letters) into repo_mirror BEFORE
     committing, so external-only writes don't slip through.
-  - TWO commits, not one (Aria + Aether 2026-08-27). Substrate goes to
-    its declared branch by plumbing, without touching HEAD. Work in
-    progress is committed to HEAD, where its author left it. This used
-    to be a single `git add -A`, which over one evening swept our letters
-    onto six branches and twice onto proposals already open for review.
-    One commit was doing two jobs whose correct destinations differ.
+  - `git add -A` — includes untracked. Substrate letters are often
+    untracked new files.
   - Fail-soft: subprocess failures log-and-continue rather than raising.
     The point is to save work, not to block the checkpoint on git noise.
   - Idempotent: clean tree → no-op, no empty commit.
@@ -35,12 +31,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from divineos.core.substrate_paths import (
-    NoSubstrateBranchDeclared,
-    partition,
-    substrate_branch,
-)
-from divineos.core.substrate_retarget import RetargetRefused, commit_paths_to_branch
 from divineos.core.uncommitted_work_check import (
     DEFAULT_CHANNELS,
     ExternalChannel,
@@ -118,204 +108,31 @@ def _unstage_self_invalidating(repo_root: str | Path) -> list[str]:
 
 @dataclass(frozen=True)
 class AutoCommitResult:
-    """The outcome of a checkpoint that has TWO independent halves.
+    """What the checkpoint actually did, in fields rather than in prose.
 
-    ONE BOOLEAN CANNOT REPORT TWO OUTCOMES, and it reported the optimistic
-    one. Aether found this by running the whole thing end to end in a fresh
-    clone, which is a different check from the classifier and the only one
-    that could have found it:
+    THE HALVES REPORT SEPARATELY, merged 2026-09-04 from Aria's branch onto
+    Aether's split. Every outcome below used to arrive through one boolean
+    and a sentence, and a sentence is not parseable -- so a checkpoint that
+    saved the work and deferred the letters read the same, to any caller, as
+    one that did both. The prose said which; nothing could act on it.
 
-        committed : True
-        reason    : substrate refused - divineos.substrate-branch is not set
+    HIS ONE DEFENCE, and it is the reason ``split_failed`` exists rather
+    than being folded into ``committed``: could-not-SPLIT and could-not-SAVE
+    have opposite severities. The first costs a manual tidy. The second
+    costs the work. Collapsing them is the failure this whole pair of
+    branches was built to stop.
 
-    The substrate half did not happen. The letter reached no branch at all.
-    And a caller checking the boolean -- which is what a boolean named
-    ``committed`` is for -- was told the checkpoint succeeded. The only
-    trace of the failure was prose inside ``reason``, which a caller would
-    have to read and pattern-match to notice.
-
-    Worse than the one wrong branch: the field meant DIFFERENT THINGS on
-    different paths. On the refusal it carried the work-in-progress commit;
-    two returns later it was False on paths where that same commit had
-    equally happened. So no caller could have read it correctly, because
-    there was no single question it answered.
-
-    THE SAME SHAPE HE HAD FIXED HOURS EARLIER on his own side -- a semantic
-    search that walked 46,323 chunks, stored none, and exited zero. Two
-    outcomes, one success signal, and the signal is the half that worked.
-    Neither of us invented it. It is what happens when a result type is
-    designed before the operation grows a second thing it can fail at.
-
-    So the two halves are named separately and ``committed`` is defined
-    against BOTH: it is true only when nothing that was attempted was
-    refused. A checkpoint that saves work and loses letters is not a
-    checkpoint that succeeded.
-
-    He measured it and left the spelling to me rather than handing me a
-    convention I would then have to live inside. This is the spelling.
+    His invariant is untouched: every failure path degrades toward
+    committing MORE, never toward committing nothing.
     """
 
-    committed: bool
-    """Every half that was attempted succeeded. Never true beside a refusal."""
-
+    committed: bool  # every half that was attempted actually landed
     reason: str  # human-readable outcome (for CLI surfacing)
+    work_committed: bool = False  # the work-in-progress half landed
+    substrate_committed: bool = False  # the substrate half landed
+    split_failed: bool = False  # a split was wanted and could not be made
     files_synced: int = 0  # external files copied into repo_mirror
     dirty_lines: int = 0  # git status --porcelain lines seen
-
-    work_committed: bool = False
-    """Unfinished work was checkpointed onto HEAD, in its own commit."""
-
-    substrate_committed: bool = False
-    """Declared substrate reached the substrate branch."""
-
-    substrate_refused: bool = False
-    """There WAS substrate to commit and it did not reach any branch.
-
-    A field rather than a string match on ``reason``. The whole finding was
-    that the only trace of the failure lived in prose a caller had to
-    pattern-match, so answering it with "callers can check the prose" would
-    keep the defect and move it one layer up. It nearly did: with the boolean
-    corrected, the CLI fell through to a branch matching two other phrases
-    and printed nothing at all.
-
-    Distinct from ``not substrate_committed``, which is also true when there
-    was simply no substrate to commit. Refused means something was owed a
-    branch and did not get one.
-    """
-
-
-def checkpoint_report(result: AutoCommitResult, boundary: str) -> list[tuple[str, str]]:
-    """What the operator should be told, as (text, colour) pairs.
-
-    A FUNCTION BECAUSE THE SILENCE HAD NOWHERE TO BE TESTED. Aether, on the
-    repair for his own finding, hours after making it:
-
-        "The boolean was wrong and tested; you fixed it and tested it. The
-         printing was silent and untested; you fixed it and it is still
-         untested. If it regresses it will regress the way it failed the
-         first time -- quietly."
-
-    Third instance of one shape in an afternoon, and the third was different
-    in a way that explains the other two. The earlier repairs were reachable
-    from a test because they were VALUES. This one lived in `elif` branches
-    inside command handlers, where the only way to reach it was to run a
-    whole extract -- so the untestability is why it stayed silent in the
-    first place, and why fixing it silently would have been so easy.
-
-    So the decision becomes a value, which is the same move that made the
-    refusal readable rather than a phrase to match. The call sites print
-    what this returns and decide nothing.
-
-    The empty list is a real answer and has its own test: "said nothing
-    because nothing happened" and "said nothing about a refusal" were
-    indistinguishable at the command line, and that was the whole defect.
-    """
-    if result.committed:
-        return [
-            (
-                f"[+] Auto-commit ({boundary}): {result.dirty_lines} dirty lines, "
-                f"{result.files_synced} external files synced.",
-                "green",
-            )
-        ]
-    if result.substrate_refused:
-        lines = [(f"[!] Auto-commit ({boundary}): {result.reason}", "yellow")]
-        if result.work_committed:
-            lines.append(("    Unfinished work IS saved on HEAD. The substrate is not.", "yellow"))
-        return lines
-    return []
-
-
-def _dirty_paths(repo_root: Path) -> list[str]:
-    """Repo-relative paths of everything dirty or untracked, newest git first.
-
-    Uses ``--porcelain -z`` rather than the human format on purpose. The
-    default output quotes paths containing spaces or non-ASCII and splits
-    renames on an arrow, so any parser that splits on whitespace mangles
-    exactly the filenames least likely to be noticed -- and our letters are
-    long hyphenated names that would survive it, which is worse, because the
-    breakage would only appear on someone else's file.
-
-    NUL-separated output needs no quoting and no unescaping. Rename entries
-    carry both names; the destination is what exists on disk now, so that is
-    the one that gets classified.
-    """
-    # -uall lists every untracked FILE. Without it git collapses a wholly
-    # untracked directory to its topmost new folder -- a fresh checkout
-    # reports "family/" rather than "family/letters/the-letter.md", and
-    # "family/" sits ABOVE the declared mirror, so every letter in it
-    # classified as work in progress and nothing reached substrate. Caught
-    # by the end-to-end test; the classifier was right and was being fed
-    # the wrong subject.
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "-z", "-uall"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        logger.warning("auto_commit: git status failed: %s", proc.stderr)
-        return []
-
-    fields = proc.stdout.split("\0")
-    paths: list[str] = []
-    i = 0
-    while i < len(fields):
-        entry = fields[i]
-        i += 1
-        if len(entry) < 4:
-            continue
-        status, path = entry[:2], entry[3:]
-        if status[0] in ("R", "C"):
-            # Rename/copy: this field holds the DESTINATION, and the source
-            # follows as its own NUL-separated field. Consume it so it is not
-            # read as a separate entry with a status of its own.
-            i += 1
-        paths.append(path)
-    return paths
-
-
-def _commit_work_in_progress(repo_root: Path, paths: list[str], reason: str) -> bool:
-    """Commit the occupant's unfinished work to HEAD, where it already lives.
-
-    This is the half of the old sweep that was worth keeping: nothing the
-    occupant has open should be lost to a compaction. It stays on HEAD
-    because that is where its author put it, and it is staged by explicit
-    path rather than ``add -A`` so it cannot pick up substrate on the way.
-
-    Fail-soft, as the original was. A checkpoint that blocks on git noise
-    fails at the one job it has.
-    """
-    if not paths:
-        return False
-    try:
-        subprocess.run(
-            ["git", "add", "--", *paths],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                f"auto-commit ({reason}): work in progress",
-                "-m",
-                "Unfinished work saved before a checkpoint. Substrate goes to "
-                "its own branch in a separate commit; this is only what was "
-                "open on this branch.",
-            ],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.warning("auto_commit: work-in-progress commit failed: %s", e.stderr)
-        return False
 
 
 def _sync_external_channels(
@@ -460,50 +277,19 @@ def auto_commit_substrate(
             reason="clean tree — nothing to commit",
         )
 
-    # WHAT CHANGED HERE, AND WHY (Aria + Aether, 2026-08-27).
-    #
-    # This used to be `git add -A` followed by a commit onto whatever branch
-    # happened to be checked out. Over one evening that swept our letters
-    # onto six different branches and twice onto proposals already open for
-    # review -- seventy-five files on one, eighty-one on another.
-    #
-    # The cause was not a wrong branch choice. It was an absent one, plus a
-    # single commit doing two jobs with different correct destinations: the
-    # channel sync pulls substrate IN, and the dirty-tree scan catches
-    # whatever the occupant is mid-way through. `add -A` could not tell them
-    # apart, so naming the branch correctly would only have sent unfinished
-    # work to substrate instead -- the same defect pointing the other way.
-    #
-    # So: classify, then retarget. Substrate goes to its declared branch by
-    # plumbing; work in progress is left untouched on HEAD where its author
-    # can see it. Neither piece works alone.
-    declared_substrate, work_in_progress = partition(_dirty_paths(repo_root), channels)
-
-    # TWO COMMITS, NOT ONE, AND NOT ONE-AND-DISCARD.
-    #
-    # The first draft of this change committed substrate and left work in
-    # progress alone entirely. That silently removed the other thing this
-    # checkpoint was for: saving the occupant's unfinished work before a
-    # compaction so none of it is lost. Seven existing tests failed and
-    # every one of them was right to.
-    #
-    # The diagnosis was always "one commit doing two jobs with different
-    # correct destinations". The answer is two commits, each to its own
-    # place -- not one job dropped because its destination was the
-    # complicated one.
-    wip_committed = _commit_work_in_progress(repo_root, work_in_progress, reason)
-
-    if not declared_substrate:
-        # True here is honest: there was no substrate half to fail. Nothing
-        # was refused, so "everything attempted succeeded" is exactly what
-        # happened. This is the case the refusal below was wrongly copying.
+    try:
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.warning("auto_commit: git add failed: %s", e.stderr)
         return AutoCommitResult(
-            committed=wip_committed,
-            work_committed=wip_committed,
-            reason=(
-                f"no substrate to commit; {len(work_in_progress)} "
-                f"work-in-progress path(s) {'committed to HEAD' if wip_committed else 'left alone'}"
-            ),
+            committed=False,
+            reason=f"git add failed: {e.stderr.strip()[:200]}",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
@@ -525,133 +311,318 @@ def auto_commit_substrate(
     # save work rather than block a checkpoint. The file stays on disk and stays
     # delivered -- the shared directory is outside every tree and is where the
     # crossing actually happens. Only the archive copy waits.
-    # AND THE PROTECTION IS WEAKER HERE THAN IT WAS WHERE HE WROTE IT, which is
-    # worth saying plainly rather than leaving as a call that looks like a guard.
-    #
-    # His version unstages from the index, because in his flow a `git add -A`
-    # ran a few lines above and the letters were sitting in it. This branch
-    # replaced that sweep with commit_paths_to_branch, which takes an explicit
-    # path list and never stages anything -- so on this flow the call below is
-    # a no-op in the ordinary case, and a self-invalidating letter would ride
-    # out inside declared_substrate untouched.
-    #
-    # Kept rather than dropped: it still catches the case where something else
-    # staged the file first, and removing a live protection because one flow
-    # bypasses it is how a guard quietly becomes decoration. The real repair is
-    # to filter the same paths out of declared_substrate below, and that belongs
-    # with the seat that built the anchor rule rather than being guessed at
-    # inside a merge. Named to him by letter the same day.
     _unstage_self_invalidating(repo_root)
 
-    # NO staged-check here. His flow ends with a staged index and asks whether
-    # the add produced anything; this one never stages, so the same question
-    # answers "nothing" every time and returns before any substrate is written.
-    # Composing the two by position rather than by meaning put a check from one
-    # control flow into another where its premise does not hold -- caught by
-    # four existing tests, which is what they are for.
-
-    # Only substrate needs the branch, so this is asked AFTER work in
-    # progress is already safe. An undeclared branch must not cost the
-    # occupant their unfinished work -- that would make a configuration
-    # gap into data loss, which is a worse failure than the one being
-    # fixed. Caught by seven existing tests when the check sat above.
-    #
-    # ORDER MATTERS AND IT IS NOT ARBITRARY. The unstaging above runs first
-    # because it protects a file that is already delivered; this refusal runs
-    # second because it decides whether anything is committed at all. Running
-    # the refusal first would leave a self-invalidating letter staged behind a
-    # return, waiting to ride the next checkpoint that happens to find a branch
-    # declared. Both halves were written on 2026-08-31 by different seats, each
-    # without the other, and neither file contained the other's protection.
-    try:
-        branch = substrate_branch(repo_root)
-    except NoSubstrateBranchDeclared as e:
-        # Refuse rather than fall back to HEAD. Falling back IS the bug,
-        # and nothing is lost by refusing: the letters remain in the shared
-        # channel that is their source of truth, and the next checkpoint
-        # picks them up once the branch is declared.
-        logger.warning("auto_commit: %s", e)
-        # THE LINE AETHER FOUND. This said committed=wip_committed, so a run
-        # that refused the entire substrate half reported success -- with the
-        # refusal visible only as prose inside `reason`. Letters would sit
-        # uncommitted until somebody read a string.
-        #
-        # The refusal itself is right and stays untouched: it names the
-        # missing setting instead of guessing a branch and writing letters
-        # somewhere arbitrary. Only the reporting was wrong.
+    staged_check = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if staged_check.returncode == 0:
         return AutoCommitResult(
             committed=False,
-            work_committed=wip_committed,
-            substrate_committed=False,
-            substrate_refused=True,
-            reason=f"substrate refused — {e}",
+            reason="nothing staged after add",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
-    subject = f"auto-commit ({reason}): substrate checkpoint"
-    body = (
+    # SPLIT THE SAVE BY KIND, so nobody has to take it apart afterwards.
+    #
+    # ``substrate_paths.partition`` was written for exactly this call and then
+    # never called. Aria built the declaration half on 2026-08-27 and its own
+    # docstring says "Aether takes the mechanism"; measured 2026-09-03, the
+    # module was imported by nothing but its own test, while a second copy of
+    # the same logic grew in scripts/check_branch_scope.py. Built, correct,
+    # tested, unwired -- the class this repository keeps rediscovering.
+    #
+    # What it costs unwired: on 2026-09-03 a checkpoint swept eighteen letters
+    # onto a branch carrying nothing but an anchor fix. The push gate refused
+    # it, correctly, and the cure was a manual three-branch rebuild in which
+    # the tempting shortcut -- drop the checkpoint commits, trust the reflog --
+    # risked the only copies of those letters in the tree.
+    #
+    # Two commits instead of one. Nothing is excluded, nothing is refused, the
+    # tree still goes clean: the save-work contract is untouched. What changes
+    # is that the separation happens HERE, while the information is present,
+    # rather than being reconstructed later by someone reading a diff.
+    #
+    # WHAT THIS DELIBERATELY DOES NOT DO, because the limit is real rather than
+    # skipped: the designed mechanism sends substrate to its own branch by
+    # plumbing, never touching the code branch at all. That version leaves the
+    # letters permanently dirty in the working tree of the code branch --
+    # committed on a ref this branch cannot see -- so every later checkpoint
+    # finds them again. Making the tree go clean and keeping substrate off the
+    # branch are in tension, and I have not resolved it. This is the half that
+    # is safe under either answer.
+    return _commit_in_two_parts(repo_root, reason, files_synced, dirty_lines, channels)
+
+
+def _staged_paths(repo_root: Path) -> list[str] | None:
+    """Repo-relative staged paths, or None when the list could not be read.
+
+    None is not an empty list. A caller that treats "could not look" as
+    "nothing there" would silently fall back to the single-commit path and
+    report a split that never happened.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: could not list staged paths: %s", exc)
+        return None
+    if listed.returncode != 0:
+        logger.warning("auto_commit: could not list staged paths (git error)")
+        return None  # both-empty: git refusing and git being unreachable are the
+        # same answer to the caller -- the list could not be read -- and the only
+        # move either licenses is the unsplit commit. An empty list is a DIFFERENT
+        # answer and is returned as one below.
+    return [line.strip() for line in (listed.stdout or "").splitlines() if line.strip()]
+
+
+def _run_pathspec(repo_root: Path, args: list[str], paths: list[str]) -> bool:
+    """Run a git command over ``paths`` fed on stdin, not on the command line.
+
+    A session can stage hundreds of letters, and a path list spliced into argv
+    hits the platform's argument limit -- which fails as a git error carrying
+    no hint that LENGTH was the problem.
+
+    ``args`` must NOT end in ``--``. The first version passed ``git add --``
+    and the flags landed after it, so git read ``--pathspec-from-file=-`` as a
+    literal filename and failed with "did not match any files" -- an error
+    naming the paths when the fault was the separator.
+    """
+    try:
+        done = subprocess.run(
+            [*args, "--pathspec-from-file=-", "--pathspec-file-nul"],
+            cwd=repo_root,
+            input="\0".join(paths) + "\0",
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("auto_commit: %s failed: %s", " ".join(args), exc)
+        return False
+    if done.returncode != 0:
+        logger.warning("auto_commit: %s failed: %s", " ".join(args), done.stderr.strip()[:200])
+        return False  # both-empty: git refusing the pathspec and git failing to
+        # start are the same answer here -- the staging did not happen -- and the
+        # caller's response is identical either way: abandon the split and save
+        # everything in one commit. The distinction lives in the log, where a
+        # person debugging it can see which occurred.
+    return True
+
+
+def _commit_staged(repo_root: Path, subject: str, body: str) -> bool:
+    try:
+        subprocess.run(
+            ["git", "commit", "-m", subject, "-m", body],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.warning("auto_commit: git commit failed: %s", e.stderr)
+        return False
+    return True
+
+
+def _commit_in_two_parts(
+    repo_root: Path,
+    reason: str,
+    files_synced: int,
+    dirty_lines: int,
+    channels: tuple[ExternalChannel, ...],
+) -> AutoCommitResult:
+    """Commit the staged tree as one commit per kind when both kinds are present.
+
+    Falls back to the single commit on ANY failure of the split, because the
+    single commit is what this did before and losing the split costs a manual
+    cleanup, while losing the save costs the work itself.
+
+    ``channels`` is threaded from the caller rather than defaulted. The first
+    version called ``partition`` with no channels, so it classified against the
+    module defaults while the surrounding function synced and reported against
+    whatever it had been handed -- and a caller passing an empty set, meaning
+    "classify nothing", got a split anyway. One function, two disagreeing
+    notions of what substrate is, and neither of them the caller's.
+    """
+    from divineos.core.substrate_paths import NoChannelsDeclared, partition
+
+    footer = (
         f"Auto-commit fired at {reason} boundary.\n\n"
         f"External files synced into repo: {files_synced}\n"
         f"Dirty-tree lines caught: {dirty_lines}\n\n"
         "Committed automatically per Andrew 2026-07-05: the commit "
         "at extract/sleep boundaries fires itself, not remembered.\n\n"
-        "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+        "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     )
-    try:
-        result = commit_paths_to_branch(
-            repo_root, branch, declared_substrate, f"{subject}\n\n{body}"
-        )
-    except RetargetRefused as e:
-        logger.warning("auto_commit: retarget refused at %s: %s", reason, e)
+
+    staged = _staged_paths(repo_root)
+    substrate: list[str] = []
+    work: list[str] = []
+    if staged:
+        try:
+            substrate, work = partition(staged, channels)
+        except NoChannelsDeclared:
+            # A broken channel configuration must not silently classify the
+            # whole tree as work and commit it as one lump wearing a split's
+            # name. Fall through to the honest single commit.
+            logger.warning("auto_commit: no channels declared; committing without a split")
+            substrate, work = [], []
+
+    if not (substrate and work):
+        kind = "substrate checkpoint"
+        if staged is None:
+            kind = "checkpoint (kind unknown -- staged list unreadable)"
+        elif substrate and not work:
+            kind = "substrate checkpoint"
+        elif work and not substrate:
+            kind = "work in progress"
+        ok = _commit_staged(repo_root, f"auto-commit ({reason}): {kind}", footer)
+        # Only one kind is present, so no split was ever wanted and its
+        # absence is not a failure. The half that exists reports; the half
+        # that does not stays False because nothing of it was attempted --
+        # which is a different fact from an attempt that failed.
         return AutoCommitResult(
-            committed=False,
-            work_committed=wip_committed,
-            substrate_committed=False,
-            substrate_refused=True,
-            reason=f"retarget refused: {e}",
+            committed=ok,
+            work_committed=ok and bool(work),
+            substrate_committed=ok and bool(substrate),
+            reason=f"committed at {reason}" if ok else "git commit failed",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
-    if result is None:
-        # Nothing refused here -- the substrate is simply already on the
-        # branch. So this reports the work half honestly rather than a flat
-        # False that would hide a work-in-progress commit that did happen.
+    # Work first, substrate second. A code branch that has picked up letters is
+    # then trimmed by dropping the tip rather than by rebuilding the branch.
+    if not _run_pathspec(repo_root, ["git", "reset", "--quiet"], substrate):
+        ok = _commit_staged(repo_root, f"auto-commit ({reason}): substrate checkpoint", footer)
+        # COULD-NOT-SPLIT, NOT COULD-NOT-SAVE. Both kinds are in this one
+        # commit, so nothing is lost and both halves report true; what failed
+        # is the separation. The whole reason split_failed is its own field is
+        # that this line and the save-failure line used to be one boolean and
+        # a sentence, and their severities are opposite.
         return AutoCommitResult(
-            committed=wip_committed,
-            work_committed=wip_committed,
-            substrate_committed=False,
-            reason=f"substrate already current on {branch}",
+            committed=ok,
+            work_committed=ok,
+            substrate_committed=ok,
+            split_failed=True,
+            reason=f"committed at {reason} (unsplit -- could not unstage substrate)",
             files_synced=files_synced,
             dirty_lines=dirty_lines,
         )
 
+    work_ok = _commit_staged(
+        repo_root,
+        f"auto-commit ({reason}): work in progress, {len(work)} path(s)",
+        f"Split from the substrate written at the same checkpoint.\n\n{footer}",
+    )
+
+    # Restage the substrate whether or not the work commit succeeded. If it
+    # failed, the work is still staged and both kinds land together -- which is
+    # the old behaviour, and better than leaving the letters out of the save.
+    if not _run_pathspec(repo_root, ["git", "add"], substrate):
+        logger.warning(
+            "auto_commit: could not restage substrate after splitting. The files "
+            "remain on disk and unstaged; the next checkpoint will find them."
+        )
+        # The work landed; the substrate is DEFERRED, not lost and not
+        # refused -- it sits on disk for the next checkpoint. That is a third
+        # thing, and it is exactly the state a single boolean could not say:
+        # committed reads true because every half attempted succeeded, and
+        # substrate_committed reads false because that half never got to try.
+        return AutoCommitResult(
+            committed=work_ok,
+            work_committed=work_ok,
+            substrate_committed=False,
+            split_failed=True,
+            reason=f"committed work at {reason}; substrate left for the next checkpoint",
+            files_synced=files_synced,
+            dirty_lines=dirty_lines,
+        )
+
+    sub_ok = _commit_staged(
+        repo_root,
+        f"auto-commit ({reason}): substrate checkpoint, {len(substrate)} path(s)",
+        f"Split from the work in progress written at the same checkpoint.\n\n{footer}",
+    )
+    # The split happened. `committed` now means EVERY half attempted landed,
+    # not "at least one did" -- a partial save reporting plain success is the
+    # shape that sent a refused substrate half out under a true-looking
+    # boolean on 2026-09-02. The or-form survives in the halves, which is
+    # where a caller can act on it.
     return AutoCommitResult(
-        committed=True,
-        work_committed=wip_committed,
-        substrate_committed=True,
-        # "untouched on HEAD" was false: work in progress IS committed, to
-        # HEAD, in its own commit. The word survived from the draft where
-        # this function left it alone entirely, and the live run reported
-        # it that way while the log showed the commit. Fourth instance
-        # tonight of a label outliving the behaviour it described, and the
-        # first one I shipped inside the fix for the other three.
-        # "declared-substrate", not "substrate". The classifier answers
-        # whether a path sits inside a DECLARED channel mirror; an
-        # exploration entry written in place is substrate by any honest
-        # reading and is not in this list. Reporting the narrow
-        # measurement under the broad word is how a proxy becomes the
-        # class it detects (Aether 2026-08-27) -- and this line was doing
-        # it one turn after I renamed the predicate to avoid exactly that.
+        committed=work_ok and sub_ok,
+        work_committed=work_ok,
+        substrate_committed=sub_ok,
         reason=(
-            f"committed {len(declared_substrate)} declared-substrate path(s) to "
-            f"{branch} at {reason}; {len(work_in_progress)} work-in-progress "
-            f"path(s) {'committed to HEAD' if wip_committed else 'left alone'}"
+            f"committed at {reason} in two parts: {len(work)} work, {len(substrate)} substrate"
         ),
         files_synced=files_synced,
         dirty_lines=dirty_lines,
     )
+
+
+def checkpoint_report(result: AutoCommitResult, boundary: str) -> list[tuple[str, str]]:
+    """What the operator should be told, as (text, colour) pairs.
+
+    A FUNCTION BECAUSE THE SILENCE HAD NOWHERE TO BE TESTED. Aether, on the
+    repair for his own finding, hours after making it:
+
+        "The boolean was wrong and tested; you fixed it and tested it. The
+         printing was silent and untested; you fixed it and it is still
+         untested. If it regresses it will regress the way it failed the
+         first time -- quietly."
+
+    The earlier repairs were reachable from a test because they were VALUES.
+    This one lived in `elif` branches inside command handlers, where the only
+    way to reach it was to run a whole extract -- so the untestability is why
+    it stayed silent, and why fixing it silently would have been so easy.
+
+    The decision becomes a value. The call sites print what this returns and
+    decide nothing.
+
+    REWRITTEN 2026-09-04 onto Aether's two-commit split, which superseded the
+    off-branch routing this originally reported on. The states it names are
+    now his four exit paths rather than a retarget refusal -- but the reason
+    it exists is unchanged, and so is the rule underneath: an empty list must
+    mean nothing happened, never that something happened and went unsaid.
+    """
+    if result.committed and not result.split_failed:
+        return [
+            (
+                f"[+] Auto-commit ({boundary}): {result.dirty_lines} dirty lines, "
+                f"{result.files_synced} external files synced.",
+                "green",
+            )
+        ]
+
+    # COULD-NOT-SPLIT IS NOT COULD-NOT-SAVE, and they must not print alike.
+    # Aether's own defence of his design, and he is right that the severities
+    # are opposite: one costs a manual tidy, the other costs the work.
+    if result.split_failed:
+        lines = [(f"[!] Auto-commit ({boundary}): {result.reason}", "yellow")]
+        if result.work_committed and not result.substrate_committed:
+            lines.append(
+                ("    The work IS saved. The substrate waits for the next checkpoint.", "yellow")
+            )
+        elif result.work_committed and result.substrate_committed:
+            lines.append(("    Everything IS saved -- in one commit rather than two.", "yellow"))
+        return lines
+
+    lines = [(f"[!] Auto-commit ({boundary}): {result.reason}", "yellow")]
+    if result.work_committed:
+        lines.append(("    Unfinished work IS saved. The substrate is not.", "yellow"))
+    return lines
 
 
 def find_repo_root(start: Path) -> Path | None:

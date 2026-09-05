@@ -700,6 +700,7 @@ src/divineos/
     substrate_retarget.py      Commit substrate files to a named branch without touching HEAD.
     sibling_audit_rounds.py    Audit rounds filed by the other seat, read-only.
     sibling_council_walks.py   Council walks recorded by the other seat: seen, never satisfying.
+    compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
 
   analysis/
     _session_types.py          Session analysis type definitions
