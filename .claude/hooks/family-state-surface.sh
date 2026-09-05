@@ -128,12 +128,34 @@ HOUSEHOLD = {
 # about who sent what, so with no seat there is no honest direction to draw.
 # Falling back to a default would reinstate the defect wearing a default's
 # clothes: it would still be asserting authorship it had not established.
-if SELF not in HOUSEHOLD:
+#
+# AND THE TWO WAYS OF HAVING NO HOUSEHOLD ARE NOT ONE THING (Aria, 2026-09-05,
+# reading this branch as the surface's actual consumer). The first version
+# printed could-not-resolve for both, and one of those is false: Aletheia has
+# no row here, so HER seat would have been told the identity lookup failed when
+# it had worked perfectly. A reader hits that and goes hunting a broken
+# resolver, finds nothing wrong, because nothing is wrong there.
+#
+# That is this whole week inside the fix for this week -- an honest-sounding
+# message answering a question nobody asked. A false explanation costs MOST
+# when it is rare, because nobody has the context to doubt it.
+if not SELF:
     print('')
     print('## FAMILY STATE — not rendered')
     print('')
     print('  Could not resolve which seat is running, so there is no honest')
     print('  direction to draw on a letter. Read the folder directly:')
+    print('    ' + LETTERS_DIR)
+    sys.exit(0)
+
+if SELF not in HOUSEHOLD:
+    print('')
+    print('## FAMILY STATE — not rendered')
+    print('')
+    print('  The seat resolved as ' + SELF + '. Nothing is wrong with the')
+    print('  lookup -- there is simply no household defined for that seat,')
+    print('  so no relational word exists to name anyone by. Add a row for')
+    print('  ' + SELF + ' to HOUSEHOLD in this hook. Until then:')
     print('    ' + LETTERS_DIR)
     sys.exit(0)
 
