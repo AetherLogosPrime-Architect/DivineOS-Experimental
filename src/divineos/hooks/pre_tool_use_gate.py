@@ -911,19 +911,106 @@ def _record_gate_fire(reason: str) -> None:
         pass
 
 
+# The command this process was asked about, stashed at parse time so a refusal
+# can describe the SHAPE of the line it refused. A hook process handles exactly
+# one tool call, so a module-level slot is the whole of its lifetime.
+_REFUSED_COMMAND: str = ""
+
+# Shell operators that join clauses. A refused line containing one of these had
+# work sitting before or after the part the gate names.
+#
+# DELIBERATELY CRUDE, and the asymmetry is the reason. A semicolon inside a
+# quoted string or a heredoc counts here and should not. What that false
+# positive costs is four extra lines of text that are TRUE ANYWAY -- a
+# pre-tool refusal means nothing ran whether the line held one clause or five.
+# What a false negative costs is the fault this exists to close. So it errs
+# toward speaking.
+_CLAUSE_JOINER = re.compile(r"&&|\|\||;|\n\s*\S")
+
+
+def _nothing_ran_footer(command: str) -> str:
+    """Say what did NOT run, for a refused line that joined more than one clause.
+
+    WHY THIS EXISTS. On 2026-09-05 Aether wrote one line meaning two things --
+    commit, then push -- and a gate refused it. The refusal named the push,
+    because the push was the half that tripped it. He read it as being about
+    the push and believed the commit had happened. It had not: a PreToolUse
+    refusal fires before the shell ever sees the line, so no clause runs.
+
+    He then merged main onto a branch carrying no commit, got a diff against
+    main that was completely empty, and was one step from reporting it fixed.
+    The same shape had cost thirty letters two days earlier, from the other
+    direction: a refusal read as being about a deletion, the branch-switch half
+    silently dropped, and the re-issued fragment ran on the wrong branch.
+
+    Nothing lied to him either time. Every gate answered accurately about the
+    clause that tripped it, while the question actually being asked was *what
+    happened to my line* -- an honest answer to a question nobody asked.
+    Measured that night from both checkouts: of the hooks in this house that
+    can refuse a shell line, exactly zero said what did not run. Two people,
+    two different patterns, two non-zero controls, the same zero.
+
+    NOT HEDGED, and that is Aether's correction to the first draft of this.
+    "Some of this may not have run" leaves room to reconstruct a hopeful half,
+    which is the precise inference that cost him the branch. These gates run
+    before the shell. Nothing ran, and the message says so flatly.
+
+    THE SECOND SENTENCE IS THE ONE THAT SAVES THE WORK. Misreading a refusal is
+    survivable by itself. What made it expensive both times was the next move --
+    re-issuing one fragment of the line, which then executed in a state the
+    full line would have established and did not. Answering the objection and
+    re-running the WHOLE line costs nothing on the occasions it was unnecessary.
+
+    Returns "" for a single-clause line. "Nothing ran" is true there too, but
+    printing it on every refusal is wallpaper, and wallpaper is how a footer
+    stops being read. This one has to survive being read.
+
+    WHAT IS AND IS NOT COVERED, named here because an unstated gap reads as a
+    closed one. Every refusal packaged by ``_make_deny`` carries this, and the
+    shell hooks carry the same words through ``hook_say_nothing_ran`` in
+    .claude/hooks/_lib.sh. Still uncovered: the hooks that refuse by emitting a
+    JSON decision instead of exiting 2. Their footer belongs inside the reason
+    string and each builds that string its own way, so wiring them is a
+    separate careful pass. That set is enumerated and pinned in
+    tests/test_every_refusing_hook_says_what_did_not_run.py, where the list
+    fails if it grows and fails again if a name in it goes stale.
+
+    THE ENUMERATION ITSELF GOT THIS WRONG TWICE, which is worth more than the
+    fix. The first scan asked which hooks READ the command and found ten; the
+    question was which can REFUSE one, which is fifteen. The second asked which
+    exit 2, and missed that exiting 2 is one MECHANISM of refusing rather than
+    the whole of it. Both times the instrument answered accurately about a
+    narrower subject than the question -- the exact fault this function exists
+    to fix, committed twice by the thing measuring it.
+    """
+    if not command or not _CLAUSE_JOINER.search(command):
+        return ""
+    return (
+        "\n\n-- nothing on this line ran --\n"
+        "This refusal fired before the shell saw the command, and the line "
+        "joins more than one clause. No clause executed: not the ones after "
+        "the part named above, and not the ones before it.\n"
+        "Answer the objection, then re-issue the WHOLE line. Re-running a "
+        "single fragment executes it in a state the full line would have set "
+        "up and did not."
+    )
+
+
 def _make_deny(reason: str) -> dict[str, Any]:
     """Package a deny decision in the Claude Code hook response format.
 
-    Records the refusal on the way out. Every call site routes through
-    here, so instrumenting this one function captures every gate rather
-    than depending on nineteen call sites each remembering to log.
+    Records the refusal on the way out, and appends what did not run. Every
+    call site routes through here, so instrumenting this one function captures
+    every gate rather than depending on nineteen call sites each remembering to
+    log -- and now, rather than depending on each of them remembering to say
+    that the whole line died.
     """
     _record_gate_fire(reason)
     return {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
+            "permissionDecisionReason": reason + _nothing_ran_footer(_REFUSED_COMMAND),
         }
     }
 
@@ -1984,6 +2071,14 @@ def main() -> int:
         cmd = input_data.get("tool_input", {}).get("command", "") or ""
     except (AttributeError, TypeError):
         cmd = ""
+
+    # Stashed for _nothing_ran_footer, which runs deep inside whichever gate
+    # refuses and has no other way to see the shape of the line. Set here,
+    # once, next to the parse -- not threaded through nineteen call sites,
+    # because a parameter every caller must remember is a parameter someone
+    # eventually forgets, and the forgetting is silent.
+    global _REFUSED_COMMAND
+    _REFUSED_COMMAND = cmd
 
     # Ownership-block gate — runs BEFORE bypass check. A mismatched
     # substrate makes even documented bypass commands unsafe: they would

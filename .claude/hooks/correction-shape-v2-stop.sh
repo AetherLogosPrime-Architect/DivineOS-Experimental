@@ -240,6 +240,7 @@ if [ -n "$BLOCK_MSG" ]; then
         cat "$REPO_ROOT/.claude/hooks/_retry_scope.txt" >&2 2>/dev/null || true  # fail-soft: a missing shared retry-scope file must not block the gate from emitting its own delta line
         printf '\nDelta for THIS gate: the remediation is the CLI calls above. Run them, then append at most a one-line note. Do NOT recompose the reply.\n' >&2
     fi
+    hook_say_nothing_ran_for "$INPUT"
     exit 2
 fi
 
