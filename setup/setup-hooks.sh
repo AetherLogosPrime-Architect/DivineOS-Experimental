@@ -345,12 +345,18 @@ done <<< "$HOOK_STDIN"
 # points at an OLD commit by definition, so "this is behind main" is both
 # true and beside the point.
 #
-# The narrow skip here is not the whole repair. The check still resolves HEAD
-# rather than the pushed ref for every other push shape, and that remains
-# open -- fixing it properly means teaching it to read the refspec, which is
-# a change to what the check measures rather than to when it runs.
+# THE WHOLE REPAIR, 2026-09-04. The paragraph that stood here said the narrow
+# tag-skip was not it, and that the check still resolves HEAD rather than the
+# pushed ref for every other push shape -- open, with the fix named as
+# teaching it to read the refspec.
+#
+# It now reads the refspec, and this line is the other half: the hook had the
+# ref lines the whole time and never handed them over. Cost of the gap,
+# measured: seven bypass records in one day for pushing letters to the letters
+# branch while a code branch was checked out, each one an open error blocking
+# the next goal. The verdict was about a branch that was not going anywhere.
 if [[ -x "$FRESHNESS" && "$PUSH_IS_TAGS_ONLY" != "1" ]]; then
-    "$FRESHNESS" origin main
+    printf '%s\n' "$HOOK_STDIN" | "$FRESHNESS" origin main
     RC=$?
     if [[ $RC -eq 1 ]]; then
         # Stale base detected — script already printed instructions.

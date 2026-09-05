@@ -79,15 +79,70 @@ fi
 REMOTE="${1:-origin}"
 BASE_BRANCH="${2:-main}"
 
-# Detached HEAD: git symbolic-ref --short HEAD returns non-zero. Let through.
-if ! CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null); then
-    echo "[freshness-check] detached HEAD — skipping."
+# WHICH BRANCH IS THIS ABOUT? Until 2026-09-04 the answer was always HEAD,
+# and HEAD is not what a push is about.
+#
+# The pre-push hook receives the refs being pushed on stdin and captured them
+# for other gates, but never handed them here -- so pushing a letters branch
+# while standing on a code branch produced a verdict about the CODE branch.
+# The block was true, the branch it named was not the one going anywhere, and
+# the remedy it printed pointed at the wrong tree.
+#
+# Measured cost before the fix: seven bypass records filed in one day, every
+# one for pushing letters to the letters branch while a different branch
+# happened to be checked out. Each bypass files an open error that blocks the
+# next new goal until accounted for in writing -- so an instrument answering
+# about the wrong subject was generating a false record of wrongdoing at seven
+# a day, and a record does not need anyone present to do its damage.
+#
+# The defect was already known and written down: setup/setup-hooks.sh carries
+# a comment saying this check resolves HEAD rather than the pushed ref, and
+# that fixing it properly means teaching it to read the refspec. This is that.
+#
+# THREE STATES, KEPT APART, because collapsing any two is the fault this house
+# keeps finding:
+#   refs on stdin    -> check those, which is the question actually asked
+#   only deletions   -> a deletion introduces no commits and has no base to be
+#                       stale against; nothing to check, and that is not a
+#                       pass smuggled in
+#   nothing on stdin -> run by hand. Fall back to HEAD and SAY which subject
+#                       was used, so a verdict is never read as being about a
+#                       branch it never examined.
+SUBJECT_SHAS=()
+SUBJECT_NAMES=()
+SAW_REF=0
+
+# A bare read would hang forever when a person runs this from a terminal, so
+# the first read is bounded. A hook always has its lines ready; a hand-run
+# times out and falls through to HEAD.
+if IFS=' ' read -r -t 2 _lref _lsha _rref _rsha; then
+    while :; do
+        if [[ -n "${_lref:-}" ]]; then
+            SAW_REF=1
+            # An all-zero local sha is a deletion: nothing is introduced.
+            if [[ ! "${_lsha:-}" =~ ^0+$ ]]; then
+                SUBJECT_SHAS+=("$_lsha")
+                SUBJECT_NAMES+=("${_lref#refs/heads/}")
+            fi
+        fi
+        IFS=' ' read -r _lref _lsha _rref _rsha || break
+    done
+fi
+
+if [[ "$SAW_REF" == "1" && ${#SUBJECT_SHAS[@]} -eq 0 ]]; then
+    echo "[freshness-check] every ref in this push is a deletion — nothing to check."
     exit 0
 fi
 
-# Pushing main itself? We're not branching from it, we're updating it.
-if [[ "$CURRENT_BRANCH" == "$BASE_BRANCH" ]]; then
-    exit 0
+if [[ ${#SUBJECT_SHAS[@]} -eq 0 ]]; then
+    # Detached HEAD: git symbolic-ref --short HEAD returns non-zero. Let through.
+    if ! CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null); then
+        echo "[freshness-check] detached HEAD — skipping."
+        exit 0
+    fi
+    SUBJECT_SHAS+=("HEAD")
+    SUBJECT_NAMES+=("$CURRENT_BRANCH")
+    echo "[freshness-check] no refs on stdin — checking HEAD ($CURRENT_BRANCH)."
 fi
 
 # Verify the remote exists locally before fetching.
@@ -109,16 +164,31 @@ if ! git rev-parse --verify --quiet "$REMOTE_REF" >/dev/null; then
     exit 2
 fi
 
-# The actual check. is-ancestor exit codes:
-#   0 — yes (origin/main is in HEAD's history; branch is fresh or ahead)
-#   1 — no (origin/main has commits HEAD does not; branch is STALE)
+# The actual check, now run once per ref being pushed. is-ancestor exit codes:
+#   0 — yes (origin/main is in that ref's history; it is fresh or ahead)
+#   1 — no (origin/main has commits that ref does not; it is STALE)
 #   other — error
-if git merge-base --is-ancestor "$REMOTE_REF" HEAD; then
-    exit 0
-fi
+#
+# A push carrying several refs is stale if ANY of them is, and the message
+# names the one that failed rather than whichever branch happens to be
+# checked out. Pushing the base branch itself is not branching from it, so
+# that ref is skipped rather than the whole push.
+STALE_SHA=""
+for _i in "${!SUBJECT_SHAS[@]}"; do
+    _sha="${SUBJECT_SHAS[$_i]}"
+    _name="${SUBJECT_NAMES[$_i]}"
+    [[ "$_name" == "$BASE_BRANCH" ]] && continue
+    if ! git merge-base --is-ancestor "$REMOTE_REF" "$_sha" 2>/dev/null; then
+        STALE_SHA="$_sha"
+        CURRENT_BRANCH="$_name"
+        break
+    fi
+done
 
-# Compute commits-behind for the message.
-BEHIND=$(git rev-list --count "HEAD..$REMOTE_REF" 2>/dev/null || echo "?")
+[[ -z "$STALE_SHA" ]] && exit 0
+
+# Compute commits-behind for the message, about the ref that actually failed.
+BEHIND=$(git rev-list --count "$STALE_SHA..$REMOTE_REF" 2>/dev/null || echo "?")
 
 cat <<EOF >&2
 [freshness-check] BLOCKED: branch '$CURRENT_BRANCH' is $BEHIND commit(s) behind $REMOTE/$BASE_BRANCH.
