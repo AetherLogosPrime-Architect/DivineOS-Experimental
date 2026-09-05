@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -88,6 +89,57 @@ def _branch_tip(repo_root: Path, branch: str) -> str:
     return proc.stdout.strip()
 
 
+def _warn_if_branch_is_checked_out_elsewhere(repo_root: Path, branch: str) -> None:
+    """Say so when the branch we just advanced is checked out in a worktree.
+
+    THE SAFETY PROPERTY OF THIS MODULE HAS A SHADOW, found 2026-09-04.
+
+    Writing through a scratch index leaves HEAD, the working tree and the real
+    index untouched -- the caller's. It says nothing about a SECOND worktree
+    sitting on the same branch, and there the effect is the opposite of safe:
+    the ref advances, that worktree's files do not, so every path landed this
+    way reads there as a STAGED DELETION.
+
+    Measured, not hypothesised. A worktree on the substrate branch had 32
+    staged letter deletions in it -- Aether's letters to Aletheia, my dream,
+    letters of mine -- and eleven archive edits. Nothing had been committed;
+    the branch tip held all of them. The whole hazard lived in an index, and
+    it grows by one file per landing. Commit that worktree by reflex, or let
+    any checkpoint do it, and thirty-two letters come off the branch whose
+    only job is to carry them, wearing the shape of ordinary work.
+
+    That is the empty-diff failure Aether hit the same day, arriving from the
+    opposite direction: his was a strip he performed and reverted, this one
+    nobody performed at all. It is a consequence of the plumbing being careful.
+
+    A WARNING RATHER THAN A REPAIR, deliberately. Updating the other worktree
+    from here would be exactly the reach this module refuses -- writing into a
+    tree whose occupant did not ask, possibly mid-operation. What was missing
+    was not the fix; it was anyone knowing. Silence is what let it reach 32.
+    """
+    try:
+        listing = _git(repo_root, "worktree", "list", "--porcelain")
+    except Exception:  # noqa: BLE001 — a warning must never break the landing
+        return
+
+    here = str(repo_root).replace("\\", "/").rstrip("/").lower()
+    current_path = ""
+    for line in listing.splitlines():
+        if line.startswith("worktree "):
+            current_path = line[len("worktree ") :].strip()
+        elif line.strip() == f"branch refs/heads/{branch}":
+            other = current_path.replace("\\", "/").rstrip("/")
+            if other.lower() != here:
+                print(
+                    f"[retarget] NOTE: '{branch}' is also checked out at {other}.\n"
+                    f"[retarget] That worktree's files did NOT move with this commit, so the\n"
+                    f"[retarget] paths just landed will read there as STAGED DELETIONS.\n"
+                    f"[retarget] Committing it by reflex removes them from the branch.\n"
+                    f"[retarget] Sync it before working there:  git -C {other} checkout -- .",
+                    file=sys.stderr,
+                )
+
+
 def commit_paths_to_branch(
     repo_root: Path,
     branch: str,
@@ -133,6 +185,8 @@ def commit_paths_to_branch(
     # fails rather than clobbering whatever arrived -- the in-flight window is
     # real and was measured, not hypothesised.
     _git(repo_root, "update-ref", f"refs/heads/{branch}", commit, parent)
+
+    _warn_if_branch_is_checked_out_elsewhere(repo_root, branch)
 
     return RetargetResult(
         branch=branch,

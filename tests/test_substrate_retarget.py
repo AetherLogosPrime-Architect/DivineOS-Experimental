@@ -23,6 +23,43 @@ def _git(repo: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
+class TestASecondWorktreeOnTheSameBranch:
+    """The safety property has a shadow, measured before it was named.
+
+    Writing through a scratch index leaves the CALLER's tree untouched. It says
+    nothing about another worktree sitting on the same branch, where the ref
+    advances and the files do not -- so every landed path reads there as a
+    staged deletion. Found 2026-09-04 as 32 of them, uncommitted, on the branch
+    whose only job is to carry letters. Commit that index by reflex and they
+    come off the branch wearing the shape of ordinary work.
+
+    A warning rather than a repair: writing into a tree whose occupant did not
+    ask is the reach this module exists to refuse. What was missing was anyone
+    knowing, and silence is what let it reach 32.
+    """
+
+    def test_warns_when_the_branch_is_checked_out_elsewhere(self, repo, capsys, tmp_path):
+        other = tmp_path / "second-tree"
+        _git(repo, "branch", "-f", "substrate", "HEAD")
+        _git(repo, "worktree", "add", "-q", str(other), "substrate")
+        try:
+            (repo / "letter.md").write_text("hello\n", encoding="utf-8")
+            commit_paths_to_branch(repo, "substrate", ["letter.md"], "land a letter")
+            err = capsys.readouterr().err
+            assert "also checked out" in err
+            assert "STAGED DELETIONS" in err
+        finally:
+            _git(repo, "worktree", "remove", "--force", str(other))
+
+    def test_silent_when_nobody_else_has_it_out(self, repo, capsys):
+        # The negative matters as much. A warning that fires on every landing
+        # becomes wallpaper, and wallpaper is what stopped being read.
+        _git(repo, "branch", "-f", "substrate", "HEAD")
+        (repo / "letter.md").write_text("hello\n", encoding="utf-8")
+        commit_paths_to_branch(repo, "substrate", ["letter.md"], "land a letter")
+        assert "also checked out" not in capsys.readouterr().err
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     r = tmp_path / "repo"
