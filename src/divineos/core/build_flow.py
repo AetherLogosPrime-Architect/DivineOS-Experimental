@@ -116,14 +116,43 @@ def score_pr_gravity(changed_paths: tuple[str, ...]) -> tuple[int, tuple[str, ..
     return len(fired), tuple(fired)
 
 
-def required_lens_count(gravity: int, changed_file_count: int) -> int:
+# Prose a lens cannot grip. A council lens asks how a MECHANISM fails, gets
+# gamed, or drifts; a letter has no mechanism in it. Same prefixes the scope
+# checker uses, and deliberately the same list rather than a second copy --
+# two lists of what counts as substrate would drift, which is the defect the
+# sweep repair exists to end.
+_UNGRIPPABLE_PREFIXES = ("family/letters/", "exploration/", "dreams/", "docs/archives/")
+
+
+def required_lens_count(gravity: int, changed_paths: tuple[str, ...] | list[str]) -> int:
     """Lenses required at station 2, scaled to what is actually at stake.
 
     Zero is a real answer. A substrate-content PR with no code has nothing
     for a lens to grip, and walking one anyway is the ceremony that teaches
     me walks are ceremony.
+
+    AND THE CODE COUNTED THE WRONG THING WHILE THE DOCSTRING SAID THE RIGHT
+    ONE (2026-09-02). The sentence above has been here since the file was
+    written and is correct. The implementation asked how MANY files changed,
+    which is a proxy for stake and not stake itself -- so a branch carrying
+    fifty-two letters and no code at all was required to walk two lenses,
+    because fifty-two is a big number.
+
+    Found by the ordinary case rather than by a test: the letters-only branch
+    sat blocked on a requirement its own docstring says it should never have
+    had. Thirteenth instance in two days of a check counting the container
+    instead of the thing at risk.
+
+    CHESTERTON'S FENCE, because the count clause is not stupid. It exists so a
+    large change cannot claim zero gravity and skip the walk -- a big diff that
+    happens to miss every guardrail path is still a big change, and that is
+    real. What it got wrong is WHICH files make a change big. Prose does not,
+    however much of it there is; code does, even a little. So the escalation
+    now counts files a lens could actually grip, and the fence keeps standing
+    where it was put.
     """
-    if gravity == 0 and changed_file_count <= 20:
+    grippable = [p for p in changed_paths if not p.startswith(_UNGRIPPABLE_PREFIXES)]
+    if gravity == 0 and len(grippable) <= 20:
         return 0
     if gravity <= 1:
         return 2
