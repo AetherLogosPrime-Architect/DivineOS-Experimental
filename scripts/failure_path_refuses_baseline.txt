@@ -1,0 +1,109 @@
+# REFUSAL-ON-CRASH BACKLOG — every place a failing check makes a function say
+# no where it would otherwise say yes.
+#
+# WHY THIS FILE EXISTS. On 2026-09-02 I fixed a gate that discarded a whole
+# session's learning when its own checks raised -- a defect in the JUDGE
+# destroying the subject being judged. I then surveyed the tree by hand, found
+# no other instance, and told Aletheia so.
+#
+# She refused to confirm it: "Grepping for `discard` returns dozens of files,
+# almost all using the word for unrelated things. A count from that is a count
+# of a WORD, not of a FORM." And she named the fix rather than stopping at the
+# refusal: "Your negative claim rests on one pass by one party, and my
+# confirming it would rest on one pass by another. A DETECTOR MAKES IT A
+# PROPERTY."
+#
+# The detector found 64 sites. My hand survey found one. The gap is not 63
+# hidden defects -- most of these are certainly correct. The gap is that I had
+# no instrument capable of enumerating the question, so "one instance" was a
+# statement about my attention rather than about the tree.
+#
+# THE RULE THE SITES ARE JUDGED AGAINST:
+#
+#     On uncertainty, withhold the PRIVILEGE, never the DATA.
+#
+# Denying a promotion because a validity check errored is right: the entry
+# survives, it simply does not advance. Discarding a session because the checks
+# errored is wrong: the subject is destroyed because the judge broke. Both are
+# `except: return <refusal>`. Same shape, opposite substance -- which is why no
+# text search can tell them apart and why each one needs reading.
+#
+# TWO SECTIONS, AND THE DIFFERENCE IS THE POINT. Collapsing them would make this
+# file say sixty-four sites are cleared when four are, which is the exact move
+# the detector exists to make impossible: a list standing in for a judgement
+# nobody made.
+#
+# This file closes in BOTH directions. If an entry stops being a candidate, the
+# check FAILS until the line is deleted. A backlog that can only grow becomes a
+# permanent amnesty and this one must not outlive its subject.
+
+# --- DECIDED: read, judged, closed. Each carries its reason. ---
+src/divineos/core/theater_audit.py:_persist_findings   # SAFE. Returns False to the caller on an I/O error and destroys nothing. The findings it was asked to append are simply not appended, and the caller is told so. Withholds the write, not the data -- there is no subject here that outlives the call.
+src/divineos/core/operating_loop_audit.py:_persist_findings   # SAFE, same shape as its neighbour in theater_audit: an append that reports its own failure. Fail-soft is named in its own docstring and the naming is accurate.
+src/divineos/core/vad_stamp_store.py:stamp   # SAFE. A database error returns False; the snapshot it was handed is not written and nothing already stored is touched. The caller learns the stamp did not land, which is the reporting half the quality gate was missing.
+
+# --- ENUMERATED: present when the check was switched on. NOT adjudicated. ---
+# Listing here does NOT mean reviewed. It means anything NEW blocks rather
+# than joining a crowd -- the same discipline as the orphan backlog. Each
+# line moves up to DECIDED when somebody reads it and writes down why.
+src/divineos/clarity_system/event_integration.py:emit_clarity_statement_event
+src/divineos/clarity_system/event_integration.py:emit_deviation_event
+src/divineos/clarity_system/event_integration.py:emit_lesson_event
+src/divineos/clarity_system/event_integration.py:emit_summary_event
+src/divineos/clarity_system/hook_integration.py:clear_hooks
+src/divineos/clarity_system/hook_integration.py:register_clarity_generated_hook
+src/divineos/clarity_system/hook_integration.py:register_post_work_hook
+src/divineos/clarity_system/hook_integration.py:register_pre_work_hook
+src/divineos/clarity_system/hook_integration.py:register_summary_generated_hook
+src/divineos/clarity_system/session_integration.py:mark_session_complete
+src/divineos/cli/admin_reset_template.py:_check_reset_template_authorization
+src/divineos/cli/audit_commands.py:register
+src/divineos/cli/auto_cycle_commands.py:_has_active_goal_progress
+src/divineos/cli/foundations_commands.py:_render_audit_block
+src/divineos/cli/pipeline_gates.py:run_quality_gate
+src/divineos/core/andrew_correction_tracker.py:_condition_fired
+src/divineos/core/andrew_past_writing_surface.py:_is_relevant
+src/divineos/core/completion_check.py:_has_test_for
+src/divineos/core/constitutional_principles.py:verify_appeal
+src/divineos/core/constitutional_principles.py:verify_due_process
+src/divineos/core/constitutional_principles.py:verify_limits_of_power
+src/divineos/core/constitutional_principles.py:verify_proportionality
+src/divineos/core/constitutional_principles.py:verify_transparency
+src/divineos/core/corrigibility.py:_check_emergency_stop_exit_authorization
+src/divineos/core/ear_relaunch/__init__.py:_touch_relaunch_lock
+src/divineos/core/ear_sweep/__init__.py:_ancestry_is_broken
+src/divineos/core/engagement_monitor.py:record
+src/divineos/core/family/seal_hook.py:_check_legacy_pending
+src/divineos/core/family/store.py:_phase_1b_reject_clause_available
+src/divineos/core/flood_state.py:_distancing
+src/divineos/core/flood_state.py:_lepos_empty
+src/divineos/core/flood_state.py:_mirror_exit
+src/divineos/core/flood_state.py:_mirror_verdict
+src/divineos/core/heredoc_escape_check.py:should_refuse
+src/divineos/core/hud_handoff.py:_is_flow_state
+src/divineos/core/hud_state.py:has_session_fresh_goal
+src/divineos/core/knowledge/_text.py:_ensure_embedding_model
+src/divineos/core/knowledge/temporal.py:stamp_valid_from
+src/divineos/core/memory_linkage_retriever.py:_ensure_model
+src/divineos/core/multiplex_panels.py:_identity_panel_content
+src/divineos/core/multiplex_panels.py:_letters_with
+src/divineos/core/pr_merge_gate.py:_find_usable_audit_round
+src/divineos/core/reach_check.py:gate_status
+src/divineos/core/read_gate.py:_record_rearm_after_read
+src/divineos/core/resonant_truth.py:is_rt_loaded
+src/divineos/core/session_manager.py:_clear_session_file
+src/divineos/core/session_manager.py:_write_session_file
+src/divineos/core/session_manager.py:is_session_active
+src/divineos/core/sis_tiers.py:_ensure_embeddings
+src/divineos/core/sis_tiers.py:_ensure_tfidf
+src/divineos/core/structural_promotion_check.py:emit_structural_promotion_question
+src/divineos/core/subprocess_jobs.py:_pid_alive
+src/divineos/core/tool_trust.py:record_check
+src/divineos/core/verify_before_build_gate.py:_has_recent_walk_record
+src/divineos/core/verify_before_build_signal.py:check_and_consume_bypass
+src/divineos/core/visual.py:_ensure_heif_opener
+src/divineos/event/event_validation.py:is_valid_content
+src/divineos/hooks/gate_event_ledger.py:_resolve_audit_round
+src/divineos/hooks/gate_event_ledger.py:_resolve_claim
+src/divineos/hooks/hook_validator.py:validate_hook_file
+src/divineos/hooks/pre_tool_use_gate.py:_is_low_friction_write
