@@ -105,4 +105,17 @@ printf '%s\n' "$FP" > "$SEEN" 2>/dev/null || true  # fail-soft: an unwritable st
   echo "════════════════════════════════════════════════════════════"
 } >&2
 
+# NO "nothing ran" FOOTER HERE, and the absence is deliberate.
+#
+# This hook is registered on PostToolUse. The command has ALREADY RUN by the
+# time this block prints, so the footer's central claim -- nothing on this
+# line executed -- would be false. I wired it here anyway on 2026-09-05, on
+# the reflex that a block is a block, and watched it tell me a push had not
+# happened seconds after that push landed on the remote.
+#
+# That is the exact fault the footer exists to fix: an accurate-sounding
+# sentence about a situation other than the one in front of the reader. The
+# footer belongs to PreToolUse refusals only, where nothing has run yet.
+# Pinned in tests/test_every_refusing_hook_says_what_did_not_run.py so the
+# next wiring cannot repeat it.
 exit 2

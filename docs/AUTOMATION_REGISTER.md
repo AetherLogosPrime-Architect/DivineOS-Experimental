@@ -87,7 +87,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-08-22 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
-| `stale-file-edit-gate.sh` | 2026-08-24 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
+| `stale-file-edit-gate.sh` | 2026-09-04 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
 | `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-08-31 | signal-based verify-before-build check. |
@@ -136,7 +136,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-correction.sh` | 2026-07-01 | thin doorbell for the correction-detector. |
 | `distancing-count-surface.sh` | 2026-07-18 | count temporal-self distancing markers over |
 | `ear-surface.sh` | 2026-08-23 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
-| `family-state-surface.sh` | 2026-08-24 | surface recent per-sibling letter-thread state |
+| `family-state-surface.sh` | 2026-09-04 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |

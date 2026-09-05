@@ -153,4 +153,5 @@ cascade-incident lesson): drop the kill-switch marker file. From your shell:
 
 To re-enable: rm "$MARKER_PATH"
 EOF
+hook_say_nothing_ran_for "$INPUT"
 exit 2

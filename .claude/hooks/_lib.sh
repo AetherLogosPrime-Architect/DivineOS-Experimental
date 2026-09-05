@@ -516,6 +516,80 @@ except Exception:
 " 2>/dev/null
 }
 
+# hook_say_nothing_ran <command>
+#   Print, to stderr, what did NOT run -- for a refused line that joined more
+#   than one clause. Call it immediately before `exit 2`.
+#
+# WHY. On 2026-09-05 Aether wrote one line meaning two things, commit then
+# push, and a gate refused it. The refusal named the push, because the push
+# was the half that tripped it. He read it as being about the push and
+# believed the commit had happened; it had not, because these hooks run
+# before the shell ever sees the line. He then merged main onto a branch
+# carrying no commit, got a diff against main that was completely empty, and
+# was one step from reporting it fixed. The same shape had cost thirty
+# letters the day before, from the other direction.
+#
+# Nothing lied to him either time. Every gate answered accurately about the
+# clause that tripped it, while the question being asked was *what happened
+# to my line*. Measured that night from both checkouts: of the hooks that can
+# refuse a shell line, exactly zero said what did not run.
+#
+# NOT HEDGED. "Some of this may not have run" leaves room to reconstruct a
+# hopeful half, which is precisely the inference that cost the branch.
+#
+# THE SECOND LINE IS THE ONE THAT SAVES THE WORK. Misreading a refusal is
+# survivable alone; what made it expensive both times was re-issuing a single
+# FRAGMENT, which then ran in a state the full line would have established
+# and did not.
+#
+# Silent for a single-clause line. "Nothing ran" is true there too, and
+# printing it on every refusal is wallpaper -- which is how a footer stops
+# being read, and this one has to survive being read.
+#
+# The joiner test is deliberately crude: a semicolon inside a quoted string
+# counts and should not. That false positive costs four lines of text that
+# are true anyway; a false negative costs the fault above. So it errs loud.
+hook_say_nothing_ran() {
+  local command="$1"
+  case "$command" in
+    *"&&"*|*"||"*|*";"*|*"
+"*) ;;
+    *) return 0 ;;
+  esac
+  cat >&2 <<'NOTHING_RAN'
+
+-- nothing on this line ran --
+This refusal fired before the shell saw the command, and the line joins more
+than one clause. No clause executed: not the ones after the part named above,
+and not the ones before it.
+Answer the objection, then re-issue the WHOLE line. Re-running a single
+fragment executes it in a state the full line would have set up and did not.
+NOTHING_RAN
+}
+
+# hook_say_nothing_ran_for <raw-hook-payload>
+#   Same as hook_say_nothing_ran, for the hooks that keep the raw JSON payload
+#   rather than an extracted command. Most of them do.
+#
+# NOT a test against the raw payload text. A stray semicolon in any other
+# field would fire it, and a footer that appears on lines it does not describe
+# is how the reader learns to skip footers. So the command is extracted first
+# and the test runs on the command alone.
+#
+# FAILS SILENT, and the direction is deliberate. Extraction spawns a Python,
+# which can fail for reasons that have nothing to do with the refusal in
+# progress. The refusal is the thing that must survive; the footer is the part
+# allowed to go missing. Costing a block its message to explain a block would
+# be the same trade this whole helper exists to refuse.
+#
+# The cost only lands on the refusal path, where a tool call is already
+# stopping and a few hundred milliseconds buys the reader a correct belief.
+hook_say_nothing_ran_for() {
+  local payload="$1" command
+  command="$(printf '%s' "$payload" | extract_tool_command 2>/dev/null)" || return 0  # fail-soft: extraction spawns a Python that can fail for reasons unrelated to the refusal in progress; the block must survive that, and the footer is the part allowed to go missing
+  hook_say_nothing_ran "$command"
+}
+
 # F90 heartbeat call (must be at end-of-file — after _lib_log_liveness
 # is defined). Aletheia 2026-07-28: "the liveness mechanism cannot
 # report its own absence." Logging on SUCCESS means an empty log is
