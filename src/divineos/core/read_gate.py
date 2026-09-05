@@ -664,6 +664,54 @@ def satisfy_from_stream(tool_calls_in_turn: tuple[tuple[str, str], ...]) -> list
     return cleared
 
 
+def _record_inline_delivery(path_str: str) -> None:
+    """Record a full inline delivery in the ledger the re-arm suppressor reads.
+
+    ``_accumulate_seen_reads`` writes SEEN_READS from Read TOOL CALLS only, and
+    ``_record_rearm_after_read`` consults it to decide whether a surface may
+    register the same path again. A file the gate handed over in full never
+    appeared there, so the suppressor found nothing and the surface re-armed
+    forever -- four blocks on one 40-line letter in a single session, with 22
+    clears already logged for it.
+
+    Written under the transcript key already present, never inventing one. If
+    no transcript has been recorded yet this session there is nothing to be
+    per-session about, and inventing a key would make a delivery in one session
+    silence a requirement in the next -- the opposite failure and a worse one.
+
+    Named INLINE_DELIVERY rather than Read, so the record says which happened.
+    The distinction is the whole reason the clears log carries an extent: "the
+    gate handed it over" and "I went and opened it" are different events and
+    neither should wear the other's name.
+
+    Fails silent in both directions. A suppressor that cannot write must leave
+    the gate exactly as strict as it found it.
+    """
+    try:
+        raw = json.loads(SEEN_READS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if not isinstance(raw, dict):
+        return
+    transcript = raw.get("transcript")
+    if not transcript:
+        return
+    entries = raw.get("reads")
+    known = {
+        (str(e[0]), str(e[1]))
+        for e in (entries if isinstance(entries, list) else [])
+        if isinstance(e, list) and len(e) == 2
+    }
+    known.add(("INLINE_DELIVERY", str(path_str)))
+    try:
+        SEEN_READS.write_text(
+            json.dumps({"transcript": transcript, "reads": sorted(known)}),
+            encoding="utf-8",
+        )
+    except OSError:
+        return
+
+
 def _mark_satisfied(path_str: str, extent: str) -> list[str]:
     """Clear the requirement for a path the gate has just delivered in full.
 
@@ -676,7 +724,24 @@ def _mark_satisfied(path_str: str, extent: str) -> list[str]:
     Deliberately narrow: only called when the inline was complete. A truncated
     inline leaves the requirement standing, because then there really is more
     to fetch and a Read is the honest way to fetch it.
+
+    AND IT MUST RECORD THE DELIVERY WHERE THE RE-ARM SUPPRESSOR LOOKS, which
+    it did not, for three weeks. Measured 2026-09-03: this gate demanded the
+    SAME 40-line letter four times in one session, and the clears log holds 22
+    records for that one path. It was clearing correctly every time.
+
+    Both halves existed and neither knew about the other. Delivery-in-full
+    cleared the pending requirement and wrote CLEAR_LOG. The thing that stops a
+    surface re-arming the same path reads SEEN_READS, which only ever recorded
+    Read TOOL CALLS. So a file the gate handed over in full satisfied the
+    moment and left no memory, the surface re-registered it on the next prompt,
+    and the loop ran until the session ended.
+
+    Which is this session's own subject arriving in the instrument that has
+    been reporting it: two mechanisms, both correct, writing to different
+    ledgers, and the gap invisible from inside either one.
     """
+    _record_inline_delivery(path_str)
     reqs = _load()
     if not reqs:
         return []

@@ -978,6 +978,93 @@ _READONLY_PROBE_PREFIXES = (
     "divineos inspect",
 )
 
+# AND THE LIST ABOVE IS THE WRONG SHAPE, which the comment block already shows
+# without saying so (2026-09-01).
+#
+# It records this gate blocking evidence twice on 2026-08-13, and the repair
+# chosen then was to add the two commands that had already been lost. So the
+# allowlist covers the reviews somebody has already failed to earn. It happened
+# twice more today: a pre-registration about the degraded-detector mechanism came
+# due, every one of its success criteria is a statement about what
+# `divineos detectors` does, and that command was not on the list. The only
+# reachable exit was the verdict itself -- the fabricated-outcome shape this
+# comment block exists to prevent. Then the edit adding it was refused by the
+# same block, so the gate was standing in front of its own repair.
+#
+# Enumeration cannot fix that, because the next review needing an unlisted probe
+# is unknowable in advance and the gate cannot tell an unearnable review from a
+# dodged one.
+#
+# So: a RULE about read-only verbs rather than a list of commands. Every CLI
+# group here follows the same convention, and these four verbs never mutate.
+# The mutating verbs stay blocked, which is the work this gate means to stop --
+# `divineos detectors heal` and `divineos detectors defer` are still refused,
+# because clearing a degradation is substantive work.
+_READONLY_VERBS = frozenset({"status", "show", "list", "check", "summary", "history"})
+
+
+def _is_command_group(name: str) -> bool | None:
+    """Whether ``divineos <name>`` is a group with subcommands, or a leaf.
+
+    Asked of click's own resolution rather than of a list, because the list
+    is the enumeration reflex this whole file has been repaired away from
+    today. ``None`` means could-not-look -- the CLI failed to import or the
+    name did not resolve -- and the caller treats that as not-a-probe, never
+    as a pass. Same discipline as the unbalanced-quote case below.
+    """
+    try:
+        import click
+
+        from divineos.cli import cli as _cli
+
+        command = _cli.get_command(click.Context(_cli), name)
+    except Exception:  # noqa: BLE001 -- could not look is its own answer
+        return None
+    if command is None:
+        return None
+    return isinstance(command, click.Group)
+
+
+def _is_readonly_divineos_verb(cmd: str) -> bool:
+    """True for ``divineos <group...> <read-only verb>`` shapes.
+
+    The verb must sit where a verb sits -- second or third token, before any
+    flag -- so a mutating command carrying one of these words in an argument
+    does not qualify. ``divineos audit submit --notes "status ..."`` is not a
+    probe, and neither is anything whose verb is not in the set.
+
+    AND THE THIRD TOKEN IS ONLY A VERB IF THE SECOND IS A GROUP (Aria,
+    2026-09-01, from running it). For ``divineos detectors status`` the third
+    token is the verb. For ``divineos learn status`` the third token is the
+    LESSON -- a one-word positional argument that happens to spell a verb --
+    and the first version of this rule waved it through as a read. Three
+    writes passed as probes: a lesson whose text is "status", a claim whose
+    text is "summary", a lesson whose text is "check". A one-word lesson is a
+    bad lesson, but this gate is not here to judge quality; it is here to
+    stop writes.
+
+    The rule could not tell those apart because it did not know which groups
+    have a third level. The registry does -- it is what the test-linkage check
+    already reads -- so it is asked, rather than a second list being kept of
+    which commands are two-level. Twelfth instance today of a thing recognised
+    by its position rather than by what it is.
+    """
+    import shlex
+
+    try:
+        tokens = [t for t in shlex.split(cmd) if not t.startswith("-")]
+    except ValueError:
+        return False  # unbalanced quotes: cannot read it, so not a probe
+    if len(tokens) < 2 or tokens[0] != "divineos":
+        return False
+    if tokens[1] in _READONLY_VERBS:
+        return True
+    if len(tokens) < 3 or tokens[2] not in _READONLY_VERBS:
+        return False
+    # Cheap checks are exhausted; only now pay for the registry. A leaf
+    # command's third token is an argument, and could-not-look is a refusal.
+    return _is_command_group(tokens[1]) is True
+
 
 def _is_readonly_probe(cmd: str) -> bool:
     """True if the command only looks at state, never changes it.
@@ -991,7 +1078,7 @@ def _is_readonly_probe(cmd: str) -> bool:
     cmd = _strip_safe_output_tail(_strip_cd_prefix(cmd))
     if _has_compound_shape(cmd):
         return False
-    return cmd.startswith(_READONLY_PROBE_PREFIXES)
+    return cmd.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(cmd)
 
 
 def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:

@@ -267,13 +267,20 @@ class TestQualityGateAssessment:
 class TestShouldExtractKnowledge:
     """Test the extraction decision logic."""
 
-    def test_block_prevents_extraction(self):
+    def test_block_downgrades_rather_than_preventing_extraction(self):
+        """A BLOCK verdict lowers maturity; it never discards the session.
+
+        Changed 2026-09-02 on Andrew's instruction that extraction is never
+        blocked -- failures get recorded as failures, not thrown away with
+        everything they were sitting next to. See
+        tests/test_extraction_is_never_blocked.py for the full rule.
+        """
         from divineos.cli.pipeline_gates import should_extract_knowledge
 
         verdict = _make_quality_verdict("BLOCK")
         allowed, override = should_extract_knowledge(verdict)
-        assert allowed is False
-        assert override == ""
+        assert allowed is True
+        assert override == "HYPOTHESIS"
 
     def test_downgrade_allows_as_hypothesis(self):
         from divineos.cli.pipeline_gates import should_extract_knowledge
