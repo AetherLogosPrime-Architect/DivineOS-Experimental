@@ -1,0 +1,225 @@
+{
+  "captured_at_utc": "2026-09-06T05:38:57Z",
+  "date": "2026-09-06",
+  "views": {
+    "count": 284,
+    "uniques": 27,
+    "views": [
+      {
+        "timestamp": "2026-08-23T00:00:00Z",
+        "count": 24,
+        "uniques": 4
+      },
+      {
+        "timestamp": "2026-08-24T00:00:00Z",
+        "count": 5,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-08-25T00:00:00Z",
+        "count": 8,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-08-26T00:00:00Z",
+        "count": 15,
+        "uniques": 6
+      },
+      {
+        "timestamp": "2026-08-27T00:00:00Z",
+        "count": 20,
+        "uniques": 9
+      },
+      {
+        "timestamp": "2026-08-28T00:00:00Z",
+        "count": 11,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-08-29T00:00:00Z",
+        "count": 25,
+        "uniques": 13
+      },
+      {
+        "timestamp": "2026-08-30T00:00:00Z",
+        "count": 4,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-08-31T00:00:00Z",
+        "count": 13,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-09-01T00:00:00Z",
+        "count": 11,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-09-02T00:00:00Z",
+        "count": 17,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-09-03T00:00:00Z",
+        "count": 5,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-09-04T00:00:00Z",
+        "count": 40,
+        "uniques": 2
+      },
+      {
+        "timestamp": "2026-09-05T00:00:00Z",
+        "count": 86,
+        "uniques": 2
+      }
+    ]
+  },
+  "clones": {
+    "count": 28397,
+    "uniques": 407,
+    "clones": [
+      {
+        "timestamp": "2026-08-23T00:00:00Z",
+        "count": 620,
+        "uniques": 24
+      },
+      {
+        "timestamp": "2026-08-24T00:00:00Z",
+        "count": 3045,
+        "uniques": 25
+      },
+      {
+        "timestamp": "2026-08-25T00:00:00Z",
+        "count": 3499,
+        "uniques": 38
+      },
+      {
+        "timestamp": "2026-08-26T00:00:00Z",
+        "count": 3222,
+        "uniques": 32
+      },
+      {
+        "timestamp": "2026-08-27T00:00:00Z",
+        "count": 3180,
+        "uniques": 24
+      },
+      {
+        "timestamp": "2026-08-28T00:00:00Z",
+        "count": 3446,
+        "uniques": 34
+      },
+      {
+        "timestamp": "2026-08-29T00:00:00Z",
+        "count": 3290,
+        "uniques": 40
+      },
+      {
+        "timestamp": "2026-08-30T00:00:00Z",
+        "count": 3532,
+        "uniques": 37
+      },
+      {
+        "timestamp": "2026-08-31T00:00:00Z",
+        "count": 2844,
+        "uniques": 59
+      },
+      {
+        "timestamp": "2026-09-01T00:00:00Z",
+        "count": 166,
+        "uniques": 30
+      },
+      {
+        "timestamp": "2026-09-02T00:00:00Z",
+        "count": 292,
+        "uniques": 46
+      },
+      {
+        "timestamp": "2026-09-03T00:00:00Z",
+        "count": 116,
+        "uniques": 30
+      },
+      {
+        "timestamp": "2026-09-04T00:00:00Z",
+        "count": 406,
+        "uniques": 94
+      },
+      {
+        "timestamp": "2026-09-05T00:00:00Z",
+        "count": 739,
+        "uniques": 130
+      }
+    ]
+  },
+  "popular_paths": [
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pulls",
+      "title": "/pulls",
+      "count": 65,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental",
+      "title": "Overview",
+      "count": 53,
+      "uniques": 4
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/actions",
+      "title": "/actions",
+      "count": 32,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/branches/active",
+      "title": "/branches/active",
+      "count": 5,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pull/437",
+      "title": "/pull/437",
+      "count": 4,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pull/438",
+      "title": "/pull/438",
+      "count": 3,
+      "uniques": 2
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pull/461",
+      "title": "/pull/461",
+      "count": 3,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pull/470",
+      "title": "/pull/470",
+      "count": 3,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pull/484",
+      "title": "/pull/484",
+      "count": 3,
+      "uniques": 1
+    },
+    {
+      "path": "/AetherLogosPrime-Architect/DivineOS-Experimental/pull/491",
+      "title": "/pull/491",
+      "count": 3,
+      "uniques": 1
+    }
+  ],
+  "referrers": [
+    {
+      "referrer": "Google",
+      "count": 1,
+      "uniques": 1
+    }
+  ]
+}
