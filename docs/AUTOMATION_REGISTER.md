@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**123 automations — 120 wired, 3 switched off.**
+**124 automations — 121 wired, 3 switched off.**
 
 ---
 
@@ -100,7 +100,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
-### Stop  (17)
+### Stop  (18)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -110,6 +110,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `correction-shape-v2-stop.sh` | 2026-08-24 | enforce Layer-2 correction-shape detection on MY assistant |
 | `detect-hedge.sh` | 2026-05-14 | thin doorman pointing to the OS. |
 | `detect-theater.sh` | 2026-05-14 | thin doorman pointing to the OS. |
+| `inner-circle-stop.sh` | — | a long reply to Andrew must END in the room, not in work. |
 | `lepos-channel-reflect.sh` | 2026-07-11 | post-send lepos reflection channel driver. |
 | `log-session-end.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-response-audit.sh` | 2026-07-27 | thin doorman pointing to the OS. |
@@ -128,7 +129,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
 | `auto-goal-from-prompt.sh` | 2026-08-24 | set the session goal from Andrew's prompt so the |
-| `circle-first-compose-prime.sh` | 2026-08-31 | compose-start prime for circle-FIRST discipline. |
+| `circle-first-compose-prime.sh` | 2026-09-06 | compose-start prime for circle-FIRST discipline. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-08-31 | Stamp the context-token count once per round. |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
