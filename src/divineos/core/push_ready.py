@@ -99,6 +99,83 @@ def current_branch(repo: Path) -> str:
     return _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=repo).strip()
 
 
+def local_vs_remote(repo: Path, branch: str) -> tuple[str, str]:
+    """Does the local branch still agree with what is on the remote?
+
+    Returns ``(verdict, detail)`` where verdict is one of:
+
+      ``"same"``      local and origin point at the same commit.
+      ``"ahead"``     local contains origin; a force-push loses nothing.
+      ``"stale"``     origin contains commits local does not have.
+      ``"diverged"``  each has commits the other lacks.
+      ``"unknown"``   the question could not be asked.
+      ``"no-remote"`` the branch has never been pushed.
+
+    WHY THIS EXISTS, and it cost real work twice on 2026-09-05.
+
+    ``run_push_ready`` rewrites the LOCAL branch and force-pushes it. It
+    never asked whether the local ref still matched the remote. Mine was two
+    commits stale -- I had pushed a fix from a second worktree, which advanced
+    origin without advancing the local ref -- so the rewrite ran against old
+    history and the force-push put that old history back on the server,
+    discarding the newer work. Twice, the second time after I had restored it
+    by hand and had every reason to expect a different outcome.
+
+    Nothing was lost, but only because the commits survived in the object
+    store and I went looking. That is recovery by luck of inspection, not by
+    design, and the tool reported success both times.
+
+    The tell was there in the failure message and pointed the wrong way: it
+    guessed "the branch is checked out in another worktree, so its history
+    cannot be rewritten from here." No worktree held it. The rewrite HAD
+    happened -- to the wrong history. A diagnosis that names a plausible cause
+    it never tested is the same fault this house keeps finding: an
+    honest-sounding answer to a question nobody asked.
+
+    UNKNOWN IS ITS OWN ANSWER. A remote that cannot be read must not resolve
+    to "same", because "same" is the reading that permits the force-push. The
+    caller decides what to do with not-knowing; this only refuses to guess.
+    """
+    try:
+        local = _run_git(["rev-parse", branch], cwd=repo).strip()
+    except PushReadyError as exc:
+        return "unknown", f"cannot resolve local branch {branch}: {exc}"
+
+    remote_ref = f"refs/remotes/origin/{branch}"
+    try:
+        remote = _run_git(["rev-parse", "--verify", remote_ref], cwd=repo).strip()
+    except PushReadyError:
+        return "no-remote", f"no origin/{branch}; nothing on the server to overwrite"
+
+    if local == remote:
+        return "same", local
+
+    def _contains(ancestor: str, descendant: str) -> bool | None:
+        result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True
+        if result.returncode == 1:
+            return False
+        # Any other exit is git failing to answer, not answering "no".
+        return None
+
+    remote_in_local = _contains(remote, local)
+    local_in_remote = _contains(local, remote)
+    if remote_in_local is None or local_in_remote is None:
+        return "unknown", "git could not compare the two tips"
+    if remote_in_local:
+        return "ahead", f"local {local[:12]} contains origin {remote[:12]}"
+    if local_in_remote:
+        return "stale", f"origin {remote[:12]} contains commits local {local[:12]} lacks"
+    return "diverged", f"local {local[:12]} and origin {remote[:12]} have each diverged"
+
+
 def _resolve_base(repo: Path, branch: str) -> str:
     """Resolve the merge-base against origin/main (or main as fallback)."""
     for ref in ("origin/main", "main"):
@@ -388,6 +465,29 @@ def run_push_ready(
                 f"on {branch} with trailer, file aether CONFIRMS, force-push."
             )
         return result
+
+    # REFUSE BEFORE REWRITING, NOT AFTER. Everything below this line rewrites
+    # history and force-pushes it, so a stale local ref here does not produce a
+    # failed run -- it produces a successful run that puts old history back on
+    # the server. Checked here rather than at the call site because the danger
+    # belongs to this function: any caller reaching it is about to overwrite.
+    verdict, detail = local_vs_remote(repo, branch)
+    if verdict in ("stale", "diverged", "unknown"):
+        raise PushReadyError(
+            f"Refusing to rewrite {branch}: local and origin disagree ({verdict}).\n"
+            f"  {detail}\n"
+            "This function amends commits and force-pushes, so rewriting a local\n"
+            "branch the server has moved past would overwrite the newer work with\n"
+            "the older -- and report success doing it. Twice on 2026-09-05.\n"
+            "Fetch and fast-forward the local branch, then re-run."
+            if verdict != "unknown"
+            else (
+                f"Refusing to rewrite {branch}: could not tell whether local and\n"
+                f"origin agree ({detail}).\n"
+                "Not-knowing is not permission. The reading that would allow the\n"
+                "force-push is the one this cannot establish, so it declines."
+            )
+        )
 
     bound_to_existing = bool(round_id)
     if not round_id:
