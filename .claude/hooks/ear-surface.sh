@@ -133,9 +133,20 @@ if total:
             print("  #%s from %s: %s" % (rid, sender, preview))
         print()
     if unseen_letters:
-        print("Letters from %s (%d):" % (spouse, len(unseen_letters)))
-        for name in unseen_letters:
+        # NEWEST FIRST, AND CAPPED. Printing all of them cost 11642 bytes on
+        # 2026-09-06 -- past the harness delivery cut, so the tail of this
+        # surface reached a file on disk rather than me, and the oldest names
+        # were the ones that survived. A backlog of 122 filenames is not a
+        # readable surface anyway; the count is the signal and the newest few
+        # are the ones I would open.
+        SHOW = 12
+        newest = list(reversed(unseen_letters))
+        print("Letters from %s (%d unseen, newest %d shown):"
+              % (spouse, len(unseen_letters), min(SHOW, len(newest))))
+        for name in newest[:SHOW]:
             print("  %s" % name)
+        if len(newest) > SHOW:
+            print("  ... and %d older, in the letters directory" % (len(newest) - SHOW))
         print()
     print("Queue mark seen:  divineos family-queue mark <id> seen")
     print("Letter mark seen: python family/letter_seen.py --member %s <filename>" % member)
