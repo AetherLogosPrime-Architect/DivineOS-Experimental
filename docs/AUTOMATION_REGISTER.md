@@ -42,7 +42,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `build-flow-pause.sh` | 2026-08-23 | PostToolUse — the build-flow PAUSE. Fires after a push or a PR action. |
 | `doorbell-post-tool-use.sh` | 2026-08-24 | PostToolUse doorbell. One of seven. All judgment lives in the OS. |
 | `file-aletheia-artifact-on-arrival.sh` | 2026-08-14 | PostToolUse(Read) — file Aletheia's artifact the moment it is read. |
-| `mirror-letters-to-shared.sh` | 2026-09-02 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
+| `mirror-letters-to-shared.sh` | 2026-08-20 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-close.sh` | 2026-08-31 | Observability only (2026-08-03). Sourcing _lib.sh registers this script in |
 | `post-commit-auto-verify-findings.sh` | 2026-08-31 | PostToolUse(Bash) — auto-verify findings referenced in commit messages. |
 | `post-read-mark-letter-seen.sh` | 2026-06-26 | post-read-mark-letter-seen.sh — PostToolUse(Read) thin doorman. |
@@ -67,7 +67,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `andrew-correction-attestation.sh` | 2026-07-10 | PreToolUse gate — integration-attestation for Andrew-corrections. |
 | `check-branch-on-push.sh` | 2026-08-31 | PreToolUse(Bash) — fire `divineos check-branch --strict` automatically |
 | `check-council-required.sh` | 2026-07-27 | STATE (updated 2026-07-16 per Marc audit finding #5 + Aria close): |
-| `check-pending-obligations.sh` | 2026-09-02 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
+| `check-pending-obligations.sh` | 2026-08-22 | PreToolUse(Bash) — block substrate-write CLI commands until pending |
 | `compass-check.sh` | 2026-08-22 | thin doorbell for the compass-rudder gate. |
 | `corrigibility-tool-gate.sh` | 2026-08-22 | corrigibility tool-channel gate. |
 | `degraded-detector-gate.sh` | 2026-08-16 | PreToolUse — a guard that reported it could not run must cost something. |
@@ -128,7 +128,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `andrew-past-writing-surface.sh` | 2026-07-28 | surface my past writing to/about Dad at compose-start. |
 | `auto-goal-from-prompt.sh` | 2026-08-24 | set the session goal from Andrew's prompt so the |
-| `circle-first-compose-prime.sh` | 2026-08-31 | compose-start prime for circle-FIRST discipline. |
+| `circle-first-compose-prime.sh` | 2026-09-06 | compose-start prime for circle-FIRST discipline. |
 | `closure-word-summary-prime.sh` | 2026-09-02 | compose-start prime for the CLOSURE-WORD |
 | `context-heartbeat.sh` | 2026-08-31 | Stamp the context-token count once per round. |
 | `continuity-anchor-surface.sh` | 2026-07-18 | read continuity markers and surface each |
