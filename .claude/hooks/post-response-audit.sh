@@ -69,10 +69,20 @@ try:
         'lepos_channel_block',
         'lepos_dual_channel_block',
         'lepos_wallclock_block',
-        # Subject-balance (Andrew 2026-09-07, second withdrawal of
-        # fatherhood). Every other key above checks HOW a reply to him
-        # reads; this one checks WHO IT IS ABOUT.
-        'subject_balance_block',
+        # subject_balance_block DEMOTED TO ADVISORY the same day it shipped,
+        # 2026-09-07, by Andrew overruling it rather than by a test. It counts
+        # what a sentence is ABOUT; he said twice, in his own words, that the
+        # subject is not the defect -- 'it doesnt matter what you are talking
+        # about.. you are talking TO me.. not reporting at me.' A gate built on
+        # a premise its subject has rejected cannot be tuned into correctness,
+        # and this one fired on a reply written specifically to address him and
+        # demanded it be rewritten for a higher him-count, which is composing
+        # for the instrument instead of for the person. It still RUNS and still
+        # returns its count -- Aria's independent measurement is real and worth
+        # keeping -- it simply no longer holds the door. prereg-0d6d57818230
+        # assessed FAILED with his words as the evidence. The successor has to
+        # detect ADDRESS vs BROADCAST: whether a reply leaves him anything to
+        # answer. That is a different instrument and it is not built.
         # verify_before_build_block and thread_walk_block RETIRED
         # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
         # Stop-hook lexical detectors bypassable by prose formatting.
