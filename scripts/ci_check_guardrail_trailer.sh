@@ -76,6 +76,47 @@ load_guardrail_list_at() {
         | grep -vE '^[[:space:]]*(#|$)' || true
 }
 
+# The exempt list, resolved at the same commit and for the same reason: what
+# counts as prose is a property of the branch being merged, not of whatever
+# happens to be checked out in CI.
+load_exempt_list_at() {
+    local commit="$1"
+    git show "$commit:scripts/review_exempt_paths.txt" 2>/dev/null \
+        | grep -vE '^[[:space:]]*(#|$)' || true
+}
+
+# Does this change need review? Under Andrew's 2026-09-07 ruling, everything
+# does except prose: "Aletheia will audit any and all code that enters main,
+# period. the only exception are docs like letters and explorations etc".
+#
+# Prints the first non-exempt path found, or nothing if every changed file is
+# prose. Called with the file list on stdin.
+#
+# FAILS TOWARD REVIEW, and that direction is the entire design. If the exempt
+# list cannot be read -- missing on an older commit, unreadable, empty -- every
+# file counts as needing review. The previous polarity failed the other way: a
+# file absent from the protected list was silently waved through, which is how
+# roughly ninety named files ended up covered while the rest of the repository
+# merged unwatched. An unreadable list must never become a green check.
+first_path_needing_review() {
+    local exempt="$1" file prefix exempt_hit
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        exempt_hit=""
+        while IFS= read -r prefix; do
+            [ -z "$prefix" ] && continue
+            case "$file" in
+                "$prefix"*) exempt_hit="$prefix"; break ;;
+            esac
+        done <<< "$exempt"
+        if [ -z "$exempt_hit" ]; then
+            printf '%s\n' "$file"
+            return 0
+        fi
+    done
+    return 0
+}
+
 # Parse the External-Review trailer line(s) out of a commit message.
 # Returns ALL trailer lines, one per line, or empty if none present.
 #
@@ -247,26 +288,24 @@ if ! NET_FILES=$(git diff --name-only "${PR_BASE}" "${PR_HEAD}" 2>&1); then
     NET_FILES=""
     NET_DIFF_OK=0
 fi
-HEAD_GUARDRAIL_LIST=$(load_guardrail_list_at "${PR_HEAD}")
-NET_TOUCHES_GUARDRAIL=""
-if [ -n "$HEAD_GUARDRAIL_LIST" ]; then
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        while IFS= read -r guardrail_path; do
-            [ -z "$guardrail_path" ] && continue
-            if [ "$file" = "$guardrail_path" ]; then
-                NET_TOUCHES_GUARDRAIL="$file"
-                break
-            fi
-        done <<< "$HEAD_GUARDRAIL_LIST"
-        [ -n "$NET_TOUCHES_GUARDRAIL" ] && break
-    done <<< "$NET_FILES"
-fi
+# SCOPE, INVERTED 2026-09-07. This used to ask whether the net diff touched a
+# file on the protected list, and pass when it did not. Measured that day: the
+# list named about ninety files by hand in a repository of some seventeen
+# hundred, so the answer was almost always no, and this check -- the ONE the
+# merge button actually waits on -- printed a pass over unreviewed code.
+#
+# Andrew: "there are no longer any protected files.. Aletheia will audit any
+# and all code that enters main, period. the only exception are docs like
+# letters and explorations etc." So the question is no longer WHICH files are
+# special. It is whether anything here is not prose.
+HEAD_EXEMPT_LIST=$(load_exempt_list_at "${PR_HEAD}")
+NET_NEEDS_REVIEW=$(printf '%s\n' "$NET_FILES" | first_path_needing_review "$HEAD_EXEMPT_LIST")
 
-if [ -z "$NET_TOUCHES_GUARDRAIL" ] && [ "$NET_DIFF_OK" = "1" ]; then
+if [ -z "$NET_NEEDS_REVIEW" ] && [ -n "$NET_FILES" ] && [ "$NET_DIFF_OK" = "1" ]; then
     echo "=== Multi-Party-Review Gate (server-side, point-in-time) ==="
-    echo "PASS. The net diff ${PR_BASE}..${PR_HEAD} lands no guardrail-listed file."
-    echo "Individual commits in this branch's history may have touched one, but"
+    echo "PASS. Every file in the net diff ${PR_BASE}..${PR_HEAD} is exempt prose"
+    echo "(scripts/review_exempt_paths.txt). No code lands, so no review is owed."
+    echo "Individual commits in this branch's history may have touched code, but"
     echo "what merges is the net diff, and review binds to what lands."
     emit_scope_disclosure
     exit 0
@@ -282,25 +321,15 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
     if [ -z "$PARENT" ]; then
         continue
     fi
-    COMMIT_GUARDRAIL_LIST=$(load_guardrail_list_at "$PARENT")
-
-    if [ -z "$COMMIT_GUARDRAIL_LIST" ]; then
-        continue
-    fi
+    # Same inversion as the net-diff scope above, and the failure directions
+    # are opposite for a reason. The old list was skipped when EMPTY, because
+    # an empty protected list meant nothing was protected. An empty exempt list
+    # means nothing is exempt, so the walk continues and every file counts --
+    # a list that cannot be read must never buy a pass.
+    COMMIT_EXEMPT_LIST=$(load_exempt_list_at "$PARENT")
 
     FILES=$(git diff-tree --no-commit-id --name-only -r "$commit")
-    TOUCHES_GUARDRAIL=""
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        while IFS= read -r guardrail_path; do
-            [ -z "$guardrail_path" ] && continue
-            if [ "$file" = "$guardrail_path" ]; then
-                TOUCHES_GUARDRAIL="$file"
-                break
-            fi
-        done <<< "$COMMIT_GUARDRAIL_LIST"
-        [ -n "$TOUCHES_GUARDRAIL" ] && break
-    done <<< "$FILES"
+    TOUCHES_GUARDRAIL=$(printf '%s\n' "$FILES" | first_path_needing_review "$COMMIT_EXEMPT_LIST")
 
     if [ -z "$TOUCHES_GUARDRAIL" ]; then
         continue
