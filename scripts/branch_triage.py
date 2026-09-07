@@ -26,7 +26,57 @@ Prints, changes nothing. Deletion is a separate act with a person behind it.
 
 from __future__ import annotations
 
+import json
 import subprocess
+
+
+def gh(*args: str) -> str | None:
+    """GitHub CLI output, or None for could-not-ask. Same three states."""
+    try:
+        p = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return p.stdout if p.returncode == 0 else None
+
+
+def pr_state_by_branch() -> dict[str, str] | None:
+    """branch -> PR state (OPEN / MERGED / CLOSED), or None if unaskable.
+
+    The deciding fact for a branch that carries work: was it ever proposed,
+    and what happened? Never-proposed and proposed-then-rejected look
+    identical from the git side and mean opposite things.
+    """
+    raw = gh(
+        "pr", "list", "--state", "all", "--limit", "300",
+        "--json", "headRefName,state,number",
+    )
+    if raw is None:
+        return None
+    try:
+        rows = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(rows, list):
+        return None
+    out: dict[str, str] = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        ref = str(r.get("headRefName") or "")
+        state = str(r.get("state") or "")
+        num = r.get("number")
+        # Keep the most decisive state if a branch had several PRs.
+        rank = {"OPEN": 3, "MERGED": 2, "CLOSED": 1}
+        if ref and rank.get(state, 0) >= rank.get(out.get(ref, "").split()[0], 0):
+            out[ref] = f"{state} #{num}"
+    return out
 
 
 def git(*args: str) -> str | None:
