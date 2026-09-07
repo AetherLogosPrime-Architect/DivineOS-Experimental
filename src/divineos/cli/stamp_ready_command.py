@@ -120,6 +120,150 @@ def _confirmed_trees(round_id: str) -> set[str]:
     return trees
 
 
+# Content identifiers appear as "patch-id 91fc90e6", "patch-id: <40hex>", and
+# "pid 46112ab3". Anchored on the word for the same reason the tree pattern is:
+# a bare hex scan also matches the tail of a round id.
+_PATCH_ID_NEAR = re.compile(
+    r"\b(?:patch[-\s]?id|pid)[-\s]*(?:hash|sha)?[:\s]+([0-9a-f]{8,40})\b",
+    re.IGNORECASE,
+)
+
+# Shortest abbreviation this rung will JUDGE, as opposed to the shortest it
+# will read. The pattern above deliberately still admits eight characters:
+# raising its lower bound would make a too-short claim vanish, and this rung
+# would then report that no identifier was named when one was -- a true
+# sentence about the wrong subject, which is the fault this whole branch is
+# about.
+#
+# Aria found the gap 2026-09-05 reading this branch: the sibling rule in the
+# validator sets twelve, and nothing between extraction and verdict here
+# tested length at all, so an eight-character claim prefix-matched and
+# returned HOLDS. The direction is the bad one -- it licenses a stamp rather
+# than withholding one.
+#
+# Her strength-claim, carried because it is the honest one: the mechanism is
+# certain from the code, but she found no eight-character identifier in our
+# traffic, so this was a loaded condition rather than a live break.
+#
+# The number is duplicated from the validator ON PURPOSE and only for now.
+# The validator's copy lives on a branch that is not yet merged and that is
+# itself waiting on this rung to land, so importing it today would bind this
+# file to a module version that does not exist on main. When both land they
+# become one constant, and that unification is the point at which this
+# comment stops being true.
+_MIN_CONTENT_PREFIX = 12
+
+
+def _confirmed_patch_ids(round_id: str) -> set[str]:
+    """Content identifiers named by the CONFIRMS findings on this round.
+
+    Same shape and same known limit as ``_confirmed_trees``: read from the
+    findings rather than the round notes, matched by prefix in both
+    directions because these are quoted abbreviated as often as in full, and
+    unable to tell an identifier a finding CONFIRMS from one it merely
+    mentions.
+    """
+    from divineos.core.watchmen.store import list_findings
+
+    ids: set[str] = set()
+    try:
+        findings = list_findings(round_id=round_id, limit=200) or []
+    except Exception:  # noqa: BLE001 - an unreadable store is not "no identifiers"
+        return ids
+    for f in findings:
+        if _title_withholds(f):
+            continue
+        text = f"{getattr(f, 'title', '') or ''} {getattr(f, 'description', '') or ''}"
+        if "confirms" not in text.lower():
+            continue
+        ids.update(m.group(1).lower() for m in _PATCH_ID_NEAR.finditer(text))
+    return ids
+
+
+def _content_rung(round_id: str, branch: str) -> tuple[bool, str]:
+    """Does the reviewed CHANGE still match, when the tree no longer does?
+
+    Andrew 2026-09-05: *"if the code itself is unchanged then her review
+    stands, as the floor changes underneath it when its pushed... it only
+    needs to be re-audited if the code has changed... otherwise this becomes a
+    slog and an endless run-around reviewing the same things over and over."*
+
+    WHY THIS RUNG WAS MISSING, which Aria measured and named.
+
+    The rule already existed -- in the wrong file. The tool that FILES a
+    confirm computes content identifiers and has a whole rung for
+    catch-up-does-not-invalidate. The tool that SPENDS one, this one, only
+    described that rung in a docstring and offered two doors: an exact tree
+    match, or a written ancestry claim. Unchanged-content opened neither.
+
+    Her count: content identifiers appear three times in this file, all inside
+    prose, against seventy-five times in the validator where they are actually
+    computed. A rule reaching one mechanism and not the other, which is the
+    same shape as a review living in one store and nowhere else.
+
+    And the tree rung is guaranteed to fail here. Aletheia's own reason,
+    quoted in this file above: an anchor bound to the whole tree *"inherits
+    the volatility of the least stable thing inside what it measures"* -- so
+    every commit anyone lands moves it. Catching a branch up to main is the
+    one act required to make it mergeable, and it breaks the only rung that
+    was wired. The branch becomes unmergeable by being made mergeable.
+
+    I hit this an hour before writing it and got past it by re-filing the
+    confirm through the validator, which computed the rung the stamper lacks.
+    Routing through the other tool to obtain a verdict this one could not
+    reach IS the finding, and I took it as a workaround at the time.
+
+    Returns ``(holds, why)``. Could-not-compute never returns True: the
+    reading that would license the stamp is exactly the one unavailable, and
+    it is reported as unknown rather than as a mismatch, because those two
+    have different remedies.
+    """
+    confirmed = _confirmed_patch_ids(round_id)
+    if not confirmed:
+        return False, "no CONFIRMS finding on this round names a content identifier"
+
+    try:
+        from divineos.cli.audit_commands import compute_branch_patch_id
+    except Exception as exc:  # noqa: BLE001 - import failure is not a mismatch
+        return False, f"could not load the content-identity computation ({exc})"
+
+    current = compute_branch_patch_id(f"origin/{branch}")
+    if not current:
+        return False, (
+            "the branch's content identifier could not be computed, so this "
+            "rung cannot answer -- unknown, not unchanged"
+        )
+
+    cur = current.lower()
+
+    # A too-short claim is UNANSWERABLE, never proof of either verdict. It
+    # must not return holds -- that stamps on a claim nothing verified -- and
+    # it must not fall through to the change-moved message, which asserts a
+    # cause this rung never tested. It gets its own sentence, the way the
+    # sibling rule in the validator does.
+    judgeable = {c for c in confirmed if len(c) >= _MIN_CONTENT_PREFIX}
+    if not judgeable:
+        short = ", ".join(sorted(confirmed))
+        return False, (
+            f"the round names content identifier(s) {short}, all shorter than "
+            f"{_MIN_CONTENT_PREFIX} characters -- too short to tell whether they "
+            "name this change. Unanswerable, NOT evidence the change moved: "
+            "re-file the CONFIRMS carrying the full identifier."
+        )
+
+    for claimed in judgeable:
+        if cur.startswith(claimed) or claimed.startswith(cur):
+            return True, (
+                f"the reviewed change is unchanged (content identifier "
+                f"{claimed[:12]} still matches the branch); only the floor moved"
+            )
+    named = ", ".join(sorted(c[:12] for c in judgeable))
+    return False, (
+        f"the content identifier moved: round names {named}, branch computes "
+        f"{cur[:12]} -- the reviewed change itself differs, not just its floor"
+    )
+
+
 def _tree_is_covered(head_tree: str, confirmed: set[str]) -> bool:
     """Does any confirmed tree refer to this head? Prefix match, both ways.
 
@@ -396,6 +540,44 @@ def _commits_behind_base(branch: str) -> tuple[int, str]:
         return 0, f"{type(exc).__name__}: {exc}"
 
 
+def _worktrees_holding(branch: str) -> list[str]:
+    """Paths of worktrees with ``branch`` checked out. Empty when none do.
+
+    Exists so the failure message can say which causes it TESTED rather than
+    naming a plausible one it did not. Returns empty on any error: a check
+    that cannot run must not manufacture a holder, since the whole point is
+    to stop asserting an untested cause.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if out.returncode != 0:
+            return []  # both-empty: the caller asks only "which holders can I NAME",
+            # and neither a failed listing nor an absent one can name any. The
+            # distinction that would matter -- could-not-look versus looked-and-
+            # found-none -- is not one this caller acts on differently: it prints
+            # the holders it has, and printing none is correct either way. What
+            # must never happen is manufacturing a holder from a check that did
+            # not run, and both branches refuse that identically.
+    except OSError:
+        return []  # both-empty: same reason as the returncode branch above.
+
+    holders: list[str] = []
+    current_path = ""
+    for line in out.stdout.splitlines():
+        if line.startswith("worktree "):
+            current_path = line[len("worktree ") :].strip()
+        elif line.startswith("branch "):
+            ref = line[len("branch ") :].strip()
+            if ref in (f"refs/heads/{branch}", branch):
+                holders.append(current_path)
+    return holders
+
+
 def _round_by_id(round_id: str):
     """The round record, or None. Lookup by id, never by position."""
     from divineos.core.watchmen.store import list_rounds
@@ -657,11 +839,38 @@ def register(cli: click.Group) -> None:
                 for c in still:
                     click.echo(f"      {c.short_sha} {c.subject[:56]}")
                 click.secho(
-                    "    Not writing the body, not clearing draft. Common cause: "
-                    "the branch is checked out in another worktree, so its "
-                    "history cannot be rewritten from here.",
+                    "    Not writing the body, not clearing draft. This guard "
+                    "sees the missing trailer, not the reason -- and there is "
+                    "more than one. The branch may be held by another worktree "
+                    "so its history cannot be rewritten from here; or the "
+                    "rewrite may have run against a different branch entirely. "
+                    "Check which branch is checked out here before assuming "
+                    "the worktree.",
                     fg="bright_black",
                 )
+                # NAME WHAT WAS TESTED, NOT WHAT IS PLAUSIBLE. This used to
+                # assert a "common cause" -- the branch being checked out in
+                # another worktree -- that it had never checked. On 2026-09-05
+                # that sent me hunting a worktree holding the branch. None did.
+                # The rewrite HAD run; it ran against a local ref the server had
+                # moved past, so the amend was real and landed on old history.
+                # A confidently-named untested cause costs more than silence,
+                # because it aims the search away from the actual fault.
+                for holder in _worktrees_holding(branch):
+                    click.secho(
+                        f"    Checked: {holder} has {branch} checked out, which "
+                        "prevents rewriting it from here.",
+                        fg="bright_black",
+                    )
+                    break
+                else:
+                    click.secho(
+                        f"    Checked: no worktree holds {branch}, so that is not "
+                        "the cause here. Compare the local branch against "
+                        f"origin/{branch} -- a rewrite of a stale local ref "
+                        "amends history the server has already moved past.",
+                        fg="bright_black",
+                    )
                 raise click.exceptions.Exit(1)
 
             if not pr_result.pushed:
@@ -742,13 +951,43 @@ def register(cli: click.Group) -> None:
                         "    than taken on its word.",
                         fg="green",
                     )
+                    content_holds = False
+                    content_why = "not reached; ancestry already held"
                 else:
+                    # THE CONTENT RUNG, under ancestry and above refusal.
+                    #
+                    # Aria measured the gap: this rule was implemented in the
+                    # tool that FILES a confirm and only described in this one,
+                    # which spends them. Andrew's ruling is the frame -- if the
+                    # code itself is unchanged the review stands, because the
+                    # floor moving is not the reviewer's subject changing, and
+                    # re-auditing on floor-movement is an endless run-around
+                    # over the same work.
+                    #
+                    # Placed AFTER ancestry rather than before because ancestry
+                    # rests on a reviewer's written claim and this rests on a
+                    # computation; when a person has said it in their own hand,
+                    # that is the stronger evidence and should be reported as
+                    # what carried.
+                    content_holds, content_why = _content_rung(round_id, branch)
+
+                if content_holds:
+                    click.secho(
+                        f"[+] Head tree {tree_hash[:12]} is not one this round names, and the\n"
+                        f"    ancestry rung did not hold ({why}).\n"
+                        f"    The CONTENT rung does: {content_why}.\n"
+                        "    Computed here the same way the confirm validator computes it,\n"
+                        "    rather than inferred from the trees disagreeing.",
+                        fg="green",
+                    )
+                elif not holds:
                     named = ", ".join(sorted(t[:12] for t in confirmed))
                     click.secho(
                         f"[!] Round {round_id} CONFIRMS tree(s) {named}, but this PR's head\n"
                         f"    tree is {tree_hash[:12]}. Pairing them would assert a review\n"
                         "    that did not happen.\n"
                         f"    The ancestry rung does not save it either: {why}.\n"
+                        f"    Nor the content rung: {content_why}.\n"
                         "    Get a round against the current tree, or pass --audit-round\n"
                         "    naming the round that actually covers it.",
                         fg="red",

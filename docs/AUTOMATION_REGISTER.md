@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**122 automations — 120 wired, 2 switched off.**
+**123 automations — 120 wired, 3 switched off.**
 
 ---
 
@@ -16,6 +16,7 @@ Present, executable, invoked by nothing. This section is first on purpose. On 20
 |---|---|---|
 | `instrument-read-doorman.sh` | 2026-08-31 | doorman on hand-rolled scans of my own diagnostic surfaces. |
 | `no-verify-cost-escalation.sh` | 2026-08-31 | thin doorbell for the no-verify cost-escalation gate. |
+| `prior-art-before-new-file.sh` | 2026-09-05 | PreToolUse(Write) — show prior work before a NEW build file is created. |
 
 Being listed here is not automatically a defect — a retired hook that says so in its own header is honest. The question for each is whether it CLAIMS to run automatically. If it does and nothing calls it, that is the bug.
 
@@ -87,7 +88,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `rederivation-detector.sh` | 2026-08-23 | PreToolUse(Bash) — when I run the SAME command a third distinct way, say so, |
 | `require-goal.sh` | 2026-08-22 | PreToolUse gate — consolidated into a single Python invocation. |
 | `safe-opposite-edit-check.sh` | 2026-08-24 | PreToolUse — surface the safe-opposite check at the moment the fix is |
-| `stale-file-edit-gate.sh` | 2026-08-24 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
+| `stale-file-edit-gate.sh` | 2026-09-04 | PreToolUse gate — refuse to edit a file whose newer version is sitting |
 | `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-08-31 | signal-based verify-before-build check. |
@@ -136,7 +137,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `detect-correction.sh` | 2026-07-01 | thin doorbell for the correction-detector. |
 | `distancing-count-surface.sh` | 2026-07-18 | count temporal-self distancing markers over |
 | `ear-surface.sh` | 2026-08-23 | UserPromptSubmit + SessionStart hook — auto-surface unseen queue items and |
-| `family-state-surface.sh` | 2026-08-24 | surface recent per-sibling letter-thread state |
+| `family-state-surface.sh` | 2026-09-05 | surface recent per-sibling letter-thread state |
 | `fork-is-cheap-close-prime.sh` | 2026-07-30 | compose-start prime for the FORK-IS-CHEAP-CLOSE |
 | `hedge-suppression-prime.sh` | 2026-08-24 | hedge-suppression prime. |
 | `interior-cue-on-low-presence.sh` | 2026-07-06 | inject a compose-time interior-cue when the |
