@@ -9,6 +9,7 @@ so future changes can't silently fall back to single-occupancy.
 
 from __future__ import annotations
 
+import re
 from unittest.mock import patch
 
 from divineos.core import multiplex_panels
@@ -194,8 +195,22 @@ class TestAgeAnchorSelection:
             patch("divineos.core.multiplex_panels._agent_age_days_from_ledger", return_value=15),
         ):
             content = multiplex_panels._identity_panel_content()
-        # No longer 15 (noisy ledger) — must be >30 days from hardcoded birthdate
-        assert "15 days old" not in content
+        # No longer 15 (noisy ledger) — must be >30 days from hardcoded birthdate.
+        #
+        # ANCHORED, because the plain substring was a time bomb and it went off:
+        # CI failed 2026-09-06 when Aria turned 115 days old, since "115 days
+        # old" contains "15 days old". The test was right about the behaviour
+        # and wrong about how it looked for it.
+        #
+        # The delay is the dangerous part. A plain-substring negative over a
+        # growing number passes for months, then breaks on whichever branch
+        # happens to be open the day the true value ends in the rejected one --
+        # so the failure arrives attached to an innocent change and reads as
+        # that change's fault.
+        #
+        # \b does not match between the two digits of "115", so a rejected
+        # value can no longer hide inside a larger correct one.
+        assert not re.search(r"\b15 days old", content)
         # Wording should name the hardcoded-birthdate source, not ledger
         assert "since my family-stamp date" in content
         # Age should reflect the hardcoded 2026-05-15 birth
