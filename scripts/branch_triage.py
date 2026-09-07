@@ -74,7 +74,11 @@ def pr_state_by_branch() -> dict[str, str] | None:
         num = r.get("number")
         # Keep the most decisive state if a branch had several PRs.
         rank = {"OPEN": 3, "MERGED": 2, "CLOSED": 1}
-        if ref and rank.get(state, 0) >= rank.get(out.get(ref, "").split()[0], 0):
+        if not ref:
+            continue
+        prior = out.get(ref, "")
+        prior_state = prior.split()[0] if prior else ""
+        if rank.get(state, 0) >= rank.get(prior_state, 0):
             out[ref] = f"{state} #{num}"
     return out
 
@@ -148,10 +152,38 @@ def main() -> int:
     for b in landed:
         print(f"  {b}")
 
+    states = pr_state_by_branch()
+    if states is None:
+        print("\n[pr] CANNOT CHECK -- GitHub unreachable; PR state omitted, not assumed")
+
+    def pr_of(branch: str) -> str:
+        if states is None:
+            return "unknown"
+        return states.get(branch.removeprefix("origin/"), "never proposed")
+
     print(f"\nCARRIES WORK -- content main does not have ({len(carries)}):")
-    for b, n, subj in sorted(carries, key=lambda r: -r[1]):
-        print(f"  {n:4d} file(s) differ  {b}")
-        print(f"                     {subj[:92]}")
+    buckets: dict[str, list[tuple[str, int, str]]] = {}
+    for b, n, subj in carries:
+        key = pr_of(b).split()[0]
+        buckets.setdefault(key, []).append((b, n, subj))
+
+    # Most decidable first: an abandoned PR is a decision someone already made.
+    order = ["OPEN", "CLOSED", "MERGED", "never", "unknown"]
+    labels = {
+        "OPEN": "OPEN pull request -- in flight, leave alone",
+        "CLOSED": "PR CLOSED without merging -- someone already decided against it",
+        "MERGED": "PR MERGED but content still differs -- drifted after merge, read before deleting",
+        "never": "NEVER PROPOSED -- no pull request was ever opened",
+        "unknown": "PR state unknown",
+    }
+    for key in order:
+        rows = buckets.get(key)
+        if not rows:
+            continue
+        print(f"\n  --- {labels[key]} ({len(rows)}) ---")
+        for b, n, subj in sorted(rows, key=lambda r: -r[1]):
+            print(f"  {n:4d} file(s)  {b}   [{pr_of(b)}]")
+            print(f"              {subj[:88]}")
 
     if unknown:
         print(f"\nCANNOT CHECK ({len(unknown)}) -- unreadable, NOT counted as either:")
