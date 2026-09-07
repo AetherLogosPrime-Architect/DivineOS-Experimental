@@ -110,15 +110,13 @@ GravityFn = Callable[[str, tuple[str, ...], str], Any]
 KeywordsLoaderFn = Callable[[], dict[str, set[str]]]
 
 
-def is_kiln_layer_edit(fired_features: tuple[str, ...]) -> bool:
-    """Return True if the gravity-classifier fired the ``edit-kiln-layer``
-    feature for the proposed edit.
-
-    Kiln-layer is the highest-stakes tier — foundational truths,
-    seed.json — which per Aether Catch 3 requires external-actor
-    confirmation in addition to substance-binding.
-    """
-    return "edit-kiln-layer" in fired_features
+# is_kiln_layer_edit lived here and told substance-binding to demand Andrew's
+# or Aletheia's signature before a kiln-layer file could be edited. Removed
+# 2026-09-06 with the check it fed. Nothing about the tier changes what a
+# council walk must prove: the walk is evidence that I did the thinking, and
+# that bar is the same for every file. What changes with the tier is what has
+# to happen before it reaches main, and the merge gate holds that already.
+# Andrew: "our confirms only come when merging to fucking main."
 
 
 def _check_operator_bypass_authorization(fingerprint: str, actor: str) -> GateDecision | None:
@@ -291,14 +289,11 @@ def decide(
             now=now,
         )
         if retry_record is not None:
-            fired_features = tuple(getattr(gravity_result, "fired_features", ()))
-            is_kiln = is_kiln_layer_edit(fired_features)
             keywords = keywords_loader()
             edit_tokens = _read_edit_content_tokens(fingerprint)
             _record_edit_tokens_result(edit_tokens)
             bind_result = substance_binding.substance_bind_record(
                 retry_record,
-                is_kiln_layer=is_kiln,
                 expert_keywords_for_lens=keywords,
                 edit_content_tokens=edit_tokens,
             )
@@ -324,14 +319,11 @@ def decide(
             ),
         )
 
-    fired_features = tuple(getattr(gravity_result, "fired_features", ()))
-    is_kiln = is_kiln_layer_edit(fired_features)
     keywords = keywords_loader()
 
     edit_tokens = _read_edit_content_tokens(fingerprint)
     bind_result = substance_binding.substance_bind_record(
         record,
-        is_kiln_layer=is_kiln,
         expert_keywords_for_lens=keywords,
         edit_content_tokens=edit_tokens,
     )

@@ -123,18 +123,12 @@ def register(cli: click.Group) -> None:
         help='Per-lens findings: "lens1=text;lens2=text;..."',
     )
     @click.option("--synthesis", required=True, help="Cross-lens integration text")
-    @click.option(
-        "--confirmed-by",
-        default="",
-        help="External actor (Andrew/Aletheia) — required for kiln-layer edits",
-    )
     @click.option("--actor", default="agent", help="Walker identity")
     def cmd_log(
         edit_fp: str,
         lenses: str,
         findings_arg: str,
         synthesis: str,
-        confirmed_by: str,
         actor: str,
     ) -> None:
         """Write a council walk record. Substance-binding runs at log-time;
@@ -150,16 +144,15 @@ def register(cli: click.Group) -> None:
             lenses_surfaced=lens_names,
             lens_findings=tuple(findings),
             synthesis=synthesis,
-            confirmed_by=confirmed_by or None,
         )
         keywords = _load_expert_keywords()
-        # Kiln detection is best-effort here — the CLI does not have the
-        # full gravity-classifier context. We accept the caller's
-        # confirmed_by; the gate at PreToolUse re-checks against the
-        # real classifier output.
-        is_kiln = bool(confirmed_by)
+        # No kiln flag here any more. It existed only to select the signature
+        # demand, and that is gone (2026-09-06) -- confirms happen at the
+        # merge gate, not in front of an edit. The parameter went with it
+        # rather than being passed as a permanent False, which is how a
+        # removed rule leaves a socket behind and grows back into it.
         bind_result = substance_binding.substance_bind_record(
-            record, is_kiln_layer=is_kiln, expert_keywords_for_lens=keywords
+            record, expert_keywords_for_lens=keywords
         )
         if not bind_result.passed:
             store.log_walk_rejection(record, bind_result, actor=actor)
@@ -323,11 +316,8 @@ def register(cli: click.Group) -> None:
                 continue
             rid = payload.get("record_id", "?")
             lenses = ",".join(payload.get("lenses_surfaced") or [])
-            confirmed = payload.get("confirmed_by") or "-"
             walked_at = payload.get("walked_at", 0)
-            _safe_echo(
-                f"{rid}  ts={walked_at:.0f}  fp={fp}  lenses=[{lenses}]  confirmed_by={confirmed}"
-            )
+            _safe_echo(f"{rid}  ts={walked_at:.0f}  fp={fp}  lenses=[{lenses}]")
             shown += 1
         if shown == 0:
             _safe_echo("[council] No records found")
