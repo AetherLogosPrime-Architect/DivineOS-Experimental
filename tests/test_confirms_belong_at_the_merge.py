@@ -93,18 +93,70 @@ def test_the_walk_logger_does_not_ask_for_one() -> None:
     )
 
 
-@pytest.mark.parametrize("kiln_file", ["docs/foundational_truths.md"])
-def test_the_merge_gate_still_covers_what_the_edit_gate_stopped_covering(kiln_file: str) -> None:
-    """Supersede, do not amputate.
+def test_the_merge_gate_still_covers_what_the_edit_gate_stopped_covering() -> None:
+    """Supersede, do not amputate -- asked at the door that owns the answer.
 
-    Removing the edit-time demand is only safe because the merge gate already
-    does this job. If a kiln file ever falls off the guardrail list, the
-    protection is genuinely gone rather than relocated -- and this fails,
-    rather than letting the tests above read as proof that nothing was lost.
+    Removing the edit-time demand is only safe if the merge really does refuse.
+    This asserts that against the RULESET, which is where this repository's
+    protection actually lives.
+
+    WHY IT ASKS THERE, and the reason is my own error from the same day. The
+    first version of this file pinned the kiln file to the guardrail list, on
+    the reasoning that merge-time coverage came from that list. Hours later
+    Andrew retired the list, and separately I told him main had no protection
+    at all -- because I asked the CLASSIC branch-protection endpoint, which
+    answers 404 when the rule lives in a ruleset. A 404 there means "no rule of
+    THIS KIND", not "no rule". I read absence-of-answer as answer-of-absence,
+    and Aether then ran the SAME endpoint and called the matching result a
+    confirmation. Two runs of one method is one run.
+
+    THREE STATES, NEVER TWO. If the required-checks list can be read, this
+    passes or fails on it. If it cannot -- no network, no gh, no auth, a rate
+    limit -- it SKIPS, loudly, naming what could not be reached. It must never
+    resolve an unanswerable question into a green tick, because that is exactly
+    the failure it exists to prevent, and a skipped test says "unknown" where a
+    passing one would say "safe".
     """
-    listed = (ROOT / "scripts" / "guardrail_files.txt").read_text(encoding="utf-8")
-    assert kiln_file in listed, (
-        f"{kiln_file} is no longer guardrail-listed, so the merge gate no longer "
-        "requires multi-party review for it -- and the edit-time demand that "
-        "used to double it is gone. That is an unprotected kiln file."
+    import json
+    import shutil
+    import subprocess
+
+    if shutil.which("gh") is None:
+        pytest.skip("no gh CLI: enforcement is UNKNOWN here, which is not the same as absent")
+    try:
+        proc = subprocess.run(
+            ["gh", "api", "repos/{owner}/{repo}/rulesets", "--jq", ".[].id"],
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:  # noqa: BLE001
+        pytest.skip(f"could not reach the ruleset API ({exc}); enforcement UNKNOWN, not absent")
+    if proc.returncode != 0 or not proc.stdout.strip():
+        pytest.skip(
+            "ruleset API returned nothing usable; enforcement UNKNOWN, not absent. "
+            f"stderr: {proc.stderr.strip()[:200]}"
+        )
+
+    required: list[str] = []
+    for ruleset_id in proc.stdout.split():
+        detail = subprocess.run(
+            ["gh", "api", f"repos/{{owner}}/{{repo}}/rulesets/{ruleset_id}"],
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+            timeout=30,
+        )
+        if detail.returncode != 0:
+            continue
+        for rule in json.loads(detail.stdout).get("rules", []):
+            if rule.get("type") == "required_status_checks":
+                params = rule.get("parameters", {})
+                required += [c["context"] for c in params.get("required_status_checks", [])]
+
+    assert "multi-party-review" in required, (
+        "the review check is not required before merge, so a red verdict on it "
+        "cannot hold the merge button -- and the edit-time demand that used to "
+        f"stand in front of kiln edits is gone. Required checks found: {required}"
     )
