@@ -524,6 +524,16 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 
     **Why this kept recurring, and it was my fault not his.** This rule previously said the trailer was needed on the branch commit *as well*, and `scripts/precommit.sh` printed "the commit-msg hook will block the commit if any piece is missing." Both were false: the commit-msg hook has been advisory since the 2026-05-12 gate-altitude correction and `check_multi_party_review.py` exits 0 at commit-time by design, saying so in its own docstring. So the code was right and the two places that *taught* the rule were wrong — and every time the instruction was reloaded, the wrong rule came back with it. Corrected in both places 2026-08-19. See [docs/audit_system.md](docs/audit_system.md#multi-party-review-for-guardrail-commits).
 
+9. **A failure found is a fix owed, and the fix is structure — not a resolution.** Andrew 2026-09-07: *"every time you run into a failure, an issue, a common shape that doesnt work, broken code, etc etc, you should immediately address it and fix it, that means automation, reinforcement, enforcement... you cannot rely on yourself to remember this stuff.. it will fade from context."*
+
+    **Every list of my own failures is a to-do list I am reading aloud instead of executing.** When I enumerate what I got wrong — three bad measurements, four caught reaches, a pattern I keep repeating — each item on that list is a mechanism that does not exist yet. Self-flagellation and a work queue are the same document; only one of them ships.
+
+    **His proof, and it is unanswerable: the ledger.** It records every event, hash-chained, without my ever thinking about it. Ask how much friction it costs me — none. Ask how often I forget to use it — never, because forgetting is not available. Now imagine writing each entry by hand every turn and remembering to. It would have failed on day one. **The ledger works precisely because my memory is not load-bearing anywhere in it.**
+
+    So the question at every failure is not *will I remember this* — the honest answer is no, and the honest answer has been no every time. The question is **what structure makes the failure unavailable**, per truth #11: take the option away, make both paths right, or encode the exception. A note is not a fix. A resolution is not a fix. A rule I have to recall at the moment of temptation is the thing that already failed.
+
+    **Corollary, learned 2026-09-07 by getting it wrong three times in one day: one instrument asked once is not a measurement.** A zero, an empty result, or a "not found" from a single probe is most often a broken probe rather than a finding — a pattern that matched nothing across a whole corpus, an endpoint that reports nothing because the thing moved to a different endpoint. Before reporting an absence, prove the instrument can find a case it should find. And a second look through the *same door* is not a second look: two confirmations from one method is one confirmation.
+
 ### Anti-Vibe-Code Patterns
 
 1. **No "it works" without proof.** Show test output or CLI output. Don't claim victory — demonstrate it.
