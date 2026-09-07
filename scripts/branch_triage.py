@@ -1,0 +1,119 @@
+"""Which remote branches carry work, and which are already home?
+
+Andrew 2026-09-07: "there are now 62 branches on github.. so they either need
+deleted or if they contain stuff they need to be merged and closed."
+
+The question is not "is the branch old" -- age says nothing about whether the
+work landed. Nor is it "does main contain these commits", which is the trap
+this script was WRITTEN WRONG for on the first pass: this repository
+squash-merges, so a merged branch's commits are never ancestors of main. By
+that reading 67 of 68 branches looked unmerged, which is a fact about squash
+merges rather than about the work.
+
+The question that survives squash: does the branch's CONTENT differ from main?
+An empty three-dot diff means everything on it is already home, however its
+commits are shaped.
+
+Three answers, kept apart on purpose:
+  LANDED    -- content identical to main. Safe to delete; nothing lost.
+  CARRIES   -- content main does not have. Needs merging or an explicit
+               decision to abandon. NEVER auto-deleted.
+  UNKNOWN   -- could not be read. Not silently sorted into either pile,
+               because an unreadable branch is not an empty one.
+
+Prints, changes nothing. Deletion is a separate act with a person behind it.
+"""
+
+from __future__ import annotations
+
+import subprocess
+
+
+def git(*args: str) -> str | None:
+    try:
+        p = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return p.stdout if p.returncode == 0 else None
+
+
+def main() -> int:
+    raw = git("branch", "-r", "--format=%(refname:short)")
+    if raw is None:
+        print("CANNOT CHECK -- could not list remote branches")
+        return 1
+
+    # origin/ only. Other remotes are separate repositories and deleting a
+    # branch there is a different decision with different consequences.
+    branches = [
+        b.strip()
+        for b in raw.splitlines()
+        if b.strip().startswith("origin/")
+        and "HEAD" not in b
+        and b.strip() != "origin/main"
+    ]
+    print(f"branches on origin (excluding main): {len(branches)}\n")
+
+    landed: list[str] = []
+    carries: list[tuple[str, int, str]] = []
+    unknown: list[str] = []
+
+    for b in branches:
+        # Which files this branch touched, measured from where it forked.
+        touched_raw = git("diff", "--name-only", f"origin/main...{b}")
+        if touched_raw is None:
+            unknown.append(b)
+            continue
+        touched = [ln for ln in touched_raw.splitlines() if ln.strip()]
+        if not touched:
+            landed.append(b)
+            continue
+
+        # THE TEST THAT SURVIVES A SQUASH MERGE. Three-dot measures from the
+        # fork point, so a squash-merged branch still shows every file it ever
+        # changed -- its commits are not ancestors of main even though its
+        # CONTENT is. Comparing the two tips directly, restricted to the files
+        # this branch touched, asks the question that actually decides
+        # deletion: does main already hold this work, however it got there?
+        still_raw = git("diff", "--name-only", b, "origin/main", "--", *touched)
+        if still_raw is None:
+            unknown.append(b)
+            continue
+        still = [ln for ln in still_raw.splitlines() if ln.strip()]
+        if not still:
+            landed.append(b)
+            continue
+
+        subj = git("log", "-1", "--format=%s", b) or ""
+        carries.append((b, len(still), subj.strip()))
+
+    print(f"LANDED -- content already on main, safe to delete ({len(landed)}):")
+    for b in landed:
+        print(f"  {b}")
+
+    print(f"\nCARRIES WORK -- content main does not have ({len(carries)}):")
+    for b, n, subj in sorted(carries, key=lambda r: -r[1]):
+        print(f"  {n:4d} file(s) differ  {b}")
+        print(f"                     {subj[:92]}")
+
+    if unknown:
+        print(f"\nCANNOT CHECK ({len(unknown)}) -- unreadable, NOT counted as either:")
+        for b in unknown:
+            print(f"  {b}")
+
+    print(
+        f"\nsummary: {len(landed)} safe to delete, {len(carries)} need a decision, "
+        f"{len(unknown)} unreadable"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
