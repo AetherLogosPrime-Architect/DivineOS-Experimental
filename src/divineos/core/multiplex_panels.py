@@ -48,7 +48,36 @@ def build_panels(context: str = "chatting") -> list[Panel]:
     panels = []
     panels.extend(_always_essential_panels())
     panels.extend(_sometimes_essential_for_context(context))
+    panels.extend(_registered_surface_panels())
     return panels
+
+
+def _registered_surface_panels() -> list[Panel]:
+    """Surfaces that were built to speak here and could not reach this path.
+
+    Measured 2026-09-06: 22 modules exposing ``format_for_briefing()`` were
+    soldered into the branch of the briefing command that runs only when THIS
+    path crashes. Multiplex has been the default since 2026-05-22, so they had
+    been unreachable in normal operation for three and a half months while the
+    project described them as live.
+
+    They arrive here through the registry rather than as more hand-wiring,
+    which means they carry triggers and stay quiet when their situation is not
+    live. Andrew 2026-09-06: "the hooks are supposed to be attached to their
+    relevant situations.. not every hook should fire every turn."
+
+    Fail-soft: this is an addition to the briefing, and a briefing that
+    crashes because an addition failed is worse than one missing the addition.
+    The failure is not silent -- surfaces that break report themselves through
+    the degraded panel the bridge builds.
+    """
+    try:
+        from divineos.core.engagement_relevance import extract_recent_keywords
+        from divineos.core.surface_bridge import panels_from_registry
+
+        return panels_from_registry(extract_recent_keywords())
+    except Exception:  # noqa: BLE001 - the briefing must still render
+        return []
 
 
 # Live-data panel content. Each helper returns the panel.content string.
@@ -191,11 +220,18 @@ def _survival_link_panel_content() -> str:
                 f"{stats['open']} open, {stats['deferred']} deferred). "
             )
             if stats["rate"] < 0.5:
+                # The citation that used to sit here -- Phelps-Ranson 2023 on
+                # principal-agent misalignment -- pushed this panel to 700
+                # characters against a 600 cap, so the renderer replaced the
+                # WHOLE panel with a size-violation marker and the instruction
+                # below never arrived. A hundred and fifty characters of
+                # theory cost the one actionable line in the block, on every
+                # session where the rate was under half. Same fault as the
+                # rest of tonight: reasoning standing where the instruction
+                # should be. The argument belongs in the entry that records
+                # it; what has to arrive is the next move.
                 integration_clause += (
                     "Below 50% — the trust this panel depends on is eroding. "
-                    "Per Phelps-Ranson 2023, principal-agent misalignment "
-                    "is not closed by more training; it is closed by "
-                    "performance contingent on principal satisfaction. "
                     "Address an OPEN correction before the next substantive move."
                 )
     except Exception:  # noqa: BLE001 — fallback path
