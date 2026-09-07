@@ -278,6 +278,7 @@ def amend_trailers(
     commits: list[CommitInfo],
     needing: list[CommitInfo],
     round_id: str,
+    branch: str | None = None,
 ) -> list[str]:
     """Amend the given commits by appending the trailer.
 
@@ -287,11 +288,29 @@ def amend_trailers(
 
     Returns the list of amended commit SHAs (post-rewrite may differ;
     the returned shas are the ORIGINAL shas that were selected).
+
+    ``branch`` names the branch the CALLER selected the commits from. It is
+    checked against the checkout rather than trusted, because the rewrite
+    below runs on ``HEAD`` and cannot reach any other branch: handed a branch
+    that is not checked out, this function would quietly rewrite whichever
+    one is. Discovered 2026-09-05 stamping a request from a checkout of a
+    different branch -- the amend reported success, nothing was stamped, and
+    the guard downstream blamed a worktree that was not the cause.
+
+    A caller that passes no branch keeps the old behaviour of acting on the
+    checkout, which is correct when the checkout IS the subject.
     """
     if not needing:
         return []
 
-    branch = current_branch(repo)
+    checked_out = current_branch(repo)
+    if branch is not None and branch != checked_out:
+        raise PushReadyError(
+            f"cannot stamp {branch} from a checkout of {checked_out}: the amend "
+            f"rewrites HEAD, so it would act on {checked_out} instead. "
+            f"Check out {branch} (or run from a worktree holding it) and re-run."
+        )
+    branch = checked_out
     base = _resolve_base(repo, branch)
 
     short_shas = " ".join(c.short_sha for c in needing)
@@ -475,7 +494,7 @@ def run_push_ready(
         round_id = open_audit_round(branch, needing)
     result.round_id = round_id
 
-    amended = amend_trailers(repo, commits, needing, round_id)
+    amended = amend_trailers(repo, commits, needing, round_id, branch=branch)
     result.amended_shas = amended
 
     # Only self-confirm when this opened its own round. A caller supplying

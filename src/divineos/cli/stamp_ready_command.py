@@ -839,7 +839,13 @@ def register(cli: click.Group) -> None:
                 for c in still:
                     click.echo(f"      {c.short_sha} {c.subject[:56]}")
                 click.secho(
-                    "    Not writing the body, not clearing draft.",
+                    "    Not writing the body, not clearing draft. This guard "
+                    "sees the missing trailer, not the reason -- and there is "
+                    "more than one. The branch may be held by another worktree "
+                    "so its history cannot be rewritten from here; or the "
+                    "rewrite may have run against a different branch entirely. "
+                    "Check which branch is checked out here before assuming "
+                    "the worktree.",
                     fg="bright_black",
                 )
                 # NAME WHAT WAS TESTED, NOT WHAT IS PLAUSIBLE. This used to
