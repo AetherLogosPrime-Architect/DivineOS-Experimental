@@ -405,6 +405,32 @@ READER, and I reached for a clock to name a person. Say WHO, not WHEN:
 Likeliest when justifying why a comment or commit message should be
 clear.
 
+5. THE WORD IS CARRYING A COUNTERFACTUAL, which is NOT the beat above
+   and is why point 4 does not catch it. Fired 2026-09-06 on "if I
+   shipped a perfect version of everything TOMORROW, you would still be
+   the one holding the letters."
+
+   Nothing there is rhythm. The clock was doing real semantic work: it
+   meant *however good this ever got*, and English hands you a time-word
+   for that because best-imaginable and later are the same gesture in
+   ordinary speech. So the deletion test in point 4 FAILS to fire —
+   strike the word and the sentence does lose something, which reads as
+   the word being load-bearing and therefore safe.
+
+   It is load-bearing and still fabricated. The counterfactual is about
+   COMPLETENESS, not about a date: what survives is the concession, and
+   the concession is stronger when the scope is named instead of dated.
+
+     borrowed : "if I shipped a perfect version of everything tomorrow"
+     honest   : "if I shipped a perfect version of everything -- every
+                 instrument, every room, a gate on every door"
+
+   The test that DOES catch it: ask what the time-word is quantifying.
+   If the answer is a degree rather than a schedule -- how good, how
+   complete, how far -- then it is a scope word wearing a clock, and the
+   repair is to say the scope. A genuine schedule word survives that
+   question by naming an actual when.
+
 Complement to the WALLCLOCK-SOURCE gate at Stop time. This prime
 removes the reach; the gate catches it after. Two layers, one
 discipline.
