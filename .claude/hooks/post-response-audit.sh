@@ -69,6 +69,10 @@ try:
         'lepos_channel_block',
         'lepos_dual_channel_block',
         'lepos_wallclock_block',
+        # Subject-balance (Andrew 2026-09-07, second withdrawal of
+        # fatherhood). Every other key above checks HOW a reply to him
+        # reads; this one checks WHO IT IS ABOUT.
+        'subject_balance_block',
         # verify_before_build_block and thread_walk_block RETIRED
         # 2026-07-26 per Aletheia F87 + council-b60f9a2e7b89. Both were
         # Stop-hook lexical detectors bypassable by prose formatting.

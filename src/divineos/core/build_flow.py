@@ -49,6 +49,7 @@ furniture).
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -508,6 +509,176 @@ def check_audit_station(
         f"no audit round names this PR or its branch "
         f"(compared against {len(audit_refs)} round(s){where})",
     )
+
+
+def check_rough_draft_station(branch: str, changed_paths: Sequence[str]) -> StationResult:
+    """Station 1 -- the idea was drafted before the code was.
+
+    Andrew's flow opens with a draft of the IDEA, explicitly not a draft PR.
+    The artifact is any thinking-document the branch carries: an exploration
+    entry, a design note, a walk record.
+
+    Unlike station 4, this one IS satisfiable by me alone, and that is correct
+    rather than a hole. Drafting an idea is a solo act; the discipline is that
+    the thinking exists as a document rather than as a memory of having
+    thought. What it catches is the branch that went straight to code.
+    """
+    if not changed_paths:
+        return StationResult("1-draft", Status.CANNOT_CHECK, "no file list for this PR")
+    thinking = [
+        p
+        for p in changed_paths
+        if p.startswith(("exploration/", "docs/", "workbench/")) and p.endswith(".md")
+    ]
+    if thinking:
+        return StationResult("1-draft", Status.SATISFIED, f"carries {thinking[0]}")
+    return StationResult(
+        "1-draft",
+        Status.MISSING,
+        "no exploration entry, design note or workbench doc on this branch -- "
+        "the idea may have been drafted somewhere, but not where anyone can read it",
+    )
+
+
+def check_build_station(changed_paths: Sequence[str]) -> StationResult:
+    """Station 3 -- something was actually built.
+
+    The least interesting of the five and still worth having: it separates a
+    branch that changed code from one that only moved prose around, which is
+    what decides whether the remaining stations are even meaningful.
+    """
+    if not changed_paths:
+        return StationResult("3-build", Status.CANNOT_CHECK, "no file list for this PR")
+    code = [p for p in changed_paths if p.endswith((".py", ".sh", ".ps1", ".yml", ".yaml"))]
+    if code:
+        return StationResult("3-build", Status.SATISFIED, f"{len(code)} code file(s) changed")
+    return StationResult(
+        "3-build", Status.SATISFIED, "prose-only change; the code stations do not apply"
+    )
+
+
+def check_test_station(changed_paths: Sequence[str], dark: Sequence[str] | None) -> StationResult:
+    """Station 5 -- dogfooding, wiring, automation. Does it run in the real loop.
+
+    THE station, and the reason these five got written. Andrew 2026-09-07,
+    after four separate dark things surfaced in one day: the board checked
+    four of nine, and the one I fail at every single time was not among them.
+    It had been printing "NOT checked: 1-draft, 3-build, 5-test..." in its own
+    output every session while I read past it.
+
+    His definition of done has always included wiring -- station 5 is his own
+    words, written the day he dictated the flow. Nothing was missing from the
+    definition. What was missing was anyone asking.
+
+    Two artifacts, both required when code changed:
+
+    **Tests.** A code change with no test change is not tested, whatever I
+    believe about it.
+
+    **Nothing newly dark.** A module that exposes a briefing interface and is
+    registered nowhere looks exactly like a module with nothing to say --
+    which is how 22 surfaces sat in a crash-only branch for three and a half
+    months while the project described them as live. The dark list is passed
+    in rather than computed here so the caller owns the import cost and this
+    stays testable with a fixture.
+    """
+    if not changed_paths:
+        return StationResult("5-test", Status.CANNOT_CHECK, "no file list for this PR")
+
+    code = [
+        p
+        for p in changed_paths
+        if p.endswith((".py", ".sh", ".ps1")) and not p.startswith("tests/")
+    ]
+    if not code:
+        return StationResult("5-test", Status.SATISFIED, "no code changed; nothing to wire")
+
+    tests = [p for p in changed_paths if p.startswith("tests/")]
+    problems: list[str] = []
+    if not tests:
+        problems.append(f"{len(code)} code file(s) changed and no test touched")
+    if dark is None:
+        problems.append("could not read the dark-surface list, so wiring is unverified")
+    elif dark:
+        problems.append(f"{len(dark)} surface(s) built and reachable by nothing: {dark[0]}")
+
+    if not problems:
+        return StationResult(
+            "5-test",
+            Status.SATISFIED,
+            f"{len(tests)} test file(s) touched, nothing left unreachable",
+        )
+    if dark is None:
+        return StationResult("5-test", Status.CANNOT_CHECK, "; ".join(problems))
+    return StationResult("5-test", Status.MISSING, "; ".join(problems))
+
+
+def check_more_council_station(
+    branch: str,
+    lenses_walked: int | None,
+    required: int,
+    walked_after_last_build: bool | None,
+) -> StationResult:
+    """Station 6 -- loop back to the lenses if the build moved under them.
+
+    The flow says "more council walking if needed", and the honest reading of
+    NEEDED is not a mood. A walk that happened before the last substantive
+    commit reviewed something that no longer exists -- so the question this
+    station asks is whether the lenses have seen the CURRENT shape.
+
+    That is the same failure as a stale review anchor, one station earlier.
+    """
+    if required <= 0:
+        return StationResult("6-more-council", Status.SATISFIED, "gravity 0: no walk required")
+    if walked_after_last_build is None:
+        return StationResult(
+            "6-more-council", Status.CANNOT_CHECK, "commit or walk timestamps unreadable"
+        )
+    # An unknown lens count is not a count of zero. Coercing it would report
+    # "no walk happened" on evidence that says only "the walks were unreadable".
+    if lenses_walked is None:
+        return StationResult(
+            "6-more-council", Status.CANNOT_CHECK, "lens count unreadable for this branch"
+        )
+    if lenses_walked <= 0:
+        return StationResult(
+            "6-more-council", Status.MISSING, "no walk to be stale or fresh -- station 2 first"
+        )
+    if walked_after_last_build:
+        return StationResult("6-more-council", Status.SATISFIED, "the lenses saw the current shape")
+    return StationResult(
+        "6-more-council",
+        Status.MISSING,
+        "every walk predates the last build commit -- the lenses reviewed a shape "
+        "that has since changed",
+    )
+
+
+def check_merge_station(
+    is_draft: bool | None, mergeable: str | None, stations: list[StationResult]
+) -> StationResult:
+    """Station 9 -- merge, or back to the loop.
+
+    Confirmed goes to main; not confirmed returns to the work. So this station
+    is not a separate hurdle: it reports whether the preceding ones actually
+    clear the way, which is the difference between a board that lists stations
+    and a board that adds them up.
+    """
+    blocking = [s for s in stations if s.status is Status.MISSING]
+    if blocking:
+        names = ", ".join(s.station for s in blocking)
+        return StationResult("9-merge", Status.MISSING, f"held by: {names}")
+    unknown = [s for s in stations if s.status is Status.CANNOT_CHECK]
+    if unknown:
+        names = ", ".join(s.station for s in unknown)
+        return StationResult("9-merge", Status.CANNOT_CHECK, f"cannot say -- unreadable: {names}")
+    if mergeable and mergeable.upper() == "CONFLICTING":
+        return StationResult("9-merge", Status.MISSING, "conflicts with main")
+    if is_draft:
+        return StationResult(
+            "9-merge", Status.SATISFIED, "every station proven; ready to leave draft"
+        )
+    return StationResult("9-merge", Status.SATISFIED, "every station proven")
 
 
 def fingerprint(statuses: list[PrFlowStatus]) -> str:
