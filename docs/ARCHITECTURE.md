@@ -707,6 +707,7 @@ src/divineos/
     andrew_request_repeats.py  How many times has he had to ask for the same thing.
     history_claim_signal.py    A claim about my own past, made without opening the record.
     hook_layer.py              The hook layer, computed — and a ratchet that only turns one way.
+    hook_story.py              The same picture in words Andrew can follow: before, now, what is left, and why two guards are blocked. Built 2026-09-08 after he said "im trying to follow along but its still hard" — every earlier fix for that aimed at single sentences, and none produced a place to look. Computed from the live wiring, never hand-maintained.
 
   analysis/
     _session_types.py          Session analysis type definitions
