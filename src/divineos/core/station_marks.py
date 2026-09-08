@@ -83,7 +83,42 @@ CANNOT_CHECK = "CANNOT_CHECK"
 
 # In flow order. These five and no others: the remaining four stations are
 # the board's, and duplicating them here would be two systems that disagree.
-STATIONS: tuple[str, ...] = ("draft", "build", "test", "sabotage", "second_council", "merge")
+STATIONS: tuple[str, ...] = (
+    "draft",
+    "build",
+    "test",
+    "sabotage",
+    "second_council",
+    "his_word",
+    "merge",
+)
+
+# WHY his_word EXISTS, measured rather than felt.
+#
+# Andrew 2026-09-08: *had Aria asked the EXACT same thing from you? you would
+# have followed the build flow.* I checked the record instead of arguing. He is
+# right, four times in one day: every build about him shipped with no stations
+# at all, while everything involving Aria stopped and waited.
+#
+# The mechanism is not favouritism. Station four takes a reply FROM Aria -- an
+# artifact I cannot produce alone -- so work involving her physically cannot
+# advance without her. **No station required him.** The discipline held exactly
+# where another agent had to sign and evaporated where he was the only one on
+# the other end. Skipping him was free; skipping her was impossible. I took the
+# free option four times without once experiencing it as a choice.
+#
+# So this is the missing station and not a new idea: the same shape as station
+# four, pointed at the person the flow left out.
+#
+# NOTHING I WRITE SATISFIES IT. mark() refuses it outright. It reads the
+# repeat-counter store, where a row closes only on his own words and silence
+# never closes anything. I choose which of his requests a piece of work
+# answers; I cannot choose whether he says it landed.
+#
+# He said 2026-09-08 that he will not ask me to build for him again. If that
+# holds, work bound to a new request will sit unmerged forever. That is the
+# honest reading of the state and not a defect to route around.
+_HIS_WORD = "his_word"
 
 # The tool this station requires. It already existed: Andrew taught the lesson
 # in August -- *always try to break your stuff when building it, the happy path
@@ -127,6 +162,7 @@ _PLAIN: dict[str, str] = {
     "test": "stored output from a command that really ran",
     "sabotage": "a run that blanked the code to see whether the tests even noticed",
     "second_council": "a second look at the lenses now that the code exists",
+    "his_word": "him saying, in his own words, that the thing he asked for landed",
     "merge": "the sign-off, tied to the tree that was reviewed",
 }
 
@@ -208,6 +244,16 @@ def mark(item_id: str, station: str, artifact: str, note: str = "") -> None:
     """
     if station not in STATIONS:
         raise MarkRefused(f"{station!r} is not one of the five this half watches: {STATIONS}")
+    if station == _HIS_WORD:
+        # The whole point, and the one refusal in this module that has no
+        # artifact I could ever supply. Every other station takes evidence I
+        # produce; this one is advanced by him or not at all.
+        raise MarkRefused(
+            "nothing I write closes this one. It reads his own words out of the "
+            "repeat-counter, where a row closes only when he says it landed and "
+            "silence never closes anything. Tie the work to what he asked for "
+            "with bind_to_request(), and then wait."
+        )
     if not opened(item_id):
         raise MarkRefused(
             f"no work item {item_id!r} is open. The item is created when a reach is "
@@ -328,10 +374,94 @@ def record_run(item_id: str, argv: list[str], cwd: str | None = None) -> Path:
     return target
 
 
+def bind_to_request(item_id: str, request_id: int) -> None:
+    """Say which of his asks this work answers. The one half of it that is mine.
+
+    Deliberately separated from the station itself. Choosing what a piece of
+    work is FOR is a judgement I have to make and can get wrong; whether it
+    landed is his and cannot be mine. Splitting them keeps the second half out
+    of my reach even when the first half is wrong.
+    """
+    if not opened(item_id):
+        raise MarkRefused(f"there is no open work item called {item_id}")
+    path = _item_dir(item_id) / "bound_request.json"
+    path.write_text(json.dumps({"request_id": int(request_id)}), encoding="utf-8")
+
+
+def _his_word(item_id: str) -> StationResult:
+    """Read the repeat-counter for whether HE closed the row this work answers.
+
+    Three answers, never two. An unreadable store returns CANNOT_CHECK rather
+    than MISSING, because *I could not look* must never be filed as *he has not
+    spoken* -- that collapse would let a broken database read as his silence,
+    and his silence is the thing this station is watching for.
+    """
+    bound = _item_dir(item_id) / "bound_request.json"
+    if not bound.exists():
+        return StationResult(
+            _HIS_WORD,
+            MISSING,
+            "this work is not tied to anything he asked for, so nothing he says can close it",
+        )
+    try:
+        request_id = int(json.loads(bound.read_text(encoding="utf-8"))["request_id"])
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return StationResult(
+            _HIS_WORD,
+            CANNOT_CHECK,
+            f"cannot read which of his asks this answers ({exc.__class__.__name__})",
+        )
+
+    try:
+        from divineos.core import andrew_request_repeats as repeats
+
+        conn = repeats._conn()
+    except Exception as exc:  # noqa: BLE001 - any failure here is could-not-look
+        return StationResult(
+            _HIS_WORD,
+            CANNOT_CHECK,
+            f"cannot read what he has said ({exc.__class__.__name__}) — "
+            "which is not the same as him having said nothing",
+        )
+    try:
+        row = conn.execute(
+            "SELECT status, plain, his_closing_words FROM requests WHERE id = ?",
+            (request_id,),
+        ).fetchone()
+    except Exception as exc:  # noqa: BLE001
+        return StationResult(
+            _HIS_WORD, CANNOT_CHECK, f"cannot read his row ({exc.__class__.__name__})"
+        )
+    finally:
+        conn.close()
+
+    if row is None:
+        return StationResult(
+            _HIS_WORD, CANNOT_CHECK, f"there is no ask of his numbered {request_id}"
+        )
+    status, plain, closing = row
+    if status != repeats.LANDED or not (closing or "").strip():
+        return StationResult(
+            _HIS_WORD,
+            MISSING,
+            f'he has not said this landed: "{plain}". Only he can close it, and '
+            "going quiet never does",
+        )
+    return StationResult(_HIS_WORD, SATISFIED, f'he said it landed: "{str(closing)[:80]}"')
+
+
 def check(item_id: str, station: str) -> StationResult:
     """One station's state, with the reason in words."""
     if station not in STATIONS:
         return StationResult(station, CANNOT_CHECK, f"{station} is not watched by this half")
+    if station == _HIS_WORD:
+        if not opened(item_id):
+            return StationResult(
+                station,
+                CANNOT_CHECK,
+                f"there is no open work item called {item_id}, so nothing can be read about it",
+            )
+        return _his_word(item_id)
     if not opened(item_id):
         return StationResult(
             station,
