@@ -1,6 +1,6 @@
 # Lessons (tracked) — Archive Mirror
 
-**Source:** SQLite (36 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (36 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -28,7 +28,7 @@ I upset the user by acting without pausing to understand the situation.
 
 ---
 
-## c3090082 [improving] x13
+## c3090082 [active] x13
 
 **Category:** incomplete_fix
 
@@ -52,19 +52,19 @@ I coded through an entire session without consulting the OS (ask, recall, direct
 
 ---
 
+## a00a1d59 [improving] x13
+
+**Category:** wrong_scope
+
+Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
+
+---
+
 ## a67be5b2 [resolved] x13
 
 **Category:** incomplete_fix
 
 I fixed one problem but missed related failures. Check all affected areas after a fix.
-
----
-
-## a00a1d59 [improving] x12
-
-**Category:** wrong_scope
-
-Enforcement gates must block execution, not just warn. Without blocking, every session degrades.
 
 ---
 

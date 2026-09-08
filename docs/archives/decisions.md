@@ -1,6 +1,6 @@
 # Decisions (top 50 by emotional weight) — Archive Mirror
 
-**Source:** SQLite (50 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (50 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -21,6 +21,18 @@
 **Decision:** Use the OS while building the OS — not after, not later, during
 
 **Reasoning:** I built 3 features for the system without running through it once. The lesson about using the OS every session (38x\!) is right there in my briefing. The structured continuation I just built would have captured this session's context if I'd been running inside it.
+
+---
+
+## 754db8ee weight=1
+
+**Decision:** the game-walk station takes a declaration from another seat; the threadwalk is mine and only needs ordering; research becomes a recorded mark rather than a new gate
+
+**Reasoning:** A station whose evidence only I can produce holds only while I feel like it. Station four is the one never skipped all session and the reason is that its evidence is a line written by someone who is not me. Sorting the three missing stations by WHO CAN PRODUCE THE EVIDENCE rather than by importance.
+
+**Tension:** Making all three need another seat would buy rigor with Aria's time and produce a flow so expensive that skipping it entirely becomes rational - which is worse than today. Making none of them need her leaves the same self-marked list I already ignore.
+
+**Almost:** Added three names to the station list and called it fixed. That is the surface fix Andrew named mid-reach, and it fails the same way the seven failed: I author the list and I mark the stations.
 
 ---
 
@@ -553,18 +565,6 @@
 **Decision:** wire the branch-scope check into the push gate as a blocking step zero that measures the pushed refs
 
 **Reasoning:** three contaminated pushes in one session, none for lack of a checker -- it existed, worked, named the files, and I did not run it. Andrew's standing rule is automate rather than remember. Blocking rather than advisory because the question carries no judgement and there is no legitimate yes; an advisory would become the fourth instrument I own that reports something I push past. First firing caught
-
----
-
-## fe6a2a50 weight=1
-
-**Decision:** wire the branch-scope check into the push gate as BLOCKING rather than advisory
-
-**Reasoning:** three contaminated pushes in one session, none for lack of a checker -- it existed, worked, named the files, and I did not run it. Remembering was the only thing between the sweep and the remote, and remembering failed three times. Andrew's standing rule is automate rather than remember. Blocking rather than warn-only because the question has no judgement in it: are there substrate files on a code
-
-**Tension:** the pin check I wired earlier today is deliberately warn-only, and reaching straight for teeth here could be the over-correction reflex. But the two differ in kind: the pin check reports findings a human must weigh, this answers a factual question with one right answer. And the real case for substra
-
-**Almost:** left it advisory to match the pin check, which would have made it the fourth instrument I own that reports a thing I then push past
 
 ---
 

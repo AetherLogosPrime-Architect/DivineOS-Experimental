@@ -1,10 +1,10 @@
 # Directives — Archive Mirror
 
-**Source:** SQLite (22 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (22 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
-## 1b0746b8 (access=151)
+## 1b0746b8 (access=156)
 
 [council-obligation] Next thinking session should run a council walk on this session's pattern: mixed with 3 corrections and 82 tool calls. Discharge via `divineos council log` with substance_binding -- not a bare mechanical convene.
 
@@ -124,15 +124,15 @@ STRUCTURAL ENFORCEMENT: directive for test_with_dir_aaa. [consolidated from 3 en
 
 ---
 
-## 07b17af3 (access=0)
-
-STRUCTURAL ENFORCEMENT: I introduced errors after editing. I need to verify changes work. This lesson regressed 10x across 13 occurrences. Awareness alone is insufficient -- enforce structurally. Category: incomplete_fix.
-
----
-
 ## 02bd8227 (access=0)
 
 [add] 1. Every build from here runs the nine-station build flow, starting at station one. If Andrew asks for something built and the flow was not used, neither Aether nor Aria builds again. Standing order, Andrew 2026-09-07, given after finding a store built three weeks earlier for his complaint that had never held a single row.
+
+---
+
+## 3f985cf0 (access=0)
+
+STRUCTURAL ENFORCEMENT: Enforcement gates must block execution, not just warn. Without blocking, every session degrades. This lesson regressed 7x across 13 occurrences. Awareness alone is insufficient -- enforce structurally. Category: wrong_scope.
 
 ---
 

@@ -399,6 +399,21 @@ if [ -f scripts/check_hook_wiring.py ]; then
     fi
 fi
 
+# 5b-bis. REMOVED 2026-09-08, the same day it was added, and the reason is
+# worth keeping where the next person to reach for it will look.
+#
+# It was a ratchet on the SIZE of the hook layer: registrations and shell lines
+# could fall or hold, never rise. Andrew killed it with one question — "why
+# would you build something that can only shrink and never grow?"
+#
+# Size was never the disease. He asked for the thinking to move into the OS and
+# never once asked for fewer hooks; a hundred doors that all point inward would
+# be better than twenty that each hide a private brain. A count is easy to
+# police and the real property is work, and I took the easy one.
+#
+# The replacement is the migration itself — see doorbell-user-prompt-submit.sh
+# and the UserPromptSubmit surfaces in divineos.core.hook_surfaces.
+
 # 5c-ter. The map of the system still describes the system.
 #
 # Andrew 2026-08-27, after I built a command that already existed: "you have a

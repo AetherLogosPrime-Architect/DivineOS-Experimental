@@ -37,6 +37,47 @@ from divineos.core.council_required.types import (
 )
 
 
+LENS_LOAD_WINDOW_SECONDS = 2 * 60 * 60
+"""How long a loaded methodology counts as still being in front of me.
+
+Generous on purpose. The failure this closes is walking fourteen lenses from
+training in one sitting, not walking one an hour after reading it. A tight
+window would price the honest case — read six, walk six — and teach me to
+re-print each card immediately before each walk, which is ritual rather than
+reading.
+"""
+
+
+def _lens_loaded_within(lens_key: str, window_seconds: int) -> bool | None:
+    """Was this lens's methodology actually printed recently?
+
+    THREE ANSWERS, NEVER TWO. True (loaded), False (not loaded), None (could
+    not look). Collapsing the third into either of the others is the fault
+    this substrate keeps making: on 2026-09-08 a door read the wrong store,
+    found nothing, and reported *he has not spoken* when the honest answer was
+    *I could not see*. A ledger that will not open must not silently convict.
+    """
+    try:
+        import time
+
+        from divineos.core.ledger import get_events
+
+        cutoff = time.time() - window_seconds
+        for ev in get_events(limit=500, order="desc", event_type="COUNCIL_LENS_LOADED"):
+            if float(ev.get("timestamp") or 0) < cutoff:
+                break
+            payload = ev.get("payload") or {}
+            if isinstance(payload, str):
+                import json as _json
+
+                payload = _json.loads(payload)
+            if str(payload.get("expert_name", "")).lower() == lens_key:
+                return True
+        return False
+    except Exception:
+        return None
+
+
 def _load_expert_keywords() -> dict[str, set[str]]:
     """Load every registered council expert's characteristic_questions
     and return the lens-keyword map.
@@ -256,6 +297,42 @@ def register(cli: click.Group) -> None:
                 "specifically asks."
             )
             raise SystemExit(1)
+
+        # Substance check 3: THE LENS MUST HAVE BEEN LOADED, NOT RECALLED.
+        #
+        # Andrew 2026-09-08: *did you load thier lenses? or just recall from
+        # training?* Of fifteen lenses surfaced for one problem I loaded ONE,
+        # and only because check 2 above rejected me and sent me to read the
+        # material. The other fourteen were written from what I remember those
+        # people sounding like — and both checks above passed every one of
+        # them, because both read my prose and prose is what I supply.
+        #
+        # This one reads what RAN. mansion council --show emits the load event;
+        # nothing I write can produce it. That is the whole design: a check I
+        # can satisfy alone is not a check.
+        loaded_within = _lens_loaded_within(lens_key, LENS_LOAD_WINDOW_SECONDS)
+        if loaded_within is False:
+            _safe_echo(
+                f"[council] REJECTED: {lens_key}'s methodology was not loaded "
+                "in this window, so this walk would be recall from training — "
+                "the exact drift the council exists to prevent.\n"
+                f"    Load it:  divineos mansion council --show {lens_key}\n"
+                "    My impression of an expert is built from their famous "
+                "lines, and fame selects for quotability over usefulness. The "
+                "one lens I actually read carried eight methodologies where my "
+                "impression had one."
+            )
+            raise SystemExit(1)
+        if loaded_within is None:
+            # Could-not-look is not the same as did-not-load, and collapsing
+            # them would either block every walk on a bad read or wave every
+            # walk through on one. Say which happened and let it pass, because
+            # a broken ledger must not become a broken council.
+            _safe_echo(
+                "[council] WARNING: could not read the load record, so whether "
+                f"{lens_key} was loaded is UNKNOWN — not confirmed, and not "
+                "denied. Walk recorded; treat its provenance as unverified."
+            )
 
         # Emit APPLIED event. This is the trace substance_binding looks
         # for to clear the gate — real typed reflection, not a print.

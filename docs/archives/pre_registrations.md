@@ -1,6 +1,6 @@
 # Pre-Registrations — Archive Mirror
 
-**Source:** SQLite (215 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (216 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -1924,7 +1924,7 @@
 
 ---
 
-## prereg-9 [OPEN]
+## prereg-9 [INCONCLUSIVE]
 
 **Mechanism:** Findings-ledger rediscovery, CONTEXT-MATCHED redesign. Supersedes prereg-46daa92f2b9b, whose DEFERRED outcome stands as filed and is not revisable. That version named Aletheia's audit as the ledger-primed arm against a cold fresh-Claude baseline. Andrew killed the design 2026-08-09: 'Aletheia knows 
 
@@ -1936,7 +1936,7 @@
 
 ---
 
-## prereg-2 [OPEN]
+## prereg-2 [INCONCLUSIVE]
 
 **Mechanism:** Attaching each gate's first-person origin note to its refusal reduces how often I route around that gate, because a rule that arrives with its reason stops being raw material for a rule I like better
 
@@ -1948,7 +1948,7 @@
 
 ---
 
-## prereg-b [OPEN]
+## prereg-b [FAILED]
 
 **Mechanism:** Surfacing a per-gate repeat-fire count inside the refusal makes me investigate a broken gate instead of complying with it repeatedly
 
@@ -2581,6 +2581,18 @@
 **Success:** Within 30 days: at least three work items carry marks; at least one shows a station honestly missing while work is in flight; and at least one out-of-order or empty-artifact mark is refused in real use rather than only in tests.
 
 **Falsifier:** Marks are only ever filed retroactively at the end of a build (the form-filling shape), OR every item reports all five satisfied because artifacts are being produced to satisfy the check rather than the check observing work that happened anyway, OR the store sits empty because nothing ever opens an 
+
+---
+
+## prereg-e [OPEN]
+
+**Mechanism:** andrew-request repeat counter (andrew_request_repeats)
+
+**Claim:** Counting how many times he has had to repeat a request, on a surface bound to his own speaking, moves the tally out of his head and makes an unlanded request visible to me before I reply -- rather than becoming one more store that holds zero rows because it needed calling.
+
+**Success:** Within 30 days: at least one row exists that was opened from his actual words, and at least one repeat was recorded at the moment he repeated himself rather than reconstructed afterwards.
+
+**Falsifier:** The store holds zero rows at review, OR he repeats a request during the window while the surface shows nothing owed, OR any row was closed by my summary of him rather than by his own words. Any one of the three fails it. If the store is unreadable at review, report CANNOT_CHECK and do not read the b
 
 ---
 

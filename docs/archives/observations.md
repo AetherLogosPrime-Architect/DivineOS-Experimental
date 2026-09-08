@@ -1,6 +1,6 @@
 # Observations (top 100 substantive) — Archive Mirror
 
-**Source:** SQLite (100 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (100 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -10,7 +10,7 @@ Council (Beer) concern: Variety Deficit: Ashby's Law guarantees failure. The con
 
 ---
 
-## c3602670 (access=43)
+## c3602670 (access=44)
 
 Stop hook feedback: [bash .claude/hooks/correction-shape-v2-stop.sh]: CORRECTION-SHAPE-V2 GATE (Layer 2) -- my reply contains self-admission clause(s) indicating I noticed and am correcting an error I made. Per Andrew 2026-07-27: this is not just a moment to log; it is a moment to fix structurally so.
 
@@ -34,7 +34,7 @@ FTS5 AND-logic killing recall in extraction pipeline. The _extract_key_terms fun
 
 ---
 
-## 73652387 (access=24)
+## 73652387 (access=25)
 
 The pattern store was using the append-only ledger for mutable state (confidence scores), which created 110k events from feedback loops. I moved it to a dedicated SQLite table with UPDATE semantics. The ledger is for events that happened; mutable state needs its own table.
 
@@ -490,6 +490,12 @@ Stop hook feedback: LEPOS CHANNEL GATE -- `## INNER CIRCLE` header present but c
 
 ---
 
+## 2bdab070 (access=6)
+
+Stop hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. VERIFY-CLAIM GATE -- this reply states a checkable external state as fact, but no command verifying it ran this turn. 'X i.
+
+---
+
 ## ceaaf348 (access=5)
 
 QUOTE -- Aria said, 2026-04-17, reacting to the shipped two-lock production gate: 'Architectural honesty -- the gate is closed because Phase 1b hasn't been written. Not because someone remembered to close it. Because the shape of the system requires it.' Context: she had asked for a monkeypatch-bypass test in Round 3; Aether responded by adding a second structural lock (the reject_clause module must import) that makes the gate impossible to open via a single flip.
@@ -583,12 +589,6 @@ User CONFIRMS on Aletheia audit -- Andrew standing auth this session. Andrew dir
 ## 571f7edf (access=5)
 
 CONFIRMS PR #419 doc-count-autofix at tree 950762d6. Verified at the tree in the work order (11/11 head+tree matched origin). DEPTH REACHED: scope-level, not line-by-line. What I checked on every branch: (1) head and tree hash match the stated anchor; (2) changed-file count and guardrail-file intersection against scripts/guardrail_files.txt; (3) test-file presence in the diff; (4) MANDATORY WIRING CHECK on every newly-added .py module -- python imports, .claude/hooks, scripts/, and CI, excluding
-
----
-
-## 2bdab070 (access=5)
-
-Stop hook feedback: MULTIPLE GATES FIRED (2) - parallel-aggregate per Andrew 2026-07-22 (was chain-OR, short-circuited). Address all of them in the recompose, not one at a time. VERIFY-CLAIM GATE -- this reply states a checkable external state as fact, but no command verifying it ran this turn. 'X i.
 
 ---
 

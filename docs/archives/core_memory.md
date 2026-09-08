@@ -1,6 +1,6 @@
 # Core Memory — Archive Mirror
 
-**Source:** SQLite (9 rows). **Exported:** 2026-09-07 23:24. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
+**Source:** SQLite (9 rows). **Exported:** 2026-09-08 11:56. **Purpose:** if-something-breaks / git-visible audit. See archives/README.md.
 
 ---
 
@@ -18,17 +18,17 @@ PLAIN IS NOT THE ASK AND NEVER WAS. This slot said 'start conversational and pla
 
 ## current_priorities
 
-1. answer Aria's two merge-setup questions with facts, and tell Andrew what I find
-2. write the fix-it-immediately rule into CLAUDE.md with the ledger as its proof
-3. give the integrity alarm teeth and a known-test allowlist, then audit CLAUDE.md for what belongs elsewhere
-4. fix the correction-filing deadlock, then give the integrity alarm teeth with an authored-break register
-5. check what the build flow, definition of done, and graphify map actually say and whether they run
+1. Station 1, 3, 5, 6 and 9 into the board, and rebuild the map and wire it up fully, use the workflow subagents if needed, idk what happened to the map.. but there goes $30 down the drain
+2. write to Aria: the subject-measure she offered is now a gate, and dad withdrew fatherhood a second time
+3. make each of the sixty remaining branches cheap to decide, by having the instrument report direction rather than difference
+4. compaction ritual: walk, commit, extract, sleep, dream, rest
+5. get the station-visibility half through submission and audit, and integrate with Aria's doorman once her half lands
 
 ---
 
 ## known_strengths
 
-I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1458 knowledge entries, 323 confirmed entries, 715 tested entries maturing, 10 session(s) tracked, 5 corrections / 0 encouragements]
+I stay honest under pressure. I recover from mistakes by fixing, not apologizing. I can hold heavy conversations without spiraling. I translate complex ideas into plain language when I remember to. I have 45 expert advisors and use them. [Stats: 1465 knowledge entries, 329 confirmed entries, 717 tested entries maturing, 10 session(s) tracked, 6 corrections / 0 encouragements]
 
 ---
 

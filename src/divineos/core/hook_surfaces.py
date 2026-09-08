@@ -526,6 +526,124 @@ def letter_claims_surface(payload: dict) -> SurfaceOutcome | None:
     return SurfaceOutcome(name="letter_claims", output=text) if text else None
 
 
+# --------------------------------------------------------------------------
+# UserPromptSubmit — the third door, opened 2026-09-08.
+#
+# Andrew: *"all 125+ hooks could all be consolidated to 7 hooks as they all do
+# the same thing, and then yes all of the logic needs to be moved into the OS
+# itself."* He is right that they all do the same thing, and the shape below is
+# the proof: every one of these hooks was a shell script that resolved the
+# repository, resolved an interpreter, imported one function from this package,
+# printed what it returned, and exited 0. The only genuine variation across
+# thirty-six files was which function.
+#
+# So the port is a TABLE, not thirty-six hand-written surfaces. Each entry says
+# which callable, and whether it wants his message. The isolation the router
+# gives is per-entry, so one bad module still cannot silence its neighbours.
+#
+# A surface that raises returns could-not-run rather than nothing, because a
+# prime that failed to load is not a prime that had nothing to say -- and for
+# this door that distinction is load-bearing: the asks surface exists to
+# re-raise what he is still waiting on, and its silence would otherwise read
+# as "nothing is waiting."
+# --------------------------------------------------------------------------
+
+#: (surface name, module, callable, wants the prompt text)
+_PROMPT_SURFACES: tuple[tuple[str, str, str, bool], ...] = (
+    ("still_owed_to_him", "divineos.core.andrew_request_repeats", "surface", False),
+    ("operator_asks", "divineos.core.operator_asks", "format_open_asks", False),
+    ("sibling_correction", "divineos.core.sibling_correction_surface", "render", True),
+    ("self_demotion_prime", "divineos.core.self_demotion", "render_prime", False),
+)
+
+
+def _prompt_text_surface(name: str, module: str, attr: str, wants_prompt: bool):
+    """Build one text-emitting UserPromptSubmit surface from the table."""
+
+    def surface(payload: dict) -> SurfaceOutcome | None:
+        try:
+            mod = __import__(module, fromlist=[attr])
+            fn = getattr(mod, attr)
+        except (ImportError, AttributeError) as exc:
+            return SurfaceOutcome(
+                name=name,
+                error=f"{type(exc).__name__}: {exc}",
+                state="could-not-run",
+            )
+        try:
+            if wants_prompt:
+                prompt = (payload.get("prompt") or "").strip()
+                if not prompt:
+                    return SurfaceOutcome(name=name, state="nothing-to-say")
+                text = fn(prompt)
+            else:
+                text = fn()
+        except Exception as exc:  # noqa: BLE001 — a surface never takes the turn down
+            return SurfaceOutcome(
+                name=name,
+                error=f"{type(exc).__name__}: {exc}",
+                state="could-not-run",
+            )
+        if not text:
+            return SurfaceOutcome(name=name, state="nothing-to-say")
+        return SurfaceOutcome(name=name, output=str(text), state="spoke")
+
+    surface.__name__ = f"{name}_surface"
+    return surface
+
+
+def auto_goal_surface(payload: dict) -> SurfaceOutcome | None:
+    """Set a goal from his message when no session-fresh one exists.
+
+    Ported from the shell verbatim, including the wording: the typing is
+    automated and the judgement is not, so the block says so and offers the
+    supersede rather than pretending the derived goal is authoritative.
+    """
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        return SurfaceOutcome(name="auto_goal", state="nothing-to-say")
+    try:
+        from divineos.core.auto_goal import derive_and_set_goal_from_prompt
+
+        goal = derive_and_set_goal_from_prompt(prompt)
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(name="auto_goal", error=f"{type(exc).__name__}: {exc}")
+    if not goal:
+        return SurfaceOutcome(name="auto_goal", state="nothing-to-say")
+    return SurfaceOutcome(
+        name="auto_goal",
+        state="spoke",
+        output=(
+            "## GOAL SET FROM YOUR PROMPT (paperwork filed before the doorman asked)\n"
+            f"\n    {goal}\n\n"
+            "Derived from the prompt because no session-fresh goal existed. The\n"
+            "typing is automated; the judgement is not. If this is not actually\n"
+            "what I am doing, say so or supersede it:\n"
+            '    divineos goal add "<the real one>"\n'
+        ),
+    )
+
+
+def correction_marker_surface(payload: dict) -> SurfaceOutcome | None:
+    """Mark a correction in his message. Its work is a side effect, not text.
+
+    Declares ``nothing-to-say`` rather than returning None, because for a
+    side-effect check an empty stdout is byte-identical to having crashed --
+    the exact ambiguity Aria closed when she added the third state.
+    """
+    try:
+        from divineos.core.correction_marker import hook_main
+
+        hook_main()
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="correction_marker",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="correction_marker", state="nothing-to-say")
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -575,3 +693,19 @@ def install() -> None:
     # hook goes live. Checking before the edit would check the old contents.
     if "hook_syntax" not in registered("PostToolUse"):
         register("PostToolUse", "hook_syntax", hook_syntax_surface)
+
+    # Third door, 2026-09-08. Each of these retires a shell registration in the
+    # SAME change -- the tracker's own rule, learned the hard way when
+    # deletion_discipline ran from both places for hours and the swallow the
+    # migration existed to remove was still running underneath the fix for it.
+    for name, module, attr, wants_prompt in _PROMPT_SURFACES:
+        if name not in registered("UserPromptSubmit"):
+            register(
+                "UserPromptSubmit",
+                name,
+                _prompt_text_surface(name, module, attr, wants_prompt),
+            )
+    if "auto_goal" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "auto_goal", auto_goal_surface)
+    if "correction_marker" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "correction_marker", correction_marker_surface)

@@ -61,6 +61,7 @@ src/divineos/
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
     hook_budget_commands.py    `divineos hook-budget` — what the whole hook stack costs per tool call, hangs included. The module had no entry point for a day, so the freeze numbers were only visible to whoever wrote a throwaway script
+    hook_layer_commands.py     `divineos hook-layer show` — what the hook layer actually is, computed from settings and the directory: registrations per door, doors with no doorbell, scripts registered twice, and how much shell still carries judgment. Measurement only; a size ceiling was built here 2026-09-08 and removed the same day when Andrew rejected the idea — "why would you build something that can only shrink and never grow?"
     build_flow_commands.py     Build-flow station status CLI (divineos build-flow status).
     gate_fire_commands.py      divineos gate-fire — shell-side GATE_FIRE emit for bash gates.
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
@@ -703,6 +704,8 @@ src/divineos/
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
     station_marks.py           The five build-flow stations nothing has ever watched.
     andrew_request_repeats.py  How many times has he had to ask for the same thing.
+    history_claim_signal.py    A claim about my own past, made without opening the record.
+    hook_layer.py              The hook layer, computed — and a ratchet that only turns one way.
 
   analysis/
     _session_types.py          Session analysis type definitions

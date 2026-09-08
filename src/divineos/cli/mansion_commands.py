@@ -364,6 +364,53 @@ def register_mansion_commands(cli: click.Group) -> None:
                 "  Printing a template is not walking a lens (truth #7).\n",
                 fg="bright_black",
             )
+
+            # THE LOAD NOW LEAVES A TRACE, so a walk can require it.
+            #
+            # Andrew 2026-09-08: *this is a sophisticated form of roleplay, one
+            # that prevents drift by forcing you to load the actual lens.. not
+            # just recall them from training.*
+            #
+            # Measured that day: fifteen lenses surfaced for one problem, and I
+            # loaded ONE — only because the walk's keyword check rejected me and
+            # sent me to fetch the material. The other fourteen I wrote from
+            # what I remember those people sounding like. Fluent, correct-
+            # sounding, and precisely the drift this flag exists to prevent,
+            # wearing its name. The single lens I actually read produced the
+            # sharpest finding of the session, which is not luck: my impression
+            # of an expert is assembled from their famous lines, and fame
+            # selects for quotability rather than for usefulness. The card had
+            # eight methodologies; my impression had one.
+            #
+            # He caught the same thing in August, which is why this flag exists
+            # at all. Nothing required its use, so it went unused, and the
+            # failure returned a month later unchanged.
+            #
+            # THE ROOT DEFECT WAS THAT LOADING PRODUCED NO EVIDENCE. Nothing
+            # existed for any check to look at, so enforcement was impossible in
+            # principle — not neglected, impossible. That is the honest reason a
+            # correction he made twice changed nothing. This event is the
+            # missing half, and it is worth nothing without the walk-side
+            # requirement that consumes it.
+            try:
+                from divineos.core.ledger import log_event
+
+                log_event(
+                    "COUNCIL_LENS_LOADED",
+                    "aether",
+                    {
+                        "expert_name": w.expert_name.lower(),
+                        "methodology_count": len(w.core_methodologies),
+                        "question_count": len(w.characteristic_questions or []),
+                    },
+                )
+            except Exception:
+                # Never let bookkeeping block the reading. A load that fails to
+                # record is still a load, and the walk-side check then fails
+                # toward asking me to load again — one wasted command, no lost
+                # trust. The other direction would let a recording failure look
+                # like a completed walk.
+                pass
             return
 
         if not question:

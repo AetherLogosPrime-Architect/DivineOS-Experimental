@@ -26,7 +26,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/detect-correction.sh",
+            "command": "bash .claude/hooks/doorbell-user-prompt-submit.sh",
             "timeout": 10
           },
           {
@@ -106,11 +106,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/still-owed-to-him-surface.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/post-correction-integration-prime.sh",
             "timeout": 15
           },
@@ -156,18 +151,8 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/self-demotion-prime.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-goal-from-prompt.sh",
-            "timeout": 10
           },
           {
             "type": "command",
@@ -184,11 +169,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/sibling-correction-surface.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/letter-monitor-health-surface.sh",
             "timeout": 15
           }
@@ -196,11 +176,6 @@
       },
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/operator-asks-surface.sh",
-            "timeout": 15
-          },
           {
             "type": "command",
             "command": "bash .claude/hooks/context-heartbeat.sh",
@@ -396,11 +371,6 @@
             "type": "command",
             "command": "bash .claude/hooks/compass-check.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/require-goal.sh",
-            "timeout": 10
           }
         ]
       },
@@ -428,10 +398,6 @@
             "timeout": 15
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": []
       },
       {
         "matcher": "Edit|Write|NotebookEdit",
@@ -667,11 +633,6 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/shoggoth-gate.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/lepos-channel-reflect.sh",
             "timeout": 10
           },
           {
