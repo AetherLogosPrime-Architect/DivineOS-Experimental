@@ -136,6 +136,11 @@
           },
           {
             "type": "command",
+            "command": "bash .claude/hooks/wallclock-source-prime.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/auto-cycle-token-trigger.sh",
             "timeout": 20
           },
