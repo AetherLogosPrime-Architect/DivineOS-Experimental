@@ -319,6 +319,26 @@ def dispatch(event: str, payload: dict) -> RouterResult:
         result.errored.append(SurfaceOutcome(name="<router>", error=f"unknown event {event!r}"))
         return result
 
+    # IS THIS COMMAND SOMEBODY'S WAY OUT? Asked ONCE, here, rather than by each
+    # gate about itself. Nineteen gates each knew their own exit and none knew
+    # anyone else's, so gate A blocked the command gate B had just prescribed
+    # and neither was wrong from inside its own scope. Andrew 2026-08-18: "no
+    # gate should ever be blocking its own remedy."
+    #
+    # The shell version skipped the whole hook. This suppresses REFUSALS only
+    # and lets reporting surfaces still speak -- a deliberate difference, named
+    # rather than smuggled. Refusing is the only thing a gate does that can
+    # deadlock me; a surface that merely says something cannot trap anyone, and
+    # silencing it would lose information for no safety gained.
+    remedy = False
+    if event == "PreToolUse" and (payload.get("tool_name") or "") == "Bash":
+        try:
+            from divineos.core.remedy_allowlist import is_remedy
+
+            remedy = is_remedy((payload.get("tool_input") or {}).get("command") or "")
+        except Exception:  # noqa: BLE001 — fail toward gates-behave-normally
+            remedy = False
+
     for name, fn in _REGISTRY[event]:
         try:
             outcome = fn(payload)
@@ -335,6 +355,27 @@ def dispatch(event: str, payload: dict) -> RouterResult:
         if outcome.error is not None:
             result.errored.append(outcome)
         elif outcome.refused:
+            if remedy:
+                # Somebody's prescribed exit. The refusal is DOWNGRADED to a
+                # report rather than dropped -- the gate's claim was not wrong,
+                # it simply may not stand in front of another gate's remedy,
+                # and a silent allowlist rots into an unexamined hole.
+                from divineos.core.remedy_allowlist import note_pass_through
+
+                note_pass_through(
+                    outcome.name, (payload.get("tool_input") or {}).get("command", "")
+                )
+                result.ran.append(
+                    SurfaceOutcome(
+                        name=outcome.name,
+                        state="spoke",
+                        output=(
+                            f"[remedy] {outcome.name} would have refused this, but the "
+                            "command is a way out some gate prescribed, so it stands aside."
+                        ),
+                    )
+                )
+                continue
             # No break. Every surface still runs; every refusal is reported.
             result.refusals.append(outcome)
         else:
