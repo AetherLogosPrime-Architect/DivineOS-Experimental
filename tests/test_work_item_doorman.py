@@ -243,6 +243,60 @@ def test_an_empty_draft_is_not_a_draft(tmp_path, monkeypatch) -> None:
     assert doorman._draft_mark(0)
 
 
+def test_an_item_does_not_survive_the_commit_that_ends_its_work(monkeypatch) -> None:
+    """Session-scoping was too loose and Andrew proved it inside one turn.
+
+    Minutes after the doorman shipped I edited an unrelated hook with no
+    search, draft or walk, and the door stood aside because the item satisfied
+    for the doorman's own build was still open and still carrying its marks.
+    A commit is where a piece of work ends, so that is where the item ends.
+    """
+    branch = "test-branch-for-commit-close"
+    item_id = doorman.open_item(trigger="t", branch=branch, session="s")
+    try:
+        monkeypatch.setattr(doorman, "head_commit_time", lambda: time.time() - 3600)
+        assert doorman.open_item_for_branch(branch=branch, session="s") is not None
+        monkeypatch.setattr(doorman, "head_commit_time", lambda: time.time() + 1)
+        assert doorman.open_item_for_branch(branch=branch, session="s") is None
+    finally:
+        doorman.close_item(item_id)
+
+
+def test_an_unreadable_commit_time_does_not_close_anything(monkeypatch) -> None:
+    """Unknown is not a landing. Closing on a failed lookup would refuse work
+    for no reason, which is the two-valued collapse in its permissive-looking
+    costume: here the harm is a false hold rather than a false pass."""
+    branch = "test-branch-for-unknown-commit"
+    item_id = doorman.open_item(trigger="t", branch=branch, session="s")
+    try:
+        monkeypatch.setattr(doorman, "head_commit_time", lambda: None)
+        assert doorman.open_item_for_branch(branch=branch, session="s") is not None
+    finally:
+        doorman.close_item(item_id)
+
+
+def test_the_marks_window_reaches_back_to_the_last_commit(monkeypatch) -> None:
+    """A replacement item inherits the work-in-progress's artifacts.
+
+    Commit-closing fired on the edit that added it, correctly, and then the
+    fresh item refused work whose search, draft and walk had been done minutes
+    earlier for that same piece. The artifacts were real; the window was wrong.
+    Everything since the last commit belongs to the work in progress -- and a
+    walk done BEFORE that commit still does not count, which is the protection
+    the window exists for.
+    """
+    branch = "test-branch-for-marks-window"
+    item_id = doorman.open_item(trigger="t", branch=branch, session="s")
+    try:
+        earlier_commit = time.time() - 600
+        monkeypatch.setattr(doorman, "head_commit_time", lambda: earlier_commit)
+        found = doorman.open_item_for_branch(branch=branch, session="s")
+        assert found is not None
+        assert found[1] == earlier_commit, "the window did not reach back to the commit"
+    finally:
+        doorman.close_item(item_id)
+
+
 def test_a_bypass_needs_a_real_reason() -> None:
     """Truth #12: a bypass is a tool, and the guard is that it is counted and
     named. A one-word reason is an unrecorded bypass wearing a record."""
