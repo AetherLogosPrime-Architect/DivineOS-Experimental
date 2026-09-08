@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (469 commands across 84 modules)
+  cli/                         CLI package (476 commands across 84 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -22,6 +22,7 @@ src/divineos/
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
+    andrew_answer_commands.py  answer ask / got / changed / none / report — whether his answers alter what happens next, measured on the trace instead of on my prose (Aria 2026-09-07, refusing a third text-gate)
     andrew_given_commands.py  given add / list / balance — the other side of the ledger: what Andrew gives, filed beside what he corrects (Aria 2026-08-10)
     success_commands.py       win add / list / balance -- a door to the wins ledger, which had a store and a reader and no way in (2026-08-27). The store shipped 2026-08-03 and had zero callers until 2026-08-25: the faults ledger had a command and a blocking gate, the wins ledger had neither, and both Aether and Aria read their own near-zero counts as facts about their character rather than about the interface.
     council_walk_commands.py  walk open / apply / exclude / close — a council walk that refuses to close while any manager-surfaced lens is unaccounted for (Aria 2026-08-10)
@@ -699,6 +700,7 @@ src/divineos/
     prior_art_by_name.py       Find files on ANY branch whose names resemble one about to be created.
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
+    andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
 
   analysis/
     _session_types.py          Session analysis type definitions
