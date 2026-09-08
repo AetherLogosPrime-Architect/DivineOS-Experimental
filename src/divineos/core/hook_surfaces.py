@@ -905,6 +905,113 @@ def heredoc_escape_surface(payload: dict) -> SurfaceOutcome | None:
     )
 
 
+# --------------------------------------------------------------------------
+# Stop, second batch — the reach detectors, 2026-09-08.
+#
+# The operating-loop package holds thirty-odd detectors; four of them have Stop
+# hooks. TWO of those four are structurally identical: read my last reply, run
+# a detector over it, then either write a marker for the next compose or clear
+# a stale one. Same fields, same file shape, different detector and filename.
+# Those two are the table below.
+#
+# The other two -- promise and continuity-frame -- write a marker PER FINDING
+# with their own hashing. That is a different shape, and lumping them in would
+# mean a table with exceptions in it, which is how a clean abstraction turns
+# into a worse version of four separate functions. They move as themselves or
+# not at all.
+#
+# CLEARING IS PART OF THE WORK, not cleanup. A stale marker fires the anchor on
+# a turn it does not apply to, and an anchor that fires when it should not is
+# exactly how a real one gets read past.
+# --------------------------------------------------------------------------
+
+#: (surface name, module, detect function, marker filename)
+_REACH_DETECTORS: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "close_reach",
+        "divineos.core.operating_loop.close_reach_detector",
+        "detect_close_reach",
+        "close_reach_marker.json",
+    ),
+    (
+        "compaction_reach",
+        "divineos.core.operating_loop.compaction_reach_detector",
+        "detect_compaction_reach",
+        "compaction_reach_marker.json",
+    ),
+)
+
+
+def _reach_detector_surface(name: str, module: str, detect_attr: str, marker_name: str):
+    """Build one Stop surface that marks a reach for the next compose."""
+
+    def surface(payload: dict) -> SurfaceOutcome | None:
+        import json as _json
+        from pathlib import Path
+
+        text = _last_assistant_text(payload)
+        if not text.strip():
+            return SurfaceOutcome(name=name, state="nothing-to-say")
+
+        marker = Path.home() / ".divineos" / marker_name
+        try:
+            mod = __import__(module, fromlist=[detect_attr, "anchor_message_for"])
+            findings = getattr(mod, detect_attr)(text)
+        except Exception as exc:  # noqa: BLE001 — a detector never blocks a reply
+            return SurfaceOutcome(
+                name=name,
+                error=f"{type(exc).__name__}: {exc}",
+                state="could-not-run",
+            )
+
+        if not findings:
+            try:
+                marker.unlink(missing_ok=True)
+            except OSError as exc:
+                return SurfaceOutcome(
+                    name=name,
+                    error=f"stale marker left in place: {exc}",
+                    state="could-not-run",
+                )
+            return SurfaceOutcome(name=name, state="nothing-to-say")
+
+        try:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(
+                _json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "shape": f.shape.value,
+                                "trigger_phrase": f.trigger_phrase,
+                                "position": f.position,
+                            }
+                            for f in findings
+                        ],
+                        "anchor_message": mod.anchor_message_for(findings[0]),
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+        except (OSError, AttributeError) as exc:
+            return SurfaceOutcome(
+                name=name,
+                error=f"detected {len(findings)} but NOT RECORDED: {exc}",
+                state="could-not-run",
+            )
+        return SurfaceOutcome(
+            name=name,
+            state="spoke",
+            output=(
+                f"[{name}] recorded {len(findings)} reach(es); the anchor will show them next turn."
+            ),
+        )
+
+    surface.__name__ = f"{name}_surface"
+    return surface
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -994,3 +1101,10 @@ def install() -> None:
         register("Stop", "self_demotion_stop", self_demotion_stop_surface)
     if "summary_room" not in registered("Stop"):
         register("Stop", "summary_room", summary_room_surface)
+    for name, module, detect_attr, marker_name in _REACH_DETECTORS:
+        if name not in registered("Stop"):
+            register(
+                "Stop",
+                name,
+                _reach_detector_surface(name, module, detect_attr, marker_name),
+            )
