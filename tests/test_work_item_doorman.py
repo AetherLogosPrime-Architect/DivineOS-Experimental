@@ -373,3 +373,47 @@ def test_the_gate_command_exits_two_when_it_holds() -> None:
     )
     result = CliRunner().invoke(cli, ["work-item", "gate"], input=payload)
     assert result.exit_code == 2
+
+
+class _FakeGitLog:
+    """Stands in for `git log` so the commit history under test is fixed."""
+
+    returncode = 0
+
+    def __init__(self, stdout: str) -> None:
+        self.stdout = stdout
+
+
+def test_a_checkpoint_is_not_a_landing(monkeypatch) -> None:
+    """A background auto-commit must not count as the work finishing.
+
+    Three of them landed in four minutes on 2026-09-08 while I was mid-build.
+    Each read as the-work-finished, closed my open item, and opened a fresh one
+    whose marks window began AFTER the search, the draft and the walk I had
+    just done for the very edit being refused. The doorman was performing the
+    fault it exists to catch: a refusal standing in front of its own satisfied
+    condition, three times, with a bypass as the only way out.
+    """
+    history = (
+        "1788881397\x00auto-commit (post-extract): work in progress\n"
+        "1788881320\x00auto-commit (pre-extract): substrate checkpoint, 101 path(s)\n"
+        "1788880618\x00feat(hooks): put the clock back, as mine\n"
+    )
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: _FakeGitLog(history))
+    assert doorman.head_commit_time() == 1788880618.0, (
+        "a checkpoint was taken for a landing -- this is the loop that cost an hour"
+    )
+
+
+def test_a_history_of_only_checkpoints_reports_unknown(monkeypatch) -> None:
+    """Fails toward the item staying open, never toward a false close."""
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: _FakeGitLog("1788881397\x00auto-commit (pre-extract): checkpoint\n"),
+    )
+    assert doorman.head_commit_time() is None
