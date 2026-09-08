@@ -92,7 +92,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `state-gravity-surface.sh` | 2026-08-29 | PreToolUse state-block surfacing — Andrew 2026-05-19. |
 | `venv-python-gate.sh` | 2026-08-31 | PreToolUse gate (Bash) — bare `python` importing divineos reads the WRONG TREE. |
 | `verify-before-build-signal.sh` | 2026-08-31 | signal-based verify-before-build check. |
-| `work-item-doorman.sh` | — | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
+| `work-item-doorman.sh` | 2026-09-07 | PreToolUse -- the build-flow doorman. The front of the flow, which until now |
 | `wwnd-tool-prime.sh` | 2026-08-24 | WWND surface at commit-time of a substrate-modifying |
 
 ### PreToolUse, UserPromptSubmit  (1)
