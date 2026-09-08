@@ -8,6 +8,8 @@ nothing a person could act on.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from divineos.core import station_marks as sm
@@ -48,7 +50,9 @@ def test_marks_are_refused_out_of_order(tmp_path):
         sm.mark("item-1", "test", _artifact(tmp_path, "out.txt"))  # build still absent
 
     sm.mark("item-1", "build", _artifact(tmp_path, "edit.py"))
-    sm.mark("item-1", "test", _artifact(tmp_path, "out.txt"))
+    # The test station takes a recorded run now rather than any file; the
+    # attack test below is why.
+    sm.mark("item-1", "test", str(sm.record_run("item-1", [sys.executable, "-c", "pass"])))
     assert sm.check("item-1", "test").state == sm.SATISFIED
 
 
@@ -113,6 +117,69 @@ def test_an_empty_artifact_is_refused_and_hollowing_one_out_revokes_the_pass(tmp
     result = sm.check("item-1", "draft")
     assert result.state == sm.MISSING
     assert "now empty" in result.why
+
+
+def test_an_empty_folder_does_not_pass_as_an_artifact(tmp_path):
+    """The first thing that fell when I attacked my own half.
+
+    The directory branch returned early meaning "a folder's substance lives in
+    its contents", then never looked at the contents. Every other test here
+    uses files, so only an attack could have surfaced it.
+    """
+    sm.open_item("item-1")
+    empty = tmp_path / "hollow"
+    empty.mkdir()
+    with pytest.raises(sm.MarkRefused):
+        sm.mark("item-1", "draft", str(empty))
+
+    (empty / "real.md").write_text(_SUBSTANCE, encoding="utf-8")
+    sm.mark("item-1", "draft", str(empty))
+    assert sm.check("item-1", "draft").state == sm.SATISFIED
+
+
+def test_one_file_cannot_stand_for_every_station(tmp_path):
+    """I pointed all five at one junk file and the set went green in a
+    thousandth of a second. Five stations are five different pieces of work."""
+    sm.open_item("item-1")
+    one = _artifact(tmp_path, "only.md")
+    sm.mark("item-1", "draft", one)
+    with pytest.raises(sm.MarkRefused) as exc:
+        sm.mark("item-1", "build", one)
+    assert "same artifact" in str(exc.value)
+
+
+def test_the_test_station_refuses_output_that_was_never_run(tmp_path):
+    """I typed 'passed' into a file and it counted as stored evidence that a
+    command had run. The docstring said stored output rather than a claim about
+    output; nothing enforced the difference until the attack found it."""
+    sm.open_item("item-1")
+    sm.mark("item-1", "draft", _artifact(tmp_path, "draft.md"))
+    sm.mark("item-1", "build", _artifact(tmp_path, "edit.py"))
+
+    invented = tmp_path / "invented.txt"
+    # Long enough to clear the substance floor, so this pins the run-header
+    # rule specifically rather than being refused for being thin.
+    invented.write_text(
+        "8 passed in 0.34s -- I typed every character of this by hand and no "
+        "command was ever run at any point",
+        encoding="utf-8",
+    )
+    with pytest.raises(sm.MarkRefused) as exc:
+        sm.mark("item-1", "test", str(invented))
+    assert "recorded run" in str(exc.value)
+
+    real = sm.record_run("item-1", [sys.executable, "-c", "print('ran for real')"])
+    sm.mark("item-1", "test", str(real))
+    assert sm.check("item-1", "test").state == sm.SATISFIED
+    body = real.read_text(encoding="utf-8")
+    assert "exit: 0" in body and "ran for real" in body
+
+
+def test_a_failing_run_is_recorded_as_faithfully_as_a_passing_one(tmp_path):
+    """Hiding a red result would be the same fault one layer over."""
+    sm.open_item("item-1")
+    failed = sm.record_run("item-1", [sys.executable, "-c", "raise SystemExit(3)"])
+    assert "exit: 3" in failed.read_text(encoding="utf-8")
 
 
 def test_a_station_this_half_does_not_watch_says_so():

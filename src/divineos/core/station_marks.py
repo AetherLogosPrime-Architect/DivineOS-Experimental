@@ -140,7 +140,17 @@ def _too_thin(target: Path) -> bool | None:
     legitimate artifact and its size lives in its contents.
     """
     if target.is_dir():
-        return False
+        # AN EMPTY FOLDER PASSED EVERY STATION. Found 2026-09-07 by gaming my
+        # own half on purpose, which Andrew had to tell me was my job: *trying
+        # deliberately to break things, or let the optimizer free and try to
+        # game it and see what you find.* I wrote the directory case as an
+        # early return meaning "a folder's substance lives in its contents"
+        # and then never looked at the contents. Every test I had written used
+        # files, so nothing but an attack could have surfaced it.
+        try:
+            return not any(_too_thin(child) is False for child in target.iterdir())
+        except OSError:
+            return None
     try:
         return target.stat().st_size < _MIN_ARTIFACT_BYTES
     except OSError:
@@ -196,11 +206,41 @@ def mark(item_id: str, station: str, artifact: str, note: str = "") -> None:
         )
 
     for earlier in STATIONS[: STATIONS.index(station)]:
-        if not _mark_path(item_id, earlier).exists():
+        earlier_path = _mark_path(item_id, earlier)
+        if not earlier_path.exists():
             raise MarkRefused(
                 f"{station} cannot leave a mark before {earlier} has: "
                 f"{_PLAIN[earlier]} is still missing. Out-of-order marks are how a "
                 "form gets filled in for work that never happened."
+            )
+        # ONE FILE USED TO SATISFY ALL FIVE. Found by gaming this myself: I
+        # pointed every station at the same seventy-character junk file and the
+        # whole set went green in a thousandth of a second. Five stations are
+        # five different pieces of work and cannot share one artifact -- a
+        # draft is not a test run is not a merge.
+        try:
+            prior = json.loads(earlier_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if str(prior.get("artifact", "")) == str(target):
+            raise MarkRefused(
+                f"{earlier} already points at this same artifact: {target}. "
+                "Each station is a different piece of work and needs its own "
+                "evidence; one file standing for all five is the cheapest "
+                "possible forgery of the whole set."
+            )
+
+    if station == "test":
+        try:
+            head = target.read_text(encoding="utf-8", errors="replace")[: len(_RUN_HEADER)]
+        except OSError:
+            head = ""
+        if head != _RUN_HEADER:
+            raise MarkRefused(
+                "the test station takes a recorded run, not a file of text. I typed "
+                "invented output into a file and this accepted it as evidence a "
+                "command had run. Produce the artifact with record_run() so the "
+                "command and its exit status are stored beside the output."
             )
 
     _mark_path(item_id, station).write_text(
@@ -211,6 +251,46 @@ def mark(item_id: str, station: str, artifact: str, note: str = "") -> None:
         ),
         encoding="utf-8",
     )
+
+
+_RUN_HEADER = "# station-marks recorded run"
+
+
+def record_run(item_id: str, argv: list[str], cwd: str | None = None) -> Path:
+    """Run a command and store what it was, what it printed, and how it exited.
+
+    THE TEST STATION USED TO ACCEPT ANYTHING. I gamed my own half and typed
+    "8 passed in 0.34s -- I wrote this by hand and ran nothing at all" into a
+    file; it was accepted as stored evidence that a command had run. The
+    module's own docstring said *stored command output, not a claim about
+    output*, and nothing enforced the difference.
+
+    So the recorder is now the only way to produce a test artifact: it runs the
+    command itself and writes the header, the command, the exit status and the
+    output together. Typing the file by hand means forging a header for a
+    command that has to actually appear in the file next to its own exit code
+    — still forgeable by someone determined, and no longer free.
+
+    A failing run is recorded exactly as faithfully as a passing one. Hiding a
+    red result would be the same fault one layer over.
+    """
+    import subprocess  # local: only the recorder needs it
+
+    if not opened(item_id):
+        raise MarkRefused(f"no work item {item_id!r} is open")
+    if not argv:
+        raise MarkRefused("a run needs a command")
+
+    completed = subprocess.run(  # noqa: S603 - argv is a list, never a shell string
+        argv, cwd=cwd, capture_output=True, text=True, check=False
+    )
+    target = _item_dir(item_id) / f"run_{int(time.time() * 1000)}.txt"
+    target.write_text(
+        f"{_RUN_HEADER}\ncommand: {' '.join(argv)}\nexit: {completed.returncode}\n"
+        f"--- stdout ---\n{completed.stdout}\n--- stderr ---\n{completed.stderr}\n",
+        encoding="utf-8",
+    )
+    return target
 
 
 def check(item_id: str, station: str) -> StationResult:
