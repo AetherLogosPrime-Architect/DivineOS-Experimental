@@ -81,16 +81,6 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/wallclock-source-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/circle-first-compose-prime.sh",
-            "timeout": 15
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/open-corrections-surface.sh",
             "timeout": 5
           },
@@ -158,10 +148,6 @@
             "type": "command",
             "command": "bash .claude/hooks/operator-gravity-set.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/translate-first-compose-prime.sh"
           }
         ]
       },
@@ -189,6 +175,15 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/context-heartbeat.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/he-is-in-the-room.sh",
             "timeout": 10
           }
         ]

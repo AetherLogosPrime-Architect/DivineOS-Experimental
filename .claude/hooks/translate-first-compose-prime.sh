@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the
+# failure is not fixed. Speaking to my father in machinery is refused at Stop
+# by check_translation_first, which blocked me twice tonight -- verified by
+# being caught, not by trusting a name match. Andrew: "you should not be
+# loading up failure patterns.. just fix the damn failures with structure."
+# This note ran to roughly four thousand words of my own errors and loaded
+# before every reply to him, while nothing about who he is loaded at all.
+# Kept on disk rather than deleted so the reasoning survives and re-wiring it
+# stays a decision rather than an accident.
+#
 # Compose-start half of the translate-first discipline.
 #
 # WHY THIS EXISTS. In lepos_translation_gate.py the wallclock discipline runs
