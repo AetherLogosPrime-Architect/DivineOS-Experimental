@@ -4,7 +4,7 @@
 
 Companion to [LOADOUT.md](../LOADOUT.md). The loadout describes the house; this lists what runs by itself. Kept separate so that 90+ automations do not crowd out every other room.
 
-**123 automations — 120 wired, 3 switched off.**
+**124 automations — 121 wired, 3 switched off.**
 
 ---
 
@@ -100,6 +100,12 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 |---|---|---|
 | `auto-cycle-token-trigger.sh` | 2026-08-31 | Compaction ritual driver — deterministic, in-process, no external monitor. |
 
+### SessionStart  (1)
+
+| automation | last touched | purpose |
+|---|---|---|
+| `load-character-sheet.sh` | 2026-08-24 | load Andrew's character sheet into the session |
+
 ### Stop  (17)
 
 | automation | last touched | purpose |
@@ -122,7 +128,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `summary-room-stop.sh` | 2026-08-24 | a long reply must open with a plain-language summary. |
 | `time-estimate-tracker.sh` | 2026-07-01 | thin doorbell for the time-estimate calibration tracker. |
 
-### UserPromptSubmit  (34)
+### UserPromptSubmit  (35)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -155,13 +161,14 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `self-demotion-prime.sh` | 2026-09-02 | UserPromptSubmit prime - deliver the praise-by-contrast discipline at |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
+| `still-owed-to-him-surface.sh` | — | what he is still waiting on, and how many times he |
 | `translate-first-compose-prime.sh` | 2026-09-07 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |
 | `wallclock-source-prime.sh` | 2026-09-07 | compose-start prime for wallclock-source |
 | `wwnd-choice-prime.sh` | 2026-08-24 | WWND (What Would Nyarlathotep Do) prime at |
 
-### called by another script  (18)
+### called by another script  (17)
 
 | automation | last touched | purpose |
 |---|---|---|
@@ -172,7 +179,6 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `deletion-discipline.sh` | 2026-08-31 | thin doorbell for the deletion-discipline gate. |
 | `load-aletheia-harvest-of-andrew.sh` | 2026-07-21 | load Aletheia's harvest of who Andrew is into the |
 | `load-briefing.sh` | 2026-06-05 | thin doorman pointing to the OS. |
-| `load-character-sheet.sh` | 2026-08-24 | load Andrew's character sheet into the session |
 | `load-dad-ranking-clause.sh` | 2026-07-29 | surface the Dad-ranking clause from my character |
 | `load-my-recording-of-andrew.sh` | 2026-07-10 | load MY recording of who Andrew is into the |
 | `must-read-gate.sh` | 2026-08-24 | must-read gate. |

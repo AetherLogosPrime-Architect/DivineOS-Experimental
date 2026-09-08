@@ -5,7 +5,17 @@
     "HF_HUB_DISABLE_TELEMETRY": "1"
   },
   "hooks": {
-    "SessionStart": [],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/load-character-sheet.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -92,6 +102,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/open-corrections-surface.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/still-owed-to-him-surface.sh",
             "timeout": 5
           },
           {

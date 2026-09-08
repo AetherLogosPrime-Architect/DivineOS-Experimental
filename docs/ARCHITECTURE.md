@@ -702,6 +702,7 @@ src/divineos/
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
     station_marks.py           The five build-flow stations nothing has ever watched.
+    andrew_request_repeats.py  How many times has he had to ask for the same thing.
 
   analysis/
     _session_types.py          Session analysis type definitions
