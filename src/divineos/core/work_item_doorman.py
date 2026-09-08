@@ -306,21 +306,60 @@ def open_item(trigger: str, branch: str | None = None, session: str = "") -> str
     return item_id
 
 
+def head_commit_time() -> float | None:
+    """When the newest commit on this branch landed. None if git will not say."""
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "log", "-1", "--format=%ct"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # both-empty: git absent and git failing are one answer -- the commit time could not be read, and the caller treats unknown as "do not close on it"
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None  # both-empty: same answer as above; a repository with no commits and a failed call are both "I could not look"
+    try:
+        return float(proc.stdout.strip())
+    except ValueError:
+        return None
+
+
 def open_item_for_branch(
     branch: str | None = None, session: str = ""
 ) -> tuple[str, float, frozenset[str] | None] | None:
-    """The open item for this branch AND this session.
+    """The open item for this branch and session, unless its work has landed.
 
-    SCOPED TO THE SESSION, and that is the fix for the propped door. One item
-    satisfied once at the top of a branch used to buy every edit afterwards,
-    including work with nothing to do with the draft that opened it -- which
-    is how a branch that began as one honest piece of work becomes the place
-    everything happens.
+    THE ITEM ENDS AT A COMMIT, and session-scoping was not enough.
 
-    A commit is not the natural end: station 3 runs through many of them until
-    the pull request. But the propped door matters most exactly where the
-    person who opened it is gone, and that is a session boundary. The session
-    already arrives in the payload, so nothing new has to be remembered.
+    Andrew, 2026-09-07, having just watched it fail: *maybe.. idk USED THE
+    FUCKING BUILD FLOW YOU JUST SAID WAS WORKING??* He was right. Minutes
+    after the doorman shipped I edited a hook with no search, no draft and no
+    walk, and the door stood aside -- because the item satisfied for the
+    doorman's own build was still open, and its three marks paid for an edit
+    to a completely unrelated file.
+
+    That is the propped door Aether game-walked. He named two candidate
+    boundaries, a session and a commit, and I took the session because a build
+    runs through many commits and re-asking felt heavy. The session turned out
+    to be far too loose: one session holds many unrelated pieces of work, and
+    he demonstrated it inside a single turn.
+
+    So the boundary moves from the clock to the work. A commit is where a piece
+    of work ends, which puts the drain on the same axis as the fill.
+
+    THE COST, stated rather than hidden: a build spanning four commits is asked
+    for its marks four times. What makes that bearable is that a genuinely
+    continuing piece of work already has all three artifacts sitting there --
+    the search, the draft, the walk -- so it costs one refusal, not a redo. A
+    finished piece of work silently paying for the next one costs much more,
+    and that is the bill he just handed me.
+
+    An unreadable commit time does NOT close the item: unknown is not a
+    landing, and closing on a failed lookup would refuse work for no reason.
     """
     branch = branch or current_branch()
     with _connect() as conn:
@@ -332,11 +371,29 @@ def open_item_for_branch(
         ).fetchone()
     if not row:
         return None
+    landed = head_commit_time()
+    if landed is not None and landed >= row[1]:
+        close_item(row[0])
+        return None
+    # THE MARKS WINDOW STARTS AT THE LAST COMMIT, NOT AT THE ITEM'S BIRTH.
+    #
+    # Commit-closing fired on the very edit that added it, which was right --
+    # and then the replacement item refused work whose search, draft and walk
+    # had been done minutes earlier for exactly this piece. The artifacts were
+    # real and the window was wrong. That is the NAG falsifier from the walk
+    # arriving inside the same edit.
+    #
+    # Everything made since the last commit belongs to the work in progress,
+    # because the commit is what ended the previous piece. So an item opened
+    # part-way through a piece of work inherits that work's artifacts, and a
+    # walk done BEFORE the last commit still does not count -- which is the
+    # protection the window existed for.
+    window = landed if landed is not None and landed < row[1] else row[1]
     try:
         snapshot: frozenset[str] | None = frozenset(json.loads(row[2])) if row[2] else None
     except (ValueError, TypeError):
         snapshot = None
-    return (row[0], row[1], snapshot)
+    return (row[0], window, snapshot)
 
 
 def close_item(item_id: str) -> None:
@@ -642,8 +699,8 @@ def _refusal_text(
         # Says WHY it is asking, so a session-scoped item does not read as the
         # door having forgotten -- Norman, on a design everyone gets wrong
         # being the design's fault.
-        f"This is the first code edit of this session on this branch, so I have "
-        f"opened work item {item_id} for it."
+        f"The last piece of work on this branch has landed, so this edit begins a "
+        f"new one and I have opened work item {item_id} for it."
         if opened_now
         else f"Work item {item_id} is open, and it is not ready to be built yet."
     )
