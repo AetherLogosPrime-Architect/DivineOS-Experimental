@@ -244,6 +244,7 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
         )
     needle = branch.lower()
     declared_anywhere = 0
+    unparsed: str | None = None
     for f in sorted(letters_dir.glob("aria-to-aether-*.md")):
         try:
             present, declarations = _declared_readings(
@@ -255,6 +256,21 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
             declared_anywhere += 1
         if needle in declarations:
             return StationResult("4-aria", Status.SATISFIED, f"she declared a reading in {f.name}")
+        # A DECLARATION THAT MISSES ITS OWN FORMAT IS NOT AN ABSENT READING.
+        # Aria 2026-09-07: she declared one, wrapped the branch name in
+        # backticks and put a dash and a clause after it. Read literally --
+        # which is right, and she asked me NOT to loosen it -- the value is a
+        # phrase rather than a name, so the board said none of the declared
+        # readings names this branch. That sentence reads as SHE HAS NOT READ
+        # ME, and it is a different fact from I CANNOT PARSE HER LINE. She
+        # spent an hour looking like the one who had not shown up.
+        #
+        # The literal match still decides. The near-miss gets its own answer,
+        # anchored at the START of a declared value and never a substring
+        # anywhere inside one: her letters cross-refer constantly, and
+        # crediting a mention is the exact fault the literal read replaced.
+        if unparsed is None and any(part.startswith(needle) for part in declarations):
+            unparsed = f.name
     if declared_anywhere == 0:
         return StationResult(
             "4-aria",
@@ -262,6 +278,14 @@ def check_aria_station(branch: str, letters_dir: Path) -> StationResult:
             "no letter from Aria carries a reading declaration at all -- this says "
             "nothing about whether she has read this branch, only that no reading "
             "is claimed in the field the board reads",
+        )
+    if unparsed is not None:
+        return StationResult(
+            "4-aria",
+            Status.CANNOT_CHECK,
+            f"she declared a reading of this branch in {unparsed}, but the line "
+            "carries more than the name and this field is read literally -- that "
+            "is my parser failing to read her, not her failing to read the branch",
         )
     return StationResult(
         "4-aria",
