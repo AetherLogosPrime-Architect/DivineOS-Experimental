@@ -558,6 +558,50 @@ def collect(deep: bool = False) -> tuple[list[PrFlowStatus] | None, str]:
 _MARK = {Status.SATISFIED: "ok  ", Status.MISSING: "MISS", Status.CANNOT_CHECK: "????"}
 
 
+def _work_item_lines() -> list[str]:
+    """The five stations the pull-request view has never been able to see.
+
+    They hang off work items rather than pull requests, because by the time
+    a pull request exists the building is over. Written 2026-09-07 for the
+    same reason the module it reads was written: an instrument with no
+    caller is the thing Andrew is angriest about, and this board is the
+    caller that keeps it from being one.
+    """
+    from divineos.core.station_marks import (
+        CANNOT_CHECK,
+        MISSING,
+        STATIONS,
+        check_all,
+        open_items,
+    )
+
+    items = open_items()
+    if items is None:
+        return [
+            "  1-draft, 3-build, 5-test, 6-more-council, 9-merge: could not look —",
+            "  the work-item store was unreadable. That is not the same as none open.",
+        ]
+    if not items:
+        return [
+            "  1-draft, 3-build, 5-test, 6-more-council, 9-merge: no work item is open,",
+            "  so there is nothing yet for these five to be about.",
+        ]
+
+    lines = ["  Work items — the five stations no pull request can show:"]
+    for item in items:
+        results = check_all(item)
+        done = sum(1 for r in results if r.state not in (MISSING, CANNOT_CHECK))
+        blind = sum(1 for r in results if r.state == CANNOT_CHECK)
+        blind_note = f", {blind} unreadable" if blind else ""
+        lines.append(f"    {item}: {done} of {len(STATIONS)} proven{blind_note}")
+        for result in results:
+            if result.state != MISSING and result.state != CANNOT_CHECK:
+                continue
+            lead = "MISS" if result.state == MISSING else "????"
+            lines.append(f"      [{lead}] {result.why}")
+    return lines
+
+
 def _is_draft(s: PrFlowStatus) -> bool:
     return any(r.station == "7-draft" and r.status is Status.SATISFIED for r in s.stations)
 
@@ -604,8 +648,8 @@ def render(statuses: list[PrFlowStatus]) -> str:
         lines.append(f"  Needing attention: {', '.join(f'#{n}' for n in attention)}")
     else:
         lines.append("  Nothing is off-track. Drafts with stations ahead of them are drafts.")
-    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit. NOT checked:")
-    lines.append("  1-draft, 3-build, 5-test, 6-more-council, 9-merge — four of nine.")
+    lines.append("  Checked: 2-council, 4-aria, 7-draft, 8-audit.")
+    lines.extend(_work_item_lines())
     lines.append("")
     lines.append("  Stations advance on artifacts. Station 4 needs a reply FROM Aria,")
     lines.append("  not a letter from me — an artifact I can produce alone proves only")

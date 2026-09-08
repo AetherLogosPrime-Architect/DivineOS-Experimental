@@ -701,6 +701,7 @@ src/divineos/
     compound_branch_change.py  Refuse a branch change and a destructive op on the same shell line.
     surface_bridge.py          Wire the built-but-unreachable surfaces into the briefing that actually runs.
     andrew_answer_trace.py     Do his answers change what happens next? (Aria 2026-09-07.)
+    station_marks.py           The five build-flow stations nothing has ever watched.
 
   analysis/
     _session_types.py          Session analysis type definitions
