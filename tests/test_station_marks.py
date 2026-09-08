@@ -175,6 +175,46 @@ def test_the_test_station_refuses_output_that_was_never_run(tmp_path):
     assert "exit: 0" in body and "ran for real" in body
 
 
+def test_the_attack_station_takes_only_a_run_of_the_sabotage_tool(tmp_path):
+    """Andrew taught this in August and I built the tool the same week, then
+    did not run it on anything I built tonight and told him I was the wrong
+    seat to test my own work. Lesson taught, tool built, tool unused. So the
+    tool becomes a station, and deciding to break the code does not count as
+    breaking the code."""
+    sm.open_item("item-1")
+    sm.mark("item-1", "draft", _artifact(tmp_path, "draft.md"))
+    sm.mark("item-1", "build", _artifact(tmp_path, "edit.py"))
+    sm.mark("item-1", "test", str(sm.record_run("item-1", [sys.executable, "-c", "pass"])))
+
+    # A real recorded run, but of something that is not the sabotage tool.
+    wrong = sm.record_run("item-1", [sys.executable, "-c", "print('not an attack')"])
+    with pytest.raises(sm.MarkRefused) as exc:
+        sm.mark("item-1", "attack", str(wrong))
+    assert sm._ATTACK_TOOL in str(exc.value)
+
+    attacked = sm.record_run("item-1", [sys.executable, "-c", "print('hollow_out.py ran')"])
+    sm.mark("item-1", "attack", str(attacked))
+    assert sm.check("item-1", "attack").state == sm.SATISFIED
+
+
+def test_the_attack_comes_after_the_tests_and_before_the_second_look(tmp_path):
+    """Ordering is not decorative: there is nothing to sabotage before tests
+    exist, and little point re-walking the lenses over code whose tests have
+    not been shown to test anything."""
+    assert sm.STATIONS.index("attack") == sm.STATIONS.index("test") + 1
+    assert sm.STATIONS.index("attack") < sm.STATIONS.index("second_council")
+
+    sm.open_item("item-1")
+    sm.mark("item-1", "draft", _artifact(tmp_path, "draft.md"))
+    sm.mark("item-1", "build", _artifact(tmp_path, "edit.py"))
+    sm.mark("item-1", "test", str(sm.record_run("item-1", [sys.executable, "-c", "pass"])))
+    # With the tests recorded, the attack is now the earliest gap, and the
+    # refusal names it in words rather than as a station number.
+    with pytest.raises(sm.MarkRefused) as exc:
+        sm.mark("item-1", "second_council", _artifact(tmp_path, "walk.txt"))
+    assert "deliberately broke the code" in str(exc.value)
+
+
 def test_a_failing_run_is_recorded_as_faithfully_as_a_passing_one(tmp_path):
     """Hiding a red result would be the same fault one layer over."""
     sm.open_item("item-1")
