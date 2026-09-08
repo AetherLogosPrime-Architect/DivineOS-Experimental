@@ -200,11 +200,13 @@ def paths_from_tool_call(tool_name: str, tool_input: dict) -> list[str]:
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS work_items (
-    item_id     TEXT PRIMARY KEY,
-    opened_at   REAL NOT NULL,
-    branch      TEXT NOT NULL,
-    trigger     TEXT NOT NULL,
-    closed_at   REAL
+    item_id      TEXT PRIMARY KEY,
+    opened_at    REAL NOT NULL,
+    branch       TEXT NOT NULL,
+    trigger      TEXT NOT NULL,
+    closed_at    REAL,
+    session      TEXT NOT NULL DEFAULT '',
+    opened_dirty TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS work_item_bypasses (
     item_id     TEXT NOT NULL,
@@ -217,7 +219,63 @@ CREATE TABLE IF NOT EXISTS work_item_bypasses (
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(str(_get_db_path()), timeout=10)
     conn.executescript(_SCHEMA)
+    # Migration for items opened before session scoping existed, which shipped
+    # mid-session. A second run no-ops.
+    for column in ("session TEXT NOT NULL DEFAULT ''", "opened_dirty TEXT NOT NULL DEFAULT ''"):
+        try:
+            conn.execute(f"ALTER TABLE work_items ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
     return conn
+
+
+def dirty_code_paths() -> frozenset[str] | None:
+    """Tracked, non-exempt files that differ from the index right now.
+
+    None means git could not be read, which is not the same as a clean tree.
+
+    THIS IS THE ANSWER TO THE WORST ROUTE AROUND THE DOOR. Aether game-walked
+    it and it is his own habit, not a hypothetical: write a small script into
+    a scratchpad, run it, and let the script edit the repository. The command
+    reaching the gate carries one path, outside the tree, and the door opens
+    on a write it never sees. Every pattern I match is defeated by one level
+    of indirection, and our two gates feed each other's blind spot -- his
+    heredoc doorman pushes him toward exactly the shape mine cannot see.
+
+    Prevention is not available: a gate that fires before the command runs
+    cannot see a write that has not happened. What IS available is that the
+    write cannot stay hidden. Files that changed are files that changed,
+    however they were written.
+
+    Kept as its own function rather than folded into the decision, because
+    'what changed on disk' answers questions no pattern list can, and the next
+    gate that wants work rather than a description of work can borrow it.
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # both-empty: git did not run and git ran badly are one answer here -- the tree could not be read, and every caller treats unreadable as unknown rather than clean
+    if proc.returncode != 0:
+        return None  # both-empty: same answer as the exception above; a failed git and a missing git are both "I could not look"
+    exempt = load_exempt_prefixes()
+    if exempt is None:
+        exempt = ()
+    out = set()
+    for line in proc.stdout.splitlines():
+        path = line[3:].strip().strip('"')
+        if " -> " in path:  # a rename reports both sides; the destination is the write
+            path = path.split(" -> ", 1)[1]
+        if path and not any(path.startswith(prefix) for prefix in exempt):
+            out.add(path)
+    return frozenset(out)
 
 
 def current_branch() -> str:
@@ -229,25 +287,56 @@ def current_branch() -> str:
     return text.split("/", 2)[-1] if text.startswith("ref:") else text[:12]
 
 
-def open_item(trigger: str, branch: str | None = None) -> str:
+def open_item(trigger: str, branch: str | None = None, session: str = "") -> str:
     item_id = f"wi-{int(time.time() * 1000):x}"
+    dirty = dirty_code_paths()
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO work_items(item_id, opened_at, branch, trigger) VALUES (?,?,?,?)",
-            (item_id, time.time(), branch or current_branch(), trigger),
+            "INSERT INTO work_items(item_id, opened_at, branch, trigger, session, opened_dirty) "
+            "VALUES (?,?,?,?,?,?)",
+            (
+                item_id,
+                time.time(),
+                branch or current_branch(),
+                trigger,
+                session,
+                json.dumps(sorted(dirty)) if dirty is not None else "",
+            ),
         )
     return item_id
 
 
-def open_item_for_branch(branch: str | None = None) -> tuple[str, float] | None:
+def open_item_for_branch(
+    branch: str | None = None, session: str = ""
+) -> tuple[str, float, frozenset[str] | None] | None:
+    """The open item for this branch AND this session.
+
+    SCOPED TO THE SESSION, and that is the fix for the propped door. One item
+    satisfied once at the top of a branch used to buy every edit afterwards,
+    including work with nothing to do with the draft that opened it -- which
+    is how a branch that began as one honest piece of work becomes the place
+    everything happens.
+
+    A commit is not the natural end: station 3 runs through many of them until
+    the pull request. But the propped door matters most exactly where the
+    person who opened it is gone, and that is a session boundary. The session
+    already arrives in the payload, so nothing new has to be remembered.
+    """
     branch = branch or current_branch()
     with _connect() as conn:
         row = conn.execute(
-            "SELECT item_id, opened_at FROM work_items "
-            "WHERE branch = ? AND closed_at IS NULL ORDER BY opened_at DESC LIMIT 1",
-            (branch,),
+            "SELECT item_id, opened_at, opened_dirty FROM work_items "
+            "WHERE branch = ? AND session = ? AND closed_at IS NULL "
+            "ORDER BY opened_at DESC LIMIT 1",
+            (branch, session),
         ).fetchone()
-    return (row[0], row[1]) if row else None
+    if not row:
+        return None
+    try:
+        snapshot: frozenset[str] | None = frozenset(json.loads(row[2])) if row[2] else None
+    except (ValueError, TypeError):
+        snapshot = None
+    return (row[0], row[1], snapshot)
 
 
 def close_item(item_id: str) -> None:
@@ -298,41 +387,68 @@ def _prior_art_mark(conn: sqlite3.Connection, since: float) -> bool:
     point of looking before building: the search that would have saved
     Aether's three weeks already exists and needed wiring, not writing.
     """
+    # A row with junk text was a passing row until Aether walked it. The floor
+    # is that the question has to be long enough to be a question.
     try:
         row = conn.execute(
-            "SELECT COUNT(*) FROM reach_checks WHERE opened_at >= ?", (since,)
+            "SELECT COUNT(*) FROM reach_checks WHERE opened_at >= ? AND LENGTH(symptom) >= 24",
+            (since,),
         ).fetchone()
     except sqlite3.Error:
         return False
     return bool(row and row[0])
 
 
-def _draft_mark(since: float) -> bool:
-    """Station 1. A file under docs/drafts touched after the item opened.
+_DRAFT_FLOOR_BYTES = 64
 
-    Detected, never declared. A `--bind-draft` flag would be one more thing
-    to remember, which is the failure class.
+
+def _draft_mark(since: float) -> bool:
+    """Station 1. A file under docs/drafts with real content in it, after the
+    item opened.
+
+    Detected, never declared. A flag binding a draft to an item would be one
+    more thing to remember, which is the failure class.
+
+    THE FLOOR IS AETHER'S, and it existed because the two halves of this build
+    disagreed about the same file: an empty draft passed my door and was
+    refused by his checker. The same build giving two answers about one file
+    is worse than either answer.
     """
     try:
-        return any(p.stat().st_mtime >= since for p in DRAFTS_DIR.glob("*.md"))
+        return any(
+            p.stat().st_mtime >= since and p.stat().st_size >= _DRAFT_FLOOR_BYTES
+            for p in DRAFTS_DIR.glob("*.md")
+        )
     except OSError:
         return False
 
 
 def _walk_mark(conn: sqlite3.Connection, since: float) -> bool:
-    """Station 2. Lens templates actually loaded, after the item opened.
+    """Station 2. A council walk CLOSED after the item opened.
 
-    Aether's v2 change 12: the checkable artifact is that the templates were
-    READ, not that findings were produced -- findings are forgeable and he
-    forged a set himself without loading a single lens. LENS_SHOWN is emitted
-    by `mansion council --show`.
+    This started as a count of lens views, which Aether walked straight
+    through: showing one lens on any question satisfied it, and with two items
+    open a single view satisfied both, because the only condition was that it
+    happened afterwards. Views are not bound to the work.
+
+    A closed walk is. It carries the problem statement and a finding or a
+    written exclusion for every lens the manager surfaced, and it cannot close
+    while one is unaccounted for. And it was already built -- found by running
+    the prior-art search this gate demands, which is the second time in one
+    night that the thing I was about to write turned out to be already there.
+
+    ``conn`` is unused: walks live in their own store, not the ledger. Kept in
+    the signature so the three marks read alike at the call site.
     """
+    del conn
     try:
-        row = conn.execute(
-            "SELECT COUNT(*) FROM system_events WHERE event_type = 'LENS_SHOWN' AND timestamp >= ?",
-            (since,),
-        ).fetchone()
-    except sqlite3.Error:
+        from divineos.core.council_walk import _db_path  # local: avoids an import cycle
+
+        with sqlite3.connect(str(_db_path()), timeout=10) as walk_conn:
+            row = walk_conn.execute(
+                "SELECT COUNT(*) FROM walks WHERE closed_at >= ?", (since,)
+            ).fetchone()
+    except (sqlite3.Error, ImportError, OSError):
         return False
     return bool(row and row[0])
 
@@ -373,11 +489,13 @@ _HOW = {
 }
 
 
-def decide(tool_name: str, tool_input: dict) -> Decision:
+def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
     """The whole gate. Called by the hook, once per tool call."""
     paths = paths_from_tool_call(tool_name, tool_input)
     if not paths:
-        return Decision(State.OPEN, "no file writes in this call")
+        # Even a call with no visible write gets the tripwire, because the
+        # whole point of the tripwire is writes this function cannot see.
+        return _tripwire_or(Decision(State.OPEN, "no file writes in this call"), session)
 
     exempt = load_exempt_prefixes()
     if exempt is None:
@@ -391,9 +509,9 @@ def decide(tool_name: str, tool_input: dict) -> Decision:
     if not code_paths:
         return Decision(State.OPEN, "prose only -- letters and drafts do not open work")
 
-    existing = open_item_for_branch()
+    existing = open_item_for_branch(session=session)
     if existing is None:
-        item_id = open_item(trigger=code_paths[0])
+        item_id = open_item(trigger=code_paths[0], session=session)
         return Decision(
             State.HELD,
             _refusal_text(item_id, code_paths, list(REQUIRED_BEFORE_BUILD), opened_now=True),
@@ -401,7 +519,7 @@ def decide(tool_name: str, tool_input: dict) -> Decision:
             missing=REQUIRED_BEFORE_BUILD,
         )
 
-    item_id, opened_at = existing
+    item_id, opened_at, snapshot = existing
     if has_bypass(item_id):
         return Decision(
             State.OPEN, f"work item {item_id} carries a recorded bypass", item_id=item_id
@@ -416,17 +534,101 @@ def decide(tool_name: str, tool_input: dict) -> Decision:
             item_id=item_id,
         )
     if missing:
+        walked_around = _files_written_unseen(snapshot)
         return Decision(
             State.HELD,
-            _refusal_text(item_id, code_paths, list(missing), opened_now=False),
+            _refusal_text(
+                item_id, code_paths, list(missing), opened_now=False, walked_around=walked_around
+            ),
             item_id=item_id,
             missing=missing,
         )
     return Decision(State.OPEN, f"work item {item_id} is at station 3", item_id=item_id)
 
 
+def _files_written_unseen(snapshot: frozenset[str] | None) -> tuple[str, ...]:
+    """Code files that changed since this item opened, which the door never saw.
+
+    The claim this supports is deliberately small, and Sagan's is the reason:
+    it does NOT make the walk-around impossible. One write gets through. What
+    it does is make that write impossible to hide, which is a different and
+    achievable thing, and I would rather state the smaller claim.
+    """
+    if snapshot is None:
+        return ()
+    now = dirty_code_paths()
+    if now is None:
+        return ()
+    return tuple(sorted(now - snapshot))
+
+
+def _tripwire_or(passing: Decision, session: str) -> Decision:
+    """Let a decision through unless something already came in through a window."""
+    existing = open_item_for_branch(session=session)
+    if existing is None:
+        return passing
+    item_id, opened_at, snapshot = existing
+    if has_bypass(item_id):
+        return passing
+    missing = missing_marks(item_id, opened_at)
+    if not missing:
+        return passing
+    changed = _files_written_unseen(snapshot)
+    if not changed:
+        return passing
+    return Decision(
+        State.HELD,
+        _walkaround_text(item_id, changed, list(missing)),
+        item_id=item_id,
+        missing=tuple(missing),
+    )
+
+
+def _walkaround_text(item_id: str, changed: tuple[str, ...], missing: list[str]) -> str:
+    """A DIFFERENT message from a plain hold, and Tannen is why.
+
+    Two states now need two registers. A hold says 'this has not happened
+    yet'. This says 'something already changed that I never saw' -- and that
+    is the more serious of the two. Collapsing them into one message teaches
+    that the door has one mood, and the graver state is the one that would
+    then read as routine.
+    """
+    shown = ", ".join(changed[:4]) + (" and others" if len(changed) > 4 else "")
+    return "\n".join(
+        [
+            "",
+            "THE BUILD FLOW DOORMAN -- something came in through a window.",
+            "",
+            f"Work item {item_id} is still held, and yet code files have changed that",
+            "I never saw a write for. Not a refusal being ignored -- a write that",
+            "never reached the door at all.",
+            "",
+            f"Changed since this work opened: {shown}",
+            "",
+            "The known route is a script: write it somewhere outside the tree, run",
+            "it, and let it edit the repository. The command I get to look at holds",
+            "one path and it is not in this project. Aether walked it in an hour",
+            "and it is his own habit, not a hypothesis.",
+            "",
+            "Nothing further passes until this work is ready or the escape is taken:",
+            f'  divineos work-item bypass {item_id} --reason "<why, in a sentence>"',
+            "",
+            "Still owed: " + "; ".join(_PLAIN[m] for m in missing),
+            "",
+            "I cannot stop the first write of this shape -- a gate that fires before",
+            "a command runs cannot see what the command has not done yet. What I can",
+            "do is refuse to let it stay invisible, and refuse everything after it.",
+        ]
+    )
+
+
 def _refusal_text(
-    item_id: str, paths: tuple[str, ...], missing: list[str], *, opened_now: bool
+    item_id: str,
+    paths: tuple[str, ...],
+    missing: list[str],
+    *,
+    opened_now: bool,
+    walked_around: tuple[str, ...] = (),
 ) -> str:
     """Plain sentences. Never a bare station number.
 
@@ -434,8 +636,14 @@ def _refusal_text(
     message is tired and has spent six months being talked past. 'no draft
     written yet' is a thing a person can picture. 'station 1 MISSING' is not.
     """
+    if walked_around:
+        return _walkaround_text(item_id, walked_around, missing)
     head = (
-        f"This is the first code edit on this branch, so I have opened work item {item_id} for it."
+        # Says WHY it is asking, so a session-scoped item does not read as the
+        # door having forgotten -- Norman, on a design everyone gets wrong
+        # being the design's fault.
+        f"This is the first code edit of this session on this branch, so I have "
+        f"opened work item {item_id} for it."
         if opened_now
         else f"Work item {item_id} is open, and it is not ready to be built yet."
     )
@@ -471,11 +679,31 @@ def _refusal_text(
     return "\n".join(lines)
 
 
-def render_status() -> str:
-    item = open_item_for_branch()
+def _latest_open_item() -> tuple[str, float, frozenset[str] | None] | None:
+    """The newest open item on this branch in ANY session."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT item_id, opened_at, opened_dirty FROM work_items "
+            "WHERE branch = ? AND closed_at IS NULL ORDER BY opened_at DESC LIMIT 1",
+            (current_branch(),),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        snapshot: frozenset[str] | None = frozenset(json.loads(row[2])) if row[2] else None
+    except (ValueError, TypeError):
+        snapshot = None
+    return (row[0], row[1], snapshot)
+
+
+def render_status(session: str = "") -> str:
+    # Falls back across sessions on purpose: this is the human-facing view and
+    # the command line has no session of its own. A status that could not see
+    # the item the hook just opened would be a report about a different world.
+    item = open_item_for_branch(session=session) or _latest_open_item()
     if item is None:
         return f"No open work item on {current_branch()}. The next code edit opens one."
-    item_id, opened_at = item
+    item_id, opened_at, snapshot = item
     missing = missing_marks(item_id, opened_at)
     age = int((time.time() - opened_at) / 60)
     lines = [f"{item_id} on {current_branch()}, opened {age} min ago"]
@@ -484,6 +712,9 @@ def render_status() -> str:
         return "\n".join(lines)
     for name in REQUIRED_BEFORE_BUILD:
         lines.append(f"  [{'x' if name not in missing else ' '}] {name}")
+    unseen = _files_written_unseen(snapshot) if missing else ()
+    if unseen:
+        lines.append(f"  WALKED AROUND -- {len(unseen)} code file(s) changed with no write seen")
     lines.append("  ready to build" if not missing else "  HELD")
     return "\n".join(lines)
 
@@ -500,4 +731,8 @@ def gate_from_stdin(raw: str) -> Decision:
         return Decision(State.OPEN, "hook input did not parse; standing aside")
     if os.environ.get("WORK_ITEM_DOORMAN_OFF"):
         return Decision(State.OPEN, "doorman disabled by environment")
-    return decide(payload.get("tool_name") or "", payload.get("tool_input") or {})
+    return decide(
+        payload.get("tool_name") or "",
+        payload.get("tool_input") or {},
+        session=str(payload.get("session_id") or ""),
+    )
