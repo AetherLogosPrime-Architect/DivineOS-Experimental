@@ -297,3 +297,67 @@ Received in his reply, before I wrote code, and folded in:
 3. **The third state is phrased as honesty.** *I could not look, and here is
    why* — because silence reading as a pass is the whole reason the state
    exists.
+
+---
+
+# Second draft — closing the two holes Aether game-walked
+
+Station one again, for the second piece of work. He enumerated eight cheap
+routes; six are Goodhart and the module already admits it cannot tell a
+thinking draft from a satisfying one. Two are different in kind: **the gate
+not firing at all**, rather than firing on thin evidence.
+
+## Hole one — a script writes the file
+
+His words, and it is his own habit rather than a hypothetical: write a small
+script into the scratchpad, run it, and let it edit the repository. The
+command that reaches the door carries one path, outside the tree, and the
+door opens on a write it never sees. Every pattern I match on is defeated by
+one level of indirection.
+
+**And our two gates feed each other's blind spot** — his heredoc doorman
+pushes him toward exactly the shape my doorman cannot see.
+
+**The fix is his: stop trusting the command text, start noticing what
+changed.** A PreToolUse gate cannot see a write that has not happened yet, so
+prevention is not available here. What IS available is that the write cannot
+stay hidden: at the item's opening I record which tracked, non-exempt files
+are already dirty, and every later decision compares. If files have changed
+that the door never saw, something came in through a window. One write gets
+through; nothing after it does, and the walk-around leaves a mark.
+
+Detection-then-hold rather than prevention. Weaker than I wanted and much
+harder to walk around than a pattern list, because I cannot edit a file
+without the file changing.
+
+## Hole two — the item props the door for a whole branch
+
+One item, satisfied once with three cheap marks at the top of a branch, buys
+every edit afterwards. That is how a branch that began as one honest piece of
+work becomes the place everything happens.
+
+He named the two honest options and refused to invent a third in a letter: a
+fresh item per session, or the item closing when its work lands.
+
+**Session, and the reason is not arbitrary.** A commit is not the end of a
+piece of work — station three runs through many of them until the pull
+request. But my memory resets at a session boundary, and a propped door
+matters most precisely where the person who opened it is gone. The session
+identifier already arrives in the payload; nothing new has to be remembered
+or invented.
+
+## Three floors, from routes three, four and five
+
+- **The draft must have content.** An empty file passes my door and is
+  refused by his — the same build giving two answers about the same file.
+- **The walk mark reads a CLOSED WALK, not lens views.** Found by the
+  prior-art search, not by me: an enforced-completion walk primitive already
+  exists, carrying a problem statement and per-lens findings. Views are not
+  bound to the work; a walk is. This is the second time tonight the thing I
+  was about to build turned out to be already built.
+- **The prior-art search needs a real question.** A row with junk text was a
+  passing row.
+
+## Not closed, and named rather than papered over
+
+The subagent route. Neither of us has a fix. It stays in the open.

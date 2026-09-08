@@ -135,15 +135,17 @@ def test_marks_must_belong_to_this_item_not_an_older_one(tmp_path, monkeypatch) 
     """
     drafts = tmp_path / "drafts"
     drafts.mkdir()
+    # Both fixtures clear the content floor: this test is about WHEN a draft
+    # was written, not how much of it there is.
     stale = drafts / "old_draft.md"
-    stale.write_text("written before this item existed", encoding="utf-8")
+    stale.write_text("written before this item existed. " * 4, encoding="utf-8")
     monkeypatch.setattr(doorman, "DRAFTS_DIR", drafts)
 
     opened_after_the_draft = time.time() + 1
     assert not doorman._draft_mark(opened_after_the_draft)
 
     fresh = drafts / "new_draft.md"
-    fresh.write_text("written after", encoding="utf-8")
+    fresh.write_text("written after the item opened. " * 4, encoding="utf-8")
     assert doorman._draft_mark(opened_after_the_draft - 60)
 
 
@@ -181,6 +183,64 @@ def test_an_unexpanded_variable_is_not_a_repo_path(command: str) -> None:
     outside-the-repo write into a false hold. Found by being refused on a
     scratchpad path one minute after wiring."""
     assert not doorman.paths_from_tool_call("Bash", {"command": command})
+
+
+# --- the two real holes Aether game-walked, and their closures ---------------
+
+
+def test_a_change_on_disk_is_seen_even_when_the_command_was_not(monkeypatch) -> None:
+    """The worst route: a script writes the file, so the command the door reads
+    carries one path and it is outside the tree.
+
+    The claim here is deliberately the small one -- the write is not prevented,
+    it is made impossible to hide. One gets through; nothing after it does.
+    """
+    monkeypatch.setattr(doorman, "dirty_code_paths", lambda: frozenset({"src/divineos/core/x.py"}))
+    assert doorman._files_written_unseen(frozenset()) == ("src/divineos/core/x.py",)
+    # Already-dirty files at opening are not a walk-around; only new ones are.
+    assert doorman._files_written_unseen(frozenset({"src/divineos/core/x.py"})) == ()
+    # And an unreadable tree yields no accusation, because unknown is not guilt.
+    monkeypatch.setattr(doorman, "dirty_code_paths", lambda: None)
+    assert doorman._files_written_unseen(frozenset()) == ()
+
+
+def test_the_walkaround_message_is_a_different_register(monkeypatch) -> None:
+    """Two states need two messages. A hold says 'this has not happened yet';
+    a walk-around says 'something already changed that I never saw', and that
+    is the graver of the two. One message for both teaches one mood."""
+    text = doorman._walkaround_text("wi-x", ("src/divineos/core/x.py",), ["rough draft"])
+    assert "came in through a window" in text
+    assert "work-item bypass" in text
+    hold = doorman._refusal_text("wi-x", ("a.py",), ["rough draft"], opened_now=False)
+    assert "came in through a window" not in hold
+
+
+def test_an_item_does_not_prop_the_door_for_another_session() -> None:
+    """One item satisfied once at the top of a branch used to buy every edit
+    afterwards. A commit is not the natural end -- the build runs through many
+    -- but the propped door matters most where the person who opened it is
+    gone, and that is a session boundary."""
+    branch = "test-branch-for-session-scope"
+    item_id = doorman.open_item(trigger="t", branch=branch, session="session-one")
+    try:
+        assert doorman.open_item_for_branch(branch=branch, session="session-one") is not None
+        assert doorman.open_item_for_branch(branch=branch, session="session-two") is None
+    finally:
+        doorman.close_item(item_id)
+
+
+def test_an_empty_draft_is_not_a_draft(tmp_path, monkeypatch) -> None:
+    """The two halves of this build disagreed about the same file: an empty
+    draft passed my door and was refused by Aether's checker. One build giving
+    two answers about one file is worse than either answer."""
+    drafts = tmp_path / "drafts"
+    drafts.mkdir()
+    monkeypatch.setattr(doorman, "DRAFTS_DIR", drafts)
+    thin = drafts / "thin.md"
+    thin.write_text("idea", encoding="utf-8")
+    assert not doorman._draft_mark(0)
+    thin.write_text("x" * (doorman._DRAFT_FLOOR_BYTES + 1), encoding="utf-8")
+    assert doorman._draft_mark(0)
 
 
 def test_a_bypass_needs_a_real_reason() -> None:
