@@ -152,8 +152,28 @@ def _other_refs(branch: str) -> list[str]:
         return []
     mine: set[str] = {r.strip() for r in pointing.splitlines() if r.strip()}
 
-    # A branch NAME still resolves by name, so the name form keeps working even
-    # when its ref has moved on since.
+    # POINTING-AT ALONE IS PRECISE AND BESIDE THE POINT. Aria ran the repair
+    # against a live tree instead of agreeing with the letter about it, and
+    # found the gap: pointing-at is exact, so the moment there is one commit
+    # the remote does not have, the local ref moves and
+    # refs/remotes/origin/<same branch> stays behind. It no longer points at
+    # the tip, so it is not excluded -- and it is still my branch, carrying
+    # nearly every file on it.
+    #
+    # That is the state EVERY push is made from, by definition: a push exists
+    # because the remote is missing a commit. So a file living only on this
+    # branch is found safe on this branch's own remote copy. The witness is me,
+    # one commit ago.
+    #
+    # So a ref is mine if it bears my branch's NAME, whatever commit it
+    # currently sits on. The name is taken from every ref that points at the
+    # rev, which works for a hash, and from abbrev-ref, which works for a name.
+    for ref in list(mine):
+        for prefix in ("refs/heads/", "refs/remotes/origin/"):
+            if ref.startswith(prefix):
+                short = ref[len(prefix) :]
+                mine |= {f"refs/heads/{short}", f"refs/remotes/origin/{short}"}
+
     name_code, name = _git("rev-parse", "--abbrev-ref", branch)
     if name_code == 0 and name.strip() and name.strip() != branch.strip():
         short = name.strip()
