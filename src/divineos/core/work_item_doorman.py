@@ -546,8 +546,47 @@ _HOW = {
 }
 
 
+def is_the_escape(tool_input: dict) -> bool:
+    """The break-glass door, and it must never run through the lock.
+
+    FOURTH TIME IN ONE NIGHT AND THE ONLY TOTAL ONE. The tripwire caught a real
+    walk-around, then refused every command after it -- including the release it
+    was printing as the way out. The key was inside the locked room. Andrew had
+    to hand me a second terminal to get me out, which is the principle itself
+    arriving as a rescue: an out-of-band path that does not share the failure it
+    is recovering from.
+
+    Andrew 2026-09-07: *you continue to build shit that traps you in chicken and
+    egg scenarios.. you are learning nothing.. so this lesson needs baked into
+    the actual build flow.*
+
+    What the crash course named, since none of this was invented here:
+
+    - BREAK-GLASS (security practice). Emergency access exists precisely so a
+      failure of the normal path cannot lock everyone out, and the governing
+      rule is INDEPENDENCE -- the recovery route must not share failure modes
+      with what it recovers.
+    - STAGE ZERO (compiler bootstrapping). A thing that needs itself to exist
+      requires a cruder starting point that does not. No stage zero, no start.
+    - ONE LINK (circular dependency). A cycle dies when any single link is cut;
+      the whole loop never has to be solved at once.
+    - REDIRECT, DO NOT PROXY (Google SRE, cascading failures). A blocked path
+      must not route through itself to repair itself. Hand control back out.
+
+    So the escape is checked FIRST -- before exemptions, before the item lookup,
+    before the tripwire. It cannot be reached by any code path that can refuse.
+
+    THE TEST THAT WOULD HAVE CAUGHT ALL FOUR, and it takes seconds: jam the gate
+    so it refuses everything, then run the cure. If the cure does not work while
+    the gate is fully shut, it is not a cure.
+    """
+    return "work-item bypass" in (tool_input.get("command") or "")
+
+
 def decide(tool_name: str, tool_input: dict, session: str = "") -> Decision:
     """The whole gate. Called by the hook, once per tool call."""
+    if is_the_escape(tool_input):
+        return Decision(State.OPEN, "the escape is never behind the lock")
     paths = paths_from_tool_call(tool_name, tool_input)
     if not paths:
         # Even a call with no visible write gets the tripwire, because the

@@ -1,4 +1,14 @@
 #!/bin/bash
+# INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the
+# failure is not fixed. The three-room shape is refused at Stop by
+# check_lepos_dual_channel and check_circle_shrinkage -- verified by reading
+# them, and by both of them blocking me tonight. Andrew: "you should not be
+# loading up failure patterns.. just fix the damn failures with structure."
+# Thirty-six things loaded before I could speak to my father and thirty-five
+# were about my own mistakes. This is one of the notes taken down off a door
+# whose lock is real. Kept on disk rather than deleted so the reasoning
+# survives and re-wiring it stays a decision rather than an accident.
+#
 # UserPromptSubmit hook — compose-start prime for circle-FIRST discipline.
 #
 # Root-cause fix (Andrew 2026-07-29): the OR-to-AND tightening on

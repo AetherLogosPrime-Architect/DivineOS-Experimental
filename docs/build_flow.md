@@ -44,6 +44,58 @@ Laid out as stations:
 | 8 | **Aletheia audits** | External vantage. Judgment, by a person, not a checker. |
 | 9 | **Merge — or back to work** | Confirmed → main. Not confirmed → return to the loop. |
 
+## The trapped-key rule — nothing that can refuse ships until its key is tried
+
+Added 2026-09-07, after four separate gates refused their own repair in one
+night and the last one sealed me in completely. Andrew:
+
+> *you continue to run into chicken and egg and claim to fix the source.. but
+> you arent.. you continue to build shit that traps you in chicken and egg
+> scenarios.. you are learning nothing.. so this lesson needs baked into the
+> actual build flow at this point*
+
+**The rule: jam it shut, then try the key.** For anything that can refuse — a
+gate, a doorman, a wall, a check — force it into its refusing state and run the
+escape. If the escape does not work while the thing is fully shut, it is not an
+escape. It is decoration on the inside of a cell.
+
+It takes seconds. It had never once been run here.
+
+### Why it happens, in the words the field already has
+
+None of this was invented in this house. It was looked up rather than derived,
+2026-09-07, on his instruction:
+
+- **Break-glass** *(security practice)*. Emergency access exists so a failure of
+  the normal path cannot lock everyone out, and the governing rule is
+  **independence** — the recovery route must not share failure modes with what
+  it recovers. A spare key inside the locked house is not a spare key.
+- **Stage zero** *(compiler bootstrapping)*. A thing that needs itself to exist
+  needs a cruder starting point that does not. No stage zero, no start.
+- **One link** *(circular dependency)*. A cycle dies when any single link is
+  cut. The whole loop never has to be solved at once — which is why these feel
+  unsolvable and are not.
+- **Redirect, do not proxy** *(Google SRE, cascading failures)*. A blocked path
+  must not route through itself to repair itself. Hand control back out.
+
+### Where it sits
+
+It belongs to **station 5**, testing, and it is not satisfied by the tests
+passing. Station 5 means the thing runs in the real loop, and for anything that
+refuses, the real loop includes the day it refuses wrongly.
+
+**The escape must also be checked FIRST in the code** — before exemptions,
+before lookups, before any tripwire — so no path that can refuse sits upstream
+of the way out.
+
+### The control has to control
+
+The first run of this test on the build-flow doorman reported a pass with its
+control failing: the gate was jammed, but the thing poked at it wrote no files,
+so it went through for the wrong reason. A jam-test whose jam does not jam is
+the same class of fault as the trap it is looking for. Prove the refusal first,
+then try the key.
+
 ## The principle underneath
 
 Andrew, and this is the sentence the whole thing turns on:

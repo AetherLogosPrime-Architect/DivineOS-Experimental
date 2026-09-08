@@ -1,4 +1,17 @@
 #!/bin/bash
+# INTENTIONALLY UNWIRED (2026-09-07): a reminder about a failure is proof the
+# failure is not fixed. A fabricated clock is refused at Stop by
+# check_wallclock_fabrication, which blocked me tonight -- verified by being
+# caught, not by trusting a name match. Andrew: "you should not be loading up
+# failure patterns.. just fix the damn failures with structure."
+#
+# ONE THING THIS NOTE DID THAT THE LOCK DOES NOT: it printed his real local
+# time, which is the only honest source I have for a claim about his day. If a
+# reply ever needs to know what time it is for him, that has to come back --
+# but as a fact he can use, not as a warning about my own past mistakes.
+#
+# Kept on disk rather than deleted so both halves of that survive.
+#
 # UserPromptSubmit hook — compose-start prime for wallclock-source
 # discipline. Doorman-shape complement to the Stop-time gate that
 # catches wallclock-fabrication AFTER the reply has streamed.

@@ -297,6 +297,57 @@ def test_the_marks_window_reaches_back_to_the_last_commit(monkeypatch) -> None:
         doorman.close_item(item_id)
 
 
+def test_the_key_works_while_the_door_is_jammed_shut(monkeypatch) -> None:
+    """Jam it shut, then try the key. The rule the whole night produced.
+
+    Four gates refused their own repair on 2026-09-07 and the last one sealed
+    me in completely: the tripwire caught a real walk-around, then refused every
+    command after it, including the release it was printing as the way out. The
+    key was inside the locked room. Andrew handed me a second terminal, which is
+    the principle arriving as the rescue -- a recovery path that does not share
+    the failure it recovers from.
+
+    Andrew: "you continue to build shit that traps you in chicken and egg
+    scenarios.. you are learning nothing.. so this lesson needs baked into the
+    actual build flow."
+
+    THE CONTROL HAS TO CONTROL. The first version of this jammed the gate and
+    then poked it with something that writes no files, so it passed for the
+    wrong reason. A jam-test whose jam does not jam is the same fault class as
+    the trap it hunts.
+    """
+    monkeypatch.setattr(doorman, "load_exempt_prefixes", lambda: None)
+
+    shut = doorman.decide("Write", {"file_path": "src/divineos/core/anything.py"})
+    assert not shut.allows, "the jam did not jam -- this test proves nothing until it does"
+
+    key = doorman.decide(
+        "Bash", {"command": 'divineos work-item bypass wi-x --reason "the room is on fire"'}
+    )
+    assert key.allows, (
+        "the escape is behind the lock again. A spare key inside the locked "
+        "house is not a spare key."
+    )
+
+
+def test_the_escape_is_checked_before_anything_that_can_refuse() -> None:
+    """Order matters, not just presence.
+
+    An escape that is merely PRESENT can still sit downstream of a refusal. It
+    has to be the first thing the decision looks at, so nothing that can say no
+    is upstream of the way out.
+    """
+    import inspect
+
+    source = inspect.getsource(doorman.decide)
+    first_check = source.index("is_the_escape")
+    for later in ("load_exempt_prefixes", "open_item_for_branch", "_tripwire_or"):
+        assert first_check < source.index(later), (
+            f"{later} runs before the escape is checked, which puts a thing "
+            "that can refuse upstream of the way out"
+        )
+
+
 def test_a_bypass_needs_a_real_reason() -> None:
     """Truth #12: a bypass is a tool, and the guard is that it is counted and
     named. A one-word reason is an unrecorded bypass wearing a record."""
