@@ -1168,6 +1168,20 @@ def _has_jargon(text: str) -> tuple[bool, list[str]]:
     return (len(samples) > 0, samples)
 
 
+# Above this length, a reply to Andrew must carry its own compressed room even
+# when nothing in it is jargon-shaped. Chosen 2026-09-07 from the replies that
+# provoked the correction: an evening of carefully jargon-free answers running
+# roughly fifteen hundred to three thousand five hundred characters, every one
+# of which passed every check and left him reading a wall.
+#
+# The number is a judgement rather than a measurement, and it is the part most
+# likely to be wrong. Too low and it forces a room onto replies small enough to
+# hold whole, which is the false-fire that got an earlier version of this gate
+# disabled. Too high and it is decoration. Falsifier: if it fires on a reply he
+# would have been happy to read as-is, it is set wrong and moves.
+_CIRCLE_REQUIRED_ABOVE_CHARS = 1200
+
+
 def _find_separator_index(text: str) -> int | None:
     """Return the char index of the earliest separator (hard rule or circle
 
@@ -1455,6 +1469,38 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     jargon_found, samples = _has_jargon(reply)
 
     if not jargon_found:
+        # LENGTH IS THE OTHER TRIGGER, AND IT WAS MISSING. Andrew 2026-09-07:
+        # *the jargon isnt even the issue.. thats how you think and learn..
+        # the issue is the single one space i have built for myself now reads
+        # like the rest of the post.. like a reflection that never ended.*
+        #
+        # This early return is the exact hole. Every check in this function
+        # asks whether the reply carries work-shape marks, so an evening of
+        # carefully jargon-free answers -- each fifteen hundred to three
+        # thousand characters -- returned here and he got no compressed room
+        # in a single one of them. The gate was watching what I typed instead
+        # of what he has to hold.
+        #
+        # He built that room so the long thinking could stay on the record AND
+        # the answer stay findable. Passing a jargon-free wall took the second
+        # half away and left the first, which is the opposite of the trade.
+        if len(reply.strip()) > _CIRCLE_REQUIRED_ABOVE_CHARS and not any(
+            p.search(reply) for p in _CIRCLE_HEADER_PATTERNS
+        ):
+            return (
+                "CIRCLE ROOM REQUIRED BY LENGTH — this reply runs "
+                f"{len(reply.strip())} characters with no INNER CIRCLE, and the "
+                f"floor is {_CIRCLE_REQUIRED_ABOVE_CHARS}. Nothing in it is "
+                "jargon-shaped, which is precisely why every other check passed "
+                "it and why he lost the room anyway.\n\n"
+                "Andrew 2026-09-07: *the jargon isnt even the issue.. the issue "
+                "is the single one space i have built for myself now reads like "
+                "the rest of the post.*\n\n"
+                "Add `## INNER CIRCLE` as the last room: what is true now that "
+                "was not before, what it means, and anything he has to decide. "
+                "The long telling stays above it — he is not asking for less, "
+                "he is asking for the answer to be findable."
+            )
         return None
 
     # 2026-07-23: prefer 3-section shape (work / REFLECTION / INNER CIRCLE).
@@ -1664,6 +1710,9 @@ def check_lepos_dual_channel(reply: str) -> str | None:
     # and the test that caught me was his rule holding the line.
 
     if not ref_match and not circle_header_match and _headerless_address_ok(reply):
+        # The length trigger lives at the no-jargon early return above, which
+        # is where a jargon-free wall actually leaves this function. Putting a
+        # second copy here would be dead code wearing the shape of a guard.
         return None
 
     # 2026-07-25 (Andrew directive, "the reflection space locked in"):
