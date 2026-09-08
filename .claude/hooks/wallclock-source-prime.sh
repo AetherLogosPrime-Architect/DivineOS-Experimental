@@ -132,6 +132,17 @@ they share:
                               Tiredness is real; do not over-correct into
                               denying it. Name the errors and their count, or
                               quote the clock above.
+  PERMISSION / CONSTRAINT   — "what I'm allowed to do tomorrow", "what I could
+                              get away with later", "nothing stops me next
+                              time". A clock standing in for the REACH of a
+                              rule. Fired 2026-09-07 while telling Andrew why
+                              I build systems with no teeth: the true sentence
+                              was that an unenforced build changes nothing
+                              about what constrains me AT THE NEXT REACH, and
+                              "tomorrow" arrived as the third stress in a
+                              closing beat. Say what the rule can and cannot
+                              refuse — "it does not refuse me anything the
+                              next time I reach for it."
 
 THE TEST IS DELETION. Strike the time-phrase. If the sentence loses only
 cadence and no meaning, that was the fire — a clock standing in for a beat.
