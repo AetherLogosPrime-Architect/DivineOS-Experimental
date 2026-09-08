@@ -1012,6 +1012,67 @@ def _reach_detector_surface(name: str, module: str, detect_attr: str, marker_nam
     return surface
 
 
+def pre_response_context_surface(payload: dict) -> SurfaceOutcome | None:
+    """Assemble the compose-start context block from its component surfaces.
+
+    NO OUTER DEDUP, deliberately, and the reason carries over verbatim from the
+    shell this replaces (2026-08-13): it does not emit its own text, it
+    assembles surfaces that each dedup themselves. The combined string differs
+    on every call BY DESIGN as inner parts flip to their pointers, so an outer
+    hash can never match and a wrapper layer only adds bytes. That was measured
+    once -- it grew the payload rather than shrinking it -- and removed.
+
+    The shell emitted through the JSON additionalContext channel; plain stdout
+    on this door reaches the same place, which the surfaces already migrated
+    here demonstrate in use. The wire protocol worth preserving exactly is a
+    REFUSAL's, and this one never refuses.
+    """
+    prompt = payload.get("prompt") or ""
+    transcript = payload.get("transcript_path") or None
+    try:
+        from divineos.core.pre_response_context import build_combined_context
+
+        combined = build_combined_context(prompt, transcript_path=transcript)
+    except Exception as exc:  # noqa: BLE001 — never cost a turn
+        return SurfaceOutcome(
+            name="pre_response_context",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    if not combined:
+        return SurfaceOutcome(name="pre_response_context", state="nothing-to-say")
+    return SurfaceOutcome(name="pre_response_context", output=combined, state="spoke")
+
+
+def context_heartbeat_surface(payload: dict) -> SurfaceOutcome | None:
+    """Record one beat of context state. Instrumentation, never a voice.
+
+    SILENT ON SUCCESS on purpose: the compaction trigger already reports this
+    state loudly, and a second voice saying the same thing every round is how a
+    surface becomes wallpaper -- measured in the session that built it, where
+    most of a large prime was discarded unread every turn.
+
+    Its own history is why could-not-run is declared rather than swallowed. The
+    shell version once resolved its interpreter by hand, and a bare python
+    lacking this package's dependencies fails OPEN: the import dies, the error
+    goes nowhere, and a heartbeat that never beat looks exactly like one that
+    did. That is precisely the defect this module exists to refuse -- built so
+    a blind sensor records UNKNOWN rather than the friendliest number in the
+    range, and it shipped with that same hole in its own startup.
+    """
+    try:
+        from divineos.core.context_heartbeat import beat
+
+        beat()
+    except Exception as exc:  # noqa: BLE001
+        return SurfaceOutcome(
+            name="context_heartbeat",
+            error=f"{type(exc).__name__}: {exc}",
+            state="could-not-run",
+        )
+    return SurfaceOutcome(name="context_heartbeat", state="nothing-to-say")
+
+
 def install() -> None:
     """Register every surface. Idempotent — safe to call from each doorbell."""
     from divineos.core.hook_router import registered
@@ -1086,6 +1147,23 @@ def install() -> None:
         register("UserPromptSubmit", "auto_goal", auto_goal_surface)
     if "correction_marker" not in registered("UserPromptSubmit"):
         register("UserPromptSubmit", "correction_marker", correction_marker_surface)
+
+    # Second compose-start batch, appended rather than placed.
+    #
+    # I first wrote a comment here claiming pre_response_context goes FIRST
+    # among the speakers, reasoning that the biggest block should lead. Then I
+    # printed the roster and it was sixth -- the comment described a design I
+    # had not implemented, which is the painted-door shape in a docstring.
+    #
+    # Corrected to the truth AND the order left alone, because appending is
+    # right for a different reason than the one I invented: in settings.json
+    # these two came after the surfaces already migrated, and a migration moves
+    # WHERE a decision lives without re-deciding anything. Re-ranking them here
+    # would be a design change smuggled in under a port.
+    if "pre_response_context" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "pre_response_context", pre_response_context_surface)
+    if "context_heartbeat" not in registered("UserPromptSubmit"):
+        register("UserPromptSubmit", "context_heartbeat", context_heartbeat_surface)
 
     # Fourth door, 2026-09-08. Order matters here in a way it does not on the
     # other doors: summary_room REFUSES, and the router runs every surface

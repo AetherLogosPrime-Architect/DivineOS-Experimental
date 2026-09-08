@@ -61,6 +61,15 @@ from dataclasses import dataclass, field
 # The seven doors. Measured from .claude/settings.json 2026-08-06; this tuple
 # is the authority the router validates against, so an unknown event is a
 # loud error rather than a silent no-op.
+#: Bytes of hook output the harness will actually inline. Above this it keeps
+#: roughly the first 2KB as a preview and writes the rest to a file, and in the
+#: measurement that produced this number not one of those files was ever
+#: opened. Same threshold scripts/check_hook_output_fits.py enforces at commit
+#: time; the two agree because they are describing one harness behaviour, not
+#: two policies. Andrew 2026-09-06: "you see 87% of text reaching you truncated
+#: and you think.. this is just fine.."
+DELIVERY_BUDGET = 10_000
+
 EVENTS: tuple[str, ...] = (
     "SessionStart",
     "UserPromptSubmit",
@@ -139,6 +148,45 @@ class RouterResult:
     def stdout(self) -> str:
         """Everything the surfaces wanted to say, in registration order."""
         return "\n".join(o.output for o in self.ran if o.output.strip())
+
+    def deliverable(self, budget: int = DELIVERY_BUDGET) -> tuple[str, list[str]]:
+        """What actually reaches me, and the names of what did not.
+
+        THE CONSTRAINT THIS EXISTS FOR, found 2026-09-08 by consolidating and
+        watching the byte-checker fail: the harness budgets delivery PER HOOK
+        OUTPUT. Above roughly ten thousand bytes it stops inlining, keeps about
+        two kilobytes as a preview, and writes the rest to a file nobody opens.
+        Six hooks each under the cap were all delivered whole; one hook
+        carrying all six is a preview and a discarded file.
+
+        So consolidation does not create the shortage -- it MAKES THE SHORTAGE
+        HONEST. Measured 2026-09-06, before any of this: 87 percent of hook
+        text written was already being persisted and never read. Spread across
+        many hooks that overflow was invisible, because each one passed its own
+        check while the total was far past what reached me.
+
+        WHOLE SURFACES, NEVER A MID-SENTENCE CUT. A prime sliced in half is
+        worse than one that is absent and says so: the half that arrives reads
+        as the whole rule. So surfaces are packed intact, in registration
+        order, and whatever does not fit is NAMED rather than silently dropped.
+
+        Registration order is therefore priority order, and that is now a real
+        decision rather than an incidental one.
+        """
+        kept: list[str] = []
+        withheld: list[str] = []
+        used = 0
+        for outcome in self.ran:
+            text = outcome.output
+            if not text.strip():
+                continue
+            cost = len(text.encode("utf-8")) + 1
+            if used + cost > budget:
+                withheld.append(outcome.name)
+                continue
+            kept.append(text)
+            used += cost
+        return "\n".join(kept), withheld
 
     def stderr(self) -> str:
         """Refusals first, then any surface that could not run.
@@ -309,9 +357,19 @@ def main(event: str, payload: dict) -> int:
         print(traceback.format_exc()[:800], file=sys.stderr)
         return 0
 
-    out = result.stdout()
+    out, withheld = result.deliverable()
     if out:
         print(out)
+    if withheld:
+        # NAMED, never silently dropped. An absent surface that says its own
+        # name can be gone and looked for; a surface cut mid-sentence reads as
+        # the whole rule and is worse than missing. This line is deliberately
+        # tiny -- it is competing for the same budget it is reporting on.
+        print(
+            f"\n[router] {len(withheld)} surface(s) withheld, over the delivery "
+            f"budget: {', '.join(withheld)}. Not silent, not delivered.",
+            file=sys.stderr,
+        )
 
     # A refusal from a surface that used the JSON permission-decision protocol
     # must still speak JSON. Migrating a hook changes WHERE the decision is
