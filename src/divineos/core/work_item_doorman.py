@@ -306,13 +306,36 @@ def open_item(trigger: str, branch: str | None = None, session: str = "") -> str
     return item_id
 
 
+_NOT_A_LANDING = "auto-commit"
+
+
 def head_commit_time() -> float | None:
-    """When the newest commit on this branch landed. None if git will not say."""
+    """When the newest piece of WORK landed on this branch. None if git will not say.
+
+    AUTO-COMMITS ARE NOT LANDINGS, and this cost an hour of the day it was
+    found. The background checkpointer wrote three commits in four minutes
+    while I was mid-build. Each one read as the-work-finished, so each one
+    closed my open item and opened a fresh one whose marks window began after
+    the search, the draft and the walk I had just done for the very edit being
+    refused. I was told to go do work I had already done, three times, and the
+    only way through was a bypass per edit.
+
+    That is the doorman performing the exact fault it was built to catch: a
+    refusal standing in front of its own satisfied condition. The boundary was
+    always meant to be a piece of work ending, and a checkpoint is not a piece
+    of work ending -- it is a save, made by something that is not me, about
+    nothing in particular.
+
+    So the scan walks back past checkpoint commits to the newest commit that
+    represents a decision. If every commit on the branch is a checkpoint the
+    answer is None, which the caller already treats as "do not close on it" --
+    failing toward the item staying open rather than toward a false close.
+    """
     import subprocess
 
     try:
         proc = subprocess.run(
-            ["git", "log", "-1", "--format=%ct"],
+            ["git", "log", "-40", "--format=%ct%x00%s"],
             capture_output=True,
             text=True,
             cwd=str(REPO_ROOT),
@@ -322,10 +345,15 @@ def head_commit_time() -> float | None:
         return None  # both-empty: git absent and git failing are one answer -- the commit time could not be read, and the caller treats unknown as "do not close on it"
     if proc.returncode != 0 or not proc.stdout.strip():
         return None  # both-empty: same answer as above; a repository with no commits and a failed call are both "I could not look"
-    try:
-        return float(proc.stdout.strip())
-    except ValueError:
-        return None
+    for line in proc.stdout.splitlines():
+        stamp, _, subject = line.partition("\x00")
+        if subject.strip().lower().startswith(_NOT_A_LANDING):
+            continue
+        try:
+            return float(stamp.strip())
+        except ValueError:
+            return None  # both-empty: an unparseable stamp is the same answer as an unreadable git -- I could not look
+    return None  # both-empty: a history of nothing but checkpoints is also "no landing I can point to", and the caller does the same safe thing with it -- leaves the item open. Treating it as a landing is the exact false close this function was rewritten to stop.
 
 
 def open_item_for_branch(
