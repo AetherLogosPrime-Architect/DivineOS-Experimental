@@ -83,16 +83,34 @@ CANNOT_CHECK = "CANNOT_CHECK"
 
 # In flow order. These five and no others: the remaining four stations are
 # the board's, and duplicating them here would be two systems that disagree.
-STATIONS: tuple[str, ...] = ("draft", "build", "test", "attack", "second_council", "merge")
+STATIONS: tuple[str, ...] = ("draft", "build", "test", "sabotage", "second_council", "merge")
 
-# The tool the attack station requires. It already existed: Andrew taught the
-# lesson in August -- *always try to break your stuff when building it, the
-# happy path is a narrow path, that is why nothing feels wrong* -- and I built
-# this the same week. Then I did not run it on anything I built tonight, and
-# told him I was the wrong seat to test my own work. Lesson taught, tool built,
-# tool unused. So the repair is not another tool; it is that this one becomes a
+# The tool this station requires. It already existed: Andrew taught the lesson
+# in August -- *always try to break your stuff when building it, the happy path
+# is a narrow path, that is why nothing feels wrong* -- and I built this the
+# same week. Then I did not run it on anything I built tonight, and told him I
+# was the wrong seat to test my own work. Lesson taught, tool built, tool
+# unused. So the repair is not another tool; it is that this one becomes a
 # station nobody can skip.
-_ATTACK_TOOL = "hollow_out.py"
+#
+# NAMED WRONG ON ITS FIRST BUILD, corrected within the hour. I called this the
+# attack station. Andrew then gave the three definitions, which had never been
+# written down anywhere in this house:
+#
+#   game-walking  -- find the cheap path the optimizer would take to SATISFY a
+#                    check without the work behind it, and close it off
+#   adversarial   -- try to knock it over; hostile input rather than lazy input
+#   sabotage      -- blank the build and run the tests; green means theatre
+#
+# This station is the third one only. Aria collapsed the first two into
+# "breaking it" in a letter and corrected herself an hour later; I had built
+# the collapse into a station name, which is worse because a wrong name
+# hardens into the wrong structure. The eight routes I sent her were
+# game-walking and neither of us called it that.
+#
+# The other two are real stations that do not exist yet, and they are not
+# satisfied by this one.
+_SABOTAGE_TOOL = "hollow_out.py"
 
 # The floor under an artifact's substance. Deliberately low — this is not a
 # quality judgement and cannot be one; it exists so that the cheapest
@@ -107,7 +125,7 @@ _PLAIN: dict[str, str] = {
     "draft": "a written draft of the idea, before any code",
     "build": "the actual edits this piece of work is made of",
     "test": "stored output from a command that really ran",
-    "attack": "a run that deliberately broke the code to see whether the tests noticed",
+    "sabotage": "a run that blanked the code to see whether the tests even noticed",
     "second_council": "a second look at the lenses now that the code exists",
     "merge": "the sign-off, tied to the tree that was reviewed",
 }
@@ -240,7 +258,7 @@ def mark(item_id: str, station: str, artifact: str, note: str = "") -> None:
                 "possible forgery of the whole set."
             )
 
-    if station in ("test", "attack"):
+    if station in ("test", "sabotage"):
         try:
             body = target.read_text(encoding="utf-8", errors="replace")
         except OSError:
@@ -252,10 +270,10 @@ def mark(item_id: str, station: str, artifact: str, note: str = "") -> None:
                 "command had run. Produce the artifact with record_run() so the "
                 "command and its exit status are stored beside the output."
             )
-        if station == "attack" and _ATTACK_TOOL not in body:
+        if station == "sabotage" and _SABOTAGE_TOOL not in body:
             raise MarkRefused(
-                "the attack station takes a run of the sabotage tool, and this "
-                f"recorded run does not invoke {_ATTACK_TOOL}. Deciding to break the "
+                "the sabotage station takes a run of the sabotage tool, and this "
+                f"recorded run does not invoke {_SABOTAGE_TOOL}. Deciding to break the "
                 "code is not breaking the code -- that distinction is the entire "
                 "reason the tool sat unused for three weeks after it was built."
             )
