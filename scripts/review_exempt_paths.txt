@@ -54,3 +54,9 @@ family/aria/explorations/
 family/aletheia/audits/
 memory/
 workbench/
+# docs/drafts is prose by construction -- a rough draft of an idea, station 1
+# of docs/build_flow.md. It is exempt here for the merge check AND, because the
+# build-flow doorman reads this same file, so that the doorman cannot refuse
+# the writing of the draft it is demanding. That closed loop was live for about
+# a minute on 2026-09-07 and is the worst thing dogfooding found.
+docs/drafts/
