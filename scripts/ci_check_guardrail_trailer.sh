@@ -81,8 +81,9 @@ load_guardrail_list_at() {
 # happens to be checked out in CI.
 load_exempt_list_at() {
     local commit="$1"
-    git show "$commit:scripts/review_exempt_paths.txt" 2>/dev/null \
-        | grep -vE '^[[:space:]]*(#|$)' || true
+    local raw
+    raw="$(git show "$commit:scripts/review_exempt_paths.txt" 2>/dev/null)"  # fail-soft: a commit predating the list simply has no list, and an empty result means nothing is exempt, so the caller reviews everything -- the safe direction
+    printf '%s\n' "$raw" | grep -vE '^[[:space:]]*(#|$)' || true  # fail-soft: grep exits 1 on an all-comment or empty list, which is a real state and not an error
 }
 
 # Does this change need review? Under Andrew's 2026-09-07 ruling, everything
@@ -468,7 +469,9 @@ for commit in $(git rev-list --first-parent "${PR_BASE}..${PR_HEAD}"); do
         echo "[BLOCKED] $commit: no trailer tree-hash matches the commit's actual tree."
         echo "    commit's actual tree-hash: $ACTUAL_TREE_HASH"
         echo "    trailer tree-hash(es) offered:"
-        echo "$TRAILER_TREE_HASH" | sed 's/^/      /'
+        while IFS= read -r offered_hash; do
+            echo "      $offered_hash"
+        done <<< "$TRAILER_TREE_HASH"
         echo "    -> every round was filed against a different tree; cannot authorize."
     fi
 done
