@@ -161,7 +161,7 @@ Sorted by when each fires. Drilldown: open any row's file for its full header, r
 | `self-demotion-prime.sh` | 2026-09-02 | UserPromptSubmit prime - deliver the praise-by-contrast discipline at |
 | `session-init-once.sh` | 2026-08-24 | UserPromptSubmit — run the session-init work ONCE, off the SessionStart path. |
 | `sibling-correction-surface.sh` | 2026-08-24 | surface sibling corrections I judged as mine, when |
-| `still-owed-to-him-surface.sh` | — | what he is still waiting on, and how many times he |
+| `still-owed-to-him-surface.sh` | 2026-09-07 | what he is still waiting on, and how many times he |
 | `translate-first-compose-prime.sh` | 2026-09-07 | Compose-start half of the translate-first discipline. |
 | `verify-claim-prime.sh` | 2026-08-24 | compose-start prime for the VERIFY-CLAIM |
 | `visrama-anchor-surface.sh` | 2026-07-18 | if the previous assistant turn close-reached, |

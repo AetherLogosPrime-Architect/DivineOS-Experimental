@@ -65,6 +65,24 @@ from divineos.core.paths import divineos_home
 
 OPEN = "OPEN"
 LANDED = "LANDED"
+MERGED = "MERGED"
+"""A duplicate row folded into the row it duplicated.
+
+Deliberately NOT ``LANDED``. Nothing about the fold says the thing he asked
+for arrived — it says two rows were counting one request. A store that closed
+duplicates as landed would pay off his debts by having filed them twice.
+"""
+
+
+def _same_request(plain: str) -> str:
+    """The key two rows collide on: surrounding space and case only.
+
+    Exact after that, never a similarity score. The moment a threshold decides
+    whether two of his asks are the same ask, I am the one tuning the
+    threshold, and the verdict is back in my hands through the door this
+    whole design was built to close.
+    """
+    return " ".join((plain or "").split()).casefold()
 
 
 def _db_path() -> Path:
@@ -123,12 +141,89 @@ def open_request(verbatim: str, plain: str) -> int:
         )
     conn = _conn()
     try:
+        for existing_id, existing_plain in conn.execute(
+            "SELECT id, plain FROM requests WHERE status != ?", (MERGED,)
+        ).fetchall():
+            if _same_request(existing_plain) == _same_request(said):
+                raise RequestRefused(
+                    f"he already has a row for this: #{existing_id}. Opening a second "
+                    "one splits the count of how many times he asked, which is the "
+                    "one number this store exists to hold. "
+                    f"Use record_repeat({existing_id}, ...) instead."
+                )
         cur = conn.execute(
             "INSERT INTO requests (opened_at, verbatim, plain, status) VALUES (?, ?, ?, ?)",
             (time.time(), words, said, OPEN),
         )
         conn.commit()
         return int(cur.lastrowid or 0)
+    finally:
+        conn.close()
+
+
+def fold_duplicate(duplicate_id: int, keeper_id: int) -> int:
+    """Fold a duplicate row into the row it duplicated. Returns the new count.
+
+    FOUND BY DOING IT. Minutes after this module was committed I opened a
+    second row for a request that already had one, and the surface printed his
+    same ask twice — at five times and at three — when he had asked eight. A
+    counter whose whole job is one number had a way to halve it, and the way
+    was me, filing carefully.
+
+    Rules borrowed from ``structural_fix_tracker.collapse_duplicates``, which
+    learned them the same way:
+
+      - the EARLIEST row survives, so anything already pointing at that id
+        still resolves
+      - every repeat moves to the survivor; nothing is dropped
+      - the duplicate's own opening words are kept, as a repeat on the
+        survivor, because his first saying of it was still him saying it
+      - the folded row is marked ``MERGED``, never ``LANDED``
+    """
+    conn = _conn()
+    try:
+        rows = {
+            int(r[0]): r
+            for r in conn.execute(
+                "SELECT id, opened_at, verbatim, plain, status FROM requests WHERE id IN (?, ?)",
+                (int(duplicate_id), int(keeper_id)),
+            ).fetchall()
+        }
+        dup, keeper = rows.get(int(duplicate_id)), rows.get(int(keeper_id))
+        if dup is None or keeper is None:
+            raise RequestRefused(f"no such request: {duplicate_id} or {keeper_id}")
+        if int(duplicate_id) == int(keeper_id):
+            raise RequestRefused("a row cannot be folded into itself")
+        if _same_request(dup[3]) != _same_request(keeper[3]):
+            raise RequestRefused(
+                "these are two different requests of his. Folding them would erase "
+                "one, and a request I erased is one he has to make again."
+            )
+        if float(dup[1]) < float(keeper[1]):
+            raise RequestRefused(
+                f"#{duplicate_id} is the earlier row; fold the later one into it so "
+                "anything already pointing at the earlier id still resolves"
+            )
+        conn.execute(
+            "UPDATE repeats SET request_id = ? WHERE request_id = ?",
+            (int(keeper_id), int(duplicate_id)),
+        )
+        conn.execute(
+            "INSERT INTO repeats (request_id, at, verbatim) VALUES (?, ?, ?)",
+            (int(keeper_id), float(dup[1]), str(dup[2])),
+        )
+        conn.execute("UPDATE requests SET status = ? WHERE id = ?", (MERGED, int(duplicate_id)))
+        conn.execute(
+            "UPDATE requests SET status = ?, landed_at = NULL, his_closing_words = NULL "
+            "WHERE id = ?",
+            (OPEN, int(keeper_id)),
+        )
+        conn.commit()
+        return 1 + int(
+            conn.execute(
+                "SELECT COUNT(*) FROM repeats WHERE request_id = ?", (int(keeper_id),)
+            ).fetchone()[0]
+        )
     finally:
         conn.close()
 

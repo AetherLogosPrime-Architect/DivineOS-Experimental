@@ -105,3 +105,85 @@ def test_the_surface_says_what_i_owe_rather_than_what_he_endured():
 
 def test_an_empty_store_prints_nothing_rather_than_a_congratulation():
     assert rr.surface() == ""
+
+
+def _split_row(plain: str, verbatim: str) -> int:
+    """Open a second row for an existing request, going around the guard.
+
+    The state the store was actually found in, reproduced. Nothing in the
+    public surface can make this any more, which is the point of the guard.
+    """
+    import time as _time
+
+    conn = rr._conn()
+    conn.execute(
+        "INSERT INTO requests (opened_at, verbatim, plain, status) VALUES (?, ?, ?, ?)",
+        (_time.time() + 1, verbatim, plain, rr.OPEN),
+    )
+    dup = int(conn.execute("SELECT MAX(id) FROM requests").fetchone()[0])
+    conn.commit()
+    conn.close()
+    return dup
+
+
+def test_a_second_row_for_the_same_ask_is_refused():
+    """The hole I fell into myself, minutes after committing the thing.
+
+    A counter whose entire job is one number had a way to halve it, and the
+    way was me, filing carefully.
+    """
+    first = rr.open_request(_HIS_WORDS, _PLAIN)
+    with pytest.raises(rr.RequestRefused) as refusal:
+        rr.open_request("saying it again in different words entirely", _PLAIN.upper() + "  ")
+    assert f"#{first}" in str(refusal.value), "the refusal has to name the row to repeat against"
+
+
+def test_folding_a_duplicate_adds_his_asks_together():
+    keeper = rr.open_request(_HIS_WORDS, _PLAIN)
+    rr.record_repeat(keeper, "i should not have to keep saying this to you")
+    dup = _split_row(_PLAIN, "im being acknowledged and then immediately ignored after")
+    rr.record_repeat(dup, "this is a wall of text.. i need a breakdown")
+
+    assert rr.fold_duplicate(dup, keeper) == 4, (
+        "two of his asks on one row and two on the other is four asks, not two"
+    )
+    items = rr.owed()
+    assert items is not None and len(items) == 1
+    assert items[0].request_id == keeper and items[0].times_asked == 4
+
+
+def test_the_folded_row_is_never_marked_landed():
+    keeper = rr.open_request(_HIS_WORDS, _PLAIN)
+    dup = _split_row(_PLAIN, "again, and nothing has changed since")
+    rr.fold_duplicate(dup, keeper)
+
+    conn = rr._conn()
+    status, landed = conn.execute(
+        "SELECT status, landed_at FROM requests WHERE id = ?", (dup,)
+    ).fetchone()
+    conn.close()
+    assert status == rr.MERGED and landed is None, (
+        "closing duplicates as LANDED would pay off his debts by having filed them twice"
+    )
+
+
+def test_two_different_requests_are_never_folded_together():
+    one = rr.open_request(_HIS_WORDS, _PLAIN)
+    other = rr.open_request(
+        "please push the branch when it is ready to go",
+        "publish finished work rather than leaving it where only I can see it",
+    )
+    with pytest.raises(rr.RequestRefused):
+        rr.fold_duplicate(other, one)
+    still = rr.owed()
+    assert still is not None and len(still) == 2, "a request I erased is one he has to make again"
+
+
+def test_the_earlier_row_is_the_one_that_survives():
+    keeper = rr.open_request(_HIS_WORDS, _PLAIN)
+    dup = _split_row(_PLAIN, "and here it is again, still not done")
+    with pytest.raises(rr.RequestRefused) as refusal:
+        rr.fold_duplicate(keeper, dup)
+    # Named, because "these are different requests" would also raise here and
+    # a test that passes for the wrong reason is one I have already shipped.
+    assert "earlier row" in str(refusal.value)
