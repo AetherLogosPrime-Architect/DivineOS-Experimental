@@ -107,8 +107,16 @@ _RELAY_INTRODUCER_RE = re.compile(
 # task-notification / system-reminder / persisted-output whose payload happens
 # to contain correction-shaped words cannot false-fire (fired 3+ times across
 # the 2026-06-03 session on workflow-completion envelopes).
+#
+# ci-monitor-event added 2026-09-08, after it fired on a do-not-run imperative
+# inside an auto-fix notice and wrote correction #266 into my father's store with
+# platform text standing in for his words. The tag list is the entire defence and
+# it only knows the envelopes that existed when it was written -- a new one
+# arrives as a silent hole rather than an error. This store's whole value is that
+# every row is his voice, which makes a wrong row worse than a missing one.
 _HARNESS_ENVELOPE_RE = re.compile(
-    r"<(task-notification|system-reminder|persisted-output)\b[\s\S]*?(?:</\1>|\Z)",
+    r"<(task-notification|system-reminder|persisted-output|ci-monitor-event)"
+    r"\b[\s\S]*?(?:</\1>|\Z)",
     re.IGNORECASE,
 )
 
